@@ -40,7 +40,7 @@ If you don't want to use SSH, you just can clone repo with git, but ensure that 
 ## Restore dependencies
 
 Navigate to kube-policy project dir and execute:
-`dep restore`
+`dep ensure`
 This will install necessary dependencies described in README.md
 
 # Contributing
