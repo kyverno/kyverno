@@ -18,12 +18,13 @@ func main() {
 
     controller, err := controller.NewController(masterURL, kubeconfig)
     if err != nil {
-        fmt.Println("Error running Controller!")
+        fmt.Printf("Error creating Controller! Error: %s\n", err)
+        return
     }
 
     err = controller.Run(runtime.NumCPU())
     if err != nil {
-        fmt.Println("Error running Controller!")
+        fmt.Printf("Error running Controller! Error: %s\n", err)
     }
 }
 
