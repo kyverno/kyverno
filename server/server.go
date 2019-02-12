@@ -2,15 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"time"
-)
-
-const ( // TODO: read these files from ~/.kube/config
-	clientCertFile = "/home/quest/.minikube/client.crt"
-	clientKeyFile  = "/home/quest/.minikube/client.key"
 )
 
 type WebhookServer struct {
@@ -19,11 +16,12 @@ type WebhookServer struct {
 
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("/mutate is called!")
+	httputil.DumpRequest(r, true)
 }
 
 func (ws *WebhookServer) RunAsync() {
 	go func(server http.Server) {
-		err := server.ListenAndServeTLS(clientCertFile, clientKeyFile)
+		err := server.ListenAndServeTLS("", "")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -39,13 +37,23 @@ func (ws *WebhookServer) Stop() {
 	}
 }
 
-func NewWebhookServer() WebhookServer {
+func NewWebhookServer(certFile string, keyFile string, logger *log.Logger) WebhookServer {
 	var ws WebhookServer
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mutate", ws.serve)
+
+	var config tls.Config
+	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Fatal("Unable to load certificate and key: ", err)
+	}
+	config.Certificates = []tls.Certificate{pair}
+
 	ws.server = http.Server{
-		Addr:         ":443",
+		Addr:         ":443", // Listen on port for HTTPS requests
+		TLSConfig:    &config,
 		Handler:      mux,
+		ErrorLog:     logger,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second}
 	return ws
