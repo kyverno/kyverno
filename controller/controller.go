@@ -1,37 +1,56 @@
-package main
+package controller
 
 import (
 	"time"
 	"fmt"
 
+	"k8s.io/sample-controller/pkg/signals"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/client-go/tools/cache"
 
 	clientset "nirmata/kube-policy/pkg/client/clientset/versioned"
-	informer "nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
+	informers "nirmata/kube-policy/pkg/client/informers/externalversions"
 	lister "nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 )
 
 // Controller for CRD
 type Controller struct {
 	policyClientset clientset.Interface
+	policyInformerFactory informers.SharedInformerFactory
 	policyLister lister.PolicyLister
 	policiesSynced cache.InformerSynced
 	workqueue workqueue.RateLimitingInterface
 }
 
-// NewController is used to create Controller
-func NewController(clientset clientset.Interface, informer informer.PolicyInformer) *Controller {
-    controller := &Controller {
-		policyClientset: clientset,
-		policyLister: informer.Lister(),
-		policiesSynced: informer.Informer().HasSynced,
+// NewController from cmd args
+func NewController(masterURL, kubeconfigPath string) (*Controller, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
+	if err != nil {
+		fmt.Printf("Error building kubeconfig: %v\n", err)
+		return nil, err
+	}
+
+	policyClientset, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		fmt.Printf("Error building policy clientset: %v\n", err)
+		return nil, err
+	}
+
+	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, time.Second*30)
+	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
+	
+	controller := &Controller {
+		policyClientset: policyClientset,
+		policyInformerFactory: policyInformerFactory,
+		policyLister: policyInformer.Lister(),
+		policiesSynced: policyInformer.Informer().HasSynced,
 		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Policies"),
 	}
 
 	// Set up an event handler for when Foo resources change
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueFoo,
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueFoo(new)
@@ -39,11 +58,13 @@ func NewController(clientset clientset.Interface, informer informer.PolicyInform
 		DeleteFunc: controller.enqueueFoo,
 	})
 
-	return controller
+	return controller, nil
 }
 
 // Run is main controller thread
-func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(threadiness int) error {
+	stopCh := signals.SetupSignalHandler()
+	c.policyInformerFactory.Start(stopCh)
 
 	defer c.workqueue.ShutDown()
 
