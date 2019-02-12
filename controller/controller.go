@@ -49,13 +49,12 @@ func NewController(masterURL, kubeconfigPath string) (*Controller, error) {
 		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Policies"),
 	}
 
-	// Set up an event handler for when Foo resources change
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueFoo,
+		AddFunc: controller.enqueue,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueFoo(new)
+			controller.enqueue(new)
 		},
-		DeleteFunc: controller.enqueueFoo,
+		DeleteFunc: controller.enqueue,
 	})
 
 	return controller, nil
@@ -69,7 +68,7 @@ func (c *Controller) Run(threadiness int) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	fmt.Println("Starting Foo controller")
+	fmt.Println("Starting controller")
 
 	if ok := cache.WaitForCacheSync(stopCh, c.policiesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
@@ -88,12 +87,12 @@ func (c *Controller) Run(threadiness int) error {
 
 func (c *Controller) runWorker() {
 	for {
-		time.Sleep(5 * time.Second)
-		fmt.Println("I will wait here for 5 secs...")
+		time.Sleep(25 * time.Second)
+		fmt.Println("I will wait here for 25 secs...")
 	}
 }
 
-func (*Controller) enqueueFoo(interface{}) {
+func (*Controller) enqueue(interface{}) {
     fmt.Println("I have found changes on Policy Resource")
 }
 
