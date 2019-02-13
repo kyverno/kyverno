@@ -1,7 +1,6 @@
 package main
 
 import (
-    "runtime"
     "flag"
     "fmt"
 
@@ -22,7 +21,7 @@ func main() {
         return
     }
 
-    err = controller.Run(runtime.NumCPU())
+    err = controller.Run()
     if err != nil {
         fmt.Printf("Error running Controller! Error: %s\n", err)
     }
