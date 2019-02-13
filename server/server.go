@@ -12,11 +12,13 @@ import (
 
 type WebhookServer struct {
 	server http.Server
+	logger *log.Logger
 }
 
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("/mutate is called!")
-	httputil.DumpRequest(r, true)
+	dump, _ := httputil.DumpRequest(r, true)
+	ws.logger.Printf("%s", dump)
 }
 
 func (ws *WebhookServer) RunAsync() {
@@ -39,6 +41,7 @@ func (ws *WebhookServer) Stop() {
 
 func NewWebhookServer(certFile string, keyFile string, logger *log.Logger) WebhookServer {
 	var ws WebhookServer
+	ws.logger = logger
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mutate", ws.serve)
 

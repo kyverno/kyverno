@@ -1,0 +1,15 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: nirmata-kube-policy-webhook-cfg
+  labels:
+    app: kube-policy
+webhooks:
+  - name: webhook.nirmata.kube-policy
+    clientConfig:
+      url: "https://localhost/mutate"
+    rules:
+      - operations: [ "CREATE" ]
+        resources: [ "*/*" ]
+        apiGroups: [ "*" ]
+        apiVersions: [ "*" ]
