@@ -1,17 +1,16 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: nirmata-policy-mutation-webhook
+  name: nirmata-kube-policy-webhook-cfg
   labels:
-    app: nirmata-policy-webhook-server
+    app: kube-policy
 webhooks:
-  - name: mutation.webhook.nirmata-policy
+  - name: webhook.nirmata.kube-policy
     clientConfig:
       service:
-        name: nirmata-webhook-server
+        name: kube-policy-svc
         namespace: default
         path: "/mutate"
-      caBundle: MIIC5zCCAc+gAwIBAgIBATANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwptaW5pa3ViZUNBMB4XDTE5MDIwMzE1MjM0M1oXDTI5MDIwMTE1MjM0M1owFTETMBEGA1UEAxMKbWluaWt1YmVDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOW3JNJEhX6syO6a+Vr8fezQUmHgJ+oUwYZbwIcb1TQKAGVoIPcN5nkBw11P6syjnrxoPt9HVq3/0mWJOacBgVtuAAZ4sQ8QevFwKmipTpTAC+SEBVhsypqO/1aLs2imbHQr2AVlCy2LxppX7lupl5ELwt9t5nSI3zuauezZ6ujkOCWcO52dGA3dIEXBiKiSQ4Svlqfnjpt7w8Frf6z77nmZSCbAXOf8jjPlObQGTFqzKq+gOmK3LzpANoY6VJSAjQP0jTTc7qC9u3KG53lbTectcBrcQnHRukUvfExI1YyYBTjekjN3DzTkjsn8FCar8hkR8/G4OnwZmiHgDVClrtsCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAPvhLvSaYjT32cqy8tR7KR6PyO3lWKt1Tg1R6IrzavSp+5q9AkQyJQmgsm6WcOsxVwFHDMb23iPzv5UDQPmhmJlGRtFgHbCXOYL+Gf/f/6atez5EzbX3T/tSZPF7ASGLSClEGtOwFUYcXqOeQtInPVPe26PbG5k+XCdqDL8HvrRvyKf5HkTt/5nMYMig5TBs6L1O+GGfvM8dTNwW8w3T0ZUMoF4CKVmhMynG47hWW1HGdvqj/NWp8VWqO6Mo+6pBGJrrMdb7IArN725jhZps2CaD1bpGYVIB4Ad65E6ZbSXl12xUq+RI/LfqIaRAALJkXK3v0bfiJ1+SPMWok0QxjJ
     rules:
       - operations: [ "CREATE" ]
         resources: [ "*/*" ]

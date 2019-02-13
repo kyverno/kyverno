@@ -3,9 +3,13 @@ service=${1}
 namespace=${2}
 serverIp=${3}
 
+echo "service is $service"
+echo "namespace is $namespace"
+echo "serverIp is $serverIp"
+
 destdir="certs"
 if [ ! -d "$destdir" ]; then
-  mkdir ${destdir}
+  mkdir ${destdir} || exit 1
 fi
 tmpdir=$(mktemp -d)
 
@@ -29,8 +33,8 @@ EOF
 outKeyFile=${destdir}/server-key.pem
 outCertFile=${destdir}/server.crt
 
-openssl genrsa -out ${outKeyFile} 2048
-openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf
+openssl genrsa -out ${outKeyFile} 2048 || exit 2
+openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
 
 CSR_NAME=${service}.cert-request
 kubectl delete csr ${CSR_NAME} 2>/dev/null
@@ -50,8 +54,8 @@ spec:
   - server auth
 EOF
 
-kubectl certificate approve ${CSR_NAME}
-kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' | base64 --decode > ${outCertFile}
+kubectl certificate approve ${CSR_NAME} || exit 4
+kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' | base64 --decode > ${outCertFile} || exit 5
 
 echo "Generated:"
 echo ${outKeyFile}
