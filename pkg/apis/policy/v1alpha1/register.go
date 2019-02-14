@@ -5,7 +5,7 @@ import (
     "k8s.io/apimachinery/pkg/runtime"
     "k8s.io/apimachinery/pkg/runtime/schema"
          
-        "nirmata/kube-policy/pkg/apis/policy"
+    "github.com/nirmata/kube-policy/pkg/apis/policy"
 )
 
 // SchemeGroupVersion is group version used to register these objects
