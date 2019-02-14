@@ -26,7 +26,7 @@ type PolicySpec struct {
 type PolicyRule struct {
     Resource    PolicyResource          `json:"resource"`          
     Patches     []PolicyPatch           `json:"patches"`
-    Generator   *PolicyConfigGenerator  `json:"generator"`
+    Generators  []PolicyConfigGenerator `json:"generator"`
 }
 
 // PolicyResource describes the resource rule applied to
@@ -47,7 +47,7 @@ type PolicyPatch struct {
 type PolicyConfigGenerator struct {
     Name        string                  `json:"name"`
     CopyFrom    *PolicyCopyFrom         `json:"copyFrom"`
-    Data        *map[string]string      `json:"data"`
+    Data        map[string]string       `json:"data"`
 }
 
 // PolicyCopyFrom is TODO

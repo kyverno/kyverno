@@ -8,9 +8,8 @@ spec:
     - name: v1alpha1
       served: true
       storage: true
-  scope: Namespaced
+  scope: Cluster
   names:
     kind: Policy
     plural: policies
     singular: policy
-  version: v1alpha1
