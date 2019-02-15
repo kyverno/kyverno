@@ -14,11 +14,6 @@ case $i in
 esac
 done
 
-if [ -z "${serverIp}" ]; then
-  # This is the standard IP of minikube
-  serverIp="192.168.10.117" #TODO: ! Read it from ~/.kube/config !
-fi
-
 hub_user_name="nirmata"
 project_name="kube-policy"
 
@@ -29,6 +24,11 @@ certsGenerator="./scripts/generate-server-cert.sh"
 chmod +x "${certsGenerator}"
 
 if [ -z "${namespace}" ]; then # controller is launched locally
+
+  if [ -z "${serverIp}" ]; then
+    echo "--serverIp should be explicitly specified if --namespace is empty"
+    exit 1
+  fi
 
   ${certsGenerator} "--serverIp=${serverIp}" || exit 2
 
