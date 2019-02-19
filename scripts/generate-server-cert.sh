@@ -18,10 +18,6 @@ case $i in
 esac
 done
 
-if [ -z "${namespace}" ]; then
-  namespace="default"
-fi
-
 echo "service is $service"
 echo "namespace is $namespace"
 echo "serverIp is $serverIp"
@@ -53,15 +49,18 @@ outKeyFile=${destdir}/server-key.pem
 outCertFile=${destdir}/server.crt
 
 openssl genrsa -out ${outKeyFile} 2048 || exit 2
+
 if [ ! -z "${service}" ]; then
-  subjectCN="${service}.${namespace}.svc"
-  echo "Configuring work WITHIN a cluster with CN=${subjectCN}"
+  if [ ! -z "${namespace}" ]; then
+    subjectCN="${service}.${namespace}.svc"
+  else
+    subjectCN="${service}"
+  fi
 else
   subjectCN=${serverIp}
-  echo "Configuring work OUTSIDE a cluster with CN=${subjectCN}"
 fi
-
-openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${subjectCN}" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
+echo "Generating certificate for CN=${subjectCN}"
+openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
 
 CSR_NAME=${service}.cert-request
 kubectl delete csr ${CSR_NAME} 2>/dev/null

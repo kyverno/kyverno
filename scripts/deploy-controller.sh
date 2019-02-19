@@ -3,6 +3,10 @@
 for i in "$@"
 do
 case $i in
+    --service=*)
+    service_name="${i#*=}"
+    shift
+    ;;
     --namespace=*)
     namespace="${i#*=}"
     shift
@@ -17,20 +21,17 @@ done
 hub_user_name="nirmata"
 project_name="kube-policy"
 
-service_name="${project_name}-svc"
+if [ -z "${service_name}" ]; then
+  service_name="${project_name}-svc"
+fi
 echo "Generating certificate for the service ${service_name}..."
 
 certsGenerator="./scripts/generate-server-cert.sh"
 chmod +x "${certsGenerator}"
 
-if [ -z "${namespace}" ]; then # controller is launched locally
+if [ -z "${namespace}" ]; then # controller should be launched locally
 
-  if [ -z "${serverIp}" ]; then
-    echo "--serverIp should be explicitly specified if --namespace is empty"
-    exit 1
-  fi
-
-  ${certsGenerator} "--serverIp=${serverIp}" || exit 2
+  ${certsGenerator} "--service=${service_name}" "--serverIp=${serverIp}" || exit 2
 
   echo "Applying webhook..."
   kubectl delete -f crd/MutatingWebhookConfiguration_local.yaml
@@ -38,7 +39,7 @@ if [ -z "${namespace}" ]; then # controller is launched locally
 
   echo -e "\n### You can build and run kube-policy project locally.\n### To check its work, run it with parameters -cert and -key, which contain generated TLS certificate and key (see their paths in log above)."
 
-else # controller is launched within a cluster
+else # controller should be launched within a cluster
 
   ${certsGenerator} "--service=${service_name}" "--namespace=${namespace}" "--serverIp=${serverIp}" || exit 2
 

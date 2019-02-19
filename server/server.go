@@ -1,24 +1,22 @@
 package server
 
 import (
-	"io/ioutil"
-	"net/http"
-	//"net/http/httputil"
-	"crypto/tls"
 	"context"
-	"time"
-	"log"
-	"os"
-	"fmt"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"time"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	//appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/apis/core"
+	coreTypes "k8s.io/kubernetes/pkg/apis/core"
 )
 
-// WebhookServer is a struct that describes 
+// WebhookServer is a struct that describes
 // TLS server with mutation webhook
 type WebhookServer struct {
 	server http.Server
@@ -37,7 +35,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		if admissionReview == nil {
 			return
 		}
-		
+
 		admissionResponse := ws.mutate(admissionReview)
 		if admissionResponse != nil {
 			admissionReview.Response = admissionResponse
@@ -53,7 +51,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 		ws.logger.Printf("Response body: %v", string(responseJson))
 		if _, err := w.Write(responseJson); err != nil {
-			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusOK)
 		}
 	}
 
@@ -84,19 +82,20 @@ func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
 	} else {
+		ws.logger.Printf("Request body:\n%v", string(body))
 		return admissionReview
 	}
 }
 
 func (ws *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	req := ar.Request
+	request := ar.Request
 
-	ws.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v (%v) UID=%v patchOperation=%v UserInfo=%v",
-		req.Kind.Kind, req.Namespace, req.Name, req.UID, req.Operation, req.UserInfo)
+	ws.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
 
-	if req.Kind.Kind == "ConfigMap" {
-		var configMap core.ConfigMap
-		if err := json.Unmarshal(req.Object.Raw, &configMap); err != nil {
+	if admissionRequired(request) {
+		var configMap coreTypes.ConfigMap
+		if err := json.Unmarshal(request.Object.Raw, &configMap); err != nil {
 			ws.logger.Printf("Could not unmarshal raw object: %v", err)
 			return &v1beta1.AdmissionResponse{
 				Result: &metav1.Status{
@@ -108,9 +107,11 @@ func (ws *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionR
 			ws.logger.Printf("CONFIG MAP DATA: %v=%v", k, v)
 		}
 		patch := patchOperation{
-			Path: "labels/isMutated",
-			Op: "Add",
-			Value: "TRUE",
+			Path: "labels",
+			Op:   "Add",
+			Value: map[string]string{
+				"IS_MUTATED": "TRUE",
+			},
 		}
 		patchBytes, _ := json.Marshal(patch)
 		ws.logger.Printf("AdmissionResponse: patch=%v\n", "TODO")
@@ -130,7 +131,11 @@ func (ws *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionR
 	}
 }
 
-// RunAsync runs TLS server in separate 
+func admissionRequired(request *v1beta1.AdmissionRequest) bool {
+	return request.Kind.Kind == "ConfigMap"
+}
+
+// RunAsync runs TLS server in separate
 // thread and returns control immediately
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
@@ -156,7 +161,7 @@ func NewWebhookServer(certFile string, keyFile string, logger *log.Logger) *Webh
 	if logger == nil {
 		logger = log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
 	}
-	
+
 	var config tls.Config
 	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -165,9 +170,9 @@ func NewWebhookServer(certFile string, keyFile string, logger *log.Logger) *Webh
 	config.Certificates = []tls.Certificate{pair}
 
 	mux := http.NewServeMux()
-	
-    ws := &WebhookServer {
-		server: http.Server {
+
+	ws := &WebhookServer{
+		server: http.Server{
 			Addr:         ":443", // Listen on port for HTTPS requests
 			TLSConfig:    &config,
 			Handler:      mux,
