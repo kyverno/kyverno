@@ -54,7 +54,7 @@ func NewController(masterURL, kubeconfigPath string, logger *log.Logger) (*Contr
 
 // Run is main controller thread
 func (c *Controller) Run(stopCh <-chan struct{}) {
-    c.policyInformerFactory.Start(stopCh)
+    //c.policyInformerFactory.Start(stopCh)
 }
 
 // GetPolicies retrieves all policy resources
@@ -62,13 +62,11 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func (c *Controller) GetPolicies() ([]*types.Policy, error) {
     // Create nil Selector to grab all the policies
     cachedPolicies, err := c.policyLister.List(labels.NewSelector())
-
-    var policies []*types.Policy
-
     if err != nil {
         return nil, err
     }
 
+    var policies []*types.Policy
     for _, elem := range cachedPolicies {
         policies = append(policies, elem.DeepCopy())
     }
