@@ -14,15 +14,15 @@ import (
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 )
 
-// Controller for CRD
-type Controller struct {
+// PolicyController for CRD
+type PolicyController struct {
 	policyInformerFactory informers.SharedInformerFactory
 	policyLister          lister.PolicyLister
 	logger                *log.Logger
 }
 
-// NewController from cmd args
-func NewController(masterURL, kubeconfigPath string, logger *log.Logger) (*Controller, error) {
+// NewPolicyController from cmd args
+func NewPolicyController(masterURL, kubeconfigPath string, logger *log.Logger) (*PolicyController, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
 	if err != nil {
 		logger.Printf("Error building kubeconfig: %v\n", err)
@@ -38,7 +38,7 @@ func NewController(masterURL, kubeconfigPath string, logger *log.Logger) (*Contr
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, time.Second*30)
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
-	controller := &Controller{
+	controller := &PolicyController{
 		policyInformerFactory: policyInformerFactory,
 		policyLister:          policyInformer.Lister(),
 	}
@@ -53,45 +53,48 @@ func NewController(masterURL, kubeconfigPath string, logger *log.Logger) (*Contr
 }
 
 // Run is main controller thread
-func (c *Controller) Run(stopCh <-chan struct{}) {
+func (c *PolicyController) Run(stopCh <-chan struct{}) {
 	//c.policyInformerFactory.Start(stopCh)
 }
 
 // GetPolicies retrieves all policy resources
 // from cache. Cache is refreshed by informer
-func (c *Controller) GetPolicies() ([]*types.Policy, error) {
+func (c *PolicyController) GetPolicies() []types.Policy {
 	// Create nil Selector to grab all the policies
-	cachedPolicies, err := c.policyLister.List(labels.NewSelector())
+	selector := labels.NewSelector()
+	cachedPolicies, err := c.policyLister.List(selector)
+
 	if err != nil {
-		return nil, err
+		c.logger.Printf("Error: %v", err)
+		return nil
 	}
 
-	var policies []*types.Policy
+	var policies []types.Policy
 	for _, elem := range cachedPolicies {
-		policies = append(policies, elem.DeepCopy())
+		policies = append(policies, *elem.DeepCopy())
 	}
 
-	return policies, nil
+	return policies
 }
 
-func (c *Controller) createPolicyHandler(resource interface{}) {
+func (c *PolicyController) createPolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
 	c.logger.Printf("Created policy: %s\n", key)
 }
 
-func (c *Controller) updatePolicyHandler(oldResource, newResource interface{}) {
+func (c *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
 	oldKey := c.getResourceKey(oldResource)
 	newKey := c.getResourceKey(newResource)
 
 	c.logger.Printf("Updated policy from %s to %s\n", oldKey, newKey)
 }
 
-func (c *Controller) deletePolicyHandler(resource interface{}) {
+func (c *PolicyController) deletePolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
 	c.logger.Printf("Deleted policy: %s\n", key)
 }
 
-func (c *Controller) getResourceKey(resource interface{}) string {
+func (c *PolicyController) getResourceKey(resource interface{}) string {
 	if key, err := cache.MetaNamespaceKeyFunc(resource); err != nil {
 		c.logger.Printf("Error retrieving policy key: %v\n", err)
 		return ""

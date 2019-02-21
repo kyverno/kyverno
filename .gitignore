@@ -5,3 +5,4 @@ certs
 kube-policy
 Gopkg.lock
 Dockerfile
+.vscode
