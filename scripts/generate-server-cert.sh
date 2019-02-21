@@ -60,7 +60,7 @@ else
   subjectCN=${serverIp}
 fi
 echo "Generating certificate for CN=${subjectCN}"
-openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
+openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${subjectCN}" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
 
 CSR_NAME=${service}.cert-request
 kubectl delete csr ${CSR_NAME} 2>/dev/null
