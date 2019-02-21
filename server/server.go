@@ -23,6 +23,10 @@ type WebhookServer struct {
 	logger *log.Logger
 }
 
+type patchOperations struct {
+	patches []patchOperation
+}
+
 type patchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
@@ -47,15 +51,17 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		responseJson, err := json.Marshal(admissionReview)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+			return
 		}
 
-		ws.logger.Printf("Response body: %v", string(responseJson))
+		ws.logger.Printf("!!! Writing success !!! Response body: %v", string(responseJson))
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, err := w.Write(responseJson); err != nil {
-			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusOK)
+			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 		}
+	} else {
+		http.Error(w, fmt.Sprintf("Unexpected method path: %v", r.URL.Path), http.StatusNotFound)
 	}
-
-	http.Error(w, fmt.Sprintf("Unexpected method path: %v", r.URL.Path), http.StatusNotFound)
 }
 
 // Answers to the http.ResponseWriter if request is not valid
@@ -67,18 +73,21 @@ func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http
 		}
 	}
 	if len(body) == 0 {
+		ws.logger.Print("Error: empty body")
 		http.Error(writer, "empty body", http.StatusBadRequest)
 		return nil
 	}
 
 	contentType := request.Header.Get("Content-Type")
 	if contentType != "application/json" {
+		ws.logger.Printf("Error: invalid Content-Type: %v", contentType)
 		http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return nil
 	}
 
 	admissionReview := &v1beta1.AdmissionReview{}
 	if err := json.Unmarshal(body, &admissionReview); err != nil {
+		ws.logger.Printf("Error: Can't decode body as AdmissionReview: %v", err)
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
 	} else {
@@ -103,22 +112,18 @@ func (ws *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionR
 				},
 			}
 		}
-		for k, v := range configMap.Data {
-			ws.logger.Printf("CONFIG MAP DATA: %v=%v", k, v)
-		}
-		patch := patchOperation{
-			Path: "labels",
-			Op:   "Add",
+		/*patch := patchOperation{
+			Path: "/labels",
+			Op:   "add",
 			Value: map[string]string{
-				"IS_MUTATED": "TRUE",
+				"is-mutated": "true",
 			},
-		}
-		patchBytes, _ := json.Marshal(patch)
-		ws.logger.Printf("AdmissionResponse: patch=%v\n", "TODO")
+		}*/
+		patch := `[ {"op":"add","path":"/metadata/labels","value":{"is-mutated":"true"}} ]`
 
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
-			Patch:   patchBytes,
+			Patch:   []byte(patch),
 			PatchType: func() *v1beta1.PatchType {
 				pt := v1beta1.PatchTypeJSONPatch
 				return &pt
