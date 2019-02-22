@@ -25,16 +25,6 @@ type WebhookServer struct {
 	mutationWebhook  *webhooks.MutationWebhook
 }
 
-type patchOperations struct {
-	patches []patchOperation
-}
-
-type patchOperation struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value,omitempty"`
-}
-
 // NewWebhookServer creates new instance of WebhookServer and configures it
 func NewWebhookServer(certFile string, keyFile string, controller *controller.PolicyController, logger *log.Logger) *WebhookServer {
 	if logger == nil {
