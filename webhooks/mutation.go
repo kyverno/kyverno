@@ -37,7 +37,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest, policies []
 		}
 
 		for ruleIdx, rule := range policy.Spec.Rules {
-			if IsRuleApplicableToRequest(rule, request) {
+			if IsRuleApplicableToRequest(rule.Resource, request) {
 				mw.logger.Printf("Applying policy %v, rule index = %v", policy.ObjectMeta.Name, ruleIdx)
 				rulePatches, err := mw.applyPolicyRule(request, rule)
 				/*
@@ -82,7 +82,7 @@ func (mw *MutationWebhook) applyPolicyRule(request *v1beta1.AdmissionRequest, ru
 	}
 
 	if rule.Patches != nil {
-		for _, patch := range *rule.Patches {
+		for _, patch := range rule.Patches {
 			allPatches = append(allPatches, patch)
 		}
 	}

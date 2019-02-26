@@ -50,38 +50,84 @@ func TestAdmissionIsRequired(t *testing.T) {
 }
 
 func TestIsRuleResourceFitsRequest_Kind(t *testing.T) {
-	resource := types.PolicyResource{
+	resourceName := "test-config-map"
+	resource := types.PolicyResource {
 		Kind: "ConfigMap",
+		Name: &resourceName,
 	}
-	request := v1beta1.AdmissionRequest{
-		Kind: metav1.GroupVersionKind{Kind: "ConfigMap"},
+	request := v1beta1.AdmissionRequest {
+		Kind: metav1.GroupVersionKind{ Kind: "ConfigMap" },
 	}
 
-	assertEq(t, true, webhooks.IsRuleResourceFitsRequest(resource, &request))
+	objectByteArray := []byte(`{"metadata":{"name":"test-config-map","namespace":"default","creationTimestamp":null,"labels":{"label1":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+
+	assertEq(t, true, webhooks.IsRuleApplicableToRequest(resource, &request))
 	resource.Kind = "Deployment"
-	assertEq(t, false, webhooks.IsRuleResourceFitsRequest(resource, &request))
+	assertEq(t, false, webhooks.IsRuleApplicableToRequest(resource, &request))
 }
 
 func TestIsRuleResourceFitsRequest_Name(t *testing.T) {
 	resourceName := "test-config-map"
-	resource := types.PolicyResource{
+	resource := types.PolicyResource {
 		Kind: "ConfigMap",
 		Name: &resourceName,
 	}
 	request := v1beta1.AdmissionRequest{
 		Kind: metav1.GroupVersionKind{Kind: "ConfigMap"},
-		Name: "test-config-map",
 	}
 
-	assertEq(t, true, webhooks.IsRuleResourceFitsRequest(resource, &request))
+	objectByteArray := []byte(`{"metadata":{"name":"test-config-map","namespace":"default","creationTimestamp":null,"labels":{"label1":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+	assertEq(t, true, webhooks.IsRuleApplicableToRequest(resource, &request))
 	resourceName = "test-config-map-new"
-	assertEq(t, false, webhooks.IsRuleResourceFitsRequest(resource, &request))
-	request.Name = "test-config-map-new"
-	assertEq(t, true, webhooks.IsRuleResourceFitsRequest(resource, &request))
-	request.Name = ""
-	assertEq(t, false, webhooks.IsRuleResourceFitsRequest(resource, &request))
+	assertEq(t, false, webhooks.IsRuleApplicableToRequest(resource, &request))
+
+	objectByteArray = []byte(`{"metadata":{"name":"test-config-map-new","namespace":"default","creationTimestamp":null,"labels":{"label1":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+	assertEq(t, true, webhooks.IsRuleApplicableToRequest(resource, &request))
+
+	objectByteArray = []byte(`{"metadata":{"name":"","namespace":"default","creationTimestamp":null,"labels":{"label1":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+	assertEq(t, false, webhooks.IsRuleApplicableToRequest(resource, &request))
 }
 
-func TestIsRuleApplicableToRequest(t *testing.T) {
-	// TODO
+func TestIsRuleResourceFitsRequest_Selector(t *testing.T) {
+	resource := types.PolicyResource {
+		Kind: "ConfigMap",
+		Selector: &metav1.LabelSelector {
+            MatchLabels: map[string]string {
+				"label1" : "test1",
+				"label2" : "test2",
+			},
+			MatchExpressions: nil,
+		},
+	}
+
+	request := v1beta1.AdmissionRequest{
+		Kind: metav1.GroupVersionKind{Kind: "ConfigMap"},
+	}
+
+	objectByteArray := []byte(`{"metadata":{"name":"test-config-map","namespace":"default","creationTimestamp":null,"labels":{"label1":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+	assertEq(t, true, webhooks.IsRuleApplicableToRequest(resource, &request))
+
+	objectByteArray = []byte(`{"metadata":{"name":"test-config-map","namespace":"default","creationTimestamp":null,"labels":{"label3":"test1","label2":"test2"}}}`)
+	request.Object.Raw = objectByteArray
+	assertEq(t, false, webhooks.IsRuleApplicableToRequest(resource, &request))
+
+	resource = types.PolicyResource {
+		Kind: "ConfigMap",
+		Selector: &metav1.LabelSelector {
+            MatchLabels: map[string]string {
+				"label3" : "test1",
+				"label2" : "test2",
+			},
+			MatchExpressions: nil,
+		},
+	}
+
+	assertEq(t, true, webhooks.IsRuleApplicableToRequest(resource, &request))
+
+	// TODO: MatchExpressions tests should be done
 }

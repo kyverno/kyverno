@@ -102,9 +102,10 @@ func (c *PolicyController) deletePolicyHandler(resource interface{}) {
 
 func (c *PolicyController) getResourceKey(resource interface{}) string {
 	if key, err := cache.MetaNamespaceKeyFunc(resource); err != nil {
-		c.logger.Printf("Error retrieving policy key: %v\n", err)
-		return ""
+		c.logger.Fatalf("Error retrieving policy key: %v\n", err)
 	} else {
 		return key
 	}
+
+	return ""
 }

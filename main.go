@@ -44,10 +44,10 @@ func main() {
 		fmt.Printf("Error running PolicyController! Error: %s\n", err)
 	}
 
-	fmt.Printf("Policy PolicyController has started")
+	fmt.Println("Policy Controller has started")
 	<-stopCh
 	server.Stop()
-	fmt.Printf("Policy PolicyController has stopped")
+	fmt.Println("Policy Controller has stopped")
 }
 
 func init() {
