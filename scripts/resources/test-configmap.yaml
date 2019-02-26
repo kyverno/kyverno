@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  properties: 
+    arms=3
+kind: ConfigMap
+metadata:
+  name: test-configmap
+  labels:
+    label1: test1
+    label2: test2

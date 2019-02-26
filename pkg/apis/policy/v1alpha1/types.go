@@ -24,7 +24,7 @@ type PolicySpec struct {
 // PolicyRule is policy rule that will be applied to resource
 type PolicyRule struct {
 	Resource           PolicyResource         `json:"resource"`
-	Patches            *[]PolicyPatch         `json:"patches"`
+	Patches            []PolicyPatch         `json:"patches"`
 	ConfigMapGenerator *PolicyConfigGenerator `json:"configMapGenerator"`
 	SecretGenerator    *PolicyConfigGenerator `json:"secretGenerator"`
 }
