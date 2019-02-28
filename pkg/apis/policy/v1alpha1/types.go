@@ -24,16 +24,16 @@ type PolicySpec struct {
 // PolicyRule is policy rule that will be applied to resource
 type PolicyRule struct {
 	Resource           PolicyResource         `json:"resource"`
-	Patches            []PolicyPatch         `json:"patches"`
-	ConfigMapGenerator *PolicyConfigGenerator `json:"configMapGenerator"`
-	SecretGenerator    *PolicyConfigGenerator `json:"secretGenerator"`
+	Patches            []PolicyPatch          `json:"patch,omitempty"`
+	ConfigMapGenerator *PolicyConfigGenerator `json:"configMapGenerator,omitempty"`
+	SecretGenerator    *PolicyConfigGenerator `json:"secretGenerator,omitempty"`
 }
 
 // PolicyResource describes the resource rule applied to
 type PolicyResource struct {
-	Kind     string                `json:"kind"`
-	Name     *string               `json:"name"`
-	Selector *metav1.LabelSelector `json:"selector"`
+	Kind     string               `json:"kind"`
+	Name     *string              `json:"name"`
+	Selector metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // PolicyPatch is TODO
