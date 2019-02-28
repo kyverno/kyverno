@@ -13,7 +13,7 @@ A Kubernetes native policy engine
 
 You need to have go and dep utils installed on your machine.
 Ensure that GOPATH environment variable is set to desired location.
-Code generation for CRD controller uses kubernetes/hack as a dependency, so before use code generation, execute:
+Code generation for CRD controller depends on kubernetes/hack, so before use code generation, execute:
 
 `go get k8s.io/kubernetes/hack`
 

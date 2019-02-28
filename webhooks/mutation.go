@@ -81,11 +81,7 @@ func (mw *MutationWebhook) applyPolicyRule(request *v1beta1.AdmissionRequest, ru
 		return nil, errors.New("The rule is empty!")
 	}
 
-	if rule.Patches != nil {
-		for _, patch := range rule.Patches {
-			allPatches = append(allPatches, patch)
-		}
-	}
+	allPatches = append(allPatches, rule.Patches...)
 
 	if rule.ConfigMapGenerator != nil {
 		// TODO: Make patches from configMapGenerator and add them to returned array
