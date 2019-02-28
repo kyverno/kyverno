@@ -48,8 +48,7 @@ func IsRuleResourceFitsRequest(resource types.PolicyResource, request *v1beta1.A
 	if resource.Kind != request.Kind.Kind {
 		return false
 	}
-	if resource.Name != nil && *resource.Name != request.Name {
-		return false
-	}
+	// TODO: resource.Name must be equal to request.Object.Raw -> /metadata/name
+
 	return true
 }

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -23,6 +24,10 @@ type PolicyController struct {
 
 // NewPolicyController from cmd args
 func NewPolicyController(masterURL, kubeconfigPath string, logger *log.Logger) (*PolicyController, error) {
+	if logger == nil {
+		logger = log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
+	}
+
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
 	if err != nil {
 		logger.Printf("Error building kubeconfig: %v\n", err)
@@ -41,6 +46,7 @@ func NewPolicyController(masterURL, kubeconfigPath string, logger *log.Logger) (
 	controller := &PolicyController{
 		policyInformerFactory: policyInformerFactory,
 		policyLister:          policyInformer.Lister(),
+		logger:                logger,
 	}
 
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -54,7 +60,7 @@ func NewPolicyController(masterURL, kubeconfigPath string, logger *log.Logger) (
 
 // Run is main controller thread
 func (c *PolicyController) Run(stopCh <-chan struct{}) {
-	//c.policyInformerFactory.Start(stopCh)
+	c.policyInformerFactory.Start(stopCh)
 }
 
 // GetPolicies retrieves all policy resources
