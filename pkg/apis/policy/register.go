@@ -1,5 +1,5 @@
 package policy
 
 const (
-	GroupName = "policy.nirmata.io"
+    GroupName = "policy.nirmata.io"
 )

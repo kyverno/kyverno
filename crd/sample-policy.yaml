@@ -1,7 +1,7 @@
-apiVersion: nirmata.io/v1alpha1
+apiVersion: policy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
-    name: hello-policy
+  name: hello-policy
 spec:
-    policySpec: 'hi'
-    image: hello-policy-image
+  policySpec: 'hi'
+  image: hello-policy-image
