@@ -8,6 +8,7 @@ webhooks:
   - name: webhook.nirmata.kube-policy
     clientConfig:
       url: "https://localhost/mutate"
+      caBundle: ${CA_BUNDLE}
     rules:
       - operations: [ "CREATE" ]
         resources: [ "*/*" ]
