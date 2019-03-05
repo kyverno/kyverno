@@ -39,19 +39,14 @@ func kindIsSupported(kind string) bool {
 	return false
 }
 
-// AdmissionIsRequired checks for admission if kind is supported
+// Checks for admission if kind is supported
 func AdmissionIsRequired(request *v1beta1.AdmissionRequest) bool {
 	// Here you can make additional hardcoded checks
 	return kindIsSupported(request.Kind.Kind)
 }
 
-// IsRuleApplicableToRequest checks requests kind, name and labels to fit the policy
+// Checks requests kind, name and labels to fit the policy
 func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) bool {
-	if policyResource.Selector == nil && policyResource.Name == nil {
-		// TBD: selector or name MUST be specified
-		return false
-	}
-
 	if policyResource.Kind != request.Kind.Kind {
 		return false
 	}
@@ -68,7 +63,6 @@ func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1b
 			selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
 
 			if err != nil {
-				// TODO: log that selector is invalid
 				return false
 			}
 
