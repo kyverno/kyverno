@@ -1,12 +1,9 @@
 package webhooks
 
 import (
-	"encoding/json"
-
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var supportedKinds = [...]string{
@@ -75,30 +72,4 @@ func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1b
 	}
 
 	return true
-}
-
-func parseMetadataFromObject(bytes []byte) map[string]interface{} {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-
-	return objectJSON["metadata"].(map[string]interface{})
-}
-
-func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
-	if interfaceMap, ok := meta["labels"].(map[string]interface{}); ok {
-		labelMap := make(labels.Set, len(interfaceMap))
-
-		for key, value := range interfaceMap {
-			labelMap[key] = value.(string)
-		}
-		return labelMap
-	}
-	return nil
-}
-
-func parseNameFromMetadata(meta map[string]interface{}) string {
-	if name, ok := meta["name"].(string); ok {
-		return name
-	}
-	return ""
 }

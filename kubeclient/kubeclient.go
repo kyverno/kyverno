@@ -3,10 +3,12 @@ package kubeclient
 import (
 	"log"
 	"os"
+	"time"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -32,18 +34,113 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 	}, nil
 }
 
-func (kc *KubeClient) CopySecret(from *types.PolicyCopyFrom, namespaceTo string) error {
-	// This is the test code, which works
-	var secret v1.Secret
-	secret.Namespace = namespaceTo
-	secret.ObjectMeta.SetName("test-secret")
-	secret.StringData = make(map[string]string)
-	secret.StringData["test-data"] = "test-value"
-	newSecret, err := kc.client.CoreV1().Secrets(namespaceTo).Create(&secret)
-	if err != nil {
-		kc.logger.Printf("Unable to create secret: %s", err)
-	} else {
-		kc.logger.Printf("Secret created: %s", newSecret.Name)
+func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, namespace string) error {
+	kc.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
+	configMap := &v1.ConfigMap{}
+
+	var err error
+	if generator.CopyFrom != nil {
+		kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
+		if err != nil {
+			return err
+		}
 	}
-	return err
+
+	configMap.ObjectMeta = metav1.ObjectMeta{
+		Name:      generator.Name,
+		Namespace: namespace,
+	}
+
+	// Copy data from generator to the new configmap
+	if generator.Data != nil {
+		if configMap.Data == nil {
+			configMap.Data = make(map[string]string)
+		}
+
+		for k, v := range generator.Data {
+			configMap.Data[k] = v
+		}
+	}
+
+	go kc.createConfigMapAfterNamespaceIsCreated(*configMap, namespace)
+	return nil
+}
+
+func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, namespace string) error {
+	kc.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
+	secret := &v1.Secret{}
+
+	var err error
+	if generator.CopyFrom != nil {
+		kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
+		if err != nil {
+			return err
+		}
+	}
+
+	secret.ObjectMeta = metav1.ObjectMeta{
+		Name:      generator.Name,
+		Namespace: namespace,
+	}
+
+	// Copy data from generator to the new secret
+	if generator.Data != nil {
+		if secret.Data == nil {
+			secret.Data = make(map[string][]byte)
+		}
+
+		for k, v := range generator.Data {
+			secret.Data[k] = []byte(v)
+		}
+	}
+
+	go kc.createSecretAfterNamespaceIsCreated(*secret, namespace)
+	return nil
+}
+
+func defaultGetOptions() metav1.GetOptions {
+	return metav1.GetOptions{
+		ResourceVersion:      "1",
+		IncludeUninitialized: true,
+	}
+}
+
+const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
+const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
+
+// Waits until namespace is created with maximum duration maxWaitTimeForNamespaceCreation
+func (kc *KubeClient) waitUntilNamespaceIsCreated(name string) error {
+	timeStart := time.Now()
+
+	var lastError error = nil
+	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
+		_, lastError = kc.client.CoreV1().Namespaces().Get(name, defaultGetOptions())
+		if lastError == nil {
+			break
+		}
+		time.Sleep(namespaceCreationWaitInterval)
+	}
+	return lastError
+}
+
+func (kc *KubeClient) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, namespace string) {
+	err := kc.waitUntilNamespaceIsCreated(namespace)
+	if err == nil {
+		_, err = kc.client.CoreV1().ConfigMaps(namespace).Create(&configMap)
+	}
+	if err != nil {
+		kc.logger.Printf("Can't create a configmap: %s", err)
+	}
+}
+
+func (kc *KubeClient) createSecretAfterNamespaceIsCreated(secret v1.Secret, namespace string) {
+	err := kc.waitUntilNamespaceIsCreated(namespace)
+	if err == nil {
+		_, err = kc.client.CoreV1().Secrets(namespace).Create(&secret)
+	}
+	if err != nil {
+		kc.logger.Printf("Can't create a secret: %s", err)
+	}
 }
