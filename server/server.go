@@ -23,7 +23,6 @@ import (
 type WebhookServer struct {
 	server           http.Server
 	policyController *controller.PolicyController
-	kubeclient       *kubeclient.KubeClient
 	mutationWebhook  *webhooks.MutationWebhook
 	logger           *log.Logger
 }
@@ -55,7 +54,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	mw, err := webhooks.NewMutationWebhook(logger)
+	mw, err := webhooks.NewMutationWebhook(logger, config.Kubeclient)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +62,6 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	ws := &WebhookServer{
 		logger:           logger,
 		policyController: config.Controller,
-		kubeclient:       config.Kubeclient,
 		mutationWebhook:  mw,
 	}
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,16 +15,17 @@ import (
 // MutationWebhook is a data type that represents
 // buisness logic for resource mutation
 type MutationWebhook struct {
-	logger *log.Logger
+	logger     *log.Logger
+	kubeclient *kubeclient.KubeClient
 }
 
 // NewMutationWebhook is a method that returns new instance
 // of MutationWebhook struct
-func NewMutationWebhook(logger *log.Logger) (*MutationWebhook, error) {
+func NewMutationWebhook(logger *log.Logger, kubeclient *kubeclient.KubeClient) (*MutationWebhook, error) {
 	if logger == nil {
-		return nil, errors.New("Logger must be set for the mutation webhook")
+		return nil, errors.New("Logger and/or KubeClient is not set")
 	}
-	return &MutationWebhook{logger: logger}, nil
+	return &MutationWebhook{logger: logger, kubeclient: kubeclient}, nil
 }
 
 // Mutate applies admission to request
@@ -50,20 +52,15 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest, policies []
 			}
 
 			if IsRuleApplicableToRequest(rule.Resource, request) {
-				mw.logger.Printf("Applying policy %s, rule index = %s", policy.ObjectMeta.Name, ruleIdx)
-				rulePatches, err := mw.applyPolicyRule(request, rule)
-				/*
-				 * If at least one error is detected in the rule, the entire rule will not be applied.
-				 * This may be changed in the future by varying the policy.Spec.FailurePolicy values.
-				 */
-				if err != nil {
-					mw.logger.Printf("Error occurred while applying the policy: %v", err)
-					if stopOnError {
-						mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
-						return errorToResponse(err, false)
-					}
-				} else {
-					mw.logger.Printf("Prepared %v patches", len(rulePatches))
+				mw.logger.Printf("Applying policy %s, rule index = %d", policy.ObjectMeta.Name, ruleIdx)
+				rulePatches, err := mw.applyRule(request, rule, stopOnError)
+				// If at least one error is detected in the rule, the entire rule will not be applied:
+				// it can be changed in the future by varying the policy.Spec.FailurePolicy values.
+				if err != nil && stopOnError {
+					mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
+					return errorToResponse(err, false)
+				}
+				if rulePatches != nil {
 					allPatches = append(allPatches, rulePatches...)
 				}
 			}
@@ -86,42 +83,68 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest, policies []
 	}
 }
 
-// Applies all possible patches in a rule
-func (mw *MutationWebhook) applyPolicyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule) ([]types.PolicyPatch, error) {
-	var allPatches []types.PolicyPatch
-	allPatches = append(allPatches, rule.Patches...)
-
-	// configMapGenerator and secretGenerator can be applied only to namespaces
-	if request.Kind.Kind == "Namespace" {
-		if rule.ConfigMapGenerator != nil {
-			err := mw.applyConfigGenerator(request, *rule.ConfigMapGenerator, "ConfigMap")
-			if err != nil {
-				mw.logger.Printf("Unable to apply configMapGenerator: %s", err)
-			}
-		}
-
-		if rule.SecretGenerator != nil {
-			err := mw.applyConfigGenerator(request, *rule.SecretGenerator, "Secret")
-			if err != nil {
-				mw.logger.Printf("Unable to apply secretGenerator: %s", err)
-			}
-		}
+// Applies all rule to the created object and returns list of JSON patches.
+// May return nil patches if it is not necessary to create patches for requested object.
+func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule, stopOnError bool) ([]types.PolicyPatch, error) {
+	rulePatches, err := mw.applyRulePatches(request, rule)
+	if err != nil {
+		mw.logger.Printf("Error occurred while applying patches according to the policy: %v", err)
+	} else {
+		mw.logger.Printf("Prepared %v patches", len(rulePatches))
 	}
 
-	return allPatches, nil
+	if err == nil || !stopOnError {
+		err = mw.applyRuleGenerators(request, rule)
+	}
+
+	return rulePatches, err
+}
+
+func (mw *MutationWebhook) applyRulePatches(request *v1beta1.AdmissionRequest, rule types.PolicyRule) ([]types.PolicyPatch, error) {
+	var patches []types.PolicyPatch
+	patches = append(patches, rule.Patches...)
+	return patches, nil
+}
+
+func (mw *MutationWebhook) applyRuleGenerators(request *v1beta1.AdmissionRequest, rule types.PolicyRule) error {
+	// configMapGenerator and secretGenerator can be applied only to namespaces
+	if request.Kind.Kind == "Namespace" {
+		meta := parseMetadataFromObject(request.Object.Raw)
+		namespaceName := parseNameFromMetadata(meta)
+
+		err := mw.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
+		if err == nil {
+			err = mw.applyConfigGenerator(rule.SecretGenerator, namespaceName, "Secret")
+		}
+		return err
+	}
+	return nil
 }
 
 // Creates resourceKind (ConfigMap or Secret) with parameters specified in generator in cluster specified in request
-func (mw *MutationWebhook) applyConfigGenerator(request *v1beta1.AdmissionRequest, generator types.PolicyConfigGenerator, resourceKind string) error {
-	err := generator.Validate()
-	if err != nil {
-		return errors.New(fmt.Sprintf("Generator for %s is invalid: %s", resourceKind, err))
+func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGenerator, namespace string, configKind string) error {
+	if generator == nil {
+		return nil
 	}
 
-	if generator.CopyFrom != nil {
-		// TODO: Implement copying of the object to another namespace
+	err := generator.Validate()
+	if err != nil {
+		return errors.New(fmt.Sprintf("Generator for '%s' is invalid: %s", configKind, err))
 	}
-	// TODO: Implement filling of existing object with data from generator
+
+	switch configKind {
+	case "ConfigMap":
+		err = mw.kubeclient.GenerateConfigMap(*generator, namespace)
+	case "Secret":
+		err = mw.kubeclient.GenerateSecret(*generator, namespace)
+	default:
+		err = errors.New(fmt.Sprintf("Unsupported config Kind '%s'", configKind))
+	}
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("Unable to apply generator for %s '%s/%s' : %s", configKind, namespace, generator.Name, err))
+	}
+
 	return nil
 }
 
