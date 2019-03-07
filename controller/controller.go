@@ -6,12 +6,14 @@ import (
 	"os"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	clientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
+	policies "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/typed/policy/v1alpha1"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 )
@@ -20,6 +22,7 @@ import (
 type PolicyController struct {
 	policyInformerFactory informers.SharedInformerFactory
 	policyLister          lister.PolicyLister
+	policiesInterface     policies.PolicyInterface
 	logger                *log.Logger
 }
 
@@ -44,6 +47,7 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 	controller := &PolicyController{
 		policyInformerFactory: policyInformerFactory,
 		policyLister:          policyInformer.Lister(),
+		policiesInterface:     policyClientset.NirmataV1alpha1().Policies("default"),
 		logger:                logger,
 	}
 
@@ -81,26 +85,65 @@ func (c *PolicyController) GetPolicies() []types.Policy {
 	return policies
 }
 
+func (c *PolicyController) LogPolicyError(name, text string) {
+	c.addPolicyLog(name, "[ERROR] "+text)
+}
+
+func (c *PolicyController) LogPolicyInfo(name, text string) {
+	c.addPolicyLog(name, "[ INFO] "+text)
+}
+
+const policyLogMaxRecords int = 10
+
+// Appends given log text to the status/logs array.
+func (c *PolicyController) addPolicyLog(name, text string) {
+	getOptions := metav1.GetOptions{
+		ResourceVersion:      "1",
+		IncludeUninitialized: true,
+	}
+	policy, err := c.policiesInterface.Get(name, getOptions)
+	if err != nil {
+		c.logger.Printf("Unable to get policy %s: %s", name, err)
+		return
+	}
+
+	// Add new log record
+	text = time.Now().Format("2006 Jan 02 15:04:05.999 ") + text
+	policy.Status.Logs = append(policy.Status.Logs, text)
+	// Pop front extra log records
+	logsCount := len(policy.Status.Logs)
+	if logsCount > policyLogMaxRecords {
+		policy.Status.Logs = policy.Status.Logs[logsCount-policyLogMaxRecords:]
+	}
+	// Save logs to policy object
+	_, err = c.policiesInterface.UpdateStatus(policy)
+	if err != nil {
+		c.logger.Printf("Unable to update logs for policy %s: %s", name, err)
+	}
+}
+
 func (c *PolicyController) createPolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
-	c.logger.Printf("Created policy: %s\n", key)
+	c.logger.Printf("Policy created: %s", key)
+	c.addPolicyLog(key, "Added")
 }
 
 func (c *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
 	oldKey := c.getResourceKey(oldResource)
 	newKey := c.getResourceKey(newResource)
 
-	c.logger.Printf("Updated policy from %s to %s\n", oldKey, newKey)
+	c.logger.Printf("Policy %s updated to %s", oldKey, newKey)
+	c.addPolicyLog(newKey, "Updated")
 }
 
 func (c *PolicyController) deletePolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
-	c.logger.Printf("Deleted policy: %s\n", key)
+	c.logger.Printf("Policy deleted: %s", key)
 }
 
 func (c *PolicyController) getResourceKey(resource interface{}) string {
 	if key, err := cache.MetaNamespaceKeyFunc(resource); err != nil {
-		c.logger.Fatalf("Error retrieving policy key: %v\n", err)
+		c.logger.Fatalf("Error retrieving policy key: %v", err)
 	} else {
 		return key
 	}
