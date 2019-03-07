@@ -54,15 +54,14 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	mw, err := webhooks.NewMutationWebhook(logger, config.Kubeclient)
+	mw, err := webhooks.NewMutationWebhook(config.Kubeclient, config.Controller, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	ws := &WebhookServer{
-		logger:           logger,
-		policyController: config.Controller,
-		mutationWebhook:  mw,
+		logger:          logger,
+		mutationWebhook: mw,
 	}
 
 	mux := http.NewServeMux()
@@ -89,7 +88,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 		var admissionResponse *v1beta1.AdmissionResponse
 		if webhooks.AdmissionIsRequired(admissionReview.Request) {
-			admissionResponse = ws.mutationWebhook.Mutate(admissionReview.Request, ws.policyController.GetPolicies())
+			admissionResponse = ws.mutationWebhook.Mutate(admissionReview.Request)
 		}
 
 		if admissionResponse == nil {

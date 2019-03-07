@@ -14,7 +14,7 @@ func TestSerializePatches_Empty(t *testing.T) {
 	var patches []types.PolicyPatch
 	bytes, err := webhooks.SerializePatches(patches)
 	assertEq(t, nil, err)
-	assertEqStringAndData(t, "[\n\n]", bytes)
+	assertEq(t, 0, len(bytes))
 }
 
 func TestSerializePatches_SingleValid(t *testing.T) {

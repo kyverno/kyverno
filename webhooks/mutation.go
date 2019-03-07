@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	controller "github.com/nirmata/kube-policy/controller"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -15,24 +16,26 @@ import (
 // MutationWebhook is a data type that represents
 // buisness logic for resource mutation
 type MutationWebhook struct {
-	logger     *log.Logger
 	kubeclient *kubeclient.KubeClient
+	controller *controller.PolicyController
+	logger     *log.Logger
 }
 
 // NewMutationWebhook is a method that returns new instance
 // of MutationWebhook struct
-func NewMutationWebhook(logger *log.Logger, kubeclient *kubeclient.KubeClient) (*MutationWebhook, error) {
-	if logger == nil {
-		return nil, errors.New("Logger and/or KubeClient is not set")
+func NewMutationWebhook(kubeclient *kubeclient.KubeClient, controller *controller.PolicyController, logger *log.Logger) (*MutationWebhook, error) {
+	if kubeclient == nil || controller == nil || logger == nil {
+		return nil, errors.New("Some parameters are not set")
 	}
-	return &MutationWebhook{logger: logger, kubeclient: kubeclient}, nil
+	return &MutationWebhook{kubeclient: kubeclient, controller: controller, logger: logger}, nil
 }
 
 // Mutate applies admission to request
-func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest, policies []types.Policy) *v1beta1.AdmissionResponse {
+func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	mw.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
 
+	policies := mw.controller.GetPolicies()
 	if len(policies) == 0 {
 		return nil
 	}
@@ -52,13 +55,18 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest, policies []
 			}
 
 			if IsRuleApplicableToRequest(rule.Resource, request) {
-				mw.logger.Printf("Applying policy %s, rule index = %d", policy.ObjectMeta.Name, ruleIdx)
+				mw.logger.Printf("Applying policy %s, rule #%d", policy.ObjectMeta.Name, ruleIdx)
 				rulePatches, err := mw.applyRule(request, rule, stopOnError)
 				// If at least one error is detected in the rule, the entire rule will not be applied:
 				// it can be changed in the future by varying the policy.Spec.FailurePolicy values.
-				if err != nil && stopOnError {
-					mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
-					return errorToResponse(err, false)
+				if err != nil {
+					errStr := fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err)
+					mw.logger.Print(errStr)
+					mw.controller.LogPolicyError(policy.Name, errStr)
+					if stopOnError {
+						mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
+					}
+					return errorToResponse(err, !stopOnError)
 				}
 				if rulePatches != nil {
 					allPatches = append(allPatches, rulePatches...)
@@ -151,6 +159,10 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 // SerializePatches converts JSON patches to byte array
 func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
 	var result []byte
+	if len(patches) == 0 {
+		return result, nil
+	}
+
 	result = append(result, []byte("[\n")...)
 	for index, patch := range patches {
 		if patch.Operation == "" || patch.Path == "" {
