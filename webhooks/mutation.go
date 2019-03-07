@@ -66,7 +66,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 					if stopOnError {
 						mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
 					}
-					return errorToResponse(err, !stopOnError)
+					return errorToAdmissionResponse(err, !stopOnError)
 				}
 				if rulePatches != nil {
 					allPatches = append(allPatches, rulePatches...)
@@ -78,7 +78,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 	patchesBytes, err := SerializePatches(allPatches)
 	if err != nil {
 		mw.logger.Printf("Error occerred while serializing JSONPathch: %v", err)
-		return errorToResponse(err, true)
+		return errorToAdmissionResponse(err, true)
 	}
 
 	return &v1beta1.AdmissionResponse{
@@ -108,12 +108,14 @@ func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule typ
 	return rulePatches, err
 }
 
+// Gets patches from "patch" section in PolicyRule
 func (mw *MutationWebhook) applyRulePatches(request *v1beta1.AdmissionRequest, rule types.PolicyRule) ([]types.PolicyPatch, error) {
 	var patches []types.PolicyPatch
 	patches = append(patches, rule.Patches...)
 	return patches, nil
 }
 
+// Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 func (mw *MutationWebhook) applyRuleGenerators(request *v1beta1.AdmissionRequest, rule types.PolicyRule) error {
 	// configMapGenerator and secretGenerator can be applied only to namespaces
 	if request.Kind.Kind == "Namespace" {
@@ -156,7 +158,7 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 	return nil
 }
 
-// SerializePatches converts JSON patches to byte array
+// Converts JSON patches to byte array
 func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
 	var result []byte
 	if len(patches) == 0 {
@@ -183,7 +185,7 @@ func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
 	return result, nil
 }
 
-func errorToResponse(err error, allowed bool) *v1beta1.AdmissionResponse {
+func errorToAdmissionResponse(err error, allowed bool) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
 			Message: err.Error(),

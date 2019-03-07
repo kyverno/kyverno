@@ -79,6 +79,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	return ws, nil
 }
 
+// Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/mutate" {
 		admissionReview := ws.parseAdmissionReview(r, w)
@@ -148,8 +149,7 @@ func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http
 	}
 }
 
-// RunAsync runs TLS server in separate
-// thread and returns control immediately
+// Runs TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		err := ws.server.ListenAndServeTLS("", "")
@@ -159,7 +159,7 @@ func (ws *WebhookServer) RunAsync() {
 	}(ws)
 }
 
-// Stop stops TLS server
+// Stops TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop() {
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {

@@ -13,11 +13,13 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// KubeClient is the api-client for core Kubernetes objects
 type KubeClient struct {
 	logger *log.Logger
 	client *kubernetes.Clientset
 }
 
+// Checks parameters and creates new instance of KubeClient
 func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags|log.Lshortfile)
@@ -34,6 +36,8 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 	}, nil
 }
 
+// Generates new ConfigMap in given namespace. If the namespace does not exists yet,
+// waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
 func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, namespace string) error {
 	kc.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
 	configMap := &v1.ConfigMap{}
@@ -67,6 +71,8 @@ func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, n
 	return nil
 }
 
+// Generates new Secret in given namespace. If the namespace does not exists yet,
+// waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
 func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, namespace string) error {
 	kc.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
 	secret := &v1.Secret{}
