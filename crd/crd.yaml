@@ -13,3 +13,6 @@ spec:
     kind: Policy
     plural: policies
     singular: policy
+  subresources:
+    status: {}
+

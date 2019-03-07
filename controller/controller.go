@@ -85,15 +85,19 @@ func (c *PolicyController) GetPolicies() []types.Policy {
 	return policies
 }
 
+// Writes error message to the policy logs in status section
 func (c *PolicyController) LogPolicyError(name, text string) {
 	c.addPolicyLog(name, "[ERROR] "+text)
 }
 
+// Writes info message to the policy logs in status section
 func (c *PolicyController) LogPolicyInfo(name, text string) {
 	c.addPolicyLog(name, "[ INFO] "+text)
 }
 
-const policyLogMaxRecords int = 10
+// This is the maximum number of records that can be written to the log object of the policy.
+// If this number is exceeded, the older entries will be deleted.
+const policyLogMaxRecords int = 50
 
 // Appends given log text to the status/logs array.
 func (c *PolicyController) addPolicyLog(name, text string) {
@@ -125,7 +129,6 @@ func (c *PolicyController) addPolicyLog(name, text string) {
 func (c *PolicyController) createPolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
 	c.logger.Printf("Policy created: %s", key)
-	c.addPolicyLog(key, "Added")
 }
 
 func (c *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
@@ -133,7 +136,6 @@ func (c *PolicyController) updatePolicyHandler(oldResource, newResource interfac
 	newKey := c.getResourceKey(newResource)
 
 	c.logger.Printf("Policy %s updated to %s", oldKey, newKey)
-	c.addPolicyLog(newKey, "Updated")
 }
 
 func (c *PolicyController) deletePolicyHandler(resource interface{}) {
