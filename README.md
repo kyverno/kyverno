@@ -48,17 +48,20 @@ This will install necessary dependencies described in README.md
 ## Compiling
 
 We are using code generator for custom resources objects from here: https://github.com/kubernetes/code-generator
+
 Generate the additional controller code before compiling the project:
+
 `scripts/update-codegen.sh`
 
 Then you can build the controller:
+
 `go build .`
 
 # Installation
 
 There are 2 possible ways to install and use the controller: for **development** and for **production**
 
-# For development
+## For development
 
 _At the time of this writing, only this installation method worked_
 
@@ -68,6 +71,6 @@ _At the time of this writing, only this installation method worked_
 4. Run `scripts/deploy-controller.sh --service=localhost --serverIp=<server_IP>` where `<server_IP>` is a server from clipboard. This scripts will generate TLS certificate for webhook server and register this webhook in the cluster. Also it registers CustomResource `Policy`.
 5. Start controller: `sudo kube-policy --cert=certs/server.crt --key=certs/server-key.pem --kubeconfig=~/.kube/config`
 
-# For production
+## For production
 
 _To be implemented_
