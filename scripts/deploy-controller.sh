@@ -37,7 +37,10 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
   kubectl delete -f crd/MutatingWebhookConfiguration_local.yaml
   kubectl create -f crd/MutatingWebhookConfiguration_local.yaml || exit 3
 
-  echo -e "\n### You can build and run kube-policy project locally.\n### To check its work, run it with parameters -cert and -key, which contain generated TLS certificate and key (see their paths in log above)."
+  kubectl delete -f crd/crd.yaml
+  kubectl create -f crd/crd.yaml || exit 3
+
+  echo -e "\n### You can build and run kube-policy project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
 
 else # controller should be launched within a cluster
 
@@ -59,6 +62,9 @@ else # controller should be launched within a cluster
   echo "Applying webhook..."
   kubectl delete -f crd/MutatingWebhookConfiguration.yaml
   kubectl create -f crd/MutatingWebhookConfiguration.yaml || exit 3
+
+  kubectl delete -f crd/crd.yaml
+  kubectl create -f crd/crd.yaml || exit 3
 
   echo -e "\n### Controller is running in cluster.\n### You can use compile-image.sh to rebuild its image and then the current script to redeploy the controller.\n### Check its work by 'kubectl logs <controller_pod> command'"
 
