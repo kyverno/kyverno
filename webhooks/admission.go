@@ -11,7 +11,7 @@ var supportedKinds = [...]string{
 	"CronJob",
 	"DaemonSet",
 	"Deployment",
-	"Endpoint",
+	"Endpoints",
 	"HorizontalPodAutoscaler",
 	"Ingress",
 	"Job",
