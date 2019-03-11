@@ -167,11 +167,7 @@ func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
 
 	result = append(result, []byte("[\n")...)
 	for index, patch := range patches {
-		if patch.Operation == "" || patch.Path == "" {
-			return nil, errors.New("JSONPatch doesn't contain mandatory fields 'path' or 'op'")
-		}
-
-		patchBytes, err := json.Marshal(patch)
+		patchBytes, err := serializePatch(patch)
 		if err != nil {
 			return nil, err
 		}
@@ -183,6 +179,37 @@ func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
 	}
 	result = append(result, []byte("\n]")...)
 	return result, nil
+}
+
+func serializePatch(patch types.PolicyPatch) ([]byte, error) {
+	err := patch.Validate()
+	if err != nil {
+		return nil, err
+	}
+	processedPatchValue, err := processPatchValue(patch.Value)
+	if err != nil {
+		return nil, err
+	} else {
+		patch = types.PolicyPatch{
+			Path:      patch.Path,
+			Operation: patch.Operation,
+			Value:     processedPatchValue,
+		}
+		return json.Marshal(patch)
+	}
+}
+
+// Recursively converts all numbers to strings in JSONPatch value.
+func processPatchValue(value interface{}) interface{} {
+	if interfaceMap, ok := value.(map[string]interface{}); ok {
+		newMap := make(map[string]interface{})
+		for k, v := range interfaceMap {
+			newMap[k] = processPatchValue(v)
+		}
+		return newMap, nil
+	} else {
+		return fmt.Sprintf("%v", value), nil
+	}
 }
 
 func errorToAdmissionResponse(err error, allowed bool) *v1beta1.AdmissionResponse {
