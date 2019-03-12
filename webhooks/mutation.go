@@ -186,17 +186,13 @@ func serializePatch(patch types.PolicyPatch) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	processedPatchValue, err := processPatchValue(patch.Value)
-	if err != nil {
-		return nil, err
-	} else {
-		patch = types.PolicyPatch{
-			Path:      patch.Path,
-			Operation: patch.Operation,
-			Value:     processedPatchValue,
-		}
-		return json.Marshal(patch)
+
+	patch = types.PolicyPatch{
+		Path:      patch.Path,
+		Operation: patch.Operation,
+		Value:     processPatchValue(patch.Value),
 	}
+	return json.Marshal(patch)
 }
 
 // Recursively converts all numbers to strings in JSONPatch value.
@@ -206,9 +202,9 @@ func processPatchValue(value interface{}) interface{} {
 		for k, v := range interfaceMap {
 			newMap[k] = processPatchValue(v)
 		}
-		return newMap, nil
+		return newMap
 	} else {
-		return fmt.Sprintf("%v", value), nil
+		return fmt.Sprintf("%v", value)
 	}
 }
 
