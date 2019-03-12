@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -40,12 +39,9 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 		return nil
 	}
 
-	var allPatches []types.PolicyPatch
+	var allPatches []PatchBytes
 	for _, policy := range policies {
-		stopOnError := true
-		if policy.Spec.FailurePolicy != nil && *policy.Spec.FailurePolicy == "continueOnError" {
-			stopOnError = false
-		}
+		patchingSets := getPolicyPatchingSets(policy)
 
 		for ruleIdx, rule := range policy.Spec.Rules {
 			err := rule.Validate()
@@ -54,36 +50,29 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 				continue
 			}
 
-			if IsRuleApplicableToRequest(rule.Resource, request) {
-				mw.logger.Printf("Applying policy %s, rule #%d", policy.ObjectMeta.Name, ruleIdx)
-				rulePatches, err := mw.applyRule(request, rule, stopOnError)
-				// If at least one error is detected in the rule, the entire rule will not be applied:
-				// it can be changed in the future by varying the policy.Spec.FailurePolicy values.
-				if err != nil {
-					errStr := fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err)
-					mw.logger.Print(errStr)
-					mw.controller.LogPolicyError(policy.Name, errStr)
-					if stopOnError {
-						mw.logger.Printf("/!\\ Denying the request according to FailurePolicy spec /!\\")
-					}
-					return errorToAdmissionResponse(err, !stopOnError)
-				}
-				if rulePatches != nil {
-					allPatches = append(allPatches, rulePatches...)
-				}
+			mw.logger.Printf("Applying policy %s, rule #%d", policy.ObjectMeta.Name, ruleIdx)
+			rulePatches, err := mw.applyRule(request, rule, patchingSets)
+
+			if err != nil {
+				errStr := fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err)
+				mw.logger.Printf("Denying the request because of error: %s", errStr)
+				mw.controller.LogPolicyError(policy.Name, errStr)
+				return errorToAdmissionResponse(err, true)
+			}
+
+			rulePatchesProcessed, err := ProcessPatches(rulePatches, request.Object.Raw, patchingSets)
+			if rulePatches != nil {
+				allPatches = append(allPatches, rulePatchesProcessed...)
+				mw.logger.Printf("Prepared %d patches", len(rulePatchesProcessed))
+			} else {
+				mw.logger.Print("No patches prepared")
 			}
 		}
 	}
 
-	patchesBytes, err := SerializePatches(allPatches)
-	if err != nil {
-		mw.logger.Printf("Error occerred while serializing JSONPathch: %v", err)
-		return errorToAdmissionResponse(err, true)
-	}
-
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
-		Patch:   patchesBytes,
+		Patch:   JoinPatches(allPatches),
 		PatchType: func() *v1beta1.PatchType {
 			pt := v1beta1.PatchTypeJSONPatch
 			return &pt
@@ -91,28 +80,28 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 	}
 }
 
-// Applies all rule to the created object and returns list of JSON patches.
-// May return nil patches if it is not necessary to create patches for requested object.
-func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule, stopOnError bool) ([]types.PolicyPatch, error) {
-	rulePatches, err := mw.applyRulePatches(request, rule)
-	if err != nil {
-		mw.logger.Printf("Error occurred while applying patches according to the policy: %v", err)
-	} else {
-		mw.logger.Printf("Prepared %v patches", len(rulePatches))
+func getPolicyPatchingSets(policy types.Policy) PatchingSets {
+	// failurePolicy property is the only available way for now to define behavior on patching error.
+	// TODO: define new failurePolicy values specific for patching and other policy features.
+	if policy.Spec.FailurePolicy != nil && *policy.Spec.FailurePolicy == "continueOnError" {
+		return PatchingSetsContinueAlways
 	}
-
-	if err == nil || !stopOnError {
-		err = mw.applyRuleGenerators(request, rule)
-	}
-
-	return rulePatches, err
+	return PatchingSetsDefault
 }
 
-// Gets patches from "patch" section in PolicyRule
-func (mw *MutationWebhook) applyRulePatches(request *v1beta1.AdmissionRequest, rule types.PolicyRule) ([]types.PolicyPatch, error) {
-	var patches []types.PolicyPatch
-	patches = append(patches, rule.Patches...)
-	return patches, nil
+// Applies all rule to the created object and returns list of JSON patches.
+// May return nil patches if it is not necessary to create patches for requested object.
+func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule, errorBehavior PatchingSets) ([]types.PolicyPatch, error) {
+	if !IsRuleApplicableToRequest(rule.Resource, request) {
+		return nil, nil
+	}
+
+	err := mw.applyRuleGenerators(request, rule)
+	if err != nil && errorBehavior == PatchingSetsStopOnError {
+		return nil, err
+	} else {
+		return rule.Patches, nil
+	}
 }
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
@@ -156,37 +145,6 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 	}
 
 	return nil
-}
-
-// Converts JSON patches to byte array
-func SerializePatches(patches []types.PolicyPatch) ([]byte, error) {
-	var result []byte
-	if len(patches) == 0 {
-		return result, nil
-	}
-
-	result = append(result, []byte("[\n")...)
-	for index, patch := range patches {
-		patchBytes, err := serializePatch(patch)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, patchBytes...)
-		if index != (len(patches) - 1) {
-			result = append(result, []byte(",\n")...)
-		}
-	}
-	result = append(result, []byte("\n]")...)
-	return result, nil
-}
-
-func serializePatch(patch types.PolicyPatch) ([]byte, error) {
-	err := patch.Validate()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(patch)
 }
 
 func errorToAdmissionResponse(err error, allowed bool) *v1beta1.AdmissionResponse {
