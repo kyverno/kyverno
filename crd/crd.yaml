@@ -15,4 +15,13 @@ spec:
     singular: policy
   subresources:
     status: {}
-
+  validation:
+   openAPIV3Schema:
+     properties:
+       spec:
+         properties:
+           failurePolicy:
+             type: string
+             enum:
+             - continueOnError
+             - stopOnError

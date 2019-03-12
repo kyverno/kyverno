@@ -17,6 +17,7 @@ type Policy struct {
 }
 
 // Specification of the Policy.
+// failurePolicy can have values "continueOnError" and "stopOnError" (default).
 type PolicySpec struct {
 	FailurePolicy *string      `json:"failurePolicy"`
 	Rules         []PolicyRule `json:"rules"`
