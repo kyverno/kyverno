@@ -186,26 +186,7 @@ func serializePatch(patch types.PolicyPatch) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	patch = types.PolicyPatch{
-		Path:      patch.Path,
-		Operation: patch.Operation,
-		Value:     processPatchValue(patch.Value),
-	}
 	return json.Marshal(patch)
-}
-
-// Recursively converts all numbers to strings in JSONPatch value.
-func processPatchValue(value interface{}) interface{} {
-	if interfaceMap, ok := value.(map[string]interface{}); ok {
-		newMap := make(map[string]interface{})
-		for k, v := range interfaceMap {
-			newMap[k] = processPatchValue(v)
-		}
-		return newMap
-	} else {
-		return fmt.Sprintf("%v", value)
-	}
 }
 
 func errorToAdmissionResponse(err error, allowed bool) *v1beta1.AdmissionResponse {

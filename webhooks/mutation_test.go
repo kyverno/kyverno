@@ -67,7 +67,7 @@ func TestSerializePatches_MultipleStringsValid(t *testing.T) {
 func TestSerializePatches_SingleIntegerValid(t *testing.T) {
 	const ordinaryInt int = 42
 	patch := types.PolicyPatch{
-		Path:      "/metadata/labels/int",
+		Path:      "/spec/replicas",
 		Operation: "add",
 		Value:     ordinaryInt,
 	}
@@ -75,14 +75,14 @@ func TestSerializePatches_SingleIntegerValid(t *testing.T) {
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels/int","op":"add","value":"42"}
+{"path":"/spec/replicas","op":"add","value":42}
 ]`, bytes)
 }
 
 func TestSerializePatches_SingleIntegerBigValid(t *testing.T) {
 	const bigInt uint64 = 100500100500
 	patch := types.PolicyPatch{
-		Path:      "/metadata/labels/big-int",
+		Path:      "/spec/somethingHuge",
 		Operation: "add",
 		Value:     bigInt,
 	}
@@ -90,14 +90,14 @@ func TestSerializePatches_SingleIntegerBigValid(t *testing.T) {
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels/big-int","op":"add","value":"100500100500"}
+{"path":"/spec/somethingHuge","op":"add","value":100500100500}
 ]`, bytes)
 }
 
 func TestSerializePatches_SingleFloatValid(t *testing.T) {
 	const ordinaryFloat float32 = 2.71828
 	patch := types.PolicyPatch{
-		Path:      "/metadata/labels/float",
+		Path:      "/spec/consts/e",
 		Operation: "add",
 		Value:     ordinaryFloat,
 	}
@@ -105,14 +105,14 @@ func TestSerializePatches_SingleFloatValid(t *testing.T) {
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels/float","op":"add","value":"2.71828"}
+{"path":"/spec/consts/e","op":"add","value":2.71828}
 ]`, bytes)
 }
 
 func TestSerializePatches_SingleFloatBigValid(t *testing.T) {
 	const bigFloat float64 = 3.1415926535
 	patch := types.PolicyPatch{
-		Path:      "/metadata/labels/big-float",
+		Path:      "/spec/consts/pi",
 		Operation: "add",
 		Value:     bigFloat,
 	}
@@ -120,18 +120,18 @@ func TestSerializePatches_SingleFloatBigValid(t *testing.T) {
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels/big-float","op":"add","value":"3.1415926535"}
+{"path":"/spec/consts/pi","op":"add","value":3.1415926535}
 ]`, bytes)
 }
 
 func TestSerializePatches_MultipleBoolValid(t *testing.T) {
 	patch1 := types.PolicyPatch{
-		Path:      "/metadata/labels/is-mutated",
+		Path:      "/status/is-mutated",
 		Operation: "add",
 		Value:     true,
 	}
 	patch2 := types.PolicyPatch{
-		Path:      "/metadata/labels/is-unreal",
+		Path:      "/status/is-unreal",
 		Operation: "add",
 		Value:     false,
 	}
@@ -139,29 +139,29 @@ func TestSerializePatches_MultipleBoolValid(t *testing.T) {
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels/is-mutated","op":"add","value":"true"},
-{"path":"/metadata/labels/is-unreal","op":"add","value":"false"}
+{"path":"/status/is-mutated","op":"add","value":true},
+{"path":"/status/is-unreal","op":"add","value":false}
 ]`, bytes)
 }
 
 func TestSerializePatches_MultitypeMap(t *testing.T) {
-	labelsMap := make(map[string]interface{})
-	labelsMap["label1"] = "value1"
-	labelsMap["label42"] = 42
+	valuesMap := make(map[string]interface{})
+	valuesMap["some_string"] = "value1"
+	valuesMap["number"] = 42
 	nestedMap := make(map[string]interface{})
-	nestedMap["other label"] = "other value"
+	nestedMap["label"] = "other value"
 	nestedMap["nested"] = true
-	labelsMap["additional"] = nestedMap
+	valuesMap["additional"] = nestedMap
 
 	patch := types.PolicyPatch{
-		Path:      "/metadata/labels",
+		Path:      "/spec/values",
 		Operation: "add",
-		Value:     labelsMap,
+		Value:     valuesMap,
 	}
 	patches := []types.PolicyPatch{patch}
 	bytes, err := webhooks.SerializePatches(patches)
 	assert.NilError(t, err)
 	assertEqStringAndData(t, `[
-{"path":"/metadata/labels","op":"add","value":{"additional":{"nested":"true","other label":"other value"},"label1":"value1","label42":"42"}}
+{"path":"/spec/values","op":"add","value":{"additional":{"label":"other value","nested":true},"number":42,"some_string":"value1"}}
 ]`, bytes)
 }
