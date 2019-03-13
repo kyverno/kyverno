@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"sort"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,6 +82,10 @@ func (c *PolicyController) GetPolicies() []types.Policy {
 	for _, elem := range cachedPolicies {
 		policies = append(policies, *elem.DeepCopy())
 	}
+
+	sort.Slice(policies, func(i, j int) bool {
+		return policies[i].CreationTimestamp.Time.Before(policies[j].CreationTimestamp.Time)
+	})
 
 	return policies
 }
