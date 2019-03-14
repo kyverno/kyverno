@@ -17,5 +17,5 @@ spec:
           - test2
     patches: 
     - path: /
-      op : Add
+      op : add
       value : "20"
