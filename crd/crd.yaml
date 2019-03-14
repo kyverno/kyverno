@@ -85,7 +85,7 @@ spec:
                                   type: array
                                   items:
                                     type: string
-                  patches:
+                  patch:
                     type: array
                     items:
                       type: object
