@@ -42,6 +42,25 @@ spec:
                     properties:
                       kind:
                         type: string
+                        enum:
+                        - ConfigMap
+                        - CronJob
+                        - DaemonSet
+                        - Deployment
+                        - Endpoints
+                        - HorizontalPodAutoscaler
+                        - Ingress
+                        - Job
+                        - LimitRange
+                        - Namespace
+                        - NetworkPolicy
+                        - PersistentVolumeClaim
+                        - PodDisruptionBudget
+                        - PodTemplate
+                        - ResourceQuota
+                        - Secret
+                        - Service
+                        - StatefulSet
                       name:
                         type: string
                       selector:
@@ -73,14 +92,17 @@ spec:
                       required:
                       - path
                       - op
-                      - value
                       properties:
                         path:
                           type: string
                         op:
                           type: string
+                          enum:
+                          - add
+                          - replace
+                          - remove
                         value:
-                          type: string
+                          AnyValue: {}
                   configMapGenerator:
                     type: object
                     required:
