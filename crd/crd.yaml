@@ -16,12 +16,110 @@ spec:
   subresources:
     status: {}
   validation:
-   openAPIV3Schema:
-     properties:
-       spec:
-         properties:
-           failurePolicy:
-             type: string
-             enum:
-             - continueOnError
-             - stopOnError
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - failurePolicy
+          - rules
+          properties:
+            failurePolicy:
+              type: string
+              enum:
+                - continueOnError
+                - stopOnError
+            rules:
+              type: array
+              items:
+                type: object
+                required:
+                - resource
+                properties:
+                  resource:
+                    type: object
+                    required:
+                    - kind
+                    properties:
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      selector:
+                        properties:
+                          matchLabels:
+                            type: object
+                            additionalProperties:
+                              type: string
+                          matchExpressions:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                              - key
+                              - operator
+                              properties:
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                  patches:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - path
+                      - op
+                      - value
+                      properties:
+                        path:
+                          type: string
+                        op:
+                          type: string
+                        value:
+                          type: string
+                  configMapGenerator:
+                    type: object
+                    required:
+                    - name
+                    properties:
+                      name:
+                        type: string
+                      copyFrom:
+                        type: object
+                        required:
+                        - namespace
+                        - name
+                        properties:
+                          namespace:
+                            type: string
+                          name:
+                            type: string
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  secretGenerator:
+                    type: object
+                    required:
+                    - name
+                    properties:
+                      name:
+                        type: string
+                      copyFrom:
+                        type: object
+                        required:
+                        - namespace
+                        - name
+                        properties:
+                          namespace:
+                            type: string
+                          name:
+                            type: string
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: string

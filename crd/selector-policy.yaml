@@ -5,13 +5,17 @@ metadata:
 spec:
   failurePolicy: continueOnError
   rules:
-    - resource:
-        kind: ConfigMap 
-        selector: 
-          matchLabels:
-            label1: test1
-          matchExpressions:
-      patches: 
-        - path: /
-          op : Add
-          value : "20"
+  - resource:
+      kind: ConfigMap 
+      selector: 
+        matchLabels:
+          label1: test1
+        matchExpressions:
+        - key: label2
+          operator: In
+          values:
+          - test2
+    patches: 
+    - path: /
+      op : Add
+      value : "20"
