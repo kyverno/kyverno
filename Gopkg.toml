@@ -1,25 +1,25 @@
 required = ["k8s.io/code-generator/cmd/client-gen"]
 
 [[constraint]]
+  name = "k8s.io/code-generator"
+  branch = "release-1.10"
+
+[[constraint]]
   name = "k8s.io/apimachinery"
-  branch = "release-1.9"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
   name = "k8s.io/client-go"
   branch = "release-6.0"
 
-[[constraint]]
-  name = "k8s.io/code-generator"
-  branch = "release-1.9"
-
-[[constraint]]
+[[override]]
   name = "github.com/golang/protobuf"
-  branch = "master"
+  version = "v1.2.1"
 
-[[constraint]]
+[[override]]
   name = "github.com/gotestyourself/gotest.tools"
   branch = "master"
 
-[[constraint]]
+[[override]]
   name = "github.com/evanphx/json-patch"
   branch = "master"
