@@ -12,9 +12,11 @@ import (
 	"os"
 	"time"
 
-	controller "github.com/nirmata/kube-policy/controller"
-	kubeclient "github.com/nirmata/kube-policy/kubeclient"
-	webhooks "github.com/nirmata/kube-policy/webhooks"
+	"github.com/nirmata/kube-policy/controller"
+	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/utils"
+	"github.com/nirmata/kube-policy/webhooks"
+
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
@@ -30,8 +32,7 @@ type WebhookServer struct {
 // Configuration struct for WebhookServer used in NewWebhookServer
 // Controller and Kubeclient should be initialized and valid
 type WebhookServerConfig struct {
-	CertFile   string
-	KeyFile    string
+	TlsPemPair *utils.TlsPemPair
 	Controller *controller.PolicyController
 	Kubeclient *kubeclient.KubeClient
 }
@@ -43,12 +44,12 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
 	}
 
-	if config.Controller == nil || config.Kubeclient == nil {
-		return nil, errors.New("WebHook server requires initialized Policy Controller and Kubernetes Client")
+	if config.TlsPemPair == nil || config.Controller == nil || config.Kubeclient == nil {
+		return nil, errors.New("WebhookServerConfig is not initialized properly")
 	}
 
 	var tlsConfig tls.Config
-	pair, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+	pair, err := tls.X509KeyPair(config.TlsPemPair.Certificate, config.TlsPemPair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
