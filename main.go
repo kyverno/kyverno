@@ -2,17 +2,12 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"log"
-	"net/url"
 
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/server"
-	"github.com/nirmata/kube-policy/utils"
 
-	rest "k8s.io/client-go/rest"
-	clientcmd "k8s.io/client-go/tools/clientcmd"
 	signals "k8s.io/sample-controller/pkg/signals"
 )
 
@@ -21,70 +16,6 @@ var (
 	cert       string
 	key        string
 )
-
-func createClientConfig(kubeconfig string) (*rest.Config, error) {
-	if kubeconfig == "" {
-		log.Printf("Using in-cluster configuration")
-		return rest.InClusterConfig()
-	} else {
-		log.Printf("Using configuration from '%s'", kubeconfig)
-		return clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
-}
-
-func readTlsPairFromFiles() *utils.TlsPemPair {
-	certContent, err := ioutil.ReadFile(cert)
-	if err != nil {
-		log.Printf("Unable to read file with TLS certificate: %v", err)
-		return nil
-	}
-
-	keyContent, err := ioutil.ReadFile(key)
-	if err != nil {
-		log.Printf("Unable to read file with TLS private key: %v", err)
-		return nil
-	}
-
-	return &utils.TlsPemPair{
-		Certificate: certContent,
-		PrivateKey:  keyContent,
-	}
-}
-
-// Loads or creates PEM private key and TLS certificate for webhook server
-// Returns struct with key/certificate pair
-func initTlsPemsPair(config *rest.Config, client *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
-	tlsPair := readTlsPairFromFiles()
-	if tlsPair != nil {
-		log.Print("Using given TLS key/certificate pair")
-		return tlsPair, nil
-	}
-
-	apiServerUrl, err := url.Parse(config.Host)
-	if err != nil {
-		return nil, err
-	}
-	certProps := utils.TlsCertificateProps{
-		Service:       "localhost",
-		Namespace:     "default",
-		ApiServerHost: apiServerUrl.Hostname(),
-	}
-
-	tlsPair = client.ReadTlsPair(certProps)
-	if utils.IsTlsPairShouldBeUpdated(tlsPair) {
-		log.Printf("Generating new key/certificate pair for TLS")
-		tlsPair, err = client.GenerateTlsPemPair(certProps)
-		if err != nil {
-			return nil, err
-		}
-		err = client.WriteTlsPair(certProps, tlsPair)
-		if err != nil {
-			log.Printf("Unable to save TLS pair to the cluster: %v", err)
-		}
-	}
-
-	return tlsPair, nil
-}
 
 func main() {
 	clientConfig, err := createClientConfig(kubeconfig)
@@ -102,9 +33,14 @@ func main() {
 		log.Fatalf("Error creating kubeclient: %v\n", err)
 	}
 
-	tlsPair, err := initTlsPemsPair(clientConfig, kubeclient)
-	if err != nil {
-		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
+	tlsPair := readTlsPairFromFiles(cert, key)
+	if tlsPair != nil {
+		log.Print("Using given TLS key/certificate pair")
+	} else {
+		tlsPair, err = initTlsPemsPair(clientConfig, kubeclient)
+		if err != nil {
+			log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
+		}
 	}
 
 	serverConfig := server.WebhookServerConfig{
