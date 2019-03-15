@@ -62,6 +62,9 @@ func main() {
 	}
 
 	server, err := server.NewWebhookServer(serverConfig, nil)
+	if err != nil {
+		log.Fatalf("Unable to create webhook server: %v\n", err)
+	}
 	server.RunAsync()
 
 	stopCh := signals.SetupSignalHandler()
