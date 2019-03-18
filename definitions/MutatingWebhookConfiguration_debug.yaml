@@ -1,3 +1,4 @@
+# Example of MutatingWebhookConfiguration which can be used for debug, when controller is placed on master node
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -7,10 +8,7 @@ metadata:
 webhooks:
   - name: webhook.nirmata.kube-policy
     clientConfig:
-      service:
-        name: kube-policy-svc
-        namespace: default
-        path: "/mutate"
+      url: "https://localhost/mutate"
       caBundle: ${CA_BUNDLE}
     rules:
       - operations: [ "CREATE" ]
