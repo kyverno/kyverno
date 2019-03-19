@@ -6,6 +6,7 @@ import (
 
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/webhooks"
 	"github.com/nirmata/kube-policy/server"
 
 	signals "k8s.io/sample-controller/pkg/signals"
@@ -23,9 +24,14 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
+	_, err = webhooks.RegisterMutationWebhook(clientConfig)
+	if err != nil {
+		log.Fatalf("Error registering mutation webhook server: %v\n", err)
+	}
+
 	controller, err := controller.NewPolicyController(clientConfig, nil)
 	if err != nil {
-		log.Fatalf("Error creating PolicyController! Error: %s\n", err)
+		log.Fatalf("Error creating PolicyController: %s\n", err)
 	}
 
 	kubeclient, err := kubeclient.NewKubeClient(clientConfig, nil)

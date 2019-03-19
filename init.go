@@ -73,8 +73,3 @@ func initTlsPemsPair(config *rest.Config, client *kubeclient.KubeClient) (*utils
 
 	return tlsPair, nil
 }
-
-func registerWebhook(client *kubeclient.KubeClient) error {
-	// TODO
-	return nil
-}
