@@ -1,0 +1,25 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-endpoints
+spec :
+  failurePolicy: stopOnError
+  rules:
+  - resource:
+      kind : Endpoints
+      selector:
+        matchLabels:
+          label : test
+    patch:
+      - path : "/subsets/0/ports/0/port"
+        op : replace
+        value: 9663
+      - path : "/subsets/0"
+        op: add
+        value:
+          addresses:
+          - ip: "192.168.10.171"
+          ports:
+          - name: load-balancer-connection
+            port: 80
+            protocol: UDP

@@ -1,0 +1,21 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-daemonset
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : DaemonSet
+        selector:
+          matchLabels:
+            originalLabel: isHere
+      patch:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path: "/metadata/labels/originalLabel"
+          op: remove
+        - path : "/spec/template/spec/containers/0/image"
+          op : replace
+          value: "k8s.gcr.io/fluentd-elasticsearch:latest"
