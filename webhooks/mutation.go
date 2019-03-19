@@ -52,15 +52,15 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 
 			mw.logger.Printf("Applying policy %s, rule #%d", policy.ObjectMeta.Name, ruleIdx)
 			rulePatches, err := mw.applyRule(request, rule, patchingSets)
-
 			if err != nil {
-				errStr := fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err)
-				mw.logger.Printf("Denying the request because of error: %s", errStr)
-				mw.controller.LogPolicyError(policy.Name, errStr)
-				return errorToAdmissionResponse(err, true)
+				return mw.denyResourceCreation(policy.Name, fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err))
 			}
 
 			rulePatchesProcessed, err := ProcessPatches(rulePatches, request.Object.Raw, patchingSets)
+			if err != nil {
+				return mw.denyResourceCreation(policy.Name, fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err))
+			}
+
 			if rulePatches != nil {
 				allPatches = append(allPatches, rulePatchesProcessed...)
 				mw.logger.Printf("Prepared %d patches", len(rulePatchesProcessed))
@@ -91,6 +91,7 @@ func getPolicyPatchingSets(policy types.Policy) PatchingSets {
 
 // Applies all rule to the created object and returns list of JSON patches.
 // May return nil patches if it is not necessary to create patches for requested object.
+// Returns error ONLY in case when creation of resource should be denied.
 func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule, errorBehavior PatchingSets) ([]types.PolicyPatch, error) {
 	if !IsRuleApplicableToRequest(rule.Resource, request) {
 		return nil, nil
@@ -147,11 +148,15 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 	return nil
 }
 
-func errorToAdmissionResponse(err error, allowed bool) *v1beta1.AdmissionResponse {
+// Forms AdmissionResponse with denial of resource creation and error message
+func (mw *MutationWebhook) denyResourceCreation(policyName, errStr string) *v1beta1.AdmissionResponse {
+	mw.logger.Printf("Denying the request because of error: %s", errStr)
+	mw.controller.LogPolicyError(policyName, errStr)
+
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
-			Message: err.Error(),
+			Message: errStr,
 		},
-		Allowed: allowed,
+		Allowed: false,
 	}
 }
