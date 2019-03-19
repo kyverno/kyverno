@@ -22,6 +22,7 @@ type PatchBytes []byte
 
 // Test patches on given document according to given sets.
 // Returns array from separate patches that can be applied to the document
+// Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(patches []types.PolicyPatch, originalDocument []byte, sets PatchingSets) ([]PatchBytes, error) {
 	if len(originalDocument) == 0 {
 		return nil, errors.New("Source document for patching is empty")

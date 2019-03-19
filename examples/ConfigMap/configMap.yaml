@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-config
+  namespace: default
+data:
+  secretData: "very sensitive data"
+  secretDatatoreplace: "data is not changed"
+  game.properties: |
+    enemies=aliens
+    lives=3
+  ui.properties: |
+    color.good=purple
+    color.bad=yellow

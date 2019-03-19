@@ -1,0 +1,19 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-test
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : ConfigMap
+        name: "game-config"
+      patch:
+        - path : "/data/newKey"
+          op : add
+          value : newValue
+        - path : "/data/secretData"
+          op : remove
+        - path : "/data/secretDatatoreplace"
+          op : replace
+          value : "data is replaced"
