@@ -1,0 +1,24 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-deployment-ghost
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : Deployment
+        selector :
+          matchLabels :
+           nirmata.io/deployment.name: "ghost"
+      patch:
+      - path: /metadata/labels/isMutated
+        op: add
+        value: "true"
+      - path: "/spec/strategy/rollingUpdate/maxSurge"
+        op: add
+        value: 5
+      - path: "/spec/template/spec/containers/0/ports/0"
+        op: replace
+        value:
+          containerPort: 2368
+          protocol: TCP

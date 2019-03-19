@@ -1,0 +1,21 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-network-policy
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : NetworkPolicy
+        selector:
+          matchLabels:
+            originalLabel: isHere
+      patch:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path: "/metadata/labels/originalLabel"
+          op: remove
+        - path : "/spec/ingress/0/from/0/ipBlock/cidr"
+          op : replace
+          value: "172.17.128.0/17"
