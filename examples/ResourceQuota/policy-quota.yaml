@@ -1,0 +1,17 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-quota
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : ResourceQuota
+        name: "pods-high"
+      patch:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path : "/spec/hard/cpu"
+          op : replace
+          value : "7"

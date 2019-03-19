@@ -1,0 +1,20 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-hpa
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : HorizontalPodAutoscaler
+        selector:
+          matchLabels:
+            originalLabel: isHere
+      patch:
+        - path: "/metadata/labels"
+          op: add
+          value:
+            isMutated: "true"
+        - op: replace
+          path: "/spec/metrics/1/resource/targetAverageValue"
+          value: "959Mi"

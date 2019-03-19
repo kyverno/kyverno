@@ -1,0 +1,17 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-job-perl-bigInt
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : Job
+        name: pi
+      patch:
+        - path : "/spec/template/spec/containers/0/command"
+          op : add
+          value: [ "-Mbignum=bpi", "-wle", "print bpi(2000)" ]
+        - path : "/spec/backoffLimit"
+          op: add
+          value: 10

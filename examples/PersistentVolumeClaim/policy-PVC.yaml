@@ -1,0 +1,17 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-pvc
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : PersistentVolumeClaim
+        matchLabels:
+            originalLabel: isHere
+      patch:
+        - path: "/metadata/labels/originalLabel"
+          op: remove
+        - path : "/spec/resources/requests/storage"
+          op : replace
+          value: "6Gi"
