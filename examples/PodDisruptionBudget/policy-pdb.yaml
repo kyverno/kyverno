@@ -1,0 +1,17 @@
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-pdb
+spec :
+  failurePolicy: stopOnError
+  rules:
+    - resource:
+        kind : PodDisruptionBudget
+        name: "game-pdb"
+      patch:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path : "/spec/minAvailable"
+          op : replace
+          value: "5%"

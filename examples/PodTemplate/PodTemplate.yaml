@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PodTemplate
+metadata: 
+ name: nginx-test
+ labels: 
+  app: nginx
+  originalLabel: isHere
+template: 
+ spec: 
+  containers: 
+    - name: redis
+      image: redis
+      ports: 
+      - containerPort: 80
+        protocol: TCP
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  dnsPolicy: ClusterFirst
