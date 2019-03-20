@@ -1,18 +1,17 @@
 apiVersion: v1
-kind: List
-items:
-- apiVersion: v1
-  kind: ResourceQuota
-  metadata:
-    name: pods-high
-  spec:
-    hard:
-      cpu: 100
-      memory: 200Gi
-      pods: "10"
-    scopeSelector:
-      matchExpressions:
-      - operator : In
-        scopeName: PriorityClass
-        values: ["high"]
-
+kind: ResourceQuota
+metadata:
+  name: pods-low
+  labels:
+    quota: "low"
+spec:
+  hard:
+    cpu: 2
+    memory: 8Gi
+    pods: 4
+    limits.memory: 12Gi
+  scopeSelector:
+    matchExpressions:
+    - operator : In
+      scopeName: PriorityClass
+      values: ["low"]
