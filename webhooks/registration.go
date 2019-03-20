@@ -1,7 +1,6 @@
 package webhooks
 import (
 	"io/ioutil"
-	"encoding/base64"
 
 	rest "k8s.io/client-go/rest"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +54,7 @@ func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfigurati
 						Name: webhookServiceName,
 						Path: &webhookPath,
 					},
-					CABundle: extractCA(config),
+					CABundle: ExtractCA(config),
 				},
 				Rules: []adm.RuleWithOperations {
 					adm.RuleWithOperations {
@@ -80,19 +79,18 @@ func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfigurati
 	}
 }
 
-func extractCA(config *rest.Config) (result []byte) {
-	
-	if config.TLSClientConfig.CAData != nil {
-		return config.TLSClientConfig.CAData
-	} else {
-		fileName := config.TLSClientConfig.CAFile
-		bytes, err := ioutil.ReadFile(fileName)
+func ExtractCA(config *rest.Config) (result []byte) {
+	fileName := config.TLSClientConfig.CAFile
 
+    if fileName != "" {
+		result, err := ioutil.ReadFile(fileName)
+		
 		if err != nil {
 			return nil
 		}
 
-		base64.StdEncoding.Encode(result, bytes)
-		return
+		return result
+	} else {
+		return config.TLSClientConfig.CAData
 	}
 }
