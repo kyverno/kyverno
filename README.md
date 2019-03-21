@@ -142,7 +142,7 @@ The **copyFrom** parameter contains information about template config-map. The *
 
 **secretGenerator** acts exactly as **configMapGenerator**, but creates a secret instead of the config-map.
 
-### More examples
+### 3. More examples
 An example of a policy that uses all available features: `definitions/policy-example.yaml`.
 See the contents of `/examples`: there are definitions and policies for every supported type of resource.
 
@@ -150,13 +150,15 @@ See the contents of `/examples`: there are definitions and policies for every su
 
 ## Prerequisites
 
-You need to have the go and dep utils installed on your machine.
-Ensure that the GOPATH environment variable is set to the desired location.
+You need to have the go installed and configured on your machine: [golang installation](https://golang.org/doc/install).
+Ensure that the GOPATH environment variable is set to the desired location (usually `~/go`).
+
+We are using [dep](https://github.com/golang/dep) **to resolve dependencies**.
+
+We are using [goreturns](https://github.com/sqs/goreturns) **to format the sources** before commit.
+
 Code generation for the CRD controller depends on kubernetes/hack, so before using code generation, execute:
-
 `go get k8s.io/kubernetes/hack`
-
-We are using [dep](https://github.com/golang/dep)
 
 ## Cloning
 
@@ -184,11 +186,11 @@ Then you can build the controller:
 
 # Installation
 
-There are two possible ways of installing and using the controller: for **development** and for **production**
+The controller can be installed and operated in two different ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world: in the same mode it must be installed for QA testing.
 
-## For development
+## Outside the cluster (debug mode)
 
-_At the time of creation of these instructions, only this installation method worked_
+To run controller in this mode you should prepare TLS key/certificate pair for webhook, which will run on localhost and explicitly provide these files with kubeconfig to the controller.
 
 1. Open your `~/.kube/config` file and copy the value of `certificate-authority-data` to the clipboard.
 2. Open `crd/MutatingWebhookConfiguration_local.yaml` and replace `${CA_BUNDLE}` with the contents of the clipboard.
@@ -196,7 +198,19 @@ _At the time of creation of these instructions, only this installation method wo
 4. Run `scripts/deploy-controller.sh --service=localhost --serverIp=<server_IP>`, where `<server_IP>` is a server from the clipboard. This scripts will generate TLS certificate for webhook server and register this webhook in the cluster. Also it registers CustomResource `Policy`.
 5. Start the controller using the following command: `sudo kube-policy --cert=certs/server.crt --key=certs/server-key.pem --kubeconfig=~/.kube/config`
 
-## For production
+## Inside the cluster (normal use)
 
-_To be implemented_
-The scripts for "development installation method" will be moved to the controller's code. The solution will perform the preparation inside the cluster automatically.
+Just execute the command for creating all necesarry stuff:
+
+`kubectl create -f definitions/install.yaml`
+
+In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
+If your working node equals the master node, you probably will get such kind of error:
+
+`... 1 node(s) had taints that the pod didn't tolerate ...`
+
+In this case execute the command:
+
+`kubectl taint nodes --all node-role.kubernetes.io/master-`
+
+and run installation command again.
