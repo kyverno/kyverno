@@ -1,17 +1,28 @@
 apiVersion : policy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
-  name : policy-quota
+  name : policy-quota-low-test
 spec :
   failurePolicy: stopOnError
   rules:
     - resource:
         kind : ResourceQuota
-        name: "pods-high"
+        selector:
+          matchLabels:
+            quota: low
       patch:
-        - path: "/metadata/labels/isMutated"
-          op: add
-          value: "true"
-        - path : "/spec/hard/cpu"
+        - path : "/spec/scopeSelector/matchExpressions/1"
+          op : add
+          value : 
+            operator : In
+            scopeName: PriorityClass
+            values: ["low-medium"]
+        - path : "/spec/hard"
           op : replace
-          value : "7"
+          value: {
+            "cpu": "10",
+            "memory": "10Gi",
+            "pods": "10",
+            "limits.memory": "12Gi",
+            "requests.nvidia.com/gpu": "8"
+          }
