@@ -24,7 +24,7 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	_, err = webhooks.RegisterMutationWebhook(clientConfig)
+	err = webhooks.RegisterMutationWebhook(clientConfig)
 	if err != nil {
 		log.Fatalf("Error registering mutation webhook server: %v\n", err)
 	}

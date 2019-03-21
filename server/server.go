@@ -14,8 +14,9 @@ import (
 
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/utils"
+	"github.com/nirmata/kube-policy/constants"
 	"github.com/nirmata/kube-policy/webhooks"
+	"github.com/nirmata/kube-policy/utils"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
@@ -66,7 +67,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/mutate", ws.serve)
+	mux.HandleFunc(constants.WebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -82,7 +83,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/mutate" {
+	if r.URL.Path == constants.WebhookServicePath {
 		admissionReview := ws.parseAdmissionReview(r, w)
 		if admissionReview == nil {
 			return
