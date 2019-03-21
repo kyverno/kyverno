@@ -6,15 +6,12 @@ import (
 	"net/url"
 
 	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/constants"
 	"github.com/nirmata/kube-policy/utils"
 
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
-
-// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
-const serviceName string = "kube-policy-svc"
-const namespace string = "default"
 
 func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
@@ -29,13 +26,13 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 func readTlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
 	certContent, err := ioutil.ReadFile(certFile)
 	if err != nil {
-		log.Printf("Unable to read file with TLS certificate: %v", err)
+		log.Printf("Unable to read file with TLS certificate: path - %s, error - %v", certFile, err)
 		return nil
 	}
 
 	keyContent, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		log.Printf("Unable to read file with TLS private key: %v", err)
+		log.Printf("Unable to read file with TLS private key: path - %s, error - %v", keyFile, err)
 		return nil
 	}
 
@@ -53,8 +50,8 @@ func initTlsPemsPair(config *rest.Config, client *kubeclient.KubeClient) (*utils
 		return nil, err
 	}
 	certProps := utils.TlsCertificateProps{
-		Service:       serviceName,
-		Namespace:     namespace,
+		Service:       constants.WebhookServiceName,
+		Namespace:     constants.WebhookServiceNamespace,
 		ApiServerHost: apiServerUrl.Hostname(),
 	}
 
