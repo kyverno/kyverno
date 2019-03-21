@@ -35,7 +35,7 @@ func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfigurati
 			adm.Webhook {
 				Name: constants.MutationWebhookName,
 				ClientConfig: adm.WebhookClientConfig {
-                    Service: &adm.ServiceReference {
+					Service: &adm.ServiceReference {
 						Namespace: constants.WebhookServiceNamespace,
 						Name: constants.WebhookServiceName,
 						Path: &constants.WebhookServicePath,
@@ -68,7 +68,7 @@ func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfigurati
 func ExtractCA(config *rest.Config) (result []byte) {
 	fileName := config.TLSClientConfig.CAFile
 
-    if fileName != "" {
+	if fileName != "" {
 		result, err := ioutil.ReadFile(fileName)
 		
 		if err != nil {
