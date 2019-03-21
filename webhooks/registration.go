@@ -3,12 +3,12 @@ package webhooks
 import (
 	"io/ioutil"
 
-	"github.com/nirmata/kube-policy/constants"
+	"github.com/nirmata/kube-policy/config"
 
-	rest "k8s.io/client-go/rest"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	adm "k8s.io/api/admissionregistration/v1beta1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admreg "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	rest "k8s.io/client-go/rest"
 )
 
 func RegisterMutationWebhook(config *rest.Config) error {
@@ -25,36 +25,36 @@ func RegisterMutationWebhook(config *rest.Config) error {
 	return nil
 }
 
-func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfiguration {
-	return &adm.MutatingWebhookConfiguration {
-		ObjectMeta: meta.ObjectMeta {
-			Name: constants.WebhookConfigName,
-			Labels: constants.WebhookConfigLabels,
+func constructWebhookConfig(configuration *rest.Config) *adm.MutatingWebhookConfiguration {
+	return &adm.MutatingWebhookConfiguration{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   config.WebhookConfigName,
+			Labels: config.WebhookConfigLabels,
 		},
-		Webhooks: []adm.Webhook {
-			adm.Webhook {
-				Name: constants.MutationWebhookName,
-				ClientConfig: adm.WebhookClientConfig {
-					Service: &adm.ServiceReference {
-						Namespace: constants.WebhookServiceNamespace,
-						Name: constants.WebhookServiceName,
-						Path: &constants.WebhookServicePath,
+		Webhooks: []adm.Webhook{
+			adm.Webhook{
+				Name: config.MutationWebhookName,
+				ClientConfig: adm.WebhookClientConfig{
+					Service: &adm.ServiceReference{
+						Namespace: config.WebhookServiceNamespace,
+						Name:      config.WebhookServiceName,
+						Path:      &config.WebhookServicePath,
 					},
-					CABundle: ExtractCA(config),
+					CABundle: ExtractCA(configuration),
 				},
-				Rules: []adm.RuleWithOperations {
-					adm.RuleWithOperations {
-						Operations: []adm.OperationType {
+				Rules: []adm.RuleWithOperations{
+					adm.RuleWithOperations{
+						Operations: []adm.OperationType{
 							adm.Create,
 						},
-						Rule: adm.Rule {
-							APIGroups: []string {
+						Rule: adm.Rule{
+							APIGroups: []string{
 								"*",
 							},
-							APIVersions: []string {
+							APIVersions: []string{
 								"*",
 							},
-							Resources: []string {
+							Resources: []string{
 								"*/*",
 							},
 						},
@@ -70,7 +70,7 @@ func ExtractCA(config *rest.Config) (result []byte) {
 
 	if fileName != "" {
 		result, err := ioutil.ReadFile(fileName)
-		
+
 		if err != nil {
 			return nil
 		}
