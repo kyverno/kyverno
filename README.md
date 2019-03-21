@@ -4,7 +4,7 @@ A Kubernetes native policy engine
 ## Motivation
 
 ## How it works
-The solution provides a possibility to validate the custom Kubernetes resources and modify them before their creation. 
+The solution provides a possibility to validate Kubernetes resources and modify them before their creation. 
 ### Components
 
 * **Policy Controller** (`/controller`) allows defining custom resources which can be used in your Kubernetes cluster
