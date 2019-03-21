@@ -3,7 +3,7 @@ package webhooks
 import (
 	"io/ioutil"
 
-	"github.com/nirmata/kube-policy/constants"
+	"github.com/nirmata/kube-policy/config"
 
 	rest "k8s.io/client-go/rest"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,22 +25,22 @@ func RegisterMutationWebhook(config *rest.Config) error {
 	return nil
 }
 
-func constructWebhookConfig(config *rest.Config) *adm.MutatingWebhookConfiguration {
+func constructWebhookConfig(configuration *rest.Config) *adm.MutatingWebhookConfiguration {
 	return &adm.MutatingWebhookConfiguration {
 		ObjectMeta: meta.ObjectMeta {
-			Name: constants.WebhookConfigName,
-			Labels: constants.WebhookConfigLabels,
+			Name: config.WebhookConfigName,
+			Labels: config.WebhookConfigLabels,
 		},
 		Webhooks: []adm.Webhook {
 			adm.Webhook {
-				Name: constants.MutationWebhookName,
+				Name: config.MutationWebhookName,
 				ClientConfig: adm.WebhookClientConfig {
 					Service: &adm.ServiceReference {
-						Namespace: constants.WebhookServiceNamespace,
-						Name: constants.WebhookServiceName,
-						Path: &constants.WebhookServicePath,
+						Namespace: config.WebhookServiceNamespace,
+						Name: config.WebhookServiceName,
+						Path: &config.WebhookServicePath,
 					},
-					CABundle: ExtractCA(config),
+					CABundle: ExtractCA(configuration),
 				},
 				Rules: []adm.RuleWithOperations {
 					adm.RuleWithOperations {

@@ -1,4 +1,4 @@
-package constants
+package config
 
 const (
 	// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
