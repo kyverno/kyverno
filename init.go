@@ -24,6 +24,10 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 }
 
 func readTlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
+	if certFile == "" || keyFile == "" {
+		return nil
+	}
+
 	certContent, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		log.Printf("Unable to read file with TLS certificate: path - %s, error - %v", certFile, err)
