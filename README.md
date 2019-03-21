@@ -144,6 +144,7 @@ The **copyFrom** parameter contains information about template config-map. The *
 
 ### 3. More examples
 An example of a policy that uses all available features: `definitions/policy-example.yaml`.
+
 See the contents of `/examples`: there are definitions and policies for every supported type of resource.
 
 # Build
@@ -158,11 +159,13 @@ We are using [dep](https://github.com/golang/dep) **to resolve dependencies**.
 We are using [goreturns](https://github.com/sqs/goreturns) **to format the sources** before commit.
 
 Code generation for the CRD controller depends on kubernetes/hack, so before using code generation, execute:
+
 `go get k8s.io/kubernetes/hack`
 
 ## Cloning
 
 `git clone https://github.com/nirmata/kube-policy.git $GOPATH/src/github.com/nirmata/kube-policy`
+
 Make sure that you use exactly the same subdirectory of the `$GOPATH` as shown above.
 
 ## Restore dependencies
@@ -186,7 +189,7 @@ Then you can build the controller:
 
 # Installation
 
-The controller can be installed and operated in two different ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world: in the same mode it must be installed for QA testing.
+The controller can be installed and operated in two ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world, and the **QA testing** should be performed when controller operate in this mode.
 
 ## Outside the cluster (debug mode)
 
@@ -205,7 +208,7 @@ Just execute the command for creating all necesarry stuff:
 `kubectl create -f definitions/install.yaml`
 
 In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
-If your working node equals the master node, you probably will get such kind of error:
+If your worker node is equal to the master node, you will probably get such kind of error:
 
 `... 1 node(s) had taints that the pod didn't tolerate ...`
 
