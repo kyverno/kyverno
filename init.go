@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/constants"
+	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/utils"
 
 	rest "k8s.io/client-go/rest"
@@ -44,14 +44,14 @@ func readTlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
 
 // Loads or creates PEM private key and TLS certificate for webhook server
 // Returns struct with key/certificate pair
-func initTlsPemsPair(config *rest.Config, client *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
-	apiServerUrl, err := url.Parse(config.Host)
+func initTlsPemsPair(configuration *rest.Config, client *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
+	apiServerUrl, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
 	}
 	certProps := utils.TlsCertificateProps{
-		Service:       constants.WebhookServiceName,
-		Namespace:     constants.WebhookServiceNamespace,
+		Service:       config.WebhookServiceName,
+		Namespace:     config.WebhookServiceNamespace,
 		ApiServerHost: apiServerUrl.Hostname(),
 	}
 
