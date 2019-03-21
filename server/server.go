@@ -12,11 +12,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/constants"
-	"github.com/nirmata/kube-policy/webhooks"
 	"github.com/nirmata/kube-policy/utils"
+	"github.com/nirmata/kube-policy/webhooks"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
@@ -40,23 +40,23 @@ type WebhookServerConfig struct {
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookServer, error) {
+func NewWebhookServer(configuration WebhookServerConfig, logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
 	}
 
-	if config.TlsPemPair == nil || config.Controller == nil || config.Kubeclient == nil {
+	if configuration.TlsPemPair == nil || configuration.Controller == nil || configuration.Kubeclient == nil {
 		return nil, errors.New("WebhookServerConfig is not initialized properly")
 	}
 
 	var tlsConfig tls.Config
-	pair, err := tls.X509KeyPair(config.TlsPemPair.Certificate, config.TlsPemPair.PrivateKey)
+	pair, err := tls.X509KeyPair(configuration.TlsPemPair.Certificate, configuration.TlsPemPair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	mw, err := webhooks.NewMutationWebhook(config.Kubeclient, config.Controller, logger)
+	mw, err := webhooks.NewMutationWebhook(configuration.Kubeclient, configuration.Controller, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(constants.WebhookServicePath, ws.serve)
+	mux.HandleFunc(config.WebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -83,7 +83,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == constants.WebhookServicePath {
+	if r.URL.Path == config.WebhookServicePath {
 		admissionReview := ws.parseAdmissionReview(r, w)
 		if admissionReview == nil {
 			return

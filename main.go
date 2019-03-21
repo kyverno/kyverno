@@ -64,8 +64,7 @@ func main() {
 	controller.Run(stopCh)
 
 	if err != nil {
-		log.Fatalf("Error running PolicyController! Error: %s\n", err)
-		return
+		log.Fatalf("Error running PolicyController: %s\n", err)
 	}
 
 	log.Println("Policy Controller has started")
