@@ -22,7 +22,7 @@ type KubeClient struct {
 // Checks parameters and creates new instance of KubeClient
 func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error) {
 	if logger == nil {
-		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags|log.Lshortfile)
+		logger = log.New(os.Stdout, "Kubernetes client: ", log.LstdFlags|log.Lshortfile)
 	}
 
 	client, err := kubernetes.NewForConfig(config)
@@ -110,6 +110,13 @@ func defaultGetOptions() metav1.GetOptions {
 	return metav1.GetOptions{
 		ResourceVersion:      "1",
 		IncludeUninitialized: true,
+	}
+}
+
+func defaultDeleteOptions() *metav1.DeleteOptions {
+	var deletePeriod int64 = 0
+	return &metav1.DeleteOptions{
+		GracePeriodSeconds: &deletePeriod,
 	}
 }
 

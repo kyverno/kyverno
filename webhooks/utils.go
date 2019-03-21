@@ -31,3 +31,10 @@ func parseNameFromMetadata(meta map[string]interface{}) string {
 	}
 	return ""
 }
+
+func parseNamespaceFromMetadata(meta map[string]interface{}) string {
+	if namespace, ok := meta["namespace"].(string); ok {
+		return namespace
+	}
+	return ""
+}
