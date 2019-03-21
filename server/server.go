@@ -12,9 +12,12 @@ import (
 	"os"
 	"time"
 
-	controller "github.com/nirmata/kube-policy/controller"
-	kubeclient "github.com/nirmata/kube-policy/kubeclient"
-	webhooks "github.com/nirmata/kube-policy/webhooks"
+	"github.com/nirmata/kube-policy/config"
+	"github.com/nirmata/kube-policy/controller"
+	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/utils"
+	"github.com/nirmata/kube-policy/webhooks"
+
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
@@ -30,31 +33,30 @@ type WebhookServer struct {
 // Configuration struct for WebhookServer used in NewWebhookServer
 // Controller and Kubeclient should be initialized and valid
 type WebhookServerConfig struct {
-	CertFile   string
-	KeyFile    string
+	TlsPemPair *utils.TlsPemPair
 	Controller *controller.PolicyController
 	Kubeclient *kubeclient.KubeClient
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookServer, error) {
+func NewWebhookServer(configuration WebhookServerConfig, logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
 	}
 
-	if config.Controller == nil || config.Kubeclient == nil {
-		return nil, errors.New("WebHook server requires initialized Policy Controller and Kubernetes Client")
+	if configuration.TlsPemPair == nil || configuration.Controller == nil || configuration.Kubeclient == nil {
+		return nil, errors.New("WebhookServerConfig is not initialized properly")
 	}
 
 	var tlsConfig tls.Config
-	pair, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+	pair, err := tls.X509KeyPair(configuration.TlsPemPair.Certificate, configuration.TlsPemPair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	mw, err := webhooks.NewMutationWebhook(config.Kubeclient, config.Controller, logger)
+	mw, err := webhooks.NewMutationWebhook(configuration.Kubeclient, configuration.Controller, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +67,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/mutate", ws.serve)
+	mux.HandleFunc(config.WebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -81,7 +83,7 @@ func NewWebhookServer(config WebhookServerConfig, logger *log.Logger) (*WebhookS
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/mutate" {
+	if r.URL.Path == config.WebhookServicePath {
 		admissionReview := ws.parseAdmissionReview(r, w)
 		if admissionReview == nil {
 			return

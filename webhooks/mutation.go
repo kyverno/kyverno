@@ -41,42 +41,32 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 
 	var allPatches []PatchBytes
 	for _, policy := range policies {
-		patchingSets := getPolicyPatchingSets(policy)
+		mw.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		for ruleIdx, rule := range policy.Spec.Rules {
-			err := rule.Validate()
-			if err != nil {
-				mw.logger.Printf("Invalid rule detected: #%d in policy %s", ruleIdx, policy.ObjectMeta.Name)
-				continue
-			}
+		policyPatches, err := mw.applyPolicyRules(request, policy)
+		if err != nil {
+			mw.controller.LogPolicyError(policy.Name, err.Error())
 
-			mw.logger.Printf("Applying policy %s, rule #%d", policy.ObjectMeta.Name, ruleIdx)
-			rulePatches, err := mw.applyRule(request, rule, patchingSets)
-			if err != nil {
-				return mw.denyResourceCreation(policy.Name, fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err))
-			}
+			errStr := fmt.Sprintf("Unable to apply policy %s: %v", policy.Name, err)
+			mw.logger.Printf("Denying the request because of error: %s", errStr)
+			return mw.denyResourceCreation(errStr)
+		}
 
-			rulePatchesProcessed, err := ProcessPatches(rulePatches, request.Object.Raw, patchingSets)
-			if err != nil {
-				return mw.denyResourceCreation(policy.Name, fmt.Sprintf("Unable to apply rule #%d: %s", ruleIdx, err))
-			}
+		if len(policyPatches) > 0 {
+			meta := parseMetadataFromObject(request.Object.Raw)
+			namespace := parseNamespaceFromMetadata(meta)
+			name := parseNameFromMetadata(meta)
+			mw.controller.LogPolicyInfo(policy.Name, fmt.Sprintf("Applied to %s %s/%s", request.Kind.Kind, namespace, name))
 
-			if rulePatches != nil {
-				allPatches = append(allPatches, rulePatchesProcessed...)
-				mw.logger.Printf("Prepared %d patches", len(rulePatchesProcessed))
-			} else {
-				mw.logger.Print("No patches prepared")
-			}
+			allPatches = append(allPatches, policyPatches...)
 		}
 	}
 
+	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-		Patch:   JoinPatches(allPatches),
-		PatchType: func() *v1beta1.PatchType {
-			pt := v1beta1.PatchTypeJSONPatch
-			return &pt
-		}(),
+		Allowed:   true,
+		Patch:     JoinPatches(allPatches),
+		PatchType: &patchType,
 	}
 }
 
@@ -89,20 +79,43 @@ func getPolicyPatchingSets(policy types.Policy) PatchingSets {
 	return PatchingSetsDefault
 }
 
-// Applies all rule to the created object and returns list of JSON patches.
+// Applies all policy rules to the created object and returns list of processed JSON patches.
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
-func (mw *MutationWebhook) applyRule(request *v1beta1.AdmissionRequest, rule types.PolicyRule, errorBehavior PatchingSets) ([]types.PolicyPatch, error) {
-	if !IsRuleApplicableToRequest(rule.Resource, request) {
-		return nil, nil
+func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]PatchBytes, error) {
+	patchingSets := getPolicyPatchingSets(policy)
+	var policyPatches []PatchBytes
+
+	for ruleIdx, rule := range policy.Spec.Rules {
+		err := rule.Validate()
+		if err != nil {
+			mw.logger.Printf("Invalid rule detected: #%d in policy %s", ruleIdx, policy.ObjectMeta.Name)
+			continue
+		}
+
+		if !IsRuleApplicableToRequest(rule.Resource, request) {
+			return nil, nil
+		}
+
+		err = mw.applyRuleGenerators(request, rule)
+		if err != nil && patchingSets == PatchingSetsStopOnError {
+			return nil, errors.New(fmt.Sprintf("Failed to apply generators from rule #%d: %s", ruleIdx, err))
+		}
+
+		rulePatchesProcessed, err := ProcessPatches(rule.Patches, request.Object.Raw, patchingSets)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to process patches from rule #%d: %s", ruleIdx, err))
+		}
+
+		if rulePatchesProcessed != nil {
+			policyPatches = append(policyPatches, rulePatchesProcessed...)
+			mw.logger.Printf("Rule %d: prepared %d patches", ruleIdx, len(rulePatchesProcessed))
+		} else {
+			mw.logger.Print("Rule %d: no patches prepared")
+		}
 	}
 
-	err := mw.applyRuleGenerators(request, rule)
-	if err != nil && errorBehavior == PatchingSetsStopOnError {
-		return nil, err
-	} else {
-		return rule.Patches, nil
-	}
+	return policyPatches, nil
 }
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
@@ -121,7 +134,7 @@ func (mw *MutationWebhook) applyRuleGenerators(request *v1beta1.AdmissionRequest
 	return nil
 }
 
-// Creates resourceKind (ConfigMap or Secret) with parameters specified in generator in cluster specified in request
+// Creates resourceKind (ConfigMap or Secret) with parameters specified in generator in cluster specified in request.
 func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGenerator, namespace string, configKind string) error {
 	if generator == nil {
 		return nil
@@ -149,10 +162,7 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 }
 
 // Forms AdmissionResponse with denial of resource creation and error message
-func (mw *MutationWebhook) denyResourceCreation(policyName, errStr string) *v1beta1.AdmissionResponse {
-	mw.logger.Printf("Denying the request because of error: %s", errStr)
-	mw.controller.LogPolicyError(policyName, errStr)
-
+func (mw *MutationWebhook) denyResourceCreation(errStr string) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
 			Message: errStr,

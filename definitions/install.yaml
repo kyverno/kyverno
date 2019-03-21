@@ -145,3 +145,60 @@ spec:
                         type: object
                         additionalProperties:
                           type: string
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-policy-svc
+  labels:
+    app: kube-policy
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    app: kube-policy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-policy-service-account
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kube-policy-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kube-policy-service-account
+  namespace: kube-system
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: kube-system
+  name: kube-policy-deployment
+  labels:
+    app: kube-policy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kube-policy
+    spec:
+      serviceAccountName: kube-policy-service-account
+      containers:
+        - name: kube-policy
+          image: nirmata/kube-policy:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 443
+          securityContext:
+            privileged: true
