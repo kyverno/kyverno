@@ -202,3 +202,5 @@ spec:
           - containerPort: 443
           securityContext:
             privileged: true
+      imagePullSecrets:
+      - name: docker-registry-key
