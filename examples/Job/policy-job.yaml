@@ -1,7 +1,7 @@
 apiVersion : policy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
-  name : policy-job-perl-bigInt
+  name : policy-job-perl-bigint
 spec :
   failurePolicy: stopOnError
   rules:
