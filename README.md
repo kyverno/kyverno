@@ -203,17 +203,65 @@ To run controller in this mode you should prepare TLS key/certificate pair for w
 
 ## Inside the cluster (normal use)
 
-Just execute the command for creating all necesarry stuff:
-
+Just execute the command for creating all necesarry resources:
 `kubectl create -f definitions/install.yaml`
 
 In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
-If your worker node is equal to the master node, you will probably get such kind of error:
+To check if the controller is working, find it in the list of kube-system pods:
+
+`kubectl get pods -n kube-system`
+
+The pod with controller contains **'kube-policy'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
+
+`kubectl describe pod <kube-policy-pod-name> -n kube-system`
+
+or
+
+`kubectl logs <kube-policy-pod-name> -n kube-system`
+
+### Troubleshuting
+
+**1. Pulling image from private repo**
+
+_This issue is always actual for now._
+
+If the kube-policy image is in private repo, you should probably see **ImagePullBackOff** as a STATUS of controller's pod. That's because cluster lacks credentials for this repo. To add credentials to the cluster, do the next steps:
+1. Delete previous installation:
+
+    `kubectl delete -f definitions/install.yaml`
+
+    `kubectl delete MutatingWebhookConfiguration nirmata-kube-policy-webhook-cfg`
+
+2. Login to docker:
+
+    `docker login`
+    
+    This will create `~/.docker/config.json` file with credentials
+    
+3. Save docker credentials to the secret:
+
+    `DOCKER_CREDS="$(base64 ~/.docker/config.json) -w 0"`
+    
+    `sed "s,DOCKER_CONFIG_JSON_IN_BASE64,$DOCKER_CREDS,g" definitions/docker-registry-key.yaml > definitions/docker-creds.yaml`
+    
+    `kubectl create -f definitions/docker-creds.yaml`
+    
+4. Install controller again
+
+    `kubectl create -f definitions/install.yaml`
+
+**2. Taints problem when running on master node**
+
+If your worker node is equal to the master node, and controller doesn't start, you will probably see such kind of error in its logs:
 
 `... 1 node(s) had taints that the pod didn't tolerate ...`
 
-In this case execute the command:
+To fix it execute the command:
 
 `kubectl taint nodes --all node-role.kubernetes.io/master-`
 
-and run installation command again.
+And reinstall the controller:
+
+`kubectl delete -f definitions/install.yaml`
+    
+`kubectl create -f definitions/install.yaml`
