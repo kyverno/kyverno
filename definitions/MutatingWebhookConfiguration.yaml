@@ -1,4 +1,5 @@
 # MutatingWebhookConfiguration document which should be used when placing controller inside the cluster
+# This configuration is just an example. Webhook for in-cluster configuration is registered by controller (see webhooks/registration.go).
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:

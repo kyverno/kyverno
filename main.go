@@ -6,8 +6,8 @@ import (
 
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/webhooks"
 	"github.com/nirmata/kube-policy/server"
+	"github.com/nirmata/kube-policy/webhooks"
 
 	signals "k8s.io/sample-controller/pkg/signals"
 )
@@ -24,11 +24,6 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	err = webhooks.RegisterMutationWebhook(clientConfig)
-	if err != nil {
-		log.Fatalf("Error registering mutation webhook server: %v\n", err)
-	}
-
 	controller, err := controller.NewPolicyController(clientConfig, nil)
 	if err != nil {
 		log.Fatalf("Error creating PolicyController: %s\n", err)
@@ -39,22 +34,17 @@ func main() {
 		log.Fatalf("Error creating kubeclient: %v\n", err)
 	}
 
-	tlsPair := readTlsPairFromFiles(cert, key)
-	if tlsPair != nil {
-		log.Print("Using given TLS key/certificate pair")
-	} else {
-		tlsPair, err = initTlsPemsPair(clientConfig, kubeclient)
-		if err != nil {
-			log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
-		}
+	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig, kubeclient, controller, nil)
+	if err != nil {
+		log.Fatalf("Error creating mutation webhook: %v\n", err)
 	}
 
-	serverConfig := server.WebhookServerConfig{
-		TlsPemPair: tlsPair,
-		Controller: controller,
-		Kubeclient: kubeclient,
+	tlsPair, err := initTlsPemPair(cert, key, clientConfig, kubeclient)
+	if err != nil {
+		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := server.NewWebhookServer(serverConfig, nil)
+
+	server, err := server.NewWebhookServer(tlsPair, mutationWebhook, nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -66,10 +56,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error running PolicyController: %s\n", err)
 	}
-
 	log.Println("Policy Controller has started")
+
 	<-stopCh
 	server.Stop()
+	err = mutationWebhook.Deregister()
+	if err != nil {
+		log.Printf("Unable to deregister mutation webhook: %v", err)
+	}
+
 	log.Println("Policy Controller has stopped")
 }
 

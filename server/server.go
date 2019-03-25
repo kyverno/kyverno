@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/nirmata/kube-policy/config"
-	"github.com/nirmata/kube-policy/controller"
-	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/utils"
 	"github.com/nirmata/kube-policy/webhooks"
 
@@ -24,46 +22,32 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server           http.Server
-	policyController *controller.PolicyController
-	mutationWebhook  *webhooks.MutationWebhook
-	logger           *log.Logger
-}
-
-// Configuration struct for WebhookServer used in NewWebhookServer
-// Controller and Kubeclient should be initialized and valid
-type WebhookServerConfig struct {
-	TlsPemPair *utils.TlsPemPair
-	Controller *controller.PolicyController
-	Kubeclient *kubeclient.KubeClient
+	server          http.Server
+	mutationWebhook *webhooks.MutationWebhook
+	logger          *log.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(configuration WebhookServerConfig, logger *log.Logger) (*WebhookServer, error) {
+func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.MutationWebhook, logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
 	}
 
-	if configuration.TlsPemPair == nil || configuration.Controller == nil || configuration.Kubeclient == nil {
-		return nil, errors.New("WebhookServerConfig is not initialized properly")
+	if tlsPair == nil || mutationWebhook == nil {
+		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
 
 	var tlsConfig tls.Config
-	pair, err := tls.X509KeyPair(configuration.TlsPemPair.Certificate, configuration.TlsPemPair.PrivateKey)
+	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	mw, err := webhooks.NewMutationWebhook(configuration.Kubeclient, configuration.Controller, logger)
-	if err != nil {
-		return nil, err
-	}
-
 	ws := &WebhookServer{
 		logger:          logger,
-		mutationWebhook: mw,
+		mutationWebhook: mutationWebhook,
 	}
 
 	mux := http.NewServeMux()
