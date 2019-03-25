@@ -56,15 +56,7 @@ func (mwr *MutationWebhookRegistration) constructWebhookConfig(configuration *re
 		return nil, errors.New("Unable to extract CA data from configuration")
 	}
 
-	// Here we must know our Deployment UID
-	kubePolicyDeployment, err := mwr.kubeclient.
-		GetClient().
-		Apps().
-		Deployments(config.KubePolicyNamespace).
-		Get(config.KubePolicyDeploymentName, meta.GetOptions{
-			ResourceVersion:      "1",
-			IncludeUninitialized: true,
-		})
+	kubePolicyDeployment, err := mwr.kubeclient.GetKubePolicyDeployment()
 
 	if err != nil {
 		return nil, err

@@ -5,9 +5,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/nirmata/kube-policy/config"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -36,8 +38,20 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 	}, nil
 }
 
-func (kc *KubeClient) GetClient() *kubernetes.Clientset {
-	return kc.client
+func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
+	kubePolicyDeployment, err := kc.client.
+		Apps().
+		Deployments(config.KubePolicyNamespace).
+		Get(config.KubePolicyDeploymentName, meta.GetOptions{
+			ResourceVersion:      "1",
+			IncludeUninitialized: true,
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return kubePolicyDeployment, nil
 }
 
 // Generates new ConfigMap in given namespace. If the namespace does not exists yet,
