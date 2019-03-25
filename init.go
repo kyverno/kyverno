@@ -76,7 +76,7 @@ func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClien
 	}
 	certProps := utils.TlsCertificateProps{
 		Service:       config.WebhookServiceName,
-		Namespace:     config.WebhookServiceNamespace,
+		Namespace:     config.KubePolicyNamespace,
 		ApiServerHost: apiServerUrl.Hostname(),
 	}
 

@@ -59,12 +59,8 @@ func main() {
 	log.Println("Policy Controller has started")
 
 	<-stopCh
-	server.Stop()
-	err = mutationWebhook.Deregister()
-	if err != nil {
-		log.Printf("Unable to deregister mutation webhook: %v", err)
-	}
 
+	server.Stop()
 	log.Println("Policy Controller has stopped")
 }
 
