@@ -4,29 +4,49 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 
 	controller "github.com/nirmata/kube-policy/controller"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rest "k8s.io/client-go/rest"
 )
 
 // MutationWebhook is a data type that represents
-// buisness logic for resource mutation
+// business logic for resource mutation
 type MutationWebhook struct {
-	kubeclient *kubeclient.KubeClient
-	controller *controller.PolicyController
-	logger     *log.Logger
+	kubeclient   *kubeclient.KubeClient
+	controller   *controller.PolicyController
+	registration *MutationWebhookRegistration
+	logger       *log.Logger
 }
 
-// NewMutationWebhook is a method that returns new instance
-// of MutationWebhook struct
-func NewMutationWebhook(kubeclient *kubeclient.KubeClient, controller *controller.PolicyController, logger *log.Logger) (*MutationWebhook, error) {
-	if kubeclient == nil || controller == nil || logger == nil {
+// Registers mutation webhook in cluster and creates object for this webhook
+func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient, controller *controller.PolicyController, logger *log.Logger) (*MutationWebhook, error) {
+	if clientConfig == nil || kubeclient == nil || controller == nil {
 		return nil, errors.New("Some parameters are not set")
 	}
-	return &MutationWebhook{kubeclient: kubeclient, controller: controller, logger: logger}, nil
+
+	registration, err := NewMutationWebhookRegistration(clientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if logger == nil {
+		logger = log.New(os.Stdout, "Mutation WebHook: ", log.LstdFlags|log.Lshortfile)
+	}
+	return &MutationWebhook{
+		kubeclient:   kubeclient,
+		controller:   controller,
+		registration: registration,
+		logger:       logger,
+	}, nil
+}
+
+func (mw *MutationWebhook) Deregister() error {
+	return mw.registration.Deregister()
 }
 
 // Mutate applies admission to request
