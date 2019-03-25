@@ -36,6 +36,10 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 	}, nil
 }
 
+func (kc *KubeClient) GetClient() *kubernetes.Clientset {
+	return kc.client
+}
+
 // Generates new ConfigMap in given namespace. If the namespace does not exists yet,
 // waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
 func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, namespace string) error {
