@@ -44,7 +44,7 @@ func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 		Deployments(config.KubePolicyNamespace).
 		Get(config.KubePolicyDeploymentName, meta.GetOptions{
 			ResourceVersion:      "1",
-			IncludeUninitialized: true,
+			IncludeUninitialized: false,
 		})
 
 	if err != nil {
