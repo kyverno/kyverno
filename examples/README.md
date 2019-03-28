@@ -2,7 +2,7 @@
 Examples of policies and resources with which you can play to see the kube-policy in action. There are definitions for each supported resource type and an example policy for the corresponding resource.
 ## How to play
 First of all, **build and install the policy controller**: see README file in the project's root.
-Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `example/Endpoints/endpoints.yaml`:
+Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `examples/Endpoints/endpoints.yaml`:
 
 ```apiVersion: v1
 kind: Endpoints
@@ -21,9 +21,9 @@ subsets:
 Create this resource:
 
 ```
-> kubectl create -f example/Endpoints/endpoints.yaml
+> kubectl create -f examples/Endpoints/endpoints.yaml
 endpoints/test-endpoint created
-> kubectl get -f example/Endpoints/endpoints.yaml
+> kubectl get -f examples/Endpoints/endpoints.yaml
 NAME            ENDPOINTS            AGE
 test-endpoint   192.168.10.171:443   6s
 ```
