@@ -2,10 +2,10 @@ package webhooks
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/nirmata/kube-policy/config"
+	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,60 +15,72 @@ import (
 
 type MutationWebhookRegistration struct {
 	registrationClient *admregclient.AdmissionregistrationV1beta1Client
+	kubeclient         *kubeclient.KubeClient
+	clientConfig       *rest.Config
 }
 
-func NewMutationWebhookRegistration(clientConfig *rest.Config) (*MutationWebhookRegistration, error) {
+func NewMutationWebhookRegistration(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*MutationWebhookRegistration, error) {
 	registrationClient, err := admregclient.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	webhookConfig, err := constructWebhookConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	oldConfig, err := registrationClient.MutatingWebhookConfigurations().Get(config.WebhookConfigName, meta.GetOptions{})
-	if oldConfig != nil && oldConfig.ObjectMeta.UID != "" {
-		// Normally webhook configuration should be deleted from cluster when controller end his work.
-		// But if old configuration is detected in cluster, it should be replaced by new one.
-		err = registrationClient.MutatingWebhookConfigurations().Delete(config.WebhookConfigName, &meta.DeleteOptions{})
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to delete old webhook configuration: %v", err))
-		}
-	}
-
-	_, err = registrationClient.MutatingWebhookConfigurations().Create(webhookConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	return &MutationWebhookRegistration{
 		registrationClient: registrationClient,
+		kubeclient:         kubeclient,
+		clientConfig:       clientConfig,
 	}, nil
+}
+
+func (mwr *MutationWebhookRegistration) Register() error {
+	webhookConfig, err := mwr.constructWebhookConfig(mwr.clientConfig)
+	if err != nil {
+		return err
+	}
+
+	_, err = mwr.registrationClient.MutatingWebhookConfigurations().Create(webhookConfig)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (mwr *MutationWebhookRegistration) Deregister() error {
 	return mwr.registrationClient.MutatingWebhookConfigurations().Delete(config.MutationWebhookName, &meta.DeleteOptions{})
 }
 
-func constructWebhookConfig(configuration *rest.Config) (*admregapi.MutatingWebhookConfiguration, error) {
+func (mwr *MutationWebhookRegistration) constructWebhookConfig(configuration *rest.Config) (*admregapi.MutatingWebhookConfiguration, error) {
 	caData := ExtractCA(configuration)
 	if len(caData) == 0 {
 		return nil, errors.New("Unable to extract CA data from configuration")
+	}
+
+	kubePolicyDeployment, err := mwr.kubeclient.GetKubePolicyDeployment()
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
 			Name:   config.WebhookConfigName,
 			Labels: config.WebhookConfigLabels,
+			OwnerReferences: []meta.OwnerReference{
+				meta.OwnerReference{
+					APIVersion: config.DeploymentAPIVersion,
+					Kind:       config.DeploymentKind,
+					Name:       kubePolicyDeployment.ObjectMeta.Name,
+					UID:        kubePolicyDeployment.ObjectMeta.UID,
+				},
+			},
 		},
 		Webhooks: []admregapi.Webhook{
 			admregapi.Webhook{
 				Name: config.MutationWebhookName,
 				ClientConfig: admregapi.WebhookClientConfig{
 					Service: &admregapi.ServiceReference{
-						Namespace: config.WebhookServiceNamespace,
+						Namespace: config.KubePolicyNamespace,
 						Name:      config.WebhookServiceName,
 						Path:      &config.WebhookServicePath,
 					},

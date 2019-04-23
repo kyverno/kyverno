@@ -29,7 +29,12 @@ func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.Kub
 		return nil, errors.New("Some parameters are not set")
 	}
 
-	registration, err := NewMutationWebhookRegistration(clientConfig)
+	registration, err := NewMutationWebhookRegistration(clientConfig, kubeclient)
+	if err != nil {
+		return nil, err
+	}
+
+	err = registration.Register()
 	if err != nil {
 		return nil, err
 	}
@@ -43,10 +48,6 @@ func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.Kub
 		registration: registration,
 		logger:       logger,
 	}, nil
-}
-
-func (mw *MutationWebhook) Deregister() error {
-	return mw.registration.Deregister()
 }
 
 // Mutate applies admission to request
