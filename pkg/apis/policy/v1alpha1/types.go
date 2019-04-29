@@ -12,8 +12,19 @@ import (
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicySpec   `json:"spec"`
-	Status            PolicyStatus `json:"status"`
+	Spec              PolicySpec       `json:"spec"`
+	Status            PolicyStatus     `json:"status"`
+	Violations        PolicyViolations `json:"policyviolations,omitempty"`
+}
+
+type PolicyViolations struct {
+	Violations []Violation `json:"violations,omitempty"`
+}
+type Violation struct {
+	Resource string `json:"resource,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Rule     string `json:"rule,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // Specification of the Policy.
