@@ -104,6 +104,12 @@ func getPolicyPatchingSets(policy types.Policy) PatchingSets {
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
 func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]PatchBytes, error) {
+	return mw.applyPolicyRulesOnResource(request.Kind.Kind, request.Object.Raw, policy)
+}
+
+// TODO: add another violation field in return elements
+// kind is the type of object being manipulated
+func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource []byte, policy types.Policy) ([]PatchBytes, error) {
 	patchingSets := getPolicyPatchingSets(policy)
 	var policyPatches []PatchBytes
 
@@ -114,25 +120,27 @@ func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, p
 			continue
 		}
 
-		if !IsRuleApplicableToRequest(rule.Resource, request) {
+		if !IsRuleApplicableToResource(kind, rawResource, rule.Resource) {
 			return nil, nil
 		}
 
-		err = mw.applyRuleGenerators(request, rule)
-		if err != nil && patchingSets == PatchingSetsStopOnError {
-			return nil, errors.New(fmt.Sprintf("Failed to apply generators from rule #%d: %s", ruleIdx, err))
+		// configMapGenerator and secretGenerator can be applied only to namespaces
+		if kind == "Namespace" {
+			err = mw.applyRuleGenerators(rawResource, rule)
+			if err != nil && patchingSets == PatchingSetsStopOnError {
+				return nil, fmt.Errorf("Failed to apply generators from rule #%d: %s", ruleIdx, err)
+			}
 		}
-
-		rulePatchesProcessed, err := ProcessPatches(rule.Patches, request.Object.Raw, patchingSets)
+		rulePatchesProcessed, err := ProcessPatches(rule.Patches, rawResource, patchingSets)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to process patches from rule #%d: %s", ruleIdx, err))
+			return nil, fmt.Errorf("Failed to process patches from rule #%d: %s", ruleIdx, err)
 		}
 
 		if rulePatchesProcessed != nil {
 			policyPatches = append(policyPatches, rulePatchesProcessed...)
 			mw.logger.Printf("Rule %d: prepared %d patches", ruleIdx, len(rulePatchesProcessed))
 		} else {
-			mw.logger.Print("Rule %d: no patches prepared")
+			mw.logger.Printf("Rule %d: no patches prepared", ruleIdx)
 		}
 	}
 
@@ -140,19 +148,15 @@ func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, p
 }
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
-func (mw *MutationWebhook) applyRuleGenerators(request *v1beta1.AdmissionRequest, rule types.PolicyRule) error {
-	// configMapGenerator and secretGenerator can be applied only to namespaces
-	if request.Kind.Kind == "Namespace" {
-		meta := parseMetadataFromObject(request.Object.Raw)
-		namespaceName := parseNameFromMetadata(meta)
+func (mw *MutationWebhook) applyRuleGenerators(rawResource []byte, rule types.PolicyRule) error {
+	meta := parseMetadataFromObject(rawResource)
+	namespaceName := parseNameFromMetadata(meta)
 
-		err := mw.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
-		if err == nil {
-			err = mw.applyConfigGenerator(rule.SecretGenerator, namespaceName, "Secret")
-		}
-		return err
+	err := mw.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
+	if err == nil {
+		err = mw.applyConfigGenerator(rule.SecretGenerator, namespaceName, "Secret")
 	}
-	return nil
+	return err
 }
 
 // Creates resourceKind (ConfigMap or Secret) with parameters specified in generator in cluster specified in request.
