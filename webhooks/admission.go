@@ -1,6 +1,9 @@
 package webhooks
 
 import (
+	"fmt"
+	"regexp"
+
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,65 +46,55 @@ func AdmissionIsRequired(request *v1beta1.AdmissionRequest) bool {
 }
 
 // Checks requests kind, name and labels to fit the policy
-func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) bool {
+func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) (bool, error) {
 	return IsRuleApplicableToResource(request.Kind.Kind, request.Object.Raw, policyResource)
-	// if policyResource.Kind != request.Kind.Kind {
-	// 	return false
-	// }
-
-	// if request.Object.Raw != nil {
-	// 	meta := parseMetadataFromObject(request.Object.Raw)
-	// 	name := parseNameFromMetadata(meta)
-
-	// 	if policyResource.Name != nil && *policyResource.Name != name {
-	// 		return false
-	// 	}
-
-	// 	if policyResource.Selector != nil {
-	// 		selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
-
-	// 		if err != nil {
-	// 			return false
-	// 		}
-
-	// 		labelMap := parseLabelsFromMetadata(meta)
-
-	// 		if !selector.Matches(labelMap) {
-	// 			return false
-	// 		}
-	// 	}
-	// }
-	// return true
 }
 
 // kind is the type of object being manipulated
-func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource types.PolicyResource) bool {
+// Checks requests kind, name and labels to fit the policy
+func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource types.PolicyResource) (bool, error) {
 	if policyResource.Kind != kind {
-		return false
+		return false, nil
 	}
 
 	if resourceRaw != nil {
 		meta := parseMetadataFromObject(resourceRaw)
 		name := parseNameFromMetadata(meta)
 
-		if policyResource.Name != nil && *policyResource.Name != name {
-			return false
-		}
+		// if policyResource.Name != nil && *policyResource.Name != name {
+		// 	return false, false
+		// }
+		if policyResource.Name != nil {
+			fmt.Println("*policyResource.Name, name", *policyResource.Name, name)
 
-		if policyResource.Selector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
-
-			if err != nil {
-				return false
+			// if no regex used, check if names are matched, return directly
+			if policyResource.Name != nil && *policyResource.Name == name {
+				return true, nil
 			}
 
-			labelMap := parseLabelsFromMetadata(meta)
+			// validation of regex is peformed when validating the policyResource
+			// refer to policyResource.Validate()
+			parseRegexPolicyResourceName(*policyResource.Name)
+			match, _ := regexp.MatchString(*policyResource.Name, name)
 
-			if !selector.Matches(labelMap) {
-				return false
+			if !match {
+				return false, nil
+			}
+
+			if policyResource.Selector != nil {
+				selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
+
+				if err != nil {
+					return false, err
+				}
+
+				labelMap := parseLabelsFromMetadata(meta)
+
+				if !selector.Matches(labelMap) {
+					return false, nil
+				}
 			}
 		}
 	}
-
-	return true
+	return true, nil
 }

@@ -38,3 +38,8 @@ func parseNamespaceFromMetadata(meta map[string]interface{}) string {
 	}
 	return ""
 }
+
+// TODO:
+func parseRegexPolicyResourceName(policyResourceName string) string {
+	return ""
+}
