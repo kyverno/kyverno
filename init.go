@@ -2,28 +2,26 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"net/url"
 
 	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/utils"
-
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 )
 
 func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
-		log.Printf("Using in-cluster configuration")
+		klog.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
-	} else {
-		log.Printf("Using configuration from '%s'", kubeconfig)
-		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
+	klog.Info("Using in-cluster configuration")
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
-func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
+func initTLSPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
 	var tlsPair *utils.TlsPemPair
 	if certFile != "" || keyFile != "" {
 		tlsPair = tlsPairFromFiles(certFile, keyFile)
@@ -31,15 +29,16 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubecli
 
 	var err error
 	if tlsPair != nil {
-		log.Print("Using given TLS key/certificate pair")
+		klog.Info("Using given TLS key/certificate pair")
 		return tlsPair, nil
-	} else {
-		tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
-		if err == nil {
-			log.Printf("Using TLS key/certificate from cluster")
-		}
-		return tlsPair, err
 	}
+
+	tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+	if err == nil {
+		klog.Info("Using TLS key/certificate from cluster")
+	}
+	return tlsPair, err
+
 }
 
 // Loads PEM private key and TLS certificate from given files
@@ -50,13 +49,13 @@ func tlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
 
 	certContent, err := ioutil.ReadFile(certFile)
 	if err != nil {
-		log.Printf("Unable to read file with TLS certificate: path - %s, error - %v", certFile, err)
+		klog.V(3).Infof("Unable to read file with TLS certificate: path - %s, error - %v", certFile, err)
 		return nil
 	}
 
 	keyContent, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		log.Printf("Unable to read file with TLS private key: path - %s, error - %v", keyFile, err)
+		klog.V(3).Infof("Unable to read file with TLS private key: path - %s, error - %v", keyFile, err)
 		return nil
 	}
 
@@ -70,26 +69,26 @@ func tlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
 func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
-	apiServerUrl, err := url.Parse(configuration.Host)
+	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
 	}
 	certProps := utils.TlsCertificateProps{
 		Service:       config.WebhookServiceName,
 		Namespace:     config.KubePolicyNamespace,
-		ApiServerHost: apiServerUrl.Hostname(),
+		ApiServerHost: apiServerURL.Hostname(),
 	}
 
-	tlsPair := client.ReadTlsPair(certProps)
+	tlsPair := client.ReadTLSPair(certProps)
 	if utils.IsTlsPairShouldBeUpdated(tlsPair) {
-		log.Printf("Generating new key/certificate pair for TLS")
-		tlsPair, err = client.GenerateTlsPemPair(certProps)
+		klog.Info("Generating new key/certificate pair for TLS")
+		tlsPair, err = client.GenerateTLSPemPair(certProps)
 		if err != nil {
 			return nil, err
 		}
-		err = client.WriteTlsPair(certProps, tlsPair)
+		err = client.WriteTLSPair(certProps, tlsPair)
 		if err != nil {
-			log.Printf("Unable to save TLS pair to the cluster: %v", err)
+			klog.Infof("Unable to save TLS pair to the cluster: %v", err)
 		}
 	}
 

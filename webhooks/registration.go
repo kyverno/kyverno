@@ -120,7 +120,6 @@ func ExtractCA(config *rest.Config) (result []byte) {
 		}
 
 		return result
-	} else {
-		return config.TLSClientConfig.CAData
 	}
+	return config.TLSClientConfig.CAData
 }

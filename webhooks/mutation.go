@@ -3,15 +3,15 @@ package webhooks
 import (
 	"errors"
 	"fmt"
-	"log"
-	"os"
 
-	controller "github.com/nirmata/kube-policy/controller"
+	"github.com/go-logr/logr"
+	"github.com/nirmata/kube-policy/controller"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
+	"k8s.io/klog/klogr"
 )
 
 // MutationWebhook is a data type that represents
@@ -20,11 +20,13 @@ type MutationWebhook struct {
 	kubeclient   *kubeclient.KubeClient
 	controller   *controller.PolicyController
 	registration *MutationWebhookRegistration
-	logger       *log.Logger
+	logger       logr.Logger
 }
 
-// Registers mutation webhook in cluster and creates object for this webhook
-func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient, controller *controller.PolicyController, logger *log.Logger) (*MutationWebhook, error) {
+//CreateMutationWebhook Registers mutation webhook in cluster and creates object for this webhook
+func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient, controller *controller.PolicyController) (*MutationWebhook, error) {
+	logger := klogr.New().WithName("Mutation WebHook: ")
+
 	if clientConfig == nil || kubeclient == nil || controller == nil {
 		return nil, errors.New("Some parameters are not set")
 	}
@@ -38,10 +40,6 @@ func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.Kub
 	if err != nil {
 		return nil, err
 	}
-
-	if logger == nil {
-		logger = log.New(os.Stdout, "Mutation WebHook: ", log.LstdFlags|log.Lshortfile)
-	}
 	return &MutationWebhook{
 		kubeclient:   kubeclient,
 		controller:   controller,
@@ -52,8 +50,8 @@ func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.Kub
 
 // Mutate applies admission to request
 func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	mw.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
+	mw.logger.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo))
 
 	policies := mw.controller.GetPolicies()
 	if len(policies) == 0 {
@@ -62,14 +60,13 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 
 	var allPatches []PatchBytes
 	for _, policy := range policies {
-		mw.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		mw.logger.Info(fmt.Sprintf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules)))
 
 		policyPatches, _, err := mw.applyPolicyRules(request, policy)
 		if err != nil {
 			mw.controller.LogPolicyError(policy.Name, err.Error())
-
 			errStr := fmt.Sprintf("Unable to apply policy %s: %v", policy.Name, err)
-			mw.logger.Printf("Denying the request because of error: %s", errStr)
+			mw.logger.Error(err, fmt.Sprintf("Denying the request because of error, Unable to apply policy %s", policy.Name))
 			return mw.denyResourceCreation(errStr)
 		}
 
@@ -78,7 +75,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 			namespace := parseNamespaceFromMetadata(meta)
 			name := parseNameFromMetadata(meta)
 			mw.controller.LogPolicyInfo(policy.Name, fmt.Sprintf("Applied to %s %s/%s", request.Kind.Kind, namespace, name))
-			mw.logger.Printf("%s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+			mw.logger.Info(fmt.Sprintf("%s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name))
 
 			allPatches = append(allPatches, policyPatches...)
 		}
@@ -118,13 +115,13 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 	for ruleIdx, rule := range policy.Spec.Rules {
 		err := rule.Validate()
 		if err != nil {
-			mw.logger.Printf("Invalid rule detected: #%d in policy %s, err: %v\n", ruleIdx, policy.ObjectMeta.Name, err)
+			mw.logger.Info(fmt.Sprintf("Invalid rule detected: #%d in policy %s, err: %v\n", ruleIdx, policy.ObjectMeta.Name, err))
 			violationCount++
 			continue
 		}
 
 		if ok, err := IsRuleApplicableToResource(kind, rawResource, rule.Resource); !ok {
-			mw.logger.Printf("Rule %d of policy %s does not match the request", ruleIdx, policy.Name)
+			mw.logger.Info(fmt.Sprintf("Rule %d of policy %s does not match the request", ruleIdx, policy.Name))
 			violationCount++
 			return nil, violationCount, err
 		}
@@ -145,9 +142,9 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 
 		if rulePatchesProcessed != nil {
 			policyPatches = append(policyPatches, rulePatchesProcessed...)
-			mw.logger.Printf("Rule %d: prepared %d patches", ruleIdx, len(rulePatchesProcessed))
+			mw.logger.Info(fmt.Sprintf("Rule %d: prepared %d patches", ruleIdx, len(rulePatchesProcessed)))
 		} else {
-			mw.logger.Printf("Rule %d: no patches prepared", ruleIdx)
+			mw.logger.Info(fmt.Sprintf("Rule %d: no patches prepared", ruleIdx))
 		}
 	}
 
@@ -179,7 +176,7 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 
 	err := generator.Validate()
 	if err != nil {
-		return errors.New(fmt.Sprintf("Generator for '%s' is invalid: %s", configKind, err))
+		return fmt.Errorf("Generator for '%s' is invalid: %s", configKind, err)
 	}
 
 	switch configKind {
@@ -188,13 +185,12 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 	case "Secret":
 		err = mw.kubeclient.GenerateSecret(*generator, namespace)
 	default:
-		err = errors.New(fmt.Sprintf("Unsupported config Kind '%s'", configKind))
+		err = fmt.Errorf("Unsupported config Kind '%s'", configKind)
 	}
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to apply generator for %s '%s/%s' : %s", configKind, namespace, generator.Name, err))
+		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %s", configKind, namespace, generator.Name, err)
 	}
-
 	return nil
 }
 

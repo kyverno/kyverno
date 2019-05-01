@@ -2,6 +2,9 @@ package violation
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/go-logr/logr"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	clientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	policyscheme "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
@@ -17,8 +20,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"log"
-	"time"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
 )
 
 type Violations []Violation
@@ -31,31 +34,34 @@ type Builder struct {
 	kubeClient      *kubernetes.Clientset
 	policyClientset *clientset.Clientset
 	workqueue       workqueue.RateLimitingInterface
-	logger          *log.Logger
 	recorder        record.EventRecorder
+	logger          logr.Logger
 	policyLister    lister.PolicyLister
 	policySynced    cache.InformerSynced
 }
 
-func NewViolationHelper(kubeClient *kubernetes.Clientset, policyClientSet *clientset.Clientset, logger *log.Logger, policyInformer informers.PolicyInformer) (*Builder, error) {
+func NewViolationHelper(kubeClient *kubernetes.Clientset, policyClientSet *clientset.Clientset, policyInformer informers.PolicyInformer) (*Builder, error) {
 
-	// Initialize Event Broadcaster
+	logger := klogr.New().WithName("Violation Builder ")
+
+	logger.V(5).Info("Initialize Event Broadcaster")
 	policyscheme.AddToScheme(scheme.Scheme)
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Printf)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(
 		&typedcc1orev1.EventSinkImpl{
 			Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
 		v1.EventSource{Component: violationEventSource})
-	// Build the builder
+
+	logger.V(5).Info("Build the builder")
 	builder := &Builder{
 		kubeClient:      kubeClient,
 		policyClientset: policyClientSet,
 		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workqueueViolationName),
-		logger:          logger,
 		recorder:        recorder,
+		logger:          logger,
 		policyLister:    policyInformer.Lister(),
 		policySynced:    policyInformer.Informer().HasSynced,
 	}
@@ -68,22 +74,20 @@ func NewViolationHelper(kubeClient *kubernetes.Clientset, policyClientSet *clien
 // queue events to generate events
 // TO-DO create should validate the rule number and update the violation if one exists
 func (b *Builder) Create(info Info) error {
-	// generate patch
-	//	we can generate the patch as the policy resource will alwasy exist
-	// Apply Patch
+	b.logger.V(5).Info("generate patch")
 	err := b.patchViolation(info)
 	if err != nil {
 		return err
 	}
 
-	// Generate event for policy
+	b.logger.V(5).Info(fmt.Sprintf("generate event for policy %s", info.Policy))
 	b.workqueue.Add(
 		EventInfo{
 			Resource:       info.Policy,
 			Reason:         info.Reason,
 			ResourceTarget: PolicyTarget,
 		})
-	// Generat event for resource
+	b.logger.V(5).Info(fmt.Sprintf("generate event for resource %s", info.Resource))
 	b.workqueue.Add(
 		EventInfo{
 			Kind:           info.Kind,
@@ -113,6 +117,7 @@ func (b *Builder) patchViolation(info Info) error {
 	// Try to access the policy
 	// Try to access the resource
 	// if the above resource objects have not been created then we reque the request to create the event
+	b.logger.V(5).Info(fmt.Sprintf("try to get policy %s", info.Policy))
 	policy, err := b.policyLister.Policies(policyNamespace).Get(policyName)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -123,16 +128,19 @@ func (b *Builder) patchViolation(info Info) error {
 	// var update bool
 	// inactiveViolationindex := []int{}
 	updatedViolations := []types.Violation{}
+	b.logger.V(5).Info("update violations")
+	var updateViolation bool
 	// Check if the violation with the same rule exists for the same resource and rule name
 	for _, violation := range updatedPolicy.Status.Violations {
 
 		if ok, err := b.IsActive(violation); ok {
 			if err != nil {
-				fmt.Println(err)
+				utilruntime.HandleError(err)
+				continue
 			}
 			updatedViolations = append(updatedViolations, violation)
 		} else {
-			fmt.Println("Remove violation")
+			b.logger.V(5).Info(fmt.Sprintf("remove violation %v", violation))
 			b.workqueue.Add(
 				EventInfo{
 					Resource:       info.Policy,
@@ -140,23 +148,30 @@ func (b *Builder) patchViolation(info Info) error {
 					ResourceTarget: PolicyTarget,
 				})
 		}
+		// Check if the voilation exists for the rule
+		if violation.Kind == info.Kind &&
+			violation.Resource == info.Resource &&
+			violation.Rule == info.RuleName {
+
+			b.logger.V(5).Info(fmt.Sprintf("update violations reason for rule %s, from %s to %s", violation.Rule, violation.Reason, info.Reason))
+			violation.Reason = info.Reason
+			updatedViolations = append(updatedViolations, violation)
+			updateViolation = true
+		}
 	}
-	// Rule is updated TO-DO
-	// Dont validate if the resouce is active as a new Violation will not be created if it did not
-	updatedViolations = append(updatedViolations,
-		types.Violation{
-			Kind:     info.Kind,
-			Resource: info.Resource,
-			Rule:     info.RuleName,
-			Reason:   info.Reason,
-		})
+	if !updateViolation {
+		b.logger.V(5).Info(fmt.Sprintf("adding new violation for rule %s, %s", info.RuleName, info.Reason))
+		updatedViolations = append(updatedViolations,
+			types.Violation{
+				Kind:     info.Kind,
+				Resource: info.Resource,
+				Rule:     info.RuleName,
+				Reason:   info.Reason,
+			})
+	}
 	updatedPolicy.Status.Violations = updatedViolations
 	// Patch
 	return b.patch(policy, updatedPolicy)
-}
-
-func (b *Builder) getPolicyEvent(info Info) EventInfo {
-	return EventInfo{Resource: info.Resource}
 }
 
 func (b *Builder) IsActive(violation types.Violation) (bool, error) {
@@ -170,24 +185,22 @@ func (b *Builder) ValidationResourceActive(violation types.Violation) (bool, err
 	resourceNamespace, resourceName, err := cache.SplitMetaNamespaceKey(violation.Resource)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", violation.Resource))
-		// Remove the corresponding violation
 		return false, err
 	}
-
+	b.logger.V(5).Info(fmt.Sprintf("check if resource %s exists!", violation.Reason))
 	// Check if the corresponding resource is still present
 	_, err = resourceClient.GetResouce(b.kubeClient, violation.Kind, resourceNamespace, resourceName)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("unable to get resource %s ", violation.Resource))
 		return false, err
 	}
-
 	return true, nil
 }
 
 func (b *Builder) patch(policy *types.Policy, updatedPolicy *types.Policy) error {
 
+	b.logger.V(5).Info("update violations!")
 	_, err := b.policyClientset.Nirmata().Policies(updatedPolicy.Namespace).UpdateStatus(updatedPolicy)
-	//	_, err = b.policyClientset.Nirmata().Policies(policy.Namespace).Patch(policy.Name, patchTypes.MergePatchType, patchBytes)
 	if err != nil {
 		return err
 	}
@@ -199,20 +212,19 @@ func (b *Builder) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	defer utilruntime.HandleCrash()
 	defer b.workqueue.ShutDown()
-	log.Println("Starting violation builder")
+	b.logger.Info("Starting violation builder")
 
-	fmt.Println(("Wait for informer cache to sync"))
+	b.logger.Info("Wait for informer cache to sync")
 	if ok := cache.WaitForCacheSync(stopCh, b.policySynced); !ok {
-		fmt.Println("Unable to sync the cache")
+		b.logger.Error(fmt.Errorf("Unable to sync the cache"), "")
 	}
-
-	log.Println("Starting workers")
+	b.logger.Info(fmt.Sprintf("Starting %d workers to process violation events", threadiness))
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(b.runWorker, time.Second, stopCh)
 	}
-	log.Println("Started workers")
+	b.logger.Info("Started workers")
 	<-stopCh
-	log.Println("Shutting down workers")
+	b.logger.Info("Shutting down workers")
 	return nil
 }
 
@@ -233,7 +245,7 @@ func (b *Builder) processNextWorkItem() bool {
 		var ok bool
 		if key, ok = obj.(EventInfo); !ok {
 			b.workqueue.Forget(obj)
-			log.Printf("Expecting type info by got %v", obj)
+			b.logger.Error(fmt.Errorf("Expecting type info by got %v", obj), "")
 			return nil
 		}
 
@@ -247,7 +259,7 @@ func (b *Builder) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		log.Println((err))
+		b.logger.Error(err, "")
 	}
 	return true
 
@@ -263,7 +275,7 @@ func (b *Builder) syncHandler(key EventInfo) error {
 		return nil
 	}
 	if key.ResourceTarget == ResourceTarget {
-		// Resource Event
+		b.logger.Error(fmt.Errorf("process event of type resource for %s", key.Resource), "")
 		resource, err := resourceClient.GetResouce(b.kubeClient, key.Kind, namespace, name)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for resource %s, will retry ", key.Resource))
@@ -272,6 +284,7 @@ func (b *Builder) syncHandler(key EventInfo) error {
 		b.recorder.Event(resource, v1.EventTypeNormal, violationEventResrouce, key.Reason)
 	} else {
 		// Policy Event
+		b.logger.Error(fmt.Errorf("process event of type policy for %s", key.Resource), "")
 		policy, err := b.policyLister.Policies(namespace).Get(name)
 		if err != nil {
 			// TO-DO: this scenario will not exist as the policy will always exist

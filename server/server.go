@@ -7,16 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/utils"
 	"github.com/nirmata/kube-policy/webhooks"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/klog/klogr"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -24,15 +24,13 @@ import (
 type WebhookServer struct {
 	server          http.Server
 	mutationWebhook *webhooks.MutationWebhook
-	logger          *log.Logger
+	logger          logr.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.MutationWebhook, logger *log.Logger) (*WebhookServer, error) {
-	if logger == nil {
-		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
-	}
+func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.MutationWebhook) (*WebhookServer, error) {
+	logger := klogr.New().WithName("HTTPS Server ")
 
 	if tlsPair == nil || mutationWebhook == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -52,12 +50,11 @@ func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.Mutat
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.WebhookServicePath, ws.serve)
-
+	logger.V(5).Info("Iniitialize http:Server at :443")
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
 		Handler:      mux,
-		ErrorLog:     logger,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
@@ -87,15 +84,14 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		admissionReview.Response = admissionResponse
 		admissionReview.Response.UID = admissionReview.Request.UID
 
-		responseJson, err := json.Marshal(admissionReview)
+		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 			return
 		}
-
-		ws.logger.Printf("Response body\n:%v", string(responseJson))
+		ws.logger.V(5).Info(fmt.Sprintf("Response body\n:%v", responseJSON))
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if _, err := w.Write(responseJson); err != nil {
+		if _, err := w.Write(responseJSON); err != nil {
 			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 		}
 	} else {
@@ -112,45 +108,46 @@ func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http
 		}
 	}
 	if len(body) == 0 {
-		ws.logger.Print("Error: empty body")
+		ws.logger.Error(errors.New("Error: empty body"), "")
 		http.Error(writer, "empty body", http.StatusBadRequest)
 		return nil
 	}
 
 	contentType := request.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		ws.logger.Printf("Error: invalid Content-Type: %v", contentType)
+		ws.logger.Error(fmt.Errorf("Error: invalid Content-Type: %v", contentType), "")
 		http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return nil
 	}
 
 	admissionReview := &v1beta1.AdmissionReview{}
 	if err := json.Unmarshal(body, &admissionReview); err != nil {
-		ws.logger.Printf("Error: Can't decode body as AdmissionReview: %v", err)
+
+		ws.logger.Error(fmt.Errorf("Error: Can't decode body as AdmissionReview: %v", err), "")
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
-	} else {
-		ws.logger.Printf("Request body:\n%v", string(body))
-		return admissionReview
 	}
+
+	ws.logger.Info(fmt.Sprintf("Request body:\n%v", string(body)))
+	return admissionReview
 }
 
-// Runs TLS server in separate thread and returns control immediately
+//RunAsync Runs TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		err := ws.server.ListenAndServeTLS("", "")
 		if err != nil {
-			ws.logger.Fatal(err)
+			ws.logger.Error(err, "")
 		}
 	}(ws)
 }
 
-// Stops TLS server and returns control after the server is shut down
+//Stop Stops TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop() {
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {
 		// Error from closing listeners, or context timeout:
-		ws.logger.Printf("Server Shutdown error: %v", err)
+		ws.logger.Info(fmt.Sprintf("Server Shutdown error: %v", err))
 		ws.server.Close()
 	}
 }

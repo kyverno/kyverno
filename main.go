@@ -2,13 +2,13 @@ package main
 
 import (
 	"flag"
-	"log"
 
 	"github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/server"
 	"github.com/nirmata/kube-policy/webhooks"
 
+	"k8s.io/klog"
 	signals "k8s.io/sample-controller/pkg/signals"
 )
 
@@ -19,34 +19,36 @@ var (
 )
 
 func main() {
+	initializeLogger()
+	defer klog.Flush()
+
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v\n", err)
+		klog.Fatalf("Error building kubeconfig: %v\n", err)
+	}
+	controller, err := controller.NewPolicyController(clientConfig)
+	if err != nil {
+		klog.Fatalf("Error creating PolicyController: %s\n", err)
 	}
 
-	controller, err := controller.NewPolicyController(clientConfig, nil)
+	kubeclient, err := kubeclient.NewKubeClient(clientConfig)
 	if err != nil {
-		log.Fatalf("Error creating PolicyController: %s\n", err)
+		klog.Fatalf("Error creating kubeclient: %v\n", err)
 	}
 
-	kubeclient, err := kubeclient.NewKubeClient(clientConfig, nil)
+	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig, kubeclient, controller)
 	if err != nil {
-		log.Fatalf("Error creating kubeclient: %v\n", err)
+		klog.Fatalf("Error creating mutation webhook: %v\n", err)
 	}
 
-	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig, kubeclient, controller, nil)
+	tlsPair, err := initTLSPemPair(cert, key, clientConfig, kubeclient)
 	if err != nil {
-		log.Fatalf("Error creating mutation webhook: %v\n", err)
+		klog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	tlsPair, err := initTlsPemPair(cert, key, clientConfig, kubeclient)
+	server, err := server.NewWebhookServer(tlsPair, mutationWebhook)
 	if err != nil {
-		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
-	}
-
-	server, err := server.NewWebhookServer(tlsPair, mutationWebhook, nil)
-	if err != nil {
-		log.Fatalf("Unable to create webhook server: %v\n", err)
+		klog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 	server.RunAsync()
 
@@ -54,14 +56,20 @@ func main() {
 	controller.Run(stopCh)
 
 	if err != nil {
-		log.Fatalf("Error running PolicyController: %s\n", err)
+		klog.Fatalf("Error running PolicyController: %s\n", err)
 	}
-	log.Println("Policy Controller has started")
+	klog.Info("Policy controller started")
 
 	<-stopCh
 
 	server.Stop()
-	log.Println("Policy Controller has stopped")
+	klog.Info("Policy controller stopped")
+}
+
+// Initialize logger
+func initializeLogger() {
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
 }
 
 func init() {

@@ -1,10 +1,10 @@
 package kubeclient
 
 import (
-	"log"
-	"os"
+	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kube-policy/config"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	apps "k8s.io/api/apps/v1"
@@ -13,31 +13,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/klogr"
 )
 
 // KubeClient is the api-client for core Kubernetes objects
 type KubeClient struct {
-	logger *log.Logger
+	logger logr.Logger
 	client *kubernetes.Clientset
 }
 
-// Checks parameters and creates new instance of KubeClient
-func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error) {
-	if logger == nil {
-		logger = log.New(os.Stdout, "Kubernetes client: ", log.LstdFlags|log.Lshortfile)
-	}
+//NewKubeClient Checks parameters and creates new instance of KubeClient
+func NewKubeClient(config *rest.Config) (*KubeClient, error) {
+	logger := klogr.New().WithName("Kube Client ")
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-
 	return &KubeClient{
-		logger: logger,
 		client: client,
+		logger: logger,
 	}, nil
 }
 
+//GetKubePolicyDeployment get kube policy deployment
 func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	kubePolicyDeployment, err := kc.client.
 		Apps().
@@ -54,15 +53,15 @@ func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	return kubePolicyDeployment, nil
 }
 
-// Generates new ConfigMap in given namespace. If the namespace does not exists yet,
+//GenerateConfigMap Generates new ConfigMap in given namespace. If the namespace does not exists yet,
 // waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
 func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, namespace string) error {
-	kc.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
+	kc.logger.Info(fmt.Sprintf("Preparing to create configmap %s/%s", namespace, generator.Name))
 	configMap := &v1.ConfigMap{}
 
 	var err error
 	if generator.CopyFrom != nil {
-		kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		kc.logger.Info(fmt.Sprintf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name))
 		configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
 		if err != nil {
 			return err
@@ -89,15 +88,15 @@ func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, n
 	return nil
 }
 
-// Generates new Secret in given namespace. If the namespace does not exists yet,
+//GenerateSecret Generates new Secret in given namespace. If the namespace does not exists yet,
 // waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
 func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, namespace string) error {
-	kc.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
+	kc.logger.Info(fmt.Sprintf("Preparing to create secret %s/%s", namespace, generator.Name))
 	secret := &v1.Secret{}
 
 	var err error
 	if generator.CopyFrom != nil {
-		kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		kc.logger.Info(fmt.Sprintf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name))
 		secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
 		if err != nil {
 			return err
@@ -132,7 +131,7 @@ func defaultGetOptions() metav1.GetOptions {
 }
 
 func defaultDeleteOptions() *metav1.DeleteOptions {
-	var deletePeriod int64 = 0
+	var deletePeriod int64
 	return &metav1.DeleteOptions{
 		GracePeriodSeconds: &deletePeriod,
 	}
@@ -145,7 +144,7 @@ const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 func (kc *KubeClient) waitUntilNamespaceIsCreated(name string) error {
 	timeStart := time.Now()
 
-	var lastError error = nil
+	var lastError error
 	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
 		_, lastError = kc.client.CoreV1().Namespaces().Get(name, defaultGetOptions())
 		if lastError == nil {
@@ -162,7 +161,7 @@ func (kc *KubeClient) createConfigMapAfterNamespaceIsCreated(configMap v1.Config
 		_, err = kc.client.CoreV1().ConfigMaps(namespace).Create(&configMap)
 	}
 	if err != nil {
-		kc.logger.Printf("Can't create a configmap: %s", err)
+		kc.logger.Error(err, "Can't create a configmap")
 	}
 }
 
@@ -172,6 +171,6 @@ func (kc *KubeClient) createSecretAfterNamespaceIsCreated(secret v1.Secret, name
 		_, err = kc.client.CoreV1().Secrets(namespace).Create(&secret)
 	}
 	if err != nil {
-		kc.logger.Printf("Can't create a secret: %s", err)
+		kc.logger.Error(err, "Can't create a secret")
 	}
 }

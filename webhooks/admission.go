@@ -39,19 +39,19 @@ func kindIsSupported(kind string) bool {
 	return false
 }
 
-// Checks for admission if kind is supported
+//AdmissionIsRequired Checks for admission if kind is supported
 func AdmissionIsRequired(request *v1beta1.AdmissionRequest) bool {
 	// Here you can make additional hardcoded checks
 	return kindIsSupported(request.Kind.Kind)
 }
 
-// Checks requests kind, name and labels to fit the policy
+//IsRuleApplicableToRequest Checks requests kind, name and labels to fit the policy
 func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) (bool, error) {
 	return IsRuleApplicableToResource(request.Kind.Kind, request.Object.Raw, policyResource)
 }
 
+//IsRuleApplicableToResource Checks requests kind, name and labels to fit the policy
 // kind is the type of object being manipulated
-// Checks requests kind, name and labels to fit the policy
 func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource types.PolicyResource) (bool, error) {
 	if policyResource.Kind != kind {
 		return false, nil

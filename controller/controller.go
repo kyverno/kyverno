@@ -2,8 +2,7 @@ package controller
 
 import (
 	"errors"
-	"log"
-	"os"
+	"fmt"
 	"sort"
 	"time"
 
@@ -12,7 +11,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
 
+	"github.com/go-logr/logr"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	clientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	policies "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/typed/policy/v1alpha1"
@@ -26,15 +28,13 @@ type PolicyController struct {
 	policyInformerFactory informers.SharedInformerFactory
 	policyLister          lister.PolicyLister
 	policiesInterface     policies.PolicyInterface
-	logger                *log.Logger
+	logger                logr.Logger
 	violationBuilder      *violation.Builder
 }
 
 // NewPolicyController from cmd args
-func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyController, error) {
-	if logger == nil {
-		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags|log.Lshortfile)
-	}
+func NewPolicyController(config *rest.Config) (*PolicyController, error) {
+	logger := klogr.New().WithName("Policy Controller ")
 
 	if config == nil {
 		return nil, errors.New("Client Config should be set for controller")
@@ -49,13 +49,12 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 	if err != nil {
 		return nil, err
 	}
-	log.Print(kubeClient)
 
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, time.Second*30)
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
 	// generate Violation builder
-	builder, err := violation.NewViolationHelper(kubeClient, policyClientset, logger, policyInformer)
+	builder, err := violation.NewViolationHelper(kubeClient, policyClientset, policyInformer)
 	if err != nil {
 		return nil, err
 	}
@@ -86,19 +85,23 @@ func (c *PolicyController) Run(stopCh <-chan struct{}) {
 // GetPolicies retrieves all policy resources
 // from cache. Cache is refreshed by informer
 func (c *PolicyController) GetPolicies() []types.Policy {
-	// Create nil Selector to grab all the policies
+	c.logger.V(5).Info("create nil Selector to grab all the policies")
+
 	selector := labels.NewSelector()
 	cachedPolicies, err := c.policyLister.List(selector)
 
 	if err != nil {
-		c.logger.Printf("Error: %v", err)
+		klog.Error(err)
 		return nil
 	}
 
 	var policies []types.Policy
 	for _, elem := range cachedPolicies {
+		c.logger.V(5).Info("adding policy")
 		policies = append(policies, *elem.DeepCopy())
 	}
+
+	c.logger.V(5).Info("sort policies based on creation time stamp")
 
 	sort.Slice(policies, func(i, j int) bool {
 		return policies[i].CreationTimestamp.Time.Before(policies[j].CreationTimestamp.Time)
@@ -107,12 +110,12 @@ func (c *PolicyController) GetPolicies() []types.Policy {
 	return policies
 }
 
-// Writes error message to the policy logs in status section
+//LogPolicyError Writes error message to the policy logs in status section
 func (c *PolicyController) LogPolicyError(name, text string) {
 	c.addPolicyLog(name, "[ERROR] "+text)
 }
 
-// Writes info message to the policy logs in status section
+//LogPolicyInfo Writes info message to the policy logs in status section
 func (c *PolicyController) LogPolicyInfo(name, text string) {
 	c.addPolicyLog(name, "[ INFO] "+text)
 }
@@ -129,7 +132,7 @@ func (c *PolicyController) addPolicyLog(name, text string) {
 	}
 	policy, err := c.policiesInterface.Get(name, getOptions)
 	if err != nil {
-		c.logger.Printf("Unable to get policy %s: %s", name, err)
+		c.logger.Error(err, fmt.Sprintf("Unable to get policy %s", name))
 		return
 	}
 
@@ -144,33 +147,31 @@ func (c *PolicyController) addPolicyLog(name, text string) {
 	// Save logs to policy object
 	_, err = c.policiesInterface.UpdateStatus(policy)
 	if err != nil {
-		c.logger.Printf("Unable to update logs for policy %s: %s", name, err)
+		c.logger.Error(err, fmt.Sprintf("Unable to update logs for policy %s", name))
 	}
 }
 
 func (c *PolicyController) createPolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
-	c.logger.Printf("Policy created: %s", key)
+	c.logger.Info(fmt.Sprintf("Policy created: %s", key))
 }
 
 func (c *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
 	oldKey := c.getResourceKey(oldResource)
 	newKey := c.getResourceKey(newResource)
-
-	c.logger.Printf("Policy %s updated to %s", oldKey, newKey)
+	c.logger.Info(fmt.Sprintf("Policy %s updated to %s", oldKey, newKey))
 }
 
 func (c *PolicyController) deletePolicyHandler(resource interface{}) {
 	key := c.getResourceKey(resource)
-	c.logger.Printf("Policy deleted: %s", key)
+	c.logger.Info(fmt.Sprintf("Policy deleted: %s", key))
 }
 
 func (c *PolicyController) getResourceKey(resource interface{}) string {
 	if key, err := cache.MetaNamespaceKeyFunc(resource); err != nil {
-		c.logger.Fatalf("Error retrieving policy key: %v", err)
+		c.logger.Error(err, fmt.Sprintf("Policy deleted: %s", resource))
 	} else {
 		return key
 	}
-
 	return ""
 }

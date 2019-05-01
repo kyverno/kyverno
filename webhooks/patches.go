@@ -20,7 +20,7 @@ const (
 
 type PatchBytes []byte
 
-// Test patches on given document according to given sets.
+//ProcessPatches Test patches on given document according to given sets.
 // Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(patches []types.PolicyPatch, originalDocument []byte, sets PatchingSets) ([]PatchBytes, error) {
@@ -50,7 +50,7 @@ func ProcessPatches(patches []types.PolicyPatch, originalDocument []byte, sets P
 	return appliedPatches, nil
 }
 
-// Joins array of serialized JSON patches to the single JSONPatch array
+//JoinPatches Joins array of serialized JSON patches to the single JSONPatch array
 func JoinPatches(patches []PatchBytes) PatchBytes {
 	var result PatchBytes
 	if len(patches) == 0 {
@@ -68,7 +68,7 @@ func JoinPatches(patches []PatchBytes) PatchBytes {
 	return result
 }
 
-// Checks patch for document, returns patched document.
+//CheckPatch Checks patch for document, returns patched document.
 // On error returns original document and error.
 func CheckPatch(document []byte, patchRaw []byte) (PatchBytes, error) {
 	patchRaw = append([]byte{'['}, patchRaw...) // push [ forward
