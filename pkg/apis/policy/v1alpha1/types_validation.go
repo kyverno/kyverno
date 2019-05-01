@@ -67,8 +67,7 @@ func (pr *PolicyResource) Validate() error {
 	}
 
 	if pr.Name != nil {
-		// // make non-regexp a regexp to match exactly to the given name
-		// *pr.Name = "^" + *pr.Name + "$"
+		// make non-regexp a regexp to match exactly to the given name
 		if _, err := regexp.Compile(*pr.Name); err != nil {
 			return fmt.Errorf("invalied regex, err: %v", err)
 		}
