@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"encoding/json"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -39,7 +40,11 @@ func parseNamespaceFromMetadata(meta map[string]interface{}) string {
 	return ""
 }
 
-// TODO:
-func parseRegexPolicyResourceName(policyResourceName string) string {
-	return ""
+// returns true if policyResourceName is a regexp
+func parseRegexPolicyResourceName(policyResourceName string) (string, bool) {
+	regex := strings.Split(policyResourceName, "regex:")
+	if len(regex) == 1 {
+		return regex[0], false
+	}
+	return strings.Trim(regex[1], " "), true
 }

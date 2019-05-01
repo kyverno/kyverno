@@ -61,39 +61,39 @@ func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource 
 		meta := parseMetadataFromObject(resourceRaw)
 		name := parseNameFromMetadata(meta)
 
-		// if policyResource.Name != nil && *policyResource.Name != name {
-		// 	return false, false
-		// }
 		if policyResource.Name != nil {
-			fmt.Println("*policyResource.Name, name", *policyResource.Name, name)
+
+			policyResourceName, isRegex := parseRegexPolicyResourceName(*policyResource.Name)
+			fmt.Println("policyResourceName, name, isRegex", policyResourceName, name, isRegex)
 
 			// if no regex used, check if names are matched, return directly
-			if policyResource.Name != nil && *policyResource.Name == name {
-				return true, nil
+			if !isRegex && policyResourceName != name {
+				return false, nil
 			}
 
 			// validation of regex is peformed when validating the policyResource
 			// refer to policyResource.Validate()
-			parseRegexPolicyResourceName(*policyResource.Name)
-			match, _ := regexp.MatchString(*policyResource.Name, name)
-
-			if !match {
-				return false, nil
-			}
-
-			if policyResource.Selector != nil {
-				selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
-
-				if err != nil {
-					return false, err
-				}
-
-				labelMap := parseLabelsFromMetadata(meta)
-
-				if !selector.Matches(labelMap) {
+			if isRegex {
+				match, _ := regexp.MatchString(policyResourceName, name)
+				if !match {
 					return false, nil
 				}
 			}
+		}
+
+		if policyResource.Selector != nil {
+			selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
+
+			if err != nil {
+				return false, err
+			}
+
+			labelMap := parseLabelsFromMetadata(meta)
+
+			if !selector.Matches(labelMap) {
+				return false, nil
+			}
+
 		}
 	}
 	return true, nil

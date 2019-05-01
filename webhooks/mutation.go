@@ -78,6 +78,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 			namespace := parseNamespaceFromMetadata(meta)
 			name := parseNameFromMetadata(meta)
 			mw.controller.LogPolicyInfo(policy.Name, fmt.Sprintf("Applied to %s %s/%s", request.Kind.Kind, namespace, name))
+			mw.logger.Printf("%s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 
 			allPatches = append(allPatches, policyPatches...)
 		}
@@ -123,7 +124,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 		}
 
 		if ok, err := IsRuleApplicableToResource(kind, rawResource, rule.Resource); !ok {
-			// mw.logger.Printf("Rule %d of policy %s does not match the request %v", ruleIdx, policy.Name, request.UID)
+			mw.logger.Printf("Rule %d of policy %s does not match the request", ruleIdx, policy.Name)
 			violationCount++
 			return nil, violationCount, err
 		}
