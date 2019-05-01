@@ -14,6 +14,13 @@ func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	return objectJSON["metadata"].(map[string]interface{})
 }
 
+func parseKindFromObject(bytes []byte) string {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+
+	return objectJSON["kind"].(string)
+}
+
 func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	if interfaceMap, ok := meta["labels"].(map[string]interface{}); ok {
 		labelMap := make(labels.Set, len(interfaceMap))

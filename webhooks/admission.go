@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"fmt"
 	"regexp"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
@@ -64,7 +63,6 @@ func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource 
 		if policyResource.Name != nil {
 
 			policyResourceName, isRegex := parseRegexPolicyResourceName(*policyResource.Name)
-			fmt.Println("policyResourceName, name, isRegex", policyResourceName, name, isRegex)
 
 			// if no regex used, check if names are matched, return directly
 			if !isRegex && policyResourceName != name {
