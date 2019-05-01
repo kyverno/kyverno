@@ -80,7 +80,7 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 func (c *PolicyController) Run(stopCh <-chan struct{}) {
 	c.policyInformerFactory.Start(stopCh)
 	// Un-comment to run the violation Builder
-	//	c.violationBuilder.Run(1, stopCh)
+	c.violationBuilder.Run(1, stopCh)
 }
 
 // GetPolicies retrieves all policy resources
@@ -135,12 +135,12 @@ func (c *PolicyController) addPolicyLog(name, text string) {
 
 	// Add new log record
 	text = time.Now().Format("2006 Jan 02 15:04:05.999 ") + text
-	policy.Status.Logs = append(policy.Status.Logs, text)
+	//policy.Status.Logs = append(policy.Status.Logs, text)
 	// Pop front extra log records
-	logsCount := len(policy.Status.Logs)
-	if logsCount > policyLogMaxRecords {
-		policy.Status.Logs = policy.Status.Logs[logsCount-policyLogMaxRecords:]
-	}
+	// logsCount := len(policy.Status.Logs)
+	// if logsCount > policyLogMaxRecords {
+	// 	policy.Status.Logs = policy.Status.Logs[logsCount-policyLogMaxRecords:]
+	// }
 	// Save logs to policy object
 	_, err = c.policiesInterface.UpdateStatus(policy)
 	if err != nil {
