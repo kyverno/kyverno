@@ -58,7 +58,7 @@ func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource 
 
 	if resourceRaw != nil {
 		meta := parseMetadataFromObject(resourceRaw)
-		name := parseNameFromMetadata(meta)
+		name := parseNameFromObject(resourceRaw)
 
 		if policyResource.Name != nil {
 

@@ -76,9 +76,8 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 		}
 
 		if len(policyPatches) > 0 {
-			meta := parseMetadataFromObject(request.Object.Raw)
-			namespace := parseNamespaceFromMetadata(meta)
-			name := parseNameFromMetadata(meta)
+			namespace := parseNamespaceFromObject(request.Object.Raw)
+			name := parseNameFromObject(request.Object.Raw)
 			mw.controller.LogPolicyInfo(policy.Name, fmt.Sprintf("Applied to %s %s/%s", request.Kind.Kind, namespace, name))
 			mw.logger.Printf("%s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 
@@ -117,10 +116,9 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 	var policyPatches []PatchBytes
 	var violations []violation.Info
 
-	meta := parseMetadataFromObject(rawResource)
 	resourceKind := parseKindFromObject(rawResource)
-	resourceName := parseNameFromMetadata(meta)
-	ns := parseNamespaceFromMetadata(meta)
+	resourceName := parseNameFromObject(rawResource)
+	ns := parseNamespaceFromObject(rawResource)
 
 	for ruleIdx, rule := range policy.Spec.Rules {
 		err := rule.Validate()
@@ -192,8 +190,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 func (mw *MutationWebhook) applyRuleGenerators(rawResource []byte, rule types.PolicyRule) error {
-	meta := parseMetadataFromObject(rawResource)
-	namespaceName := parseNameFromMetadata(meta)
+	namespaceName := parseNameFromObject(rawResource)
 
 	err := mw.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
 	if err == nil {
