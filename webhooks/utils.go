@@ -33,14 +33,24 @@ func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	return nil
 }
 
-func parseNameFromMetadata(meta map[string]interface{}) string {
+func parseNameFromObject(bytes []byte) string {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+
+	meta := objectJSON["metadata"].(map[string]interface{})
+
 	if name, ok := meta["name"].(string); ok {
 		return name
 	}
 	return ""
 }
 
-func parseNamespaceFromMetadata(meta map[string]interface{}) string {
+func parseNamespaceFromObject(bytes []byte) string {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+
+	meta := objectJSON["metadata"].(map[string]interface{})
+
 	if namespace, ok := meta["namespace"].(string); ok {
 		return namespace
 	}
