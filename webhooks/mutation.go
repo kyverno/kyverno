@@ -6,11 +6,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/nirmata/kube-policy/pkg/violation"
-
 	controller "github.com/nirmata/kube-policy/controller"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
@@ -109,7 +108,6 @@ func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, p
 	return mw.applyPolicyRulesOnResource(request.Kind.Kind, request.Object.Raw, policy)
 }
 
-// TODO: add another violation field in return elements
 // kind is the type of object being manipulated
 func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource []byte, policy types.Policy) ([]PatchBytes, []violation.Info, error) {
 	patchingSets := getPolicyPatchingSets(policy)
@@ -140,7 +138,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 					Kind:     resourceKind,
 					Resource: ns + "/" + resourceName,
 					Policy:   policy.Name,
-					RuleName: string(ruleIdx),
+					RuleName: rule.Name,
 					Reason:   err.Error(),
 				})
 
@@ -156,7 +154,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 				Kind:     resourceKind,
 				Resource: ns + "/" + resourceName,
 				Policy:   policy.Name,
-				RuleName: string(ruleIdx),
+				RuleName: rule.Name,
 				Reason:   err.Error(),
 			})
 			return nil, violations, fmt.Errorf("Failed to process patches from rule #%d: %s", ruleIdx, err)
@@ -171,7 +169,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 					Kind:     resourceKind,
 					Resource: ns + "/" + resourceName,
 					Policy:   policy.Name,
-					RuleName: string(ruleIdx),
+					RuleName: rule.Name,
 					Reason:   fmt.Sprintf("%v out of %v patches prepared", len(rulePatchesProcessed), len(rule.Patches)),
 				})
 			}
