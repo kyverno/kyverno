@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
-	"regexp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,13 +62,6 @@ func (pr *PolicyResource) Validate() error {
 		requirements, _ := selector.Requirements()
 		if len(requirements) == 0 {
 			return errors.New("The requirements are not specified in selector")
-		}
-	}
-
-	if pr.Name != nil {
-		// make non-regexp a regexp to match exactly to the given name
-		if _, err := regexp.Compile(*pr.Name); err != nil {
-			return fmt.Errorf("invalied regex, err: %v", err)
 		}
 	}
 

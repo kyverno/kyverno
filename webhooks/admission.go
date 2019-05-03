@@ -1,8 +1,7 @@
 package webhooks
 
 import (
-	"regexp"
-
+	"github.com/minio/minio/pkg/wildcard"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,20 +61,8 @@ func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource 
 
 		if policyResource.Name != nil {
 
-			policyResourceName, isRegex := parseRegexPolicyResourceName(*policyResource.Name)
-
-			// if no regex used, check if names are matched, return directly
-			if !isRegex && policyResourceName != name {
+			if !wildcard.Match(*policyResource.Name, name) {
 				return false, nil
-			}
-
-			// validation of regex is peformed when validating the policyResource
-			// refer to policyResource.Validate()
-			if isRegex {
-				match, _ := regexp.MatchString(policyResourceName, name)
-				if !match {
-					return false, nil
-				}
 			}
 		}
 
