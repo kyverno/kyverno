@@ -49,7 +49,6 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 	if err != nil {
 		return nil, err
 	}
-	log.Print(kubeClient)
 
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, time.Second*30)
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
