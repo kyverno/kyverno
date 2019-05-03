@@ -23,3 +23,6 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
 [[override]]
   name = "github.com/evanphx/json-patch"
   branch = "master"
+[[constraint]]
+  branch = "master"
+  name = "github.com/minio/minio"
