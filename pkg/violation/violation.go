@@ -2,6 +2,9 @@ package violation
 
 import (
 	"fmt"
+	"log"
+	"time"
+
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	clientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	policyscheme "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
@@ -17,8 +20,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"log"
-	"time"
 )
 
 type Violations []Violation
@@ -66,7 +67,7 @@ func NewViolationHelper(kubeClient *kubernetes.Clientset, policyClientSet *clien
 
 // Create to generate violation jsonpatch script &
 // queue events to generate events
-// TO-DO create should validate the rule number and update the violation if one exists
+// TODO: create should validate the rule number and update the violation if one exists
 func (b *Builder) Create(info Info) error {
 	// generate patch
 	//	we can generate the patch as the policy resource will alwasy exist
@@ -185,9 +186,7 @@ func (b *Builder) ValidationResourceActive(violation types.Violation) (bool, err
 }
 
 func (b *Builder) patch(policy *types.Policy, updatedPolicy *types.Policy) error {
-
 	_, err := b.policyClientset.Nirmata().Policies(updatedPolicy.Namespace).UpdateStatus(updatedPolicy)
-	//	_, err = b.policyClientset.Nirmata().Policies(policy.Namespace).Patch(policy.Name, patchTypes.MergePatchType, patchBytes)
 	if err != nil {
 		return err
 	}
@@ -196,7 +195,6 @@ func (b *Builder) patch(policy *types.Policy, updatedPolicy *types.Policy) error
 
 // Run : Initialize the worker routines to process the event creation
 func (b *Builder) Run(threadiness int, stopCh <-chan struct{}) error {
-
 	defer utilruntime.HandleCrash()
 	defer b.workqueue.ShutDown()
 	log.Println("Starting violation builder")
@@ -233,7 +231,7 @@ func (b *Builder) processNextWorkItem() bool {
 		var ok bool
 		if key, ok = obj.(EventInfo); !ok {
 			b.workqueue.Forget(obj)
-			log.Printf("Expecting type info by got %v", obj)
+			log.Printf("Expecting type info but got %v", obj)
 			return nil
 		}
 

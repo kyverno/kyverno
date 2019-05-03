@@ -2,17 +2,15 @@ package resourceClient
 
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/apimachinery/pkg/runtime"
-
+	"k8s.io/client-go/kubernetes"
 )
 
 func GetResouce(clientSet *kubernetes.Clientset, kind string, resourceNamespace string, resourceName string) (runtime.Object, error) {
-
 	switch kind {
 	case "Deployment":
 		{
-			obj, err := clientSet.AppsV1().Deployments(resourceNamespace).Get(resourceName, meta_v1.GetOptions{}) // Deployment
+			obj, err := clientSet.AppsV1().Deployments(resourceNamespace).Get(resourceName, meta_v1.GetOptions{})
 			if err != nil {
 				return nil, err
 			}
