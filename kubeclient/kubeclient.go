@@ -1,6 +1,7 @@
 package kubeclient
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -11,8 +12,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	event "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 // KubeClient is the api-client for core Kubernetes objects
@@ -36,6 +41,10 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 		logger: logger,
 		client: client,
 	}, nil
+}
+
+func (kc *KubeClient) GetEventsInterface(namespace string) event.EventInterface {
+	return kc.client.CoreV1().Events(namespace)
 }
 
 func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
@@ -174,4 +183,189 @@ func (kc *KubeClient) createSecretAfterNamespaceIsCreated(secret v1.Secret, name
 	if err != nil {
 		kc.logger.Printf("Can't create a secret: %s", err)
 	}
+}
+
+var rMapper = map[string]getter{
+	"ConfigMap":               configMapGetter,
+	"Pods":                    podsGetter,
+	"Deploymeny":              deploymentGetter,
+	"CronJob":                 cronJobGetter,
+	"Endpoints":               endpointsbGetter,
+	"HorizontalPodAutoscaler": horizontalPodAutoscalerGetter,
+	"Ingress":                 ingressGetter,
+	"Job":                     jobGetter,
+	"LimitRange":              limitRangeGetter,
+	"Namespace":               namespaceGetter,
+	"NetworkPolicy":           networkPolicyGetter,
+	"PersistentVolumeClaim":   persistentVolumeClaimGetter,
+	"PodDisruptionBudget":     podDisruptionBudgetGetter,
+	"PodTemplate":             podTemplateGetter,
+	"ResourceQuota":           resourceQuotaGetter,
+	"Secret":                  secretGetter,
+	"Service":                 serviceGetter,
+	"StatefulSet":             statefulSetGetter,
+}
+
+type getter func(*kubernetes.Clientset, string, string) (runtime.Object, error)
+
+//GetResource get the resource object
+func (kc *KubeClient) GetResource(kind string, resource string) (runtime.Object, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(resource)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", resource))
+		return nil, err
+	}
+	// runtime.Object -> Actual object
+	return rMapper[kind](kc.client, namespace, name)
+}
+
+//GetSupportedResourceTypes provides list of supported types
+func GetSupportedResourceTypes() (rTypes []string) {
+	for k := range rMapper {
+		rTypes = append(rTypes, k)
+	}
+	return rTypes
+}
+
+func configMapGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+func podsGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func deploymentGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func cronJobGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.BatchV1beta1().CronJobs(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func endpointsbGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func horizontalPodAutoscalerGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.AutoscalingV1().HorizontalPodAutoscalers(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func ingressGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func jobGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.BatchV1().Jobs(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func limitRangeGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().LimitRanges(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func namespaceGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func networkPolicyGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.NetworkingV1().NetworkPolicies(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func persistentVolumeClaimGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func podDisruptionBudgetGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.PolicyV1beta1().PodDisruptionBudgets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func podTemplateGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().PodTemplates(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func resourceQuotaGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().ResourceQuotas(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func secretGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func serviceGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func statefulSetGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
+	obj, err := clientSet.AppsV1().StatefulSets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }

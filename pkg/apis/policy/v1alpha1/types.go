@@ -12,9 +12,9 @@ import (
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicySpec `json:"spec"`
-	//	Status            PolicyStatus     `json:"status"`
-	Status PolicyViolations `json:"status,omitempty"`
+	Spec              PolicySpec       `json:"spec"`
+	Status            PolicyStatus     `json:"status"`
+	PolicyViolation   PolicyViolations `json:"policyviolation,omitempty"`
 }
 
 type PolicyViolations struct {
@@ -23,9 +23,9 @@ type PolicyViolations struct {
 type Violation struct {
 	Kind     string `json:"kind,omitempty"`
 	Resource string `json:"resource,omitempty"`
-	Source   string `json:"source,omitempty"`
 	Rule     string `json:"rule,omitempty"`
 	Reason   string `json:"reason,omitempty"`
+	Message  string `json:"message,omitempty`
 }
 
 // Specification of the Policy.
