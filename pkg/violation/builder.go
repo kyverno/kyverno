@@ -37,7 +37,11 @@ func NewViolationBuilder(
 	eventBuilder internalinterfaces.BuilderInternal,
 	logger *log.Logger) (Builder, error) {
 
-	builder := &builder{}
+	builder := &builder{
+		kubeClient:   kubeClient,
+		eventBuilder: eventBuilder,
+		logger:       logger,
+	}
 	return builder, nil
 }
 

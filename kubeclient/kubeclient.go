@@ -188,7 +188,7 @@ func (kc *KubeClient) createSecretAfterNamespaceIsCreated(secret v1.Secret, name
 var rMapper = map[string]getter{
 	"ConfigMap":               configMapGetter,
 	"Pods":                    podsGetter,
-	"Deploymeny":              deploymentGetter,
+	"Deployment":              deploymentGetter,
 	"CronJob":                 cronJobGetter,
 	"Endpoints":               endpointsbGetter,
 	"HorizontalPodAutoscaler": horizontalPodAutoscalerGetter,
@@ -215,7 +215,6 @@ func (kc *KubeClient) GetResource(kind string, resource string) (runtime.Object,
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", resource))
 		return nil, err
 	}
-	// runtime.Object -> Actual object
 	return rMapper[kind](kc.client, namespace, name)
 }
 
