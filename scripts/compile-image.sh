@@ -22,4 +22,4 @@ tag="${hub_user_name}/${project_name}:${version}"
 docker build --no-cache -t "${tag}" . || exit 4
 
 echo "# Pushing image to repository..."
-docker push "${tag}" || exit 5
+#docker push "${tag}" || exit 5

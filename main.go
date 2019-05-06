@@ -24,14 +24,14 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	controller, err := controller.NewPolicyController(clientConfig, nil)
-	if err != nil {
-		log.Fatalf("Error creating PolicyController: %s\n", err)
-	}
-
 	kubeclient, err := kubeclient.NewKubeClient(clientConfig, nil)
 	if err != nil {
 		log.Fatalf("Error creating kubeclient: %v\n", err)
+	}
+
+	controller, err := controller.NewPolicyController(clientConfig, nil, kubeclient)
+	if err != nil {
+		log.Fatalf("Error creating PolicyController: %s\n", err)
 	}
 
 	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig, kubeclient, controller, nil)

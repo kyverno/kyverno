@@ -2,34 +2,14 @@ package webhooks
 
 import (
 	"github.com/minio/minio/pkg/wildcard"
+	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var supportedKinds = [...]string{
-	"ConfigMap",
-	"CronJob",
-	"DaemonSet",
-	"Deployment",
-	"Endpoints",
-	"HorizontalPodAutoscaler",
-	"Ingress",
-	"Job",
-	"LimitRange",
-	"Namespace",
-	"NetworkPolicy",
-	"PersistentVolumeClaim",
-	"PodDisruptionBudget",
-	"PodTemplate",
-	"ResourceQuota",
-	"Secret",
-	"Service",
-	"StatefulSet",
-}
-
 func kindIsSupported(kind string) bool {
-	for _, k := range supportedKinds {
+	for _, k := range kubeclient.GetSupportedResourceTypes() {
 		if k == kind {
 			return true
 		}
