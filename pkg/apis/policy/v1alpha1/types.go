@@ -12,8 +12,20 @@ import (
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicySpec   `json:"spec"`
-	Status            PolicyStatus `json:"status"`
+	Spec              PolicySpec `json:"spec"`
+	//	Status            PolicyStatus     `json:"status"`
+	Status PolicyViolations `json:"status,omitempty"`
+}
+
+type PolicyViolations struct {
+	Violations []Violation `json:"violations,omitempty"`
+}
+type Violation struct {
+	Kind     string `json:"kind,omitempty"`
+	Resource string `json:"resource,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Rule     string `json:"rule,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // Specification of the Policy.
@@ -26,6 +38,7 @@ type PolicySpec struct {
 // The rule of mutation for the single resource definition.
 // Details are listed in the description of each of the substructures.
 type PolicyRule struct {
+	Name               string                 `json:"name"`
 	Resource           PolicyResource         `json:"resource"`
 	Patches            []PolicyPatch          `json:"patch,omitempty"`
 	ConfigMapGenerator *PolicyConfigGenerator `json:"configMapGenerator,omitempty"`

@@ -9,6 +9,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -17,6 +18,7 @@ import (
 	policies "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/typed/policy/v1alpha1"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 )
 
 // PolicyController for CRD
@@ -25,6 +27,7 @@ type PolicyController struct {
 	policyLister          lister.PolicyLister
 	policiesInterface     policies.PolicyInterface
 	logger                *log.Logger
+	violationBuilder      *violation.Builder
 }
 
 // NewPolicyController from cmd args
@@ -41,15 +44,26 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 	if err != nil {
 		return nil, err
 	}
+	//	Initialize Kube Client
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, time.Second*30)
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
+	// generate Violation builder
+	builder, err := violation.NewViolationHelper(kubeClient, policyClientset, logger, policyInformer)
+	if err != nil {
+		return nil, err
+	}
 	controller := &PolicyController{
 		policyInformerFactory: policyInformerFactory,
 		policyLister:          policyInformer.Lister(),
 		policiesInterface:     policyClientset.NirmataV1alpha1().Policies("default"),
 		logger:                logger,
+		violationBuilder:      builder,
 	}
 
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -64,6 +78,8 @@ func NewPolicyController(config *rest.Config, logger *log.Logger) (*PolicyContro
 // Run is main controller thread
 func (c *PolicyController) Run(stopCh <-chan struct{}) {
 	c.policyInformerFactory.Start(stopCh)
+	// Un-comment to run the violation Builder
+	c.violationBuilder.Run(1, stopCh)
 }
 
 // GetPolicies retrieves all policy resources
@@ -118,12 +134,12 @@ func (c *PolicyController) addPolicyLog(name, text string) {
 
 	// Add new log record
 	text = time.Now().Format("2006 Jan 02 15:04:05.999 ") + text
-	policy.Status.Logs = append(policy.Status.Logs, text)
+	//policy.Status.Logs = append(policy.Status.Logs, text)
 	// Pop front extra log records
-	logsCount := len(policy.Status.Logs)
-	if logsCount > policyLogMaxRecords {
-		policy.Status.Logs = policy.Status.Logs[logsCount-policyLogMaxRecords:]
-	}
+	// logsCount := len(policy.Status.Logs)
+	// if logsCount > policyLogMaxRecords {
+	// 	policy.Status.Logs = policy.Status.Logs[logsCount-policyLogMaxRecords:]
+	// }
 	// Save logs to policy object
 	_, err = c.policiesInterface.UpdateStatus(policy)
 	if err != nil {
