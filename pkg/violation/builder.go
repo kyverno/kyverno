@@ -63,8 +63,16 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 	modifiedPolicy := policy.DeepCopy()
 	modifiedViolations := []types.Violation{}
 
+	// Create new violation
+	newViolation := types.Violation{
+		Kind:     info.Kind,
+		Resource: info.Resource,
+		Rule:     info.Rule,
+		Reason:   info.Reason,
+		Message:  info.Message,
+	}
 	for _, violation := range modifiedPolicy.PolicyViolation.Violations {
-		ok, err := b.IsActive(info.Kind, info.Resource)
+		ok, err := b.IsActive(info.Kind, violation.Resource)
 		if err != nil {
 			utilruntime.HandleError(err)
 			continue
@@ -74,7 +82,7 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 			// Create a removal event
 			b.eventBuilder.AddEvent(eventutils.EventInfo{
 				Kind:     "Policy",
-				Resource: info.Resource,
+				Resource: info.Policy,
 				Rule:     info.Rule,
 				Reason:   info.Reason,
 				Message:  info.Message,
@@ -82,14 +90,10 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 			continue
 		}
 		// If violation already exists for this rule, we update the violation
-		if violation.Kind == info.Kind &&
-			violation.Resource == info.Resource &&
-			violation.Rule == info.Rule {
-			violation.Reason = info.Reason
-			violation.Message = info.Message
-		}
-		modifiedViolations = append(modifiedViolations, violation)
+		//TODO: update violation, instead of re-creating one every time
 	}
+	modifiedViolations = append(modifiedViolations, newViolation)
+
 	modifiedPolicy.PolicyViolation.Violations = modifiedViolations
 	return b.Patch(policy, modifiedPolicy)
 
@@ -122,6 +126,7 @@ func (b *builder) Patch(policy *types.Policy, updatedPolicy *types.Policy) error
 	}
 	_, err = b.controller.PatchPolicy(policy.Name, mergetypes.MergePatchType, patchBytes)
 	if err != nil {
+
 		// Unable to patch
 		return err
 	}
