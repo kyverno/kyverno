@@ -8,7 +8,7 @@ spec:
     - name: v1alpha1
       served: true
       storage: true
-  scope: Namespaced
+  scope: Cluster
   names:
     kind: Policy
     plural: policies
@@ -34,7 +34,6 @@ spec:
                 type: object
                 required:
                 - resource
-                - name
                 properties:
                   resource:
                     type: object
@@ -62,8 +61,6 @@ spec:
                         - Secret
                         - Service
                         - StatefulSet
-                      name:
-                        type: string
                       selector:
                         properties:
                           matchLabels:
@@ -104,8 +101,6 @@ spec:
                           - remove
                         value:
                           AnyValue: {}
-                  name:
-                    type: string                    
                   configMapGenerator:
                     type: object
                     required:
