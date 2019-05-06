@@ -1,7 +1,35 @@
 # kube-policy
 A Kubernetes native policy engine
 
-## Motivation
+### Workflow
+
+We work using [bitbucket gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows): the work is performed in separate branches that merge into the develop branch, and the current stable version of the product is in the master branch. Working with the repository looks like this:
+
+1. Create an issue, add specification and architecture, discuss with teammates
+
+2. From the develop branch create your own branch named as the issue with its number. For example, the branch for the [issue #14](https://github.com/nirmata/kube-policy/issues/14) should have a name *14-Events_support*.
+
+3. Work only with your own branch, create pull requests to the develop branch after each stage of development (about the stages see below).
+
+4. Create a final pull request to the develop branch when the work on the issue is done. The pull request must meet the **requirements**:
+* Should be able to merge without conflicts. To resolve conflicts in pull request, merge the actual develop branch to your branch and update the request.
+* Should not contain non-compiled code. After each pull request, the develop branch must be buildable, because at any time, anyone from the team can create feature branch from the develop.
+* Should not have unused and commented code, as well as unused resources.
+* Should be confirmed by an actual Development Manager of the project.
+
+5. Before creating a new version of the product, the develop branch is merged to the master. The master should not have direct commits from branches other than develop.
+
+Before starting a task, we need to think it over well and create the only right solution that will allow us to achieve the goal without compromising the existing functionality. The process of preparing for the task is divided into stages:
+1. **Strict specifications**.
+Before writing the code, an exact feature specification must be written to the issue and discussed. We must work exactly according to the specification and not change it on the go to eliminate confusion between team members.
+
+2. **Architectures**.
+For complex features, we create architectures in the form of UML diagrams. Diagrams visualize your thoughts, as well as specifications, but provide more details to the developer. With the help of diagrams, we solve possible problems before they arise. Also, using diagrams, you can divide the feature into components and schedule individual tasks for their implementation.
+
+3. **Separation**.
+Each issue describes a global task that can be divided into subtasks. When the big issue already has a clear specification and, possibly, an architecture, it can be divided into separate stages and be carried out sequentially. The stage of performing the task is the merge to develop branch. You can create a branch for each stage, but you can also create pull requests sequentially from the same branch that is created for your issue. **We do not mix work on several tasks in one branch.**
+
+Following these simple rules, we can work effectively without interfering with each other, and keep the project in the best possible shape all the time.
 
 ## How it works
 The solution provides a possibility to validate Kubernetes resources and modify them before their creation. 
