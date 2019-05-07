@@ -1,4 +1,4 @@
-package webhooks_test
+package policymanager
 
 import (
 	"testing"
