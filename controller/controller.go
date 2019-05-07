@@ -204,3 +204,8 @@ func (c *policyController) getPolicyInterface(namespace string) lister.PolicyNam
 func (c *policyController) PatchPolicy(policy string, pt mergetypes.PatchType, data []byte) (*types.Policy, error) {
 	return c.policiesInterface.Patch(policy, pt, data)
 }
+
+func (c *policyController) UpdatePolicyViolations(updatedPolicy *types.Policy) error {
+	_, err := c.policiesInterface.UpdateStatus(updatedPolicy)
+	return err
+}

@@ -12,20 +12,8 @@ import (
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicySpec       `json:"spec"`
-	Status            PolicyStatus     `json:"status"`
-	PolicyViolation   PolicyViolations `json:"policyviolation,omitempty"`
-}
-
-type PolicyViolations struct {
-	Violations []Violation `json:"violations,omitempty"`
-}
-type Violation struct {
-	Kind     string `json:"kind,omitempty"`
-	Resource string `json:"resource,omitempty"`
-	Rule     string `json:"rule,omitempty"`
-	Reason   string `json:"reason,omitempty"`
-	Message  string `json:"message,omitempty`
+	Spec              PolicySpec   `json:"spec"`
+	Status            PolicyStatus `json:"status"`
 }
 
 // Specification of the Policy.
@@ -86,7 +74,8 @@ type PolicyCopyFrom struct {
 
 // Contains logs about policy application
 type PolicyStatus struct {
-	Logs []string `json:"log"`
+	Logs       []string    `json:"log"`
+	Violations []Violation `json:"violations,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -96,4 +85,13 @@ type PolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []Policy `json:"items"`
+}
+
+// Violation for the policy
+type Violation struct {
+	Kind     string `json:"kind,omitempty"`
+	Resource string `json:"resource,omitempty"`
+	Rule     string `json:"rule,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+	Message  string `json:"message,omitempty`
 }

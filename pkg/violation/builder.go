@@ -75,7 +75,8 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 		Reason:   info.Reason,
 		Message:  info.Message,
 	}
-	for _, violation := range modifiedPolicy.PolicyViolation.Violations {
+
+	for _, violation := range modifiedPolicy.Status.Violations {
 		ok, err := b.IsActive(info.Kind, violation.Resource)
 		if err != nil {
 			utilruntime.HandleError(err)
@@ -98,9 +99,10 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 	}
 	modifiedViolations = append(modifiedViolations, newViolation)
 
-	modifiedPolicy.PolicyViolation.Violations = modifiedViolations
-	return b.Patch(policy, modifiedPolicy)
-
+	modifiedPolicy.Status.Violations = modifiedViolations
+	//	return b.Patch(policy, modifiedPolicy)
+	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
+	return b.controller.UpdatePolicyViolations(modifiedPolicy)
 }
 
 func (b *builder) IsActive(kind string, resource string) (bool, error) {
