@@ -6,13 +6,12 @@ import (
 	"log"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	controllerinternalinterfaces "github.com/nirmata/kube-policy/controller/internalinterfaces"
+	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/event/internalinterfaces"
-	eventinternalinterfaces "github.com/nirmata/kube-policy/pkg/event/internalinterfaces"
+	eventinterfaces "github.com/nirmata/kube-policy/pkg/event/interfaces"
 	eventutils "github.com/nirmata/kube-policy/pkg/event/utils"
-	violationinternalinterfaces "github.com/nirmata/kube-policy/pkg/violation/internalinterfaces"
+	violationinterfaces "github.com/nirmata/kube-policy/pkg/violation/interfaces"
 	utils "github.com/nirmata/kube-policy/pkg/violation/utils"
 	mergetypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -20,13 +19,13 @@ import (
 
 type builder struct {
 	kubeClient   *kubeClient.KubeClient
-	controller   controllerinternalinterfaces.PolicyGetter
-	eventBuilder eventinternalinterfaces.BuilderInternal
+	controller   controllerinterfaces.PolicyGetter
+	eventBuilder eventinterfaces.BuilderInternal
 	logger       *log.Logger
 }
 
 type Builder interface {
-	violationinternalinterfaces.ViolationGenerator
+	violationinterfaces.ViolationGenerator
 	ProcessViolation(info utils.ViolationInfo) error
 	Patch(policy *types.Policy, updatedPolicy *types.Policy) error
 	IsActive(kind string, resource string) (bool, error)
@@ -34,7 +33,7 @@ type Builder interface {
 
 func NewViolationBuilder(
 	kubeClient *kubeClient.KubeClient,
-	eventBuilder internalinterfaces.BuilderInternal,
+	eventBuilder eventinterfaces.BuilderInternal,
 	logger *log.Logger) (Builder, error) {
 
 	builder := &builder{
@@ -53,7 +52,7 @@ func (b *builder) Create(info utils.ViolationInfo) error {
 	return nil
 }
 
-func (b *builder) SetController(controller controllerinternalinterfaces.PolicyGetter) {
+func (b *builder) SetController(controller controllerinterfaces.PolicyGetter) {
 	b.controller = controller
 }
 
@@ -115,7 +114,6 @@ func (b *builder) IsActive(kind string, resource string) (bool, error) {
 	return true, nil
 }
 
-// ProcessViolation(info utils.ViolationInfo) error
 func (b *builder) Patch(policy *types.Policy, updatedPolicy *types.Policy) error {
 	originalData, err := json.Marshal(policy)
 	if err != nil {
