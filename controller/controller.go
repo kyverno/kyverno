@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	internalinterfaces "github.com/nirmata/kube-policy/controller/internalinterfaces"
+	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	clientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
@@ -16,10 +16,10 @@ import (
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	eventinternalinterfaces "github.com/nirmata/kube-policy/pkg/event/internalinterfaces"
+	eventinterfaces "github.com/nirmata/kube-policy/pkg/event/interfaces"
 	eventutils "github.com/nirmata/kube-policy/pkg/event/utils"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
-	violationinternalinterfaces "github.com/nirmata/kube-policy/pkg/violation/internalinterfaces"
+	violationinterfaces "github.com/nirmata/kube-policy/pkg/violation/interfaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	mergetypes "k8s.io/apimachinery/pkg/types"
@@ -30,11 +30,9 @@ import (
 
 // PolicyController API
 type PolicyController interface {
-	internalinterfaces.PolicyGetter
-	createPolicyHandler(resource interface{})
-	updatePolicyHandler(oldResource, newResource interface{})
-	deletePolicyHandler(resource interface{})
-	getResourceKey(resource interface{}) string
+	controllerinterfaces.PolicyGetter
+	controllerinterfaces.PolicyHandlers
+	Run(stopCh <-chan struct{})
 }
 
 //policyController for CRD
@@ -43,8 +41,8 @@ type policyController struct {
 	policyLister          lister.PolicyLister
 	policiesInterface     policies.PolicyInterface
 	logger                *log.Logger
-	violationBuilder      violationinternalinterfaces.ViolationGenerator
-	eventBuilder          eventinternalinterfaces.BuilderInternal
+	violationBuilder      violationinterfaces.ViolationGenerator
+	eventBuilder          eventinterfaces.BuilderInternal
 }
 
 // NewPolicyController from cmd args
@@ -83,9 +81,9 @@ func NewPolicyController(config *rest.Config, logger *log.Logger, kubeClient *ku
 		eventBuilder:          eventBuilder,
 	}
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.createPolicyHandler,
-		UpdateFunc: controller.updatePolicyHandler,
-		DeleteFunc: controller.deletePolicyHandler,
+		AddFunc:    controller.CreatePolicyHandler,
+		UpdateFunc: controller.UpdatePolicyHandler,
+		DeleteFunc: controller.DeletePolicyHandler,
 	})
 	// Set the controller
 	eventBuilder.SetController(controller)
@@ -164,23 +162,23 @@ func (c *policyController) addPolicyLog(name, text string) {
 	}
 }
 
-func (c *policyController) createPolicyHandler(resource interface{}) {
-	key := c.getResourceKey(resource)
+func (c *policyController) CreatePolicyHandler(resource interface{}) {
+	key := c.GetResourceKey(resource)
 	c.logger.Printf("Policy created: %s", key)
 }
 
-func (c *policyController) updatePolicyHandler(oldResource, newResource interface{}) {
-	oldKey := c.getResourceKey(oldResource)
-	newKey := c.getResourceKey(newResource)
+func (c *policyController) UpdatePolicyHandler(oldResource, newResource interface{}) {
+	oldKey := c.GetResourceKey(oldResource)
+	newKey := c.GetResourceKey(newResource)
 	c.logger.Printf("Policy %s updated to %s", oldKey, newKey)
 }
 
-func (c *policyController) deletePolicyHandler(resource interface{}) {
-	key := c.getResourceKey(resource)
+func (c *policyController) DeletePolicyHandler(resource interface{}) {
+	key := c.GetResourceKey(resource)
 	c.logger.Printf("Policy deleted: %s", key)
 }
 
-func (c *policyController) getResourceKey(resource interface{}) string {
+func (c *policyController) GetResourceKey(resource interface{}) string {
 	if key, err := cache.MetaNamespaceKeyFunc(resource); err != nil {
 		c.logger.Fatalf("Error retrieving policy key: %v", err)
 	} else {

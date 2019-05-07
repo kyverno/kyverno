@@ -6,11 +6,11 @@ import (
 	"log"
 	"time"
 
-	controllerinternalinterfaces "github.com/nirmata/kube-policy/controller/internalinterfaces"
+	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
-	"github.com/nirmata/kube-policy/pkg/event/internalinterfaces"
+	eventinterfaces "github.com/nirmata/kube-policy/pkg/event/interfaces"
 	utils "github.com/nirmata/kube-policy/pkg/event/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +24,7 @@ import (
 
 type builder struct {
 	kubeClient   *kubeClient.KubeClient
-	controller   controllerinternalinterfaces.PolicyGetter
+	controller   controllerinterfaces.PolicyGetter
 	workqueue    workqueue.RateLimitingInterface
 	recorder     record.EventRecorder
 	logger       *log.Logger
@@ -32,7 +32,7 @@ type builder struct {
 }
 
 type Builder interface {
-	internalinterfaces.BuilderInternal
+	eventinterfaces.BuilderInternal
 	SyncHandler(key utils.EventInfo) error
 	ProcessNextWorkItem() bool
 	RunWorker()
@@ -70,7 +70,7 @@ func initWorkqueue() workqueue.RateLimitingInterface {
 	return workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), utils.EventWorkQueueName)
 }
 
-func (b *builder) SetController(controller controllerinternalinterfaces.PolicyGetter) {
+func (b *builder) SetController(controller controllerinterfaces.PolicyGetter) {
 	b.controller = controller
 	b.policySynced = controller.GetCacheInformerSync()
 }

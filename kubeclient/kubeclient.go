@@ -218,8 +218,8 @@ func (kc *KubeClient) GetResource(kind string, resource string) (runtime.Object,
 	return rMapper[kind](kc.client, namespace, name)
 }
 
-//GetSupportedResourceTypes provides list of supported types
-func GetSupportedResourceTypes() (rTypes []string) {
+//GetSupportedKinds provides list of supported types
+func GetSupportedKinds() (rTypes []string) {
 	for k := range rMapper {
 		rTypes = append(rTypes, k)
 	}

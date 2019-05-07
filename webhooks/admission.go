@@ -9,7 +9,7 @@ import (
 )
 
 func kindIsSupported(kind string) bool {
-	for _, k := range kubeclient.GetSupportedResourceTypes() {
+	for _, k := range kubeclient.GetSupportedKinds() {
 		if k == kind {
 			return true
 		}

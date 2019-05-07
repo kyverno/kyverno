@@ -6,11 +6,12 @@ import (
 	"log"
 	"os"
 
-	controllerinternalinterfaces "github.com/nirmata/kube-policy/controller/internalinterfaces"
+	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -18,13 +19,13 @@ import (
 // business logic for resource mutation
 type MutationWebhook struct {
 	kubeclient   *kubeclient.KubeClient
-	controller   controllerinternalinterfaces.PolicyGetter
+	controller   controllerinterfaces.PolicyGetter
 	registration *MutationWebhookRegistration
 	logger       *log.Logger
 }
 
 // Registers mutation webhook in cluster and creates object for this webhook
-func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient, controller controllerinternalinterfaces.PolicyGetter, logger *log.Logger) (*MutationWebhook, error) {
+func CreateMutationWebhook(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient, controller controllerinterfaces.PolicyGetter, logger *log.Logger) (*MutationWebhook, error) {
 	if clientConfig == nil || kubeclient == nil || controller == nil {
 		return nil, errors.New("Some parameters are not set")
 	}
@@ -55,7 +56,11 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 	mw.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
 
-	policies, _ := mw.controller.GetPolicies()
+	policies, err := mw.controller.GetPolicies()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
 	if len(policies) == 0 {
 		return nil
 	}
