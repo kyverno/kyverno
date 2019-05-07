@@ -12,6 +12,7 @@ type PolicyGetter interface {
 	GetPolicy(name string) (*policytypes.Policy, error)
 	GetCacheInformerSync() cache.InformerSynced
 	PatchPolicy(policy string, pt types.PatchType, data []byte) (*policytypes.Policy, error)
+	UpdatePolicyViolations(updatedPolicy *policytypes.Policy) error
 	Run(stopCh <-chan struct{})
 	LogPolicyError(name, text string)
 	LogPolicyInfo(name, text string)
