@@ -9,6 +9,7 @@ import (
 	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	policymanager "github.com/nirmata/kube-policy/pkg/policymanager"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -65,7 +66,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 		return nil
 	}
 
-	var allPatches []PatchBytes
+	var allPatches []policymanager.PatchBytes
 	for _, policy := range policies {
 		mw.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
@@ -79,8 +80,8 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 		}
 
 		if len(policyPatches) > 0 {
-			namespace := parseNamespaceFromObject(request.Object.Raw)
-			name := parseNameFromObject(request.Object.Raw)
+			namespace := policymanager.ParseNamespaceFromObject(request.Object.Raw)
+			name := policymanager.ParseNameFromObject(request.Object.Raw)
 			mw.controller.LogPolicyInfo(policy.Name, fmt.Sprintf("Applied to %s %s/%s", request.Kind.Kind, namespace, name))
 			mw.logger.Printf("%s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 
@@ -91,31 +92,22 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed:   true,
-		Patch:     JoinPatches(allPatches),
+		Patch:     policymanager.JoinPatches(allPatches),
 		PatchType: &patchType,
 	}
-}
-
-func getPolicyPatchingSets(policy types.Policy) PatchingSets {
-	// failurePolicy property is the only available way for now to define behavior on patching error.
-	// TODO: define new failurePolicy values specific for patching and other policy features.
-	if policy.Spec.FailurePolicy != nil && *policy.Spec.FailurePolicy == "continueOnError" {
-		return PatchingSetsContinueAlways
-	}
-	return PatchingSetsDefault
 }
 
 // Applies all policy rules to the created object and returns list of processed JSON patches.
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
-func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]PatchBytes, error) {
+func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]policymanager.PatchBytes, error) {
 	return mw.applyPolicyRulesOnResource(request.Kind.Kind, request.Object.Raw, policy)
 }
 
 // kind is the type of object being manipulated
-func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource []byte, policy types.Policy) ([]PatchBytes, error) {
-	patchingSets := getPolicyPatchingSets(policy)
-	var policyPatches []PatchBytes
+func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource []byte, policy types.Policy) ([]policymanager.PatchBytes, error) {
+	patchingSets := policymanager.GetPolicyPatchingSets(policy)
+	var policyPatches []policymanager.PatchBytes
 
 	for ruleIdx, rule := range policy.Spec.Rules {
 		err := rule.Validate()
@@ -124,7 +116,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 			continue
 		}
 
-		if ok, err := IsRuleApplicableToResource(kind, rawResource, rule.Resource); !ok {
+		if ok, err := policymanager.IsRuleApplicableToResource(kind, rawResource, rule.Resource); !ok {
 			mw.logger.Printf("Rule %d of policy %s is not applicable to the request", ruleIdx, policy.Name)
 			return nil, err
 		}
@@ -132,12 +124,12 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 		// configMapGenerator and secretGenerator can be applied only to namespaces
 		if kind == "Namespace" {
 			err = mw.applyRuleGenerators(rawResource, rule)
-			if err != nil && patchingSets == PatchingSetsStopOnError {
+			if err != nil && patchingSets == policymanager.PatchingSetsStopOnError {
 				return nil, fmt.Errorf("Failed to apply generators from rule #%d: %s", ruleIdx, err)
 			}
 		}
 
-		rulePatchesProcessed, err := ProcessPatches(rule.Patches, rawResource, patchingSets)
+		rulePatchesProcessed, err := policymanager.ProcessPatches(rule.Patches, rawResource, patchingSets)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to process patches from rule #%d: %s", ruleIdx, err)
 		}
@@ -160,7 +152,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 func (mw *MutationWebhook) applyRuleGenerators(rawResource []byte, rule types.PolicyRule) error {
-	namespaceName := parseNameFromObject(rawResource)
+	namespaceName := policymanager.ParseNameFromObject(rawResource)
 
 	err := mw.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
 	if err == nil {
