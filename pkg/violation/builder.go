@@ -45,11 +45,7 @@ func NewViolationBuilder(
 }
 
 func (b *builder) Create(info utils.ViolationInfo) error {
-	err := b.ProcessViolation(info)
-	if err != nil {
-		return err
-	}
-	return nil
+	return b.ProcessViolation(info)
 }
 
 func (b *builder) SetController(controller controllerinterfaces.PolicyGetter) {
