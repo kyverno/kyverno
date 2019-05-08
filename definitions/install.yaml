@@ -61,6 +61,8 @@ spec:
                         - Secret
                         - Service
                         - StatefulSet
+                      name:
+                        type: string
                       selector:
                         properties:
                           matchLabels:
