@@ -37,9 +37,6 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
   kubectl delete -f definitions/MutatingWebhookConfiguration_debug.yaml
   kubectl create -f definitions/MutatingWebhookConfiguration_debug.yaml || exit 3
 
-#  kubectl delete -f definitions/PolicyValidationConfiguration.yaml
-#  kubectl create -f definitions/PolicyValidationConfiguration.yaml || exit 3
-
   kubectl delete -f definitions/install.yaml
   kubectl create -f definitions/install.yaml || exit 3
 
