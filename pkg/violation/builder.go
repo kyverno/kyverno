@@ -1,60 +1,65 @@
 package violation
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	controllerinterfaces "github.com/nirmata/kube-policy/controller/interfaces"
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	eventinterfaces "github.com/nirmata/kube-policy/pkg/event/interfaces"
-	eventutils "github.com/nirmata/kube-policy/pkg/event/utils"
-	violationinterfaces "github.com/nirmata/kube-policy/pkg/violation/interfaces"
-	utils "github.com/nirmata/kube-policy/pkg/violation/utils"
-	mergetypes "k8s.io/apimachinery/pkg/types"
+	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
+	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	event "github.com/nirmata/kube-policy/pkg/event"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/cache"
 )
 
-type builder struct {
-	kubeClient   *kubeClient.KubeClient
-	controller   controllerinterfaces.PolicyGetter
-	eventBuilder eventinterfaces.BuilderInternal
-	logger       *log.Logger
+type PolicyViolationGenerator interface {
+	Add(info ViolationInfo) error
 }
 
-type Builder interface {
-	violationinterfaces.ViolationGenerator
-	ProcessViolation(info utils.ViolationInfo) error
-	Patch(policy *types.Policy, updatedPolicy *types.Policy) error
-	IsActive(kind string, resource string) (bool, error)
+type policyViolationBuilder struct {
+	kubeClient      *kubeClient.KubeClient
+	policyLister    policylister.PolicyLister
+	policyInterface policyclientset.Interface
+	eventBuilder    event.EventGenerator
+	logger          *log.Logger
 }
 
-func NewViolationBuilder(
+type PolicyViolationBuilder interface {
+	PolicyViolationGenerator
+	processViolation(info ViolationInfo) error
+	isActive(kind string, resource string) (bool, error)
+}
+
+func NewPolicyViolationBuilder(
 	kubeClient *kubeClient.KubeClient,
-	eventBuilder eventinterfaces.BuilderInternal,
-	logger *log.Logger) (Builder, error) {
+	policyLister policylister.PolicyLister,
+	policyInterface policyclientset.Interface,
+	eventController event.EventGenerator,
+	logger *log.Logger) PolicyViolationBuilder {
 
-	builder := &builder{
-		kubeClient:   kubeClient,
-		eventBuilder: eventBuilder,
-		logger:       logger,
+	builder := &policyViolationBuilder{
+		kubeClient:      kubeClient,
+		policyLister:    policyLister,
+		policyInterface: policyInterface,
+		eventBuilder:    eventController,
+		logger:          logger,
 	}
-	return builder, nil
+	return builder
 }
 
-func (b *builder) Create(info utils.ViolationInfo) error {
-	return b.ProcessViolation(info)
+func (pvb *policyViolationBuilder) Add(info ViolationInfo) error {
+	return pvb.processViolation(info)
 }
 
-func (b *builder) SetController(controller controllerinterfaces.PolicyGetter) {
-	b.controller = controller
-}
-
-func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
+func (pvb *policyViolationBuilder) processViolation(info ViolationInfo) error {
 	// Get the policy
-	policy, err := b.controller.GetPolicy(info.Policy)
+	namespace, name, err := cache.SplitMetaNamespaceKey(info.Policy)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("unable to extract namespace and name for %s", info.Policy))
+		return err
+	}
+	policy, err := pvb.policyLister.Policies(namespace).Get(name)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return err
@@ -72,63 +77,34 @@ func (b *builder) ProcessViolation(info utils.ViolationInfo) error {
 	}
 
 	for _, violation := range modifiedPolicy.Status.Violations {
-		ok, err := b.IsActive(info.Kind, violation.Resource)
+		ok, err := pvb.isActive(info.Kind, violation.Resource)
 		if err != nil {
 			utilruntime.HandleError(err)
 			continue
 		}
 		if !ok {
-			// Remove the violation
-			// Create a removal event
-			b.eventBuilder.AddEvent(eventutils.EventInfo{
-				Kind:     "Policy",
-				Resource: info.Policy,
-				Rule:     info.Rule,
-				Reason:   info.Reason,
-				Message:  info.Message,
-			})
-			continue
+			pvb.logger.Printf("removed violation ")
 		}
-		// If violation already exists for this rule, we update the violation
-		//TODO: update violation, instead of re-creating one every time
 	}
+	// If violation already exists for this rule, we update the violation
+	//TODO: update violation, instead of re-creating one every time
 	modifiedViolations = append(modifiedViolations, newViolation)
 
 	modifiedPolicy.Status.Violations = modifiedViolations
-	//	return b.Patch(policy, modifiedPolicy)
 	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	return b.controller.UpdatePolicyViolations(modifiedPolicy)
+	_, err = pvb.policyInterface.NirmataV1alpha1().Policies(namespace).UpdateStatus(modifiedPolicy)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (b *builder) IsActive(kind string, resource string) (bool, error) {
+func (pvb *policyViolationBuilder) isActive(kind string, resource string) (bool, error) {
 	// Generate Merge Patch
-	_, err := b.kubeClient.GetResource(kind, resource)
+	_, err := pvb.kubeClient.GetResource(kind, resource)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("unable to get resource %s ", resource))
 		return false, err
 	}
 	return true, nil
-}
-
-func (b *builder) Patch(policy *types.Policy, updatedPolicy *types.Policy) error {
-	originalData, err := json.Marshal(policy)
-	if err != nil {
-		return err
-	}
-	modifiedData, err := json.Marshal(updatedPolicy)
-	if err != nil {
-		return err
-	}
-	// generate merge patch
-	patchBytes, err := jsonpatch.CreateMergePatch(originalData, modifiedData)
-	if err != nil {
-		return err
-	}
-	_, err = b.controller.PatchPolicy(policy.Name, mergetypes.MergePatchType, patchBytes)
-	if err != nil {
-
-		// Unable to patch
-		return err
-	}
-	return nil
 }

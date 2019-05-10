@@ -1,5 +1,7 @@
 package violation
 
+import policytype "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+
 // Source for the events recorder
 const violationEventSource = "policy-controller"
 
@@ -9,11 +11,7 @@ const workqueueViolationName = "Policy-Violations"
 // Event Reason
 const violationEventResrouce = "Violation"
 
-// Info  input details
-type Info struct {
-	Kind     string
-	Resource string
-	Policy   string
-	RuleName string
-	Reason   string
+type ViolationInfo struct {
+	Policy string
+	policytype.Violation
 }

@@ -1,8 +1,9 @@
-package controller_test
+package policycontroller
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
