@@ -30,7 +30,6 @@ type PolicyEngine interface {
 
 type policyEngine struct {
 	kubeClient *kubeClient.KubeClient
-	// controller controllerinterfaces.PolicyGetter
 	logger *log.Logger
 }
 
