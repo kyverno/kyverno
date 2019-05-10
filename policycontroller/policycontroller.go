@@ -10,23 +10,25 @@ import (
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
-	violation "github.com/nirmata/kube-policy/pkg/violation"
+	event "github.com/nirmata/kube-policy/pkg/event"
+	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
-//PolicyController for CRD
+//PolicyController to manage Policy CRD
 type PolicyController struct {
 	kubeClient       *kubeClient.KubeClient
 	policyLister     lister.PolicyLister
 	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
-	violationBuilder violation.PolicyViolationGenerator
+	violationBuilder policyviolation.Generator
+	eventBuilder     event.Generator
 	logger           *log.Logger
 	queue            workqueue.RateLimitingInterface
 }
@@ -34,7 +36,8 @@ type PolicyController struct {
 // NewPolicyController from cmd args
 func NewPolicyController(policyInterface policyclientset.Interface,
 	policyInformer infomertypes.PolicyInformer,
-	violationBuilder violation.PolicyViolationGenerator,
+	violationBuilder policyviolation.Generator,
+	eventController event.Generator,
 	logger *log.Logger,
 	kubeClient *kubeClient.KubeClient) *PolicyController {
 
@@ -44,9 +47,9 @@ func NewPolicyController(policyInterface policyclientset.Interface,
 		policyInterface:  policyInterface,
 		policySynced:     policyInformer.Informer().HasSynced,
 		violationBuilder: violationBuilder,
+		eventBuilder:     eventController,
 		logger:           logger,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
-		//TODO Event Builder, this will used to record events with policy cannot be processed, using eventBuilder as we can restrict the event types
 	}
 
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -69,6 +72,7 @@ func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interfa
 	}
 	pc.enqueuePolicy(newResource)
 }
+
 func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 	var object metav1.Object
 	var ok bool
@@ -112,16 +116,11 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-// runWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
 func (pc *PolicyController) runWorker() {
 	for pc.processNextWorkItem() {
 	}
 }
 
-// processNextWorkItem will read a single work item off the workqueue and
-// attempt to process it, by calling the syncHandler.
 func (pc *PolicyController) processNextWorkItem() bool {
 	obj, shutdown := pc.queue.Get()
 	if shutdown {
@@ -146,20 +145,15 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 		pc.queue.Forget(key)
 		return
 	}
-
-	// This controller retries 5 times if something goes wrong. After that, it stops trying.
+	// This controller retries if something goes wrong. After that, it stops trying.
 	if pc.queue.NumRequeues(key) < policyWorkQueueRetryLimit {
-
 		pc.logger.Printf("Error syncing events %v: %v", key, err)
-
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		pc.queue.AddRateLimited(key)
 		return
 	}
-
 	pc.queue.Forget(key)
-	// Report to an external entity that, even after several retries, we could not successfully process this key
 	utilruntime.HandleError(err)
 	pc.logger.Printf("Dropping the key %q out of the queue: %v", key, err)
 }
@@ -173,7 +167,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// convert the namespace/name string into distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		utilruntime.HandleError(fmt.Errorf("invalid policy key: %s", key))
 		return nil
 	}
 
@@ -181,7 +175,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	policy, err := pc.policyLister.Policies(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("foo '%s' in work queue no longer exists", key))
+			utilruntime.HandleError(fmt.Errorf("policy '%s' in work queue no longer exists", key))
 			return nil
 		}
 		return err

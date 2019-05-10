@@ -11,7 +11,7 @@ import (
 
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
-	violation "github.com/nirmata/kube-policy/pkg/violation"
+	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
 
 	event "github.com/nirmata/kube-policy/pkg/event"
 	"k8s.io/sample-controller/pkg/signals"
@@ -44,11 +44,12 @@ func main() {
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
 	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
-	violationBuilder := violation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
+	violationBuilder := policyviolation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
 
 	policyController := policycontroller.NewPolicyController(policyClientset,
 		policyInformer,
 		violationBuilder,
+		eventController,
 		nil,
 		kubeclient)
 
@@ -56,6 +57,7 @@ func main() {
 		kubeclient,
 		policyInformer.Lister(),
 		violationBuilder,
+		eventController,
 		nil)
 	if err != nil {
 		log.Fatalf("Error creating mutation webhook: %v\n", err)
