@@ -8,10 +8,11 @@ import (
 
 // kind is the type of object being manipulated
 // Checks requests kind, name and labels to fit the policy
-func IsRuleApplicableToResource(kind string, resourceRaw []byte, policyResource types.PolicyResource) (bool, error) {
-	if policyResource.Kind != kind {
-		return false, nil
-	}
+func IsRuleApplicableToResource(resourceRaw []byte, policyResource types.PolicyResource) (bool, error) {
+	// kind := ParseKindFromObject(resourceRaw)
+	// if policyResource.Kind != kind {
+	// 	return false, nil
+	// }
 
 	if resourceRaw != nil {
 		meta := ParseMetadataFromObject(resourceRaw)

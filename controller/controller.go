@@ -18,12 +18,12 @@ import (
 	event "github.com/nirmata/kube-policy/pkg/event"
 	eventinterfaces "github.com/nirmata/kube-policy/pkg/event/interfaces"
 	eventutils "github.com/nirmata/kube-policy/pkg/event/utils"
+	"github.com/nirmata/kube-policy/pkg/policyengine"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	violationinterfaces "github.com/nirmata/kube-policy/pkg/violation/interfaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	mergetypes "k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -43,6 +43,9 @@ type policyController struct {
 	logger                *log.Logger
 	violationBuilder      violationinterfaces.ViolationGenerator
 	eventBuilder          eventinterfaces.BuilderInternal
+
+	policyEngine policyengine.PolicyEngine
+	kubeClient   *kubeClient.KubeClient
 }
 
 // NewPolicyController from cmd args
@@ -71,6 +74,12 @@ func NewPolicyController(config *rest.Config, logger *log.Logger, kubeClient *ku
 
 	// generate Violation builer
 	violationBuilder, err := violation.NewViolationBuilder(kubeClient, eventBuilder, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// generate Policy Engine
+	policyEngine := policyengine.NewPolicyEngine(kubeClient, logger)
 
 	controller := &policyController{
 		policyInformerFactory: policyInformerFactory,
@@ -79,15 +88,20 @@ func NewPolicyController(config *rest.Config, logger *log.Logger, kubeClient *ku
 		logger:                logger,
 		violationBuilder:      violationBuilder,
 		eventBuilder:          eventBuilder,
+		policyEngine:          policyEngine,
+		kubeClient:            kubeClient,
 	}
+
 	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.CreatePolicyHandler,
 		UpdateFunc: controller.UpdatePolicyHandler,
 		DeleteFunc: controller.DeletePolicyHandler,
 	})
+
 	// Set the controller
 	eventBuilder.SetController(controller)
 	violationBuilder.SetController(controller)
+
 	return controller, nil
 }
 
@@ -165,6 +179,7 @@ func (c *policyController) addPolicyLog(name, text string) {
 func (c *policyController) CreatePolicyHandler(resource interface{}) {
 	key := c.GetResourceKey(resource)
 	c.logger.Printf("Policy created: %s", key)
+	// c.runForPolicy(key)
 }
 
 func (c *policyController) UpdatePolicyHandler(oldResource, newResource interface{}) {
@@ -186,11 +201,11 @@ func (c *policyController) GetResourceKey(resource interface{}) string {
 	}
 	return ""
 }
+
 func (c *policyController) GetPolicy(name string) (*types.Policy, error) {
 	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(name)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", name))
-		return nil, err
+		return nil, fmt.Errorf("error when SplitMetaNamespaceKey: %s, err: %v", name, err)
 	}
 	return c.getPolicyInterface(policyNamespace).Get(policyName)
 }
