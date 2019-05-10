@@ -6,7 +6,8 @@ const eventWorkQueueName = "policy-controller-events"
 
 const eventWorkerThreadCount = 1
 
-type eventInfo struct {
+//Info defines the event details
+type Info struct {
 	Kind     string
 	Resource string
 	Reason   string

@@ -29,7 +29,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(kind string, resource string, reason Reason, message MsgKey, args ...interface{})
+	Add(info Info)
 }
 
 //Controller  api
@@ -66,13 +66,8 @@ func initRecorder(kubeClient *kubeClient.KubeClient) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) {
-	c.queue.Add(c.newEvent(
-		kind,
-		resource,
-		reason,
-		message,
-	))
+func (c *controller) Add(info Info) {
+	c.queue.Add(info)
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) error {
@@ -103,9 +98,9 @@ func (c *controller) processNextWorkItem() bool {
 	}
 	err := func(obj interface{}) error {
 		defer c.queue.Done(obj)
-		var key eventInfo
+		var key Info
 		var ok bool
-		if key, ok = obj.(eventInfo); !ok {
+		if key, ok = obj.(Info); !ok {
 			c.queue.Forget(obj)
 			log.Printf("Expecting type info by got %v", obj)
 			return nil
@@ -124,7 +119,7 @@ func (c *controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *controller) SyncHandler(key eventInfo) error {
+func (c *controller) SyncHandler(key Info) error {
 	var resource runtime.Object
 	var err error
 	switch key.Kind {
@@ -150,12 +145,13 @@ func (c *controller) SyncHandler(key eventInfo) error {
 	return nil
 }
 
-func (c *controller) newEvent(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) eventInfo {
+//NewEvent returns a new event
+func NewEvent(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) Info {
 	msgText, err := getEventMsg(message, args)
 	if err != nil {
 		utilruntime.HandleError(err)
 	}
-	return eventInfo{
+	return Info{
 		Kind:     kind,
 		Resource: resource,
 		Reason:   reason.String(),

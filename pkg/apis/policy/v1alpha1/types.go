@@ -92,6 +92,4 @@ type Violation struct {
 	Kind     string `json:"kind,omitempty"`
 	Resource string `json:"resource,omitempty"`
 	Rule     string `json:"rule,omitempty"`
-	Reason   string `json:"reason,omitempty"`
-	Message  string `json:"message,omitempty`
 }

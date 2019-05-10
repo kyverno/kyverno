@@ -12,7 +12,7 @@ const workqueueViolationName = "Policy-Violations"
 const violationEventResrouce = "Violation"
 
 //ViolationInfo describes the policyviolation details
-type ViolationInfo struct {
+type Info struct {
 	Policy string
 	policytype.Violation
 }

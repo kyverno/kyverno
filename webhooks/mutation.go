@@ -11,7 +11,8 @@ import (
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	mutation "github.com/nirmata/kube-policy/pkg/mutation"
+	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
+	mutation "github.com/nirmata/kube-policy/pkg/policyengine/mutation"
 	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 
@@ -25,6 +26,7 @@ import (
 // business logic for resource mutation
 type MutationWebhook struct {
 	kubeclient       *kubeclient.KubeClient
+	policyEngine     policyengine.PolicyEngine
 	policyLister     policylister.PolicyLister
 	registration     *MutationWebhookRegistration
 	violationBuilder policyviolation.Generator
@@ -57,8 +59,11 @@ func CreateMutationWebhook(
 	if logger == nil {
 		logger = log.New(os.Stdout, "Mutation WebHook: ", log.LstdFlags|log.Lshortfile)
 	}
+	policyengine := policyengine.NewPolicyEngine(kubeclient, logger)
+
 	return &MutationWebhook{
 		kubeclient:       kubeclient,
+		policyEngine:     policyengine,
 		policyLister:     policyLister,
 		registration:     registration,
 		violationBuilder: violationBuilder,
@@ -136,10 +141,10 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
 func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]mutation.PatchBytes, error) {
-	return mw.applyPolicyRulesOnResource(request.Kind.Kind, request.Object.Raw, policy)
+	return mw.policyEngine.ProcessMutation(policy, request.Object.Raw)
 }
 
-// kind is the type of object being manipulated
+// kind is the type of object being manipulated, e.g. request.Kind.kind
 func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource []byte, policy types.Policy) ([]mutation.PatchBytes, error) {
 	patchingSets := mutation.GetPolicyPatchingSets(policy)
 	var policyPatches []mutation.PatchBytes
@@ -151,7 +156,7 @@ func (mw *MutationWebhook) applyPolicyRulesOnResource(kind string, rawResource [
 			continue
 		}
 
-		if ok, err := mutation.IsRuleApplicableToResource(kind, rawResource, rule.Resource); !ok {
+		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.Resource); !ok {
 			mw.logger.Printf("Rule %d of policy %s is not applicable to the request", ruleIdx, policy.Name)
 			return nil, err
 		}

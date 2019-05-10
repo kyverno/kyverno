@@ -15,7 +15,7 @@ import (
 
 //Generator to generate policy violation
 type Generator interface {
-	Add(info ViolationInfo) error
+	Add(info Info) error
 }
 
 type builder struct {
@@ -29,7 +29,7 @@ type builder struct {
 //Builder is to build policy violations
 type Builder interface {
 	Generator
-	processViolation(info ViolationInfo) error
+	processViolation(info Info) error
 	isActive(kind string, resource string) (bool, error)
 }
 
@@ -51,11 +51,11 @@ func NewPolicyViolationBuilder(
 	return builder
 }
 
-func (b *builder) Add(info ViolationInfo) error {
+func (b *builder) Add(info Info) error {
 	return b.processViolation(info)
 }
 
-func (b *builder) processViolation(info ViolationInfo) error {
+func (b *builder) processViolation(info Info) error {
 	// Get the policy
 	namespace, name, err := cache.SplitMetaNamespaceKey(info.Policy)
 	if err != nil {
@@ -71,13 +71,7 @@ func (b *builder) processViolation(info ViolationInfo) error {
 	modifiedViolations := []types.Violation{}
 
 	// Create new violation
-	newViolation := types.Violation{
-		Kind:     info.Kind,
-		Resource: info.Resource,
-		Rule:     info.Rule,
-		Reason:   info.Reason,
-		Message:  info.Message,
-	}
+	newViolation := info.Violation
 
 	for _, violation := range modifiedPolicy.Status.Violations {
 		ok, err := b.isActive(info.Kind, violation.Resource)
@@ -110,4 +104,12 @@ func (b *builder) isActive(kind string, resource string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+//NewViolation return new policy violation
+func NewViolation(policyName string, kind string, resource string, rule string) Info {
+	return Info{Policy: policyName,
+		Violation: types.Violation{
+			Kind: kind, Resource: resource, Rule: rule},
+	}
 }
