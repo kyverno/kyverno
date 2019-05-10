@@ -3,7 +3,7 @@ package webhooks
 import (
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	mutation "github.com/nirmata/kube-policy/pkg/mutation"
+	mutation "github.com/nirmata/kube-policy/pkg/policyengine/mutation"
 	"k8s.io/api/admission/v1beta1"
 )
 
@@ -24,5 +24,5 @@ func AdmissionIsRequired(request *v1beta1.AdmissionRequest) bool {
 
 // Checks requests kind, name and labels to fit the policy
 func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) (bool, error) {
-	return mutation.IsRuleApplicableToResource(request.Kind.Kind, request.Object.Raw, policyResource)
+	return mutation.IsRuleApplicableToResource(request.Object.Raw, policyResource)
 }

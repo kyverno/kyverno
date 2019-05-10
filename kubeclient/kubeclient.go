@@ -206,7 +206,34 @@ var rMapper = map[string]getter{
 	"StatefulSet":             statefulSetGetter,
 }
 
+var lMapper = map[string]lister{
+	"ConfigMap":               configMapLister,
+	"Pods":                    podLister,
+	"Deployment":              deploymentLister,
+	"CronJob":                 cronJobLister,
+	"Endpoints":               endpointsLister,
+	"HorizontalPodAutoscaler": horizontalPodAutoscalerLister,
+	"Ingress":                 ingressLister,
+	"Job":                     jobLister,
+	"LimitRange":              limitRangeLister,
+	"Namespace":               namespaceLister,
+	"NetworkPolicy":           networkPolicyLister,
+	"PersistentVolumeClaim":   persistentVolumeClaimLister,
+	"PodDisruptionBudget":     podDisruptionBudgetLister,
+	"PodTemplate":             podTemplateLister,
+	"ResourceQuota":           resourceQuotaLister,
+	"Secret":                  secretLister,
+	"Service":                 serviceLister,
+	"StatefulSet":             statefulSetLister,
+}
+
 type getter func(*kubernetes.Clientset, string, string) (runtime.Object, error)
+type lister func(*kubernetes.Clientset, string) ([]runtime.Object, error)
+
+//ListResource to return resource list
+func (kc *KubeClient) ListResource(kind string, namespace string) ([]runtime.Object, error) {
+	return lMapper[kind](kc.client, namespace)
+}
 
 //GetResource get the resource object
 func (kc *KubeClient) GetResource(kind string, resource string) (runtime.Object, error) {
@@ -233,6 +260,19 @@ func configMapGetter(clientSet *kubernetes.Clientset, namespace string, name str
 	}
 	return obj, nil
 }
+
+func configMapLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func podsGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -241,12 +281,35 @@ func podsGetter(clientSet *kubernetes.Clientset, namespace string, name string) 
 	return obj, nil
 }
 
+func podLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func deploymentGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+func deploymentLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func cronJobGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -257,12 +320,36 @@ func cronJobGetter(clientSet *kubernetes.Clientset, namespace string, name strin
 	return obj, nil
 }
 
+func cronJobLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.BatchV1beta1().CronJobs(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func endpointsbGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func endpointsLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().Endpoints(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func horizontalPodAutoscalerGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -273,12 +360,36 @@ func horizontalPodAutoscalerGetter(clientSet *kubernetes.Clientset, namespace st
 	return obj, nil
 }
 
+func horizontalPodAutoscalerLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.AutoscalingV1().HorizontalPodAutoscalers(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func ingressGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func ingressLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.ExtensionsV1beta1().Ingresses(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func jobGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -289,12 +400,35 @@ func jobGetter(clientSet *kubernetes.Clientset, namespace string, name string) (
 	return obj, nil
 }
 
+func jobLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.BatchV1().Jobs(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func limitRangeGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.CoreV1().LimitRanges(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+func limitRangeLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().LimitRanges(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func namespaceGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -305,12 +439,36 @@ func namespaceGetter(clientSet *kubernetes.Clientset, namespace string, name str
 	return obj, nil
 }
 
+func namespaceLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func networkPolicyGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.NetworkingV1().NetworkPolicies(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func networkPolicyLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.NetworkingV1().NetworkPolicies(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func persistentVolumeClaimGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -321,12 +479,36 @@ func persistentVolumeClaimGetter(clientSet *kubernetes.Clientset, namespace stri
 	return obj, nil
 }
 
+func persistentVolumeClaimLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().PersistentVolumeClaims(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func podDisruptionBudgetGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.PolicyV1beta1().PodDisruptionBudgets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func podDisruptionBudgetLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.PolicyV1beta1().PodDisruptionBudgets(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func podTemplateGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -337,12 +519,36 @@ func podTemplateGetter(clientSet *kubernetes.Clientset, namespace string, name s
 	return obj, nil
 }
 
+func podTemplateLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().PodTemplates(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func resourceQuotaGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.CoreV1().ResourceQuotas(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func resourceQuotaLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().ResourceQuotas(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
 
 func secretGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
@@ -353,6 +559,18 @@ func secretGetter(clientSet *kubernetes.Clientset, namespace string, name string
 	return obj, nil
 }
 
+func secretLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func serviceGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -361,10 +579,34 @@ func serviceGetter(clientSet *kubernetes.Clientset, namespace string, name strin
 	return obj, nil
 }
 
+func serviceLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.CoreV1().Services(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
+}
+
 func statefulSetGetter(clientSet *kubernetes.Clientset, namespace string, name string) (runtime.Object, error) {
 	obj, err := clientSet.AppsV1().StatefulSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func statefulSetLister(clientSet *kubernetes.Clientset, namespace string) ([]runtime.Object, error) {
+	list, err := clientSet.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	objList := []runtime.Object{}
+	for _, obj := range list.Items {
+		objList = append(objList, &obj)
+	}
+	return objList, nil
 }
