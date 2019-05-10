@@ -10,8 +10,9 @@ import (
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	event "github.com/nirmata/kube-policy/pkg/event"
 	mutation "github.com/nirmata/kube-policy/pkg/mutation"
-	violation "github.com/nirmata/kube-policy/pkg/violation"
+	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,8 @@ type MutationWebhook struct {
 	kubeclient       *kubeclient.KubeClient
 	policyLister     policylister.PolicyLister
 	registration     *MutationWebhookRegistration
-	violationBuilder violation.PolicyViolationGenerator
+	violationBuilder policyviolation.Generator
+	eventBuilder     event.Generator
 	logger           *log.Logger
 }
 
@@ -35,7 +37,8 @@ func CreateMutationWebhook(
 	clientConfig *rest.Config,
 	kubeclient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
-	violationBuilder violation.PolicyViolationGenerator,
+	violationBuilder policyviolation.Generator,
+	eventController event.Generator,
 	logger *log.Logger) (*MutationWebhook, error) {
 	if clientConfig == nil || kubeclient == nil {
 		return nil, errors.New("Some parameters are not set")
@@ -59,6 +62,7 @@ func CreateMutationWebhook(
 		policyLister:     policyLister,
 		registration:     registration,
 		violationBuilder: violationBuilder,
+		eventBuilder:     eventController,
 		logger:           logger,
 	}, nil
 }

@@ -5,20 +5,7 @@ import (
 	"regexp"
 )
 
-//Key to describe the event
-type EventMsg int
-
-const (
-	FResourcePolcy EventMsg = iota
-	FProcessRule
-	SPolicyApply
-	SRuleApply
-	FPolicyApplyBlockCreate
-	FPolicyApplyBlockUpdate
-	FPolicyApplyBlockUpdateRule
-)
-
-func (k EventMsg) String() string {
+func (k MsgKey) String() string {
 	return [...]string{
 		"Failed to satisfy policy on resource %s.The following rules %s failed to apply. Created Policy Violation",
 		"Failed to process rule %s of policy %s. Created Policy Violation %s",
@@ -34,7 +21,7 @@ const argRegex = "%[s,d,v]"
 
 //GetEventMsg return the application message based on the message id and the arguments,
 // if the number of arguments passed to the message are incorrect generate an error
-func getEventMsg(key EventMsg, args ...interface{}) (string, error) {
+func getEventMsg(key MsgKey, args ...interface{}) (string, error) {
 	// Verify the number of arguments
 	re := regexp.MustCompile(argRegex)
 	argsCount := len(re.FindAllString(key.String(), -1))

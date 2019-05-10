@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type eventController struct {
+type controller struct {
 	kubeClient   *kubeClient.KubeClient
 	policyLister policylister.PolicyLister
 	queue        workqueue.RateLimitingInterface
@@ -27,19 +27,22 @@ type eventController struct {
 	logger       *log.Logger
 }
 
-// EventGenertor to generate event
-type EventGenerator interface {
-	Add(kind string, resource string, reason Reason, message EventMsg, args ...interface{})
+//Generator to generate event
+type Generator interface {
+	Add(kind string, resource string, reason Reason, message MsgKey, args ...interface{})
 }
-type EventController interface {
-	EventGenerator
+
+//Controller  api
+type Controller interface {
+	Generator
 	Run(stopCh <-chan struct{}) error
 }
 
+//NewEventController to generate a new event controller
 func NewEventController(kubeClient *kubeClient.KubeClient,
 	policyLister policylister.PolicyLister,
-	logger *log.Logger) EventController {
-	controller := &eventController{
+	logger *log.Logger) Controller {
+	controller := &controller{
 		kubeClient:   kubeClient,
 		policyLister: policyLister,
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
@@ -63,8 +66,8 @@ func initRecorder(kubeClient *kubeClient.KubeClient) record.EventRecorder {
 	return recorder
 }
 
-func (eb *eventController) Add(kind string, resource string, reason Reason, message EventMsg, args ...interface{}) {
-	eb.queue.Add(eb.newEvent(
+func (c *controller) Add(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) {
+	c.queue.Add(c.newEvent(
 		kind,
 		resource,
 		reason,
@@ -72,16 +75,15 @@ func (eb *eventController) Add(kind string, resource string, reason Reason, mess
 	))
 }
 
-// Run : Initialize the worker routines to process the event creation
-func (eb *eventController) Run(stopCh <-chan struct{}) error {
+func (c *controller) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer eb.queue.ShutDown()
+	defer c.queue.ShutDown()
 
 	log.Println("starting eventbuilder controller")
 
 	log.Println("Starting eventbuilder controller workers")
 	for i := 0; i < eventWorkerThreadCount; i++ {
-		go wait.Until(eb.runWorker, time.Second, stopCh)
+		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 	log.Println("Started eventbuilder controller workers")
 	<-stopCh
@@ -89,28 +91,28 @@ func (eb *eventController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (eb *eventController) runWorker() {
-	for eb.processNextWorkItem() {
+func (c *controller) runWorker() {
+	for c.processNextWorkItem() {
 	}
 }
 
-func (eb *eventController) processNextWorkItem() bool {
-	obj, shutdown := eb.queue.Get()
+func (c *controller) processNextWorkItem() bool {
+	obj, shutdown := c.queue.Get()
 	if shutdown {
 		return false
 	}
 	err := func(obj interface{}) error {
-		defer eb.queue.Done(obj)
+		defer c.queue.Done(obj)
 		var key eventInfo
 		var ok bool
 		if key, ok = obj.(eventInfo); !ok {
-			eb.queue.Forget(obj)
+			c.queue.Forget(obj)
 			log.Printf("Expecting type info by got %v", obj)
 			return nil
 		}
 		// Run the syncHandler, passing the resource and the policy
-		if err := eb.SyncHandler(key); err != nil {
-			eb.queue.AddRateLimited(key)
+		if err := c.SyncHandler(key); err != nil {
+			c.queue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s' : %s, requeuing event creation request", key.Resource, err.Error())
 		}
 		return nil
@@ -122,7 +124,7 @@ func (eb *eventController) processNextWorkItem() bool {
 	return true
 }
 
-func (eb *eventController) SyncHandler(key eventInfo) error {
+func (c *controller) SyncHandler(key eventInfo) error {
 	var resource runtime.Object
 	var err error
 	switch key.Kind {
@@ -132,30 +134,23 @@ func (eb *eventController) SyncHandler(key eventInfo) error {
 			utilruntime.HandleError(fmt.Errorf("unable to extract namespace and name for %s", key.Resource))
 			return err
 		}
-		resource, err = eb.policyLister.Policies(namespace).Get(name)
+		resource, err = c.policyLister.Policies(namespace).Get(name)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for policy %s, will retry ", key.Resource))
 			return err
 		}
 	default:
-		resource, err = eb.kubeClient.GetResource(key.Kind, key.Resource)
+		resource, err = c.kubeClient.GetResource(key.Kind, key.Resource)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for resource %s, will retry ", key.Resource))
 			return err
 		}
 	}
-	eb.recorder.Event(resource, v1.EventTypeNormal, key.Reason, key.Message)
+	c.recorder.Event(resource, v1.EventTypeNormal, key.Reason, key.Message)
 	return nil
 }
 
-type eventInfo struct {
-	Kind     string
-	Resource string
-	Reason   string
-	Message  string
-}
-
-func (eb *eventController) newEvent(kind string, resource string, reason Reason, message EventMsg, args ...interface{}) eventInfo {
+func (c *controller) newEvent(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) eventInfo {
 	msgText, err := getEventMsg(message, args)
 	if err != nil {
 		utilruntime.HandleError(err)
