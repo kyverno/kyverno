@@ -11,9 +11,8 @@ import (
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
+	"github.com/nirmata/kube-policy/pkg/policyengine"
 	mutation "github.com/nirmata/kube-policy/pkg/policyengine/mutation"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,13 +24,11 @@ import (
 // MutationWebhook is a data type that represents
 // business logic for resource mutation
 type MutationWebhook struct {
-	kubeclient       *kubeclient.KubeClient
-	policyEngine     policyengine.PolicyEngine
-	policyLister     policylister.PolicyLister
-	registration     *MutationWebhookRegistration
-	violationBuilder policyviolation.Generator
-	eventBuilder     event.Generator
-	logger           *log.Logger
+	kubeclient   *kubeclient.KubeClient
+	policyLister policylister.PolicyLister
+	registration *MutationWebhookRegistration
+	eventBuilder event.Generator
+	logger       *log.Logger
 }
 
 // Registers mutation webhook in cluster and creates object for this webhook
@@ -39,7 +36,6 @@ func CreateMutationWebhook(
 	clientConfig *rest.Config,
 	kubeclient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
-	violationBuilder policyviolation.Generator,
 	eventController event.Generator,
 	logger *log.Logger) (*MutationWebhook, error) {
 	if clientConfig == nil || kubeclient == nil {
@@ -59,16 +55,13 @@ func CreateMutationWebhook(
 	if logger == nil {
 		logger = log.New(os.Stdout, "Mutation WebHook: ", log.LstdFlags|log.Lshortfile)
 	}
-	policyengine := policyengine.NewPolicyEngine(kubeclient, logger)
 
 	return &MutationWebhook{
-		kubeclient:       kubeclient,
-		policyEngine:     policyengine,
-		policyLister:     policyLister,
-		registration:     registration,
-		violationBuilder: violationBuilder,
-		eventBuilder:     eventController,
-		logger:           logger,
+		kubeclient:   kubeclient,
+		policyLister: policyLister,
+		registration: registration,
+		eventBuilder: eventController,
+		logger:       logger,
 	}, nil
 }
 
@@ -141,7 +134,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
 func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]mutation.PatchBytes, error) {
-	return mw.policyEngine.ProcessMutation(policy, request.Object.Raw)
+	return policyengine.Mutation(mw.logger, policy, request.Object.Raw)
 }
 
 // kind is the type of object being manipulated, e.g. request.Kind.kind
