@@ -1,7 +1,7 @@
 baseURL = "https://nirmata.github.io/kube-policy/"
 themesDir = "themes"
 theme = "github-project-landing-page"
-title = "Kiverno"
+title = "Kyverno"
 canonifyURLs=true
 relativeURLs=true
 
@@ -13,7 +13,7 @@ relativeURLs=true
     project_documentation = "http://github.com/nirmata/kube-policy/docs"
     github_project_name = "kube-policy"
     github_user_name = "nirmata"
-    logo = "img/kiverno.png"
+    logo = "img/kyverno.png"
 
     first_color="#f8f8f8"
     first_border_color="#e7e7e7"
