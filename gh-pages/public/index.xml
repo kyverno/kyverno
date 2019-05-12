@@ -2,19 +2,19 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Kiverno</title>
-    <link>https://nirmata.github.io/kube-policy/</link>
+    <link>/</link>
     <description>Recent content on Kiverno</description>
     <generator>Hugo -- gohugo.io</generator>
     
-	<atom:link href="https://nirmata.github.io/kube-policy/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title></title>
-      <link>https://nirmata.github.io/kube-policy/features/</link>
+      <link>/features/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>https://nirmata.github.io/kube-policy/features/</guid>
+      <guid>/features/</guid>
       <description> Features  Policy definitions as Kubernetes resources
  Validate, mutate, or generate Kubernetes resources
  Match resources using label selectors and wildcards
