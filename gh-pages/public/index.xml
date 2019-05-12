@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Kiverno</title>
+    <link>https://nirmata.github.io/kube-policy/</link>
+    <description>Recent content on Kiverno</description>
+    <generator>Hugo -- gohugo.io</generator>
+    
+	<atom:link href="https://nirmata.github.io/kube-policy/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title></title>
+      <link>https://nirmata.github.io/kube-policy/features/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://nirmata.github.io/kube-policy/features/</guid>
+      <description> Features  Policy definitions as Kubernetes resources
+ Validate, mutate, or generate Kubernetes resources
+ Match resources using label selectors and wildcards
+ Mutate using overlays (like Kustomize) or JSON Patch
+ Validate using overlays and powerful conditionals
+ Policy violation reporting for existing resources
+ Kubernetes events for resource changes and policy enforcement
+ Test using kubectl
+  </description>
+    </item>
+    
+  </channel>
+</rss>
