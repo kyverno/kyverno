@@ -6,3 +6,4 @@ kube-policy
 Gopkg.lock
 Dockerfile
 .vscode
+gh-pages/public
