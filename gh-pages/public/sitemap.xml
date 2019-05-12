@@ -3,21 +3,21 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://nirmata.github.io/kube-policy/features/</loc>
+    <loc>/features/</loc>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kube-policy/categories/</loc>
+    <loc>/categories/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kube-policy/</loc>
+    <loc>/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kube-policy/tags/</loc>
+    <loc>/tags/</loc>
     <priority>0</priority>
   </url>
   

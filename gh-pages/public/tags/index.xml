@@ -2,11 +2,11 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Tags on Kiverno</title>
-    <link>https://nirmata.github.io/kube-policy/tags/</link>
+    <link>/tags/</link>
     <description>Recent content in Tags on Kiverno</description>
     <generator>Hugo -- gohugo.io</generator>
     
-	<atom:link href="https://nirmata.github.io/kube-policy/tags/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
     
   </channel>
