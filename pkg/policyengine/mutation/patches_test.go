@@ -125,11 +125,3 @@ func TestProcessPatches_RemovePathDoesntExist_IgnoreRemoveFailures_NotEmptyResul
 	assert.Assert(t, len(patchesBytes) == 1)
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, patchesBytes[0])
 }
-
-// func TestProcessSamePatch_AddAndRemovePathsDontExist_ContinueOnError_EmptyResult(t *testing.T) {
-// 	patch1 := types.PolicyPatch{Path: "/metadata/labels/label3", Operation: "add", Value: "label3Value"}
-// 	patches := []types.PolicyPatch{patch1}
-// 	patchesBytes, err := ProcessPatches(patches, []byte(endpointsDocument), PatchingSetsContinueAlways)
-// 	assert.NilError(t, err)
-// 	assert.Assert(t, len(patchesBytes) == 1)
-// }
