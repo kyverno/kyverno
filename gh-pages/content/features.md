@@ -10,8 +10,10 @@
 
 * Validate using overlays and powerful conditionals
 
-* Policy violation reporting for existing resources
+* Generate default resources during namespace creation
+
+* Reporting of policy violations for existing resources
 
 * Kubernetes events for resource changes and policy enforcement 
 
-* Test using kubectl
+* Test policy changes using kubectl

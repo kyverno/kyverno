@@ -1,7 +1,9 @@
-baseUrl = "https://nirmata.github.io/kube-policy"
+baseURL = "https://nirmata.github.io/kube-policy/"
 themesDir = "themes"
 theme = "github-project-landing-page"
 title = "Kiverno"
+canonifyURLs=true
+relativeURLs=true
 
 [params]
     description = "Kubernetes Native Policy Management"
