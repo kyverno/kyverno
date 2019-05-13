@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/pkg/webhooks"
 	"github.com/nirmata/kube-policy/policycontroller"
-	"github.com/nirmata/kube-policy/webhooks"
 
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
