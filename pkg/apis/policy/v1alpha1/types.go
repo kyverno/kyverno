@@ -25,9 +25,9 @@ type Spec struct {
 type Rule struct {
 	Name                string `json:"name"`
 	ResourceDescription `json:"resource"`
-	Mutation            `json:"mutate"`
-	Validation          `json:"validate"`
-	Generation          `json:"generate"`
+	Mutation            *Mutation   `json:"mutate"`
+	Validation          *Validation `json:"validate"`
+	Generation          *Generation `json:"generate"`
 }
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.
@@ -39,8 +39,8 @@ type ResourceDescription struct {
 
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
-	Overlay interface{} `json:"overlay"`
-	Patches []Patch     `json:"patches"`
+	Overlay *interface{} `json:"overlay"`
+	Patches []Patch      `json:"patches"`
 }
 
 // +k8s:deepcopy-gen=false
