@@ -1,96 +1,61 @@
 package policyengine
 
 import (
-	"errors"
-	"fmt"
-
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
 )
 
-func (p *policyEngine) ProcessMutation(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error) {
-	patchingSets := mutation.GetPolicyPatchingSets(policy)
+// Mutate performs mutation. Overlay first and then mutation patches
+func (p *policyEngine) Mutate(policy kubepolicy.Policy, rawResource []byte) []mutation.PatchBytes {
 	var policyPatches []mutation.PatchBytes
 
-	for ruleIdx, rule := range policy.Spec.Rules {
+	for i, rule := range policy.Spec.Rules {
+
+		// Checks for preconditions
+		// TODO: Rework PolicyEngine interface that it receives not a policy, but mutation object for
+		// Mutate, validation for Validate and so on. It will allow to bring this checks outside of PolicyEngine
+		// to common part as far as they present for all: mutation, validation, generation
+
 		err := rule.Validate()
 		if err != nil {
-			p.logger.Printf("Invalid rule detected: #%s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
+			p.logger.Printf("Rule has invalid structure: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 
-		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.Resource); !ok {
-			p.logger.Printf("Rule %d of policy %s is not applicable to the request", ruleIdx, policy.Name)
-			return nil, err
-		}
-
-		err = p.applyRuleGenerators(rawResource, rule)
-		if err != nil && patchingSets == mutation.PatchingSetsStopOnError {
-			return nil, fmt.Errorf("Failed to apply generators from rule #%s: %v", rule.Name, err)
-		}
-
-		rulePatchesProcessed, err := mutation.ProcessPatches(rule.Patches, rawResource, patchingSets)
+		ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to process patches from rule #%s: %v", rule.Name, err)
+			p.logger.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			continue
 		}
 
-		if rulePatchesProcessed != nil {
-			policyPatches = append(policyPatches, rulePatchesProcessed...)
-			p.logger.Printf("Rule %d: prepared %d patches", ruleIdx, len(rulePatchesProcessed))
-			// TODO: add PolicyApplied events per rule for policy and resource
-		} else {
-			p.logger.Printf("Rule %d: no patches prepared", ruleIdx)
+		if !ok {
+			p.logger.Printf("Rule is not applicable t the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			continue
 		}
-	}
 
-	// empty patch, return error to deny resource creation
-	if policyPatches == nil {
-		return nil, fmt.Errorf("no patches prepared")
-	}
+		// Process Overlay
 
-	return policyPatches, nil
-}
-
-// Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
-func (p *policyEngine) applyRuleGenerators(rawResource []byte, rule types.PolicyRule) error {
-	kind := mutation.ParseKindFromObject(rawResource)
-
-	// configMapGenerator and secretGenerator can be applied only to namespaces
-	if kind == "Namespace" {
-		namespaceName := mutation.ParseNameFromObject(rawResource)
-
-		err := p.applyConfigGenerator(rule.ConfigMapGenerator, namespaceName, "ConfigMap")
-		if err == nil {
-			err = p.applyConfigGenerator(rule.SecretGenerator, namespaceName, "Secret")
+		if rule.Mutation.Overlay != nil {
+			overlayPatches, err := mutation.ProcessOverlay(rule.Mutation.Overlay, rawResource)
+			if err != nil {
+				p.logger.Printf("Overlay application failed: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			} else {
+				policyPatches = append(policyPatches, overlayPatches...)
+			}
 		}
-		return err
-	}
-	return nil
-}
 
-// Creates resourceKind (ConfigMap or Secret) with parameters specified in generator in cluster specified in request.
-func (p *policyEngine) applyConfigGenerator(generator *types.PolicyConfigGenerator, namespace string, configKind string) error {
-	if generator == nil {
-		return nil
-	}
+		// Process Patches
 
-	err := generator.Validate()
-	if err != nil {
-		return errors.New(fmt.Sprintf("Generator for '%s' is invalid: %s", configKind, err))
+		if rule.Mutation.Patches != nil {
+			processedPatches, err := mutation.ProcessPatches(rule.Mutation.Patches, rawResource)
+			if err != nil {
+				p.logger.Printf("Patches application failed: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			} else {
+				policyPatches = append(policyPatches, processedPatches...)
+			}
+		}
+
 	}
 
-	switch configKind {
-	case "ConfigMap":
-		err = p.kubeClient.GenerateConfigMap(*generator, namespace)
-	case "Secret":
-		err = p.kubeClient.GenerateSecret(*generator, namespace)
-	default:
-		err = errors.New(fmt.Sprintf("Unsupported config Kind '%s'", configKind))
-	}
-
-	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to apply generator for %s '%s/%s' : %s", configKind, namespace, generator.Name, err))
-	}
-
-	return nil
+	return policyPatches
 }

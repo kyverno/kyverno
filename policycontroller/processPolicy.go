@@ -70,7 +70,7 @@ func (pc *PolicyController) processPolicy(policy types.Policy) (
 	return violations, events, nil
 }
 
-func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runtime.Object, error) {
+func (pc *PolicyController) filterResourceByRule(rule types.Rule) ([]runtime.Object, error) {
 	var targetResources []runtime.Object
 	// TODO: make this namespace all
 	var namespace = "default"
@@ -79,7 +79,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runti
 	}
 
 	// Get the resource list from kind
-	resources, err := pc.kubeClient.ListResource(rule.Resource.Kind, namespace)
+	resources, err := pc.kubeClient.ListResource(rule.ResourceDescription.Kind, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runti
 		}
 
 		// filter the resource by name and label
-		if ok, _ := mutation.IsRuleApplicableToResource(rawResource, rule.Resource); ok {
+		if ok, _ := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); ok {
 			targetResources = append(targetResources, resource)
 		}
 	}

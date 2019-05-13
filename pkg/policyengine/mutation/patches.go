@@ -5,60 +5,37 @@ import (
 	"errors"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-)
-
-type PatchingSets uint8
-
-const (
-	PatchingSetsStopOnError             PatchingSets = 0
-	PatchingSetsContinueOnRemoveFailure PatchingSets = 1
-	PatchingSetsContinueAlways          PatchingSets = 255
-
-	PatchingSetsDefault PatchingSets = PatchingSetsContinueOnRemoveFailure
+	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 )
 
 type PatchBytes []byte
 
-func GetPolicyPatchingSets(policy types.Policy) PatchingSets {
-	// failurePolicy property is the only available way for now to define behavior on patching error.
-	// TODO: define new failurePolicy values specific for patching and other policy features.
-	if policy.Spec.FailurePolicy != nil && *policy.Spec.FailurePolicy == "continueOnError" {
-		return PatchingSetsContinueAlways
-	}
-	return PatchingSetsDefault
-}
-
 // Test patches on given document according to given sets.
 // Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
-func ProcessPatches(patches []types.PolicyPatch, originalDocument []byte, sets PatchingSets) ([]PatchBytes, error) {
-	if len(originalDocument) == 0 {
+func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, error) {
+	if len(resource) == 0 {
 		return nil, errors.New("Source document for patching is empty")
 	}
+
 	var appliedPatches []PatchBytes
-	patchedDocument := originalDocument
 	for _, patch := range patches {
-		patchBytes, err := json.Marshal(patch)
-		if err != nil && sets == PatchingSetsStopOnError {
+		patchRaw, err := json.Marshal(patch)
+		if err != nil {
 			return nil, err
 		}
 
-		patchedDocument, err = CheckPatch(patchedDocument, patchBytes)
-		if err != nil { // Ignore errors on "remove" operations
-			if sets == PatchingSetsContinueOnRemoveFailure && patch.Operation == "remove" {
-				continue
-			} else if sets != PatchingSetsContinueAlways {
-				return nil, err
-			}
-		} else { // In any case we should collect only valid patches
-			appliedPatches = append(appliedPatches, patchBytes)
+		_, err = applyPatch(resource, patchRaw)
+		if err != nil {
+			return nil, err
 		}
+
+		appliedPatches = append(appliedPatches, patchRaw)
 	}
 	return appliedPatches, nil
 }
 
-// Joins array of serialized JSON patches to the single JSONPatch array
+// JoinPatches joins array of serialized JSON patches to the single JSONPatch array
 func JoinPatches(patches []PatchBytes) PatchBytes {
 	var result PatchBytes
 	if len(patches) == 0 {
@@ -76,19 +53,15 @@ func JoinPatches(patches []PatchBytes) PatchBytes {
 	return result
 }
 
-// Checks patch for document, returns patched document.
-// On error returns original document and error.
-func CheckPatch(document []byte, patchRaw []byte) (PatchBytes, error) {
+// ApplyPatch applies patch for resource, returns patched resource.
+func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 	patchRaw = append([]byte{'['}, patchRaw...) // push [ forward
 	patchRaw = append(patchRaw, ']')            // push ] back
+
 	patch, err := jsonpatch.DecodePatch(patchRaw)
 	if err != nil {
-		return document, err
+		return nil, err
 	}
 
-	patchedDocument, err := patch.Apply(document)
-	if err != nil {
-		return document, err
-	}
-	return patchedDocument, err
+	return patch.Apply(resource)
 }

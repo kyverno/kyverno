@@ -1,4 +1,4 @@
-package server
+package webhooks
 
 import (
 	"context"
@@ -10,31 +10,42 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/nirmata/kube-policy/config"
+	"github.com/nirmata/kube-policy/kubeclient"
+	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/policyengine"
+	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
 	"github.com/nirmata/kube-policy/utils"
-	"github.com/nirmata/kube-policy/webhooks"
-
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server          http.Server
-	mutationWebhook *webhooks.MutationWebhook
-	logger          *log.Logger
+	server       http.Server
+	policyEngine policyengine.PolicyEngine
+	policyLister policylister.PolicyLister
+	logger       *log.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.MutationWebhook, logger *log.Logger) (*WebhookServer, error) {
+func NewWebhookServer(
+	tlsPair *utils.TlsPemPair,
+	kubeclient *kubeclient.KubeClient,
+	policyLister policylister.PolicyLister,
+	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
 	}
 
-	if tlsPair == nil || mutationWebhook == nil {
+	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
 
@@ -44,10 +55,12 @@ func NewWebhookServer(tlsPair *utils.TlsPemPair, mutationWebhook *webhooks.Mutat
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
+	policyEngine := policyengine.NewPolicyEngine(kubeclient, logger)
 
 	ws := &WebhookServer{
-		logger:          logger,
-		mutationWebhook: mutationWebhook,
+		policyEngine: policyEngine,
+		policyLister: policyLister,
+		logger:       logger,
 	}
 
 	mux := http.NewServeMux()
@@ -74,8 +87,8 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var admissionResponse *v1beta1.AdmissionResponse
-		if webhooks.AdmissionIsRequired(admissionReview.Request) {
-			admissionResponse = ws.mutationWebhook.Mutate(admissionReview.Request)
+		if AdmissionIsRequired(admissionReview.Request) {
+			admissionResponse = ws.Mutate(admissionReview.Request)
 		}
 
 		if admissionResponse == nil {
@@ -153,4 +166,58 @@ func (ws *WebhookServer) Stop() {
 		ws.logger.Printf("Server Shutdown error: %v", err)
 		ws.server.Close()
 	}
+}
+
+func (ws *WebhookServer) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	ws.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
+
+	policies, err := ws.getPolicies()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
+	if len(policies) == 0 {
+		return nil
+	}
+
+	var allPatches []mutation.PatchBytes
+	for _, policy := range policies {
+		ws.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		policyPatches := ws.policyEngine.Mutate(policy, request.Object.Raw)
+		allPatches = append(allPatches, policyPatches...)
+
+		if len(policyPatches) > 0 {
+			namespace := mutation.ParseNamespaceFromObject(request.Object.Raw)
+			name := mutation.ParseNameFromObject(request.Object.Raw)
+			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+		}
+	}
+
+	patchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     mutation.JoinPatches(allPatches),
+		PatchType: &patchType,
+	}
+}
+
+func (ws *WebhookServer) getPolicies() ([]kubepolicy.Policy, error) {
+	selector := labels.NewSelector()
+	cachedPolicies, err := ws.policyLister.List(selector)
+	if err != nil {
+		ws.logger.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	var policies []kubepolicy.Policy
+	for _, elem := range cachedPolicies {
+		policies = append(policies, *elem.DeepCopy())
+	}
+
+	sort.Slice(policies, func(i, j int) bool {
+		return policies[i].CreationTimestamp.Time.Before(policies[j].CreationTimestamp.Time)
+	})
+	return policies, nil
 }
