@@ -6,7 +6,7 @@ import (
 
 	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/policycontroller"
-	"github.com/nirmata/kube-policy/server"
+	"github.com/nirmata/kube-policy/webhooks"
 
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
@@ -64,7 +64,7 @@ func main() {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := server.NewWebhookServer(tlsPair, kubeclient, policyInformer.Lister(), nil)
+	server, err := webhooks.NewWebhookServer(tlsPair, kubeclient, policyInformer.Lister(), nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
