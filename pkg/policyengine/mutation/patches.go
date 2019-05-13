@@ -1,4 +1,4 @@
-package webhooks
+package mutation
 
 import (
 	"encoding/json"
@@ -20,6 +20,15 @@ const (
 
 type PatchBytes []byte
 
+func GetPolicyPatchingSets(policy types.Policy) PatchingSets {
+	// failurePolicy property is the only available way for now to define behavior on patching error.
+	// TODO: define new failurePolicy values specific for patching and other policy features.
+	if policy.Spec.FailurePolicy != nil && *policy.Spec.FailurePolicy == "continueOnError" {
+		return PatchingSetsContinueAlways
+	}
+	return PatchingSetsDefault
+}
+
 // Test patches on given document according to given sets.
 // Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
@@ -27,7 +36,6 @@ func ProcessPatches(patches []types.PolicyPatch, originalDocument []byte, sets P
 	if len(originalDocument) == 0 {
 		return nil, errors.New("Source document for patching is empty")
 	}
-
 	var appliedPatches []PatchBytes
 	patchedDocument := originalDocument
 	for _, patch := range patches {

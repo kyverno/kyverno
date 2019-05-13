@@ -5,7 +5,7 @@ set -o pipefail
 
 # get nirmata root
 NIRMATA_DIR=$(dirname ${BASH_SOURCE})/..
-NIRMATA_ROOT=$(readlink -f ${NIRMATA_DIR})
+NIRMATA_ROOT=$(greadlink -f ${NIRMATA_DIR})
 
 # get relative path to code generation script
 CODEGEN_PKG=${NIRMATA_DIR}/vendor/k8s.io/code-generator

@@ -34,11 +34,11 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
   ${certsGenerator} "--service=${service_name}" "--serverIp=${serverIp}" || exit 2
 
   echo "Applying webhook..."
-  kubectl delete -f crd/MutatingWebhookConfiguration_local.yaml
-  kubectl create -f crd/MutatingWebhookConfiguration_local.yaml || exit 3
+  kubectl delete -f definitions/MutatingWebhookConfiguration_debug.yaml
+  kubectl create -f definitions/MutatingWebhookConfiguration_debug.yaml || exit 3
 
-  kubectl delete -f crd/crd.yaml
-  kubectl create -f crd/crd.yaml || exit 3
+  kubectl delete -f definitions/install.yaml
+  kubectl create -f definitions/install.yaml || exit 3
 
   echo -e "\n### You can build and run kube-policy project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
 
