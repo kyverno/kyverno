@@ -8,7 +8,7 @@ import (
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 )
 
-func (e *engine) ProcessMutation(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error) {
+func (e *engine) Mutate(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error) {
 	patchingSets := mutation.GetPolicyPatchingSets(policy)
 	var policyPatches []mutation.PatchBytes
 

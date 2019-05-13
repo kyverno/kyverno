@@ -12,14 +12,14 @@ import (
 )
 
 type PolicyEngine interface {
-	// ProcessMutation should be called from admission contoller
+	// Mutate should be called from admission contoller
 	// when there is an creation / update of the resource
-	// ProcessMutation(policy types.Policy, rawResource []byte) (patchBytes []byte, events []Events, err error)
-	ProcessMutation(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error)
+	// Mutate(policy types.Policy, rawResource []byte) (patchBytes []byte, events []Events, err error)
+	Mutate(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error)
 
-	// ProcessValidation should be called from admission contoller
+	// Validate should be called from admission contoller
 	// when there is an creation / update of the resource
-	ProcessValidation(policy types.Policy, rawResource []byte)
+	Validate(policy types.Policy, rawResource []byte)
 
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy

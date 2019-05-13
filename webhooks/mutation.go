@@ -141,7 +141,7 @@ func (mw *MutationWebhook) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Ad
 // May return nil patches if it is not necessary to create patches for requested object.
 // Returns error ONLY in case when creation of resource should be denied.
 func (mw *MutationWebhook) applyPolicyRules(request *v1beta1.AdmissionRequest, policy types.Policy) ([]mutation.PatchBytes, error) {
-	return mw.policyEngine.ProcessMutation(policy, request.Object.Raw)
+	return mw.policyEngine.Mutate(policy, request.Object.Raw)
 }
 
 // kind is the type of object being manipulated, e.g. request.Kind.kind
