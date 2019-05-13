@@ -1,4 +1,4 @@
-package server
+package webhooks
 
 import (
 	"context"
@@ -20,7 +20,6 @@ import (
 	"github.com/nirmata/kube-policy/pkg/policyengine"
 	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
 	"github.com/nirmata/kube-policy/utils"
-	"github.com/nirmata/kube-policy/webhooks"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -88,7 +87,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var admissionResponse *v1beta1.AdmissionResponse
-		if webhooks.AdmissionIsRequired(admissionReview.Request) {
+		if AdmissionIsRequired(admissionReview.Request) {
 			admissionResponse = ws.Mutate(admissionReview.Request)
 		}
 
