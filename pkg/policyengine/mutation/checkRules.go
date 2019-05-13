@@ -8,25 +8,25 @@ import (
 
 // kind is the type of object being manipulated
 // Checks requests kind, name and labels to fit the policy
-func IsRuleApplicableToResource(resourceRaw []byte, policyResource types.PolicyResource) (bool, error) {
-	// kind := ParseKindFromObject(resourceRaw)
-	// if policyResource.Kind != kind {
-	// 	return false, nil
-	// }
+func IsRuleApplicableToResource(resourceRaw []byte, description types.ResourceDescription) (bool, error) {
+	kind := ParseKindFromObject(resourceRaw)
+	if description.Kind != kind {
+		return false, nil
+	}
 
 	if resourceRaw != nil {
 		meta := ParseMetadataFromObject(resourceRaw)
 		name := ParseNameFromObject(resourceRaw)
 
-		if policyResource.Name != nil {
+		if description.Name != nil {
 
-			if !wildcard.Match(*policyResource.Name, name) {
+			if !wildcard.Match(*description.Name, name) {
 				return false, nil
 			}
 		}
 
-		if policyResource.Selector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(policyResource.Selector)
+		if description.Selector != nil {
+			selector, err := metav1.LabelSelectorAsSelector(description.Selector)
 
 			if err != nil {
 				return false, err

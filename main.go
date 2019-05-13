@@ -7,7 +7,6 @@ import (
 	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/policycontroller"
 	"github.com/nirmata/kube-policy/server"
-	"github.com/nirmata/kube-policy/webhooks"
 
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
@@ -42,7 +41,7 @@ func main() {
 
 	//TODO wrap the policyInformer inside a factory
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, 0)
-	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
+	policyInformer := policyInformerFactory.Kubepolicy().V1alpha1().Policies()
 
 	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
 	violationBuilder := policyviolation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
@@ -56,12 +55,6 @@ func main() {
 		nil,
 		kubeclient)
 
-	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig,
-		kubeclient,
-		policyInformer.Lister(),
-		violationBuilder,
-		eventController,
-		nil)
 	if err != nil {
 		log.Fatalf("Error creating mutation webhook: %v\n", err)
 	}
@@ -71,7 +64,7 @@ func main() {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := server.NewWebhookServer(tlsPair, mutationWebhook, nil)
+	server, err := server.NewWebhookServer(tlsPair, kubeclient, policyInformer.Lister(), nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}

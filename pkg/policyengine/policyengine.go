@@ -15,16 +15,20 @@ type PolicyEngine interface {
 	// ProcessMutation should be called from admission contoller
 	// when there is an creation / update of the resource
 	// ProcessMutation(policy types.Policy, rawResource []byte) (patchBytes []byte, events []Events, err error)
-	ProcessMutation(policy types.Policy, rawResource []byte) ([]mutation.PatchBytes, error)
+	Mutate(policy types.Policy, rawResource []byte) []mutation.PatchBytes
 
 	// ProcessValidation should be called from admission contoller
 	// when there is an creation / update of the resource
+	// TODO: Change name to Validate
 	ProcessValidation(policy types.Policy, rawResource []byte)
 
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy
 	// we should process the policy on matched resources, generate violations accordingly
+	// TODO: This method should not be in PolicyEngine. Validate will do this work instead
 	ProcessExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error)
+
+	// TODO: Add Generate method
 }
 
 type policyEngine struct {
@@ -43,8 +47,6 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 	var violations []policyviolation.Info
 	var events []event.Info
 
-	patchingSets := mutation.GetPolicyPatchingSets(policy)
-
 	for _, rule := range policy.Spec.Rules {
 		err := rule.Validate()
 		if err != nil {
@@ -52,12 +54,12 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 			continue
 		}
 
-		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.Resource); !ok {
+		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); !ok {
 			p.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
 			return nil, nil, err
 		}
 
-		violation, eventInfos, err := p.processRuleOnResource(policy.Name, rule, rawResource, patchingSets)
+		violation, eventInfos, err := p.processRuleOnResource(policy.Name, rule, rawResource)
 		if err != nil {
 			p.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
 			continue
@@ -71,7 +73,7 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 	return violations, events, nil
 }
 
-func (p *policyEngine) processRuleOnResource(policyName string, rule types.PolicyRule, rawResource []byte, patchingSets mutation.PatchingSets) (
+func (p *policyEngine) processRuleOnResource(policyName string, rule types.Rule, rawResource []byte) (
 	policyviolation.Info, []event.Info, error) {
 
 	var violationInfo policyviolation.Info
@@ -81,7 +83,7 @@ func (p *policyEngine) processRuleOnResource(policyName string, rule types.Polic
 	resourceName := mutation.ParseNameFromObject(rawResource)
 	resourceNamespace := mutation.ParseNamespaceFromObject(rawResource)
 
-	rulePatchesProcessed, err := mutation.ProcessPatches(rule.Patches, nil, patchingSets)
+	rulePatchesProcessed, err := mutation.ProcessPatches(rule.Mutation.Patches, nil)
 	if err != nil {
 		return violationInfo, eventInfos, fmt.Errorf("Failed to process patches from rule %s: %v", rule.Name, err)
 	}
