@@ -1,4 +1,4 @@
-package webhooks
+package mutation
 
 import (
 	"encoding/json"
@@ -7,21 +7,21 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func parseMetadataFromObject(bytes []byte) map[string]interface{} {
+func ParseMetadataFromObject(bytes []byte) map[string]interface{} {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
 	return objectJSON["metadata"].(map[string]interface{})
 }
 
-func parseKindFromObject(bytes []byte) string {
+func ParseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
 	return objectJSON["kind"].(string)
 }
 
-func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
+func ParseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	if interfaceMap, ok := meta["labels"].(map[string]interface{}); ok {
 		labelMap := make(labels.Set, len(interfaceMap))
 
@@ -33,7 +33,7 @@ func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	return nil
 }
 
-func parseNameFromObject(bytes []byte) string {
+func ParseNameFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
@@ -45,7 +45,7 @@ func parseNameFromObject(bytes []byte) string {
 	return ""
 }
 
-func parseNamespaceFromObject(bytes []byte) string {
+func ParseNamespaceFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
@@ -58,7 +58,7 @@ func parseNamespaceFromObject(bytes []byte) string {
 }
 
 // returns true if policyResourceName is a regexp
-func parseRegexPolicyResourceName(policyResourceName string) (string, bool) {
+func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 	regex := strings.Split(policyResourceName, "regex:")
 	if len(regex) == 1 {
 		return regex[0], false
