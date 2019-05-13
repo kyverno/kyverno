@@ -79,7 +79,7 @@ func applyConfigGenerator(generator *types.PolicyConfigGenerator, namespace stri
 
 //GenerateReturnData holds the generator details
 type GenerateReturnData struct {
-	namespace  string
-	configKind string
-	generator  types.PolicyConfigGenerator
+	Namespace  string
+	ConfigKind string
+	Generator  types.PolicyConfigGenerator
 }

@@ -2,6 +2,7 @@ package policycontroller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
@@ -58,7 +59,7 @@ func (pc *PolicyController) processPolicy(policy types.Policy) (
 				continue
 			}
 
-			violation, eventInfos, err := policyengine.ProcessExisting(policy, rawResource)
+			violation, eventInfos, err := pc.processExisting(policy, rawResource)
 			if err != nil {
 				pc.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
 				continue
@@ -120,4 +121,63 @@ func (pc *PolicyController) getPolicyByKey(key string) (*types.Policy, error) {
 	}
 
 	return nil, nil
+}
+
+//TODO wrap the generate, mutation & validation functions for the existing resources
+//ProcessExisting processes the policy rule types for the existing resources
+func (pc *PolicyController) processExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error) {
+	// Generate
+	generatedDataList, err := policyengine.Generate(pc.logger, policy, rawResource)
+	if err != nil {
+		return nil, nil, err
+	}
+	// apply the generateData using the kubeClient
+	err = pc.applyGenerate(generatedDataList)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Mutation
+	mutationPatches, err := policyengine.Mutation(pc.logger, policy, rawResource)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Apply mutationPatches on the rawResource
+	err = pc.applyPatches(mutationPatches, rawResource)
+	if err != nil {
+		return nil, nil, err
+	}
+	//Validation
+	validate, _, _ := policyengine.Validation(policy, rawResource)
+	if !validate {
+		// validation has errors -> so there will be violations
+		// call the violatio builder to apply the violations
+	}
+	// Generate events
+
+	return nil, nil, nil
+}
+
+//TODO: return events and policy violations
+func (pc *PolicyController) applyGenerate(generatedDataList []policyengine.GenerateReturnData) error {
+	for _, generateData := range generatedDataList {
+		switch generateData.ConfigKind {
+		case "ConfigMap":
+			err := pc.kubeClient.GenerateConfigMap(generateData.Generator, generateData.Namespace)
+			if err != nil {
+				return err
+			}
+		case "Secret":
+			err := pc.kubeClient.GenerateSecret(generateData.Generator, generateData.Namespace)
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.New("Unsuported config kind")
+		}
+	}
+	return nil
+}
+
+func (pc *PolicyController) applyPatches([]mutation.PatchBytes, []byte) error {
+	return nil
 }
