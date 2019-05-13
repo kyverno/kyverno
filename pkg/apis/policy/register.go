@@ -1,5 +1,6 @@
 package policy
 
 const (
-    GroupName = "policy.nirmata.io"
+	// GroupName must be the same as specified in Policy CRD
+	GroupName = "kubepolicy.nirmata.io"
 )
