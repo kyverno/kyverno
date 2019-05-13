@@ -1,4 +1,4 @@
-package policycontroller
+package controller
 
 import (
 	"encoding/json"
@@ -6,60 +6,60 @@ import (
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-func (pc *PolicyController) runForPolicy(key string) {
+func (c *Controller) runForPolicy(key string) {
 
-	policy, err := pc.getPolicyByKey(key)
+	policy, err := c.getPolicyByKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s, err: %v", key, err))
 		return
 	}
 
 	if policy == nil {
-		pc.logger.Printf("Counld not find policy by key %s", key)
+		c.logger.Printf("Counld not find policy by key %s", key)
 		return
 	}
 
-	violations, events, err := pc.processPolicy(*policy)
+	violations, events, err := c.processPolicy(*policy)
 	if err != nil {
 		// add Error processing policy event
 	}
 
-	pc.logger.Printf("%v, %v", violations, events)
+	c.logger.Printf("%v, %v", violations, events)
 	// TODO:
 	// create violations
-	//	pc.violationBuilder.Add()
+	//	cviolationBuilder.Add()
 	// create events
-	//	pc.eventBuilder.Add()
+	//	ceventBuilder.Add()
 
 }
 
 // processPolicy process the policy to all the matched resources
-func (pc *PolicyController) processPolicy(policy types.Policy) (
-	violations []policyviolation.Info, events []event.Info, err error) {
+func (c *Controller) processPolicy(policy types.Policy) (
+	violations []violation.Info, events []event.Info, err error) {
 
 	for _, rule := range policy.Spec.Rules {
-		resources, err := pc.filterResourceByRule(rule)
+		resources, err := c.filterResourceByRule(rule)
 		if err != nil {
-			pc.logger.Printf("Failed to filter resources by rule %s, err: %v\n", rule.Name, err)
+			c.logger.Printf("Failed to filter resources by rule %s, err: %v\n", rule.Name, err)
 		}
 
 		for _, resource := range resources {
 			rawResource, err := json.Marshal(resource)
 			if err != nil {
-				pc.logger.Printf("Failed to marshal resources map to rule %s, err: %v\n", rule.Name, err)
+				c.logger.Printf("Failed to marshal resources map to rule %s, err: %v\n", rule.Name, err)
 				continue
 			}
 
-			violation, eventInfos, err := pc.policyEngine.ProcessExisting(policy, rawResource)
+			violation, eventInfos, err := c.policyEngine.ProcessExisting(policy, rawResource)
 			if err != nil {
-				pc.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
+				c.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
 				continue
 			}
 
@@ -70,7 +70,7 @@ func (pc *PolicyController) processPolicy(policy types.Policy) (
 	return violations, events, nil
 }
 
-func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runtime.Object, error) {
+func (c *Controller) filterResourceByRule(rule types.PolicyRule) ([]runtime.Object, error) {
 	var targetResources []runtime.Object
 	// TODO: make this namespace all
 	var namespace = "default"
@@ -79,7 +79,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runti
 	}
 
 	// Get the resource list from kind
-	resources, err := pc.kubeClient.ListResource(rule.Resource.Kind, namespace)
+	resources, err := c.kubeClient.ListResource(rule.Resource.Kind, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runti
 		// codecFactory.EncoderForVersion()
 
 		if err != nil {
-			pc.logger.Printf("failed to marshal object %v", resource)
+			c.logger.Printf("failed to marshal object %v", resource)
 			continue
 		}
 
@@ -104,10 +104,10 @@ func (pc *PolicyController) filterResourceByRule(rule types.PolicyRule) ([]runti
 	return targetResources, nil
 }
 
-func (pc *PolicyController) getPolicyByKey(key string) (*types.Policy, error) {
+func (c *Controller) getPolicyByKey(key string) (*types.Policy, error) {
 	// Create nil Selector to grab all the policies
 	selector := labels.NewSelector()
-	cachedPolicies, err := pc.policyLister.List(selector)
+	cachedPolicies, err := c.policyLister.List(selector)
 	if err != nil {
 		return nil, err
 	}

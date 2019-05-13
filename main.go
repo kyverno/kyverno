@@ -4,15 +4,15 @@ import (
 	"flag"
 	"log"
 
+	policycontroller "github.com/nirmata/kube-policy/controller"
 	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/policycontroller"
 	"github.com/nirmata/kube-policy/server"
 	"github.com/nirmata/kube-policy/webhooks"
 
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
-	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	policyengine "github.com/nirmata/kube-policy/pkg/engine"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 
 	event "github.com/nirmata/kube-policy/pkg/event"
 	"k8s.io/sample-controller/pkg/signals"
@@ -45,7 +45,7 @@ func main() {
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
 	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
-	violationBuilder := policyviolation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
+	violationBuilder := violation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
 	policyEngine := policyengine.NewPolicyEngine(kubeclient, nil)
 
 	policyController := policycontroller.NewPolicyController(policyClientset,

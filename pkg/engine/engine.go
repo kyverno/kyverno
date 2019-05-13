@@ -1,4 +1,4 @@
-package policyengine
+package engine
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 )
 
 type PolicyEngine interface {
@@ -24,23 +24,23 @@ type PolicyEngine interface {
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy
 	// we should process the policy on matched resources, generate violations accordingly
-	ProcessExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error)
+	ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error)
 }
 
-type policyEngine struct {
+type engine struct {
 	kubeClient *kubeClient.KubeClient
 	logger     *log.Logger
 }
 
 func NewPolicyEngine(kubeClient *kubeClient.KubeClient, logger *log.Logger) PolicyEngine {
-	return &policyEngine{
+	return &engine{
 		kubeClient: kubeClient,
 		logger:     logger,
 	}
 }
 
-func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error) {
-	var violations []policyviolation.Info
+func (e *engine) ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error) {
+	var violations []violation.Info
 	var events []event.Info
 
 	patchingSets := mutation.GetPolicyPatchingSets(policy)
@@ -48,18 +48,18 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 	for _, rule := range policy.Spec.Rules {
 		err := rule.Validate()
 		if err != nil {
-			p.logger.Printf("Invalid rule detected: #%s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
+			e.logger.Printf("Invalid rule detected: #%s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 
 		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.Resource); !ok {
-			p.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
+			e.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
 			return nil, nil, err
 		}
 
-		violation, eventInfos, err := p.processRuleOnResource(policy.Name, rule, rawResource, patchingSets)
+		violation, eventInfos, err := e.processRuleOnResource(policy.Name, rule, rawResource, patchingSets)
 		if err != nil {
-			p.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
+			e.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
 			continue
 		}
 		// } else {
@@ -71,10 +71,10 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 	return violations, events, nil
 }
 
-func (p *policyEngine) processRuleOnResource(policyName string, rule types.PolicyRule, rawResource []byte, patchingSets mutation.PatchingSets) (
-	policyviolation.Info, []event.Info, error) {
+func (e *engine) processRuleOnResource(policyName string, rule types.PolicyRule, rawResource []byte, patchingSets mutation.PatchingSets) (
+	violation.Info, []event.Info, error) {
 
-	var violationInfo policyviolation.Info
+	var violationInfo violation.Info
 	var eventInfos []event.Info
 
 	resourceKind := mutation.ParseKindFromObject(rawResource)
@@ -89,7 +89,7 @@ func (p *policyEngine) processRuleOnResource(policyName string, rule types.Polic
 	if rulePatchesProcessed != nil {
 		log.Printf("Rule %s: prepared %d patches", rule.Name, len(rulePatchesProcessed))
 
-		violationInfo = policyviolation.NewViolation(policyName, resourceKind, resourceNamespace+"/"+resourceName, rule.Name)
+		violationInfo = violation.NewViolation(policyName, resourceKind, resourceNamespace+"/"+resourceName, rule.Name)
 		// add a violation to queue
 
 		// add an event to policy

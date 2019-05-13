@@ -1,4 +1,4 @@
-package policycontroller
+package controller
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	engine "github.com/nirmata/kube-policy/pkg/engine"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -21,14 +21,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-//PolicyController to manage Policy CRD
-type PolicyController struct {
+//Controller to manage Policy CRD
+type Controller struct {
 	kubeClient       *kubeClient.KubeClient
 	policyLister     lister.PolicyLister
 	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
-	policyEngine     policyengine.PolicyEngine
-	violationBuilder policyviolation.Generator
+	policyEngine     engine.PolicyEngine
+	violationBuilder violation.Generator
 	eventBuilder     event.Generator
 	logger           *log.Logger
 	queue            workqueue.RateLimitingInterface
@@ -37,13 +37,13 @@ type PolicyController struct {
 // NewPolicyController from cmd args
 func NewPolicyController(policyInterface policyclientset.Interface,
 	policyInformer infomertypes.PolicyInformer,
-	policyEngine policyengine.PolicyEngine,
-	violationBuilder policyviolation.Generator,
+	policyEngine engine.PolicyEngine,
+	violationBuilder violation.Generator,
 	eventController event.Generator,
 	logger *log.Logger,
-	kubeClient *kubeClient.KubeClient) *PolicyController {
+	kubeClient *kubeClient.KubeClient) *Controller {
 
-	controller := &PolicyController{
+	controller := &Controller{
 		kubeClient:       kubeClient,
 		policyLister:     policyInformer.Lister(),
 		policyInterface:  policyInterface,
@@ -63,77 +63,77 @@ func NewPolicyController(policyInterface policyclientset.Interface,
 	return controller
 }
 
-func (pc *PolicyController) createPolicyHandler(resource interface{}) {
-	pc.enqueuePolicy(resource)
+func (c *Controller) createPolicyHandler(resource interface{}) {
+	c.enqueuePolicy(resource)
 }
 
-func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
+func (c *Controller) updatePolicyHandler(oldResource, newResource interface{}) {
 	newPolicy := newResource.(*types.Policy)
 	oldPolicy := oldResource.(*types.Policy)
 	if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
 		return
 	}
-	pc.enqueuePolicy(newResource)
+	c.enqueuePolicy(newResource)
 }
 
-func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
+func (c *Controller) deletePolicyHandler(resource interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = resource.(metav1.Object); !ok {
 		utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
 		return
 	}
-	pc.logger.Printf("policy deleted: %s", object.GetName())
+	c.logger.Printf("policy deleted: %s", object.GetName())
 }
 
-func (pc *PolicyController) enqueuePolicy(obj interface{}) {
+func (c *Controller) enqueuePolicy(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
-	pc.queue.Add(key)
+	c.queue.Add(key)
 }
 
 // Run is main controller thread
-func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
+func (c *Controller) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer pc.queue.ShutDown()
+	defer c.queue.ShutDown()
 
-	pc.logger.Printf("starting policy controller")
+	c.logger.Printf("starting policy controller")
 
-	pc.logger.Printf("waiting for infomer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, pc.policySynced); !ok {
+	c.logger.Printf("waiting for infomer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.policySynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	pc.logger.Println("starting policy controller workers")
+	c.logger.Println("starting policy controller workers")
 	for i := 0; i < policyControllerWorkerCount; i++ {
-		go wait.Until(pc.runWorker, time.Second, stopCh)
+		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	pc.logger.Println("started policy controller workers")
+	c.logger.Println("started policy controller workers")
 	<-stopCh
-	pc.logger.Println("shutting down policy controller workers")
+	c.logger.Println("shutting down policy controller workers")
 	return nil
 }
 
-func (pc *PolicyController) runWorker() {
-	for pc.processNextWorkItem() {
+func (c *Controller) runWorker() {
+	for c.processNextWorkItem() {
 	}
 }
 
-func (pc *PolicyController) processNextWorkItem() bool {
-	obj, shutdown := pc.queue.Get()
+func (c *Controller) processNextWorkItem() bool {
+	obj, shutdown := c.queue.Get()
 	if shutdown {
 		return false
 	}
 
 	err := func(obj interface{}) error {
-		defer pc.queue.Done(obj)
-		err := pc.syncHandler(obj)
-		pc.handleErr(err, obj)
+		defer c.queue.Done(obj)
+		err := c.syncHandler(obj)
+		c.handleErr(err, obj)
 		return nil
 	}(obj)
 	if err != nil {
@@ -143,25 +143,25 @@ func (pc *PolicyController) processNextWorkItem() bool {
 	return true
 }
 
-func (pc *PolicyController) handleErr(err error, key interface{}) {
+func (c *Controller) handleErr(err error, key interface{}) {
 	if err == nil {
-		pc.queue.Forget(key)
+		c.queue.Forget(key)
 		return
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
-	if pc.queue.NumRequeues(key) < policyWorkQueueRetryLimit {
-		pc.logger.Printf("Error syncing events %v: %v", key, err)
+	if c.queue.NumRequeues(key) < policyWorkQueueRetryLimit {
+		c.logger.Printf("Error syncing events %v: %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
-		pc.queue.AddRateLimited(key)
+		c.queue.AddRateLimited(key)
 		return
 	}
-	pc.queue.Forget(key)
+	c.queue.Forget(key)
 	utilruntime.HandleError(err)
-	pc.logger.Printf("Dropping the key %q out of the queue: %v", key, err)
+	c.logger.Printf("Dropping the key %q out of the queue: %v", key, err)
 }
 
-func (pc *PolicyController) syncHandler(obj interface{}) error {
+func (c *Controller) syncHandler(obj interface{}) error {
 	var key string
 	var ok bool
 	if key, ok = obj.(string); !ok {
@@ -175,7 +175,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	}
 
 	// Get Policy resource with namespace/name
-	policy, err := pc.policyLister.Policies(namespace).Get(name)
+	policy, err := c.policyLister.Policies(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("policy '%s' in work queue no longer exists", key))

@@ -10,10 +10,10 @@ import (
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/engine"
+	mutation "github.com/nirmata/kube-policy/pkg/engine/mutation"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
-	mutation "github.com/nirmata/kube-policy/pkg/policyengine/mutation"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,10 +26,10 @@ import (
 // business logic for resource mutation
 type MutationWebhook struct {
 	kubeclient       *kubeclient.KubeClient
-	policyEngine     policyengine.PolicyEngine
+	policyEngine     engine.PolicyEngine
 	policyLister     policylister.PolicyLister
 	registration     *MutationWebhookRegistration
-	violationBuilder policyviolation.Generator
+	violationBuilder violation.Generator
 	eventBuilder     event.Generator
 	logger           *log.Logger
 }
@@ -39,7 +39,7 @@ func CreateMutationWebhook(
 	clientConfig *rest.Config,
 	kubeclient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
-	violationBuilder policyviolation.Generator,
+	violationBuilder violation.Generator,
 	eventController event.Generator,
 	logger *log.Logger) (*MutationWebhook, error) {
 	if clientConfig == nil || kubeclient == nil {
@@ -59,7 +59,7 @@ func CreateMutationWebhook(
 	if logger == nil {
 		logger = log.New(os.Stdout, "Mutation WebHook: ", log.LstdFlags|log.Lshortfile)
 	}
-	policyengine := policyengine.NewPolicyEngine(kubeclient, logger)
+	policyengine := engine.NewPolicyEngine(kubeclient, logger)
 
 	return &MutationWebhook{
 		kubeclient:       kubeclient,
