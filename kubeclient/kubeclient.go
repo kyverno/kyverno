@@ -22,8 +22,8 @@ import (
 
 // KubeClient is the api-client for core Kubernetes objects
 type KubeClient struct {
-	logger *log.Logger
 	client *kubernetes.Clientset
+	logger *log.Logger
 }
 
 // Checks parameters and creates new instance of KubeClient
@@ -49,12 +49,9 @@ func (kc *KubeClient) GetEventsInterface(namespace string) event.EventInterface 
 
 func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	kubePolicyDeployment, err := kc.client.
-		Apps().
+		AppsV1().
 		Deployments(config.KubePolicyNamespace).
-		Get(config.KubePolicyDeploymentName, meta.GetOptions{
-			ResourceVersion:      "1",
-			IncludeUninitialized: false,
-		})
+		Get(config.KubePolicyDeploymentName, meta.GetOptions{})
 
 	if err != nil {
 		return nil, err
@@ -65,17 +62,16 @@ func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 
 // Generates new ConfigMap in given namespace. If the namespace does not exists yet,
 // waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
-func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, namespace string) error {
+func (kc *KubeClient) GenerateConfigMap(generator types.Generation, namespace string) error {
 	kc.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
 	configMap := &v1.ConfigMap{}
 
 	var err error
-	if generator.CopyFrom != nil {
-		kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
-		if err != nil {
-			return err
-		}
+
+	kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
 	configMap.ObjectMeta = metav1.ObjectMeta{
@@ -100,17 +96,16 @@ func (kc *KubeClient) GenerateConfigMap(generator types.PolicyConfigGenerator, n
 
 // Generates new Secret in given namespace. If the namespace does not exists yet,
 // waits until it is created for maximum namespaceCreationMaxWaitTime (see below)
-func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, namespace string) error {
+func (kc *KubeClient) GenerateSecret(generator types.Generation, namespace string) error {
 	kc.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
 	secret := &v1.Secret{}
 
 	var err error
-	if generator.CopyFrom != nil {
-		kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, defaultGetOptions())
-		if err != nil {
-			return err
-		}
+
+	kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
 	secret.ObjectMeta = metav1.ObjectMeta{
@@ -133,13 +128,6 @@ func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, name
 	return nil
 }
 
-func defaultGetOptions() metav1.GetOptions {
-	return metav1.GetOptions{
-		ResourceVersion:      "1",
-		IncludeUninitialized: true,
-	}
-}
-
 func defaultDeleteOptions() *metav1.DeleteOptions {
 	var deletePeriod int64 = 0
 	return &metav1.DeleteOptions{
@@ -156,7 +144,7 @@ func (kc *KubeClient) waitUntilNamespaceIsCreated(name string) error {
 
 	var lastError error = nil
 	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
-		_, lastError = kc.client.CoreV1().Namespaces().Get(name, defaultGetOptions())
+		_, lastError = kc.client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 		if lastError == nil {
 			break
 		}

@@ -89,7 +89,7 @@ func (kc *KubeClient) fetchCertificateFromRequest(req *certificates.CertificateS
 	timeStart := time.Now()
 	certClient := kc.client.CertificatesV1beta1().CertificateSigningRequests()
 	for time.Now().Sub(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		r, err := certClient.Get(req.ObjectMeta.Name, defaultGetOptions())
+		r, err := certClient.Get(req.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +113,7 @@ const certificateField string = "certificate"
 // Reads the pair of TLS certificate and key from the specified secret.
 func (kc *KubeClient) ReadTlsPair(props utils.TlsCertificateProps) *utils.TlsPemPair {
 	name := generateSecretName(props)
-	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, defaultGetOptions())
+	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		kc.logger.Printf("Unable to get secret %s/%s: %s", props.Namespace, name, err)
 		return nil
@@ -138,7 +138,7 @@ func (kc *KubeClient) ReadTlsPair(props utils.TlsCertificateProps) *utils.TlsPem
 // Updates existing secret or creates new one.
 func (kc *KubeClient) WriteTlsPair(props utils.TlsCertificateProps, pemPair *utils.TlsPemPair) error {
 	name := generateSecretName(props)
-	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, defaultGetOptions())
+	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
 
 	if err == nil { // Update existing secret
 		if secret.Data == nil {

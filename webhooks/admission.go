@@ -23,6 +23,6 @@ func AdmissionIsRequired(request *v1beta1.AdmissionRequest) bool {
 }
 
 // Checks requests kind, name and labels to fit the policy
-func IsRuleApplicableToRequest(policyResource types.PolicyResource, request *v1beta1.AdmissionRequest) (bool, error) {
+func IsRuleApplicableToRequest(policyResource types.ResourceDescription, request *v1beta1.AdmissionRequest) (bool, error) {
 	return mutation.IsRuleApplicableToResource(request.Object.Raw, policyResource)
 }
