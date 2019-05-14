@@ -148,7 +148,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := ws.policyEngine.Mutate(*policy, request.Object.Raw)
+		policyPatches := ws.policyEngine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
@@ -181,7 +181,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	for _, policy := range policies {
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		if ok := ws.policyEngine.Validate(*policy, request.Object.Raw); !ok {
+		if ok := ws.policyEngine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
 			ws.logger.Printf("Validation has failed: %v\n", err)
 			utilruntime.HandleError(err)
 			allowed = false
