@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
@@ -39,6 +40,10 @@ func NewPolicyController(policyInterface policyclientset.Interface,
 	eventController event.Generator,
 	logger *log.Logger,
 	kubeClient *kubeClient.KubeClient) *PolicyController {
+
+	if logger == nil {
+		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags)
+	}
 
 	controller := &PolicyController{
 		kubeClient:       kubeClient,
@@ -97,21 +102,15 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer pc.queue.ShutDown()
 
-	pc.logger.Printf("starting policy controller")
-
-	pc.logger.Printf("waiting for infomer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, pc.policySynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	pc.logger.Println("starting policy controller workers")
 	for i := 0; i < policyControllerWorkerCount; i++ {
 		go wait.Until(pc.runWorker, time.Second, stopCh)
 	}
 
-	pc.logger.Println("started policy controller workers")
-	<-stopCh
-	pc.logger.Println("shutting down policy controller workers")
+	pc.logger.Println("Started policy controller")
 	return nil
 }
 
