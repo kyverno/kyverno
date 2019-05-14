@@ -6,7 +6,6 @@ import (
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
-	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/labels"
@@ -87,7 +86,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.Rule) ([]runtime.Obj
 
 	for _, resource := range resources {
 		// TODO:
-		rawResource, err := json.Marshal(resource)
+		//rawResource, err := json.Marshal(resource)
 		// objKind := resource.GetObjectKind()
 		// codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 		// codecFactory.EncoderForVersion()
@@ -98,9 +97,9 @@ func (pc *PolicyController) filterResourceByRule(rule types.Rule) ([]runtime.Obj
 		}
 
 		// filter the resource by name and label
-		if ok, _ := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); ok {
-			targetResources = append(targetResources, resource)
-		}
+		//if ok, _ := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription); ok {
+		//	targetResources = append(targetResources, resource)
+		//}
 	}
 	return targetResources, nil
 }

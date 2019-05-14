@@ -5,11 +5,12 @@ import (
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
 // TODO: pass in logger?
-func Mutate(policy kubepolicy.Policy, rawResource []byte) []mutation.PatchBytes {
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []mutation.PatchBytes {
 	var policyPatches []mutation.PatchBytes
 
 	for i, rule := range policy.Spec.Rules {
@@ -25,7 +26,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte) []mutation.PatchBytes 
 			continue
 		}
 
-		ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription)
+		ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
 		if err != nil {
 			log.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
@@ -33,6 +34,10 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte) []mutation.PatchBytes 
 
 		if !ok {
 			log.Printf("Rule is not applicable t the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			continue
+		}
+
+		if rule.Mutation == nil {
 			continue
 		}
 
@@ -57,7 +62,6 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte) []mutation.PatchBytes 
 				policyPatches = append(policyPatches, processedPatches...)
 			}
 		}
-
 	}
 
 	return policyPatches

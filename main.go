@@ -63,18 +63,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
-	server.RunAsync()
+
+	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, kubeclient)
+	if err != nil {
+		log.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
+	}
 
 	stopCh := signals.SetupSignalHandler()
+
 	policyInformerFactory.Start(stopCh)
-	if err = eventController.Run(stopCh); err != nil {
-		log.Fatalf("Error running EventController: %v\n", err)
-	}
+	eventController.Run(stopCh)
 
 	if err = policyController.Run(stopCh); err != nil {
 		log.Fatalf("Error running PolicyController: %v\n", err)
 	}
 
+	if err = webhookRegistrationClient.Register(); err != nil {
+		log.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+	}
+
+	server.RunAsync()
 	<-stopCh
 	server.Stop()
 }

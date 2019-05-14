@@ -10,16 +10,14 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/kubeclient"
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
-	"github.com/nirmata/kube-policy/utils"
+	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,12 +34,12 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
-	tlsPair *utils.TlsPemPair,
-	kubeclient *kubeclient.KubeClient,
+	tlsPair *tlsutils.TlsPemPair,
+	kubeClient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
-		logger = log.New(os.Stdout, "HTTPS Server: ", log.LstdFlags|log.Lshortfile)
+		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
 	}
 
 	if tlsPair == nil {
@@ -61,7 +59,8 @@ func NewWebhookServer(
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.WebhookServicePath, ws.serve)
+	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -77,44 +76,125 @@ func NewWebhookServer(
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == config.WebhookServicePath {
-		admissionReview := ws.parseAdmissionReview(r, w)
-		if admissionReview == nil {
-			return
-		}
+	admissionReview := ws.bodyToAdmissionReview(r, w)
+	if admissionReview == nil {
+		return
+	}
 
-		var admissionResponse *v1beta1.AdmissionResponse
-		if AdmissionIsRequired(admissionReview.Request) {
-			admissionResponse = ws.Mutate(admissionReview.Request)
-		}
+	admissionReview.Response = &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
 
-		if admissionResponse == nil {
-			admissionResponse = &v1beta1.AdmissionResponse{
-				Allowed: true,
-			}
+	if KindIsSupported(admissionReview.Request.Kind.Kind) {
+		switch r.URL.Path {
+		case config.MutatingWebhookServicePath:
+			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
+		case config.ValidatingWebhookServicePath:
+			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
 		}
+	}
 
-		admissionReview.Response = admissionResponse
-		admissionReview.Response.UID = admissionReview.Request.UID
+	admissionReview.Response.UID = admissionReview.Request.UID
 
-		responseJson, err := json.Marshal(admissionReview)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
-			return
-		}
+	responseJson, err := json.Marshal(admissionReview)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-		ws.logger.Printf("Response body\n:%v", string(responseJson))
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if _, err := w.Write(responseJson); err != nil {
-			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
-		}
-	} else {
-		http.Error(w, fmt.Sprintf("Unexpected method path: %v", r.URL.Path), http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := w.Write(responseJson); err != nil {
+		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }
 
+// RunAsync TLS server in separate thread and returns control immediately
+func (ws *WebhookServer) RunAsync() {
+	go func(ws *WebhookServer) {
+		err := ws.server.ListenAndServeTLS("", "")
+		if err != nil {
+			ws.logger.Fatal(err)
+		}
+	}(ws)
+
+	ws.logger.Printf("Started Webhook Server")
+}
+
+// Stop TLS server and returns control after the server is shut down
+func (ws *WebhookServer) Stop() {
+	err := ws.server.Shutdown(context.Background())
+	if err != nil {
+		// Error from closing listeners, or context timeout:
+		ws.logger.Printf("Server Shutdown error: %v", err)
+		ws.server.Close()
+	}
+}
+
+// HandleMutation handles mutating webhook admission request
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	ws.logger.Printf("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
+	policies, err := ws.policyLister.List(labels.NewSelector())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
+
+	var allPatches []mutation.PatchBytes
+	for _, policy := range policies {
+		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		allPatches = append(allPatches, policyPatches...)
+
+		if len(policyPatches) > 0 {
+			namespace := mutation.ParseNamespaceFromObject(request.Object.Raw)
+			name := mutation.ParseNameFromObject(request.Object.Raw)
+			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+		}
+	}
+
+	patchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     mutation.JoinPatches(allPatches),
+		PatchType: &patchType,
+	}
+}
+
+// HandleValidation handles validating webhook admission request
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	ws.logger.Printf("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
+	policies, err := ws.policyLister.List(labels.NewSelector())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
+
+	allowed := true
+	for _, policy := range policies {
+		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
+			ws.logger.Printf("Validation has failed: %v\n", err)
+			utilruntime.HandleError(err)
+			allowed = false
+		} else {
+			ws.logger.Println("Validation is successful")
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Allowed: allowed,
+	}
+}
+
+// bodyToAdmissionReview creates AdmissionReview object from request body
 // Answers to the http.ResponseWriter if request is not valid
-func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http.ResponseWriter) *v1beta1.AdmissionReview {
+func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer http.ResponseWriter) *v1beta1.AdmissionReview {
 	var body []byte
 	if request.Body != nil {
 		if data, err := ioutil.ReadAll(request.Body); err == nil {
@@ -140,81 +220,6 @@ func (ws *WebhookServer) parseAdmissionReview(request *http.Request, writer http
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
 	} else {
-		ws.logger.Printf("Request body:\n%v", string(body))
 		return admissionReview
 	}
-}
-
-// Runs TLS server in separate thread and returns control immediately
-func (ws *WebhookServer) RunAsync() {
-	go func(ws *WebhookServer) {
-		err := ws.server.ListenAndServeTLS("", "")
-		if err != nil {
-			ws.logger.Fatal(err)
-		}
-	}(ws)
-}
-
-// Stops TLS server and returns control after the server is shut down
-func (ws *WebhookServer) Stop() {
-	err := ws.server.Shutdown(context.Background())
-	if err != nil {
-		// Error from closing listeners, or context timeout:
-		ws.logger.Printf("Server Shutdown error: %v", err)
-		ws.server.Close()
-	}
-}
-
-func (ws *WebhookServer) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	ws.logger.Printf("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v patchOperation=%v UserInfo=%v",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, request.UserInfo)
-
-	policies, err := ws.getPolicies()
-	if err != nil {
-		utilruntime.HandleError(err)
-		return nil
-	}
-	if len(policies) == 0 {
-		return nil
-	}
-
-	var allPatches []mutation.PatchBytes
-	for _, policy := range policies {
-		ws.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-
-		policyPatches := engine.Mutate(policy, request.Object.Raw)
-		allPatches = append(allPatches, policyPatches...)
-
-		if len(policyPatches) > 0 {
-			namespace := mutation.ParseNamespaceFromObject(request.Object.Raw)
-			name := mutation.ParseNameFromObject(request.Object.Raw)
-			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
-		}
-	}
-
-	patchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     mutation.JoinPatches(allPatches),
-		PatchType: &patchType,
-	}
-}
-
-func (ws *WebhookServer) getPolicies() ([]kubepolicy.Policy, error) {
-	selector := labels.NewSelector()
-	cachedPolicies, err := ws.policyLister.List(selector)
-	if err != nil {
-		ws.logger.Printf("Error: %v", err)
-		return nil, err
-	}
-
-	var policies []kubepolicy.Policy
-	for _, elem := range cachedPolicies {
-		policies = append(policies, *elem.DeepCopy())
-	}
-
-	sort.Slice(policies, func(i, j int) bool {
-		return policies[i].CreationTimestamp.Time.Before(policies[j].CreationTimestamp.Time)
-	})
-	return policies, nil
 }

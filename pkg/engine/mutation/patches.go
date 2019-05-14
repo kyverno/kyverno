@@ -10,7 +10,7 @@ import (
 
 type PatchBytes []byte
 
-// ProcessPatches Returns array from separate patches that can be applied to the document
+// Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, error) {
 	if len(resource) == 0 {
