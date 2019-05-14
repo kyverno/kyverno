@@ -1,4 +1,4 @@
-package policycontroller
+package controller
 
 import (
 	"testing"

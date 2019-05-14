@@ -3,7 +3,7 @@ package webhooks
 import (
 	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	mutation "github.com/nirmata/kube-policy/pkg/policyengine/mutation"
+	mutation "github.com/nirmata/kube-policy/pkg/engine/mutation"
 	"k8s.io/api/admission/v1beta1"
 )
 

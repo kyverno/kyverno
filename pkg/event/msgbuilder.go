@@ -19,11 +19,12 @@ func (k MsgKey) String() string {
 
 const argRegex = "%[s,d,v]"
 
+var re = regexp.MustCompile(argRegex)
+
 //GetEventMsg return the application message based on the message id and the arguments,
 // if the number of arguments passed to the message are incorrect generate an error
 func getEventMsg(key MsgKey, args ...interface{}) (string, error) {
 	// Verify the number of arguments
-	re := regexp.MustCompile(argRegex)
 	argsCount := len(re.FindAllString(key.String(), -1))
 	if argsCount != len(args) {
 		return "", fmt.Errorf("message expects %d arguments, but %d arguments passed", argsCount, len(args))

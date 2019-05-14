@@ -1,8 +1,8 @@
-package policyengine
+package engine
 
 import (
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
