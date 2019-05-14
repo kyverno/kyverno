@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/minio/minio/pkg/wildcard"
+	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -64,4 +67,39 @@ func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 		return regex[0], false
 	}
 	return strings.Trim(regex[1], " "), true
+}
+
+// ResourceMeetsRules checks requests kind, name and labels to fit the policy
+func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) (bool, error) {
+	if description.Kind != gvk.Kind {
+		return false, nil
+	}
+
+	if resourceRaw != nil {
+		meta := ParseMetadataFromObject(resourceRaw)
+		name := ParseNameFromObject(resourceRaw)
+
+		if description.Name != nil {
+
+			if !wildcard.Match(*description.Name, name) {
+				return false, nil
+			}
+		}
+
+		if description.Selector != nil {
+			selector, err := metav1.LabelSelectorAsSelector(description.Selector)
+
+			if err != nil {
+				return false, err
+			}
+
+			labelMap := ParseLabelsFromMetadata(meta)
+
+			if !selector.Matches(labelMap) {
+				return false, nil
+			}
+
+		}
+	}
+	return true, nil
 }
