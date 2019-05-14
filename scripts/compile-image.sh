@@ -1,7 +1,16 @@
 #!/bin/bash
+
+default_version="dev-testing"
+version=$1
+
+if [[ -z "$1" ]]
+then 
+    echo "Using default version: ${default_version}"
+    version="${default_version}"
+fi
+
 hub_user_name="nirmata"
 project_name="kube-policy"
-version="latest"
 
 echo "# Ensuring Go dependencies..."
 dep ensure || exit 2
