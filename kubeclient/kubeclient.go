@@ -10,7 +10,6 @@ import (
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -43,7 +42,7 @@ func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error)
 	}, nil
 }
 
-func (kc *KubeClient) GetEventsInterface(namespace string) event.EventInterface {
+func (kc *KubeClient) GetEvents(namespace string) event.EventInterface {
 	return kc.client.CoreV1().Events(namespace)
 }
 
@@ -51,7 +50,7 @@ func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	kubePolicyDeployment, err := kc.client.
 		AppsV1().
 		Deployments(config.KubePolicyNamespace).
-		Get(config.KubePolicyDeploymentName, meta.GetOptions{})
+		Get(config.KubePolicyDeploymentName, metav1.GetOptions{})
 
 	if err != nil {
 		return nil, err

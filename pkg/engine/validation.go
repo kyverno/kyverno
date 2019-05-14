@@ -1,11 +1,11 @@
-package policyengine
+package engine
 
 import (
 	"encoding/json"
 	"fmt"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
