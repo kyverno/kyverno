@@ -29,7 +29,6 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
-	policyEngine engine.PolicyEngine
 	policyLister policylister.PolicyLister
 	logger       *log.Logger
 }
@@ -55,10 +54,8 @@ func NewWebhookServer(
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
-	policyEngine := engine.NewPolicyEngine(kubeclient, logger)
 
 	ws := &WebhookServer{
-		policyEngine: policyEngine,
 		policyLister: policyLister,
 		logger:       logger,
 	}
@@ -185,7 +182,7 @@ func (ws *WebhookServer) Mutate(request *v1beta1.AdmissionRequest) *v1beta1.Admi
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := ws.policyEngine.Mutate(policy, request.Object.Raw)
+		policyPatches := engine.Mutate(policy, request.Object.Raw)
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {

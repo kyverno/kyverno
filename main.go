@@ -8,7 +8,6 @@ import (
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
 	controller "github.com/nirmata/kube-policy/pkg/controller"
-	engine "github.com/nirmata/kube-policy/pkg/engine"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"github.com/nirmata/kube-policy/pkg/webhooks"
@@ -43,11 +42,9 @@ func main() {
 
 	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
 	violationBuilder := violation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
-	policyEngine := engine.NewPolicyEngine(kubeclient, nil)
 
 	policyController := controller.NewPolicyController(policyClientset,
 		policyInformer,
-		policyEngine,
 		violationBuilder,
 		eventController,
 		nil,
