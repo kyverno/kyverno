@@ -1,4 +1,4 @@
-package utils
+package tls
 
 import (
 	"crypto/rand"

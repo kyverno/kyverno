@@ -3,6 +3,7 @@ package event
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
@@ -35,13 +36,18 @@ type Generator interface {
 //Controller  api
 type Controller interface {
 	Generator
-	Run(stopCh <-chan struct{}) error
+	Run(stopCh <-chan struct{})
 }
 
 //NewEventController to generate a new event controller
 func NewEventController(kubeClient *kubeClient.KubeClient,
 	policyLister policylister.PolicyLister,
 	logger *log.Logger) Controller {
+
+	if logger == nil {
+		logger = log.New(os.Stdout, "Event Controller:  ", log.LstdFlags)
+	}
+
 	controller := &controller{
 		kubeClient:   kubeClient,
 		policyLister: policyLister,
@@ -49,6 +55,7 @@ func NewEventController(kubeClient *kubeClient.KubeClient,
 		recorder:     initRecorder(kubeClient),
 		logger:       logger,
 	}
+
 	return controller
 }
 
@@ -70,20 +77,14 @@ func (c *controller) Add(info Info) {
 	c.queue.Add(info)
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) error {
+func (c *controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	log.Println("starting eventbuilder controller")
-
-	log.Println("Starting eventbuilder controller workers")
 	for i := 0; i < eventWorkerThreadCount; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-	log.Println("Started eventbuilder controller workers")
-	<-stopCh
-	log.Println("Shutting down eventbuilder controller workers")
-	return nil
+	c.logger.Println("Started eventbuilder controller")
 }
 
 func (c *controller) runWorker() {
@@ -102,7 +103,7 @@ func (c *controller) processNextWorkItem() bool {
 		var ok bool
 		if key, ok = obj.(Info); !ok {
 			c.queue.Forget(obj)
-			log.Printf("Expecting type info by got %v", obj)
+			c.logger.Printf("Expecting type info by got %v\n", obj)
 			return nil
 		}
 		// Run the syncHandler, passing the resource and the policy
