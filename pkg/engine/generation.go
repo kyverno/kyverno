@@ -1,10 +1,10 @@
-package policyengine
+package engine
 
 import (
 	"fmt"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 )
 
 // TODO: To be reworked due to spec policy-v2
