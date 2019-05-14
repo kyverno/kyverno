@@ -12,15 +12,14 @@ import (
 )
 
 type PolicyEngine interface {
-	// ProcessMutation should be called from admission contoller
+	// Mutate should be called from admission contoller
 	// when there is an creation / update of the resource
 	// ProcessMutation(policy types.Policy, rawResource []byte) (patchBytes []byte, events []Events, err error)
 	Mutate(policy types.Policy, rawResource []byte) []mutation.PatchBytes
 
-	// ProcessValidation should be called from admission contoller
+	// Validate should be called from admission contoller
 	// when there is an creation / update of the resource
-	// TODO: Change name to Validate
-	ProcessValidation(policy types.Policy, rawResource []byte)
+	Validate(policy types.Policy, rawResource []byte) bool
 
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy
@@ -36,6 +35,7 @@ type policyEngine struct {
 	logger     *log.Logger
 }
 
+// NewPolicyEngine creates new instance of policyEngine
 func NewPolicyEngine(kubeClient *kubeClient.KubeClient, logger *log.Logger) PolicyEngine {
 	return &policyEngine{
 		kubeClient: kubeClient,
@@ -54,7 +54,7 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 			continue
 		}
 
-		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); !ok {
+		if ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription); !ok {
 			p.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
 			return nil, nil, err
 		}
