@@ -70,9 +70,8 @@ func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 }
 
 // ResourceMeetsRules checks requests kind, name and labels to fit the policy
-func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescription) (bool, error) {
-	kind := ParseKindFromObject(resourceRaw)
-	if description.Kind != kind {
+func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) (bool, error) {
+	if description.Kind != gvk.Kind {
 		return false, nil
 	}
 
