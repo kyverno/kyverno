@@ -97,7 +97,7 @@ func (pc *PolicyController) filterResourceByRule(rule types.Rule) ([]runtime.Obj
 		}
 
 		// filter the resource by name and label
-		if ok, _ := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); ok {
+		if ok, _ := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription); ok {
 			targetResources = append(targetResources, resource)
 		}
 	}

@@ -22,7 +22,7 @@ func (p *policyEngine) Mutate(policy kubepolicy.Policy, rawResource []byte) []mu
 			continue
 		}
 
-		ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription)
+		ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription)
 		if err != nil {
 			p.logger.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
@@ -30,6 +30,10 @@ func (p *policyEngine) Mutate(policy kubepolicy.Policy, rawResource []byte) []mu
 
 		if !ok {
 			p.logger.Printf("Rule is not applicable t the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			continue
+		}
+
+		if rule.Mutation == nil {
 			continue
 		}
 
@@ -54,7 +58,6 @@ func (p *policyEngine) Mutate(policy kubepolicy.Policy, rawResource []byte) []mu
 				policyPatches = append(policyPatches, processedPatches...)
 			}
 		}
-
 	}
 
 	return policyPatches

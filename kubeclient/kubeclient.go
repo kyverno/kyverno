@@ -29,7 +29,7 @@ type KubeClient struct {
 // Checks parameters and creates new instance of KubeClient
 func NewKubeClient(config *rest.Config, logger *log.Logger) (*KubeClient, error) {
 	if logger == nil {
-		logger = log.New(os.Stdout, "Kubernetes client: ", log.LstdFlags|log.Lshortfile)
+		logger = log.New(os.Stdout, "Kubernetes client: ", log.LstdFlags)
 	}
 
 	client, err := kubernetes.NewForConfig(config)
