@@ -1,4 +1,4 @@
-package policyengine
+package engine
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,9 +26,10 @@ type PolicyEngine interface {
 	// when there is an create / update of the policy
 	// we should process the policy on matched resources, generate violations accordingly
 	// TODO: This method should not be in PolicyEngine. Validate will do this work instead
-	ProcessExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error)
+	ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error)
 
 	// TODO: Add Generate method
+	// Generate()
 }
 
 type policyEngine struct {
@@ -44,8 +45,8 @@ func NewPolicyEngine(kubeClient *kubeClient.KubeClient, logger *log.Logger) Poli
 	}
 }
 
-func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) ([]policyviolation.Info, []event.Info, error) {
-	var violations []policyviolation.Info
+func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error) {
+	var violations []violation.Info
 	var events []event.Info
 
 	for _, rule := range policy.Spec.Rules {
@@ -75,9 +76,9 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 }
 
 func (p *policyEngine) processRuleOnResource(policyName string, rule types.Rule, rawResource []byte) (
-	policyviolation.Info, []event.Info, error) {
+	violation.Info, []event.Info, error) {
 
-	var violationInfo policyviolation.Info
+	var violationInfo violation.Info
 	var eventInfos []event.Info
 
 	resourceKind := mutation.ParseKindFromObject(rawResource)
@@ -92,7 +93,7 @@ func (p *policyEngine) processRuleOnResource(policyName string, rule types.Rule,
 	if rulePatchesProcessed != nil {
 		log.Printf("Rule %s: prepared %d patches", rule.Name, len(rulePatchesProcessed))
 
-		violationInfo = policyviolation.NewViolation(policyName, resourceKind, resourceNamespace+"/"+resourceName, rule.Name)
+		violationInfo = violation.NewViolation(policyName, resourceKind, resourceNamespace+"/"+resourceName, rule.Name)
 		// add a violation to queue
 
 		// add an event to policy

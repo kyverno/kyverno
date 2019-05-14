@@ -15,8 +15,8 @@ import (
 	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/policyengine"
-	"github.com/nirmata/kube-policy/pkg/policyengine/mutation"
+	engine "github.com/nirmata/kube-policy/pkg/engine"
+	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,7 +27,7 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
-	policyEngine policyengine.PolicyEngine
+	policyEngine engine.PolicyEngine
 	policyLister policylister.PolicyLister
 	logger       *log.Logger
 }
@@ -38,6 +38,7 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	kubeClient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
+	policyEngine engine.PolicyEngine,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -53,7 +54,6 @@ func NewWebhookServer(
 		return nil, err
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
-	policyEngine := policyengine.NewPolicyEngine(kubeClient, logger)
 
 	ws := &WebhookServer{
 		policyEngine: policyEngine,

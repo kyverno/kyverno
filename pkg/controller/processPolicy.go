@@ -1,4 +1,4 @@
-package policycontroller
+package controller
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -41,7 +41,7 @@ func (pc *PolicyController) runForPolicy(key string) {
 
 // processPolicy process the policy to all the matched resources
 func (pc *PolicyController) processPolicy(policy types.Policy) (
-	violations []policyviolation.Info, events []event.Info, err error) {
+	violations []violation.Info, events []event.Info, err error) {
 
 	for _, rule := range policy.Spec.Rules {
 		resources, err := pc.filterResourceByRule(rule)

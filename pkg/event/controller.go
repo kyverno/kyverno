@@ -66,7 +66,7 @@ func initRecorder(kubeClient *kubeClient.KubeClient) record.EventRecorder {
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
-			Interface: kubeClient.GetEventsInterface("")})
+			Interface: kubeClient.GetEvents("")})
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
 		v1.EventSource{Component: eventSource})

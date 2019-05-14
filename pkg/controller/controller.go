@@ -1,4 +1,4 @@
-package policycontroller
+package controller
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	engine "github.com/nirmata/kube-policy/pkg/engine"
 	event "github.com/nirmata/kube-policy/pkg/event"
-	policyengine "github.com/nirmata/kube-policy/pkg/policyengine"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
+	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -28,8 +28,8 @@ type PolicyController struct {
 	policyLister     lister.PolicyLister
 	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
-	policyEngine     policyengine.PolicyEngine
-	violationBuilder policyviolation.Generator
+	policyEngine     engine.PolicyEngine
+	violationBuilder violation.Generator
 	eventBuilder     event.Generator
 	logger           *log.Logger
 	queue            workqueue.RateLimitingInterface
@@ -38,8 +38,8 @@ type PolicyController struct {
 // NewPolicyController from cmd args
 func NewPolicyController(policyInterface policyclientset.Interface,
 	policyInformer infomertypes.PolicyInformer,
-	policyEngine policyengine.PolicyEngine,
-	violationBuilder policyviolation.Generator,
+	policyEngine engine.PolicyEngine,
+	violationBuilder violation.Generator,
 	eventController event.Generator,
 	logger *log.Logger,
 	kubeClient *kubeClient.KubeClient) *PolicyController {

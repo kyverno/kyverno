@@ -1,4 +1,4 @@
-package policyviolation
+package violation
 
 import policytype "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 
