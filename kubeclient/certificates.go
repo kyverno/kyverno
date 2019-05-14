@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nirmata/kube-policy/utils"
-
+	tls "github.com/nirmata/kube-policy/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Issues TLS certificate for webhook server using given PEM private key
 // Returns signed and approved TLS certificate in PEM format
-func (kc *KubeClient) GenerateTlsPemPair(props utils.TlsCertificateProps) (*utils.TlsPemPair, error) {
-	privateKey, err := utils.TlsGeneratePrivateKey()
+func (kc *KubeClient) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
+	privateKey, err := tls.TlsGeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
 
-	certRequest, err := utils.TlsCertificateGenerateRequest(privateKey, props)
+	certRequest, err := tls.TlsCertificateGenerateRequest(privateKey, props)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to create certificate request: %v", err))
 	}
@@ -35,9 +35,9 @@ func (kc *KubeClient) GenerateTlsPemPair(props utils.TlsCertificateProps) (*util
 		return nil, errors.New(fmt.Sprintf("Unable to fetch certificate from request: %v", err))
 	}
 
-	return &utils.TlsPemPair{
+	return &tls.TlsPemPair{
 		Certificate: tlsCert,
-		PrivateKey:  utils.TlsPrivateKeyToPem(privateKey),
+		PrivateKey:  tls.TlsPrivateKeyToPem(privateKey),
 	}, nil
 }
 
@@ -111,7 +111,7 @@ const privateKeyField string = "privateKey"
 const certificateField string = "certificate"
 
 // Reads the pair of TLS certificate and key from the specified secret.
-func (kc *KubeClient) ReadTlsPair(props utils.TlsCertificateProps) *utils.TlsPemPair {
+func (kc *KubeClient) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	name := generateSecretName(props)
 	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -119,7 +119,7 @@ func (kc *KubeClient) ReadTlsPair(props utils.TlsCertificateProps) *utils.TlsPem
 		return nil
 	}
 
-	pemPair := utils.TlsPemPair{
+	pemPair := tls.TlsPemPair{
 		Certificate: secret.Data[certificateField],
 		PrivateKey:  secret.Data[privateKeyField],
 	}
@@ -136,7 +136,7 @@ func (kc *KubeClient) ReadTlsPair(props utils.TlsCertificateProps) *utils.TlsPem
 
 // Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (kc *KubeClient) WriteTlsPair(props utils.TlsCertificateProps, pemPair *utils.TlsPemPair) error {
+func (kc *KubeClient) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	name := generateSecretName(props)
 	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
 
@@ -176,6 +176,6 @@ func (kc *KubeClient) WriteTlsPair(props utils.TlsCertificateProps, pemPair *uti
 	return err
 }
 
-func generateSecretName(props utils.TlsCertificateProps) string {
-	return utils.GenerateInClusterServiceName(props) + ".kube-policy-tls-pair"
+func generateSecretName(props tls.TlsCertificateProps) string {
+	return tls.GenerateInClusterServiceName(props) + ".kube-policy-tls-pair"
 }

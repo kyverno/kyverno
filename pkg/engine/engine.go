@@ -9,17 +9,18 @@ import (
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type PolicyEngine interface {
-	// ProcessMutation should be called from admission contoller
+	// Mutate should be called from admission contoller
 	// when there is an creation / update of the resource
 	// ProcessMutation(policy types.Policy, rawResource []byte) (patchBytes []byte, events []Events, err error)
-	Mutate(policy types.Policy, rawResource []byte) []mutation.PatchBytes
+	Mutate(policy types.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []mutation.PatchBytes
 
-	// ProcessValidation should be called from admission contoller
+	// Validate should be called from admission contoller
 	// when there is an creation / update of the resource
-	Validate(policy types.Policy, rawResource []byte)
+	Validate(policy types.Policy, rawResource []byte, gvk metav1.GroupVersionKind) bool
 
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy
@@ -36,6 +37,7 @@ type policyEngine struct {
 	logger     *log.Logger
 }
 
+// NewPolicyEngine creates new instance of policyEngine
 func NewPolicyEngine(kubeClient *kubeClient.KubeClient, logger *log.Logger) PolicyEngine {
 	return &policyEngine{
 		kubeClient: kubeClient,
@@ -54,10 +56,10 @@ func (p *policyEngine) ProcessExisting(policy types.Policy, rawResource []byte) 
 			continue
 		}
 
-		if ok, err := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); !ok {
-			p.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
-			return nil, nil, err
-		}
+		//if ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription); !ok {
+		//	p.logger.Printf("Rule %s of policy %s is not applicable to the request", rule.Name, policy.Name)
+		//	return nil, nil, err
+		//}
 
 		violation, eventInfos, err := p.processRuleOnResource(policy.Name, rule, rawResource)
 		if err != nil {
