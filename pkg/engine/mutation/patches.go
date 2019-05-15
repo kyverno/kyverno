@@ -3,6 +3,7 @@ package mutation
 import (
 	"encoding/json"
 	"errors"
+	"log"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
@@ -10,7 +11,7 @@ import (
 
 type PatchBytes []byte
 
-// Returns array from separate patches that can be applied to the document
+// ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, error) {
 	if len(resource) == 0 {
@@ -18,7 +19,7 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 	}
 
 	var appliedPatches []PatchBytes
-	for _, patch := range patches {
+	for i, patch := range patches {
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {
 			return nil, err
@@ -26,7 +27,9 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 
 		_, err = applyPatch(resource, patchRaw)
 		if err != nil {
-			return nil, err
+			// TODO: continue on error if one of the patches fails, will add the failure event in such case
+			log.Printf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
+			continue
 		}
 
 		appliedPatches = append(appliedPatches, patchRaw)
