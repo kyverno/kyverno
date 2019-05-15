@@ -11,7 +11,6 @@ import (
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
-	engine "github.com/nirmata/kube-policy/pkg/engine"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +27,6 @@ type PolicyController struct {
 	policyLister     lister.PolicyLister
 	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
-	policyEngine     engine.PolicyEngine
 	violationBuilder violation.Generator
 	eventBuilder     event.Generator
 	logger           *log.Logger
@@ -38,7 +36,6 @@ type PolicyController struct {
 // NewPolicyController from cmd args
 func NewPolicyController(policyInterface policyclientset.Interface,
 	policyInformer infomertypes.PolicyInformer,
-	policyEngine engine.PolicyEngine,
 	violationBuilder violation.Generator,
 	eventController event.Generator,
 	logger *log.Logger,
@@ -53,7 +50,6 @@ func NewPolicyController(policyInterface policyclientset.Interface,
 		policyLister:     policyInformer.Lister(),
 		policyInterface:  policyInterface,
 		policySynced:     policyInformer.Informer().HasSynced,
-		policyEngine:     policyEngine,
 		violationBuilder: violationBuilder,
 		eventBuilder:     eventController,
 		logger:           logger,

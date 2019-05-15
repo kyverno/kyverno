@@ -74,8 +74,8 @@ func (pcf *CopyFrom) Validate() error {
 
 // Validate returns error if generator is configured incompletely
 func (pcg *Generation) Validate() error {
-	if pcg.Name == "" {
-		return errors.New("The generator is unnamed")
+	if pcg.Name == "" || pcg.Kind == "" {
+		return errors.New("Name or/and Kind of generator is not specified")
 	}
 
 	return pcg.CopyFrom.Validate()

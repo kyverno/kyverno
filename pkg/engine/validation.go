@@ -3,12 +3,13 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (p *policyEngine) Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) bool {
+func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) bool {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
 
@@ -22,18 +23,18 @@ func (p *policyEngine) Validate(policy kubepolicy.Policy, rawResource []byte, gv
 
 		err := rule.Validate()
 		if err != nil {
-			p.logger.Printf("Rule has invalid structure: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			log.Printf("Rule has invalid structure: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 
 		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
 		if err != nil {
-			p.logger.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			log.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 
 		if !ok {
-			p.logger.Printf("Rule is not applicable t the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			log.Printf("Rule is not applicable to the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 
@@ -42,10 +43,10 @@ func (p *policyEngine) Validate(policy kubepolicy.Policy, rawResource []byte, gv
 		}
 
 		if err := traverseAndValidate(resource, rule.Validation.Pattern); err != nil {
-			p.logger.Printf("Validation with the rule %s has failed %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
+			log.Printf("Validation with the rule %s has failed %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
 			allowed = false
 		} else {
-			p.logger.Printf("Validation rule %s is successful %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
+			log.Printf("Validation rule %s is successful %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
 		}
 	}
 

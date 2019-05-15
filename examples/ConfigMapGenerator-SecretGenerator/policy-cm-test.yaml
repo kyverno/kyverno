@@ -1,0 +1,18 @@
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata :
+  name: "policy-configmapgenerator-test"
+spec:
+  rules:
+  - name: "Policy ConfigMap sample rule"
+    resource:
+      kind : Namespace
+      name: "ns2"
+    generate:
+      kind: ConfigMap
+      name: copied-cm
+      copyFrom:
+        namespace: default
+        name: game-config
+      data:
+        secretData: "data from cmg"
