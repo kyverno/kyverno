@@ -56,7 +56,6 @@ func refreshRegisteredResources(mapper map[string]schema.GroupVersionResource, c
 
 	for _, apiResource := range resourceList {
 		for _, resource := range apiResource.APIResources {
-			//			fmt.Println(resource.Name + " : " + apiResource.APIVersion + " , " + apiResource.GroupVersion + " , " + resource.Name)
 			grpVersion := strings.Split(apiResource.GroupVersion, "/")
 			if len(grpVersion) == 2 {
 				mapper[resource.Name] = schema.GroupVersionResource{
