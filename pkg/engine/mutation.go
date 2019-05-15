@@ -23,7 +23,7 @@ func (p *policyEngine) Mutate(policy kubepolicy.Policy, rawResource []byte, gvk 
 			continue
 		}
 
-		ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
+		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
 		if err != nil {
 			p.logger.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
