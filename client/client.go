@@ -130,6 +130,15 @@ func (c *Client) UpdateResource(kind string, namespace string, obj interface{}) 
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
+// UpdateStatusResource updates the resource "status" subresource
+func (c *Client) UpdateStatusResource(kind string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+	// convert typed to unstructured obj
+	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
+		return c.getResourceInterface(kind, namespace).UpdateStatus(unstructuredObj, meta.UpdateOptions{})
+	}
+	return nil, fmt.Errorf("Unable to update resource ")
+}
+
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {

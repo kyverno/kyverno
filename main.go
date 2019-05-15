@@ -7,10 +7,9 @@ import (
 	"k8s.io/sample-controller/pkg/signals"
 
 	client "github.com/nirmata/kube-policy/client"
-	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
-	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
 	controller "github.com/nirmata/kube-policy/pkg/controller"
 	event "github.com/nirmata/kube-policy/pkg/event"
+	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	"github.com/nirmata/kube-policy/pkg/violation"
 	"github.com/nirmata/kube-policy/pkg/webhooks"
 )
@@ -32,21 +31,16 @@ func main() {
 		log.Fatalf("Error creating client: %v\n", err)
 	}
 
-	policyClientset, err := policyclientset.NewForConfig(clientConfig)
+	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {
-		log.Fatalf("Error creating policyClient: %v\n", err)
+		log.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
-
-	//TODO wrap the policyInformer inside a factory
-	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, 0)
-	policyInformer := policyInformerFactory.Kubepolicy().V1alpha1().Policies()
-
-	eventController := event.NewEventController(client, policyInformer.Lister(), nil)
-	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformer.Lister(), policyClientset, eventController, nil)
+	eventController := event.NewEventController(client, policyInformerFactory, nil)
+	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController, nil)
 
 	policyController := controller.NewPolicyController(
 		client,
-		policyInformer,
+		policyInformerFactory,
 		violationBuilder,
 		eventController,
 		nil)
@@ -56,7 +50,7 @@ func main() {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := webhooks.NewWebhookServer(tlsPair, policyInformer.Lister(), nil)
+	server, err := webhooks.NewWebhookServer(tlsPair, policyInformerFactory, nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -68,7 +62,7 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	policyInformerFactory.Start(stopCh)
+	policyInformerFactory.Run(stopCh)
 	eventController.Run(stopCh)
 
 	if err = policyController.Run(stopCh); err != nil {
