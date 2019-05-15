@@ -90,11 +90,11 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	for i := 0; i < eventWorkerThreadCount; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-	log.Println("Started eventbuilder controller workers")
+	c.logger.Println("Started eventbuilder controller workers")
 }
 
 func (c *controller) Stop() {
-	log.Println("Shutting down eventbuilder controller workers")
+	c.logger.Println("Shutting down eventbuilder controller workers")
 }
 func (c *controller) runWorker() {
 	for c.processNextWorkItem() {
@@ -124,7 +124,7 @@ func (c *controller) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		log.Println((err))
+		c.logger.Println((err))
 	}
 	return true
 }

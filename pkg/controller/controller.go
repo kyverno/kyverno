@@ -85,7 +85,6 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 func (pc *PolicyController) enqueuePolicy(obj interface{}) {
 	var key string
 	var err error
-	pc.logger.Println("enque")
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		utilruntime.HandleError(err)
 		return

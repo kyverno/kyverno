@@ -303,10 +303,10 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 
 //GetSupportedKinds provides list of supported types
 func GetSupportedKinds() []string {
-	return rTypes
+	return supportedTypes
 }
 
-var rTypes = []string{
+var supportedTypes = []string{
 	"ConfigMap", "Pods", "Deployment", "CronJob", "Endpoints", "HorizontalPodAutoscaler",
 	"Ingress", "Job", "LimitRange", "Namespace", "NetworkPolicy", "PersistentVolumeClaim",
 	"PodDisruptionBudget", "PodTemplate", "ResourceQuota", "Secret", "Service", "StatefulSet",
