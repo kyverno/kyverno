@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Validate handles validating admission request
+// Checks the target resourse for rules defined in the policy
 func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) bool {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
@@ -53,7 +55,44 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 	return allowed
 }
 
-func traverseAndValidate(resourcePart, patternPart interface{}) error {
+func validateMap(resourcePart, patternPart interface{}) error {
+	pattern := patternPart.(map[string]interface{})
+	resource, ok := resourcePart.(map[string]interface{})
+
+	if !ok {
+		return fmt.Errorf("Validating error: expected Map, found %T", resourcePart)
+	}
+
+	for key, value := range pattern {
+		err := validateMapElement(resource[key], value)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateArray(resourcePart, patternPart interface{}) error {
+	pattern := patternPart.([]interface{})
+	resource, ok := resourcePart.([]interface{})
+
+	if !ok {
+		return fmt.Errorf("Validating error: expected Map, found %T", resourcePart)
+	}
+
+	patternElem := pattern[0]
+	switch typedElem := patternElem.(type) {
+	case map[string]interface{}:
+        
+	default:
+		return nil
+
+	return nil
+}
+
+func validateMapElement(resourcePart, patternPart interface{}) error {
 	switch pattern := patternPart.(type) {
 	case map[string]interface{}:
 		dictionary, ok := resourcePart.(map[string]interface{})
@@ -62,12 +101,7 @@ func traverseAndValidate(resourcePart, patternPart interface{}) error {
 			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
 		}
 
-		var err error
-		for key, value := range pattern {
-			err = traverseAndValidate(dictionary[key], value)
-		}
-		return err
-
+		return validateMap(dictionary, pattern)
 	case []interface{}:
 		array, ok := resourcePart.([]interface{})
 
@@ -75,21 +109,32 @@ func traverseAndValidate(resourcePart, patternPart interface{}) error {
 			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
 		}
 
-		var err error
-		for i, value := range pattern {
-			err = traverseAndValidate(array[i], value)
-		}
-		return err
+		return validateArray(array, pattern)
 	case string:
-		str := resourcePart.(string)
-		if !checkForWildcard(str, pattern) {
-			return fmt.Errorf("Value %s has not passed wildcard check %s", str, pattern)
+		str, ok := resourcePart.(string)
+
+		if !ok {
+			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
 		}
+
+		return validateSingleString(str, pattern)
 	default:
 		return fmt.Errorf("Received unknown type: %T", patternPart)
 	}
 
 	return nil
+}
+
+func validateSingleString(str, pattern string) error {
+	if wrappedWithParentheses(str) {
+
+	}
+
+	return nil
+}
+
+func wrappedWithParentheses(str string) bool {
+	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
 func checkForWildcard(value, pattern string) bool {
@@ -98,4 +143,15 @@ func checkForWildcard(value, pattern string) bool {
 
 func checkForOperator(value int, pattern string) bool {
 	return true
+}
+
+func getAnchorsFromMap(patternMap map[string]interface{}) map[string]string {
+	result := make(map[string]Vertex)
+
+	for key, value := range patternMap {
+		str, ok := value.(string)
+		if ok {
+            result[key] = str
+		}
+	}
 }
