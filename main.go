@@ -4,16 +4,15 @@ import (
 	"flag"
 	"log"
 
-	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/policycontroller"
 	"github.com/nirmata/kube-policy/server"
 	"github.com/nirmata/kube-policy/webhooks"
 
+	client "github.com/nirmata/kube-policy/client"
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
-	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
-
 	event "github.com/nirmata/kube-policy/pkg/event"
+	policyviolation "github.com/nirmata/kube-policy/pkg/policyviolation"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -29,9 +28,9 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	kubeclient, err := kubeclient.NewKubeClient(clientConfig, nil)
+	client, err := client.NewDynamicClient(clientConfig, nil)
 	if err != nil {
-		log.Fatalf("Error creating kubeclient: %v\n", err)
+		log.Fatalf("Error creating client: %v\n", err)
 	}
 
 	policyClientset, err := policyclientset.NewForConfig(clientConfig)
@@ -43,18 +42,18 @@ func main() {
 	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, 0)
 	policyInformer := policyInformerFactory.Nirmata().V1alpha1().Policies()
 
-	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
-	violationBuilder := policyviolation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
+	eventController := event.NewEventController(client, policyInformer.Lister(), nil)
+	violationBuilder := policyviolation.NewPolicyViolationBuilder(client, policyInformer.Lister(), policyClientset, eventController, nil)
 
 	policyController := policycontroller.NewPolicyController(policyClientset,
+		client,
 		policyInformer,
 		violationBuilder,
 		eventController,
-		nil,
-		kubeclient)
+		nil)
 
 	mutationWebhook, err := webhooks.CreateMutationWebhook(clientConfig,
-		kubeclient,
+		client,
 		policyInformer.Lister(),
 		eventController,
 		nil)
@@ -62,7 +61,7 @@ func main() {
 		log.Fatalf("Error creating mutation webhook: %v\n", err)
 	}
 
-	tlsPair, err := initTlsPemPair(cert, key, clientConfig, kubeclient)
+	tlsPair, err := initTlsPemPair(cert, key, clientConfig, client)
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -85,6 +84,7 @@ func main() {
 
 	<-stopCh
 	server.Stop()
+	policyController.Stop()
 }
 
 func init() {

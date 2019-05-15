@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/url"
 
+	client "github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/config"
-	"github.com/nirmata/kube-policy/kubeclient"
 	"github.com/nirmata/kube-policy/utils"
 
 	rest "k8s.io/client-go/rest"
@@ -23,7 +23,7 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	}
 }
 
-func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
+func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client *client.Client) (*utils.TlsPemPair, error) {
 	var tlsPair *utils.TlsPemPair
 	if certFile != "" || keyFile != "" {
 		tlsPair = tlsPairFromFiles(certFile, keyFile)
@@ -34,7 +34,7 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubecli
 		log.Print("Using given TLS key/certificate pair")
 		return tlsPair, nil
 	} else {
-		tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+		tlsPair, err = tlsPairFromCluster(clientConfig, client)
 		if err == nil {
 			log.Printf("Using TLS key/certificate from cluster")
 		}
@@ -69,7 +69,7 @@ func tlsPairFromFiles(certFile, keyFile string) *utils.TlsPemPair {
 // Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClient) (*utils.TlsPemPair, error) {
+func tlsPairFromCluster(configuration *rest.Config, client *client.Client) (*utils.TlsPemPair, error) {
 	apiServerUrl, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,6 @@ func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClien
 		Namespace:     config.KubePolicyNamespace,
 		ApiServerHost: apiServerUrl.Hostname(),
 	}
-
 	tlsPair := client.ReadTlsPair(certProps)
 	if utils.IsTlsPairShouldBeUpdated(tlsPair) {
 		log.Printf("Generating new key/certificate pair for TLS")

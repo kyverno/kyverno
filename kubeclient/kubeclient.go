@@ -48,13 +48,8 @@ func (kc *KubeClient) GetEventsInterface(namespace string) event.EventInterface 
 }
 
 func (kc *KubeClient) GetKubePolicyDeployment() (*apps.Deployment, error) {
-	kubePolicyDeployment, err := kc.client.
-		Apps().
-		Deployments(config.KubePolicyNamespace).
-		Get(config.KubePolicyDeploymentName, meta.GetOptions{
-			ResourceVersion:      "1",
-			IncludeUninitialized: false,
-		})
+	kubePolicyDeployment, err := kc.client.AppsV1().Deployments(config.KubePolicyNamespace).
+		Get(config.KubePolicyDeploymentName, meta.GetOptions{ResourceVersion: "1"})
 
 	if err != nil {
 		return nil, err
@@ -135,8 +130,7 @@ func (kc *KubeClient) GenerateSecret(generator types.PolicyConfigGenerator, name
 
 func defaultGetOptions() metav1.GetOptions {
 	return metav1.GetOptions{
-		ResourceVersion:      "1",
-		IncludeUninitialized: true,
+		ResourceVersion: "1",
 	}
 }
 

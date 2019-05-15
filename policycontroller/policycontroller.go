@@ -3,9 +3,10 @@ package policycontroller
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
+	client "github.com/nirmata/kube-policy/client"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
@@ -23,7 +24,7 @@ import (
 
 //PolicyController to manage Policy CRD
 type PolicyController struct {
-	kubeClient       *kubeClient.KubeClient
+	client           *client.Client
 	policyLister     lister.PolicyLister
 	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
@@ -35,14 +36,17 @@ type PolicyController struct {
 
 // NewPolicyController from cmd args
 func NewPolicyController(policyInterface policyclientset.Interface,
+	client *client.Client,
 	policyInformer infomertypes.PolicyInformer,
 	violationBuilder policyviolation.Generator,
 	eventController event.Generator,
-	logger *log.Logger,
-	kubeClient *kubeClient.KubeClient) *PolicyController {
+	logger *log.Logger) *PolicyController {
 
+	if logger == nil {
+		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags)
+	}
 	controller := &PolicyController{
-		kubeClient:       kubeClient,
+		client:           client,
 		policyLister:     policyInformer.Lister(),
 		policyInterface:  policyInterface,
 		policySynced:     policyInformer.Informer().HasSynced,
@@ -86,6 +90,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 func (pc *PolicyController) enqueuePolicy(obj interface{}) {
 	var key string
 	var err error
+	pc.logger.Println("enque")
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -109,13 +114,14 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	for i := 0; i < policyControllerWorkerCount; i++ {
 		go wait.Until(pc.runWorker, time.Second, stopCh)
 	}
-
 	pc.logger.Println("started policy controller workers")
-	<-stopCh
-	pc.logger.Println("shutting down policy controller workers")
+
 	return nil
 }
 
+func (pc *PolicyController) Stop() {
+	pc.logger.Println("shutting down policy controller workers")
+}
 func (pc *PolicyController) runWorker() {
 	for pc.processNextWorkItem() {
 	}
