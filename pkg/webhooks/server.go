@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/nirmata/kube-policy/config"
-	"github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
@@ -27,7 +26,6 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
-	policyEngine engine.PolicyEngine
 	policyLister policylister.PolicyLister
 	logger       *log.Logger
 }
@@ -36,9 +34,7 @@ type WebhookServer struct {
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
-	kubeClient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
-	policyEngine engine.PolicyEngine,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -56,7 +52,6 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		policyEngine: policyEngine,
 		policyLister: policyLister,
 		logger:       logger,
 	}
@@ -148,7 +143,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := ws.policyEngine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
@@ -181,7 +176,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	for _, policy := range policies {
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		if ok := ws.policyEngine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
+		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
 			ws.logger.Printf("Validation has failed: %v\n", err)
 			utilruntime.HandleError(err)
 			allowed = false

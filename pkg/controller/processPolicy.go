@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	engine "github.com/nirmata/kube-policy/pkg/engine"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,7 +57,7 @@ func (pc *PolicyController) processPolicy(policy types.Policy) (
 				continue
 			}
 
-			violation, eventInfos, err := pc.policyEngine.ProcessExisting(policy, rawResource)
+			violation, eventInfos, err := engine.ProcessExisting(policy, rawResource)
 			if err != nil {
 				pc.logger.Printf("Failed to process rule %s, err: %v\n", rule.Name, err)
 				continue
