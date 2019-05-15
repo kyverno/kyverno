@@ -80,9 +80,9 @@ func (p *policyEngine) processRuleOnResource(policyName string, rule types.Rule,
 	var violationInfo violation.Info
 	var eventInfos []event.Info
 
-	resourceKind := mutation.ParseKindFromObject(rawResource)
-	resourceName := mutation.ParseNameFromObject(rawResource)
-	resourceNamespace := mutation.ParseNamespaceFromObject(rawResource)
+	resourceKind := ParseKindFromObject(rawResource)
+	resourceName := ParseNameFromObject(rawResource)
+	resourceNamespace := ParseNamespaceFromObject(rawResource)
 
 	rulePatchesProcessed, err := mutation.ProcessPatches(rule.Mutation.Patches, nil)
 	if err != nil {

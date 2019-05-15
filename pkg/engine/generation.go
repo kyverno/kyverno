@@ -4,18 +4,17 @@ import (
 	"fmt"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 )
 
 // TODO: To be reworked due to spec policy-v2
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 func (p *policyEngine) applyRuleGenerators(rawResource []byte, rule kubepolicy.Rule) error {
-	kind := mutation.ParseKindFromObject(rawResource)
+	kind := ParseKindFromObject(rawResource)
 
 	// configMapGenerator and secretGenerator can be applied only to namespaces
 	if kind == "Namespace" {
-		namespaceName := mutation.ParseNameFromObject(rawResource)
+		namespaceName := ParseNameFromObject(rawResource)
 
 		err := p.applyConfigGenerator(rule.Generation, namespaceName, "ConfigMap")
 		if err == nil {
