@@ -25,7 +25,6 @@ type PolicyEngine interface {
 	// ProcessExisting should be called from policy controller
 	// when there is an create / update of the policy
 	// we should process the policy on matched resources, generate violations accordingly
-	// TODO: This method should not be in PolicyEngine. Validate will do this work instead
 	ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error)
 
 	// TODO: Add Generate method
