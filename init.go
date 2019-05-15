@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/url"
 
+	client "github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/config"
-	"github.com/nirmata/kube-policy/kubeclient"
-	"github.com/nirmata/kube-policy/pkg/tls"
+	tls "github.com/nirmata/kube-policy/pkg/tls"
 
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -23,7 +23,7 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	}
 }
 
-func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*tls.TlsPemPair, error) {
+func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
 	var tlsPair *tls.TlsPemPair
 	if certFile != "" || keyFile != "" {
 		tlsPair = tlsPairFromFiles(certFile, keyFile)
@@ -33,7 +33,10 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubecli
 	if tlsPair != nil {
 		return tlsPair, nil
 	} else {
-		tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+		tlsPair, err = tlsPairFromCluster(clientConfig, client)
+		if err == nil {
+			log.Printf("Using TLS key/certificate from cluster")
+		}
 		return tlsPair, err
 	}
 }
@@ -65,7 +68,7 @@ func tlsPairFromFiles(certFile, keyFile string) *tls.TlsPemPair {
 // Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClient) (*tls.TlsPemPair, error) {
+func tlsPairFromCluster(configuration *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
 	apiServerUrl, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
@@ -75,7 +78,6 @@ func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClien
 		Namespace:     config.KubePolicyNamespace,
 		ApiServerHost: apiServerUrl.Hostname(),
 	}
-
 	tlsPair := client.ReadTlsPair(certProps)
 	if tls.IsTlsPairShouldBeUpdated(tlsPair) {
 		log.Printf("Generating new key/certificate pair for TLS")
