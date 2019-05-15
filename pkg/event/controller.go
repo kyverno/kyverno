@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
+	client "github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
@@ -21,7 +21,7 @@ import (
 )
 
 type controller struct {
-	kubeClient   *kubeClient.KubeClient
+	client       *client.Client
 	policyLister policylister.PolicyLister
 	queue        workqueue.RateLimitingInterface
 	recorder     record.EventRecorder
@@ -37,36 +37,41 @@ type Generator interface {
 type Controller interface {
 	Generator
 	Run(stopCh <-chan struct{})
+	Stop()
 }
 
 //NewEventController to generate a new event controller
-func NewEventController(kubeClient *kubeClient.KubeClient,
+func NewEventController(client *client.Client,
 	policyLister policylister.PolicyLister,
 	logger *log.Logger) Controller {
 
 	if logger == nil {
-		logger = log.New(os.Stdout, "Event Controller:  ", log.LstdFlags)
+		logger = log.New(os.Stdout, "Event Controller: ", log.LstdFlags)
 	}
 
 	controller := &controller{
-		kubeClient:   kubeClient,
+		client:       client,
 		policyLister: policyLister,
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
-		recorder:     initRecorder(kubeClient),
+		recorder:     initRecorder(client),
 		logger:       logger,
 	}
-
 	return controller
 }
 
-func initRecorder(kubeClient *kubeClient.KubeClient) record.EventRecorder {
+func initRecorder(client *client.Client) record.EventRecorder {
 	// Initliaze Event Broadcaster
 	policyscheme.AddToScheme(scheme.Scheme)
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
+	eventInterface, err := client.GetEventsInterface()
+	if err != nil {
+		utilruntime.HandleError(err) // TODO: add more specific error
+		return nil
+	}
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
-			Interface: kubeClient.GetEvents("")})
+			Interface: eventInterface})
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
 		v1.EventSource{Component: eventSource})
@@ -84,9 +89,12 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	for i := 0; i < eventWorkerThreadCount; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-	c.logger.Println("Started eventbuilder controller")
+	log.Println("Started eventbuilder controller workers")
 }
 
+func (c *controller) Stop() {
+	log.Println("Shutting down eventbuilder controller workers")
+}
 func (c *controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
@@ -123,20 +131,32 @@ func (c *controller) processNextWorkItem() bool {
 func (c *controller) SyncHandler(key Info) error {
 	var resource runtime.Object
 	var err error
+	namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key.Resource))
+		return err
+	}
+
 	switch key.Kind {
 	case "Policy":
-		namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("unable to extract namespace and name for %s", key.Resource))
-			return err
-		}
+		//TODO: policy is clustered resource so wont need namespace
 		resource, err = c.policyLister.Policies(namespace).Get(name)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for policy %s, will retry ", key.Resource))
 			return err
 		}
 	default:
-		resource, err = c.kubeClient.GetResource(key.Kind, key.Resource)
+		resource, err = c.client.GetResource(key.Kind, namespace, name)
+		if err != nil {
+			return err
+		}
+		//TODO: Test if conversion from unstructured to runtime.Object is implicit or explicit conversion is required
+		// resourceobj, err := client.ConvertToRuntimeObject(resource)
+		// if err != nil {
+		// 	return err
+		// }
+
+		//		resource, err = c.kubeClient.GetResource(key.Kind, key.Resource)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for resource %s, will retry ", key.Resource))
 			return err

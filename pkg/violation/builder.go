@@ -3,8 +3,9 @@ package violation
 import (
 	"fmt"
 	"log"
+	"os"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
+	client "github.com/nirmata/kube-policy/client"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
@@ -19,7 +20,7 @@ type Generator interface {
 }
 
 type builder struct {
-	kubeClient      *kubeClient.KubeClient
+	client          *client.Client
 	policyLister    policylister.PolicyLister
 	policyInterface policyclientset.Interface
 	eventBuilder    event.Generator
@@ -34,15 +35,18 @@ type Builder interface {
 }
 
 //NewPolicyViolationBuilder returns new violation builder
-func NewPolicyViolationBuilder(
-	kubeClient *kubeClient.KubeClient,
+func NewPolicyViolationBuilder(client *client.Client,
 	policyLister policylister.PolicyLister,
 	policyInterface policyclientset.Interface,
 	eventController event.Generator,
 	logger *log.Logger) Builder {
 
+	if logger == nil {
+		logger = log.New(os.Stdout, "Violation Builder: ", log.LstdFlags)
+	}
+
 	builder := &builder{
-		kubeClient:      kubeClient,
+		client:          client,
 		policyLister:    policyLister,
 		policyInterface: policyInterface,
 		eventBuilder:    eventController,
@@ -97,8 +101,15 @@ func (b *builder) processViolation(info Info) error {
 }
 
 func (b *builder) isActive(kind string, resource string) (bool, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(resource)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", resource))
+		return false, err
+	}
 	// Generate Merge Patch
-	_, err := b.kubeClient.GetResource(kind, resource)
+	//TODO: test for namspace and clustered object
+	_, err = b.client.GetResource(kind, namespace, name)
+	//	_, err := b.kubeClient.GetResource(kind, resource)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("unable to get resource %s ", resource))
 		return false, err
