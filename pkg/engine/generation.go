@@ -1,11 +1,9 @@
 package engine
 
 import (
-	"fmt"
 	"log"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,7 +35,7 @@ func Generate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 			continue
 		}
 
-		ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
+		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
 		if err != nil {
 			log.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
@@ -62,17 +60,12 @@ func Generate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 // TODO: plan to support all kinds of generator
 func applyRuleGenerator(rawResource []byte, generator *kubepolicy.Generation) ([]GenerationResponse, error) {
-	var generateResps []GenerationResponse
+	var generationResponse []GenerationResponse
 	if generator == nil {
 		return nil, nil
 	}
 
-	err := generator.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("Generator for '%s' is invalid: %s", generator.Kind, err)
-	}
-
-	namespaceName := mutation.ParseNameFromObject(rawResource)
-	generateResps = append(generateResps, GenerationResponse{generator, namespaceName})
-	return generateResps, nil
+	namespaceName := ParseNameFromObject(rawResource)
+	generationResponse = append(generationResponse, GenerationResponse{generator, namespaceName})
+	return generationResponse, nil
 }
