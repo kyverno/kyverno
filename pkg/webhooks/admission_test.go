@@ -1,8 +1,9 @@
 package webhooks_test
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kube-policy/webhooks"
