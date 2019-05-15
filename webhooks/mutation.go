@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	kubeclient "github.com/nirmata/kube-policy/kubeclient"
+	client "github.com/nirmata/kube-policy/client"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
@@ -24,7 +24,7 @@ import (
 // MutationWebhook is a data type that represents
 // business logic for resource mutation
 type MutationWebhook struct {
-	kubeclient   *kubeclient.KubeClient
+	client       *client.Client
 	policyLister policylister.PolicyLister
 	registration *MutationWebhookRegistration
 	eventBuilder event.Generator
@@ -34,15 +34,15 @@ type MutationWebhook struct {
 // Registers mutation webhook in cluster and creates object for this webhook
 func CreateMutationWebhook(
 	clientConfig *rest.Config,
-	kubeclient *kubeclient.KubeClient,
+	client *client.Client,
 	policyLister policylister.PolicyLister,
 	eventController event.Generator,
 	logger *log.Logger) (*MutationWebhook, error) {
-	if clientConfig == nil || kubeclient == nil {
+	if clientConfig == nil || client == nil {
 		return nil, errors.New("Some parameters are not set")
 	}
 
-	registration, err := NewMutationWebhookRegistration(clientConfig, kubeclient)
+	registration, err := NewMutationWebhookRegistration(clientConfig, client)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func CreateMutationWebhook(
 	}
 
 	return &MutationWebhook{
-		kubeclient:   kubeclient,
+		client:       client,
 		policyLister: policyLister,
 		registration: registration,
 		eventBuilder: eventController,
@@ -207,9 +207,9 @@ func (mw *MutationWebhook) applyConfigGenerator(generator *types.PolicyConfigGen
 
 	switch configKind {
 	case "ConfigMap":
-		err = mw.kubeclient.GenerateConfigMap(*generator, namespace)
+		err = mw.client.GenerateConfigMap(*generator, namespace)
 	case "Secret":
-		err = mw.kubeclient.GenerateSecret(*generator, namespace)
+		err = mw.client.GenerateSecret(*generator, namespace)
 	default:
 		err = errors.New(fmt.Sprintf("Unsupported config Kind '%s'", configKind))
 	}

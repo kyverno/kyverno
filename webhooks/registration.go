@@ -4,8 +4,8 @@ import (
 	"errors"
 	"io/ioutil"
 
+	client "github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/config"
-	kubeclient "github.com/nirmata/kube-policy/kubeclient"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +15,12 @@ import (
 
 type MutationWebhookRegistration struct {
 	registrationClient *admregclient.AdmissionregistrationV1beta1Client
-	kubeclient         *kubeclient.KubeClient
+	client             *client.Client
 	clientConfig       *rest.Config
 }
 
-func NewMutationWebhookRegistration(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*MutationWebhookRegistration, error) {
+func NewMutationWebhookRegistration(clientConfig *rest.Config,
+	client *client.Client) (*MutationWebhookRegistration, error) {
 	registrationClient, err := admregclient.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, err
@@ -27,7 +28,7 @@ func NewMutationWebhookRegistration(clientConfig *rest.Config, kubeclient *kubec
 
 	return &MutationWebhookRegistration{
 		registrationClient: registrationClient,
-		kubeclient:         kubeclient,
+		client:             client,
 		clientConfig:       clientConfig,
 	}, nil
 }
@@ -56,7 +57,7 @@ func (mwr *MutationWebhookRegistration) constructWebhookConfig(configuration *re
 		return nil, errors.New("Unable to extract CA data from configuration")
 	}
 
-	kubePolicyDeployment, err := mwr.kubeclient.GetKubePolicyDeployment()
+	kubePolicyDeployment, err := mwr.client.GetKubePolicyDeployment()
 
 	if err != nil {
 		return nil, err
