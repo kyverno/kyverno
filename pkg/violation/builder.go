@@ -7,9 +7,9 @@ import (
 
 	client "github.com/nirmata/kube-policy/client"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
-	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
+	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
@@ -20,11 +20,10 @@ type Generator interface {
 }
 
 type builder struct {
-	client          *client.Client
-	policyLister    policylister.PolicyLister
-	policyInterface policyclientset.Interface
-	eventBuilder    event.Generator
-	logger          *log.Logger
+	client       *client.Client
+	policyLister v1alpha1.PolicyLister
+	eventBuilder event.Generator
+	logger       *log.Logger
 }
 
 //Builder is to build policy violations
@@ -36,8 +35,7 @@ type Builder interface {
 
 //NewPolicyViolationBuilder returns new violation builder
 func NewPolicyViolationBuilder(client *client.Client,
-	policyLister policylister.PolicyLister,
-	policyInterface policyclientset.Interface,
+	sharedInfomer sharedinformer.PolicyInformer,
 	eventController event.Generator,
 	logger *log.Logger) Builder {
 
@@ -46,11 +44,10 @@ func NewPolicyViolationBuilder(client *client.Client,
 	}
 
 	builder := &builder{
-		client:          client,
-		policyLister:    policyLister,
-		policyInterface: policyInterface,
-		eventBuilder:    eventController,
-		logger:          logger,
+		client:       client,
+		policyLister: sharedInfomer.GetLister(),
+		eventBuilder: eventController,
+		logger:       logger,
 	}
 	return builder
 }
@@ -93,7 +90,7 @@ func (b *builder) processViolation(info Info) error {
 
 	modifiedPolicy.Status.Violations = modifiedViolations
 	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	_, err = b.policyInterface.KubepolicyV1alpha1().Policies(namespace).UpdateStatus(modifiedPolicy)
+	_, err = b.client.UpdateStatusResource("policy", namespace, modifiedPolicy)
 	if err != nil {
 		return err
 	}

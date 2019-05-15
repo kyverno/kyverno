@@ -9,7 +9,8 @@ import (
 	client "github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kube-policy/pkg/client/clientset/versioned/scheme"
-	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -22,7 +23,7 @@ import (
 
 type controller struct {
 	client       *client.Client
-	policyLister policylister.PolicyLister
+	policyLister v1alpha1.PolicyLister
 	queue        workqueue.RateLimitingInterface
 	recorder     record.EventRecorder
 	logger       *log.Logger
@@ -42,7 +43,7 @@ type Controller interface {
 
 //NewEventController to generate a new event controller
 func NewEventController(client *client.Client,
-	policyLister policylister.PolicyLister,
+	shareInformer sharedinformer.PolicyInformer,
 	logger *log.Logger) Controller {
 
 	if logger == nil {
@@ -51,7 +52,7 @@ func NewEventController(client *client.Client,
 
 	controller := &controller{
 		client:       client,
-		policyLister: policyLister,
+		policyLister: shareInformer.GetLister(),
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
 		recorder:     initRecorder(client),
 		logger:       logger,

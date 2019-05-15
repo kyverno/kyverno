@@ -8,9 +8,9 @@ import (
 
 	client "github.com/nirmata/kube-policy/client"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
 	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	event "github.com/nirmata/kube-policy/pkg/event"
+	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	violation "github.com/nirmata/kube-policy/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ type PolicyController struct {
 
 // NewPolicyController from cmd args
 func NewPolicyController(client *client.Client,
-	policyInformer infomertypes.PolicyInformer,
+	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
 	eventController event.Generator,
 	logger *log.Logger) *PolicyController {
@@ -43,15 +43,15 @@ func NewPolicyController(client *client.Client,
 	}
 	controller := &PolicyController{
 		client:           client,
-		policyLister:     policyInformer.Lister(),
-		policySynced:     policyInformer.Informer().HasSynced,
+		policyLister:     policyInformer.GetLister(),
+		policySynced:     policyInformer.GetInfomer().HasSynced,
 		violationBuilder: violationBuilder,
 		eventBuilder:     eventController,
 		logger:           logger,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	policyInformer.GetInfomer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.createPolicyHandler,
 		UpdateFunc: controller.updatePolicyHandler,
 		DeleteFunc: controller.deletePolicyHandler,
