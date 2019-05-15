@@ -9,7 +9,7 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-// TODO: pass in logger?
+// TODO: return events and violations
 func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []mutation.PatchBytes {
 	var policyPatches []mutation.PatchBytes
 
@@ -33,7 +33,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		}
 
 		if !ok {
-			log.Printf("Rule is not applicable t the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
+			log.Printf("Rule is not applicable to the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
 		}
 

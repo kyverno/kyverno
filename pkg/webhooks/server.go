@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/nirmata/kube-policy/config"
-	"github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
@@ -35,7 +34,6 @@ type WebhookServer struct {
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
-	kubeClient *kubeclient.KubeClient,
 	policyLister policylister.PolicyLister,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
