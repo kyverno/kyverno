@@ -17,13 +17,12 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		log.Printf("Using in-cluster configuration")
 		return rest.InClusterConfig()
-	} else {
-		log.Printf("Using configuration from '%s'", kubeconfig)
-		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
+	log.Printf("Using configuration from '%s'", kubeconfig)
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
-func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*tls.TlsPemPair, error) {
+func initTLSPemPair(certFile, keyFile string, clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*tls.TlsPemPair, error) {
 	var tlsPair *tls.TlsPemPair
 	if certFile != "" || keyFile != "" {
 		tlsPair = tlsPairFromFiles(certFile, keyFile)
@@ -32,10 +31,9 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, kubecli
 	var err error
 	if tlsPair != nil {
 		return tlsPair, nil
-	} else {
-		tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
-		return tlsPair, err
 	}
+	tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+	return tlsPair, err
 }
 
 // Loads PEM private key and TLS certificate from given files
@@ -66,14 +64,14 @@ func tlsPairFromFiles(certFile, keyFile string) *tls.TlsPemPair {
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
 func tlsPairFromCluster(configuration *rest.Config, client *kubeclient.KubeClient) (*tls.TlsPemPair, error) {
-	apiServerUrl, err := url.Parse(configuration.Host)
+	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
 	}
 	certProps := tls.TlsCertificateProps{
 		Service:       config.WebhookServiceName,
 		Namespace:     config.KubePolicyNamespace,
-		ApiServerHost: apiServerUrl.Hostname(),
+		ApiServerHost: apiServerURL.Hostname(),
 	}
 
 	tlsPair := client.ReadTlsPair(certProps)
