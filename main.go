@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("Error creating mutation webhook: %v\n", err)
 	}
 
-	tlsPair, err := initTlsPemPair(cert, key, clientConfig, kubeclient)
+	tlsPair, err := initTLSPemPair(cert, key, clientConfig, kubeclient)
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
