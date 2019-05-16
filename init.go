@@ -17,10 +17,9 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		log.Printf("Using in-cluster configuration")
 		return rest.InClusterConfig()
-	} else {
-		log.Printf("Using configuration from '%s'", kubeconfig)
-		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
+	log.Printf("Using configuration from '%s'", kubeconfig)
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
 func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
@@ -32,13 +31,9 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client 
 	var err error
 	if tlsPair != nil {
 		return tlsPair, nil
-	} else {
-		tlsPair, err = tlsPairFromCluster(clientConfig, client)
-		if err == nil {
-			log.Printf("Using TLS key/certificate from cluster")
-		}
-		return tlsPair, err
 	}
+	tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+	return tlsPair, err
 }
 
 // Loads PEM private key and TLS certificate from given files
@@ -76,7 +71,7 @@ func tlsPairFromCluster(configuration *rest.Config, client *client.Client) (*tls
 	certProps := tls.TlsCertificateProps{
 		Service:       config.WebhookServiceName,
 		Namespace:     config.KubePolicyNamespace,
-		ApiServerHost: apiServerUrl.Hostname(),
+		ApiServerHost: apiServerURL.Hostname(),
 	}
 	tlsPair := client.ReadTlsPair(certProps)
 	if tls.IsTlsPairShouldBeUpdated(tlsPair) {
