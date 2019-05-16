@@ -47,7 +47,7 @@ func JoinPatches(patches []PatchBytes) PatchBytes {
 	result = append(result, []byte("[\n")...)
 	for index, patch := range patches {
 		result = append(result, patch...)
-		if index != (len(patches) - 1) {
+		if index != len(patches)-1 {
 			result = append(result, []byte(",\n")...)
 		}
 	}
