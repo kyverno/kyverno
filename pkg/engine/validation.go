@@ -44,61 +44,87 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 			continue
 		}
 
-		if err := traverseAndValidate(resource, rule.Validation.Pattern); err != nil {
-			log.Printf("Validation with the rule %s has failed %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
+		if !validateMap(resource, rule.Validation.Pattern) {
+			log.Printf("Validation with the rule %s has failed: %s\n", rule.Name, *rule.Validation.Message)
 			allowed = false
 		} else {
-			log.Printf("Validation rule %s is successful %s: %s\n", rule.Name, err.Error(), *rule.Validation.Message)
+			log.Printf("Validation rule %s is successful\n", rule.Name)
 		}
 	}
 
 	return allowed
 }
 
-func validateMap(resourcePart, patternPart interface{}) error {
+func validateMap(resourcePart, patternPart interface{}) bool {
 	pattern := patternPart.(map[string]interface{})
 	resource, ok := resourcePart.(map[string]interface{})
 
 	if !ok {
-		return fmt.Errorf("Validating error: expected Map, found %T", resourcePart)
+		fmt.Printf("Validating error: expected Map, found %T\n", resourcePart)
+		return false
 	}
 
 	for key, value := range pattern {
-		err := validateMapElement(resource[key], value)
-
-		if err != nil {
-			return err
+		if !validateMapElement(resource[key], value) {
+			return false
 		}
 	}
 
-	return nil
+	return true
 }
 
-func validateArray(resourcePart, patternPart interface{}) error {
-	pattern := patternPart.([]interface{})
-	resource, ok := resourcePart.([]interface{})
+func validateArray(resourcePart, patternPart interface{}) bool {
+	patternArray := patternPart.([]interface{})
+	resourceArray, ok := resourcePart.([]interface{})
 
 	if !ok {
-		return fmt.Errorf("Validating error: expected Map, found %T", resourcePart)
+		fmt.Printf("Validating error: expected array, found %T\n", resourcePart)
+		return false
 	}
 
-	patternElem := pattern[0]
-	switch typedElem := patternElem.(type) {
+	switch pattern := patternArray[0].(type) {
 	case map[string]interface{}:
-        
-	default:
-		return nil
+		anchors, err := getAnchorsFromMap(pattern)
+		if err != nil {
+			fmt.Printf("Validating error: %v\n", err)
+			return false
+		}
 
-	return nil
+		for _, value := range resourceArray {
+			resource, ok := value.(map[string]interface{})
+			if !ok {
+				fmt.Printf("Validating error: expected Map, found %T\n", resourcePart)
+				return false
+			}
+
+			if skipArrayObject(resource, anchors) {
+				continue
+			}
+
+			// CHECK OBJECT WITH PATTERN WITHOUT PARENTHESES
+
+		}
+
+		return true
+	default:
+		for _, value := range resourceArray {
+			if !checkSingleValue(value, patternArray[0]) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
-func validateMapElement(resourcePart, patternPart interface{}) error {
+func validateMapElement(resourcePart, patternPart interface{}) bool {
 	switch pattern := patternPart.(type) {
 	case map[string]interface{}:
 		dictionary, ok := resourcePart.(map[string]interface{})
 
 		if !ok {
-			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
+			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
+			return false
 		}
 
 		return validateMap(dictionary, pattern)
@@ -106,7 +132,8 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		array, ok := resourcePart.([]interface{})
 
 		if !ok {
-			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
+			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
+			return false
 		}
 
 		return validateArray(array, pattern)
@@ -114,44 +141,100 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		str, ok := resourcePart.(string)
 
 		if !ok {
-			return fmt.Errorf("Validating error: expected %T, found %T", patternPart, resourcePart)
+			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
+			return false
 		}
 
-		return validateSingleString(str, pattern)
+		if wrappedWithParentheses(pattern) {
+			pattern = pattern[1 : len(pattern)-2]
+		}
+
+		return checkSingleValue(str, pattern)
 	default:
-		return fmt.Errorf("Received unknown type: %T", patternPart)
+		fmt.Printf("Validating error: unknown type in map: %T\n", patternPart)
+		return false
 	}
-
-	return nil
 }
 
-func validateSingleString(str, pattern string) error {
-	if wrappedWithParentheses(str) {
+func getAnchorsFromMap(pattern map[string]interface{}) (map[string]string, error) {
+	result := make(map[string]string)
 
+	for key, value := range pattern {
+		if wrappedWithParentheses(key) {
+
+			str, ok := value.(string)
+			if !ok {
+				return result, fmt.Errorf("Validating error: anchors must have string value, found %T", value)
+			}
+
+			result[key] = str
+		}
 	}
 
-	return nil
+	return result, nil
 }
 
-func wrappedWithParentheses(str string) bool {
-	return (str[0] == '(' && str[len(str)-1] == ')')
+func skipArrayObject(object map[string]interface{}, anchors map[string]string) bool {
+	for wrappedKey, pattern := range anchors {
+		key := wrappedKey[1 : len(wrappedKey)-2]
+
+		value, ok := object[key]
+		if !ok {
+			return true
+		}
+
+		if !checkSingleValue(value, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkSingleValue(value, pattern interface{}) bool {
+	switch typedPattern := pattern.(type) {
+	case string:
+		switch typedValue := value.(type) {
+		case string:
+			return checkForWildcard(typedValue, typedPattern)
+		case float64:
+			return checkForOperator(typedValue, typedPattern)
+		case int64:
+			return checkForOperator(float64(typedValue), typedPattern)
+		default:
+			fmt.Printf("Validating error: expected string or numerical type, found %T, pattern: %s\n", value, typedPattern)
+			return false
+		}
+	case float64:
+		num, ok := value.(float64)
+		if !ok {
+			fmt.Printf("Validating error: expected float, found %T\n", value)
+			return false
+		}
+
+		return typedPattern == num
+	case int64:
+		num, ok := value.(int64)
+		if !ok {
+			fmt.Printf("Validating error: expected int, found %T\n", value)
+			return false
+		}
+
+		return typedPattern == num
+	default:
+		fmt.Printf("Validating error: expected pattern (string or numerical type), found %T\n", pattern)
+		return false
+	}
 }
 
 func checkForWildcard(value, pattern string) bool {
 	return value == pattern
 }
 
-func checkForOperator(value int, pattern string) bool {
+func checkForOperator(value float64, pattern string) bool {
 	return true
 }
 
-func getAnchorsFromMap(patternMap map[string]interface{}) map[string]string {
-	result := make(map[string]Vertex)
-
-	for key, value := range patternMap {
-		str, ok := value.(string)
-		if ok {
-            result[key] = str
-		}
-	}
+func wrappedWithParentheses(str string) bool {
+	return (str[0] == '(' && str[len(str)-1] == ')')
 }
