@@ -78,7 +78,10 @@ func (pcg *Generation) Validate() error {
 		return errors.New("Name or/and Kind of generator is not specified")
 	}
 
-	return pcg.CopyFrom.Validate()
+	if pcg.CopyFrom != nil {
+		return pcg.CopyFrom.Validate()
+	}
+	return nil
 }
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is

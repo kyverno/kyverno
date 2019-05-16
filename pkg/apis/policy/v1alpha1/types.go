@@ -60,9 +60,9 @@ type Validation struct {
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
-	Kind     string `json:"kind"`
-	Name     string `json:"name"`
-	CopyFrom `json:"copyFrom"`
+	Kind     string            `json:"kind"`
+	Name     string            `json:"name"`
+	CopyFrom *CopyFrom         `json:"copyFrom,omitempty"`
 	Data     map[string]string `json:"data"`
 	Labels   map[string]string `json:"labels"`
 }
