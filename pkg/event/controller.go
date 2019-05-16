@@ -115,7 +115,7 @@ func (c *controller) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		log.Println((err))
+		log.Println(err)
 	}
 	return true
 }

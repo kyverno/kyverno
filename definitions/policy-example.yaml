@@ -78,7 +78,7 @@ spec :
         data: # data is optional
 status:
   events: 
-  # log of applied policies. We will need a way to distingush between failed 
+  # log of applied policies. We will need a way to distinguish between failed 
   # and succeeded operations
 
 
