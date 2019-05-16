@@ -84,19 +84,20 @@ func (pc *PolicyController) filterResourceByRule(rule types.Rule) ([][]byte, err
 
 	for _, resource := range resources.Items {
 		// TODO:
-		rawResource, err := resource.MarshalJSON()
+		//rawResource, err := json.Marshal(resource)
 		// objKind := resource.GetObjectKind()
 		// codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 		// codecFactory.EncoderForVersion()
+
 		if err != nil {
 			pc.logger.Printf("failed to marshal object %v", resource)
 			continue
 		}
 
 		// filter the resource by name and label
-		if ok, _ := mutation.IsRuleApplicableToResource(rawResource, rule.ResourceDescription); ok {
-			targetResources = append(targetResources, rawResource)
-		}
+		//if ok, _ := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription); ok {
+		//	targetResources = append(targetResources, resource)
+		//}
 	}
 	return targetResources, nil
 }
