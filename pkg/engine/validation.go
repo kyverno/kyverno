@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/minio/minio/pkg/wildcard"
+
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -199,7 +201,7 @@ func checkSingleValue(value, pattern interface{}) bool {
 			return checkForWildcard(typedValue, typedPattern)
 		case float64:
 			return checkForOperator(typedValue, typedPattern)
-		case int64:
+		case int:
 			return checkForOperator(float64(typedValue), typedPattern)
 		default:
 			fmt.Printf("Validating error: expected string or numerical type, found %T, pattern: %s\n", value, typedPattern)
@@ -213,8 +215,8 @@ func checkSingleValue(value, pattern interface{}) bool {
 		}
 
 		return typedPattern == num
-	case int64:
-		num, ok := value.(int64)
+	case int:
+		num, ok := value.(int)
 		if !ok {
 			fmt.Printf("Validating error: expected int, found %T\n", value)
 			return false
@@ -228,7 +230,7 @@ func checkSingleValue(value, pattern interface{}) bool {
 }
 
 func checkForWildcard(value, pattern string) bool {
-	return value == pattern
+	return wildcard.Match(pattern, value)
 }
 
 func checkForOperator(value float64, pattern string) bool {
@@ -236,5 +238,9 @@ func checkForOperator(value float64, pattern string) bool {
 }
 
 func wrappedWithParentheses(str string) bool {
+	if len(str) < 2 {
+		return false
+	}
+
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
