@@ -32,7 +32,7 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client 
 	if tlsPair != nil {
 		return tlsPair, nil
 	}
-	tlsPair, err = tlsPairFromCluster(clientConfig, kubeclient)
+	tlsPair, err = tlsPairFromCluster(clientConfig, client)
 	return tlsPair, err
 }
 
@@ -64,7 +64,7 @@ func tlsPairFromFiles(certFile, keyFile string) *tls.TlsPemPair {
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
 func tlsPairFromCluster(configuration *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
-	apiServerUrl, err := url.Parse(configuration.Host)
+	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
 	}
