@@ -67,6 +67,10 @@ func validateMap(resourcePart, patternPart interface{}) bool {
 	}
 
 	for key, value := range pattern {
+		if wrappedWithParentheses(key) {
+			key = key[1 : len(key)-1]
+		}
+
 		if !validateMapElement(resource[key], value) {
 			return false
 		}
@@ -103,8 +107,9 @@ func validateArray(resourcePart, patternPart interface{}) bool {
 				continue
 			}
 
-			// CHECK OBJECT WITH PATTERN WITHOUT PARENTHESES
-
+			if !validateMap(resource, pattern) {
+				return false
+			}
 		}
 
 		return true
@@ -147,10 +152,6 @@ func validateMapElement(resourcePart, patternPart interface{}) bool {
 			return false
 		}
 
-		if wrappedWithParentheses(pattern) {
-			pattern = pattern[1 : len(pattern)-2]
-		}
-
 		return checkSingleValue(str, pattern)
 	default:
 		fmt.Printf("Validating error: unknown type in map: %T\n", patternPart)
@@ -158,27 +159,21 @@ func validateMapElement(resourcePart, patternPart interface{}) bool {
 	}
 }
 
-func getAnchorsFromMap(pattern map[string]interface{}) (map[string]string, error) {
-	result := make(map[string]string)
+func getAnchorsFromMap(pattern map[string]interface{}) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
 
 	for key, value := range pattern {
 		if wrappedWithParentheses(key) {
-
-			str, ok := value.(string)
-			if !ok {
-				return result, fmt.Errorf("Validating error: anchors must have string value, found %T", value)
-			}
-
-			result[key] = str
+			result[key] = value
 		}
 	}
 
 	return result, nil
 }
 
-func skipArrayObject(object map[string]interface{}, anchors map[string]string) bool {
-	for wrappedKey, pattern := range anchors {
-		key := wrappedKey[1 : len(wrappedKey)-2]
+func skipArrayObject(object, anchors map[string]interface{}) bool {
+	for key, pattern := range anchors {
+		key = key[1 : len(key)-1]
 
 		value, ok := object[key]
 		if !ok {
