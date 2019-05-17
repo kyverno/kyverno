@@ -102,14 +102,136 @@ func TestCheckSingleValue_CheckFloat(t *testing.T) {
 	assert.Assert(t, !checkSingleValue(value, pattern))
 }
 
-func TestCheckSingleValue_CheckOperatorMore(t *testing.T) {
-	pattern := ">10"
+func TestCheckSingleValue_CheckOperatorMoreEqual(t *testing.T) {
+	pattern := "  >=    89 "
 	value := 89
 	assert.Assert(t, checkSingleValue(value, pattern))
 
-	pattern = ">10"
+	pattern = ">=10.0001"
 	floatValue := 89.901
 	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorMoreEqualFail(t *testing.T) {
+	pattern := "  >=    90 "
+	value := 89
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = ">=910.0001"
+	floatValue := 89.901
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorLessEqual(t *testing.T) {
+	pattern := "   <=  1 "
+	value := 1
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	pattern = "<=10.0001"
+	floatValue := 1.901
+	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorLessEqualFail(t *testing.T) {
+	pattern := "   <=  0.1558 "
+	value := 1
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = "<=10.0001"
+	floatValue := 12.901
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorMore(t *testing.T) {
+	pattern := "   >  10 "
+	value := 89
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	pattern = ">10.0001"
+	floatValue := 89.901
+	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorMoreFail(t *testing.T) {
+	pattern := "   >  89 "
+	value := 89
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = ">910.0001"
+	floatValue := 89.901
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorLess(t *testing.T) {
+	pattern := "   <  10 "
+	value := 9
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	pattern = "<10.0001"
+	floatValue := 9.901
+	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorLessFail(t *testing.T) {
+	pattern := "   <  10 "
+	value := 10
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = "<10.0001"
+	floatValue := 19.901
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorNotEqual(t *testing.T) {
+	pattern := "   !=  10 "
+	value := 9.99999
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	pattern = "!=10.0001"
+	floatValue := 10.0000
+	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorNotEqualFail(t *testing.T) {
+	pattern := "   !=  9.99999 "
+	value := 9.99999
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = "!=10"
+	floatValue := 10
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorEqual(t *testing.T) {
+	pattern := "     10.000001 "
+	value := 10.000001
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	pattern = "10.000000"
+	floatValue := 10
+	assert.Assert(t, checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckOperatorEqualFail(t *testing.T) {
+	pattern := "     10.000000 "
+	value := 10.000001
+	assert.Assert(t, !checkSingleValue(value, pattern))
+
+	pattern = "10.000001"
+	floatValue := 10
+	assert.Assert(t, !checkSingleValue(floatValue, pattern))
+}
+
+func TestCheckSingleValue_CheckSeveralOperators(t *testing.T) {
+	pattern := " <-1  |  10.000001 "
+	value := 10.000001
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	value = -30
+	assert.Assert(t, checkSingleValue(value, pattern))
+
+	value = 5
+	assert.Assert(t, !checkSingleValue(value, pattern))
 }
 
 func TestCheckSingleValue_CheckWildcard(t *testing.T) {
