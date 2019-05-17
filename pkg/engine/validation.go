@@ -4,12 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/minio/minio/pkg/wildcard"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// TODO: This operators are already implemented in kubernetes
+type Operator string
+
+const (
+	MoreEqual Operator = ">="
+	LessEqual Operator = "<="
+	NotEqual  Operator = "!="
+	More      Operator = ">"
+	Less      Operator = "<"
+)
+
+// TODO: Refactor using State pattern
 
 // Validate handles validating admission request
 // Checks the target resourse for rules defined in the policy
@@ -228,8 +243,80 @@ func checkForWildcard(value, pattern string) bool {
 	return wildcard.Match(pattern, value)
 }
 
+func checkSingleOperator(value float64, operator string) bool {
+	if operatorVal, err := strconv.ParseFloat(operator, 64); err == nil {
+		return value == operatorVal
+	}
+
+	if len(operator) < 2 {
+		fmt.Printf("Validating error: operator can't have less than 2 characters: %s\n", operator)
+		return false
+	}
+
+	if operator[:len(MoreEqual)] == string(MoreEqual) {
+		operatorVal, err := strconv.ParseFloat(operator[len(MoreEqual):len(operator)], 64)
+		if err != nil {
+			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
+			return false
+		}
+
+		return value >= operatorVal
+	}
+
+	if operator[:len(LessEqual)] == string(LessEqual) {
+		operatorVal, err := strconv.ParseFloat(operator[len(LessEqual):len(operator)], 64)
+		if err != nil {
+			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
+			return false
+		}
+
+		return value <= operatorVal
+	}
+
+	if operator[:len(More)] == string(More) {
+		operatorVal, err := strconv.ParseFloat(operator[len(More):len(operator)], 64)
+		if err != nil {
+			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
+			return false
+		}
+
+		return value > operatorVal
+	}
+
+	if operator[:len(Less)] == string(Less) {
+		operatorVal, err := strconv.ParseFloat(operator[len(Less):len(operator)], 64)
+		if err != nil {
+			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
+			return false
+		}
+
+		return value < operatorVal
+	}
+
+	if operator[:len(NotEqual)] == string(NotEqual) {
+		operatorVal, err := strconv.ParseFloat(operator[len(NotEqual):len(operator)], 64)
+		if err != nil {
+			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
+			return false
+		}
+
+		return value != operatorVal
+	}
+
+	return false
+}
+
 func checkForOperator(value float64, pattern string) bool {
-	return true
+	operators := strings.Split(pattern, "|")
+
+	for _, operator := range operators {
+		operator = strings.Replace(operator, " ", "", -1)
+		if checkSingleOperator(value, operator) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func wrappedWithParentheses(str string) bool {
