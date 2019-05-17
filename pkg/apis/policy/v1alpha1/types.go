@@ -62,7 +62,7 @@ type Validation struct {
 type Generation struct {
 	Kind     string            `json:"kind"`
 	Name     string            `json:"name"`
-	CopyFrom *CopyFrom         `json:"copyFrom,omitempty"`
+	CopyFrom *CopyFrom         `json:"copyFrom"`
 	Data     map[string]string `json:"data"`
 	Labels   map[string]string `json:"labels"`
 }
