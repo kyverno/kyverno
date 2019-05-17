@@ -6,7 +6,6 @@ import (
 
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,7 +35,7 @@ func Generate(policy kubepolicy.Policy, rawResource []byte, kubeClient *kubeClie
 			continue
 		}
 
-		ok, err := mutation.ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
+		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
 		if err != nil {
 			log.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			continue
@@ -66,7 +65,7 @@ func applyRuleGenerator(rawResource []byte, generator *kubepolicy.Generation, ku
 		return fmt.Errorf("Generator for '%s/%s' is invalid: %s", generator.Kind, generator.Name, err)
 	}
 
-	namespace := mutation.ParseNameFromObject(rawResource)
+	namespace := ParseNameFromObject(rawResource)
 	switch generator.Kind {
 	case "ConfigMap":
 		err = kubeClient.GenerateConfigMap(*generator, namespace)
