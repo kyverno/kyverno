@@ -4,15 +4,17 @@ metadata :
   name: "policy-configmapgenerator-test"
 spec:
   rules:
-  - name: "Policy ConfigMap sample rule"
-    resource:
+  - name: "copyCM"
+    resource :
       kind : Namespace
-      name: "ns2"
-    generate:
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
+    generate :
       kind: ConfigMap
-      name: copied-cm
-      copyFrom:
-        namespace: default
-        name: game-config
-      data:
+      name : copied-cm
+      copyFrom :
+        namespace : default
+        name : game-config
+      data :
         secretData: "data from cmg"

@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,10 +67,12 @@ func (kc *KubeClient) GenerateConfigMap(generator types.Generation, namespace st
 
 	var err error
 
-	kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
-	if err != nil {
-		return err
+	if generator.CopyFrom != nil {
+		kc.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		configMap, err = kc.client.CoreV1().ConfigMaps(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	configMap.ObjectMeta = metav1.ObjectMeta{
@@ -101,10 +103,12 @@ func (kc *KubeClient) GenerateSecret(generator types.Generation, namespace strin
 
 	var err error
 
-	kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
-	if err != nil {
-		return err
+	if generator.CopyFrom != nil {
+		kc.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		secret, err = kc.client.CoreV1().Secrets(generator.CopyFrom.Namespace).Get(generator.CopyFrom.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	secret.ObjectMeta = metav1.ObjectMeta{

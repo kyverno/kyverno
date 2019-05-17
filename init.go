@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/url"
 
-	"github.com/nirmata/kube-policy/config"
 	"github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/pkg/config"
 	"github.com/nirmata/kube-policy/pkg/tls"
 
 	rest "k8s.io/client-go/rest"
