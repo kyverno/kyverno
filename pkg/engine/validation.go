@@ -243,69 +243,6 @@ func checkForWildcard(value, pattern string) bool {
 	return wildcard.Match(pattern, value)
 }
 
-func checkSingleOperator(value float64, operator string) bool {
-	if operatorVal, err := strconv.ParseFloat(operator, 64); err == nil {
-		return value == operatorVal
-	}
-
-	if len(operator) < 2 {
-		fmt.Printf("Validating error: operator can't have less than 2 characters: %s\n", operator)
-		return false
-	}
-
-	if operator[:len(MoreEqual)] == string(MoreEqual) {
-		operatorVal, err := strconv.ParseFloat(operator[len(MoreEqual):len(operator)], 64)
-		if err != nil {
-			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
-			return false
-		}
-
-		return value >= operatorVal
-	}
-
-	if operator[:len(LessEqual)] == string(LessEqual) {
-		operatorVal, err := strconv.ParseFloat(operator[len(LessEqual):len(operator)], 64)
-		if err != nil {
-			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
-			return false
-		}
-
-		return value <= operatorVal
-	}
-
-	if operator[:len(More)] == string(More) {
-		operatorVal, err := strconv.ParseFloat(operator[len(More):len(operator)], 64)
-		if err != nil {
-			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
-			return false
-		}
-
-		return value > operatorVal
-	}
-
-	if operator[:len(Less)] == string(Less) {
-		operatorVal, err := strconv.ParseFloat(operator[len(Less):len(operator)], 64)
-		if err != nil {
-			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
-			return false
-		}
-
-		return value < operatorVal
-	}
-
-	if operator[:len(NotEqual)] == string(NotEqual) {
-		operatorVal, err := strconv.ParseFloat(operator[len(NotEqual):len(operator)], 64)
-		if err != nil {
-			fmt.Printf("Validating error: failed to parse operator value: %s\n", operator)
-			return false
-		}
-
-		return value != operatorVal
-	}
-
-	return false
-}
-
 func checkForOperator(value float64, pattern string) bool {
 	operators := strings.Split(pattern, "|")
 
@@ -317,6 +254,50 @@ func checkForOperator(value float64, pattern string) bool {
 	}
 
 	return false
+}
+
+func checkSingleOperator(value float64, pattern string) bool {
+	if operatorVal, err := strconv.ParseFloat(pattern, 64); err == nil {
+		return value == operatorVal
+	}
+
+	if len(pattern) < 2 {
+		fmt.Printf("Validating error: operator can't have less than 2 characters: %s\n", pattern)
+		return false
+	}
+
+	if operatorVal, ok := parseOperator(MoreEqual, pattern); ok {
+		return value >= operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(LessEqual, pattern); ok {
+		return value <= operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(More, pattern); ok {
+		return value > operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(Less, pattern); ok {
+		return value < operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(NotEqual, pattern); ok {
+		return value != operatorVal
+	}
+
+	fmt.Printf("Validating error: unknown operator: %s\n", pattern)
+	return false
+}
+
+func parseOperator(operator Operator, pattern string) (float64, bool) {
+	if pattern[:len(operator)] == string(operator) {
+		if value, err := strconv.ParseFloat(pattern[len(operator):len(pattern)], 64); err == nil {
+			return value, true
+		}
+	}
+
+	return 0.0, false
 }
 
 func wrappedWithParentheses(str string) bool {
