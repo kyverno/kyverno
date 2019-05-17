@@ -12,9 +12,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
 	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
