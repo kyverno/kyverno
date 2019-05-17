@@ -1,0 +1,14 @@
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-host-path
+spec:
+  rules:
+  - name: check-host-path
+    resource:
+      kind: Service
+    validate:
+      message: "Node port services are not allowed"
+      pattern:
+        spec:
+          type: "!NodePort"
