@@ -73,7 +73,13 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 }
 
 func validateMap(resourcePart, patternPart interface{}) bool {
-	pattern := patternPart.(map[string]interface{})
+	pattern, ok := patternPart.(map[string]interface{})
+
+	if !ok {
+		fmt.Printf("Validating error: expected Map, found %T\n", patternPart)
+		return false
+	}
+
 	resource, ok := resourcePart.(map[string]interface{})
 
 	if !ok {
@@ -95,7 +101,13 @@ func validateMap(resourcePart, patternPart interface{}) bool {
 }
 
 func validateArray(resourcePart, patternPart interface{}) bool {
-	patternArray := patternPart.([]interface{})
+	patternArray, ok := patternPart.([]interface{})
+
+	if !ok {
+		fmt.Printf("Validating error: expected array, found %T\n", patternPart)
+		return false
+	}
+
 	resourceArray, ok := resourcePart.([]interface{})
 
 	if !ok {
