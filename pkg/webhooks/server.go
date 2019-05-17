@@ -147,8 +147,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
-			namespace := mutation.ParseNamespaceFromObject(request.Object.Raw)
-			name := mutation.ParseNameFromObject(request.Object.Raw)
+			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
+			name := engine.ParseNameFromObject(request.Object.Raw)
 			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 		}
 	}
