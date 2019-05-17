@@ -4,12 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/minio/minio/pkg/wildcard"
 
 	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// TODO: This operators are already implemented in kubernetes
+type Operator string
+
+const (
+	MoreEqual Operator = ">="
+	LessEqual Operator = "<="
+	NotEqual  Operator = "!="
+	More      Operator = ">"
+	Less      Operator = "<"
+)
+
+// TODO: Refactor using State pattern
 
 // Validate handles validating admission request
 // Checks the target resourse for rules defined in the policy
@@ -58,7 +73,13 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 }
 
 func validateMap(resourcePart, patternPart interface{}) bool {
-	pattern := patternPart.(map[string]interface{})
+	pattern, ok := patternPart.(map[string]interface{})
+
+	if !ok {
+		fmt.Printf("Validating error: expected Map, found %T\n", patternPart)
+		return false
+	}
+
 	resource, ok := resourcePart.(map[string]interface{})
 
 	if !ok {
@@ -80,7 +101,13 @@ func validateMap(resourcePart, patternPart interface{}) bool {
 }
 
 func validateArray(resourcePart, patternPart interface{}) bool {
-	patternArray := patternPart.([]interface{})
+	patternArray, ok := patternPart.([]interface{})
+
+	if !ok {
+		fmt.Printf("Validating error: expected array, found %T\n", patternPart)
+		return false
+	}
+
 	resourceArray, ok := resourcePart.([]interface{})
 
 	if !ok {
@@ -229,7 +256,60 @@ func checkForWildcard(value, pattern string) bool {
 }
 
 func checkForOperator(value float64, pattern string) bool {
-	return true
+	operators := strings.Split(pattern, "|")
+
+	for _, operator := range operators {
+		operator = strings.Replace(operator, " ", "", -1)
+		if checkSingleOperator(value, operator) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkSingleOperator(value float64, pattern string) bool {
+	if operatorVal, err := strconv.ParseFloat(pattern, 64); err == nil {
+		return value == operatorVal
+	}
+
+	if len(pattern) < 2 {
+		fmt.Printf("Validating error: operator can't have less than 2 characters: %s\n", pattern)
+		return false
+	}
+
+	if operatorVal, ok := parseOperator(MoreEqual, pattern); ok {
+		return value >= operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(LessEqual, pattern); ok {
+		return value <= operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(More, pattern); ok {
+		return value > operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(Less, pattern); ok {
+		return value < operatorVal
+	}
+
+	if operatorVal, ok := parseOperator(NotEqual, pattern); ok {
+		return value != operatorVal
+	}
+
+	fmt.Printf("Validating error: unknown operator: %s\n", pattern)
+	return false
+}
+
+func parseOperator(operator Operator, pattern string) (float64, bool) {
+	if pattern[:len(operator)] == string(operator) {
+		if value, err := strconv.ParseFloat(pattern[len(operator):len(pattern)], 64); err == nil {
+			return value, true
+		}
+	}
+
+	return 0.0, false
 }
 
 func wrappedWithParentheses(str string) bool {
