@@ -1,0 +1,14 @@
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-host-path
+spec:
+  rules:
+  - name: check-host-path
+    message: "Host path volumes are not allowed"
+    resource:
+      kind: Pod
+    overlay:
+      volumes:
+      - name: "*"
+        hostPath: null

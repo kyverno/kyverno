@@ -1,0 +1,26 @@
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-probe-exists
+spec:
+  rules:
+  - name: check-liveness-probe-exists
+    message: "a livenessProbe is required"
+    resource:
+      kind: StatefulSet
+    overlay:
+      containers:
+        # In this case every object in containers list will be checked for pattern
+        - name: "*"
+          livenessProbe:
+            periodSeconds: ?
+  - resource:
+      kind: Deployment
+    name: check-readiness-probe-exists
+    message: "a readinessProbe is required"
+    overlay:
+      containers:
+        # In this case every object in containers list will be checked for pattern
+        - name: "*"
+          readinessProbe:
+            periodSeconds: ?
