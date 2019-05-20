@@ -176,7 +176,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	for _, policy := range policies {
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
+		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
 			ws.logger.Printf("Validation has failed: %v\n", err)
 			utilruntime.HandleError(err)
 			allowed = false
