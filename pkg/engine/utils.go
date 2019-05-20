@@ -11,10 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// ResourceMeetsRules checks requests kind, name and labels to fit the policy
-func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) (bool, error) {
+// ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
+func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) bool {
 	if description.Kind != gvk.Kind {
-		return false, nil
+		return false
 	}
 
 	if resourceRaw != nil {
@@ -24,7 +24,7 @@ func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescr
 		if description.Name != nil {
 
 			if !wildcard.Match(*description.Name, name) {
-				return false, nil
+				return false
 			}
 		}
 
@@ -32,18 +32,18 @@ func ResourceMeetsRules(resourceRaw []byte, description kubepolicy.ResourceDescr
 			selector, err := metav1.LabelSelectorAsSelector(description.Selector)
 
 			if err != nil {
-				return false, err
+				return false
 			}
 
 			labelMap := ParseLabelsFromMetadata(meta)
 
 			if !selector.Matches(labelMap) {
-				return false, nil
+				return false
 			}
 
 		}
 	}
-	return true, nil
+	return true
 }
 
 func ParseMetadataFromObject(bytes []byte) map[string]interface{} {
