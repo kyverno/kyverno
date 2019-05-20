@@ -33,7 +33,7 @@ h6 {
 }
 
 .intro-message {
-    margin-top: 100px;
+    margin-top: 80px;
     color: rgb(51, 51, 51);
     text-align: left;
 }
@@ -67,6 +67,7 @@ h6 {
 
 .header-container {
     width: 100%;
+    margin-bottom: 160px;
 }
 
 .container ul {
@@ -85,7 +86,7 @@ h6 {
 }
 
 .content-section-a {
-    padding: 50px 0;
+    padding: 10px 0;
     background-color: #f8f8f8;
 }
 
@@ -96,7 +97,8 @@ h6 {
 }
 
 .section-heading {
-    margin-bottom: 30px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .section-heading-spacer {
