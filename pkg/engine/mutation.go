@@ -10,8 +10,10 @@ import (
 
 // Mutate performs mutation. Overlay first and then mutation patches
 // TODO: return events and violations
-func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []mutation.PatchBytes {
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]mutation.PatchBytes, []byte) {
 	var policyPatches []mutation.PatchBytes
+	var processedPatches []mutation.PatchBytes
+	patchedDocument := rawResource
 
 	for i, rule := range policy.Spec.Rules {
 
@@ -55,7 +57,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		// Process Patches
 
 		if rule.Mutation.Patches != nil {
-			processedPatches, err := mutation.ProcessPatches(rule.Mutation.Patches, rawResource)
+			processedPatches, patchedDocument, err = mutation.ProcessPatches(rule.Mutation.Patches, patchedDocument)
 			if err != nil {
 				log.Printf("Patches application failed: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
 			} else {
@@ -64,5 +66,5 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		}
 	}
 
-	return policyPatches
+	return policyPatches, patchedDocument
 }
