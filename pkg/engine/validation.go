@@ -45,6 +45,13 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		}
 
 		if err := validateMap(resource, rule.Validation.Pattern); err != nil {
+			message := *rule.Validation.Message
+			if len(message) == 0 {
+				message = fmt.Sprintf("%v", err)
+			} else {
+				message = fmt.Sprintf("%s, %s", message, err.Error())
+			}
+
 			return fmt.Errorf("%s: %s", *rule.Validation.Message, err.Error())
 		}
 	}
@@ -56,12 +63,12 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 func validateMap(resourcePart, patternPart interface{}) error {
 	pattern, ok := patternPart.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("Expected map, found %T", patternPart)
+		return fmt.Errorf("expected map, found %T", patternPart)
 	}
 
 	resource, ok := resourcePart.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("Expected map, found %T", resourcePart)
+		return fmt.Errorf("expected map, found %T", resourcePart)
 	}
 
 	for key, value := range pattern {
@@ -80,12 +87,12 @@ func validateMap(resourcePart, patternPart interface{}) error {
 func validateArray(resourcePart, patternPart interface{}) error {
 	patternArray, ok := patternPart.([]interface{})
 	if !ok {
-		return fmt.Errorf("Expected array, found %T", patternPart)
+		return fmt.Errorf("expected array, found %T", patternPart)
 	}
 
 	resourceArray, ok := resourcePart.([]interface{})
 	if !ok {
-		return fmt.Errorf("Expected array, found %T", resourcePart)
+		return fmt.Errorf("expected array, found %T", resourcePart)
 	}
 
 	switch pattern := patternArray[0].(type) {
@@ -98,7 +105,7 @@ func validateArray(resourcePart, patternPart interface{}) error {
 		for _, value := range resourceArray {
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("Expected array, found %T", resourcePart)
+				return fmt.Errorf("expected array, found %T", resourcePart)
 			}
 
 			if skipArrayObject(resource, anchors) {
@@ -125,14 +132,14 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 	case map[string]interface{}:
 		dictionary, ok := resourcePart.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("Expected %T, found %T", patternPart, resourcePart)
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
 
 		return validateMap(dictionary, pattern)
 	case []interface{}:
 		array, ok := resourcePart.([]interface{})
 		if !ok {
-			return fmt.Errorf("Expected %T, found %T", patternPart, resourcePart)
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
 
 		return validateArray(array, pattern)
@@ -140,12 +147,12 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		str, ok := resourcePart.(string)
 
 		if !ok {
-			return fmt.Errorf("Expected %T, found %T", patternPart, resourcePart)
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
 
 		return checkSingleValue(str, pattern)
 	default:
-		return fmt.Errorf("Validating error: unknown type in map: %T", patternPart)
+		return fmt.Errorf("validating error: unknown type in map: %T", patternPart)
 	}
 }
 
@@ -189,28 +196,28 @@ func checkSingleValue(value, pattern interface{}) error {
 		case int:
 			return checkForOperator(float64(typedValue), typedPattern)
 		default:
-			return fmt.Errorf("Expected string or numerical type, found %T, pattern: %s", value, typedPattern)
+			return fmt.Errorf("expected string or numerical type, found %T, pattern: %s", value, typedPattern)
 		}
 	case float64:
 		num, ok := value.(float64)
 		if !ok {
-			return fmt.Errorf("Expected float, found %T", value)
+			return fmt.Errorf("expected float, found %T", value)
 		}
 
 		if typedPattern != num {
-			return fmt.Errorf("Value %f is not equal to pattern %f", value, typedPattern)
+			return fmt.Errorf("value %f is not equal to pattern %f", value, typedPattern)
 		}
 	case int:
 		num, ok := value.(int)
 		if !ok {
-			return fmt.Errorf("Expected int, found %T", value)
+			return fmt.Errorf("expected int, found %T", value)
 		}
 
 		if typedPattern != num {
-			return fmt.Errorf("Value %d is not equal to pattern %d", num, typedPattern)
+			return fmt.Errorf("value %d is not equal to pattern %d", num, typedPattern)
 		}
 	default:
-		return fmt.Errorf("Expected pattern (string or numerical type), found %T", pattern)
+		return fmt.Errorf("expected pattern (string or numerical type), found %T", pattern)
 	}
 
 	return nil
@@ -218,7 +225,7 @@ func checkSingleValue(value, pattern interface{}) error {
 
 func checkForWildcard(value, pattern string) error {
 	if !wildcard.Match(pattern, value) {
-		return fmt.Errorf("Wildcard check has failed. Pattern: \"%s\". Value: \"%s\"", pattern, value)
+		return fmt.Errorf("wildcard check has failed. Pattern: \"%s\". Value: \"%s\"", pattern, value)
 	}
 
 	return nil
@@ -236,7 +243,7 @@ func checkForOperator(value float64, pattern string) error {
 		}
 	}
 
-	return fmt.Errorf("Operator check has failed. Pattern: \"%s\". Value: \"%f\"", pattern, value)
+	return fmt.Errorf("operator check has failed. Pattern: \"%s\". Value: \"%f\"", pattern, value)
 }
 
 func checkSingleOperator(value float64, pattern string) bool {
