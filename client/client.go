@@ -45,10 +45,6 @@ func NewDynamicClient(config *rest.Config, logger *log.Logger) (*Client, error) 
 	}, nil
 }
 
-func (c *Client) Test() {
-
-}
-
 func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	kubePolicyDeployment, err := c.GetResource("deployments", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
 	if err != nil {
