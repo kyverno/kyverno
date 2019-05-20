@@ -64,21 +64,12 @@ func (pp *Patch) Validate() error {
 	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
 }
 
-// Validate returns error if Name or namespace is not cpecified
-func (pcf *CopyFrom) Validate() error {
-	if pcf.Name == "" || pcf.Namespace == "" {
-		return errors.New("Name or/and Namespace is not specified")
-	}
-	return nil
-}
-
 // Validate returns error if generator is configured incompletely
 func (pcg *Generation) Validate() error {
-	if pcg.Name == "" || pcg.Kind == "" {
-		return errors.New("Name or/and Kind of generator is not specified")
+	if len(pcg.Data) == 0 && pcg.CopyFrom == nil {
+		return fmt.Errorf("Neither Data nor CopyFrom (source) of %s/%s is specified", pcg.Kind, pcg.Name)
 	}
-
-	return pcg.CopyFrom.Validate()
+	return nil
 }
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is

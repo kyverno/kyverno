@@ -12,8 +12,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
+	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
@@ -27,6 +28,7 @@ import (
 type WebhookServer struct {
 	server       http.Server
 	policyLister policylister.PolicyLister
+	kubeClient   *kubeClient.KubeClient
 	logger       *log.Logger
 }
 
@@ -35,6 +37,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	policyLister policylister.PolicyLister,
+	kubeClient *kubeClient.KubeClient,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -53,6 +56,7 @@ func NewWebhookServer(
 
 	ws := &WebhookServer{
 		policyLister: policyLister,
+		kubeClient:   kubeClient,
 		logger:       logger,
 	}
 
@@ -173,6 +177,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	for _, policy := range policies {
+		// validation
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
@@ -186,6 +191,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 				},
 			}
 		}
+
+		// generation
+		engine.Generate(*policy, request.Object.Raw, ws.kubeClient, request.Kind)
 	}
 
 	ws.logger.Println("Validation is successful")
