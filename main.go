@@ -30,7 +30,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating client: %v\n", err)
 	}
-	//	client.Test()
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {
