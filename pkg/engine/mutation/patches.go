@@ -29,6 +29,9 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 		patchedDocument, err = applyPatch(patchedDocument, patchRaw)
 		if err != nil {
 			// TODO: continue on error if one of the patches fails, will add the failure event in such case
+			if patch.Operation == "remove" {
+				continue
+			}
 			log.Printf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
 			continue
 		}
@@ -66,5 +69,9 @@ func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return patch.Apply(resource)
+	patchedDocument, err := patch.Apply(resource)
+	if err != nil {
+		return resource, err
+	}
+	return patchedDocument, err
 }

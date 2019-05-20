@@ -13,6 +13,7 @@ import (
 func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]mutation.PatchBytes, []byte) {
 	var policyPatches []mutation.PatchBytes
 	var processedPatches []mutation.PatchBytes
+	var err error
 	patchedDocument := rawResource
 
 	for _, rule := range policy.Spec.Rules {
