@@ -144,13 +144,7 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 
 		return validateArray(array, pattern)
 	case string:
-		str, ok := resourcePart.(string)
-
-		if !ok {
-			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
-		}
-
-		return checkSingleValue(str, pattern)
+		return checkSingleValue(resourcePart, patternPart)
 	case float64:
 		switch num := resourcePart.(type) {
 		case float64:
