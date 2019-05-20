@@ -27,32 +27,7 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 		Short:   "Apply policy on the resource",
 		Example: applyExample,
 		Run: func(cmd *cobra.Command, args []string) {
-			// TODO: add pre-checks for policy and resource manifest
-			//  order for policy and resource in args could be disordered
-
-			if len(args) != 2 {
-				log.Printf("Missing policy and/or resource manifest.")
-				return
-			}
-
-			// extract policy
-			policyDir := validateDir(args[0])
-			policy, err := extractPolicy(policyDir)
-			if err != nil {
-				log.Printf("failed to extract policy: %v", err)
-				os.Exit(1)
-			}
-
-			// fmt.Printf("policy name=%s, rule name=%s, %s/%s\n", policy.ObjectMeta.Name, policy.Spec.Rules[0].Name,
-			// policy.Spec.Rules[0].ResourceDescription.Kind, *policy.Spec.Rules[0].ResourceDescription.Name)
-
-			// extract rawResource
-			resourceDir := validateDir(args[1])
-			rawResource, gvk, err := extractResource(resourceDir)
-			if err != nil {
-				log.Printf("failed to load resource: %v", err)
-				os.Exit(1)
-			}
+			policy, rawResource, gvk := complete(args)
 
 			_, patchedDocument := engine.Mutate(*policy, rawResource, *gvk)
 			out, err := prettyPrint(patchedDocument)
@@ -62,10 +37,46 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 				return
 			}
 
+			if err := engine.Validate(*policy, rawResource, *gvk); err != nil {
+				fmt.Println(err)
+				return
+			}
+
 			fmt.Printf("%v\n", string(out))
 		},
 	}
 	return cmd
+}
+
+func complete(args []string) (*kubepolicy.Policy, []byte, *metav1.GroupVersionKind) {
+	// TODO: add pre-checks for policy and resource manifest
+	// order for policy and resource in args could be disordered
+
+	if len(args) != 2 {
+		log.Printf("Missing policy and/or resource manifest.")
+		return nil, nil, nil
+	}
+
+	// extract policy
+	policyDir := validateDir(args[0])
+	policy, err := extractPolicy(policyDir)
+	if err != nil {
+		log.Printf("failed to extract policy: %v", err)
+		os.Exit(1)
+	}
+
+	// fmt.Printf("policy name=%s, rule name=%s, %s/%s\n", policy.ObjectMeta.Name, policy.Spec.Rules[0].Name,
+	// policy.Spec.Rules[0].ResourceDescription.Kind, *policy.Spec.Rules[0].ResourceDescription.Name)
+
+	// extract rawResource
+	resourceDir := validateDir(args[1])
+	rawResource, gvk, err := extractResource(resourceDir)
+	if err != nil {
+		log.Printf("failed to load resource: %v", err)
+		os.Exit(1)
+	}
+
+	return policy, rawResource, gvk
 }
 
 func extractPolicy(fileDir string) (*kubepolicy.Policy, error) {
