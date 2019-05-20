@@ -151,9 +151,37 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		}
 
 		return checkSingleValue(str, pattern)
+	case float64:
+		switch num := resourcePart.(type) {
+		case float64:
+			if num != pattern {
+				return fmt.Errorf("%f not equal %f", num, pattern)
+			}
+		case int64:
+			if float64(num) != pattern {
+				return fmt.Errorf("%d not equal %f", num, pattern)
+			}
+		default:
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
+		}
+	case int64:
+		switch num := resourcePart.(type) {
+		case float64:
+			if num != float64(pattern) {
+				return fmt.Errorf("%f not equal %d", num, pattern)
+			}
+		case int64:
+			if float64(num) != float64(num) {
+				return fmt.Errorf("%d not equal %d", num, pattern)
+			}
+		default:
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
+		}
 	default:
 		return fmt.Errorf("validating error: unknown type in map: %T", patternPart)
 	}
+
+	return nil
 }
 
 func getAnchorsFromMap(pattern map[string]interface{}) (map[string]interface{}, error) {

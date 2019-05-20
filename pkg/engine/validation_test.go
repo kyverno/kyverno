@@ -370,3 +370,17 @@ func TestValidate_ServiceTest(t *testing.T) {
 
 	assert.Assert(t, Validate(policy, rawResource, gvk) != nil)
 }
+
+func TestValidate_MapHasFloats(t *testing.T) {
+	rawPolicy := []byte(`{ "apiVersion": "kubepolicy.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-deployment-changed" }, "spec": { "rules": [ { "name": "First policy v2", "resource": { "kind": "Deployment", "name": "nginx-*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/app", "op": "replace", "value": "nginx_is_mutated" } ] }, "validate": { "message": "replicas number is wrong", "pattern": { "metadata": { "labels": { "app": "*" } }, "spec": { "replicas": 3 } } } } ] } }`)
+	rawResource := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:1.7.9", "ports": [ { "containerPort": 80 } ] } ] } } } }`)
+
+	var policy kubepolicy.Policy
+	json.Unmarshal(rawPolicy, &policy)
+
+	gvk := metav1.GroupVersionKind{
+		Kind: "Deployment",
+	}
+
+	assert.NilError(t, Validate(policy, rawResource, gvk))
+}
