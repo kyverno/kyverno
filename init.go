@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	client "github.com/nirmata/kube-policy/client"
-	"github.com/nirmata/kube-policy/config"
+	"github.com/nirmata/kube-policy/pkg/config"
 	tls "github.com/nirmata/kube-policy/pkg/tls"
 
 	rest "k8s.io/client-go/rest"

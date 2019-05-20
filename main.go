@@ -4,14 +4,13 @@ import (
 	"flag"
 	"log"
 
-	"k8s.io/sample-controller/pkg/signals"
-
 	client "github.com/nirmata/kube-policy/client"
 	controller "github.com/nirmata/kube-policy/pkg/controller"
 	event "github.com/nirmata/kube-policy/pkg/event"
 	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	"github.com/nirmata/kube-policy/pkg/violation"
 	"github.com/nirmata/kube-policy/pkg/webhooks"
+	"k8s.io/sample-controller/pkg/signals"
 )
 
 var (
@@ -23,6 +22,7 @@ var (
 func main() {
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
+
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
@@ -30,6 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating client: %v\n", err)
 	}
+	//	client.Test()
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {
@@ -50,7 +51,7 @@ func main() {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := webhooks.NewWebhookServer(tlsPair, policyInformerFactory, nil)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}

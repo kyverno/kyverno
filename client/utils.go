@@ -36,6 +36,7 @@ func getGrpVersionMapper(kind string, clientConfig *rest.Config, refresh bool) s
 }
 
 func getValue(kind string) (*schema.GroupVersionResource, bool) {
+
 	if val, ok := groupVersionMapper[kind]; ok {
 		return &val, true
 	}
@@ -48,12 +49,12 @@ func refreshRegisteredResources(mapper map[string]schema.GroupVersionResource, c
 	if err != nil {
 		return err
 	}
+
 	// get registered server groups and resources
 	_, resourceList, err := client.Discovery().ServerGroupsAndResources()
 	if err != nil {
 		return err
 	}
-
 	for _, apiResource := range resourceList {
 		for _, resource := range apiResource.APIResources {
 			grpVersion := strings.Split(apiResource.GroupVersion, "/")
@@ -61,6 +62,12 @@ func refreshRegisteredResources(mapper map[string]schema.GroupVersionResource, c
 				mapper[resource.Name] = schema.GroupVersionResource{
 					Group:    grpVersion[0],
 					Version:  grpVersion[1],
+					Resource: resource.Name,
+				}
+			} else {
+				// resources with only versions
+				mapper[resource.Name] = schema.GroupVersionResource{
+					Version:  apiResource.GroupVersion,
 					Resource: resource.Name,
 				}
 			}

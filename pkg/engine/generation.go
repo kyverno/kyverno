@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
 	"log"
 
@@ -56,18 +55,23 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 
 	err := generator.Validate()
 	if err != nil {
-		return fmt.Errorf("Generator for '%s' is invalid: %s", generator.Kind, err)
+		return fmt.Errorf("Generator for '%s/%s' is invalid: %s", generator.Kind, generator.Name, err)
 	}
 
-	namespaceName := ParseNameFromObject(rawResource)
-	// Generate the resource
-	switch gvk.Kind {
-	case "configmap":
-		err = client.GenerateConfigMap(*generator, namespaceName)
-	case "secret":
-		err = client.GenerateSecret(*generator, namespaceName)
-	case "default":
-		err = errors.New("resource not supported")
+	namespace := ParseNameFromObject(rawResource)
+	switch generator.Kind {
+	case "ConfigMap":
+		err = client.GenerateConfigMap(*generator, namespace)
+	case "Secret":
+		err = client.GenerateSecret(*generator, namespace)
+	default:
+		err = fmt.Errorf("Unsupported config Kind '%s'", generator.Kind)
 	}
-	return err
+
+	if err != nil {
+		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
+	}
+
+	log.Printf("Successfully applied generator %s/%s", generator.Kind, generator.Name)
+	return nil
 }

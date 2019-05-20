@@ -63,7 +63,7 @@ func (b *builder) processViolation(info Info) error {
 		utilruntime.HandleError(fmt.Errorf("unable to extract namespace and name for %s", info.Policy))
 		return err
 	}
-	policy, err := b.policyLister.Policies(namespace).Get(name)
+	policy, err := b.policyLister.Get(name)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return err
@@ -90,7 +90,7 @@ func (b *builder) processViolation(info Info) error {
 
 	modifiedPolicy.Status.Violations = modifiedViolations
 	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	_, err = b.client.UpdateStatusResource("policy", namespace, modifiedPolicy)
+	_, err = b.client.UpdateStatusResource("policies", namespace, modifiedPolicy)
 	if err != nil {
 		return err
 	}
