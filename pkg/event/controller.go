@@ -132,21 +132,21 @@ func (c *controller) processNextWorkItem() bool {
 func (c *controller) SyncHandler(key Info) error {
 	var resource runtime.Object
 	var err error
-	namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key.Resource))
-		return err
-	}
 
 	switch key.Kind {
 	case "Policy":
 		//TODO: policy is clustered resource so wont need namespace
-		resource, err = c.policyLister.Policies(namespace).Get(name)
+		resource, err = c.policyLister.Get(key.Resource)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for policy %s, will retry ", key.Resource))
 			return err
 		}
 	default:
+		namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key.Resource))
+			return err
+		}
 		resource, err = c.client.GetResource(key.Kind, namespace, name)
 		if err != nil {
 			return err

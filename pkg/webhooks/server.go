@@ -12,8 +12,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
+	"github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	"github.com/nirmata/kube-policy/pkg/sharedinformer"
@@ -27,6 +28,7 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
+	client       *client.Client
 	policyLister v1alpha1.PolicyLister
 	logger       *log.Logger
 }
@@ -34,6 +36,7 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	shareInformer sharedinformer.PolicyInformer,
 	logger *log.Logger) (*WebhookServer, error) {
@@ -53,6 +56,7 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
+		client:       client,
 		policyLister: shareInformer.GetLister(),
 		logger:       logger,
 	}
@@ -175,6 +179,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	allowed := true
 	for _, policy := range policies {
+		// validation
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
@@ -184,6 +189,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		} else {
 			ws.logger.Println("Validation is successful")
 		}
+
+		// generation
+		engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
 	}
 
 	return &v1beta1.AdmissionResponse{

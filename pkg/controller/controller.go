@@ -161,14 +161,15 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 		return fmt.Errorf("expected string in workqueue but got %#v", obj)
 	}
 	// convert the namespace/name string into distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	//TODO: currently policies are clustered, but the above code is to support namespaced as well
+	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid policy key: %s", key))
 		return nil
 	}
 
 	// Get Policy resource with namespace/name
-	policy, err := pc.policyLister.Policies(namespace).Get(name)
+	policy, err := pc.policyLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("policy '%s' in work queue no longer exists", key))
@@ -180,6 +181,6 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// get the violations and pass to violation Builder
 	// get the events and pass to event Builder
 	//TODO: processPolicy
-	fmt.Println(policy)
+	pc.logger.Printf("process policy %s on existing resources", policy.GetName())
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 )
 
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Policy contains rules to be applied to created resources
@@ -60,9 +61,9 @@ type Validation struct {
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
-	Kind     string `json:"kind"`
-	Name     string `json:"name"`
-	CopyFrom `json:"copyFrom"`
+	Kind     string            `json:"kind"`
+	Name     string            `json:"name"`
+	CopyFrom *CopyFrom         `json:"copyFrom"`
 	Data     map[string]string `json:"data"`
 	Labels   map[string]string `json:"labels"`
 }

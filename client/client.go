@@ -3,10 +3,11 @@ package client
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -32,11 +33,20 @@ func NewDynamicClient(config *rest.Config, logger *log.Logger) (*Client, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	if logger == nil {
+		logger = log.New(os.Stdout, "Client : ", log.LstdFlags)
+	}
+
 	return &Client{
 		logger:       logger,
 		client:       client,
 		clientConfig: config,
 	}, nil
+}
+
+func (c *Client) Test() {
+
 }
 
 func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
@@ -172,7 +182,7 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	// Get configMap resource
-	unstrSecret, err := c.GetResource("secret", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	unstrSecret, err := c.GetResource("secrets", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	if err != nil {
 		return err
 	}
@@ -212,7 +222,7 @@ func (c *Client) GenerateConfigMap(generator types.Generation, namespace string)
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	// Get configMap resource
-	unstrConfigMap, err := c.GetResource("configmap", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	unstrConfigMap, err := c.GetResource("configmaps", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	if err != nil {
 		return err
 	}
@@ -269,7 +279,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, namespace string) {
 	err := c.waitUntilNamespaceIsCreated(namespace)
 	if err == nil {
-		_, err = c.CreateResource("configmap", namespace, configMap)
+		_, err = c.CreateResource("configmaps", namespace, configMap)
 	}
 	if err != nil {
 		c.logger.Printf("Can't create a configmap: %s", err)
@@ -292,7 +302,7 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 
 	var lastError error = nil
 	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
-		_, lastError = c.GetResource("namespace", "", name)
+		_, lastError = c.GetResource("namespaces", "", name)
 		if lastError == nil {
 			break
 		}

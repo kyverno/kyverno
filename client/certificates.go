@@ -48,7 +48,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 		return nil, err
 	}
 	//	certClient := kc.client.CertificatesV1beta1().CertificateSigningRequests()
-	csrList, err := c.ListResource("certificatesigningrequest", "")
+	csrList, err := c.ListResource("certificatesigningrequests", "")
 	//	csrList, err := certClient.List(metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to list existing certificate requests: %v", err))
@@ -58,7 +58,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 		csr.GetName()
 		if csr.GetName() == req.ObjectMeta.Name {
 			// Delete
-			err := c.DeleteResouce("certificatesigningrequest", "", csr.GetName())
+			err := c.DeleteResouce("certificatesigningrequests", "", csr.GetName())
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("Unable to delete existing certificate request: %v", err))
 			}
@@ -68,7 +68,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	}
 
 	// Create
-	unstrRes, err := c.CreateResource("certificatesigningrequest", "", req)
+	unstrRes, err := c.CreateResource("certificatesigningrequests", "", req)
 	//	res, err := certClient.Create(req)
 	if err != nil {
 		return nil, err
@@ -99,9 +99,9 @@ const certificateFetchWaitInterval time.Duration = 200 * time.Millisecond
 func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
 	// TODO: react of SIGINT and SIGTERM
 	timeStart := time.Now()
-	c.GetResource("certificatesigningrequest", "", req.ObjectMeta.Name)
+	c.GetResource("certificatesigningrequests", "", req.ObjectMeta.Name)
 	for time.Now().Sub(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		unstrR, err := c.GetResource("certificatesigningrequest", "", req.ObjectMeta.Name)
+		unstrR, err := c.GetResource("certificatesigningrequests", "", req.ObjectMeta.Name)
 		if err != nil {
 			return nil, err
 		}
