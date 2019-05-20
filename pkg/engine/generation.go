@@ -12,34 +12,20 @@ import (
 // Generate should be called to process generate rules on the resource
 func Generate(client *client.Client, logger *log.Logger, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) {
 	// configMapGenerator and secretGenerator can be applied only to namespaces
+	// TODO: support for any resource
 	if gvk.Kind != "Namespace" {
 		return
 	}
 
-	for i, rule := range policy.Spec.Rules {
-		// Checks for preconditions
-		// TODO: Rework PolicyEngine interface that it receives not a policy, but mutation object for
-		// Mutate, validation for Validate and so on. It will allow to bring this checks outside of PolicyEngine
-		// to common part as far as they present for all: mutation, validation, generation
-
-		err := rule.Validate()
-		if err != nil {
-			logger.Printf("Rule has invalid structure: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
-			continue
-		}
-
-		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
-		if err != nil {
-			logger.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
-			continue
-		}
+	for _, rule := range policy.Spec.Rules {
+		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 
 		if !ok {
 			logger.Printf("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
 			continue
 		}
 
-		err = applyRuleGenerator(client, rawResource, rule.Generation, gvk)
+		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk)
 		if err != nil {
 			logger.Printf("Failed to apply rule generator: %v", err)
 		}
@@ -53,10 +39,7 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 		return nil
 	}
 
-	err := generator.Validate()
-	if err != nil {
-		return fmt.Errorf("Generator for '%s/%s' is invalid: %s", generator.Kind, generator.Name, err)
-	}
+	var err error
 
 	namespace := ParseNameFromObject(rawResource)
 	switch generator.Kind {

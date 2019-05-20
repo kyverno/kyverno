@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO: This operators are already implemented in kubernetes
+// Operator is string alias that represents selection operators enum
 type Operator string
 
 const (
@@ -25,66 +25,50 @@ const (
 )
 
 // TODO: Refactor using State pattern
+// TODO: Return Events and pass all checks to get all validation errors (not )
 
 // Validate handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) bool {
+func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) error {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
 
-	allowed := true
-	for i, rule := range policy.Spec.Rules {
-
-		// Checks for preconditions
-		// TODO: Rework PolicyEngine interface that it receives not a policy, but mutation object for
-		// Mutate, validation for Validate and so on. It will allow to bring this checks outside of PolicyEngine
-		// to common part as far as they present for all: mutation, validation, generation
-
-		err := rule.Validate()
-		if err != nil {
-			log.Printf("Rule has invalid structure: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
-			continue
-		}
-
-		ok, err := ResourceMeetsRules(rawResource, rule.ResourceDescription, gvk)
-		if err != nil {
-			log.Printf("Rule has invalid data: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
-			continue
-		}
-
-		if !ok {
-			log.Printf("Rule is not applicable to the request: rule number = %d, rule name = %s in policy %s, err: %v\n", i, rule.Name, policy.ObjectMeta.Name, err)
-			continue
-		}
-
+	for _, rule := range policy.Spec.Rules {
 		if rule.Validation == nil {
 			continue
 		}
 
-		if !validateMap(resource, rule.Validation.Pattern) {
-			log.Printf("Validation with the rule %s has failed: %s\n", rule.Name, *rule.Validation.Message)
-			allowed = false
-		} else {
-			log.Printf("Validation rule %s is successful\n", rule.Name)
+		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
+		if !ok {
+			log.Printf("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			continue
+		}
+
+		if err := validateMap(resource, rule.Validation.Pattern); err != nil {
+			message := *rule.Validation.Message
+			if len(message) == 0 {
+				message = fmt.Sprintf("%v", err)
+			} else {
+				message = fmt.Sprintf("%s, %s", message, err.Error())
+			}
+
+			return fmt.Errorf("%s: %s", *rule.Validation.Message, err.Error())
 		}
 	}
 
-	return allowed
+	log.Println("Validation is successful")
+	return nil
 }
 
-func validateMap(resourcePart, patternPart interface{}) bool {
+func validateMap(resourcePart, patternPart interface{}) error {
 	pattern, ok := patternPart.(map[string]interface{})
-
 	if !ok {
-		fmt.Printf("Validating error: expected Map, found %T\n", patternPart)
-		return false
+		return fmt.Errorf("expected map, found %T", patternPart)
 	}
 
 	resource, ok := resourcePart.(map[string]interface{})
-
 	if !ok {
-		fmt.Printf("Validating error: expected Map, found %T\n", resourcePart)
-		return false
+		return fmt.Errorf("expected map, found %T", resourcePart)
 	}
 
 	for key, value := range pattern {
@@ -92,98 +76,106 @@ func validateMap(resourcePart, patternPart interface{}) bool {
 			key = key[1 : len(key)-1]
 		}
 
-		if !validateMapElement(resource[key], value) {
-			return false
+		if err := validateMapElement(resource[key], value); err != nil {
+			return err
 		}
 	}
 
-	return true
+	return nil
 }
 
-func validateArray(resourcePart, patternPart interface{}) bool {
+func validateArray(resourcePart, patternPart interface{}) error {
 	patternArray, ok := patternPart.([]interface{})
-
 	if !ok {
-		fmt.Printf("Validating error: expected array, found %T\n", patternPart)
-		return false
+		return fmt.Errorf("expected array, found %T", patternPart)
 	}
 
 	resourceArray, ok := resourcePart.([]interface{})
-
 	if !ok {
-		fmt.Printf("Validating error: expected array, found %T\n", resourcePart)
-		return false
+		return fmt.Errorf("expected array, found %T", resourcePart)
 	}
 
 	switch pattern := patternArray[0].(type) {
 	case map[string]interface{}:
 		anchors, err := getAnchorsFromMap(pattern)
 		if err != nil {
-			fmt.Printf("Validating error: %v\n", err)
-			return false
+			return err
 		}
 
 		for _, value := range resourceArray {
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				fmt.Printf("Validating error: expected Map, found %T\n", resourcePart)
-				return false
+				return fmt.Errorf("expected array, found %T", resourcePart)
 			}
 
 			if skipArrayObject(resource, anchors) {
 				continue
 			}
 
-			if !validateMap(resource, pattern) {
-				return false
+			if err := validateMap(resource, pattern); err != nil {
+				return err
 			}
 		}
-
-		return true
 	default:
 		for _, value := range resourceArray {
-			if !checkSingleValue(value, patternArray[0]) {
-				return false
+			if err := checkSingleValue(value, patternArray[0]); err != nil {
+				return err
 			}
 		}
 	}
 
-	return true
+	return nil
 }
 
-func validateMapElement(resourcePart, patternPart interface{}) bool {
+func validateMapElement(resourcePart, patternPart interface{}) error {
 	switch pattern := patternPart.(type) {
 	case map[string]interface{}:
 		dictionary, ok := resourcePart.(map[string]interface{})
-
 		if !ok {
-			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
-			return false
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
 
 		return validateMap(dictionary, pattern)
 	case []interface{}:
 		array, ok := resourcePart.([]interface{})
-
 		if !ok {
-			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
-			return false
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
 
 		return validateArray(array, pattern)
 	case string:
-		str, ok := resourcePart.(string)
-
-		if !ok {
-			fmt.Printf("Validating error: expected %T, found %T\n", patternPart, resourcePart)
-			return false
+		return checkSingleValue(resourcePart, patternPart)
+	case float64:
+		switch num := resourcePart.(type) {
+		case float64:
+			if num != pattern {
+				return fmt.Errorf("%f not equal %f", num, pattern)
+			}
+		case int64:
+			if float64(num) != pattern {
+				return fmt.Errorf("%d not equal %f", num, pattern)
+			}
+		default:
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
 		}
-
-		return checkSingleValue(str, pattern)
+	case int64:
+		switch num := resourcePart.(type) {
+		case float64:
+			if num != float64(pattern) {
+				return fmt.Errorf("%f not equal %d", num, pattern)
+			}
+		case int64:
+			if float64(num) != float64(num) {
+				return fmt.Errorf("%d not equal %d", num, pattern)
+			}
+		default:
+			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
+		}
 	default:
-		fmt.Printf("Validating error: unknown type in map: %T\n", patternPart)
-		return false
+		return fmt.Errorf("validating error: unknown type in map: %T", patternPart)
 	}
+
+	return nil
 }
 
 func getAnchorsFromMap(pattern map[string]interface{}) (map[string]interface{}, error) {
@@ -207,7 +199,7 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 			return true
 		}
 
-		if !checkSingleValue(value, pattern) {
+		if err := checkSingleValue(value, pattern); err != nil {
 			return true
 		}
 	}
@@ -215,7 +207,7 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 	return false
 }
 
-func checkSingleValue(value, pattern interface{}) bool {
+func checkSingleValue(value, pattern interface{}) error {
 	switch typedPattern := pattern.(type) {
 	case string:
 		switch typedValue := value.(type) {
@@ -226,46 +218,54 @@ func checkSingleValue(value, pattern interface{}) bool {
 		case int:
 			return checkForOperator(float64(typedValue), typedPattern)
 		default:
-			fmt.Printf("Validating error: expected string or numerical type, found %T, pattern: %s\n", value, typedPattern)
-			return false
+			return fmt.Errorf("expected string or numerical type, found %T, pattern: %s", value, typedPattern)
 		}
 	case float64:
 		num, ok := value.(float64)
 		if !ok {
-			fmt.Printf("Validating error: expected float, found %T\n", value)
-			return false
+			return fmt.Errorf("expected float, found %T", value)
 		}
 
-		return typedPattern == num
+		if typedPattern != num {
+			return fmt.Errorf("value %f is not equal to pattern %f", value, typedPattern)
+		}
 	case int:
 		num, ok := value.(int)
 		if !ok {
-			fmt.Printf("Validating error: expected int, found %T\n", value)
-			return false
+			return fmt.Errorf("expected int, found %T", value)
 		}
 
-		return typedPattern == num
+		if typedPattern != num {
+			return fmt.Errorf("value %d is not equal to pattern %d", num, typedPattern)
+		}
 	default:
-		fmt.Printf("Validating error: expected pattern (string or numerical type), found %T\n", pattern)
-		return false
+		return fmt.Errorf("expected pattern (string or numerical type), found %T", pattern)
 	}
+
+	return nil
 }
 
-func checkForWildcard(value, pattern string) bool {
-	return wildcard.Match(pattern, value)
+func checkForWildcard(value, pattern string) error {
+	if !wildcard.Match(pattern, value) {
+		return fmt.Errorf("wildcard check has failed. Pattern: \"%s\". Value: \"%s\"", pattern, value)
+	}
+
+	return nil
 }
 
-func checkForOperator(value float64, pattern string) bool {
+func checkForOperator(value float64, pattern string) error {
 	operators := strings.Split(pattern, "|")
 
 	for _, operator := range operators {
 		operator = strings.Replace(operator, " ", "", -1)
+
+		// At least one success - return nil
 		if checkSingleOperator(value, operator) {
-			return true
+			return nil
 		}
 	}
 
-	return false
+	return fmt.Errorf("operator check has failed. Pattern: \"%s\". Value: \"%f\"", pattern, value)
 }
 
 func checkSingleOperator(value float64, pattern string) bool {

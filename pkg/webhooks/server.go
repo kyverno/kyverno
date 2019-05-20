@@ -20,8 +20,8 @@ import (
 	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -140,7 +140,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		utilruntime.HandleError(err)
+		ws.logger.Printf("%v", err)
 		return nil
 	}
 
@@ -154,7 +154,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if len(policyPatches) > 0 {
 			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
 			name := engine.ParseNameFromObject(request.Object.Raw)
-			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+			ws.logger.Printf("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 		}
 	}
 
@@ -173,30 +173,35 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		utilruntime.HandleError(err)
+		ws.logger.Printf("%v", err)
 		return nil
 	}
 
-	allowed := true
 	for _, policy := range policies {
 		// validation
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
-			ws.logger.Printf("Validation has failed: %v\n", err)
-			utilruntime.HandleError(err)
-			allowed = false
-		} else {
-			ws.logger.Println("Validation is successful")
+		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
+			message := fmt.Sprintf("validation has failed: %s", err.Error())
+			ws.logger.Println(message)
+
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: message,
+				},
+			}
 		}
 
 		// generation
 		engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
 	}
 
+	ws.logger.Println("Validation is successful")
 	return &v1beta1.AdmissionResponse{
-		Allowed: allowed,
+		Allowed: true,
 	}
+
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body
