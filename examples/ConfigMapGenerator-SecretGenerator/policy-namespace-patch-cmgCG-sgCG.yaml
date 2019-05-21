@@ -3,42 +3,47 @@
 # To apply this policy you need to create secret and configMap in "default" namespace 
 # and then create a namespace
 
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion : kubepolicy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
   name : "policy-ns-patch-cmg-sg"
 spec :
-  failurePolicy: stopOnError
   rules:
-  - resource :
+  - name: "patchNamespace2"
+    resource :
       kind : Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
-    patch:
-    - path: "/metadata/labels/isMutatedByPolicy"
-      op: add
-      value: "true"
+    mutate:
+      patches:
+        - path: "/metadata/labels/isMutatedByPolicy"
+          op: add
+          value: "true"
 
-  - resource :
+  - name: "copyCM"
+    resource :
       kind : Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
-    configMapGenerator :
+    generate :
+      kind: ConfigMap
       name : copied-cm
       copyFrom :
         namespace : default
         name : game-config
       data :
         secretData: "data from cmg"
-        
-  - resource :
+       
+  - name: "generateCM"
+    resource :
       kind : Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
-    configMapGenerator :
+    generate :
+      kind: ConfigMap
       name : generated-cm
       data :
         secretData: "very sensitive data from cmg"
@@ -49,13 +54,12 @@ spec :
           image.public.key=771 
           rsa.public.key=42
   
-  - resource :
+  - name: "generateSecret"
+    resource :
       kind : Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
-
-    secretGenerator :
+      name: ns2
+    generate :
+      kind: Secret
       name : generated-secrets
       data :
         foo : bar
@@ -66,13 +70,12 @@ spec :
           foo1=bar1
           foo2=bar2
 
-  - resource :
+  - name: "copySecret"
+    resource :
       kind : Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
-
-    secretGenerator :
+      name: ns2
+    generate :
+      kind: Secret
       name : copied-secrets
       copyFrom :
         namespace : default
@@ -80,4 +83,3 @@ spec :
       data :
         foo : bar
         secretData: "data from sg"
-

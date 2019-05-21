@@ -62,7 +62,11 @@ func NewEventController(client *client.Client,
 
 func initRecorder(client *client.Client) record.EventRecorder {
 	// Initliaze Event Broadcaster
-	policyscheme.AddToScheme(scheme.Scheme)
+	err := policyscheme.AddToScheme(scheme.Scheme)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventInterface, err := client.GetEventsInterface()
@@ -151,13 +155,6 @@ func (c *controller) SyncHandler(key Info) error {
 		if err != nil {
 			return err
 		}
-		//TODO: Test if conversion from unstructured to runtime.Object is implicit or explicit conversion is required
-		// resourceobj, err := client.ConvertToRuntimeObject(resource)
-		// if err != nil {
-		// 	return err
-		// }
-
-		//		resource, err = c.kubeClient.GetResource(key.Kind, key.Resource)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("unable to create event for resource %s, will retry ", key.Resource))
 			return err

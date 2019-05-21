@@ -42,23 +42,18 @@ func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemP
 
 // Submits and approves certificate request, returns request which need to be fetched
 func (c *Client) submitAndApproveCertificateRequest(req *certificates.CertificateSigningRequest) (*certificates.CertificateSigningRequest, error) {
-	//TODO: using the CSR interface from the kubeclient
 	certClient, err := c.GetCSRInterface()
 	if err != nil {
 		return nil, err
 	}
-	//	certClient := kc.client.CertificatesV1beta1().CertificateSigningRequests()
-	csrList, err := c.ListResource("certificatesigningrequests", "")
-	//	csrList, err := certClient.List(metav1.ListOptions{})
+	csrList, err := c.ListResource(CSR, "")
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to list existing certificate requests: %v", err))
 	}
 
 	for _, csr := range csrList.Items {
-		csr.GetName()
 		if csr.GetName() == req.ObjectMeta.Name {
-			// Delete
-			err := c.DeleteResouce("certificatesigningrequests", "", csr.GetName())
+			err := c.DeleteResouce(CSR, "", csr.GetName())
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("Unable to delete existing certificate request: %v", err))
 			}
@@ -67,9 +62,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 		}
 	}
 
-	// Create
-	unstrRes, err := c.CreateResource("certificatesigningrequests", "", req)
-	//	res, err := certClient.Create(req)
+	unstrRes, err := c.CreateResource(CSR, "", req)
 	if err != nil {
 		return nil, err
 	}
@@ -93,15 +86,12 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	return res, nil
 }
 
-const certificateFetchWaitInterval time.Duration = 200 * time.Millisecond
-
 // Fetches certificate from given request. Tries to obtain certificate for maxWaitSeconds
 func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
 	// TODO: react of SIGINT and SIGTERM
 	timeStart := time.Now()
-	c.GetResource("certificatesigningrequests", "", req.ObjectMeta.Name)
 	for time.Now().Sub(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		unstrR, err := c.GetResource("certificatesigningrequests", "", req.ObjectMeta.Name)
+		unstrR, err := c.GetResource(CSR, "", req.ObjectMeta.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +119,7 @@ const certificateField string = "certificate"
 // Reads the pair of TLS certificate and key from the specified secret.
 func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	name := generateSecretName(props)
-	unstrSecret, err := c.GetResource("secrets", props.Namespace, name)
+	unstrSecret, err := c.GetResource(Secret, props.Namespace, name)
 	if err != nil {
 		c.logger.Printf("Unable to get secret %s/%s: %s", props.Namespace, name, err)
 		return nil
@@ -157,8 +147,8 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 // Updates existing secret or creates new one.
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	name := generateSecretName(props)
-	unstrSecret, err := c.GetResource("secrets", props.Namespace, name)
-	if err == nil { // Update existing secret
+	unstrSecret, err := c.GetResource(Secret, props.Namespace, name)
+	if err == nil {
 		secret, err := convertToSecret(unstrSecret)
 		if err != nil {
 			return nil
@@ -169,12 +159,12 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 		}
 		secret.Data[certificateField] = pemPair.Certificate
 		secret.Data[privateKeyField] = pemPair.PrivateKey
-		c.UpdateResource("secrets", props.Namespace, secret)
+		_, err = c.UpdateResource(Secret, props.Namespace, secret)
 		if err == nil {
 			c.logger.Printf("Secret %s is updated", name)
 		}
 
-	} else { // Create new secret
+	} else {
 
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -191,7 +181,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 			},
 		}
 
-		_, err := c.CreateResource("secrets", props.Namespace, secret)
+		_, err := c.CreateResource(Secret, props.Namespace, secret)
 		if err == nil {
 			c.logger.Printf("Secret %s is created", name)
 		}
