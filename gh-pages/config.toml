@@ -1,4 +1,4 @@
-baseURL = "https://nirmata.github.io/kube-policy/"
+baseURL = "https://nirmata.github.io/kyverno/"
 themesDir = "themes"
 theme = "github-project-landing-page"
 title = "Kyverno"
@@ -13,10 +13,10 @@ relativeURLs=true
         and wildcards. View policy results as events, and policy violations as events or 
         in policy status.'''
     author_name = "Nirmata"
-    author_url = "http://nirmata.com"
-    project_url = "http://github.com/nirmata/kyverno/"
-    project_documentation = "http://github.com/nirmata/kyverno/docs"
-    github_project_name = "kube-policy"
+    author_url = "https://nirmata.com"
+    project_url = "https://github.com/nirmata/kyverno/"
+    project_documentation = "https://github.com/nirmata/kyverno/blob/master/README.md"
+    github_project_name = "kyverno"
     github_user_name = "nirmata"
     logo = "img/kyverno.png"
 
