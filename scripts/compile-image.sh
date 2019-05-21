@@ -10,7 +10,7 @@ then
 fi
 
 hub_user_name="nirmata"
-project_name="kube-policy"
+project_name="kyverno"
 
 echo "# Ensuring Go dependencies..."
 dep ensure || exit 2
