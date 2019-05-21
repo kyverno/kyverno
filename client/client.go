@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
@@ -309,6 +310,7 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 
 // KindIsSupported checks if the kind is a registerd GVK
 func (c *Client) KindIsSupported(kind string) bool {
+	kind = strings.ToLower(kind) + "s"
 	buildGVKMapper(c.clientConfig, false)
 	_, ok := getValue(kind)
 	return ok
