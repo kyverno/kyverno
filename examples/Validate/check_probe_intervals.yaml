@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion : kubepolicy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: check-probe-intervals
@@ -6,7 +6,8 @@ spec:
   rules:
   - name: check-probe-intervals
     resource:
-      kind: Deployment
+      kinds: 
+      - Deployment
     validate:
       message: "livenessProbe must be > 10s"
       pattern:
@@ -16,7 +17,9 @@ spec:
             livenessProbe:
               periodSeconds: ">10"
   - resource:
-      kind: Deployment
+      kinds: 
+      - Deployment
+    name: check-readinessprobe-intervals
     validate:
       pattern:
         message: "readinessProbe must be > 10s"    

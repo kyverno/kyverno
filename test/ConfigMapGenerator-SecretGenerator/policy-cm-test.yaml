@@ -6,12 +6,13 @@ spec:
   rules:
   - name: "copyCM"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
     generate :
-      kind: ConfigMap
+    - kind: ConfigMap
       name : copied-cm
       copyFrom :
         namespace : default

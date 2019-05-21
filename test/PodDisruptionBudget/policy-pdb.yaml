@@ -6,7 +6,8 @@ spec:
   rules:
     - name: pdb1
       resource:
-        kind : PodDisruptionBudget
+        kinds : 
+        - PodDisruptionBudget
         name: "game-pdb"
       mutate:
         patches:

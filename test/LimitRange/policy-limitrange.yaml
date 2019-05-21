@@ -4,9 +4,10 @@ metadata :
   name : policy-limitrange
 spec :
   rules:
-    - name:
+    - name: "rule"
       resource:
-        kind : LimitRange
+        kinds : 
+        - LimitRange
         selector:
           matchLabels:
             containerSize: minimal

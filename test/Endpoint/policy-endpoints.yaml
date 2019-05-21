@@ -4,9 +4,10 @@ metadata :
   name : policy-endpoints
 spec :
   rules:
-    - name:
+    - name: "rule"
       resource:
-        kind : Endpoints
+        kinds : 
+        - Endpoints
         selector:
           matchLabels:
             label : test

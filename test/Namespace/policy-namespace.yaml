@@ -7,7 +7,8 @@ spec :
   rules:
     - name: ns1
       resource:
-        kind : Namespace
+        kinds : 
+        - Namespace
         selector:
           matchLabels:
             LabelForSelector : "namespace"

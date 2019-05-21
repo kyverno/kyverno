@@ -4,9 +4,10 @@ metadata :
   name : policy-quota-low-test-validation
 spec :
   rules:
-    - name:
+    - name: "rule1"
       resource:
-        kind : ResourceQuota
+        kinds : 
+        - ResourceQuota
         selector:
           matchLabels:
             quota: low
@@ -16,9 +17,10 @@ spec :
           spec:
             hard:
               memory: "8Gi|12Gi"
-    - name:
+    - name: "rule2"
       resource:
-        kind : ResourceQuota
+        kinds : 
+        - ResourceQuota
         selector:
           matchLabels:
             quota: low
@@ -28,9 +30,10 @@ spec :
           spec:
             hard:
               cpu: <3
-    - name:
+    - name: "rule3"
       resource:
-        kind : ResourceQuota
+        kinds : 
+        - ResourceQuota
         selector:
           matchLabels:
             quota: low
