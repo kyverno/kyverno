@@ -1,0 +1,16 @@
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: image-pull-policy
+spec:
+  rules:
+  - name: image-pull-policy
+    message: "Image tag ':latest' requires imagePullPolicy 'Always'"
+    resource:
+      kind: Deployment
+    overlay:
+      template:
+        spec:
+          containers:              
+            - image: "(*:latest)"       # select images which end with :latest            
+              imagePullPolicy: "Always" # ensure that the imagePullPolicy is "Always"

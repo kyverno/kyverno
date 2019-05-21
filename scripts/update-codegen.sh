@@ -3,9 +3,15 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+case "$(uname -s)" in
+    Linux*)     linkutil=readlink;;
+    Darwin*)    linkutil=greadlink;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+
 # get nirmata root
 NIRMATA_DIR=$(dirname ${BASH_SOURCE})/..
-NIRMATA_ROOT=$(readlink -f ${NIRMATA_DIR})
+NIRMATA_ROOT=$(${linkutil} -f ${NIRMATA_DIR})
 
 # get relative path to code generation script
 CODEGEN_PKG=${NIRMATA_DIR}/vendor/k8s.io/code-generator

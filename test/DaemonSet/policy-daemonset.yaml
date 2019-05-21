@@ -1,0 +1,27 @@
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-daemonset
+spec:
+  rules:
+    - name: "Patch and Volume validation"
+      resource:
+        kind: DaemonSet
+        name: fluentd-elasticsearch
+      mutate:
+        patches:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path: "/metadata/labels/originalLabel"
+          op: remove
+      validate:
+        message: "This daemonset is broken"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  volumeMounts:
+                  - name: varlibdockercontainers
+                    readOnly: false
