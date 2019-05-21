@@ -133,5 +133,5 @@ Here are some the major features we plan on completing before a 1.0 release:
 
 ## Getting help
 
-For feature requests and bugs, file an [issue][https://github.com/nirmata/kyverno/issues].
+For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
 
