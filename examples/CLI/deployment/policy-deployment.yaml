@@ -6,7 +6,8 @@ spec :
   rules:
     - name: deployment-policy
       resource:
-        kind : Deployment
+        kinds : 
+        - Deployment
         selector :
           matchLabels :
             cli: test
