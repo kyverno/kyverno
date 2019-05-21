@@ -5,11 +5,11 @@ import (
 	"log"
 	"os"
 
-	client "github.com/nirmata/kube-policy/client"
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	v1alpha1 "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
-	event "github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/sharedinformer"
+	client "github.com/nirmata/kyverno/client"
+	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	client "github.com/nirmata/kube-policy/client"
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/client"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

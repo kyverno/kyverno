@@ -1,6 +1,6 @@
 package violation
 
-import policytype "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+import policytype "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 
 // Source for the events recorder
 const violationEventSource = "policy-controller"

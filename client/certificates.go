@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	tls "github.com/nirmata/kube-policy/pkg/tls"
+	tls "github.com/nirmata/kyverno/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
