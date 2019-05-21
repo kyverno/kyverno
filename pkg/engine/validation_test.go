@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

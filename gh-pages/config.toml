@@ -14,8 +14,8 @@ relativeURLs=true
         in policy status.'''
     author_name = "Nirmata"
     author_url = "http://nirmata.com"
-    project_url = "http://github.com/nirmata/kube-policy/"
-    project_documentation = "http://github.com/nirmata/kube-policy/docs"
+    project_url = "http://github.com/nirmata/kyverno/"
+    project_documentation = "http://github.com/nirmata/kyverno/docs"
     github_project_name = "kube-policy"
     github_user_name = "nirmata"
     logo = "img/kyverno.png"

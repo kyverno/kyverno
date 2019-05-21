@@ -1,9 +1,9 @@
 package engine
 
 import (
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/violation"
+	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/violation"
 )
 
 // As the logic to process the policies in stateless, we do not need to define struct and implement behaviors for it

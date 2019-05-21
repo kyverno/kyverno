@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/pkg/engine"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/spf13/cobra"
 	yamlv2 "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
