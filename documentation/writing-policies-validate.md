@@ -1,7 +1,7 @@
-<small>*[documentation](/README.md#documentation) / Writing Policies [Writing Policies](/documentation/writing-policies.md) / Validate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Validate*</small>
 
 
-# Policies that Validate Configurations 
+# Validate Configurations 
 
 
 

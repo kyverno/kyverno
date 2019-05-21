@@ -1,10 +1,10 @@
-<small>*[documentation](/README.md#documentation) / Writing Policies [Writing Policies](/documentation/writing-policies.md) / Generate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Generate*</small>
 
-# Policies that Generate Configurations 
-
-
+# Generate Configurations 
 
 
 
-<small>*Read Next >> [Mutate](/documentation/writing-policies-generate.md)*</small>
+
+
+<small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>
 
