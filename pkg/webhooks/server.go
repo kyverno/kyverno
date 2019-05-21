@@ -16,7 +16,6 @@ import (
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
-	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,7 +142,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		return nil
 	}
 
-	var allPatches []mutation.PatchBytes
+	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
@@ -160,7 +159,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed:   true,
-		Patch:     mutation.JoinPatches(allPatches),
+		Patch:     engine.JoinPatches(allPatches),
 		PatchType: &patchType,
 	}
 }
