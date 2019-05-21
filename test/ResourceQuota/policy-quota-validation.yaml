@@ -1,0 +1,42 @@
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-quota-low-test-validation
+spec :
+  rules:
+    - name:
+      resource:
+        kind : ResourceQuota
+        selector:
+          matchLabels:
+            quota: low
+      validate:
+        message: "This RQ requests too many RAM"
+        pattern:
+          spec:
+            hard:
+              memory: "8Gi|12Gi"
+    - name:
+      resource:
+        kind : ResourceQuota
+        selector:
+          matchLabels:
+            quota: low
+      validate:
+        message: "This RQ requests too many CPUs"
+        pattern:
+          spec:
+            hard:
+              cpu: <3
+    - name:
+      resource:
+        kind : ResourceQuota
+        selector:
+          matchLabels:
+            quota: low
+      validate:
+        message: "This RQ requests too many PODs"
+        pattern:
+          spec:
+            hard:
+              pods: 1|2|3|4
