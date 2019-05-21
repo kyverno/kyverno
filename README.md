@@ -113,9 +113,9 @@ Additional examples are available in [examples](/examples).
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Validate](documentation/writing-policies.md)
-  * [Mutate](documentation/writing-policies.md)
-  * [Generate](documentation/writing-policies.md)
+  * [Validate](documentation/writing-policies-validate.md)
+  * [Mutate](documentation/writing-policies-mutate.md)
+  * [Generate](documentation/writing-policies-generate.md)
 * [Testing Policies](documentation/testing-policies.md)
   * [Using kubectl](documentation/testing-policies-kubectl.md)
   * [Using the Kyverno CLI](documentation/testing-policies-kyverno-cli.md)
