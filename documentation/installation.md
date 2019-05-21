@@ -1,23 +1,28 @@
+<small>[documentation](/README.md#documentation) / Installation</small>
+
 # Installation
 
-The controller can be installed and operated in two ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world, and the **QA testing** should be performed when controller operate in this mode.
+To install Kyverno in your cluster run:
 
-
-## Inside the cluster (normal use)
-
-Just execute the command for creating all necesarry resources:
 `kubectl create -f definitions/install.yaml`
 
-In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
-To check if the controller is working, find it in the list of kube-system pods:
+To check if the Kyverno controller
 
-`kubectl get pods -n kube-system`
+`kubectl get pods -n kyverno`
 
-The pod with controller contains **'kube-policy'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
+If the Kyverno controller doesn't start, you can check its status and logs:
 
-`kubectl describe pod <kube-policy-pod-name> -n kube-system`
+`kubectl describe pod <kyverno-pod-name> -n kyverno`
 
-or
+`kubectl logs <kyverno-pod-name> -n kyverno`
 
-`kubectl logs <kube-policy-pod-name> -n kube-system`
+# Installing in a Development Environment
 
+To run Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+
+# Try Kyverno without a Kubernetes cluster
+
+To write and test policies without installing Kyverno in a Kubernetes cluster you can try the [Kyverno CLI](documentation/testing-policies-cli.md).
+
+
+<small>Read Next >> [Writing Policies](/documentation/writing-policies.md)</small>
