@@ -1,4 +1,4 @@
-<small>*[documentation](/README.md#documentation) / Writing Policies [Writing Policies](/documentation/writing-policies.md) / Mutate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate*</small>
 
 # Mutate Configurations 
 
