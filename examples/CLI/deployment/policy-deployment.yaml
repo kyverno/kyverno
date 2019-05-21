@@ -1,0 +1,30 @@
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-deployment
+spec :
+  rules:
+    - name: deployment-policy
+      resource:
+        kind : Deployment
+        selector :
+          matchLabels :
+            cli: test
+      mutate:
+        patches:
+        - path: /metadata/labels/isMutated
+          op: add
+          value: "true"
+        - path: /metadata/labels/app
+          op: replace
+          value: "nginx_is_mutated" 
+      validate:
+        message: "The imagePullPolicy shoud set to Always"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                - (name): "*"
+                  imagePullPolicy: Always
+
