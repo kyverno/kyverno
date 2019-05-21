@@ -1,16 +1,17 @@
-apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
-metadata :
-  name : policy-statefulset
-spec :
-  failurePolicy: stopOnError
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-statefulset
+spec:
   rules:
-    - resource:
+    - name: statefulset1
+      resource:
         kind : StatefulSet
         selector:
           matchLabels:
             originalLabel: isHere
-      patch:
+      mutate:
+        patches:
         - path: "/spec/template/metadata/labels/isMutated"
           op: add
           value: "true"
@@ -22,3 +23,15 @@ spec :
         - path : "/spec/serviceName"
           op : replace
           value : "not-a-nginx"
+      validate:
+        message: "This SS is broken"
+        pattern:
+          spec:
+            replicas: ">20"
+            volumeClaimTemplates:
+            - metadata:
+                name: www
+              spec:
+                resources:
+                  requests:
+                    storage: "<50Gi"

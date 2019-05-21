@@ -11,4 +11,3 @@ spec:
         command: ["perl"]
       restartPolicy: Never
   backoffLimit: 4
-

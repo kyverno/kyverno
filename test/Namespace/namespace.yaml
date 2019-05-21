@@ -1,8 +1,7 @@
 kind: Namespace
 apiVersion: v1
-metadata: 
-    name: "namespace-not-modified"
-    labels: 
-      LabelForSelector : "namespace"
-      replaced : "no"
-      
+metadata:
+  name: namespace-not-modified
+  labels:
+    LabelForSelector : "namespace"
+    replaced : "no"

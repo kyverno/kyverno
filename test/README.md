@@ -29,37 +29,38 @@ test-endpoint   192.168.10.171:443   6s
 ```
 We just created an endpoints resource and made sure that it was created without changes. Let's remove it now and try to create it again, but with an active policy for endpoints resources.
 ```
-> kubectl delete -f test/endpoints.yaml 
+> kubectl delete -f test/endpoints.yaml
 endpoints "test-endpoint" deleted
 ```
 We have this a policy for enpoints (`examples/Endpoints/policy-endpoint.yaml`):
 
 ```
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion : kubepolicy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-endpoints
 spec :
-  failurePolicy: stopOnError
   rules:
-  - resource:
-      kind : Endpoints
-      selector:
-        matchLabels:
-          label : test
-    patch:
-      - path : "/subsets/0/ports/0/port"
-        op : replace
-        value: 9663
-      - path : "/subsets/0"
-        op: add
-        value:
-          addresses:
-          - ip: "192.168.10.171"
-          ports:
-          - name: additional-connection
-            port: 80
-            protocol: UDP
+    - name:
+      resource:
+        kind : Endpoints
+        selector:
+          matchLabels:
+            label : test
+      mutate:
+        patches:
+          - path : "/subsets/0/ports/0/port"
+            op : replace
+            value: 9663
+          - path : "/subsets/0"
+            op: add
+            value:
+              addresses:
+              - ip: "192.168.10.171"
+              ports:
+              - name: load-balancer-connection
+                port: 80
+                protocol: UDP
 ```
 This policy does 2 patches:
 
@@ -68,9 +69,9 @@ This policy does 2 patches:
 
 Let's apply this policy and create the endpoints again to see the changes:
 ```
-> kubectl create -f examples/Endpoints/policy-endpoints.yaml 
+> kubectl create -f examples/Endpoints/policy-endpoints.yaml
 policy.policy.nirmata.io/policy-endpoints created
-> kubectl create -f examples/Endpoints/endpoints.yaml 
+> kubectl create -f examples/Endpoints/endpoints.yaml
 endpoints/test-endpoint created
 > kubectl get -f examples/Endpoints/endpoints.yaml
 NAME            ENDPOINTS                               AGE
