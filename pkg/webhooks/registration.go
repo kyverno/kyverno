@@ -4,8 +4,8 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"github.com/nirmata/kube-policy/client"
-	"github.com/nirmata/kube-policy/pkg/config"
+	"github.com/nirmata/kyverno/client"
+	"github.com/nirmata/kyverno/pkg/config"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"

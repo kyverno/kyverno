@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	kyverno "github.com/nirmata/kube-policy/pkg/kyverno"
+	kyverno "github.com/nirmata/kyverno/pkg/kyverno"
 )
 
 func main() {
