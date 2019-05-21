@@ -1,27 +1,21 @@
-apiVersion : policy.nirmata.io/v1alpha1
-
-kind : Policy
-
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
 metadata :
   name : policy-namespace
 
 spec :
-  failurePolicy: stopOnError
-
   rules:
-  - resource:
-      kind : Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace"
-      
-    patch:
-    - path: "/metadata/labels/replaced"
-      op: add
-      value: "yes"
-    - path: "/metadata/name"
-      op: replace
-      value: "modified-namespace-name"
-
-  
-   
+    - name: ns1
+      resource:
+        kind : Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace"
+      mutate:
+        patches:
+        - path: "/metadata/labels/replaced"
+          op: add
+          value: "yes"
+        - path: "/metadata/name"
+          op: replace
+          value: "modified-namespace"

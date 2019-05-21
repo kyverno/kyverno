@@ -1,16 +1,24 @@
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion : kubepolicy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-limitrange
 spec :
-  failurePolicy: stopOnError
   rules:
-    - resource:
+    - name:
+      resource:
         kind : LimitRange
         selector:
           matchLabels:
             containerSize: minimal
-      patch:
-        - path : "/spec/limits/0/default/memory"
+      mutate:
+        patches:
+        - path : "/spec/limits/0/memory"
           op : replace
           value: "384Mi"
+      validate:
+        message: "The CPU value is incorrect"
+        pattern:
+          spec:
+            limits:
+            - default:
+                cpu: 9m

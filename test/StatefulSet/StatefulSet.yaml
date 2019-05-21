@@ -2,32 +2,29 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: game-web
-
   labels:
-
     originalLabel : isHere
-
 spec:
   selector:
     matchLabels:
-      app: nginx-but-no # has to match .spec.template.metadata.labels
-  serviceName: "nginx-but-no"
+      app: nginxo # has to match .spec.template.metadata.labels
+  serviceName: "nginxo"
   replicas: 3 # by default is 1
   template:
     metadata:
       labels:
-        app: nginx-but-no # has to match .spec.selector.matchLabels
+        app: nginxo # has to match .spec.selector.matchLabels
     spec:
       terminationGracePeriodSeconds: 10
       containers:
-      - name: nginx-but-no
+      - name: nginxo
         image: k8s.gcr.io/nginx-but-no-slim:0.8
         ports:
         - containerPort: 8780
           name: webp
         volumeMounts:
         - name: www
-          mountPath: /usr/share/nginx-but-no/html
+          mountPath: /usr/share/nginxo/html
   volumeClaimTemplates:
   - metadata:
       name: www

@@ -1,17 +1,25 @@
-apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
-metadata :
-  name : policy-pdb
-spec :
-  failurePolicy: stopOnError
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-pdb
+spec:
   rules:
-    - resource:
+    - name: pdb1
+      resource:
         kind : PodDisruptionBudget
         name: "game-pdb"
-      patch:
+      mutate:
+        patches:
         - path: "/metadata/labels/isMutated"
           op: add
           value: "true"
         - path : "/spec/minAvailable"
           op : replace
           value: "5%"
+      validate:
+        message: "This PDB has the wrong selector"
+        pattern:
+          spec:
+            selector:
+              matchLabels:
+                app: "zoo*"

@@ -1,19 +1,20 @@
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion : kubepolicy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-quota-low-test
 spec :
-  failurePolicy: stopOnError
   rules:
-    - resource:
+    - name:
+      resource:
         kind : ResourceQuota
         selector:
           matchLabels:
             quota: low
-      patch:
+      mutate:
+        patches:
         - path : "/spec/scopeSelector/matchExpressions/1"
           op : add
-          value : 
+          value :
             operator : In
             scopeName: PriorityClass
             values: ["low-medium"]
@@ -26,3 +27,6 @@ spec :
             "limits.memory": "12Gi",
             "requests.nvidia.com/gpu": "8"
           }
+        - path : "/metadata/labels/quota-soft"
+          op : replace
+          value : replaced

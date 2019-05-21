@@ -1,20 +1,30 @@
-apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
-metadata :
-  name : policy-hpa
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-hpa
 spec :
-  failurePolicy: stopOnError
   rules:
-    - resource:
+    - name: hpa1
+      resource:
         kind : HorizontalPodAutoscaler
         selector:
           matchLabels:
             originalLabel: isHere
-      patch:
-        - path: "/metadata/labels"
+      mutate:
+        patches:
+        - path: "/metadata/labels/isMutated"
           op: add
-          value:
-            isMutated: "true"
+          value: "true"
         - op: replace
           path: "/spec/metrics/1/resource/targetAverageValue"
           value: "959Mi"
+      validate:
+        message: "There is wrong resorce request or apiVersion"
+        pattern:
+          spec:
+            scaleTargetRef:
+              apiVersion: extensions/v1beta1
+#            metrics:
+#              - type: Resource
+#                resource:
+#                  name: cpu|memory
