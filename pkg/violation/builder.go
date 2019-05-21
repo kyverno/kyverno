@@ -104,9 +104,7 @@ func (b *builder) isActive(kind string, resource string) (bool, error) {
 		return false, err
 	}
 	// Generate Merge Patch
-	//TODO: test for namspace and clustered object
 	_, err = b.client.GetResource(kind, namespace, name)
-	//	_, err := b.kubeClient.GetResource(kind, resource)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("unable to get resource %s ", resource))
 		return false, err

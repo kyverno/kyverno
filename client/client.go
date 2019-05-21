@@ -29,7 +29,7 @@ type Client struct {
 	clientConfig *rest.Config
 }
 
-func NewDynamicClient(config *rest.Config, logger *log.Logger) (*Client, error) {
+func NewClient(config *rest.Config, logger *log.Logger) (*Client, error) {
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	// Get configMap resource
-	unstrSecret, err := c.GetResource("secrets", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	unstrSecret, err := c.GetResource(Secret, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, 
 func (c *Client) createSecretAfterNamespaceIsCreated(secret v1.Secret, namespace string) {
 	err := c.waitUntilNamespaceIsCreated(namespace)
 	if err == nil {
-		_, err = c.CreateResource("secrets", namespace, secret)
+		_, err = c.CreateResource(Secret, namespace, secret)
 	}
 	if err != nil {
 		c.logger.Printf("Can't create a secret: %s", err)

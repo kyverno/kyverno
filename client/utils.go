@@ -11,10 +11,15 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	CSR    string = "certificatesigningrequests"
+	Secret string = "secrets"
+)
 const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
 const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 
 var groupVersionMapper map[string]schema.GroupVersionResource
+var kubeClient *kubernetes.Clientset
 
 func getGrpVersionMapper(kind string, clientConfig *rest.Config, refresh bool) schema.GroupVersionResource {
 	// build the GVK mapper
@@ -83,9 +88,12 @@ func refreshRegisteredResources(mapper map[string]schema.GroupVersionResource, c
 }
 
 func newKubeClient(clientConfig *rest.Config) (*kubernetes.Clientset, error) {
-	client, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
+	var err error
+	if kubeClient == nil {
+		kubeClient, err = kubernetes.NewForConfig(clientConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return client, nil
+	return kubeClient, nil
 }

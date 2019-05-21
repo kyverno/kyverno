@@ -26,7 +26,7 @@ func main() {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	client, err := client.NewDynamicClient(clientConfig, nil)
+	client, err := client.NewClient(clientConfig, nil)
 	if err != nil {
 		log.Fatalf("Error creating client: %v\n", err)
 	}
