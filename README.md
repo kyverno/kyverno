@@ -1,4 +1,4 @@
-# Kyverno - Kubernetes Native Policy Management
+# <center>Kyverno - Kubernetes Native Policy Management</center>
 
 ![logo](documentation/images/Kyverno_Horizontal.png)
 
