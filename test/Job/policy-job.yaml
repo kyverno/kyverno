@@ -6,7 +6,8 @@ spec :
   rules:
     - name: job1
       resource:
-        kind: Job
+        kinds: 
+        - Job
         name: pi
       mutate:
         patches:

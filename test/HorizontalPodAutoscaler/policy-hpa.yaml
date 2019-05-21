@@ -6,7 +6,8 @@ spec :
   rules:
     - name: hpa1
       resource:
-        kind : HorizontalPodAutoscaler
+        kinds : 
+        - HorizontalPodAutoscaler
         selector:
           matchLabels:
             originalLabel: isHere

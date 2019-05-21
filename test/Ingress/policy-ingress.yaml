@@ -6,7 +6,8 @@ spec :
   rules:
     - name: ingress1
       resource:
-        kind : Ingress
+        kinds : 
+        - Ingress
         selector:
           matchLabels:
             originalLabel: isHere

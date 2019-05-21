@@ -6,7 +6,8 @@ spec:
   rules:
     - name: podtemplate1
       resource:
-        kind : PodTemplate
+        kinds : 
+        - PodTemplate
         selector:
           matchLabels:
             originalLabel: isHere

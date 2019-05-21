@@ -6,7 +6,8 @@ spec:
   rules:
     - name: np1
       resource:
-        kind : NetworkPolicy
+        kinds : 
+        - NetworkPolicy
         selector:
           matchLabels:
             originalLabel: isHere

@@ -4,9 +4,10 @@ metadata :
   name : policy-quota-low-test
 spec :
   rules:
-    - name:
+    - name: "rule"
       resource:
-        kind : ResourceQuota
+        kinds : 
+        - ResourceQuota
         selector:
           matchLabels:
             quota: low
