@@ -1,4 +1,4 @@
-<small>[documentation](/README.md#documentation) / Writing Policies</small>
+<small>*[documentation](/README.md#documentation) / Writing Policies*</small>
 
 # Writing Policies
 
@@ -38,4 +38,4 @@ spec :
 ````
 
 
-<small>Read Next >> [Validate](/documentation/writing-policies-validate.md)</small>
+<small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>

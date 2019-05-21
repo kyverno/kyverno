@@ -117,8 +117,8 @@ Additional examples are available in [examples](/examples).
   * [Mutate](documentation/writing-policies-mutate.md)
   * [Generate](documentation/writing-policies-generate.md)
 * [Testing Policies](documentation/testing-policies.md)
-  * [Using kubectl](documentation/testing-policies-kubectl.md)
-  * [Using the Kyverno CLI](documentation/testing-policies-kyverno-cli.md)
+  * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
+  * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
 
 
 ## Roadmap
