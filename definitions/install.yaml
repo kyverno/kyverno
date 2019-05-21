@@ -29,14 +29,14 @@ spec:
                 required:
                 - name
                 - resource
-                parameters:
+                properties:
                   name:
                     type: string
                   resource:
                     type: object
                     required:
                     - kind
-                    parameters:
+                    properties:
                       kind:
                         type: string
                         enum:
@@ -115,36 +115,33 @@ spec:
                       pattern:
                         AnyValue: {}
                   generate:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - kind
-                      - name
-                      - copyFrom
-                      properties:
-                        kind:
-                          type: string
-                        name:
-                          type: string
-                        copyFrom:
-                          type: object
-                          required:
-                          - namespace
-                          - name
-                          properties:
-                            namespace:
-                              type: string
-                            name:
-                              type: string
-                        data:
-                          type: object
-                          additionalProperties:
+                    type: object
+                    required:
+                    - kind
+                    - name
+                    properties:
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      copyFrom:
+                        type: object
+                        required:
+                        - namespace
+                        - name
+                        properties:
+                          namespace:
                             type: string
-                        labels:
-                          type: object
-                          additionalProperties:
+                          name:
                             type: string
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      labels:
+                        type: object
+                        additionalProperties:
+                          type: string
 ---
 apiVersion: v1
 kind: Service
