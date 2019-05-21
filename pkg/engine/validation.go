@@ -56,7 +56,6 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		}
 	}
 
-	log.Println("Validation is successful")
 	return nil
 }
 
