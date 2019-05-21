@@ -104,3 +104,15 @@ func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 	}
 	return strings.Trim(regex[1], " "), true
 }
+
+func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for key, value := range anchorsMap {
+		if wrappedWithParentheses(key) {
+			result[key] = value
+		}
+	}
+
+	return result
+}
