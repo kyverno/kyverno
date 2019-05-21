@@ -12,11 +12,12 @@ import (
 	"os"
 	"time"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
-	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/client"
+	"github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
+	"github.com/nirmata/kube-policy/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,17 +28,17 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
-	policyLister policylister.PolicyLister
-	kubeClient   *kubeClient.KubeClient
+	client       *client.Client
+	policyLister v1alpha1.PolicyLister
 	logger       *log.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	policyLister policylister.PolicyLister,
-	kubeClient *kubeClient.KubeClient,
+	shareInformer sharedinformer.PolicyInformer,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -55,8 +56,8 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		policyLister: policyLister,
-		kubeClient:   kubeClient,
+		client:       client,
+		policyLister: shareInformer.GetLister(),
 		logger:       logger,
 	}
 
@@ -86,8 +87,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-
-	if KindIsSupported(admissionReview.Request.Kind.Kind) {
+	if ws.client.KindIsSupported(admissionReview.Request.Kind.Kind) {
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
 			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
@@ -193,7 +193,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 
 		// generation
-		engine.Generate(*policy, request.Object.Raw, ws.kubeClient, request.Kind)
+		engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
 	}
 
 	ws.logger.Println("Validation is successful")

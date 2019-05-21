@@ -83,4 +83,3 @@ spec :
       data :
         foo : bar
         secretData: "data from sg"
-
