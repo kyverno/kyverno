@@ -4,17 +4,17 @@
 
 To install Kyverno in your cluster run:
 
-`kubectl create -f definitions/install.yaml`
+  `kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml`
 
-To check if the Kyverno controller
+To check if the Kyverno controller is running use:
 
-`kubectl get pods -n kyverno`
+  `kubectl get pods -n kyverno`
 
-If the Kyverno controller doesn't start, you can check its status and logs:
+If the Kyverno controller doesn't start, you can check its status and logs for errors:
 
-`kubectl describe pod <kyverno-pod-name> -n kyverno`
+  `kubectl describe pod <kyverno-pod-name> -n kyverno`
 
-`kubectl logs <kyverno-pod-name> -n kyverno`
+  `kubectl logs <kyverno-pod-name> -n kyverno`
 
 # Installing in a Development Environment
 
