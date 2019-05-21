@@ -4,12 +4,12 @@ import (
 	"flag"
 	"log"
 
-	client "github.com/nirmata/kube-policy/client"
-	controller "github.com/nirmata/kube-policy/pkg/controller"
-	event "github.com/nirmata/kube-policy/pkg/event"
-	"github.com/nirmata/kube-policy/pkg/sharedinformer"
-	"github.com/nirmata/kube-policy/pkg/violation"
-	"github.com/nirmata/kube-policy/pkg/webhooks"
+	client "github.com/nirmata/kyverno/client"
+	controller "github.com/nirmata/kyverno/pkg/controller"
+	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	"github.com/nirmata/kyverno/pkg/violation"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
 )
 

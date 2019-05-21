@@ -3,10 +3,10 @@ package sharedinformer
 import (
 	"fmt"
 
-	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
-	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
-	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
-	v1alpha1 "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	policyclientset "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	informers "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
+	infomertypes "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )

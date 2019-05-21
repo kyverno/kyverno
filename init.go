@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/url"
 
-	client "github.com/nirmata/kube-policy/client"
-	"github.com/nirmata/kube-policy/pkg/config"
-	tls "github.com/nirmata/kube-policy/pkg/tls"
+	client "github.com/nirmata/kyverno/client"
+	"github.com/nirmata/kyverno/pkg/config"
+	tls "github.com/nirmata/kyverno/pkg/tls"
 
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"

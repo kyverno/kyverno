@@ -5,8 +5,8 @@ import (
 
 	"gotest.tools/assert"
 
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kube-policy/webhooks"
+	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/webhooks"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
