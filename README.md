@@ -37,16 +37,18 @@ spec:
     validate:
       message: "CPU and memory resource requests and limits are required"
       pattern:
-      spec:
-        containers:
-        - name: "*"
-          resources:
-            limits:
-              memory: "?"
-              cpu: "?"
-            requests:
-              memory: "?"
-              cpu: "?"
+        spec:
+          containers:
+          # 'name: *' selects all containers in the pod
+          - name: "*"
+            resources:
+              limits:
+                # '?' requires a value (at least 1 character) 
+                memory: "?"
+                cpu: "?"
+              requests:
+                memory: "?"
+                cpu: "?"
 ````
 
 ### 2. Mutating resources
