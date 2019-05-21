@@ -1,17 +1,16 @@
 apiVersion: policy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
-  name: whitelist-registries
+  name: image-pull-policy
 spec:
   rules:
-  - name: check-whitelist-registries
-    message: "Registry is not allowed"
+  - name: image-pull-policy
+    message: "Image tag ':latest' requires imagePullPolicy 'Always'"
     resource:
       kind: Deployment
-    validate:
-      pattern:
-        template:
-          spec:
-            containers:              
-              - image: "(*:latest)"       # select images which end with :latest            
-                imagePullPolicy: "Always" # ensure that the imagePullPolicy is "Always"
+    overlay:
+      template:
+        spec:
+          containers:              
+            - image: "(*:latest)"       # select images which end with :latest            
+              imagePullPolicy: "Always" # ensure that the imagePullPolicy is "Always"
