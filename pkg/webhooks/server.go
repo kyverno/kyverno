@@ -87,8 +87,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-
-	if KindIsSupported(admissionReview.Request.Kind.Kind) {
+	if ws.client.KindIsSupported(admissionReview.Request.Kind.Kind) {
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
 			admissionReview.Response = ws.HandleMutation(admissionReview.Request)

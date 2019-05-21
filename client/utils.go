@@ -17,26 +17,32 @@ const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 var groupVersionMapper map[string]schema.GroupVersionResource
 
 func getGrpVersionMapper(kind string, clientConfig *rest.Config, refresh bool) schema.GroupVersionResource {
-	grpVersionSchema := schema.GroupVersionResource{}
-
-	if groupVersionMapper == nil || refresh {
-		groupVersionMapper = make(map[string]schema.GroupVersionResource)
-		// refesh the mapper
-		if err := refreshRegisteredResources(groupVersionMapper, clientConfig); err != nil {
-			utilruntime.HandleError(err)
-			return grpVersionSchema
-		}
-	}
+	// build the GVK mapper
+	buildGVKMapper(clientConfig, refresh)
 	// Query mapper
 	if val, ok := getValue(kind); ok {
 		return *val
 	}
 	utilruntime.HandleError(fmt.Errorf("Resouce '%s' not registered", kind))
-	return grpVersionSchema
+	return schema.GroupVersionResource{}
+}
+
+func buildGVKMapper(clientConfig *rest.Config, refresh bool) {
+	if groupVersionMapper == nil || refresh {
+		groupVersionMapper = make(map[string]schema.GroupVersionResource)
+		// refresh the mapper
+		if err := refreshRegisteredResources(groupVersionMapper, clientConfig); err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+	}
 }
 
 func getValue(kind string) (*schema.GroupVersionResource, bool) {
-
+	if groupVersionMapper == nil {
+		utilruntime.HandleError(fmt.Errorf("GroupVersionKind mapper is not loaded"))
+		return nil, false
+	}
 	if val, ok := groupVersionMapper[kind]; ok {
 		return &val, true
 	}
