@@ -2,9 +2,13 @@
 
 ![logo](documentation/images/Kyverno_Horizontal.png)
 
-Kyverno is a policy engine built for Kubernetes.
+Kyverno is a policy engine designed for Kubernetes.
 
-Kyverno policies are Kubernetes custom resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
+Kubernetes supports declarative management of objects using configurations written in YAML or JSON. Often, parts of the configuration will need to vary based on the runtime environment. For portability, and for separation of concerns, its best to mantain environment specific configurations separately from workload configurations.
+
+Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
+
+Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
 
 Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching polcies to return results that enforce admission policies or reject requests.
 
@@ -13,10 +17,6 @@ Kyverno policies can match resources using the resource kind, name, and label se
 Mutating policies can be written as overlays (similar to [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#bases-and-overlays)) or as a [JSON Patch](http://jsonpatch.com/). Validating policies also use an overlay style syntax, with support for pattern matching and conditional (if-then-else) processing. 
 
 Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
-
-## Status
-
-*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
 
 ## Examples
 
@@ -102,18 +102,24 @@ spec:
 
 Additional examples are available in [examples](/examples).
 
+## Status
+
+*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
+
 
 ## Documentation
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Validate Rules](documentation/writing-policies.md)
-  * [Mutate Rules](documentation/writing-policies.md)
-  * [Generate Rules](documentation/writing-policies.md)
+  * [Validate](documentation/writing-policies.md)
+  * [Mutate](documentation/writing-policies.md)
+  * [Generate](documentation/writing-policies.md)
 * [Testing Policies](documentation/testing-policies.md)
+  * [Using kubectl](documentation/testing-policies-kubectl.md)
+  * [Using the Kyverno CLI](documentation/testing-policies-kyverno-cli.md)
 
 
-## Status and Roadmap
+## Roadmap
 
 Here are some the major features we plan on completing before a 1.0 release:
 
