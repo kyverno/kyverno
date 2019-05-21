@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 
-	kubeclient "github.com/nirmata/kube-policy/kubeclient"
+	"github.com/nirmata/kube-policy/client"
 	"github.com/nirmata/kube-policy/pkg/config"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
@@ -16,12 +16,12 @@ import (
 // WebhookRegistrationClient is client for registration webhooks on cluster
 type WebhookRegistrationClient struct {
 	registrationClient *admregclient.AdmissionregistrationV1beta1Client
-	kubeclient         *kubeclient.KubeClient
+	client             *client.Client
 	clientConfig       *rest.Config
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
-func NewWebhookRegistrationClient(clientConfig *rest.Config, kubeclient *kubeclient.KubeClient) (*WebhookRegistrationClient, error) {
+func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client) (*WebhookRegistrationClient, error) {
 	registrationClient, err := admregclient.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewWebhookRegistrationClient(clientConfig *rest.Config, kubeclient *kubecli
 
 	return &WebhookRegistrationClient{
 		registrationClient: registrationClient,
-		kubeclient:         kubeclient,
+		client:             client,
 		clientConfig:       clientConfig,
 	}, nil
 }
@@ -149,7 +149,7 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 }
 
 func (wrc *WebhookRegistrationClient) constructOwner() meta.OwnerReference {
-	kubePolicyDeployment, err := wrc.kubeclient.GetKubePolicyDeployment()
+	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
 
 	if err != nil {
 		return meta.OwnerReference{}

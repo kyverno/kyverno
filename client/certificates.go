@@ -1,4 +1,4 @@
-package kubeclient
+package client
 
 import (
 	"errors"
@@ -7,14 +7,13 @@ import (
 
 	tls "github.com/nirmata/kube-policy/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Issues TLS certificate for webhook server using given PEM private key
 // Returns signed and approved TLS certificate in PEM format
-func (kc *KubeClient) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
+func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
 	privateKey, err := tls.TlsGeneratePrivateKey()
 	if err != nil {
 		return nil, err
@@ -25,12 +24,12 @@ func (kc *KubeClient) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.Tl
 		return nil, errors.New(fmt.Sprintf("Unable to create certificate request: %v", err))
 	}
 
-	certRequest, err = kc.submitAndApproveCertificateRequest(certRequest)
+	certRequest, err = c.submitAndApproveCertificateRequest(certRequest)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to submit and approve certificate request: %v", err))
 	}
 
-	tlsCert, err := kc.fetchCertificateFromRequest(certRequest, 10)
+	tlsCert, err := c.fetchCertificateFromRequest(certRequest, 10)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to fetch certificate from request: %v", err))
 	}
@@ -42,31 +41,37 @@ func (kc *KubeClient) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.Tl
 }
 
 // Submits and approves certificate request, returns request which need to be fetched
-func (kc *KubeClient) submitAndApproveCertificateRequest(req *certificates.CertificateSigningRequest) (*certificates.CertificateSigningRequest, error) {
-	certClient := kc.client.CertificatesV1beta1().CertificateSigningRequests()
-
-	csrList, err := certClient.List(metav1.ListOptions{})
+func (c *Client) submitAndApproveCertificateRequest(req *certificates.CertificateSigningRequest) (*certificates.CertificateSigningRequest, error) {
+	certClient, err := c.GetCSRInterface()
+	if err != nil {
+		return nil, err
+	}
+	csrList, err := c.ListResource(CSR, "")
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to list existing certificate requests: %v", err))
 	}
 
 	for _, csr := range csrList.Items {
-		if csr.ObjectMeta.Name == req.ObjectMeta.Name {
-			err := certClient.Delete(csr.ObjectMeta.Name, defaultDeleteOptions())
+		if csr.GetName() == req.ObjectMeta.Name {
+			err := c.DeleteResouce(CSR, "", csr.GetName())
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("Unable to delete existing certificate request: %v", err))
 			}
-			kc.logger.Printf("Old certificate request is deleted")
+			c.logger.Printf("Old certificate request is deleted")
 			break
 		}
 	}
 
-	res, err := certClient.Create(req)
+	unstrRes, err := c.CreateResource(CSR, "", req)
 	if err != nil {
 		return nil, err
 	}
-	kc.logger.Printf("Certificate request %s is created", req.ObjectMeta.Name)
+	c.logger.Printf("Certificate request %s is created", unstrRes.GetName())
 
+	res, err := convertToCSR(unstrRes)
+	if err != nil {
+		return nil, err
+	}
 	res.Status.Conditions = append(res.Status.Conditions, certificates.CertificateSigningRequestCondition{
 		Type:    certificates.CertificateApproved,
 		Reason:  "NKP-Approve",
@@ -76,20 +81,21 @@ func (kc *KubeClient) submitAndApproveCertificateRequest(req *certificates.Certi
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to approve certificate request: %v", err))
 	}
-	kc.logger.Printf("Certificate request %s is approved", res.ObjectMeta.Name)
+	c.logger.Printf("Certificate request %s is approved", res.ObjectMeta.Name)
 
 	return res, nil
 }
 
-const certificateFetchWaitInterval time.Duration = 200 * time.Millisecond
-
 // Fetches certificate from given request. Tries to obtain certificate for maxWaitSeconds
-func (kc *KubeClient) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
+func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
 	// TODO: react of SIGINT and SIGTERM
 	timeStart := time.Now()
-	certClient := kc.client.CertificatesV1beta1().CertificateSigningRequests()
 	for time.Now().Sub(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		r, err := certClient.Get(req.ObjectMeta.Name, metav1.GetOptions{})
+		unstrR, err := c.GetResource(CSR, "", req.ObjectMeta.Name)
+		if err != nil {
+			return nil, err
+		}
+		r, err := convertToCSR(unstrR)
 		if err != nil {
 			return nil, err
 		}
@@ -111,24 +117,27 @@ const privateKeyField string = "privateKey"
 const certificateField string = "certificate"
 
 // Reads the pair of TLS certificate and key from the specified secret.
-func (kc *KubeClient) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
+func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	name := generateSecretName(props)
-	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
+	unstrSecret, err := c.GetResource(Secret, props.Namespace, name)
 	if err != nil {
-		kc.logger.Printf("Unable to get secret %s/%s: %s", props.Namespace, name, err)
+		c.logger.Printf("Unable to get secret %s/%s: %s", props.Namespace, name, err)
 		return nil
 	}
-
+	secret, err := convertToSecret(unstrSecret)
+	if err != nil {
+		return nil
+	}
 	pemPair := tls.TlsPemPair{
 		Certificate: secret.Data[certificateField],
 		PrivateKey:  secret.Data[privateKeyField],
 	}
 	if len(pemPair.Certificate) == 0 {
-		kc.logger.Printf("TLS Certificate not found in secret %s/%s", props.Namespace, name)
+		c.logger.Printf("TLS Certificate not found in secret %s/%s", props.Namespace, name)
 		return nil
 	}
 	if len(pemPair.PrivateKey) == 0 {
-		kc.logger.Printf("TLS PrivateKey not found in secret %s/%s", props.Namespace, name)
+		c.logger.Printf("TLS PrivateKey not found in secret %s/%s", props.Namespace, name)
 		return nil
 	}
 	return &pemPair
@@ -136,24 +145,28 @@ func (kc *KubeClient) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair
 
 // Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (kc *KubeClient) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
+func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	name := generateSecretName(props)
-	secret, err := kc.client.CoreV1().Secrets(props.Namespace).Get(name, metav1.GetOptions{})
+	unstrSecret, err := c.GetResource(Secret, props.Namespace, name)
+	if err == nil {
+		secret, err := convertToSecret(unstrSecret)
+		if err != nil {
+			return nil
+		}
 
-	if err == nil { // Update existing secret
 		if secret.Data == nil {
 			secret.Data = make(map[string][]byte)
 		}
 		secret.Data[certificateField] = pemPair.Certificate
 		secret.Data[privateKeyField] = pemPair.PrivateKey
-
-		secret, err = kc.client.CoreV1().Secrets(props.Namespace).Update(secret)
+		_, err = c.UpdateResource(Secret, props.Namespace, secret)
 		if err == nil {
-			kc.logger.Printf("Secret %s is updated", name)
+			c.logger.Printf("Secret %s is updated", name)
 		}
 
-	} else { // Create new secret
-		secret = &v1.Secret{
+	} else {
+
+		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
 				APIVersion: "v1",
@@ -168,9 +181,9 @@ func (kc *KubeClient) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.T
 			},
 		}
 
-		secret, err = kc.client.CoreV1().Secrets(props.Namespace).Create(secret)
+		_, err := c.CreateResource(Secret, props.Namespace, secret)
 		if err == nil {
-			kc.logger.Printf("Secret %s is created", name)
+			c.logger.Printf("Secret %s is created", name)
 		}
 	}
 	return err
