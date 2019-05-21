@@ -1,267 +1,137 @@
-# kube-policy
-A Kubernetes native policy engine
+# Kyverno - Kubernetes Native Policy Management
 
-## Motivation
+![logo](documentation/images/Kyverno_Horizontal.png)
 
-## How it works
-The solution provides a possibility to validate Kubernetes resources and modify them before their creation. 
-### Components
+Kyverno is a policy engine designed for Kubernetes.
 
-* **Policy Controller** (`/controller`) allows defining custom resources which can be used in your Kubernetes cluster
-* **WebHooks Server** (`/server`) implements connection between Kubernetes API server and **Mutation WebHook**
-* **Mutation WebHook** (`/webhooks`) allows applying Nirmata policies for validation and mutation of the certain types of resources (see the list below)
-* **Kube Client** (`/kubeclient`) allows other components to communicate with Kubernetes API server for resource management in a cluster
-* **Initialization functions** (`/init.go`, `/utils`) allow running the controller inside the cluster without deep pre-tuning
+Kubernetes supports declarative management of objects using configurations written in YAML or JSON. Often, parts of the configuration will need to vary based on the runtime environment. For portability, and for separation of concerns, its best to mantain environment specific configurations separately from workload configurations.
 
-The program initializes the configuration of the client API Kubernetes and creates an HTTPS server with a webhook for resource mutation. When a resource is created in a cluster for various reasons, the Kerbernetes core sends a request for a mutation of this resource to the webhook. The policy controller manages the objects of the policies created in the cluster and is always aware of which policies are currently in effect: information on the policies is available on the webhook due to the policy controller. The request to create a resource contains its full definition. If the resource matches to one or more of the current policies, the resource is mutated in accordance with them.
+Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
 
-### Policy application
+Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
 
-**Supported resource types:**
-* ConfigMap
-* CronJob
-* DaemonSet
-* Deployment
-* Endpoints
-* HorizontalPodAutoscaler
-* Ingress
-* Job
-* LimitRange
-* Namespace
-* NetworkPolicy
-* PersistentVolumeClaim
-* PodDisruptionBudget
-* PodTemplate
-* ResourceQuota
-* Secret
-* Service
-* StatefulSet
+Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching polcies to return results that enforce admission policies or reject requests.
 
-When a request for a resource creation is received (i.e. a YAML file), it will be checked against the corresponding Nirmata policies. 
-The policy for a resource is looked up either by the resource name, or with the help of selector. 
-In case the data in the YAML file does not conform to the policy, the resource will be mutated with the help of the **Mutation WebHook**, which can perform one of the following:
+Kyverno policies can match resources using the resource kind, name, and label selectors. Wildcards are supported in names.
 
-* **add**: either add a lacking key and its value or replace a value of the already existing key;
-* **replace**: either replace a value of the already existing key or add a lacking key and its value;
-* **remove**: remove an unnecessary key and its value. 
+Mutating policies can be written as overlays (similar to [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#bases-and-overlays)) or as a [JSON Patch](http://jsonpatch.com/). Validating policies also use an overlay style syntax, with support for pattern matching and conditional (if-then-else) processing. 
 
-**NOTE**: **add** and **replace** behave in the same way, so they can be used interchangeably. However, there is the difference between the **add** and **replace** operations when mutating an array. In this case **add** will add an element to the list, whereas **replace** will replace the whole list.
-
-After the resource YAML file is mutated, the required object is created in the Kubernetes cluster. 
+Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
 
 ## Examples
 
-### 1. Mutation of deployment resource
-Here is the policy:
-```
-apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
-metadata : 
-  name : policy-deployment-ghost   
-spec :
-  failurePolicy: stopOnError
+### 1. Validating resources
+
+This policy requires that all pods have CPU and memory resource requests and limits:
+
+````yaml
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-cpu-memory
+spec:
   rules:
-    - resource:
-        kind : Deployment    
-        name :
-        selector :
-          matchLabels :
-           nirmata.io/deployment.name: "ghost"
-      patch:
-      - path: /metadata/labels/isMutated
-        op: add
-        value: "true"
-      - path: "/spec/strategy/rollingUpdate/maxSurge"
-        op: add
-        value: 5
-      - path: "/spec/template/spec/containers/0/ports/0"
-        op: replace
-        value:
-          containerPort: 2368
-          protocol: TCP
-  ```
- 
-In the **name** parameter, you should specify the policy name.
+  - name: check-pod-resources
+    resource:
+      kind: Pod
+    validate:
+      message: "CPU and memory resource requests and limits are required"
+      pattern:
+        spec:
+          containers:
+          # 'name: *' selects all containers in the pod
+          - name: "*"
+            resources:
+              limits:
+                # '?' requires a value (at least 1 character) 
+                memory: "?"
+                cpu: "?"
+              requests:
+                memory: "?"
+                cpu: "?"
+````
 
-The **failurePolicy** parameter is optional. It is set to **stopOnError** by default. Other possible value is **continueOnError**. If **continueOnError** is specified, the resource will be created despite the errors that may have occurred in the webhook.
+### 2. Mutating resources
 
-The **rules** section consists of the mandatory **resource** sub-section and an optional **patch** sub-section.
+This policy sets the imagePullPolicy to Always if the image tag is latest:
 
-The **resource** sub-section defines to which kind of the supported resources a Nirmata policy has to be applied:
-
-* In the **kind** parameter, you should specify the resource type. You can find the list of the supported types in the **How it works** section. 
-* In the **name** parameter, you should specify the name of the resource the policy has to be applied to. This parameter can be omitted if **selector** is specified.
-* In the **selector** parameter, you should specify conditions based on which the resources will be chosen for the policy to be applied to. This parameter is optional if **name** is specified. 
- 
-The **patch** sub-section defines what needs to be changed (i.e. mutated) before resource creation can take place. This section contains multiple entries of the path, operation, and value.
-
-* In the **path** parameter, you should specify the required path. 
-* In the **op** parameter, you should specify the required operation (Add | Replace | Delete).
-* In the **value** parameter, you should specify either a number, a YAML string, or text. 
-
-### 2. Adding secret and config map to namespace
-```
-apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
-metadata : 
-  name : policy-namespace-default
-spec :
-  failurePolicy: stopOnError
+````yaml
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: set-image-pull-policy
+spec:
   rules:
-    - resource:
-        kind : Namespace    
-        name :
-        selector :
-          matchLabels :
-           target: "production"
-      configMapGenerator :
-        name: game-config-env-file
-        copyFrom: 
-          namespace: some-ns
-          name: some-other-config-map
-        data:
-          foo: bar
-          app.properties: /
-            foo1=bar1
-            foo2=bar2
-          ui.properties: /
-            foo1=bar1
-            foo2=bar2
-      secretGenerator :
-        name: game-secrets
-        copyFrom: 
-          namespace: some-ns
-          name: some-other-secrets
-        data: # data is optional
-  ```
-In this example, the **rules** section has the mandatory **resource** sub-section, additional **secretGenerator** and **configMapGenerator** sub-sections, and no optional **patch** sub-section.
+  - name: set-image-pull-policy
+    resource:
+      kind: Pod
+    mutate:
+      overlay:
+        spec:
+          containers:
+            # match images which end with :latest   
+            - image: "(*:latest)"
+              # set the imagePullPolicy to "Always"
+              imagePullPolicy: "Always"
+````
 
-The **configMapGenerator** sub-section defines the contents of the config-map which will be created in the future namespace.
+### 3. Generating resources
 
-The **copyFrom** parameter contains information about template config-map. The **data** parameter describes the contents of the created config-map. **copyFrom** and **data** are optional, but at least one of these fields must be specified. If both **copyFrom** and **data** are specified, then the template **copyFrom** will be used for the configuration, and then the specified **data** will be added to the config-map.
+This policy sets the Zookeeper and Kafka connection strings for all namespaces with a label key 'kafka'.
 
-**secretGenerator** acts exactly as **configMapGenerator**, but creates a secret instead of the config-map.
+````yaml
+apiVersion: policy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: "zk-kafka-address"
+spec:
+  rules:
+  - name: "zk-kafka-address"
+    resource:
+      kind : Namespace
+      selector:
+        matchExpressions:
+        - {key: kafka, operator: Exists}
+    generate:
+      kind: ConfigMap
+      name: zk-kafka-address
+      data:
+        ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+        KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+````
 
-### 3. More examples
-An example of a policy that uses all available features: `definitions/policy-example.yaml`.
+### 4. More examples
 
-See the contents of `/examples`: there are definitions and policies for every supported type of resource.
+Additional examples are available in [examples](/examples).
 
-# Build
+## Status
 
-## Prerequisites
+*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
 
-You need to have the go installed and configured on your machine: [golang installation](https://golang.org/doc/install).
-Ensure that the GOPATH environment variable is set to the desired location (usually `~/go`).
 
-We are using [dep](https://github.com/golang/dep) **to resolve dependencies**.
+## Documentation
 
-We are using [goreturns](https://github.com/sqs/goreturns) **to format the sources** before commit.
+* [Getting Started](documentation/installation.md)
+* [Writing Policies](documentation/writing-policies.md)
+  * [Validate](documentation/writing-policies.md)
+  * [Mutate](documentation/writing-policies.md)
+  * [Generate](documentation/writing-policies.md)
+* [Testing Policies](documentation/testing-policies.md)
+  * [Using kubectl](documentation/testing-policies-kubectl.md)
+  * [Using the Kyverno CLI](documentation/testing-policies-kyverno-cli.md)
 
-Code generation for the CRD controller depends on kubernetes/hack, so before using code generation, execute:
 
-`go get k8s.io/kubernetes/hack`
+## Roadmap
 
-## Cloning
+Here are some the major features we plan on completing before a 1.0 release:
 
-`git clone https://github.com/nirmata/kube-policy.git $GOPATH/src/github.com/nirmata/kube-policy`
+* Events
+* Policy Violations
+* Generate any resource
+* Conditionals on existing resources
+* Extend CLI to operate on cluster resources 
 
-Make sure that you use exactly the same subdirectory of the `$GOPATH` as shown above.
+## Getting help
 
-## Restore dependencies
+For feature requests and bugs, file an [issue][https://github.com/nirmata/kube-policy/issues].
 
-Navigate to the kube-policy project dir and execute the following command:
-`dep ensure`
-
-This will install the necessary dependencies described in Gopkg.toml
-
-## Compiling
-
-We are using the code generator for the custom resource objects from here: https://github.com/kubernetes/code-generator
-
-Generate additional controller code before compiling the project:
-
-`scripts/update-codegen.sh`
-
-Then you can build the controller:
-
-`go build .`
-
-# Installation
-
-The controller can be installed and operated in two ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world, and the **QA testing** should be performed when controller operate in this mode.
-
-## Outside the cluster (debug mode)
-
-To run controller in this mode you should prepare TLS key/certificate pair for webhook, which will run on localhost and explicitly provide these files with kubeconfig to the controller.
-
-1. Open your `~/.kube/config` file and copy the value of `certificate-authority-data` to the clipboard.
-2. Open `crd/MutatingWebhookConfiguration_local.yaml` and replace `${CA_BUNDLE}` with the contents of the clipboard.
-3. Open `~/.kube/config` again and copy the IP of the `server` value, for example `192.168.10.117`.
-4. Run `scripts/deploy-controller.sh --service=localhost --serverIp=<server_IP>`, where `<server_IP>` is a server from the clipboard. This scripts will generate TLS certificate for webhook server and register this webhook in the cluster. Also it registers CustomResource `Policy`.
-5. Start the controller using the following command: `sudo kube-policy --cert=certs/server.crt --key=certs/server-key.pem --kubeconfig=~/.kube/config`
-
-## Inside the cluster (normal use)
-
-Just execute the command for creating all necesarry resources:
-`kubectl create -f definitions/install.yaml`
-
-In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
-To check if the controller is working, find it in the list of kube-system pods:
-
-`kubectl get pods -n kube-system`
-
-The pod with controller contains **'kube-policy'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
-
-`kubectl describe pod <kube-policy-pod-name> -n kube-system`
-
-or
-
-`kubectl logs <kube-policy-pod-name> -n kube-system`
-
-### Troubleshuting
-
-**1. Pulling image from private repo**
-
-_This issue is always actual for now._
-
-If the kube-policy image is in private repo, you should probably see **ImagePullBackOff** as a STATUS of controller's pod. That's because cluster lacks credentials for this repo. To add credentials to the cluster, do the next steps:
-1. Delete previous installation:
-
-    `kubectl delete -f definitions/install.yaml`
-
-    `kubectl delete MutatingWebhookConfiguration nirmata-kube-policy-webhook-cfg`
-
-2. Login to docker:
-
-    `docker login`
-    
-    This will create `~/.docker/config.json` file with credentials
-    
-3. Save docker credentials to the secret:
-
-    `DOCKER_CREDS="$(base64 ~/.docker/config.json) -w 0"`
-    
-    `sed "s,DOCKER_CONFIG_JSON_IN_BASE64,$DOCKER_CREDS,g" definitions/docker-registry-key.yaml > definitions/docker-creds.yaml`
-    
-    `kubectl create -f definitions/docker-creds.yaml`
-    
-4. Install controller again
-
-    `kubectl create -f definitions/install.yaml`
-
-**2. Taints problem when running on master node**
-
-If your worker node is equal to the master node, and controller doesn't start, you will probably see such kind of error in its logs:
-
-`... 1 node(s) had taints that the pod didn't tolerate ...`
-
-To fix it execute the command:
-
-`kubectl taint nodes --all node-role.kubernetes.io/master-`
-
-And reinstall the controller:
-
-`kubectl delete -f definitions/install.yaml`
-    
-`kubectl create -f definitions/install.yaml`

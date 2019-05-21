@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: test-mem-limit-range
+  labels:
+    containerSize: minimal
+spec:
+  limits:
+  - default:
+      memory: 512Mi
+      cpu: 10m
+    defaultRequest:
+      memory: 256Mi
+    type: Container

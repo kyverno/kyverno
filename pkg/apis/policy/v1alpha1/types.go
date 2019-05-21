@@ -5,80 +5,93 @@ import (
 )
 
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// An example of the YAML representation of this structure is here:
-// <project_root>/crd/policy-example.yaml
+// Policy contains rules to be applied to created resources
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicySpec   `json:"spec"`
-	Status            PolicyStatus `json:"status"`
+	Spec              Spec   `json:"spec"`
+	Status            Status `json:"status"`
 }
 
-// Specification of the Policy.
-// failurePolicy can have values "continueOnError" and "stopOnError" (default).
-type PolicySpec struct {
-	FailurePolicy *string      `json:"failurePolicy"`
-	Rules         []PolicyRule `json:"rules"`
+// Spec describes policy behavior by its rules
+type Spec struct {
+	Rules []Rule `json:"rules"`
 }
 
-// The rule of mutation for the single resource definition.
-// Details are listed in the description of each of the substructures.
-type PolicyRule struct {
-	Resource           PolicyResource         `json:"resource"`
-	Patches            []PolicyPatch          `json:"patch,omitempty"`
-	ConfigMapGenerator *PolicyConfigGenerator `json:"configMapGenerator,omitempty"`
-	SecretGenerator    *PolicyConfigGenerator `json:"secretGenerator,omitempty"`
+// Rule is set of mutation, validation and generation actions
+// for the single resource description
+type Rule struct {
+	Name                string `json:"name"`
+	ResourceDescription `json:"resource"`
+	Mutation            *Mutation   `json:"mutate"`
+	Validation          *Validation `json:"validate"`
+	Generation          *Generation `json:"generate"`
 }
 
-// Describes the resource to which the PolicyRule will apply.
-// Either the name or selector must be specified.
-// IMPORTANT: If neither is specified, the policy rule will not apply (TBD).
-type PolicyResource struct {
+// ResourceDescription describes the resource to which the PolicyRule will be applied.
+type ResourceDescription struct {
 	Kind     string                `json:"kind"`
 	Name     *string               `json:"name"`
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	Selector *metav1.LabelSelector `json:"selector"`
+}
+
+// Mutation describes the way how Mutating Webhook will react on resource creation
+type Mutation struct {
+	Overlay *interface{} `json:"overlay"`
+	Patches []Patch      `json:"patches"`
 }
 
 // +k8s:deepcopy-gen=false
 
-// PolicyPatch declares patch operation for created object according to the JSONPatch spec:
-// http://jsonpatch.com/
-type PolicyPatch struct {
+// Patch declares patch operation for created object according to RFC 6902
+type Patch struct {
 	Path      string      `json:"path"`
 	Operation string      `json:"op"`
 	Value     interface{} `json:"value"`
 }
 
-func (in *PolicyPatch) DeepCopyInto(out *PolicyPatch) {
-	if out != nil {
-		*out = *in
-	}
+// Validation describes the way how Validating Webhook will check the resource on creation
+type Validation struct {
+	Message *string     `json:"message"`
+	Pattern interface{} `json:"pattern"`
 }
 
-// The declaration for a Secret or a ConfigMap, which will be created in the new namespace.
-// Can be applied only when PolicyRule.Resource.Kind is "Namespace".
-type PolicyConfigGenerator struct {
+// Generation describes which resources will be created when other resource is created
+type Generation struct {
+	Kind     string            `json:"kind"`
 	Name     string            `json:"name"`
-	CopyFrom *PolicyCopyFrom   `json:"copyFrom"`
+	CopyFrom *CopyFrom         `json:"copyFrom"`
 	Data     map[string]string `json:"data"`
+	Labels   map[string]string `json:"labels"`
 }
 
-// Location of a Secret or a ConfigMap which will be used as source when applying PolicyConfigGenerator
-type PolicyCopyFrom struct {
+// CopyFrom - location of a Secret or a ConfigMap
+// which will be used as source when applying 'generate'
+type CopyFrom struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 }
 
-// Contains logs about policy application
-type PolicyStatus struct {
-	Logs []string `json:"log"`
+// Status contains violations for existing resources
+type Status struct {
+	Violations []Violation `json:"violations,omitempty"`
+}
+
+// Violation for the policy
+type Violation struct {
+	Kind     string `json:"kind,omitempty"`
+	Resource string `json:"resource,omitempty"`
+	Rule     string `json:"rule,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+	Message  string `json:"message,omitempty`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// List of Policy resources
+// PolicyList is a list of Policy resources
 type PolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

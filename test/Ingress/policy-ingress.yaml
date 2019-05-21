@@ -1,0 +1,30 @@
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata :
+  name : policy-ingress
+spec :
+  rules:
+    - name: ingress1
+      resource:
+        kind : Ingress
+        selector:
+          matchLabels:
+            originalLabel: isHere
+      mutate:
+        patches:
+        - path: "/metadata/labels/isMutated"
+          op: add
+          value: "true"
+        - path : "/spec/rules/0/http/paths/0/path"
+          op : replace
+          value: "/mutatedpath"
+      validate:
+        message: "Ingress allowed only for prod services"
+        pattern:
+          spec:
+            rules:
+            - http:
+               paths:
+                - path: "*"
+                  backend:
+                    serviceName: "*prod"

@@ -2,19 +2,23 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  branch = "release-1.10"
+  version = "kubernetes-1.14.1"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.10.4"
+  version = "kubernetes-1.14.1"
+
+[[constraint]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.14.1"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  branch = "release-6.0"
+  version = "kubernetes-1.14.0"
 
-[[override]]
-  name = "github.com/golang/protobuf"
-  version = "v1.2.1"
+[[constraint]]
+  name = "github.com/minio/minio"
+  branch = "master"
 
 [[override]]
   name = "github.com/gotestyourself/gotest.tools"
@@ -23,3 +27,11 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
 [[override]]
   name = "github.com/evanphx/json-patch"
   branch = "master"
+
+[[override]]
+  name = "github.com/golang/protobuf"
+  version = "v1.2.1"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+  version = "2.2.2"
