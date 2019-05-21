@@ -147,7 +147,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyPatches, _ := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
