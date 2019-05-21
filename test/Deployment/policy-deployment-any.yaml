@@ -1,0 +1,25 @@
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-deployment
+spec :
+  rules:
+    - name: "First policy v2"
+      resource:
+        kind : Deployment
+        name: nginx-*
+      mutate:
+        patches:
+        - path: /metadata/labels/isMutated
+          op: add
+          value: "true"
+        - path: /metadata/labels/app
+          op: replace
+          value: "nginx_is_mutated"
+
+      validate:
+        message: "Because I like only mutated resources"
+        pattern:
+          metadata:
+            labels:
+              app: "*mutated"
