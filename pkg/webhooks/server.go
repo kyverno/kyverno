@@ -12,14 +12,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kube-policy/config"
+	kubeClient "github.com/nirmata/kube-policy/kubeclient"
 	policylister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
+	"github.com/nirmata/kube-policy/pkg/config"
 	engine "github.com/nirmata/kube-policy/pkg/engine"
 	"github.com/nirmata/kube-policy/pkg/engine/mutation"
 	tlsutils "github.com/nirmata/kube-policy/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -27,6 +28,7 @@ import (
 type WebhookServer struct {
 	server       http.Server
 	policyLister policylister.PolicyLister
+	kubeClient   *kubeClient.KubeClient
 	logger       *log.Logger
 }
 
@@ -35,6 +37,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	policyLister policylister.PolicyLister,
+	kubeClient *kubeClient.KubeClient,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -53,6 +56,7 @@ func NewWebhookServer(
 
 	ws := &WebhookServer{
 		policyLister: policyLister,
+		kubeClient:   kubeClient,
 		logger:       logger,
 	}
 
@@ -135,7 +139,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		utilruntime.HandleError(err)
+		ws.logger.Printf("%v", err)
 		return nil
 	}
 
@@ -143,13 +147,13 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyPatches, _ := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
 			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
 			name := engine.ParseNameFromObject(request.Object.Raw)
-			ws.logger.Printf("Policy %s applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+			ws.logger.Printf("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 		}
 	}
 
@@ -168,26 +172,35 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		utilruntime.HandleError(err)
+		ws.logger.Printf("%v", err)
 		return nil
 	}
 
-	allowed := true
 	for _, policy := range policies {
+		// validation
 		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		if ok := engine.Validate(*policy, request.Object.Raw, request.Kind); !ok {
-			ws.logger.Printf("Validation has failed: %v\n", err)
-			utilruntime.HandleError(err)
-			allowed = false
-		} else {
-			ws.logger.Println("Validation is successful")
+		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
+			message := fmt.Sprintf("validation has failed: %s", err.Error())
+			ws.logger.Println(message)
+
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: message,
+				},
+			}
 		}
+
+		// generation
+		engine.Generate(*policy, request.Object.Raw, ws.kubeClient, request.Kind)
 	}
 
+	ws.logger.Println("Validation is successful")
 	return &v1beta1.AdmissionResponse{
-		Allowed: allowed,
+		Allowed: true,
 	}
+
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

@@ -59,7 +59,7 @@ func main() {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := webhooks.NewWebhookServer(tlsPair, policyInformer.Lister(), nil)
+	server, err := webhooks.NewWebhookServer(tlsPair, policyInformer.Lister(), kubeclient, nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
