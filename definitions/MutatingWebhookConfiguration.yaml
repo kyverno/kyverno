@@ -3,14 +3,14 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: nirmata-kube-policy-webhook-cfg
+  name: nirmata-kyverno-webhook-cfg
   labels:
-    app: kube-policy
+    app: kyverno
 webhooks:
-  - name: webhook.nirmata.kube-policy
+  - name: webhook.nirmata.kyverno
     clientConfig:
       service:
-        name: kube-policy-svc
+        name: kyverno-svc
         namespace: default
         path: "/mutate"
       caBundle: ${CA_BUNDLE}

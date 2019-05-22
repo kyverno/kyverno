@@ -1,5 +1,5 @@
 # Examples
-Examples of policies and resources with which you can play to see the kube-policy in action. There are definitions for each supported resource type and an example policy for the corresponding resource.
+Examples of policies and resources with which you can play to see the kyverno in action. There are definitions for each supported resource type and an example policy for the corresponding resource.
 ## How to play
 First of all, **build and install the policy controller**: see README file in the project's root.
 Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `examples/Endpoints/endpoints.yaml`:

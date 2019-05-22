@@ -3,7 +3,7 @@
 # To apply this policy you need to create secret and configMap in "default" namespace 
 # and then create a namespace
 
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : "policy-ns-patch-cmg-sg"
