@@ -1,10 +1,10 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-cronjob
 spec:
   rules:
-    - name:
+    - name: pCJ
       resource:
         kind : CronJob
         name: "?ell*"
