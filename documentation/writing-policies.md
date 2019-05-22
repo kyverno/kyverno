@@ -37,8 +37,7 @@ spec :
      ...
 ````
 
-Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **validate**, **mutate**, or **generate** child node.
-
+Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
