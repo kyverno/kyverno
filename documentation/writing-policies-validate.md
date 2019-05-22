@@ -34,7 +34,7 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
 
 ## Example
-
+The next rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
 ````yaml
 
 apiVersion : kyverno.io/v1alpha1
