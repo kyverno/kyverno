@@ -29,11 +29,11 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		// Process Overlay
 
 		if rule.Mutation.Overlay != nil {
-			//overlayPatches, err := ProcessOverlay(rule.Mutation.Overlay, rawResource)
+			overlayPatches, err := ProcessOverlay(policy, rawResource, gvk)
 			if err != nil {
 				log.Printf("Overlay application has failed for rule %s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
 			} else {
-				//policyPatches = append(policyPatches, overlayPatches...)
+				policyPatches = append(policyPatches, overlayPatches...)
 			}
 		}
 
