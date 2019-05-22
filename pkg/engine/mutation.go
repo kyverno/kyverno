@@ -3,7 +3,7 @@ package engine
 import (
 	"log"
 
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
