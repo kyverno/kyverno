@@ -16,7 +16,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	engine "github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/mutation"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -141,7 +140,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		return nil
 	}
 
-	var allPatches []mutation.PatchBytes
+	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
 		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
@@ -158,7 +157,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed:   true,
-		Patch:     mutation.JoinPatches(allPatches),
+		Patch:     engine.JoinPatches(allPatches),
 		PatchType: &patchType,
 	}
 }
