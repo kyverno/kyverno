@@ -2,11 +2,11 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,6 +37,12 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 }
 
 func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, error) {
+	// resource item exists but has different type - replace
+	// all subtree within this path by overlay
+	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
+		replaceResource(resource, overlay, path)
+	}
+
 	switch typedOverlay := overlay.(type) {
 	case map[string]interface{}:
 		typedResource := resource.(map[string]interface{})
@@ -55,23 +61,11 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 		typedResource := resource.([]interface{})
 		applyOverlayToArray(typedResource, typedOverlay, path)
 	case string:
-		typedResource, ok := resource.(string)
-		if !ok {
-			return nil, fmt.Errorf("Expected string, found %T", resource)
-		}
-		replaceResource(typedResource, typedOverlay, path)
+		replaceResource(resource, overlay, path)
 	case float64:
-		typedResource, ok := resource.(float64)
-		if !ok {
-			return nil, fmt.Errorf("Expected string, found %T", resource)
-		}
-		replaceResource(typedResource, typedOverlay, path)
+		replaceResource(resource, overlay, path)
 	case int64:
-		typedResource, ok := resource.(int64)
-		if !ok {
-			return nil, fmt.Errorf("Expected string, found %T", resource)
-		}
-		replaceResource(typedResource, typedOverlay, path)
+		replaceResource(resource, overlay, path)
 	}
 
 	return nil, nil
@@ -82,7 +76,6 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) {
 	case map[string]interface{}:
 		for _, overlayElement := range overlay {
 			typedOverlay := overlayElement.(map[string]interface{})
-
 			anchors := GetAnchorsFromMap(typedOverlay)
 
 			if len(anchors) > 0 {
@@ -117,7 +110,9 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 			return true
 		}
 
-		return value != pattern
+		if value != pattern {
+			return true
+		}
 	}
 
 	return false
