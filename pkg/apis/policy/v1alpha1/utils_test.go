@@ -9,8 +9,8 @@ import (
 
 var defaultResourceDescriptionName = "defaultResourceDescription"
 var defaultResourceDescription = ResourceDescription{
-	Kind: "Deployment",
-	Name: &defaultResourceDescriptionName,
+	Kinds: []string{"Deployment"},
+	Name:  &defaultResourceDescriptionName,
 	Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{"LabelForSelector": "defaultResourceDescription"},
 	},
@@ -43,7 +43,7 @@ func Test_ResourceDescription_EmptyKind(t *testing.T) {
 
 func Test_ResourceDescription_EmptyNameAndSelector(t *testing.T) {
 	resourceDescription := ResourceDescription{
-		Kind: "Deployment",
+		Kinds: []string{"Deployment"},
 	}
 	err := resourceDescription.Validate()
 	assert.Assert(t, err != nil)

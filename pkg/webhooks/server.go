@@ -86,13 +86,11 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	if ws.client.KindIsSupported(admissionReview.Request.Kind.Kind) {
-		switch r.URL.Path {
-		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-		case config.ValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
-		}
+	switch r.URL.Path {
+	case config.MutatingWebhookServicePath:
+		admissionReview.Response = ws.HandleMutation(admissionReview.Request)
+	case config.ValidatingWebhookServicePath:
+		admissionReview.Response = ws.HandleValidation(admissionReview.Request)
 	}
 
 	admissionReview.Response.UID = admissionReview.Request.UID

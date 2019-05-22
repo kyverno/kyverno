@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion : kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: check-cpu-memory
@@ -6,7 +6,8 @@ spec:
   rules:
   - name: check-defined
     resource:
-      kind: Deployment
+      kinds: 
+      - Deployment
     validate:
       message: "Resource requests and limits are required for CPU and memory"
       pattern:
@@ -22,7 +23,8 @@ spec:
               cpu: "?"
   - name: check-memory-in-range
     resource:
-      kind: Deployment
+      kinds: 
+      - Deployment
     validate:
       message: "Memory request cannot be greater than 10Gi"
       pattern:

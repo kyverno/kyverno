@@ -7,7 +7,7 @@ Compiles the project to go executable, generates docker image and pushes it to t
 
 ### generate-server-cert.sh ###
 Generates TLS certificate and key that used by webhook server. Example:
-`scripts/generate-server-cert.sh --service=kube-policy-svc --namespace=my_namespace --serverIp=192.168.10.117`
+`scripts/generate-server-cert.sh --service=kyverno-svc --namespace=my_namespace --serverIp=192.168.10.117`
 * `--service` identifies the service for in-cluster webhook server. Do not specify it if you plan to run webhook server outside the cluster, or cpecify 'localhost' if you want to run controller locally.
 * `--namespace` identifies the namespace for in-cluster webhook server. Do not specify it if you plan to run controller locally.
 * `--serverIp` is the IP of master node, it can be found in `~/.kube/config`: clusters.cluster[0].server. You should explicitly specify it.
@@ -18,7 +18,7 @@ Prepares controller for free (local) or in-cluster use. Uses `generate-server-ce
 * `--namespace` - the target namespace to deploy the controller. Do not specify it if you want to depoloy controller locally.
 * `--serverIp` means the same as for `generate-server-cert.sh`
 Examples:
-`scripts/deploy-controller.sh --service=my-kube-policy --namespace=my_namespace --serverIp=192.168.10.117` - deploy controller to the cluster with master node '192.168.10.117' to the namespace 'my_namespace' as a service 'my-kube-policy'
+`scripts/deploy-controller.sh --service=my-kyverno --namespace=my_namespace --serverIp=192.168.10.117` - deploy controller to the cluster with master node '192.168.10.117' to the namespace 'my_namespace' as a service 'my-kyverno'
 `scripts/deploy-controller.sh --service=localhost --serverIp=192.168.10.117` - deploy controller locally for usage in cluster with mnaster node at '192.168.10.117'
 
 ### test-web-hook.sh ###

@@ -19,7 +19,7 @@ esac
 done
 
 hub_user_name="nirmata"
-project_name="kube-policy"
+project_name="kyverno"
 
 if [ -z "${service_name}" ]; then
   service_name="${project_name}-svc"
@@ -40,7 +40,7 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
   kubectl delete -f definitions/install.yaml
   kubectl create -f definitions/install.yaml || exit 3
 
-  echo -e "\n### You can build and run kube-policy project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
+  echo -e "\n### You can build and run kyverno project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
 
 else # controller should be launched within a cluster
 

@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-job-perl-bigint
@@ -6,7 +6,8 @@ spec :
   rules:
     - name: job1
       resource:
-        kind: Job
+        kinds: 
+        - Job
         name: pi
       mutate:
         patches:

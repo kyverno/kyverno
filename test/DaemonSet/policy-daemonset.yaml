@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-daemonset
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: "Patch and Volume validation"
       resource:
-        kind: DaemonSet
+        kinds:
+        - DaemonSet
         name: fluentd-elasticsearch
       mutate:
         patches:
