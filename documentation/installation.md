@@ -2,19 +2,27 @@
 
 # Installation
 
-To install Kyverno in your cluster run:
+To install Kyverno in your cluster run the following command on a host with kubectl access:
 
-  `kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml`
+````sh
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+````
 
-To check if the Kyverno controller is running use:
+To check the Kyverno controller status, run the command:
 
-  `kubectl get pods -n kyverno`
+````sh
+kubectl get pods -n kyverno
+````
 
-If the Kyverno controller doesn't start, you can check its status and logs for errors:
+If the Kyverno controller is not running, you can check its status and logs for errors:
 
-  `kubectl describe pod <kyverno-pod-name> -n kyverno`
+````sh
+kubectl describe pod <kyverno-pod-name> -n kyverno
+````
 
-  `kubectl logs <kyverno-pod-name> -n kyverno`
+````sh
+kubectl logs <kyverno-pod-name> -n kyverno
+````
 
 # Installing in a Development Environment
 
@@ -22,8 +30,7 @@ To run Kyverno in a development environment see: https://github.com/nirmata/kyve
 
 # Try Kyverno without a Kubernetes cluster
 
-To write and test policies without installing Kyverno in a Kubernetes cluster you can try the [Kyverno CLI](documentation/testing-policies-cli.md).
-
+The [Kyverno CLI](documentation/testing-policies-cli.md) allows you to write and test policies without installing Kyverno in a Kubernetes cluster.
 
 
 ---
