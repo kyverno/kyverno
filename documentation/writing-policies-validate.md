@@ -29,8 +29,8 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 | `>=`       | greater than or equals to |
 | `<=`       | less than or equals to    | 
 | `!`        | not equals                |
-| `|`        | logical or                |
-|  `&`       | logical and               |
+| \|         | logical or                |
+| `&`        | logical and               |
 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
 
