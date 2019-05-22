@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion : kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: image-pull-policy
@@ -7,7 +7,8 @@ spec:
   - name: image-pull-policy
     message: "Image tag ':latest' requires imagePullPolicy 'Always'"
     resource:
-      kind: Deployment
+      kinds: 
+      - Deployment
     overlay:
       template:
         spec:

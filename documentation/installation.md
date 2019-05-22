@@ -9,15 +9,15 @@ Just execute the command for creating all necesarry resources:
 `kubectl create -f definitions/install.yaml`
 
 In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
-To check if the controller is working, find it in the list of kube-system pods:
+To check if the controller is working, find it in the list of kyverno pods:
 
-`kubectl get pods -n kube-system`
+`kubectl get pods -n kyverno`
 
-The pod with controller contains **'kube-policy'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
+The pod with controller contains **'kyverno'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
 
-`kubectl describe pod <kube-policy-pod-name> -n kube-system`
+`kubectl describe pod <kyverno-pod-name> -n kyverno`
 
 or
 
-`kubectl logs <kube-policy-pod-name> -n kube-system`
+`kubectl logs <kyverno-pod-name> -n kyverno`
 

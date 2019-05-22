@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: test-podtemplate
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: podtemplate1
       resource:
-        kind : PodTemplate
+        kinds : 
+        - PodTemplate
         selector:
           matchLabels:
             originalLabel: isHere
