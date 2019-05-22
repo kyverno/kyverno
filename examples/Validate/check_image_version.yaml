@@ -1,16 +1,18 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kubepolicy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: image-pull-policy
 spec:
   rules:
   - name: image-pull-policy
-    message: "Image tag ':latest' requires imagePullPolicy 'Always'"
     resource:
       kind: Deployment
-    overlay:
-      template:
+    validate:   #overlay?
+      message: "Image tag ':latest' requires imagePullPolicy 'Always'"
+      pattern:
         spec:
-          containers:              
-            - image: "(*:latest)"       # select images which end with :latest            
-              imagePullPolicy: "Always" # ensure that the imagePullPolicy is "Always"
+          template:
+            spec:
+              containers:
+              - (image): "*latest"       # select images which end with :latest
+                imagePullPolicy: Always   # ensure that the imagePullPolicy is "Always"

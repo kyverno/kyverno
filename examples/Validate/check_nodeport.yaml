@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kubepolicy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: check-host-path
@@ -11,4 +11,4 @@ spec:
       message: "Node port services are not allowed"
       pattern:
         spec:
-          type: "!NodePort"
+          type: "!=NodePort"

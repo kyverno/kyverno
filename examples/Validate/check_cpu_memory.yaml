@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kubepolicy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: check-cpu-memory
@@ -10,16 +10,18 @@ spec:
     validate:
       message: "Resource requests and limits are required for CPU and memory"
       pattern:
-      spec:
-        containers:
-        - name: "*"
-          resources:
-            limits:
-              memory: "?"
-              cpu: "?"
-            requests:
-              memory: "?"
-              cpu: "?"
+        spec:
+          template:
+            spec:
+              containers:
+              - name: "*"
+                resources:
+                  limits:
+                    memory: "*"
+                    cpu: "*"
+                  requests:
+                    memory: "*"
+                    cpu: "*"
   - name: check-memory-in-range
     resource:
       kind: Deployment
@@ -27,10 +29,12 @@ spec:
       message: "Memory request cannot be greater than 10Gi"
       pattern:
         spec:
-          containers:
-          - name: "*"
-            resources:
-              requests:
+          template:
+            spec:
+              containers:
+              - name: "*"
+                resources:
+                  requests:
                 # If the value contains logical operator, the integer after it will be checked. No numeric characters will be a part of pattern.
                 # The OR operator can combine the patterns with logical expressions and text patterns.
-                memory: "<10Gi|<1024Mi"
+                    memory: "<10Gi|<10240Mi"
