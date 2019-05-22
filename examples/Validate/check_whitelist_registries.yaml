@@ -1,18 +1,20 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kubepolicy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: check-whitelist-registries
 spec:
   rules:
   - name: check-whitelist-registries
-    message: "Registry is not allowed"
     resource:
       kind: Deployment
     validate:
+      message: "Registry is not allowed"
       pattern:
-        template:
-          spec:
-            containers:
-              # Checks if the image path starts with "https://private.registry.io" OR "https://hub.docker.io/nirmata/*"
-              # If some property contains operator | as a normal part of its value, it should be escaped by backslash: "\|".
-              image: https://private.registry.io* | https://hub.docker.io/nirmata/*
+        spec:
+          template:
+            spec:
+              containers:
+                # Checks if the image path starts with "https://private.registry.io" OR "https://hub.docker.io/nirmata/*"
+                # If some property contains operator | as a normal part of its value, it should be escaped by backslash: "\|".
+                - name: "*"
+                  image: "https://private.registry.io*|https://hub.docker.io/nirmata/*"
