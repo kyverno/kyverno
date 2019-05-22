@@ -62,6 +62,8 @@ spec :
 
 ````
 
+Additional examples are available in [examples](/examples/)
+
 
 ---
 <small>*Read Next >> [Mutate](/documentation/writing-policies-mutate.md)*</small>
