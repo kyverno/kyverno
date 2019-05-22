@@ -41,25 +41,6 @@ spec:
                         type: array
                         items:
                           type: string
-                          enum:
-                          - ConfigMap
-                          - CronJob
-                          - DaemonSet
-                          - Deployment
-                          - Endpoints
-                          - HorizontalPodAutoscaler
-                          - Ingress
-                          - Job
-                          - LimitRange
-                          - Namespace
-                          - NetworkPolicy
-                          - PersistentVolumeClaim
-                          - PodDisruptionBudget
-                          - PodTemplate
-                          - ResourceQuota
-                          - Secret
-                          - Service
-                          - StatefulSet
                       name:
                         type: string
                       selector:
