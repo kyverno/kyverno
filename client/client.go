@@ -147,7 +147,7 @@ func (c *Client) UpdateStatusResource(kind string, namespace string, obj interfa
 }
 
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("Unable to convert : %v", err))
 		return nil
@@ -174,7 +174,7 @@ func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, er
 
 func (c *Client) GenerateSecret(generator types.Generation, namespace string) error {
 	c.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
-	secret := &v1.Secret{}
+	secret := v1.Secret{}
 
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
@@ -206,7 +206,7 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 		}
 	}
 
-	go c.createSecretAfterNamespaceIsCreated(*secret, namespace)
+	go c.createSecretAfterNamespaceIsCreated(secret, namespace)
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 //GenerateConfigMap to generate configMap
 func (c *Client) GenerateConfigMap(generator types.Generation, namespace string) error {
 	c.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
-	configMap := &v1.ConfigMap{}
+	configMap := v1.ConfigMap{}
 
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
@@ -245,24 +245,24 @@ func (c *Client) GenerateConfigMap(generator types.Generation, namespace string)
 			configMap.Data[k] = v
 		}
 	}
-	go c.createConfigMapAfterNamespaceIsCreated(*configMap, namespace)
+	go c.createConfigMapAfterNamespaceIsCreated(configMap, namespace)
 	return nil
 }
 
-func convertToConfigMap(obj *unstructured.Unstructured) (*v1.ConfigMap, error) {
+func convertToConfigMap(obj *unstructured.Unstructured) (v1.ConfigMap, error) {
 	configMap := v1.ConfigMap{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &configMap); err != nil {
-		return nil, err
+		return configMap, err
 	}
-	return &configMap, nil
+	return configMap, nil
 }
 
-func convertToSecret(obj *unstructured.Unstructured) (*v1.Secret, error) {
+func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
 	secret := v1.Secret{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &secret); err != nil {
-		return nil, err
+		return secret, err
 	}
-	return &secret, nil
+	return secret, nil
 }
 
 func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSigningRequest, error) {
