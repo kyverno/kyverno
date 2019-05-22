@@ -9,10 +9,10 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 2. Undefined fields are treated as wildcards. 
 3. A validation pattern field with the wildcard value '*' will match zero or more alphanumeric characters. Empty values or missing fields are matched.
 4. A validation pattern field with the wildcard value '?' will match any single alphanumeric character. Empty or missing fields are not matched. 
-5. A validation pattern field with the wildcard value '*?' will match any alphanumeric characters and requires the field to be present with non-empty values.
-6. A validation pattern field with the value `null` requires that the field not be defined or have a null value.
-6. The validation of siblings is performed only when one of the field values matches the value defined in the pattern. You can use the parenthesis operator to explictly specify a field value that must be matched. This allows writing rules like 'if fieldA equals X, then fieldB must equal Y'.
-7. Validation of child values is only performed if the parent matches the pattern.
+5. A validation pattern field with the wildcard value '?*' will match any alphanumeric characters and requires the field to be present with non-empty values.
+6. A validation pattern field with the value `null` or "" (empty string) requires that the field not be defined or has no value.
+7. The validation of siblings is performed only when one of the field values matches the value defined in the pattern. You can use the parenthesis operator to explictly specify a field value that must be matched. This allows writing rules like 'if fieldA equals X, then fieldB must equal Y'.
+8. Validation of child values is only performed if the parent matches the pattern.
 
 ## Patterns
 
@@ -30,7 +30,6 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 | `<=`       | less than or equals to    | 
 | `!`        | not equals                |
 |  \|        | logical or                |
-| `&`        | logical and               |
 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
 
@@ -46,7 +45,10 @@ spec :
   rules:
     - resource:
         # Kind specifies one or more resource types to match
-        kind: Deployment, StatefuleSet, DaemonSet
+        kinds:
+          - Deployment
+          - StatefuleSet
+          - DaemonSet
         # Name is optional and can use wildcards
         name: *
         # Selector is optional
@@ -58,7 +60,7 @@ spec :
           spec:
             selector:
               matchLabels:
-                app: ?*
+                app: "?*"
 
 ````
 
