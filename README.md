@@ -10,7 +10,7 @@ Kyverno allows cluster adminstrators to manage environment specific configuratio
 
 Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
 
-Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching polcies to return results that enforce admission policies or reject requests.
+Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching policies to return results that enforce admission policies or reject requests.
 
 Kyverno policies can match resources using the resource kind, name, and label selectors. Wildcards are supported in names.
 
@@ -25,7 +25,7 @@ Policy enforcement is captured using Kubernetes events. Kyverno also reports pol
 This policy requires that all pods have CPU and memory resource requests and limits:
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: check-cpu-memory
@@ -33,7 +33,8 @@ spec:
   rules:
   - name: check-pod-resources
     resource:
-      kind: Pod
+      kinds:
+      - Pod
     validate:
       message: "CPU and memory resource requests and limits are required"
       pattern:
@@ -56,7 +57,7 @@ spec:
 This policy sets the imagePullPolicy to Always if the image tag is latest:
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: set-image-pull-policy
@@ -64,13 +65,14 @@ spec:
   rules:
   - name: set-image-pull-policy
     resource:
-      kind: Pod
+      kinds:
+      - Pod
     mutate:
       overlay:
         spec:
           containers:
             # match images which end with :latest   
-            - image: "(*:latest)"
+            - (image): "*:latest"
               # set the imagePullPolicy to "Always"
               imagePullPolicy: "Always"
 ````
@@ -80,7 +82,7 @@ spec:
 This policy sets the Zookeeper and Kafka connection strings for all namespaces with a label key 'kafka'.
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: "zk-kafka-address"
@@ -88,7 +90,8 @@ spec:
   rules:
   - name: "zk-kafka-address"
     resource:
-      kind : Namespace
+      kinds:
+        - Namespace
       selector:
         matchExpressions:
         - {key: kafka, operator: Exists}
