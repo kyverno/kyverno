@@ -1,10 +1,10 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-endpoints
 spec :
   rules:
-    - name:
+    - name: pEP
       resource:
         kind : Endpoints
         selector:
@@ -19,7 +19,7 @@ spec :
             op: add
             value:
               addresses:
-              - ip: "192.168.10.171"
+              - ip: "192.168.10.172"
               ports:
               - name: load-balancer-connection
                 port: 80
