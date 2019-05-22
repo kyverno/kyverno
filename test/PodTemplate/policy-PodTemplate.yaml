@@ -1,0 +1,32 @@
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: test-podtemplate
+spec:
+  rules:
+    - name: podtemplate1
+      resource:
+        kind : PodTemplate
+        selector:
+          matchLabels:
+            originalLabel: isHere
+      mutate:
+        patches:
+        - path: "/metadata/labels/app"
+          op : replace
+          value : mutedApp
+        - path: "/template/spec/containers/0/name"
+          op : replace
+          value : mongodb
+        - path: "/template/spec/containers/0/image"
+          op : replace
+          value : mongodb
+      validate:
+        message: "Port 80 is not for redis"
+        pattern:
+          template:
+            spec:
+              containers:
+                - name: "!redis"
+                  ports:
+                  - containerPort: 80

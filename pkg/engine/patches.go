@@ -6,7 +6,7 @@ import (
 	"log"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 type PatchBytes []byte

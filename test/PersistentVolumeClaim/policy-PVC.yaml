@@ -1,0 +1,24 @@
+apiVersion: kubepolicy.nirmata.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-pvc
+spec:
+  rules:
+    - name: pvc1
+      resource:
+        kind : PersistentVolumeClaim
+        matchLabels:
+            originalLabel: isHere
+      mutate:
+        patches:
+        - path: "/metadata/labels/originalLabel"
+          op: remove
+        - path : "/spec/resources/requests/storage"
+          op : replace
+          value: "6Gi"
+      validate:
+        message: "I don't like this pvc"
+        pattern:
+          spec:
+            accessModes:
+              - ReadWrite

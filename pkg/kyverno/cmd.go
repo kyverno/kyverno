@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/nirmata/kube-policy/pkg/kyverno/apply"
+	"github.com/nirmata/kyverno/pkg/kyverno/apply"
 	"github.com/spf13/cobra"
 )
 

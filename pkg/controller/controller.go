@@ -6,13 +6,12 @@ import (
 	"os"
 	"time"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
-	types "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
-	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
-	infomertypes "github.com/nirmata/kube-policy/pkg/client/informers/externalversions/policy/v1alpha1"
-	lister "github.com/nirmata/kube-policy/pkg/client/listers/policy/v1alpha1"
-	event "github.com/nirmata/kube-policy/pkg/event"
-	violation "github.com/nirmata/kube-policy/pkg/violation"
+	client "github.com/nirmata/kyverno/client"
+	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	violation "github.com/nirmata/kyverno/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -23,9 +22,8 @@ import (
 
 //PolicyController to manage Policy CRD
 type PolicyController struct {
-	kubeClient       *kubeClient.KubeClient
+	client           *client.Client
 	policyLister     lister.PolicyLister
-	policyInterface  policyclientset.Interface
 	policySynced     cache.InformerSynced
 	violationBuilder violation.Generator
 	eventBuilder     event.Generator
@@ -34,29 +32,26 @@ type PolicyController struct {
 }
 
 // NewPolicyController from cmd args
-func NewPolicyController(policyInterface policyclientset.Interface,
-	policyInformer infomertypes.PolicyInformer,
+func NewPolicyController(client *client.Client,
+	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
 	eventController event.Generator,
-	logger *log.Logger,
-	kubeClient *kubeClient.KubeClient) *PolicyController {
+	logger *log.Logger) *PolicyController {
 
 	if logger == nil {
 		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags)
 	}
-
 	controller := &PolicyController{
-		kubeClient:       kubeClient,
-		policyLister:     policyInformer.Lister(),
-		policyInterface:  policyInterface,
-		policySynced:     policyInformer.Informer().HasSynced,
+		client:           client,
+		policyLister:     policyInformer.GetLister(),
+		policySynced:     policyInformer.GetInfomer().HasSynced,
 		violationBuilder: violationBuilder,
 		eventBuilder:     eventController,
 		logger:           logger,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	policyInformer.GetInfomer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.createPolicyHandler,
 		UpdateFunc: controller.updatePolicyHandler,
 		DeleteFunc: controller.deletePolicyHandler,
@@ -109,11 +104,14 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	for i := 0; i < policyControllerWorkerCount; i++ {
 		go wait.Until(pc.runWorker, time.Second, stopCh)
 	}
+	pc.logger.Println("started policy controller workers")
 
-	pc.logger.Println("Started policy controller")
 	return nil
 }
 
+func (pc *PolicyController) Stop() {
+	pc.logger.Println("shutting down policy controller workers")
+}
 func (pc *PolicyController) runWorker() {
 	for pc.processNextWorkItem() {
 	}
@@ -162,15 +160,14 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	if key, ok = obj.(string); !ok {
 		return fmt.Errorf("expected string in workqueue but got %#v", obj)
 	}
-	// convert the namespace/name string into distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid policy key: %s", key))
 		return nil
 	}
 
 	// Get Policy resource with namespace/name
-	policy, err := pc.policyLister.Policies(namespace).Get(name)
+	policy, err := pc.policyLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("policy '%s' in work queue no longer exists", key))
@@ -181,6 +178,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// process policy on existing resource
 	// get the violations and pass to violation Builder
 	// get the events and pass to event Builder
-	fmt.Println(policy)
+	//TODO: processPolicy
+	pc.logger.Printf("process policy %s on existing resources", policy.GetName())
 	return nil
 }
