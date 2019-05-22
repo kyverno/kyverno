@@ -25,4 +25,6 @@ To run Kyverno in a development environment see: https://github.com/nirmata/kyve
 To write and test policies without installing Kyverno in a Kubernetes cluster you can try the [Kyverno CLI](documentation/testing-policies-cli.md).
 
 
+
+---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
