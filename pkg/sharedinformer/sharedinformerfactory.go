@@ -44,7 +44,7 @@ func (si *sharedInfomer) Run(stopCh <-chan struct{}) {
 }
 
 func (si *sharedInfomer) getInfomer() infomertypes.PolicyInformer {
-	return si.policyInformerFactory.Kubepolicy().V1alpha1().Policies()
+	return si.policyInformerFactory.Kyverno().V1alpha1().Policies()
 }
 func (si *sharedInfomer) GetInfomer() cache.SharedIndexInformer {
 	return si.getInfomer().Informer()
