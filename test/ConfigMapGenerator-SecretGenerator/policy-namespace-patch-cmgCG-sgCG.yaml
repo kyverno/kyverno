@@ -1,0 +1,85 @@
+# This is a test-policy with patch, configMapGenerator with and without "copyFrom" option,
+# secretGenerator with and without "copyFrom" option.
+# To apply this policy you need to create secret and configMap in "default" namespace 
+# and then create a namespace
+
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : "policy-ns-patch-cmg-sg"
+spec :
+  rules:
+  - name: "patchNamespace2"
+    resource :
+      kind : Namespace
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
+    mutate:
+      patches:
+        - path: "/metadata/labels/isMutatedByPolicy"
+          op: add
+          value: "true"
+
+  - name: "copyCM"
+    resource :
+      kind : Namespace
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
+    generate :
+      kind: ConfigMap
+      name : copied-cm
+      copyFrom :
+        namespace : default
+        name : game-config
+      data :
+        secretData: "data from cmg"
+       
+  - name: "generateCM"
+    resource :
+      kind : Namespace
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
+    generate :
+      kind: ConfigMap
+      name : generated-cm
+      data :
+        secretData: "very sensitive data from cmg"
+        database: mongodb
+        database_uri: mongodb://localhost:27017
+  
+        keys: | 
+          image.public.key=771 
+          rsa.public.key=42
+  
+  - name: "generateSecret"
+    resource :
+      kind : Namespace
+      name: ns2
+    generate :
+      kind: Secret
+      name : generated-secrets
+      data :
+        foo : bar
+        app.properties : /
+          foo1=bar1
+          foo2=bar2
+        ui.properties : /
+          foo1=bar1
+          foo2=bar2
+
+  - name: "copySecret"
+    resource :
+      kind : Namespace
+      name: ns2
+    generate :
+      kind: Secret
+      name : copied-secrets
+      copyFrom :
+        namespace : default
+        name : mysecret
+      data :
+        foo : bar
+        secretData: "data from sg"

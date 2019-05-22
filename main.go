@@ -4,13 +4,12 @@ import (
 	"flag"
 	"log"
 
-	"github.com/nirmata/kube-policy/kubeclient"
-	policyclientset "github.com/nirmata/kube-policy/pkg/client/clientset/versioned"
-	informers "github.com/nirmata/kube-policy/pkg/client/informers/externalversions"
-	controller "github.com/nirmata/kube-policy/pkg/controller"
-	event "github.com/nirmata/kube-policy/pkg/event"
-	violation "github.com/nirmata/kube-policy/pkg/violation"
-	"github.com/nirmata/kube-policy/pkg/webhooks"
+	client "github.com/nirmata/kyverno/client"
+	controller "github.com/nirmata/kyverno/pkg/controller"
+	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	"github.com/nirmata/kyverno/pkg/violation"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -23,55 +22,47 @@ var (
 func main() {
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
+
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	kubeclient, err := kubeclient.NewKubeClient(clientConfig, nil)
+	client, err := client.NewClient(clientConfig, nil)
 	if err != nil {
-		log.Fatalf("Error creating kubeclient: %v\n", err)
+		log.Fatalf("Error creating client: %v\n", err)
 	}
 
-	policyClientset, err := policyclientset.NewForConfig(clientConfig)
+	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {
-		log.Fatalf("Error creating policyClient: %v\n", err)
+		log.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
+	eventController := event.NewEventController(client, policyInformerFactory, nil)
+	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController, nil)
 
-	//TODO wrap the policyInformer inside a factory
-	policyInformerFactory := informers.NewSharedInformerFactory(policyClientset, 0)
-	policyInformer := policyInformerFactory.Kubepolicy().V1alpha1().Policies()
-
-	eventController := event.NewEventController(kubeclient, policyInformer.Lister(), nil)
-	violationBuilder := violation.NewPolicyViolationBuilder(kubeclient, policyInformer.Lister(), policyClientset, eventController, nil)
-
-	policyController := controller.NewPolicyController(policyClientset,
-		policyInformer,
+	policyController := controller.NewPolicyController(
+		client,
+		policyInformerFactory,
 		violationBuilder,
 		eventController,
-		nil,
-		kubeclient)
+		nil)
 
-	if err != nil {
-		log.Fatalf("Error creating mutation webhook: %v\n", err)
-	}
-
-	tlsPair, err := initTLSPemPair(cert, key, clientConfig, kubeclient)
+	tlsPair, err := initTlsPemPair(cert, key, clientConfig, client)
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := webhooks.NewWebhookServer(tlsPair, policyInformer.Lister(), kubeclient, nil)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, nil)
 	if err != nil {
 		log.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
-	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, kubeclient)
+	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client)
 	if err != nil {
 		log.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
 
 	stopCh := signals.SetupSignalHandler()
 
-	policyInformerFactory.Start(stopCh)
+	policyInformerFactory.Run(stopCh)
 	eventController.Run(stopCh)
 
 	if err = policyController.Run(stopCh); err != nil {
@@ -85,6 +76,7 @@ func main() {
 	server.RunAsync()
 	<-stopCh
 	server.Stop()
+	policyController.Stop()
 }
 
 func init() {

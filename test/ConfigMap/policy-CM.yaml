@@ -1,0 +1,49 @@
+apiVersion : kubepolicy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-cm
+spec :
+  rules:
+    - name: pCM1
+      resource:
+        kind : ConfigMap
+        name: "game-config"
+      mutate:
+        patches:
+        - path : "/data/newKey"
+          op : add
+          value : newValue
+    - name: pCM2
+      resource:
+        kind : ConfigMap
+        name: "game-config"
+      mutate:
+        patches:
+        - path : "/data/secretData"
+          op : remove
+        - path : "/data/secretDatatoreplace"
+          op : replace
+          value : "data is replaced"
+    - name: pCM3
+      resource:
+        kind : ConfigMap
+        name: "game-config"
+      mutate:
+        patches:
+        - path : "/data/secretData"
+          op : add
+          value : newData
+      validate:
+        message: "There is only one enemy"
+        pattern:
+          data:
+            game.properties: "*enemies=aliens*"
+    - name: pCM4
+      resource:
+        kind : ConfigMap
+        name: "game-config"
+      validate:
+        message: "This CM data is broken because it does not have ui.properties"
+        pattern:
+          data:
+            ui.properties: "*"

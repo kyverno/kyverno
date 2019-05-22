@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/nirmata/kube-policy/pkg/webhooks"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 	"gotest.tools/assert"
 	rest "k8s.io/client-go/rest"
 )

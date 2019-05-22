@@ -4,19 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	kubeClient "github.com/nirmata/kube-policy/kubeclient"
-	kubepolicy "github.com/nirmata/kube-policy/pkg/apis/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/client"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type GenerationResponse struct {
-	Generator *kubepolicy.Generation
-	Namespace string
-}
-
 // Generate should be called to process generate rules on the resource
-// TODO: extend kubeclient(will change to dynamic client) to create resources
-func Generate(policy kubepolicy.Policy, rawResource []byte, kubeClient *kubeClient.KubeClient, gvk metav1.GroupVersionKind) {
+func Generate(client *client.Client, logger *log.Logger, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) {
 	// configMapGenerator and secretGenerator can be applied only to namespaces
 	// TODO: support for any resource
 	if gvk.Kind != "Namespace" {
@@ -27,20 +21,20 @@ func Generate(policy kubepolicy.Policy, rawResource []byte, kubeClient *kubeClie
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 
 		if !ok {
-			log.Printf("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
+			logger.Printf("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
 			continue
 		}
 
-		err := applyRuleGenerator(rawResource, rule.Generation, kubeClient)
+		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk)
 		if err != nil {
-			log.Printf("Failed to apply rule generator: %v", err)
+			logger.Printf("Failed to apply rule generator: %v", err)
 		}
 	}
 }
 
 // Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
 // TODO: plan to support all kinds of generator
-func applyRuleGenerator(rawResource []byte, generator *kubepolicy.Generation, kubeClient *kubeClient.KubeClient) error {
+func applyRuleGenerator(client *client.Client, rawResource []byte, generator *kubepolicy.Generation, gvk metav1.GroupVersionKind) error {
 	if generator == nil {
 		return nil
 	}
@@ -50,9 +44,9 @@ func applyRuleGenerator(rawResource []byte, generator *kubepolicy.Generation, ku
 	namespace := ParseNameFromObject(rawResource)
 	switch generator.Kind {
 	case "ConfigMap":
-		err = kubeClient.GenerateConfigMap(*generator, namespace)
+		err = client.GenerateConfigMap(*generator, namespace)
 	case "Secret":
-		err = kubeClient.GenerateSecret(*generator, namespace)
+		err = client.GenerateSecret(*generator, namespace)
 	default:
 		err = fmt.Errorf("Unsupported config Kind '%s'", generator.Kind)
 	}

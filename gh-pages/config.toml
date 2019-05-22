@@ -1,0 +1,34 @@
+baseURL = "https://nirmata.github.io/kyverno/"
+themesDir = "themes"
+theme = "github-project-landing-page"
+title = "Kyverno"
+canonifyURLs=true
+relativeURLs=true
+
+[params]
+    description = "Kubernetes Native Policy Management"
+    long_description = '''
+        Manage policies as Kuberneres resources using YAML or JSON. Easily validate, 
+        mutate, or generate Kubernetes resources. Match resources based on label selectors 
+        and wildcards. View policy results as events, and policy violations as events or 
+        in policy status.'''
+    author_name = "Nirmata"
+    author_url = "https://nirmata.com"
+    project_url = "https://github.com/nirmata/kyverno/"
+    project_documentation = "https://github.com/nirmata/kyverno/blob/master/README.md"
+    github_project_name = "kyverno"
+    github_user_name = "nirmata"
+    logo = "img/kyverno.png"
+
+    first_color="#f8f8f8"
+    first_border_color="#e7e7e7"
+    first_text_color="#333"
+
+    second_color="white"
+    second_text_color="#333"
+
+    header_color="#f8f8f8"
+    header_text_color="rgb(51, 51, 51)"
+
+    header_link_color="#777"
+    header_link_hover_color="rgb(51, 51, 51)"

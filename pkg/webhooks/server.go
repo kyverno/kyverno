@@ -26,17 +26,17 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server       http.Server
-	policyLister policylister.PolicyLister
-	kubeClient   *kubeClient.KubeClient
+	client       *client.Client
+	policyLister v1alpha1.PolicyLister
 	logger       *log.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	policyLister policylister.PolicyLister,
-	kubeClient *kubeClient.KubeClient,
+	shareInformer sharedinformer.PolicyInformer,
 	logger *log.Logger) (*WebhookServer, error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
@@ -54,8 +54,8 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		policyLister: policyLister,
-		kubeClient:   kubeClient,
+		client:       client,
+		policyLister: shareInformer.GetLister(),
 		logger:       logger,
 	}
 
@@ -85,8 +85,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-
-	if KindIsSupported(admissionReview.Request.Kind.Kind) {
+	if ws.client.KindIsSupported(admissionReview.Request.Kind.Kind) {
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
 			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
@@ -192,7 +191,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 
 		// generation
-		engine.Generate(*policy, request.Object.Raw, ws.kubeClient, request.Kind)
+		engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
 	}
 
 	ws.logger.Println("Validation is successful")
