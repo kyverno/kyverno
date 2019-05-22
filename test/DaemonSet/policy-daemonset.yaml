@@ -6,7 +6,8 @@ spec:
   rules:
     - name: "Patch and Volume validation"
       resource:
-        kind: DaemonSet
+        kinds:
+        - DaemonSet
         name: fluentd-elasticsearch
       mutate:
         patches:

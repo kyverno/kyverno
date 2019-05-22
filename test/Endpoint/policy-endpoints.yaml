@@ -6,7 +6,8 @@ spec :
   rules:
     - name: pEP
       resource:
-        kind : Endpoints
+        kinds : 
+        - Endpoints
         selector:
           matchLabels:
             label : test

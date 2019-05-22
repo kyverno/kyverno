@@ -6,7 +6,8 @@ spec:
   rules:
     - name: pCJ
       resource:
-        kind : CronJob
+        kinds : 
+        - CronJob
         name: "?ell*"
       mutate:
         patches:
