@@ -41,6 +41,7 @@ spec :
 In this example, when this policy is applied, any new namespace will receive 2 new resources after its creation:
 * ConfigMap copied from default/config-template with added value DB_ENDPOINT.
 * Secret with values DB_USER and DB_PASSWORD.
+
 Both resources will contain a label ```purpose: mongo```
 
 ---
