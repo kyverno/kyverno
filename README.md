@@ -44,12 +44,12 @@ spec:
           - name: "*"
             resources:
               limits:
-                # '?' requires a value (at least 1 character) 
-                memory: "?"
-                cpu: "?"
+                # '?' requires at least 1 character and '*' means that there can be 0 or several characters after a single character marked by ?
+                memory: "?*"
+                cpu: "?*"
               requests:
-                memory: "?"
-                cpu: "?"
+                memory: "?*"
+                cpu: "?*"
 ````
 
 ### 2. Mutating resources
@@ -128,11 +128,11 @@ Additional examples are available in [examples](/examples).
 
 Here are some the major features we plan on completing before a 1.0 release:
 
-* Events
-* Policy Violations
-* Generate any resource
-* Conditionals on existing resources
-* Extend CLI to operate on cluster resources 
+* [Events](https://github.com/nirmata/kyverno/issues/14)
+* [Policy Violations](https://github.com/nirmata/kyverno/issues/24)
+* [Generate any resource](https://github.com/nirmata/kyverno/issues/21)
+* [Conditionals on existing resources](https://github.com/nirmata/kyverno/issues/57)
+* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/25)
 
 ## Getting help
 
