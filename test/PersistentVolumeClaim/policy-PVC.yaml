@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-pvc
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: pvc1
       resource:
-        kind : PersistentVolumeClaim
+        kinds : 
+        - PersistentVolumeClaim
         matchLabels:
             originalLabel: isHere
       mutate:

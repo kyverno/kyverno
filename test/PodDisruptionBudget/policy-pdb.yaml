@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.nirmata.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-pdb
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: pdb1
       resource:
-        kind : PodDisruptionBudget
+        kinds : 
+        - PodDisruptionBudget
         name: "game-pdb"
       mutate:
         patches:

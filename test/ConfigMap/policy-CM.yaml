@@ -6,7 +6,8 @@ spec :
   rules:
     - name: pCM1
       resource:
-        kind : ConfigMap
+        kinds : 
+        - ConfigMap
         name: "game-config"
       mutate:
         patches:
@@ -15,7 +16,8 @@ spec :
           value : newValue
     - name: pCM2
       resource:
-        kind : ConfigMap
+        kinds : 
+        - ConfigMap
         name: "game-config"
       mutate:
         patches:
@@ -26,7 +28,8 @@ spec :
           value : "data is replaced"
     - name: pCM3
       resource:
-        kind : ConfigMap
+        kinds : 
+        - ConfigMap
         name: "game-config"
       mutate:
         patches:
@@ -40,7 +43,8 @@ spec :
             game.properties: "*enemies=aliens*"
     - name: pCM4
       resource:
-        kind : ConfigMap
+        kinds : 
+        - ConfigMap
         name: "game-config"
       validate:
         message: "This CM data is broken because it does not have ui.properties"

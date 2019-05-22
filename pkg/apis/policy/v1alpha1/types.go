@@ -33,7 +33,7 @@ type Rule struct {
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.
 type ResourceDescription struct {
-	Kind     string                `json:"kind"`
+	Kinds    []string              `json:"kinds"`
 	Name     *string               `json:"name"`
 	Selector *metav1.LabelSelector `json:"selector"`
 }

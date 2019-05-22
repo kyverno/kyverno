@@ -1,12 +1,13 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.nirmata.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-limitrange
 spec :
   rules:
-    - name:
+    - name: "rule"
       resource:
-        kind : LimitRange
+        kinds : 
+        - LimitRange
         selector:
           matchLabels:
             containerSize: minimal
