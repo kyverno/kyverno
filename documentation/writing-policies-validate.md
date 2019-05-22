@@ -18,7 +18,7 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 
 ### Wildcards
 1. `*` - matches zero or more alphanumeric characters
-2. `?` - maatches a single alphanumeric character
+2. `?` - matches a single alphanumeric character
 
 ### Operators
 
@@ -29,7 +29,7 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 | `>=`       | greater than or equals to |
 | `<=`       | less than or equals to    | 
 | `!`        | not equals                |
-| \|         | logical or                |
+|  \|        | logical or                |
 | `&`        | logical and               |
 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
