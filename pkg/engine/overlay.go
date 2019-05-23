@@ -144,7 +144,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 			for i, resourceElement := range resource {
 				typedResource := resourceElement.(map[string]interface{})
 				if len(anchors) > 0 {
-					currentPath := path + strconv.Itoa(i)
+					currentPath := path + strconv.Itoa(i) + "/"
 					if !skipArrayObject(typedResource, anchors) {
 						patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
 						if err != nil {
