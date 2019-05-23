@@ -1,2 +1,0 @@
-# Testing using kubectl
-

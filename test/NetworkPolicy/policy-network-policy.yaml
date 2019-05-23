@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-network-policy
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: np1
       resource:
-        kind : NetworkPolicy
+        kinds : 
+        - NetworkPolicy
         selector:
           matchLabels:
             originalLabel: isHere

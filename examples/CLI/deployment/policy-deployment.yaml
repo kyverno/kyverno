@@ -1,4 +1,4 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-deployment
@@ -6,7 +6,8 @@ spec :
   rules:
     - name: deployment-policy
       resource:
-        kind : Deployment
+        kinds : 
+        - Deployment
         selector :
           matchLabels :
             cli: test
@@ -19,12 +20,12 @@ spec :
           op: replace
           value: "nginx_is_mutated" 
       validate:
-        message: "The imagePullPolicy shoud set to Always"
+        message: "The imagePullPolicy must be Always when :latest is used as a tag"
         pattern:
           spec:
             template:
               spec:
                 containers:
-                - (name): "*"
+                - (name): "*:latest"
                   imagePullPolicy: Always
 

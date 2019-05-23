@@ -1,10 +1,15 @@
-# Examples
-Examples of policies and resources with which you can play to see the kube-policy in action. There are definitions for each supported resource type and an example policy for the corresponding resource.
-## How to play
-First of all, **build and install the policy controller**: see README file in the project's root.
-Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `examples/Endpoints/endpoints.yaml`:
+# Test samples
 
-```apiVersion: v1
+This directory contains policies and resources for testing. There are definitions for each supported resource type and an sample policy for the corresponding resource.
+
+## How to use
+
+Currently, the testing is possible only via ```kubectl``` when kyverno is installed to the cluster. So, [build and install the policy controller](/documentation/installation.md) first.
+
+Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `test/Endpoints/endpoints.yaml`:
+
+````yaml
+apiVersion: v1
 kind: Endpoints
 metadata:
   name: test-endpoint
@@ -17,25 +22,25 @@ subsets:
   - name: secure-connection
     port: 443
     protocol: TCP
-```
+````
 Create this resource:
 
-```
-> kubectl create -f examples/Endpoints/endpoints.yaml
+````yaml
+> kubectl create -f test/Endpoints/endpoints.yaml
 endpoints/test-endpoint created
-> kubectl get -f examples/Endpoints/endpoints.yaml
+> kubectl get -f test/Endpoints/endpoints.yaml
 NAME            ENDPOINTS            AGE
 test-endpoint   192.168.10.171:443   6s
-```
+````
 We just created an endpoints resource and made sure that it was created without changes. Let's remove it now and try to create it again, but with an active policy for endpoints resources.
-```
-> kubectl delete -f test/endpoints.yaml
+````bash
+> kubectl delete -f test/Endpoints/endpoints.yaml
 endpoints "test-endpoint" deleted
-```
-We have this a policy for enpoints (`examples/Endpoints/policy-endpoint.yaml`):
+````
+We have this a policy for enpoints ([policy-endpoint.yaml](/test/Endpoints/policy-endpoint.yaml)):
 
-```
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+````yaml
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-endpoints
@@ -43,7 +48,8 @@ spec :
   rules:
     - name:
       resource:
-        kind : Endpoints
+        kinds:
+          - Endpoints
         selector:
           matchLabels:
             label : test
@@ -61,22 +67,22 @@ spec :
               - name: load-balancer-connection
                 port: 80
                 protocol: UDP
-```
+````
 This policy does 2 patches:
 
 - **replaces** the first port of the first connection to 6443
 - **adds** new endpoint with IP 192.168.10.171 and port 80 (UDP)
 
 Let's apply this policy and create the endpoints again to see the changes:
-```
-> kubectl create -f examples/Endpoints/policy-endpoints.yaml
+````bash
+> kubectl create -f test/Endpoints/policy-endpoints.yaml
 policy.policy.nirmata.io/policy-endpoints created
-> kubectl create -f examples/Endpoints/endpoints.yaml
+> kubectl create -f test/Endpoints/endpoints.yaml
 endpoints/test-endpoint created
-> kubectl get -f examples/Endpoints/endpoints.yaml
+> kubectl get -f test/Endpoints/endpoints.yaml
 NAME            ENDPOINTS                               AGE
 test-endpoint   192.168.10.171:80,192.168.10.171:9663   30s
-```
+````
 As you can see, the endpoints resource was created with changes: a new port 80 was added, and port 443 was changed to 6443.
 
 **Enjoy :)**

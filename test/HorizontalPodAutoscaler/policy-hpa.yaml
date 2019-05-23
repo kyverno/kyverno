@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-hpa
@@ -6,7 +6,8 @@ spec :
   rules:
     - name: hpa1
       resource:
-        kind : HorizontalPodAutoscaler
+        kinds : 
+        - HorizontalPodAutoscaler
         selector:
           matchLabels:
             originalLabel: isHere

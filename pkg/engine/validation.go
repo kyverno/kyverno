@@ -96,10 +96,7 @@ func validateArray(resourcePart, patternPart interface{}) error {
 
 	switch pattern := patternArray[0].(type) {
 	case map[string]interface{}:
-		anchors, err := getAnchorsFromMap(pattern)
-		if err != nil {
-			return err
-		}
+		anchors := GetAnchorsFromMap(pattern)
 
 		for _, value := range resourceArray {
 			resource, ok := value.(map[string]interface{})
@@ -107,7 +104,7 @@ func validateArray(resourcePart, patternPart interface{}) error {
 				return fmt.Errorf("expected array, found %T", resourcePart)
 			}
 
-			if skipArrayObject(resource, anchors) {
+			if skipValidatingObject(resource, anchors) {
 				continue
 			}
 
@@ -177,19 +174,7 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 	return nil
 }
 
-func getAnchorsFromMap(pattern map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-
-	for key, value := range pattern {
-		if wrappedWithParentheses(key) {
-			result[key] = value
-		}
-	}
-
-	return result, nil
-}
-
-func skipArrayObject(object, anchors map[string]interface{}) bool {
+func skipValidatingObject(object, anchors map[string]interface{}) bool {
 	for key, pattern := range anchors {
 		key = key[1 : len(key)-1]
 
