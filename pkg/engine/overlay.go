@@ -145,10 +145,10 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 		for _, overlayElement := range overlay {
 			typedOverlay := overlayElement.(map[string]interface{})
 			anchors := GetAnchorsFromMap(typedOverlay)
+			if len(anchors) > 0 {
+				for i, resourceElement := range resource {
+					typedResource := resourceElement.(map[string]interface{})
 
-			for i, resourceElement := range resource {
-				typedResource := resourceElement.(map[string]interface{})
-				if len(anchors) > 0 {
 					currentPath := path + strconv.Itoa(i) + "/"
 					if !skipArrayObject(typedResource, anchors) {
 						patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
@@ -158,22 +158,24 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 
 						appliedPatches = append(appliedPatches, patches...)
 					}
-				} else {
-					currentPath := path + "0/"
-					if hasNestedAnchors(overlayElement) {
-						patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
-						if err != nil {
-							return nil, err
-						}
-						appliedPatches = append(appliedPatches, patches...)
-					} else {
-						patch, err := insertSubtree(overlayElement, currentPath)
-						if err != nil {
-							return nil, err
-						}
-						appliedPatches = append(appliedPatches, patch)
-					}
+
 				}
+			} else if hasNestedAnchors(overlayElement) {
+				for i, resourceElement := range resource {
+					currentPath := path + strconv.Itoa(i) + "/"
+					patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
+					if err != nil {
+						return nil, err
+					}
+					appliedPatches = append(appliedPatches, patches...)
+				}
+			} else {
+				currentPath := path + "0/"
+				patch, err := insertSubtree(overlayElement, currentPath)
+				if err != nil {
+					return nil, err
+				}
+				appliedPatches = append(appliedPatches, patch)
 			}
 		}
 	default:
