@@ -30,7 +30,7 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 		}
 
 		overlay := *rule.Mutation.Overlay
-		if err, _ := applyOverlay(resource, overlay, ""); err != nil {
+		if err, _ := applyOverlay(resource, overlay, "/"); err != nil {
 			//return fmt.Errorf("%s: %s", *rule.Validation.Message, err.Error())
 		}
 	}
@@ -365,7 +365,13 @@ func hasNestedAnchors(overlay interface{}) bool {
 				return true
 			}
 		}
-
+		return false
+	case []interface{}:
+		for _, value := range typed {
+			if hasNestedAnchors(value) {
+				return true
+			}
+		}
 		return false
 	case string:
 		return false
