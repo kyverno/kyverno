@@ -5,13 +5,15 @@ metadata:
 spec:
   rules:
   - name: image-pull-policy
-    message: "Image tag ':latest' requires imagePullPolicy 'Always'"
     resource:
-      kinds: 
+      kinds:
       - Deployment
-    overlay:
-      template:
+    validate:
+      message: "Image tag ':latest' requires imagePullPolicy 'Always'"
+      pattern:
         spec:
-          containers:              
-            - image: "(*:latest)"       # select images which end with :latest            
-              imagePullPolicy: "Always" # ensure that the imagePullPolicy is "Always"
+          template:
+            spec:
+              containers:
+              - (image): "*latest"       # select images which end with :latest
+                imagePullPolicy: Always   # ensure that the imagePullPolicy is "Always"

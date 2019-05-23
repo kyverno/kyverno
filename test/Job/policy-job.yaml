@@ -6,10 +6,22 @@ spec :
   rules:
     - name: job1
       resource:
-        kinds: 
+        kinds:
         - Job
         name: pi
       mutate:
+        overlay:
+          metadata:
+            labels:
+              isOverlayed: "true"
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "pi1"
+                    image: "vasylev.perl"
+                  - name: "pi2"
+                    image: "maxov.perl"
         patches:
         - path : "/spec/template/spec/containers/0/command"
           op : add
@@ -24,3 +36,18 @@ spec :
             template:
               spec:
                 restartPolicy: Never
+    - name: job2
+      resource:
+        kinds:
+        - Job
+        name: pi
+      mutate:
+        overlay:
+          spec:
+            template:
+              spec:
+                containers:
+                - (name): piv0
+                  ports:
+                  - containerPort: 80
+                    protocol: TCP
