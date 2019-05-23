@@ -1,0 +1,12 @@
+
+Command:  binary arg1
+ExitCode: 99 (timeout)
+Error:    exit code 99
+Stdout:   the output
+Stderr:   the stderr
+
+Failures:
+ExitCode was 99 expected 101
+Expected command to finish, but it hit the timeout
+Expected stdout to contain "Something else"
+Expected stderr to contain "[NOTHING]"
