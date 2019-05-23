@@ -1,0 +1,10 @@
+
+Command:  binary arg1
+ExitCode: 0
+Stdout:   the output
+Stderr:   the stderr
+
+Failures:
+ExitCode was 0 expected 101
+Expected stdout to contain "Something else"
+Expected stderr to contain "[NOTHING]"

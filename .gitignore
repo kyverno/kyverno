@@ -1,9 +1,6 @@
-vendor
-pkg/client
-pkg/apis/policy/v1alpha1/zz_generated.deepcopy.go
 certs
-kyverno
 Gopkg.lock
 Dockerfile
 .vscode
 gh-pages/public
+/cmd/kyverno/kyverno
