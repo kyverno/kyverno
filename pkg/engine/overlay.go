@@ -44,6 +44,7 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 	return appliedPatches, nil
 }
 
+// goes down through overlay and resource trees and applies overlay
 func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
 
@@ -95,32 +96,21 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 		}
 
 		appliedPatches = append(appliedPatches, patches...)
-	case string:
+	case string, float64, int64:
 		patch, err := replaceSubtree(overlay, path)
 		if err != nil {
 			return nil, err
 		}
 
 		appliedPatches = append(appliedPatches, patch)
-	case float64:
-		patch, err := replaceSubtree(overlay, path)
-		if err != nil {
-			return nil, err
-		}
-
-		appliedPatches = append(appliedPatches, patch)
-	case int64:
-		patch, err := replaceSubtree(overlay, path)
-		if err != nil {
-			return nil, err
-		}
-
-		appliedPatches = append(appliedPatches, patch)
+	default:
+		return nil, fmt.Errorf("Overlay has unsupported type: %T", overlay)
 	}
 
 	return appliedPatches, nil
 }
 
+// for each overlay and resource array elements and applies overlay
 func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
 	if len(overlay) == 0 {
@@ -231,6 +221,7 @@ func fillEmptyArray(overlay []interface{}, path string) ([]PatchBytes, error) {
 	return appliedPatches, nil
 }
 
+// Checks if array object matches anchors. If not - skip - return true
 func skipArrayObject(object, anchors map[string]interface{}) bool {
 	for key, pattern := range anchors {
 		key = key[1 : len(key)-1]
@@ -277,6 +268,8 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	return []byte(patchStr), nil
 }
 
+// TODO: Overlay is already in JSON, remove this code
+// converts overlay to JSON string to be inserted into the JSON Patch
 func prepareJSONValue(overlay interface{}) string {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:
@@ -350,12 +343,6 @@ func hasOnlyAnchors(overlay interface{}) bool {
 		}
 
 		return true
-	case string:
-		return false
-	case float64:
-		return false
-	case int64:
-		return false
 	default:
 		return false
 	}
@@ -380,12 +367,6 @@ func hasNestedAnchors(overlay interface{}) bool {
 				return true
 			}
 		}
-		return false
-	case string:
-		return false
-	case float64:
-		return false
-	case int64:
 		return false
 	default:
 		return false
