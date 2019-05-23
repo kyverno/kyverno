@@ -10,7 +10,7 @@ Kyverno allows cluster adminstrators to manage environment specific configuratio
 
 Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
 
-Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching polcies to return results that enforce admission policies or reject requests.
+Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching policies to return results that enforce admission policies or reject requests.
 
 Kyverno policies can match resources using the resource kind, name, and label selectors. Wildcards are supported in names.
 
@@ -25,7 +25,7 @@ Policy enforcement is captured using Kubernetes events. Kyverno also reports pol
 This policy requires that all pods have CPU and memory resource requests and limits:
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: check-cpu-memory
@@ -33,7 +33,8 @@ spec:
   rules:
   - name: check-pod-resources
     resource:
-      kind: Pod
+      kinds:
+      - Pod
     validate:
       message: "CPU and memory resource requests and limits are required"
       pattern:
@@ -43,12 +44,13 @@ spec:
           - name: "*"
             resources:
               limits:
-                # '?' requires a value (at least 1 character) 
-                memory: "?"
-                cpu: "?"
+                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters. 
+                # Using them togther e.g. '?*' requires at least one character. 
+                memory: "?*"
+                cpu: "?*"
               requests:
-                memory: "?"
-                cpu: "?"
+                memory: "?*"
+                cpu: "?*"
 ````
 
 ### 2. Mutating resources
@@ -56,7 +58,7 @@ spec:
 This policy sets the imagePullPolicy to Always if the image tag is latest:
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: set-image-pull-policy
@@ -64,15 +66,18 @@ spec:
   rules:
   - name: set-image-pull-policy
     resource:
-      kind: Pod
+      kinds:
+      - Deployment
     mutate:
       overlay:
         spec:
-          containers:
-            # match images which end with :latest   
-            - image: "(*:latest)"
-              # set the imagePullPolicy to "Always"
-              imagePullPolicy: "Always"
+          template:
+            spec:
+              containers:
+                # match images which end with :latest   
+                - (image): "*:latest"
+                  # set the imagePullPolicy to "Always"
+                  imagePullPolicy: "Always"
 ````
 
 ### 3. Generating resources
@@ -80,7 +85,7 @@ spec:
 This policy sets the Zookeeper and Kafka connection strings for all namespaces with a label key 'kafka'.
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: "zk-kafka-address"
@@ -88,7 +93,8 @@ spec:
   rules:
   - name: "zk-kafka-address"
     resource:
-      kind : Namespace
+      kinds:
+        - Namespace
       selector:
         matchExpressions:
         - {key: kafka, operator: Exists}
@@ -104,6 +110,17 @@ spec:
 
 Additional examples are available in [examples](/examples).
 
+## Alternatives
+
+### Open Policy Agent
+
+[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language. 
+
+### External configuration management tools
+
+Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
+
+
 ## Status
 
 *Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
@@ -113,23 +130,23 @@ Additional examples are available in [examples](/examples).
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Validate](documentation/writing-policies-validate.md)
   * [Mutate](documentation/writing-policies-mutate.md)
+  * [Validate](documentation/writing-policies-validate.md)
   * [Generate](documentation/writing-policies-generate.md)
 * [Testing Policies](documentation/testing-policies.md)
-  * [Using kubectl](documentation/testing-policies-kubectl.md)
-  * [Using the Kyverno CLI](documentation/testing-policies-kyverno-cli.md)
+  * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
+  * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
 
 
 ## Roadmap
 
 Here are some the major features we plan on completing before a 1.0 release:
 
-* Events
-* Policy Violations
-* Generate any resource
-* Conditionals on existing resources
-* Extend CLI to operate on cluster resources 
+* [Events](https://github.com/nirmata/kyverno/issues/14)
+* [Policy Violations](https://github.com/nirmata/kyverno/issues/24)
+* [Generate any resource](https://github.com/nirmata/kyverno/issues/21)
+* [Conditionals on existing resources](https://github.com/nirmata/kyverno/issues/57)
+* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/25)
 
 ## Getting help
 

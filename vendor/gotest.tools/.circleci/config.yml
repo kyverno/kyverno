@@ -1,0 +1,99 @@
+version: 2
+
+jobs:
+
+  lint:
+    working_directory: /work
+    docker: [{image: 'docker:17.06-git'}]
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          command: docker version
+      - run:
+          name: "Install Dependencies"
+          command: |
+            docker build --target dev-with-source --tag cli-builder:$CIRCLE_BUILD_NUM .
+            docker run --name \
+                deps-$CIRCLE_BUILD_NUM cli-builder:$CIRCLE_BUILD_NUM \
+                dep ensure
+            docker cp \
+                deps-$CIRCLE_BUILD_NUM:/go/src/gotest.tools/vendor \
+                vendor
+      - run:
+          name: "Lint"
+          command: |
+            docker build --target dev-with-source --tag cli-linter:$CIRCLE_BUILD_NUM .
+            docker run --rm cli-linter:$CIRCLE_BUILD_NUM
+
+  test-golang-1.9:
+    working_directory: /work
+    docker: [{image: 'docker:17.06-git'}]
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: "Unit Test GO 1.9"
+          command: scripts/ci/test 1.9-alpine
+
+  test-golang-1.8:
+    working_directory: /work
+    docker: [{image: 'docker:17.06-git'}]
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: "Unit Test GO 1.8"
+          command: scripts/ci/test 1.8-alpine
+
+  test-golang-1.10:
+    working_directory: /work
+    docker: [{image: 'docker:17.06-git'}]
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: "Unit Test GO 1.10"
+          command: scripts/ci/test 1.10-alpine
+
+  test-golang-1.11:
+    working_directory: /work
+    docker: [{image: 'docker:17.06-git'}]
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: "Unit Test GO 1.11"
+          command: scripts/ci/test 1.11-alpine
+
+  coverage:
+    docker: [{image: 'circleci/golang:1.11'}]
+    working_directory: /go/src/gotest.tools
+    steps:
+      - checkout
+      - run:
+          name: "Download dependencies"
+          command: |
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+            go get gotest.tools/gotestsum
+      - run:
+          name: "Coverage"
+          command: |
+            mkdir -p junitxml/unit
+            gotestsum --junitfile=junitxml/unit/junit.xml -- \
+              -coverprofile=coverage.txt ./...
+            bash <(curl -s https://codecov.io/bash)
+      - store_test_results:
+          path: junitxml/
+
+workflows:
+  version: 2
+  ci:
+    jobs:
+      - lint
+      - test-golang-1.8
+      - test-golang-1.9
+      - test-golang-1.10
+      - test-golang-1.11
+      - coverage

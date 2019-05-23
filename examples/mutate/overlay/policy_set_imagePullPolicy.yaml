@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: set-image-pull-policy
+spec:
+  rules:
+  - name: set-image-pull-policy
+    resource:
+      kinds:
+      - Deployment
+    mutate:
+      overlay:
+        spec:
+          template:
+            spec:
+              containers:
+                # match images which end with :latest   
+                - (image): "*:latest"
+                  # set the imagePullPolicy to "Always"
+                  imagePullPolicy: "Always"

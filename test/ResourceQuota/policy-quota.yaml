@@ -1,12 +1,13 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-quota-low-test
 spec :
   rules:
-    - name:
+    - name: "rule"
       resource:
-        kind : ResourceQuota
+        kinds : 
+        - ResourceQuota
         selector:
           matchLabels:
             quota: low

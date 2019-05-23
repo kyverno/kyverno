@@ -1,4 +1,4 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-service
@@ -6,7 +6,8 @@ spec :
   rules:
     - name: ps1
       resource:
-        kind: Service
+        kinds: 
+        - Service
         name: "game-service*"
       mutate:
         patches:
