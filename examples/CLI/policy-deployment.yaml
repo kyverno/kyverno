@@ -4,7 +4,7 @@ metadata :
   name : policy-deployment
 spec :
   rules:
-    - name: deployment-policy
+    - name: add-label
       resource:
         kinds : 
         - Deployment
@@ -19,6 +19,13 @@ spec :
         - path: /metadata/labels/app
           op: replace
           value: "nginx_is_mutated" 
+    - name: check-image
+      resource:
+        kinds : 
+        - Deployment
+        selector :
+          matchLabels :
+            cli: test
       validate:
         message: "The imagePullPolicy must be Always when :latest is used as a tag"
         pattern:
