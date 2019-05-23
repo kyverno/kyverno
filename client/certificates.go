@@ -147,25 +147,8 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 // Updates existing secret or creates new one.
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	name := generateSecretName(props)
-	unstrSecret, err := c.GetResource(Secrets, props.Namespace, name)
-	if err == nil {
-		secret, err := convertToSecret(unstrSecret)
-		if err != nil {
-			return nil
-		}
-
-		if secret.Data == nil {
-			secret.Data = make(map[string][]byte)
-		}
-		secret.Data[certificateField] = pemPair.Certificate
-		secret.Data[privateKeyField] = pemPair.PrivateKey
-		_, err = c.UpdateResource(Secrets, props.Namespace, secret)
-		if err == nil {
-			c.logger.Printf("Secret %s is updated", name)
-		}
-
-	} else {
-
+	_, err := c.GetResource(Secrets, props.Namespace, name)
+	if err != nil {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -185,8 +168,22 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 		if err == nil {
 			c.logger.Printf("Secret %s is created", name)
 		}
+		return err
 	}
-	return err
+	secret := v1.Secret{}
+
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
+	secret.Data[certificateField] = pemPair.Certificate
+	secret.Data[privateKeyField] = pemPair.PrivateKey
+
+	_, err = c.UpdateResource(Secrets, props.Namespace, secret)
+	if err != nil {
+		return err
+	}
+	c.logger.Printf("Secret %s is updated", name)
+	return nil
 }
 
 func generateSecretName(props tls.TlsCertificateProps) string {
