@@ -19,11 +19,6 @@
 * Test policy changes using kubectl
 
 
-<<<<<<< HEAD
-<p style="margin-top: 30px; margin-left:15px; font-size: 125%;">
-Ready for more? <a href="https://github.com/nirmata/kyverno/blob/master/README.md">Read the docs</a>, <a href="https://github.com/nirmata/kyverno/blob/master/README.md">write a policy</a>, or <a href="https://github.com/nirmata/kyverno/blob/master/README.md">try Kyverno in your cluster</a>!
-=======
 <p style="margin-top: 30px; margin-left:15px; font-size: 110%;">
 Ready for more? <a href="https://github.com/nirmata/kyverno/blob/master/README.md">Read the docs</a>, <a href="https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md">write a policy</a>, or <a href="https://github.com/nirmata/kyverno/blob/master/documentation/installation.md">try Kyverno in your cluster</a>!
->>>>>>> 5ef9b86400eb026bb3fdcda3a4f80f94c938e31f
 </p>

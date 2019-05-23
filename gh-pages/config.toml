@@ -1,4 +1,4 @@
-baseURL = "https://nirmata.github.io/kyverno/"
+baseURL = "https://kyverno.io/"
 themesDir = "themes"
 theme = "github-project-landing-page"
 title = "Kyverno"
