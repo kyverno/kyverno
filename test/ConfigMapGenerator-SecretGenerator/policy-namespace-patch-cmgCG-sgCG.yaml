@@ -30,7 +30,7 @@ spec :
         matchLabels:
           LabelForSelector : "namespace2"
     generate :
-    - kind: ConfigMap
+      kind: ConfigMap
       name : copied-cm
       copyFrom :
         namespace : default
@@ -46,7 +46,7 @@ spec :
         matchLabels:
           LabelForSelector : "namespace2"
     generate :
-    - kind: ConfigMap
+      kind: ConfigMap
       name : generated-cm
       data :
         secretData: "very sensitive data from cmg"
@@ -63,7 +63,7 @@ spec :
       - Namespace
       name: ns2
     generate :
-    - kind: Secret
+      kind: Secret
       name : generated-secrets
       data :
         foo : bar
@@ -80,7 +80,7 @@ spec :
       - Namespace
       name: ns2
     generate :
-    - kind: Secret
+      kind: Secret
       name : copied-secrets
       copyFrom :
         namespace : default

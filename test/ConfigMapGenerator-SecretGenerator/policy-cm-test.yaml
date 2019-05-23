@@ -12,7 +12,7 @@ spec:
         matchLabels:
           LabelForSelector : "namespace2"
     generate :
-    - kind: ConfigMap
+      kind: ConfigMap
       name : copied-cm
       copyFrom :
         namespace : default
