@@ -1,1 +1,0 @@
-# Kyverno CLI
