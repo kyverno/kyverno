@@ -20,8 +20,41 @@ kubectl get -f CM.yaml -o yaml
 
 ## Test using the Kyverno CLI
 
-*This feature will be available soon*
+The Kyverno Command Line Interface (CLI) tool enables writing and testing policies without requiring Kubernetes clusters and without having to apply local policy changes to a cluster.
 
-## Autotest
+### Building the CLI
 
-*Will be available after Kyverno CLI is implemented*
+You will need a [Go environment](https://golang.org/doc/install) setup.
+
+1. Clone the Kyverno repo
+
+````bash
+git clone https://github.com/nirmata/kyverno/
+````
+
+2. Build the CLI
+
+````bash
+cd kyverno/cmd
+go build
+````
+
+Or, you can directly build and install the CLI using `go get`:
+
+````bash
+go get -u https://github.com/nirmata/kyverno/cmd
+````
+
+### Using the CLI
+
+To test a policy using the CLI type:
+
+`kyverno <policy> <resource YAML file or folder>`
+
+For example:
+
+```bash
+kyverno ../examples/CLI/policy-deployment.yaml ../examples/CLI/resources
+```
+
+In future releases, the CLI will support complete validation of policies and will allow testing policies against resources in Kubernetes clusters.
