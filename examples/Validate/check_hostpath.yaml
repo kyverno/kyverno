@@ -1,4 +1,4 @@
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: check-host-path
@@ -6,7 +6,8 @@ spec:
   rules:
   - name: check-host-path
     resource:
-      kind: Pod
+      kinds: 
+      - Pod
     validate:
       message: "Host path volumes are not allowed"
       pattern:

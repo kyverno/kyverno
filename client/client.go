@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -17,16 +16,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
 
 type Client struct {
-	logger       *log.Logger
 	client       dynamic.Interface
+	cachedClient discovery.CachedDiscoveryInterface
+	logger       *log.Logger
 	clientConfig *rest.Config
+	kclient      *kubernetes.Clientset
 }
 
 func NewClient(config *rest.Config, logger *log.Logger) (*Client, error) {
@@ -39,10 +43,17 @@ func NewClient(config *rest.Config, logger *log.Logger) (*Client, error) {
 		logger = log.New(os.Stdout, "Client : ", log.LstdFlags)
 	}
 
+	kclient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		logger:       logger,
 		client:       client,
 		clientConfig: config,
+		kclient:      kclient,
+		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
 	}, nil
 }
 
@@ -62,29 +73,20 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 // or generate a kube client value to access the interface
 //GetEventsInterface provides typed interface for events
 func (c *Client) GetEventsInterface() (event.EventInterface, error) {
-	kubeClient, err := newKubeClient(c.clientConfig)
-	if err != nil {
-		return nil, err
-	}
-	return kubeClient.CoreV1().Events(""), nil
+	return c.kclient.CoreV1().Events(""), nil
 }
 
 func (c *Client) GetCSRInterface() (csrtype.CertificateSigningRequestInterface, error) {
-	kubeClient, err := newKubeClient(c.clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubeClient.CertificatesV1beta1().CertificateSigningRequests(), nil
+	return c.kclient.CertificatesV1beta1().CertificateSigningRequests(), nil
 }
 
-func (c *Client) getInterface(kind string) dynamic.NamespaceableResourceInterface {
-	return c.client.Resource(c.getGroupVersionMapper(kind))
+func (c *Client) getInterface(resource string) dynamic.NamespaceableResourceInterface {
+	return c.client.Resource(c.getGroupVersionMapper(resource))
 }
 
-func (c *Client) getResourceInterface(kind string, namespace string) dynamic.ResourceInterface {
+func (c *Client) getResourceInterface(resource string, namespace string) dynamic.ResourceInterface {
 	// Get the resource interface
-	namespaceableInterface := c.getInterface(kind)
+	namespaceableInterface := c.getInterface(resource)
 	// Get the namespacable interface
 	var resourceInteface dynamic.ResourceInterface
 	if namespace != "" {
@@ -96,58 +98,58 @@ func (c *Client) getResourceInterface(kind string, namespace string) dynamic.Res
 }
 
 // Keep this a stateful as the resource list will be based on the kubernetes version we connect to
-func (c *Client) getGroupVersionMapper(kind string) schema.GroupVersionResource {
-	//TODO: add checks to see if the kind is supported
-	//TODO: build the resource list dynamically( by querying the registered resource kinds)
+func (c *Client) getGroupVersionMapper(resource string) schema.GroupVersionResource {
+	//TODO: add checks to see if the resource is supported
+	//TODO: build the resource list dynamically( by querying the registered resources)
 	//TODO: the error scenarios
-	return getGrpVersionMapper(kind, c.clientConfig, false)
+	return c.getGVR(resource)
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *Client) GetResource(kind string, namespace string, name string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{})
+func (c *Client) GetResource(resource string, namespace string, name string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(resource, namespace).Get(name, meta.GetOptions{})
 }
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(kind string, namespace string) (*unstructured.UnstructuredList, error) {
-	return c.getResourceInterface(kind, namespace).List(meta.ListOptions{})
+func (c *Client) ListResource(resource string, namespace string) (*unstructured.UnstructuredList, error) {
+	return c.getResourceInterface(resource, namespace).List(meta.ListOptions{})
 }
 
-func (c *Client) DeleteResouce(kind string, namespace string, name string) error {
-	return c.getResourceInterface(kind, namespace).Delete(name, &meta.DeleteOptions{})
+func (c *Client) DeleteResouce(resource string, namespace string, name string) error {
+	return c.getResourceInterface(resource, namespace).Delete(name, &meta.DeleteOptions{})
 
 }
 
-// CreateResource creates object for the specified kind/namespace
-func (c *Client) CreateResource(kind string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+// CreateResource creates object for the specified resource/namespace
+func (c *Client) CreateResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).Create(unstructuredObj, meta.CreateOptions{})
+		return c.getResourceInterface(resource, namespace).Create(unstructuredObj, meta.CreateOptions{})
 	}
 	return nil, fmt.Errorf("Unable to create resource ")
 }
 
-// UpdateResource updates object for the specified kind/namespace
-func (c *Client) UpdateResource(kind string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+// UpdateResource updates object for the specified resource/namespace
+func (c *Client) UpdateResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).Update(unstructuredObj, meta.UpdateOptions{})
+		return c.getResourceInterface(resource, namespace).Update(unstructuredObj, meta.UpdateOptions{})
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
-func (c *Client) UpdateStatusResource(kind string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateStatusResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).UpdateStatus(unstructuredObj, meta.UpdateOptions{})
+		return c.getResourceInterface(resource, namespace).UpdateStatus(unstructuredObj, meta.UpdateOptions{})
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("Unable to convert : %v", err))
 		return nil
@@ -174,12 +176,12 @@ func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, er
 
 func (c *Client) GenerateSecret(generator types.Generation, namespace string) error {
 	c.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
-	secret := &v1.Secret{}
+	secret := v1.Secret{}
 
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	// Get configMap resource
-	unstrSecret, err := c.GetResource(Secret, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	unstrSecret, err := c.GetResource(Secrets, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	if err != nil {
 		return err
 	}
@@ -206,7 +208,7 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 		}
 	}
 
-	go c.createSecretAfterNamespaceIsCreated(*secret, namespace)
+	go c.createSecretAfterNamespaceIsCreated(secret, namespace)
 	return nil
 }
 
@@ -214,12 +216,12 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 //GenerateConfigMap to generate configMap
 func (c *Client) GenerateConfigMap(generator types.Generation, namespace string) error {
 	c.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
-	configMap := &v1.ConfigMap{}
+	configMap := v1.ConfigMap{}
 
 	//	if generator.CopyFrom != nil {
 	c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	// Get configMap resource
-	unstrConfigMap, err := c.GetResource("configmaps", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+	unstrConfigMap, err := c.GetResource(ConfigMaps, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 	if err != nil {
 		return err
 	}
@@ -245,24 +247,24 @@ func (c *Client) GenerateConfigMap(generator types.Generation, namespace string)
 			configMap.Data[k] = v
 		}
 	}
-	go c.createConfigMapAfterNamespaceIsCreated(*configMap, namespace)
+	go c.createConfigMapAfterNamespaceIsCreated(configMap, namespace)
 	return nil
 }
 
-func convertToConfigMap(obj *unstructured.Unstructured) (*v1.ConfigMap, error) {
+func convertToConfigMap(obj *unstructured.Unstructured) (v1.ConfigMap, error) {
 	configMap := v1.ConfigMap{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &configMap); err != nil {
-		return nil, err
+		return configMap, err
 	}
-	return &configMap, nil
+	return configMap, nil
 }
 
-func convertToSecret(obj *unstructured.Unstructured) (*v1.Secret, error) {
+func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
 	secret := v1.Secret{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &secret); err != nil {
-		return nil, err
+		return secret, err
 	}
-	return &secret, nil
+	return secret, nil
 }
 
 func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSigningRequest, error) {
@@ -276,7 +278,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, namespace string) {
 	err := c.waitUntilNamespaceIsCreated(namespace)
 	if err == nil {
-		_, err = c.CreateResource("configmaps", namespace, configMap)
+		_, err = c.CreateResource(ConfigMaps, namespace, configMap)
 	}
 	if err != nil {
 		c.logger.Printf("Can't create a configmap: %s", err)
@@ -286,7 +288,7 @@ func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, 
 func (c *Client) createSecretAfterNamespaceIsCreated(secret v1.Secret, namespace string) {
 	err := c.waitUntilNamespaceIsCreated(namespace)
 	if err == nil {
-		_, err = c.CreateResource(Secret, namespace, secret)
+		_, err = c.CreateResource(Secrets, namespace, secret)
 	}
 	if err != nil {
 		c.logger.Printf("Can't create a secret: %s", err)
@@ -299,7 +301,7 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 
 	var lastError error = nil
 	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
-		_, lastError = c.GetResource("namespaces", "", name)
+		_, lastError = c.GetResource(Namespaces, "", name)
 		if lastError == nil {
 			break
 		}
@@ -308,10 +310,24 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 	return lastError
 }
 
-// KindIsSupported checks if the kind is a registerd GVK
-func (c *Client) KindIsSupported(kind string) bool {
-	kind = strings.ToLower(kind) + "s"
-	buildGVKMapper(c.clientConfig, false)
-	_, ok := getValue(kind)
-	return ok
+func (c *Client) getGVR(resource string) schema.GroupVersionResource {
+	emptyGVR := schema.GroupVersionResource{}
+	serverresources, err := c.cachedClient.ServerPreferredResources()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return emptyGVR
+	}
+	resources, err := discovery.GroupVersionResources(serverresources)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return emptyGVR
+	}
+	//TODO using cached client to support cache validation and invalidation
+	// iterate over the key to compare the resource
+	for gvr, _ := range resources {
+		if gvr.Resource == resource {
+			return gvr
+		}
+	}
+	return emptyGVR
 }

@@ -1,9 +1,12 @@
-# Test examples
-Examples of policies and resources with which you can play to see the kube-policy in action. There are definitions for each supported resource type and an example policy for the corresponding resource.
-## How to play
-For now, the testing is possible only via ```kubectl``` when kyverno is installed to the cluster. So, [build and install the policy controller](/documentation/installation.md) first.
+# Test samples
 
-Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `examples/Endpoints/endpoints.yaml`:
+This directory contains policies and resources for testing. There are definitions for each supported resource type and an sample policy for the corresponding resource.
+
+## How to use
+
+Currently, the testing is possible only via ```kubectl``` when kyverno is installed to the cluster. So, [build and install the policy controller](/documentation/installation.md) first.
+
+Each folder contains a pair of files, one of which is the definition of the resource, and the second is the definition of the policy for this resource. Let's look at an example of the endpoints mutation. Endpoints are listed in file `test/Endpoints/endpoints.yaml`:
 
 ````yaml
 apiVersion: v1

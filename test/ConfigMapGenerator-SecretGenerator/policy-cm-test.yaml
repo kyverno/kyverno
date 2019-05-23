@@ -1,4 +1,4 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind: Policy
 metadata :
   name: "policy-configmapgenerator-test"
@@ -6,7 +6,8 @@ spec:
   rules:
   - name: "copyCM"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"

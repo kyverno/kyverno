@@ -3,7 +3,7 @@
 # To apply this policy you need to create secret and configMap in "default" namespace 
 # and then create a namespace
 
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : "policy-ns-patch-cmg-sg"
@@ -11,7 +11,8 @@ spec :
   rules:
   - name: "patchNamespace2"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
@@ -23,7 +24,8 @@ spec :
 
   - name: "copyCM"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
@@ -38,7 +40,8 @@ spec :
        
   - name: "generateCM"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       selector:
         matchLabels:
           LabelForSelector : "namespace2"
@@ -56,7 +59,8 @@ spec :
   
   - name: "generateSecret"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       name: ns2
     generate :
       kind: Secret
@@ -72,7 +76,8 @@ spec :
 
   - name: "copySecret"
     resource :
-      kind : Namespace
+      kinds : 
+      - Namespace
       name: ns2
     generate :
       kind: Secret

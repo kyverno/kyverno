@@ -1,4 +1,4 @@
-apiVersion: kubepolicy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-statefulset
@@ -6,7 +6,8 @@ spec:
   rules:
     - name: statefulset1
       resource:
-        kind : StatefulSet
+        kinds : 
+        - StatefulSet
         selector:
           matchLabels:
             originalLabel: isHere

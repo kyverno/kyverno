@@ -13,7 +13,7 @@ import (
 
 // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
 func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) bool {
-	if description.Kind != gvk.Kind {
+	if !findKind(description.Kinds, gvk.Kind) {
 		return false
 	}
 
@@ -103,4 +103,25 @@ func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 		return regex[0], false
 	}
 	return strings.Trim(regex[1], " "), true
+}
+
+func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for key, value := range anchorsMap {
+		if wrappedWithParentheses(key) {
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+func findKind(kinds []string, kindGVK string) bool {
+	for _, kind := range kinds {
+		if kind == kindGVK {
+			return true
+		}
+	}
+	return false
 }
