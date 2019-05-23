@@ -1,0 +1,27 @@
+apiVersion : kyverno.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-endpoints
+spec :
+  rules:
+    - name: pEP
+      resource:
+        kinds : 
+        - Endpoints
+        selector:
+          matchLabels:
+            label : test
+      mutate:
+        patches:
+          - path : "/subsets/0/ports/0/port"
+            op : replace
+            value: 9663
+          - path : "/subsets/0"
+            op: add
+            value:
+              addresses:
+              - ip: "192.168.10.172"
+              ports:
+              - name: load-balancer-connection
+                port: 80
+                protocol: UDP
