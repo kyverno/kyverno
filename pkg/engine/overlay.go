@@ -15,9 +15,11 @@ import (
 
 // ProcessOverlay handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, []byte) {
+func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, error) {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
+
+	var appliedPatches []PatchBytes
 
 	for _, rule := range policy.Spec.Rules {
 		if rule.Mutation == nil || rule.Mutation.Overlay == nil {
@@ -31,12 +33,15 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 		}
 
 		overlay := *rule.Mutation.Overlay
-		if err, _ := applyOverlay(resource, overlay, "/"); err != nil {
-			//return fmt.Errorf("%s: %s", *rule.Validation.Message, err.Error())
+		patch, err := applyOverlay(resource, overlay, "/")
+		if err != nil {
+			return nil, fmt.Errorf("Overlay application failed: %v", err.Error())
 		}
+
+		appliedPatches = append(appliedPatches, patch...)
 	}
 
-	return nil, nil
+	return appliedPatches, nil
 }
 
 func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, error) {
