@@ -1,4 +1,4 @@
-apiVersion : kyverno.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-limitrange
