@@ -8,12 +8,14 @@ The resources definitions for testing are located in [/test](/test) directory. E
 To do this you should [install kyverno to the cluster](/documentation/installation.md).
 
 For example, to test the simplest kyverno policy for ConfigMap, create the policy and then the resource itself via kubectl:
+
 ````bash
 cd test/ConfigMap
 kubectl create -f policy-CM.yaml
 kubectl create -f CM.yaml
 ````
 Then compare the original resource definition in CM.yaml with the actual one:
+
 ````bash
 kubectl get -f CM.yaml -o yaml
 ````
@@ -35,14 +37,14 @@ git clone https://github.com/nirmata/kyverno/
 2. Build the CLI
 
 ````bash
-cd kyverno/cmd
+cd kyverno/cmd/kyverno
 go build
 ````
 
 Or, you can directly build and install the CLI using `go get`:
 
 ````bash
-go get -u https://github.com/nirmata/kyverno/cmd
+go get -u https://github.com/nirmata/kyverno/cmd/kyverno
 ````
 
 ### Using the CLI
@@ -54,7 +56,7 @@ To test a policy using the CLI type:
 For example:
 
 ```bash
-kyverno ../examples/CLI/policy-deployment.yaml ../examples/CLI/resources
+kyverno ../../examples/CLI/policy-deployment.yaml ../../examples/CLI/resources
 ```
 
 In future releases, the CLI will support complete validation of policies and will allow testing policies against resources in Kubernetes clusters.
