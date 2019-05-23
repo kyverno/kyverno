@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu -o pipefail
+
+golang_version=${1-}
+
+image="cli-builder:$CIRCLE_BUILD_NUM"
+docker build \
+    --target dev-with-source \
+    --build-arg GOLANG_VERSION="$golang_version" \
+    --tag "$image" .
+docker run \
+    -e TESTTIMEOUT=30s \
+    --name "test-$CIRCLE_BUILD_NUM" "$image" \
+    bash -ec 'dep ensure; scripts/test-unit'

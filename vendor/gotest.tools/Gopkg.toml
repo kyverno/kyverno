@@ -1,0 +1,18 @@
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.0"
+
+[[constraint]]
+  name = "github.com/spf13/pflag"
+  version = "1.0.3"
+
+[[constraint]]
+  name = "github.com/google/go-cmp"
+  version = "0.2.0"
+
+[[constraint]]
+  # Commit a53bc13 dropped support for go1.8. Pinning the previous commit for
+  # now. We can remove this when we drop support for go1.8.
+  revision = "e96c4e24768da594adeb5eed27c8ecd547a3d4f1"
+  name = "golang.org/x/tools"
