@@ -26,7 +26,11 @@ kubectl logs <kyverno-pod-name> -n kyverno
 
 # Installing in a Development Environment
 
-To run Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+To build and run Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+
+To check if the controller is working, find it in the list of kyverno pods:
+
+`kubectl get pods -n kyverno`
 
 # Try Kyverno without a Kubernetes cluster
 

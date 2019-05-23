@@ -25,9 +25,3 @@ spec :
               - name: load-balancer-connection
                 port: 80
                 protocol: UDP
-      validate:
-        message: "This resource has wrong IP"
-        pattern:
-          subsets:
-          - addresses:
-            - ip: "192.168.10.171|192.168.10.172"

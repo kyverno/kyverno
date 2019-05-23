@@ -1,4 +1,4 @@
-apiVersion : kubepolicy.nirmata.io/v1alpha1
+apiVersion : kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-deployment
@@ -6,8 +6,8 @@ spec :
   rules:
     - name: "First policy v2"
       resource:
-        kind : Deployment
-        name: nginx-*
+        kinds : 
+        - Deployment
       mutate:
         patches:
         - path: /metadata/labels/isMutated

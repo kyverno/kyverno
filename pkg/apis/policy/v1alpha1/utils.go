@@ -22,13 +22,11 @@ func (r *Rule) Validate() error {
 }
 
 // Validate checks if all necesarry fields are present and have values. Also checks a Selector.
-// Returns error if resource definition is invalid.
+// Returns error if
+// - kinds is not defined
 func (pr *ResourceDescription) Validate() error {
-	// TBD: selector or name MUST be specified
-	if pr.Kind == "" {
+	if len(pr.Kinds) == 0 {
 		return errors.New("The Kind is not specified")
-	} else if pr.Name == nil && pr.Selector == nil {
-		return errors.New("Neither Name nor Selector is specified")
 	}
 
 	if pr.Selector != nil {
