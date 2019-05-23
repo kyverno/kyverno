@@ -56,7 +56,7 @@ To test a policy using the CLI type:
 For example:
 
 ```bash
-kyverno ../../examples/CLI/policy-deployment.yaml ../../examples/CLI/resources
+kyverno ../../examples/cli/policy-deployment.yaml ../../examples/cli/resources
 ```
 
 In future releases, the CLI will support complete validation of policies and will allow testing policies against resources in Kubernetes clusters.
