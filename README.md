@@ -107,6 +107,17 @@ spec:
 
 Additional examples are available in [examples](/examples).
 
+## Alternatives
+
+### Open Policy Agent
+
+[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language. 
+
+### External configuration management tools
+
+Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
+
+
 ## Status
 
 *Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
