@@ -66,15 +66,17 @@ spec:
   - name: set-image-pull-policy
     resource:
       kinds:
-      - Pod
+      - Deployment
     mutate:
       overlay:
         spec:
-          containers:
-            # match images which end with :latest   
-            - (image): "*:latest"
-              # set the imagePullPolicy to "Always"
-              imagePullPolicy: "Always"
+          template:
+            spec:
+              containers:
+                # match images which end with :latest   
+                - (image): "*:latest"
+                  # set the imagePullPolicy to "Always"
+                  imagePullPolicy: "Always"
 ````
 
 ### 3. Generating resources
