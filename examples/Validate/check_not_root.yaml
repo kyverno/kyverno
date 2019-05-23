@@ -1,0 +1,17 @@
+apiVersion : kyverno.io/v1alpha1
+kind : Policy
+metadata :
+  name : check-non-root
+spec :
+  rules:
+    - name: check-non-root
+      resource:
+        kind: Deployment, StatefuleSet, DaemonSet
+      validate:
+        message: "Root user is not allowed"
+        pattern:
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsNotRoot: true

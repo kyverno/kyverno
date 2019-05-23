@@ -1,23 +1,41 @@
+<small>*[documentation](/README.md#documentation) / Installation*</small>
+
 # Installation
 
-The controller can be installed and operated in two ways: **Outside the cluster** and **Inside the cluster**. The controller **outside** the cluster is much more convenient to debug and verify changes in its code, so we can call it 'debug mode'. The controller **inside** the cluster is designed for use in the real world, and the **QA testing** should be performed when controller operate in this mode.
+To install Kyverno in your cluster run the following command on a host with kubectl access:
 
+````sh
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+````
 
-## Inside the cluster (normal use)
+To check the Kyverno controller status, run the command:
 
-Just execute the command for creating all necesarry resources:
-`kubectl create -f definitions/install.yaml`
+````sh
+kubectl get pods -n kyverno
+````
 
-In this mode controller will get TLS key/certificate pair and loads in-cluster config automatically on start.
+If the Kyverno controller is not running, you can check its status and logs for errors:
+
+````sh
+kubectl describe pod <kyverno-pod-name> -n kyverno
+````
+
+````sh
+kubectl logs <kyverno-pod-name> -n kyverno
+````
+
+# Installing in a Development Environment
+
+To build and run Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+
 To check if the controller is working, find it in the list of kyverno pods:
 
 `kubectl get pods -n kyverno`
 
-The pod with controller contains **'kyverno'** in its name. The STATUS column will show the health state of the controller. If controller doesn't start, see its logs:
+# Try Kyverno without a Kubernetes cluster
 
-`kubectl describe pod <kyverno-pod-name> -n kyverno`
+The [Kyverno CLI](documentation/testing-policies-cli.md) allows you to write and test policies without installing Kyverno in a Kubernetes cluster.
 
-or
 
-`kubectl logs <kyverno-pod-name> -n kyverno`
-
+---
+<small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
