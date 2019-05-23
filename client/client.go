@@ -178,19 +178,19 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 	c.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
 	secret := v1.Secret{}
 
-	//	if generator.CopyFrom != nil {
-	c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	// Get configMap resource
-	unstrSecret, err := c.GetResource(Secrets, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	if err != nil {
-		return err
+	if generator.CopyFrom != nil {
+		c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		// Get configMap resource
+		unstrSecret, err := c.GetResource(Secrets, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		if err != nil {
+			return err
+		}
+		// typed object
+		secret, err = convertToSecret(unstrSecret)
+		if err != nil {
+			return err
+		}
 	}
-	// typed object
-	secret, err = convertToSecret(unstrSecret)
-	if err != nil {
-		return err
-	}
-	//	}
 
 	secret.ObjectMeta = meta.ObjectMeta{
 		Name:      generator.Name,
@@ -218,20 +218,20 @@ func (c *Client) GenerateConfigMap(generator types.Generation, namespace string)
 	c.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
 	configMap := v1.ConfigMap{}
 
-	//	if generator.CopyFrom != nil {
-	c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	// Get configMap resource
-	unstrConfigMap, err := c.GetResource(ConfigMaps, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-	if err != nil {
-		return err
-	}
-	// typed object
-	configMap, err = convertToConfigMap(unstrConfigMap)
-	if err != nil {
-		return err
+	if generator.CopyFrom != nil {
+		c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		// Get configMap resource
+		unstrConfigMap, err := c.GetResource(ConfigMaps, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		if err != nil {
+			return err
+		}
+		// typed object
+		configMap, err = convertToConfigMap(unstrConfigMap)
+		if err != nil {
+			return err
+		}
 	}
 
-	//	}
 	configMap.ObjectMeta = meta.ObjectMeta{
 		Name:      generator.Name,
 		Namespace: namespace,
