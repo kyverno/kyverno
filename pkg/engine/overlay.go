@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
 
@@ -140,10 +141,10 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 			typedOverlay := overlayElement.(map[string]interface{})
 			anchors := GetAnchorsFromMap(typedOverlay)
 
-			currentPath := path + "0/"
-			for _, resourceElement := range resource {
+			for i, resourceElement := range resource {
 				typedResource := resourceElement.(map[string]interface{})
 				if len(anchors) > 0 {
+					currentPath := path + strconv.Itoa(i) + "/"
 					if !skipArrayObject(typedResource, anchors) {
 						patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
 						if err != nil {
@@ -153,6 +154,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 						appliedPatches = append(appliedPatches, patches...)
 					}
 				} else {
+					currentPath := path + "0/"
 					if hasNestedAnchors(overlayElement) {
 						patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
 						if err != nil {
@@ -168,7 +170,6 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 					}
 				}
 			}
-
 		}
 	default:
 		path += "0/"
