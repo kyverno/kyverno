@@ -6,12 +6,16 @@ spec:
   rules:
     - name: podtemplate1
       resource:
-        kinds : 
+        kinds :
         - PodTemplate
         selector:
           matchLabels:
             originalLabel: isHere
       mutate:
+        overlay:
+          template:
+            spec:
+              restartPolicy: Always
         patches:
         - path: "/metadata/labels/app"
           op : replace
@@ -23,11 +27,11 @@ spec:
           op : replace
           value : mongodb
       validate:
-        message: "Port 80 is not for redis"
+        message: "Port 80 is only allowed"
         pattern:
           template:
             spec:
               containers:
-                - name: "!redis"
+                - name: "*"
                   ports:
                   - containerPort: 80

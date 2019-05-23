@@ -6,33 +6,33 @@ spec:
   rules:
   - name: check-defined
     resource:
-      kinds: 
+      kinds:
       - Deployment
     validate:
-      message: "Resource requests and limits are required for CPU and memory"
-      pattern:
-      spec:
-        containers:
-        - name: "*"
-          resources:
-            limits:
-              memory: "?"
-              cpu: "?"
-            requests:
-              memory: "?"
-              cpu: "?"
-  - name: check-memory-in-range
-    resource:
-      kinds: 
-      - Deployment
-    validate:
-      message: "Memory request cannot be greater than 10Gi"
+      message: "Resource limits are required for CPU and memory"
       pattern:
         spec:
-          containers:
-          - name: "*"
-            resources:
-              requests:
-                # If the value contains logical operator, the integer after it will be checked. No numeric characters will be a part of pattern.
-                # The OR operator can combine the patterns with logical expressions and text patterns.
-                memory: "<10Gi|<1024Mi"
+          template:
+            spec:
+              containers:
+              - name: "*"
+                resources:
+                  limits:
+                    memory: "*"
+                    cpu: "*"
+
+  - name: check-cpu
+    resource:
+      kinds:
+      - Deployment
+    validate:
+      message: "CPU request should be 4"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: "*"
+                resources:
+                  requests:
+                    cpu: "4"
