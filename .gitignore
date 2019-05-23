@@ -1,6 +1,6 @@
 certs
-kyverno
 Gopkg.lock
 Dockerfile
 .vscode
 gh-pages/public
+/cmd/kyverno/kyverno
