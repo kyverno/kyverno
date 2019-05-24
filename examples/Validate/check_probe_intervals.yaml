@@ -1,30 +1,36 @@
 apiVersion : kyverno.io/v1alpha1
-kind: Policy
-metadata:
+kind : Policy
+metadata :
   name: check-probe-intervals
 spec:
   rules:
   - name: check-probe-intervals
     resource:
-      kinds: 
+      kinds :
       - Deployment
     validate:
       message: "livenessProbe must be > 10s"
       pattern:
-        containers:
-          # In this case every object in containers list will be checked for pattern
-          - name: "*"
-            livenessProbe:
-              periodSeconds: ">10"
-  - resource:
-      kinds: 
+        spec:
+          template:
+            spec:
+              containers:
+                # In this case every object in containers list will be checked for pattern
+                - name: "*"
+                  livenessProbe:
+                    periodSeconds: ">10"
+  - name: check-probe-intervals
+    resource:
+      kinds :
       - Deployment
-    name: check-readinessprobe-intervals
     validate:
+      message: "readinessProbe must be > 10s"
       pattern:
-        message: "readinessProbe must be > 10s"    
-        containers:
-          # In this case every object in containers list will be checked for pattern
-          - name: "*"
-            readinessProbe:
-              periodSeconds: ">10"
+        spec:
+          template:
+            spec:
+              containers:
+                # In this case every object in containers list will be checked for pattern
+                - name: "*"
+                  readinessProbe:
+                    periodSeconds: ">10"

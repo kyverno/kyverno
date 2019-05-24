@@ -5,15 +5,17 @@ metadata:
 spec:
   rules:
   - name: check-whitelist-registries
-    message: "Registry is not allowed"
     resource:
-      kinds: 
+      kinds:
       - Deployment
+      - StatefulSet
     validate:
+      message: "Registry is not allowed"
       pattern:
-        template:
-          spec:
-            containers:
-              # Checks if the image path starts with "https://private.registry.io" OR "https://hub.docker.io/nirmata/*"
-              # If some property contains operator | as a normal part of its value, it should be escaped by backslash: "\|".
-              image: https://private.registry.io* | https://hub.docker.io/nirmata/*
+        spec:
+          template:
+            spec:
+              containers:
+              - name: "*"
+                # Checks if the image path starts with "https://hub.docker.io/nirmata/*"
+                image: https://hub.docker.io/nirmata/*

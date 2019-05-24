@@ -13,6 +13,6 @@ template:
       ports:
       - containerPort: 80
         protocol: TCP
-  restartPolicy: Always
+  restartPolicy: Never
   terminationGracePeriodSeconds: 30
   dnsPolicy: ClusterFirst

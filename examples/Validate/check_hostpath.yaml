@@ -6,11 +6,13 @@ spec:
   rules:
   - name: check-host-path
     resource:
-      kinds: 
+      kinds:
       - Pod
     validate:
-      message: "Host path volumes are not allowed"
+      message: "Host path should be /var/log"
       pattern:
-        volumes:
-        - name: "*"
-          hostPath: null
+        spec:
+          volumes:
+          - (name): log
+            hostPath:
+              path: /var/log

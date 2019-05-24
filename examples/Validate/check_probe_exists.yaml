@@ -1,30 +1,36 @@
 apiVersion : kyverno.io/v1alpha1
-kind: Policy
-metadata:
+kind : Policy
+metadata :
   name: check-probe-exists
 spec:
   rules:
   - name: check-liveness-probe-exists
     resource:
-      kinds: 
+      kinds :
       - StatefulSet
     validate:
       message: "a livenessProbe is required"
       pattern:
-        containers:
-          # In this case every object in containers list will be checked for pattern
-          - name: "*"
-            livenessProbe:
-              periodSeconds: "?"
-  - resource:
-      kinds: 
-      - Deployment
-    name: check-readinessprobe-exists
+        spec:
+          template:
+            spec:
+              containers:
+                # In this case every object in containers list will be checked for pattern
+              - name: "*"
+                livenessProbe:
+                  periodSeconds: ">0"
+  - name: check-readiness-probe-exists
+    resource:
+      kinds :
+      - StatefulSet
     validate:
       message: "a readinessProbe is required"
       pattern:
-        containers:
-          # In this case every object in containers list will be checked for pattern
-          - name: "*"
-            readinessProbe:
-              periodSeconds: "?"
+        spec:
+          template:
+            spec:
+              containers:
+                # In this case every object in containers list will be checked for pattern
+              - name: "*"
+                readinessProbe:
+                  periodSeconds: ">0"

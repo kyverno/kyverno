@@ -6,17 +6,27 @@ spec :
   rules:
     - name: pCM1
       resource:
-        kinds : 
+        kinds :
         - ConfigMap
         name: "game-config"
       mutate:
+        overlay:
+          data:
+            char.properties: |
+              Name=Ellen Ripley
+              Race=human
         patches:
+        - path: "/data/ship.properties"
+          op: add
+          value: |
+            type=starship
+            owner=utany.corp
         - path : "/data/newKey"
           op : add
           value : newValue
     - name: pCM2
       resource:
-        kinds : 
+        kinds :
         - ConfigMap
         name: "game-config"
       mutate:
@@ -28,7 +38,7 @@ spec :
           value : "data is replaced"
     - name: pCM3
       resource:
-        kinds : 
+        kinds :
         - ConfigMap
         name: "game-config"
       mutate:
@@ -43,7 +53,7 @@ spec :
             game.properties: "*enemies=aliens*"
     - name: pCM4
       resource:
-        kinds : 
+        kinds :
         - ConfigMap
         name: "game-config"
       validate:

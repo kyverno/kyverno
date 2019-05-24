@@ -6,10 +6,10 @@ spec:
   rules:
   - name: check-host-path
     resource:
-      kinds: 
+      kinds:
       - Service
     validate:
-      message: "Node port services are not allowed"
+      message: "Only NodePort type is allowed"
       pattern:
         spec:
-          type: "!NodePort"
+          type: "NodePort"
