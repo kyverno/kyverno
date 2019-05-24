@@ -17,5 +17,5 @@ spec:
             spec:
               containers:
               - name: "*"
-                # Checks if the image path starts with "https://hub.docker.io/nirmata/*"
-                image: https://hub.docker.io/nirmata/*
+                # Check allowed registries
+                image: "*/nirmata/* | https://private.registry.io/*"
