@@ -1,15 +1,15 @@
 apiVersion : kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: check-host-path
+  name: check-node-port
 spec:
   rules:
-  - name: check-host-path
+  - name: check-node-port
     resource:
       kinds:
       - Service
     validate:
-      message: "Only NodePort type is allowed"
+      message: "NodePort type is not allowed"
       pattern:
         spec:
-          type: "NodePort"
+          type: "!NodePort"

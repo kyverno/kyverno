@@ -9,10 +9,10 @@ spec:
       kinds:
       - Pod
     validate:
-      message: "Host path should be /var/log"
+      message: "Host path is not allowed"
       pattern:
         spec:
           volumes:
-          - (name): log
+          - name: "*"
             hostPath:
-              path: /var/log
+              path: ""
