@@ -66,7 +66,7 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 
 		for key, value := range typedOverlay {
 			if wrappedWithParentheses(key) {
-				key = key[1 : len(key)-1]
+				continue
 			}
 			currentPath := path + key + "/"
 			resourcePart, ok := typedResource[key]
