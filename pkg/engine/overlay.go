@@ -231,7 +231,7 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 			return true
 		}
 
-		if value != pattern {
+		if !ValidateValueWithPattern(value, pattern) {
 			return true
 		}
 	}
