@@ -211,3 +211,61 @@ func TestValidateValueWithIntPattern_FloatValueWitFraction(t *testing.T) {
 func TestValidateValueWithIntPattern_NotPass(t *testing.T) {
 	assert.Assert(t, !validateValueWithFloatPattern(8, 7))
 }
+
+func TestGetNumberAndStringPartsFromPattern_NumberAndString(t *testing.T) {
+	number, str := getNumberAndStringPartsFromPattern("1024Gi")
+	assert.Equal(t, number, "1024")
+	assert.Equal(t, str, "Gi")
+}
+
+func TestGetNumberAndStringPartsFromPattern_OnlyNumber(t *testing.T) {
+	number, str := getNumberAndStringPartsFromPattern("1024")
+	assert.Equal(t, number, "1024")
+	assert.Equal(t, str, "")
+}
+
+func TestGetNumberAndStringPartsFromPattern_OnlyString(t *testing.T) {
+	number, str := getNumberAndStringPartsFromPattern("Gi")
+	assert.Equal(t, number, "")
+	assert.Equal(t, str, "Gi")
+}
+
+func TestGetNumberAndStringPartsFromPattern_StringFirst(t *testing.T) {
+	number, str := getNumberAndStringPartsFromPattern("Gi1024")
+	assert.Equal(t, number, "")
+	assert.Equal(t, str, "Gi1024")
+}
+
+func TestGetNumberAndStringPartsFromPattern_Empty(t *testing.T) {
+	number, str := getNumberAndStringPartsFromPattern("")
+	assert.Equal(t, number, "")
+	assert.Equal(t, str, "")
+}
+
+func TestValidateNumber_EqualTwoFloats(t *testing.T) {
+	assert.Assert(t, validateNumber(7.0, 7.000, Equal))
+}
+
+func TestValidateNumber_LessFloatAndInt(t *testing.T) {
+	assert.Assert(t, validateNumber(7, 7.00001, Less))
+	assert.Assert(t, validateNumber(7, 7.00001, NotEqual))
+
+	assert.Assert(t, !validateNumber(7, 7.0000, NotEqual))
+	assert.Assert(t, !validateNumber(6, 6.000000001, More))
+}
+
+func TestValidateNumberWithStr_Equal(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr("1024Gi", "1024", "Gi", Equal))
+}
+
+func TestValidateNumberWithStr_More(t *testing.T) {
+	assert.Assert(t, !validateNumberWithStr("512Gi", "1024", "Gi", More))
+}
+
+func TestValidateNumberWithStr_MoreAndWildCard(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr("2048Gi", "1024", "G?", More))
+}
+
+func TestValidateNumberWithStr_NoStr(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr(2048, "1024", "", More))
+}
