@@ -124,7 +124,7 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		}
 
 		return validateArray(array, pattern)
-	case string, float64, int, int64:
+	case string, float64, int, int64, bool:
 		if !ValidateValueWithPattern(resourcePart, patternPart) {
 			return fmt.Errorf("Failed validate %v wit %v", resourcePart, patternPart)
 		}
