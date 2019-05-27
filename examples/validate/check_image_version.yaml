@@ -15,5 +15,7 @@ spec:
           template:
             spec:
               containers:
-              - (image): "*latest"       # select images which end with :latest
-                imagePullPolicy: Always   # ensure that the imagePullPolicy is "Always"
+              # select images which end with :latest
+              - (image): "*latest"
+                # require that the imagePullPolicy is "Always"  
+                imagePullPolicy: Always
