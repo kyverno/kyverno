@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-	"log"
 	"math"
 	"regexp"
 	"strconv"
@@ -35,7 +33,6 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case bool:
 		typedValue, ok := value.(bool)
 		if !ok {
-			log.Printf("Expected bool, found %T", value)
 			return false
 		}
 		return typedPattern == typedValue
@@ -50,10 +47,10 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case nil:
 		return validateValueWithNilPattern(value)
 	case map[string]interface{}, []interface{}:
-		log.Println("Maps and arrays as patterns are not supported")
+		// only single values supported
 		return false
 	default:
-		log.Printf("Unknown type as pattern: %T\n", pattern)
+		// unknown type
 		return false
 	}
 }
@@ -70,10 +67,9 @@ func validateValueWithIntPattern(value interface{}, pattern int64) bool {
 			return int64(typedValue) == pattern
 		}
 
-		log.Printf("Expected int, found float: %f\n", typedValue)
 		return false
 	default:
-		log.Printf("Expected int, found: %T\n", value)
+		// unknown type
 		return false
 	}
 }
@@ -86,12 +82,11 @@ func validateValueWithFloatPattern(value interface{}, pattern float64) bool {
 			return int(pattern) == value
 		}
 
-		log.Printf("Expected float, found int: %d\n", typedValue)
 		return false
 	case float64:
 		return typedValue == pattern
 	default:
-		log.Printf("Expected float, found: %T\n", value)
+		// unknown type
 		return false
 	}
 }
@@ -111,10 +106,10 @@ func validateValueWithNilPattern(value interface{}) bool {
 	case nil:
 		return true
 	case map[string]interface{}, []interface{}:
-		log.Println("Maps and arrays could not be checked with nil pattern")
+		// only single values supported
 		return false
 	default:
-		log.Printf("Unknown type as value when checking for nil pattern: %T\n", value)
+		// unknown type
 		return false
 	}
 }
@@ -147,7 +142,6 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 	if NotEqual == operator || Equal == operator {
 		strValue, ok := value.(string)
 		if !ok {
-			log.Printf("Expected string, found %T\n", value)
 			return false
 		}
 
@@ -160,21 +154,22 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 		return wildcardResult
 	}
 
-	log.Println("Operators >, >=, <, <= are not applicable to strings")
+	// operators >, >=, <, <= are not applicable to strings
 	return false
 }
 
 func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
+	// pattern has suffix
 	if "" != patternStr {
 		typedValue, ok := value.(string)
 		if !ok {
-			log.Printf("Number must have suffix: %s", patternStr)
+			// number must have suffix
 			return false
 		}
 
 		valueNumber, valueStr := getNumberAndStringPartsFromPattern(typedValue)
 		if !wildcard.Match(patternStr, valueStr) {
-			log.Printf("Suffix %s has not passed wildcard check: %s", valueStr, patternStr)
+			// suffix has not passed wildcard check
 			return false
 		}
 
@@ -278,14 +273,6 @@ func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	match := matches[0]
 	return match[1], match[3]
-}
-
-func checkForWildcard(value, pattern string) error {
-	if !wildcard.Match(pattern, value) {
-		return fmt.Errorf("wildcard check has failed. Pattern: \"%s\". Value: \"%s\"", pattern, value)
-	}
-
-	return nil
 }
 
 func parseNumber(number string) (interface{}, error) {

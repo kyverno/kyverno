@@ -125,3 +125,11 @@ func findKind(kinds []string, kindGVK string) bool {
 	}
 	return false
 }
+
+func wrappedWithParentheses(str string) bool {
+	if len(str) < 2 {
+		return false
+	}
+
+	return (str[0] == '(' && str[len(str)-1] == ')')
+}

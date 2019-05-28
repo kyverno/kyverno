@@ -3,7 +3,6 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -30,7 +29,8 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			log.Printf("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			message := fmt.Sprintf("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			validationEvent.Messages = append(validationEvent.Messages, message)
 			continue
 		}
 
@@ -187,12 +187,4 @@ func skipValidatingObject(object, anchors map[string]interface{}) bool {
 	}
 
 	return false
-}
-
-func wrappedWithParentheses(str string) bool {
-	if len(str) < 2 {
-		return false
-	}
-
-	return (str[0] == '(' && str[len(str)-1] == ')')
 }
