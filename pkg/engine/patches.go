@@ -9,6 +9,7 @@ import (
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
+// PatchBytes stands for []byte
 type PatchBytes []byte
 
 // ProcessPatches Returns array from separate patches that can be applied to the document

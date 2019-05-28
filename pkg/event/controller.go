@@ -47,7 +47,7 @@ func NewEventController(client *client.Client,
 	logger *log.Logger) Controller {
 
 	if logger == nil {
-		logger = log.New(os.Stdout, "Event Controller: ", log.LstdFlags)
+		logger = log.New(os.Stdout, "Event Controller:  ", log.LstdFlags)
 	}
 
 	controller := &controller{
