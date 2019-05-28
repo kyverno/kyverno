@@ -100,7 +100,7 @@ func validateArray(resourcePart, patternPart interface{}) error {
 	default:
 		for _, value := range resourceArray {
 			if !ValidateValueWithPattern(value, patternArray[0]) {
-				return fmt.Errorf("Failed validate %v wit %v", value, patternArray[0])
+				return fmt.Errorf("Failed validate %v with %v", value, patternArray[0])
 			}
 		}
 	}
@@ -126,7 +126,7 @@ func validateMapElement(resourcePart, patternPart interface{}) error {
 		return validateArray(array, pattern)
 	case string, float64, int, int64, bool:
 		if !ValidateValueWithPattern(resourcePart, patternPart) {
-			return fmt.Errorf("Failed validate %v wit %v", resourcePart, patternPart)
+			return fmt.Errorf("Failed validate %v with %v", resourcePart, patternPart)
 		}
 	default:
 		return fmt.Errorf("validating error: unknown type in map: %T", patternPart)

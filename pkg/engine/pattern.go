@@ -165,11 +165,6 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 }
 
 func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
-	patternParsedNumber, err := parseNumber(patternNumber)
-	if err != nil {
-		return false
-	}
-
 	if "" != patternStr {
 		typedValue, ok := value.(string)
 		if !ok {
@@ -188,16 +183,22 @@ func validateNumberWithStr(value interface{}, patternNumber, patternStr string, 
 			return false
 		}
 
-		return validateNumber(valueParsedNumber, patternParsedNumber, operator)
+		return validateNumber(valueParsedNumber, patternNumber, operator)
 	}
 
-	return validateNumber(value, patternParsedNumber, operator)
+	return validateNumber(value, patternNumber, operator)
 }
 
 func validateNumber(value, pattern interface{}, operator Operator) bool {
 	var floatPattern, floatValue float64
 
 	switch typed := value.(type) {
+	case string:
+		var err error
+		floatValue, err = strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return false
+		}
 	case float64:
 		floatValue = typed
 	case int64:
@@ -209,6 +210,12 @@ func validateNumber(value, pattern interface{}, operator Operator) bool {
 	}
 
 	switch typed := pattern.(type) {
+	case string:
+		var err error
+		floatPattern, err = strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return false
+		}
 	case float64:
 		floatPattern = typed
 	case int64:

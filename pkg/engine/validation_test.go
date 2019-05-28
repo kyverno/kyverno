@@ -159,8 +159,8 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 }
 
 func TestValidateMap(t *testing.T) {
-	rawPattern := []byte(`{ "spec": { "template": { "spec": { "containers": [ { "name": "?*", "resources": { "requests": { "cpu": "5" } } } ] } } } }`)
-	rawMap := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "securityContext": { "runAsNonRoot": true }, "containers": [ { "name": "nginx", "image": "https://nirmata/nginx:latest", "imagePullPolicy": "Always", "readinessProbe": { "exec": { "command": [ "cat", "/tmp/healthy" ] }, "initialDelaySeconds": 5, "periodSeconds": 10 }, "livenessProbe": { "tcpSocket": { "port": 8080 }, "initialDelaySeconds": 15, "periodSeconds": 11 }, "resources": { "limits": { "memory": "2Gi", "cpu": 8 }, "requests": { "memory": "512Mi", "cpu": 6 } }, "ports": [ { "containerPort": 80 } ] } ] } } } }`)
+	rawPattern := []byte(`{ "spec": { "template": { "spec": { "containers": [ { "name": "?*", "resources": { "requests": { "cpu": "<4|8" } } } ] } } } }`)
+	rawMap := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "securityContext": { "runAsNonRoot": true }, "containers": [ { "name": "nginx", "image": "https://nirmata/nginx:latest", "imagePullPolicy": "Always", "readinessProbe": { "exec": { "command": [ "cat", "/tmp/healthy" ] }, "initialDelaySeconds": 5, "periodSeconds": 10 }, "livenessProbe": { "tcpSocket": { "port": 8080 }, "initialDelaySeconds": 15, "periodSeconds": 11 }, "resources": { "limits": { "memory": "2Gi", "cpu": 8 }, "requests": { "memory": "512Mi", "cpu": "8" } }, "ports": [ { "containerPort": 80 } ] } ] } } } }`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(rawPattern, &pattern)
