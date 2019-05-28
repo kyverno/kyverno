@@ -221,24 +221,6 @@ func fillEmptyArray(overlay []interface{}, path string) ([]PatchBytes, error) {
 	return appliedPatches, nil
 }
 
-// Checks if array object matches anchors. If not - skip - return true
-func skipArrayObject(object, anchors map[string]interface{}) bool {
-	for key, pattern := range anchors {
-		key = key[1 : len(key)-1]
-
-		value, ok := object[key]
-		if !ok {
-			return true
-		}
-
-		if !ValidateValueWithPattern(value, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func insertSubtree(overlay interface{}, path string) ([]byte, error) {
 	return processSubtree(overlay, path, "add")
 }

@@ -143,7 +143,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) event
 				return result
 			}
 
-			if skipValidatingObject(resource, anchors) {
+			if skipArrayObject(resource, anchors) {
 				continue
 			}
 
@@ -170,21 +170,4 @@ func validateArray(resourceArray, patternArray []interface{}, path string) event
 	}
 
 	return result
-}
-
-func skipValidatingObject(object, anchors map[string]interface{}) bool {
-	for key, pattern := range anchors {
-		key = key[1 : len(key)-1]
-
-		value, ok := object[key]
-		if !ok {
-			return true
-		}
-
-		if !ValidateValueWithPattern(value, pattern) {
-			return true
-		}
-	}
-
-	return false
 }
