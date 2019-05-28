@@ -158,6 +158,17 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 	assert.Assert(t, len(actualMap) == 0)
 }
 
+func TestValidateMap(t *testing.T) {
+	rawPattern := []byte(`{ "spec": { "template": { "spec": { "containers": [ { "name": "?*", "resources": { "requests": { "cpu": "5" } } } ] } } } }`)
+	rawMap := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "securityContext": { "runAsNonRoot": true }, "containers": [ { "name": "nginx", "image": "https://nirmata/nginx:latest", "imagePullPolicy": "Always", "readinessProbe": { "exec": { "command": [ "cat", "/tmp/healthy" ] }, "initialDelaySeconds": 5, "periodSeconds": 10 }, "livenessProbe": { "tcpSocket": { "port": 8080 }, "initialDelaySeconds": 15, "periodSeconds": 11 }, "resources": { "limits": { "memory": "2Gi", "cpu": 8 }, "requests": { "memory": "512Mi", "cpu": 6 } }, "ports": [ { "containerPort": 80 } ] } ] } } } }`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	assert.NilError(t, validateMap(resource, pattern))
+}
+
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	rawPattern := []byte(`[ { "(name)": "nirmata-*", "object": [ { "(key1)": "value*", "key2": "value*" } ] } ]`)
 	rawMap := []byte(`[ { "name": "nirmata-1", "object": [ { "key1": "value1", "key2": "value2" } ] }, { "name": "nirmata-1", "object": [ { "key1": "not_value", "key2": "not_value" } ] } ]`)
@@ -192,7 +203,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 }
 
 func TestValidate_ServiceTest(t *testing.T) {
-	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-service" }, "spec": { "rules": [ { "name": "ps1", "resource": { "kind": "Service", "name": "game-service*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/secretLabel", "op": "replace", "value": "weKnow" }, { "path": "/metadata/labels/originalLabel", "op": "remove" }, { "path": "/spec/selector/app", "op": "replace", "value": "mutedApp" } ] }, "validate": { "message": "This resource is broken", "pattern": { "spec": { "ports": [ { "name": "hs", "protocol": 32 } ] } } } } ] } }`)
+	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-service" }, "spec": { "rules": [ { "name": "ps1", "resource": { "kinds": [ "Service" ], "name": "game-service*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/secretLabel", "op": "replace", "value": "weKnow" }, { "path": "/metadata/labels/originalLabel", "op": "remove" }, { "path": "/spec/selector/app", "op": "replace", "value": "mutedApp" } ] }, "validate": { "message": "This resource is broken", "pattern": { "spec": { "ports": [ { "name": "hs", "protocol": 32 } ] } } } } ] } }`)
 	rawResource := []byte(`{ "kind": "Service", "apiVersion": "v1", "metadata": { "name": "game-service", "labels": { "originalLabel": "isHere", "secretLabel": "thisIsMySecret" } }, "spec": { "selector": { "app": "MyApp" }, "ports": [ { "name": "http", "protocol": "TCP", "port": 80, "targetPort": 9376 } ] } }`)
 
 	var policy kubepolicy.Policy
@@ -206,7 +217,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 }
 
 func TestValidate_MapHasFloats(t *testing.T) {
-	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-deployment-changed" }, "spec": { "rules": [ { "name": "First policy v2", "resource": { "kind": "Deployment", "name": "nginx-*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/app", "op": "replace", "value": "nginx_is_mutated" } ] }, "validate": { "message": "replicas number is wrong", "pattern": { "metadata": { "labels": { "app": "*" } }, "spec": { "replicas": 3 } } } } ] } }`)
+	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-deployment-changed" }, "spec": { "rules": [ { "name": "First policy v2", "resource": { "kinds": [ "Deployment" ], "name": "nginx-*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/app", "op": "replace", "value": "nginx_is_mutated" } ] }, "validate": { "message": "replicas number is wrong", "pattern": { "metadata": { "labels": { "app": "*" } }, "spec": { "replicas": 3 } } } } ] } }`)
 	rawResource := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:1.7.9", "ports": [ { "containerPort": 80 } ] } ] } } } }`)
 
 	var policy kubepolicy.Policy

@@ -140,9 +140,7 @@ func validateValueWithStringPattern(value interface{}, pattern string) bool {
 		return validateString(value, str, operator)
 	}
 
-	validateNumberWithStr(value, number, str, operator)
-
-	return true
+	return validateNumberWithStr(value, number, str, operator)
 }
 
 func validateString(value interface{}, pattern string, operator Operator) bool {
