@@ -11,6 +11,8 @@ type Event struct {
 	Messages  []string
 }
 
+type Events []Event
+
 func (e *Event) String() string {
 	message := fmt.Sprintf("%s: For policy %s, for object with UID %s:\n", e.Reason.String(), e.Policy, e.ObjectUID)
 	for _, m := range e.Messages {
@@ -18,6 +20,22 @@ func (e *Event) String() string {
 	}
 
 	// remove last line feed
-	message = message[:len(message)-1]
+	if 0 != len(message) {
+		message = message[:len(message)-1]
+	}
+	return message
+}
+
+func (e *Events) String() string {
+	message := ""
+	for _, event := range *e {
+		message += (event.String() + "\n")
+	}
+
+	// remove last line feed
+	if 0 != len(message) {
+		message = message[:len(message)-1]
+	}
+
 	return message
 }

@@ -174,42 +174,46 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		return nil
 	}
 
-	var result event.Event
+	var events event.Events
+	allowed := true
 
 	// Validation loop
 	for _, policy := range policies {
 		policyEvent := engine.Validate(*policy, request.Object.Raw, request.Kind)
+		policyEvent.Policy = (policy.Namespace + "/" + policy.Name)
+		policyEvent.ObjectUID = string(request.UID)
+		events = append(events, policyEvent)
 
 		if event.RequestBlocked == policyEvent.Reason {
-			result.Reason = policyEvent.Reason
-			result.Messages = append(result.Messages, policyEvent.Messages...)
+			allowed = false
 		}
 	}
 
+	message := events.String()
+	ws.logger.Println(message)
+
 	// Generation loop after all validation succeeded
-	if event.RequestBlocked != result.Reason {
+	var response *v1beta1.AdmissionResponse
+
+	if allowed {
 		for _, policy := range policies {
 			engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
 		}
+		ws.logger.Println("Validation is successful")
 
-		result.Messages = append(result.Messages, "Validation is successful")
-		ws.logger.Println(result.String())
-
-		return &v1beta1.AdmissionResponse{
+		response = &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
-
+	} else {
+		response = &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: message,
+			},
+		}
 	}
 
-	message := result.String()
-	ws.logger.Println(message)
-
-	return &v1beta1.AdmissionResponse{
-		Allowed: false,
-		Result: &metav1.Status{
-			Message: message,
-		},
-	}
+	return response
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body
