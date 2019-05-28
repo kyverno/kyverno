@@ -269,3 +269,15 @@ func TestValidateNumberWithStr_MoreAndWildCard(t *testing.T) {
 func TestValidateNumberWithStr_NoStr(t *testing.T) {
 	assert.Assert(t, validateNumberWithStr(2048, "1024", "", More))
 }
+
+func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
+	assert.Equal(t, getOperatorFromStringPattern("f"), Equal)
+}
+
+func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
+	assert.Equal(t, getOperatorFromStringPattern(""), Equal)
+}
+
+func TestGetOperatorFromStringPattern_OnlyOperator(t *testing.T) {
+	assert.Equal(t, getOperatorFromStringPattern(">="), MoreEqual)
+}
