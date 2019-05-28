@@ -240,6 +240,10 @@ func validateNumber(value, pattern interface{}, operator Operator) bool {
 }
 
 func getOperatorFromStringPattern(pattern string) Operator {
+	if len(pattern) < 2 {
+		return Equal
+	}
+
 	if pattern[:len(MoreEqual)] == string(MoreEqual) {
 		return MoreEqual
 	}
@@ -260,7 +264,7 @@ func getOperatorFromStringPattern(pattern string) Operator {
 		return NotEqual
 	}
 
-	return ""
+	return Equal
 }
 
 func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
