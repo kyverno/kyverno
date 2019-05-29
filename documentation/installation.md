@@ -59,6 +59,7 @@ To create the required secrets:
 2. `kubectl -n kyverno create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key `
 3. `kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair  -n kyverno self-signed-cert=true`
 4. `kubectl -n kyverno create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt`
+*The annotation on the TLS pair secret is used by Kyverno to identify the use of self-signed certificates and checks for the required root CA secret*
 
 Secret | Data | Content
 ------------ | ------------- | -------------
