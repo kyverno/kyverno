@@ -174,22 +174,23 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		return nil
 	}
 
-	var events event.Events
 	allowed := true
+
+	admissionEvent := &event.CompositeEvent{
+		Message: fmt.Sprintf("For resource with UID - %s:", request.UID),
+	}
 
 	// Validation loop
 	for _, policy := range policies {
-		policyEvent := engine.Validate(*policy, request.Object.Raw, request.Kind)
-		policyEvent.Policy = (policy.Namespace + "/" + policy.Name)
-		policyEvent.ObjectUID = string(request.UID)
-		events = append(events, policyEvent)
+		policyEvent := engine.Validate(*policy, request.Object.Raw, request.Kind).(*event.CompositeEvent)
+		admissionEvent = event.Append(admissionEvent, policyEvent)
 
 		if event.RequestBlocked == policyEvent.Reason {
 			allowed = false
 		}
 	}
 
-	message := events.String()
+	message := admissionEvent.String()
 	ws.logger.Println(message)
 
 	// Generation loop after all validation succeeded

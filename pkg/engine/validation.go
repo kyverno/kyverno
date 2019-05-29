@@ -12,14 +12,14 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) event.Event {
+func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) event.KyvernoEvent {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
 
-	// Fill policy and target resource at webhook server level
-	validationEvent := event.Event{
-		Reason:   event.PolicyApplied,
-		Messages: []string{},
+	// Fill message at webhook server level
+	policyEvent := &event.CompositeEvent{
+		Message: fmt.Sprintf("For policy %s:", policy.Name),
+		Reason:  event.PolicyApplied,
 	}
 
 	for _, rule := range policy.Spec.Rules {
@@ -27,30 +27,40 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 			continue
 		}
 
+		ruleEvent := event.RuleEvent{
+			PolicyRule: rule.Name,
+			Reason:     event.PolicyApplied,
+		}
+
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			message := fmt.Sprintf("Rule \"%s\" is not applicable to resource\n", rule.Name)
-			validationEvent.Messages = append(validationEvent.Messages, message)
+			ruleEvent.Messages = append(ruleEvent.Messages, fmt.Sprintf("Rule is not applicable to resource\n", rule.Name))
+			policyEvent = event.Append(policyEvent, &ruleEvent)
 			continue
 		}
 
-		ruleEvent := validateResourceWithPattern(resource, rule.Validation.Pattern)
-		if event.RequestBlocked == ruleEvent.Reason {
-			validationEvent.Reason = ruleEvent.Reason
-			validationEvent.Messages = append(validationEvent.Messages, ruleEvent.Messages...)
-			validationEvent.Messages = append(validationEvent.Messages, *rule.Validation.Message)
+		ruleValidationEvent := validateResourceWithPattern(resource, rule.Validation.Pattern)
+		if event.RequestBlocked == ruleValidationEvent.Reason {
+			ruleEvent.Reason = ruleValidationEvent.Reason
+			policyEvent.Reason = ruleValidationEvent.Reason
+			ruleEvent.Messages = append(ruleEvent.Messages, ruleValidationEvent.Messages...)
+			ruleEvent.Messages = append(ruleEvent.Messages, *rule.Validation.Message)
+		} else {
+			ruleEvent.Messages = append(ruleEvent.Messages, "Success")
 		}
+
+		policyEvent = event.Append(policyEvent, &ruleEvent)
 	}
 
-	return validationEvent
+	return policyEvent
 }
 
-func validateResourceWithPattern(resource, pattern interface{}) event.Event {
+func validateResourceWithPattern(resource, pattern interface{}) event.RuleEvent {
 	return validateResourceElement(resource, pattern, "/")
 }
 
-func validateResourceElement(value, pattern interface{}, path string) event.Event {
-	result := event.Event{
+func validateResourceElement(value, pattern interface{}, path string) event.RuleEvent {
+	result := event.RuleEvent{
 		Reason:   event.PolicyApplied,
 		Messages: []string{},
 	}
@@ -98,8 +108,8 @@ func validateResourceElement(value, pattern interface{}, path string) event.Even
 	}
 }
 
-func validateMap(valueMap, patternMap map[string]interface{}, path string) event.Event {
-	result := event.Event{
+func validateMap(valueMap, patternMap map[string]interface{}, path string) event.RuleEvent {
+	result := event.RuleEvent{
 		Reason:   event.PolicyApplied,
 		Messages: []string{},
 	}
@@ -119,8 +129,8 @@ func validateMap(valueMap, patternMap map[string]interface{}, path string) event
 	return result
 }
 
-func validateArray(resourceArray, patternArray []interface{}, path string) event.Event {
-	result := event.Event{
+func validateArray(resourceArray, patternArray []interface{}, path string) event.RuleEvent {
+	result := event.RuleEvent{
 		Reason:   event.PolicyApplied,
 		Messages: []string{},
 	}
