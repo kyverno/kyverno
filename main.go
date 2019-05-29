@@ -4,8 +4,8 @@ import (
 	"flag"
 	"log"
 
-	client "github.com/nirmata/kyverno/client"
 	controller "github.com/nirmata/kyverno/pkg/controller"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	"github.com/nirmata/kyverno/pkg/violation"
