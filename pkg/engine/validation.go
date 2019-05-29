@@ -18,7 +18,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 
 	// Fill message at webhook server level
 	policyEvent := &event.CompositeEvent{
-		Message: fmt.Sprintf("For policy %s:", policy.Name),
+		Message: fmt.Sprintf("policy - %s:", policy.Name),
 		Reason:  event.PolicyApplied,
 	}
 

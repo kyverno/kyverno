@@ -61,7 +61,7 @@ func (e *RuleEvent) String() string {
 // line is prepended with specified indent
 func (e *CompositeEvent) StringWithIndent(indent string) string {
 	childrenIndent := indent + string(SpaceIndent)
-	message := fmt.Sprintf("%s-%s: %s", indent, e.Reason, e.Message)
+	message := fmt.Sprintf("%s- %s: %s\n", indent, e.Reason, e.Message)
 	for _, event := range e.Children {
 		message += (event.StringWithIndent(childrenIndent) + "\n")
 	}
