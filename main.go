@@ -22,13 +22,16 @@ var (
 func main() {
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
-
 		log.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
 	client, err := client.NewClient(clientConfig, nil)
 	if err != nil {
 		log.Fatalf("Error creating client: %v\n", err)
+	}
+
+	if !client.CheckPrePreqSelfSignedCert() {
+		log.Fatalf("Error loading the pre-requisites\n")
 	}
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
