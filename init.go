@@ -27,6 +27,9 @@ func initTlsPemPair(certFile, keyFile string, clientConfig *rest.Config, client 
 	if certFile != "" || keyFile != "" {
 		tlsPair = tlsPairFromFiles(certFile, keyFile)
 	}
+	// if cert & key defined in secret(tls.kyverno) use it,
+	// the CA used to sign the cert is expected in secret (tls-ca)
+	tlsPair = client.TlsPairFromSecrets()
 
 	var err error
 	if tlsPair != nil {
