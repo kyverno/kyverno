@@ -15,8 +15,6 @@ import (
 
 var (
 	kubeconfig string
-	cert       string
-	key        string
 )
 
 func main() {
@@ -28,10 +26,6 @@ func main() {
 	client, err := client.NewClient(clientConfig, nil)
 	if err != nil {
 		log.Fatalf("Error creating client: %v\n", err)
-	}
-
-	if !client.CheckPrePreqSelfSignedCert() {
-		log.Fatalf("Error loading the pre-requisites\n")
 	}
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
@@ -48,7 +42,7 @@ func main() {
 		eventController,
 		nil)
 
-	tlsPair, err := initTlsPemPair(cert, key, clientConfig, client)
+	tlsPair, err := initTlsPemPair(clientConfig, client)
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -84,7 +78,5 @@ func main() {
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&cert, "cert", "", "TLS certificate used in connection with cluster.")
-	flag.StringVar(&key, "key", "", "Key, used in TLS connection.")
 	flag.Parse()
 }
