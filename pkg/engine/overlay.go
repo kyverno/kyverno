@@ -66,7 +66,7 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 
 		for key, value := range typedOverlay {
 			if wrappedWithParentheses(key) {
-				key = key[1 : len(key)-1]
+				continue
 			}
 			currentPath := path + key + "/"
 			resourcePart, ok := typedResource[key]
@@ -96,7 +96,7 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 		}
 
 		appliedPatches = append(appliedPatches, patches...)
-	case string, float64, int64:
+	case string, float64, int64, bool:
 		patch, err := replaceSubtree(overlay, path)
 		if err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 			return true
 		}
 
-		if value != pattern {
+		if !ValidateValueWithPattern(value, pattern) {
 			return true
 		}
 	}
@@ -324,6 +324,8 @@ func prepareJSONValue(overlay interface{}) string {
 		return fmt.Sprintf("%f", typed)
 	case int64:
 		return fmt.Sprintf("%d", typed)
+	case bool:
+		return fmt.Sprintf("%t", typed)
 	default:
 		return ""
 	}
