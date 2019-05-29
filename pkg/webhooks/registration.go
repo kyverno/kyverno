@@ -71,7 +71,14 @@ func (wrc *WebhookRegistrationClient) Deregister() {
 }
 
 func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configuration *rest.Config) (*admregapi.MutatingWebhookConfiguration, error) {
-	caData := extractCA(configuration)
+	var caData []byte
+	// Check if ca is defined in the secret tls-ca
+	// assume the key and signed cert have been defined in secret tls.kyverno
+	caData = wrc.client.TlsrootCAfromSecret()
+	if len(caData) == 0 {
+		// load the CA from kubeconfig
+		caData = extractCA(configuration)
+	}
 	if len(caData) == 0 {
 		return nil, errors.New("Unable to extract CA data from configuration")
 	}
@@ -94,7 +101,13 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 }
 
 func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configuration *rest.Config) (*admregapi.ValidatingWebhookConfiguration, error) {
-	caData := extractCA(configuration)
+	// Check if ca is defined in the secret tls-ca
+	// assume the key and signed cert have been defined in secret tls.kyverno
+	caData := wrc.client.TlsrootCAfromSecret()
+	if len(caData) == 0 {
+		// load the CA from kubeconfig
+		caData = extractCA(configuration)
+	}
 	if len(caData) == 0 {
 		return nil, errors.New("Unable to extract CA data from configuration")
 	}
