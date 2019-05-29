@@ -9,6 +9,7 @@ import (
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // Issues TLS certificate for webhook server using given PEM private key
@@ -75,7 +76,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	res.Status.Conditions = append(res.Status.Conditions, certificates.CertificateSigningRequestCondition{
 		Type:    certificates.CertificateApproved,
 		Reason:  "NKP-Approve",
-		Message: "This CSR was approved by Nirmata kube-policy controller",
+		Message: "This CSR was approved by Nirmata kyverno controller",
 	})
 	res, err = certClient.UpdateApproval(res)
 	if err != nil {
@@ -111,6 +112,94 @@ func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSignin
 		}
 	}
 	return nil, errors.New(fmt.Sprintf("Cerificate fetch timeout is reached: %d seconds", maxWaitSeconds))
+}
+
+const (
+	ns             string = "kyverno"
+	tlskeypair     string = "tls.kyverno"
+	tlskeypaircert string = "tls.crt"
+	tlskeypairkey  string = "tls.key"
+	tlsca          string = "tls-ca"
+	tlscarootca    string = "rootCA.crt"
+)
+
+// CheckPrePreqSelfSignedCert checks if the required secrets are defined
+// if the user is providing self-signed certificates,key pair and CA
+func (c *Client) CheckPrePreqSelfSignedCert() bool {
+	// Check if secrets are defined if user is specifiying self-signed certificates
+	tlspairfound := true
+	tlscafound := true
+	_, err := c.GetResource(Secrets, ns, tlskeypair)
+	if err != nil {
+		tlspairfound = false
+	}
+	_, err = c.GetResource(Secrets, ns, tlsca)
+	if err != nil {
+		tlscafound = false
+	}
+	if tlspairfound == tlscafound {
+		return true
+	}
+	// Fail if only one of them is defined
+	c.logger.Printf("while using self-signed certificates specify both secrets %s/%s & %s/%s for (cert,key) pair & CA respectively", ns, tlskeypair, ns, tlsca)
+
+	if !tlspairfound {
+		c.logger.Printf("secret %s/%s not defined for (cert,key) pair", ns, tlskeypair)
+	}
+
+	if !tlscafound {
+		c.logger.Printf("secret %s/%s not defined for CA", ns, tlsca)
+	}
+	return false
+}
+
+func (c *Client) TlsrootCAfromSecret() (result []byte) {
+	stlsca, err := c.GetResource(Secrets, ns, tlsca)
+	if err != nil {
+		return result
+	}
+	tlsca, err := convertToSecret(stlsca)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return result
+	}
+
+	result = tlsca.Data[tlscarootca]
+	if len(result) == 0 {
+		c.logger.Printf("root CA certificate not found in secret %s/%s", ns, tlsca.Name)
+		return result
+	}
+	c.logger.Printf("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", ns, tlsca.Name)
+	return result
+}
+
+func (c *Client) TlsPairFromSecrets() *tls.TlsPemPair {
+	// Check if secrets are defined
+	stlskeypair, err := c.GetResource(Secrets, ns, tlskeypair)
+	if err != nil {
+		return nil
+	}
+	tlskeypair, err := convertToSecret(stlskeypair)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
+
+	pemPair := tls.TlsPemPair{
+		Certificate: tlskeypair.Data[tlskeypaircert],
+		PrivateKey:  tlskeypair.Data[tlskeypairkey],
+	}
+
+	if len(pemPair.Certificate) == 0 {
+		c.logger.Printf("TLS Certificate not found in secret %s/%s", ns, tlskeypair.Name)
+		return nil
+	}
+	if len(pemPair.PrivateKey) == 0 {
+		c.logger.Printf("TLS PrivateKey not found in secret %s/%s", ns, tlskeypair.Name)
+		return nil
+	}
+	c.logger.Printf("using TLS pair defined in secret %s/%s for webhook's server tls configuration", ns, tlskeypair.Name)
+	return &pemPair
 }
 
 const privateKeyField string = "privateKey"
@@ -187,5 +276,5 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 }
 
 func generateSecretName(props tls.TlsCertificateProps) string {
-	return tls.GenerateInClusterServiceName(props) + ".kube-policy-tls-pair"
+	return tls.GenerateInClusterServiceName(props) + ".kyverno-tls-pair"
 }
