@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"log"
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -220,7 +219,6 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	assert.Assert(t, decoded != nil)
 
 	patched, err := decoded.Apply(resourceRaw)
-	log.Fatalf("%s", patched)
 	assert.NilError(t, err)
 	assert.Assert(t, patched != nil)
 }

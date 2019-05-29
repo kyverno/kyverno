@@ -86,170 +86,6 @@ func TestCheckForWildcard_QuestionMark(t *testing.T) {
 	assert.Assert(t, checkForWildcard(value, pattern) != nil)
 }
 
-func TestCheckSingleValue_CheckInt(t *testing.T) {
-	pattern := 89
-	value := 89
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	value = 202
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckFloat(t *testing.T) {
-	pattern := 89.9091
-	value := 89.9091
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	value = 89.9092
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorMoreEqual(t *testing.T) {
-	pattern := "  >=    89 "
-	value := 89
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = ">=10.0001"
-	floatValue := 89.901
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorMoreEqualFail(t *testing.T) {
-	pattern := "  >=    90 "
-	value := 89
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = ">=910.0001"
-	floatValue := 89.901
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorLessEqual(t *testing.T) {
-	pattern := "   <=  1 "
-	value := 1
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = "<=10.0001"
-	floatValue := 1.901
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorLessEqualFail(t *testing.T) {
-	pattern := "   <=  0.1558 "
-	value := 1
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = "<=10.0001"
-	floatValue := 12.901
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorMore(t *testing.T) {
-	pattern := "   >  10 "
-	value := 89
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = ">10.0001"
-	floatValue := 89.901
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorMoreFail(t *testing.T) {
-	pattern := "   >  89 "
-	value := 89
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = ">910.0001"
-	floatValue := 89.901
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorLess(t *testing.T) {
-	pattern := "   <  10 "
-	value := 9
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = "<10.0001"
-	floatValue := 9.901
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorLessFail(t *testing.T) {
-	pattern := "   <  10 "
-	value := 10
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = "<10.0001"
-	floatValue := 19.901
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorNotEqual(t *testing.T) {
-	pattern := "   !=  10 "
-	value := 9.99999
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = "!=10.0001"
-	floatValue := 10.0000
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorNotEqualFail(t *testing.T) {
-	pattern := "   !=  9.99999 "
-	value := 9.99999
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = "!=10"
-	floatValue := 10
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckOperatorEqual(t *testing.T) {
-	pattern := "     10.000001 "
-	value := 10.000001
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = "10.000000"
-	floatValue := 10
-	assert.NilError(t, checkSingleValue(floatValue, pattern))
-}
-
-func TestCheckSingleValue_CheckOperatorEqualFail(t *testing.T) {
-	pattern := "     10.000000 "
-	value := 10.000001
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = "10.000001"
-	floatValue := 10
-	assert.Assert(t, checkSingleValue(floatValue, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckSeveralOperators(t *testing.T) {
-	pattern := " <-1  |  10.000001 "
-	value := 10.000001
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	value = -30
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	value = 5
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-}
-
-func TestCheckSingleValue_CheckWildcard(t *testing.T) {
-	pattern := "nirmata_*"
-	value := "nirmata_awesome"
-	assert.NilError(t, checkSingleValue(value, pattern))
-
-	pattern = "nirmata_*"
-	value = "spasex_awesome"
-	assert.Assert(t, checkSingleValue(value, pattern) != nil)
-
-	pattern = "g?t"
-	value = "git"
-	assert.NilError(t, checkSingleValue(value, pattern))
-}
-
 func TestSkipArrayObject_OneAnchor(t *testing.T) {
 
 	rawAnchors := []byte(`{"(name)": "nirmata-*"}`)
@@ -322,6 +158,17 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 	assert.Assert(t, len(actualMap) == 0)
 }
 
+func TestValidateMap(t *testing.T) {
+	rawPattern := []byte(`{ "spec": { "template": { "spec": { "containers": [ { "name": "?*", "resources": { "requests": { "cpu": "<4|8" } } } ] } } } }`)
+	rawMap := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "securityContext": { "runAsNonRoot": true }, "containers": [ { "name": "nginx", "image": "https://nirmata/nginx:latest", "imagePullPolicy": "Always", "readinessProbe": { "exec": { "command": [ "cat", "/tmp/healthy" ] }, "initialDelaySeconds": 5, "periodSeconds": 10 }, "livenessProbe": { "tcpSocket": { "port": 8080 }, "initialDelaySeconds": 15, "periodSeconds": 11 }, "resources": { "limits": { "memory": "2Gi", "cpu": 8 }, "requests": { "memory": "512Mi", "cpu": "8" } }, "ports": [ { "containerPort": 80 } ] } ] } } } }`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	assert.NilError(t, validateMap(resource, pattern))
+}
+
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	rawPattern := []byte(`[ { "(name)": "nirmata-*", "object": [ { "(key1)": "value*", "key2": "value*" } ] } ]`)
 	rawMap := []byte(`[ { "name": "nirmata-1", "object": [ { "key1": "value1", "key2": "value2" } ] }, { "name": "nirmata-1", "object": [ { "key1": "not_value", "key2": "not_value" } ] } ]`)
@@ -356,7 +203,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 }
 
 func TestValidate_ServiceTest(t *testing.T) {
-	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-service" }, "spec": { "rules": [ { "name": "ps1", "resource": { "kind": "Service", "name": "game-service*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/secretLabel", "op": "replace", "value": "weKnow" }, { "path": "/metadata/labels/originalLabel", "op": "remove" }, { "path": "/spec/selector/app", "op": "replace", "value": "mutedApp" } ] }, "validate": { "message": "This resource is broken", "pattern": { "spec": { "ports": [ { "name": "hs", "protocol": 32 } ] } } } } ] } }`)
+	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-service" }, "spec": { "rules": [ { "name": "ps1", "resource": { "kinds": [ "Service" ], "name": "game-service*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/secretLabel", "op": "replace", "value": "weKnow" }, { "path": "/metadata/labels/originalLabel", "op": "remove" }, { "path": "/spec/selector/app", "op": "replace", "value": "mutedApp" } ] }, "validate": { "message": "This resource is broken", "pattern": { "spec": { "ports": [ { "name": "hs", "protocol": 32 } ] } } } } ] } }`)
 	rawResource := []byte(`{ "kind": "Service", "apiVersion": "v1", "metadata": { "name": "game-service", "labels": { "originalLabel": "isHere", "secretLabel": "thisIsMySecret" } }, "spec": { "selector": { "app": "MyApp" }, "ports": [ { "name": "http", "protocol": "TCP", "port": 80, "targetPort": 9376 } ] } }`)
 
 	var policy kubepolicy.Policy
@@ -370,7 +217,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 }
 
 func TestValidate_MapHasFloats(t *testing.T) {
-	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-deployment-changed" }, "spec": { "rules": [ { "name": "First policy v2", "resource": { "kind": "Deployment", "name": "nginx-*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/app", "op": "replace", "value": "nginx_is_mutated" } ] }, "validate": { "message": "replicas number is wrong", "pattern": { "metadata": { "labels": { "app": "*" } }, "spec": { "replicas": 3 } } } } ] } }`)
+	rawPolicy := []byte(`{ "apiVersion": "kyverno.nirmata.io/v1alpha1", "kind": "Policy", "metadata": { "name": "policy-deployment-changed" }, "spec": { "rules": [ { "name": "First policy v2", "resource": { "kinds": [ "Deployment" ], "name": "nginx-*" }, "mutate": { "patches": [ { "path": "/metadata/labels/isMutated", "op": "add", "value": "true" }, { "path": "/metadata/labels/app", "op": "replace", "value": "nginx_is_mutated" } ] }, "validate": { "message": "replicas number is wrong", "pattern": { "metadata": { "labels": { "app": "*" } }, "spec": { "replicas": 3 } } } } ] } }`)
 	rawResource := []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "name": "nginx-deployment", "labels": { "app": "nginx" } }, "spec": { "replicas": 3, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:1.7.9", "ports": [ { "containerPort": 80 } ] } ] } } } }`)
 
 	var policy kubepolicy.Policy
