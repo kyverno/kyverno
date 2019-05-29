@@ -32,8 +32,6 @@ cli: cli-dirs
     -ldflags $(LD_FLAGS) \
     $(PACKAGE)/cmd/$(BIN)
 
-	go build -ldflags=$(LD_FLAGS) $(CLI)
-
 cli-dirs:
 	@mkdir -p _output/cli
 
