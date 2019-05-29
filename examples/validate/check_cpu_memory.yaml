@@ -15,18 +15,18 @@ spec:
           template:
             spec:
               containers:
-              - name: "*"
+              - name: "?*"
                 resources:
                   limits:
-                    memory: "*"
-                    cpu: "*"
+                    memory: "?*"
+                    cpu: "?*"
 
   - name: check-cpu
     resource:
       kinds:
       - Deployment
     validate:
-      message: "CPU request should be 4"
+      message: "CPU request should be less than 4"
       pattern:
         spec:
           template:
@@ -35,4 +35,4 @@ spec:
               - name: "*"
                 resources:
                   requests:
-                    cpu: "4"
+                    cpu: "<4"

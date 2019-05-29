@@ -15,7 +15,6 @@ spec:
           template:
             spec:
               containers:
-                # In this case every object in containers list will be checked for pattern
                 - name: "*"
                   livenessProbe:
                     periodSeconds: ">10"
@@ -30,7 +29,6 @@ spec:
           template:
             spec:
               containers:
-                # In this case every object in containers list will be checked for pattern
                 - name: "*"
                   readinessProbe:
                     periodSeconds: ">10"
