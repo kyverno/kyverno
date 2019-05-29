@@ -12,9 +12,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kyverno/client"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	client "github.com/nirmata/kyverno/client"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	tls "github.com/nirmata/kyverno/pkg/tls"
 
 	rest "k8s.io/client-go/rest"

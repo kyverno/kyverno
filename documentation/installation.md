@@ -69,5 +69,9 @@ Kyverno uses secrets created above to define the TLS configuration for the webse
 
 To deploy the Kyverno project, run `kubectl create -f definitions/install.yaml`. You can ignore the error 'namespaces "kyverno" already exists', which occurs as we previously created the namespace while creating the secrets.
 
+*If tls pair secret is created and secret for root CA is not defined, then Kyverno follows its default behaviour of generating new tls pair and generate certificate signing request for issuer to issue certificate.*
+
+Script to generate self-signed certificate and corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
+
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>

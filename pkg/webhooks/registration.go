@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"github.com/nirmata/kyverno/client"
+	"github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/config"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
