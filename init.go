@@ -8,10 +8,17 @@ import (
 	client "github.com/nirmata/kyverno/client"
 	"github.com/nirmata/kyverno/pkg/config"
 	tls "github.com/nirmata/kyverno/pkg/tls"
-
+	"github.com/nirmata/kyverno/pkg/version"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
+
+func printVersionInfo() {
+	v := version.GetVersion()
+	log.Printf("Kyverno version: %s\n", v.BuildVersion)
+	log.Printf("Kyverno BuildHash: %s\n", v.BuildHash)
+	log.Printf("Kyverno BuildTime: %s\n", v.BuildTime)
+}
 
 func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {

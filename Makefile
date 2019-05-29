@@ -5,16 +5,17 @@
 BIN ?= kyverno
 
 GIT_VERSION := $(shell git describe --dirty --always --tags)
-GIT_HASH := $(shell git log -1 --pretty=format:"%H")
+GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 PACKAGE ?=github.com/nirmata/kyverno
 MAIN ?=$(PACKAGE)
 
-LD_FLAGS="-s -w -X $(PACKAGE)/pkg/kyverno/version.buildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/kyverno/version.buildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/kyverno/version.buildTime=$(TIMESTAMP)"
+LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
-REPO=nirmata/kyverno
-TAG=0.1
+REPO=registry-v2.nirmata.io/nirmata/kyverno
+IMAGE_TAG=$(GIT_VERSION)
 
 GOOS ?= $(shell go env GOOS)
 OUTPUT=$(shell pwd)/_output/cli/$(BIN)
@@ -36,11 +37,11 @@ cli-dirs:
 	@mkdir -p _output/cli
 
 image:
-	docker build -t $(REPO):$(TAG) .
-	docker tag $(REPO):$(TAG) $(REPO):latest
+	docker build -t $(REPO):$(IMAGE_TAG) .
+	# docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
 
 push:
-	docker push $(REPO):$(TAG)
+	docker push $(REPO):$(IMAGE_TAG)
 	docker push $(REPO):latest
 
 clean:
