@@ -2,9 +2,8 @@ package violation
 
 import (
 	"fmt"
-	"log"
-	"os"
 
+	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -23,7 +22,6 @@ type builder struct {
 	client       *client.Client
 	policyLister v1alpha1.PolicyLister
 	eventBuilder event.Generator
-	logger       *log.Logger
 }
 
 //Builder is to build policy violations
@@ -36,18 +34,12 @@ type Builder interface {
 //NewPolicyViolationBuilder returns new violation builder
 func NewPolicyViolationBuilder(client *client.Client,
 	sharedInfomer sharedinformer.PolicyInformer,
-	eventController event.Generator,
-	logger *log.Logger) Builder {
-
-	if logger == nil {
-		logger = log.New(os.Stdout, "Violation Builder: ", log.LstdFlags)
-	}
+	eventController event.Generator) Builder {
 
 	builder := &builder{
 		client:       client,
 		policyLister: sharedInfomer.GetLister(),
 		eventBuilder: eventController,
-		logger:       logger,
 	}
 	return builder
 }
@@ -81,7 +73,7 @@ func (b *builder) processViolation(info Info) error {
 			continue
 		}
 		if !ok {
-			b.logger.Printf("removed violation")
+			glog.Info("removed violation")
 		}
 	}
 	// If violation already exists for this rule, we update the violation

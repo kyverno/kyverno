@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	tls "github.com/nirmata/kyverno/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -61,7 +62,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("Unable to delete existing certificate request: %v", err))
 			}
-			c.logger.Printf("Old certificate request is deleted")
+			glog.Info("Old certificate request is deleted")
 			break
 		}
 	}
@@ -70,7 +71,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, err
 	}
-	c.logger.Printf("Certificate request %s is created", unstrRes.GetName())
+	glog.Infof("Certificate request %s is created", unstrRes.GetName())
 
 	res, err := convertToCSR(unstrRes)
 	if err != nil {
@@ -85,7 +86,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to approve certificate request: %v", err))
 	}
-	c.logger.Printf("Certificate request %s is approved", res.ObjectMeta.Name)
+	glog.Infof("Certificate request %s is approved", res.ObjectMeta.Name)
 
 	return res, nil
 }
@@ -136,10 +137,10 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 
 	result = tlsca.Data[rootCAKey]
 	if len(result) == 0 {
-		c.logger.Printf("root CA certificate not found in secret %s/%s", certProps.Namespace, tlsca.Name)
+		glog.Warningf("root CA certificate not found in secret %s/%s", certProps.Namespace, tlsca.Name)
 		return result
 	}
-	c.logger.Printf("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", certProps.Namespace, tlsca.Name)
+	glog.Infof("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", certProps.Namespace, tlsca.Name)
 	return result
 }
 
@@ -151,7 +152,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	sname := generateTLSPairSecretName(props)
 	unstrSecret, err := c.GetResource(Secrets, props.Namespace, sname)
 	if err != nil {
-		c.logger.Printf("Unable to get secret %s/%s: %s", props.Namespace, sname, err)
+		glog.Warningf("Unable to get secret %s/%s: %s", props.Namespace, sname, err)
 		return nil
 	}
 
@@ -175,11 +176,11 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
 	}
 	if len(pemPair.Certificate) == 0 {
-		c.logger.Printf("TLS Certificate not found in secret %s/%s", props.Namespace, sname)
+		glog.Warningf("TLS Certificate not found in secret %s/%s", props.Namespace, sname)
 		return nil
 	}
 	if len(pemPair.PrivateKey) == 0 {
-		c.logger.Printf("TLS PrivateKey not found in secret %s/%s", props.Namespace, sname)
+		glog.Warningf("TLS PrivateKey not found in secret %s/%s", props.Namespace, sname)
 		return nil
 	}
 	return &pemPair
@@ -209,7 +210,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 
 		_, err := c.CreateResource(Secrets, props.Namespace, secret)
 		if err == nil {
-			c.logger.Printf("Secret %s is created", name)
+			glog.Infof("Secret %s is created", name)
 		}
 		return err
 	}
@@ -225,7 +226,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 	if err != nil {
 		return err
 	}
-	c.logger.Printf("Secret %s is updated", name)
+	glog.Infof("Secret %s is updated", name)
 	return nil
 }
 
