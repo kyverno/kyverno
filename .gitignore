@@ -2,3 +2,4 @@ certs
 Gopkg.lock
 .vscode
 gh-pages/public
+_output
