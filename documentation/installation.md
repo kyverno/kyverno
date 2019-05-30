@@ -44,7 +44,7 @@ Kyverno installs an admission webhook that requires a CA-signed certificate and 
 ## Use self-signed certificates
 To create a root CA, generate signed certificate and key using openssl:
 1. `openssl genrsa -out rootCA.key 4096`
-2. `openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt  -subj "/C=US/ST=test/L=test /O=test /OU=PIB/CN=*.kyverno.svc/emailAddress=test@test.com”`
+2. `openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt  -subj "/C=US/ST=test/L=test /O=test /OU=PIB/CN=*.kyverno.svc/emailAddress=test@test.com"`
 3. `openssl genrsa -out webhook.key 4096`
 4. `openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=kyverno-svc.kyverno.svc/emailAddress=test@test.com"`
 5. `openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256`
