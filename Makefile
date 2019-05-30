@@ -38,7 +38,7 @@ cli-dirs:
 
 image:
 	docker build -t $(REPO):$(IMAGE_TAG) .
-	# docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
+	docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
 
 push:
 	docker push $(REPO):$(IMAGE_TAG)
