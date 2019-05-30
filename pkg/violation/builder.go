@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	client "github.com/nirmata/kyverno/client"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

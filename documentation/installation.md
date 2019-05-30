@@ -56,17 +56,24 @@ the following files are generated and are used to create kubernetes secrets:
 
 To create the required secrets:
 1. `kubectl create ns kyverno`
-2. `kubectl -n kyverno create secret tls tls.kyverno --cert=webhook.crt --key=webhook.key `
-3. `kubectl -n kyverno create secret generic tls-ca --from-file=rootCA.crt`
+2. `kubectl -n kyverno create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key `
+3. `kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair  -n kyverno self-signed-cert=true`
+4. `kubectl -n kyverno create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt`
+
+*The annotation on the TLS pair secret is used by Kyverno to identify the use of self-signed certificates and checks for the required root CA secret*
 
 Secret | Data | Content
 ------------ | ------------- | -------------
-`tls.ca` | rootCA.crt | root CA used to sign the certificate
-`tls.kyverno` | tls.key & tls.crt  | key and signed certificate
+`kyverno-svc.kyverno.svc.kyverno-tls-pair` | rootCA.crt | root CA used to sign the certificate
+`kyverno-svc.kyverno.svc.kyverno-tls-ca` | tls.key & tls.crt  | key and signed certificate
 
 Kyverno uses secrets created above to define the TLS configuration for the webserver hook and specify the CA bundle used to validate the webhook's server certificate in the admission webhook configurations.
 
 To deploy the Kyverno project, run `kubectl create -f definitions/install.yaml`. You can ignore the error 'namespaces "kyverno" already exists', which occurs as we previously created the namespace while creating the secrets.
+
+*If tls pair secret is created and secret for root CA is not defined, then Kyverno follows its default behaviour of generating new tls pair and generate certificate signing request for issuer to issue certificate.*
+
+Script to generate self-signed certificate and corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>

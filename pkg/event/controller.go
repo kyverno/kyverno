@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	client "github.com/nirmata/kyverno/client"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
