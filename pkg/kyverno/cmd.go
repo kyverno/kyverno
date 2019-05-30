@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/apply"
+	"github.com/nirmata/kyverno/pkg/kyverno/version"
 	"github.com/spf13/cobra"
 )
 
@@ -21,5 +22,6 @@ func NewKyvernoCommand(in io.Reader, out, errout io.Writer) *cobra.Command {
 	}
 
 	cmds.AddCommand(apply.NewCmdApply(in, out, errout))
+	cmds.AddCommand(version.NewCmdVersion(out))
 	return cmds
 }

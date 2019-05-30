@@ -18,6 +18,8 @@ var (
 )
 
 func main() {
+	printVersionInfo()
+
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
 		log.Fatalf("Error building kubeconfig: %v\n", err)
