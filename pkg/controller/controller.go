@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	client "github.com/nirmata/kyverno/client"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	violation "github.com/nirmata/kyverno/pkg/violation"
