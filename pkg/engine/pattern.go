@@ -2,11 +2,12 @@ package engine
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
 )
@@ -35,7 +36,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case bool:
 		typedValue, ok := value.(bool)
 		if !ok {
-			log.Printf("Expected bool, found %T", value)
+			glog.Warningf("Expected bool, found %T", value)
 			return false
 		}
 		return typedPattern == typedValue
@@ -50,10 +51,10 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case nil:
 		return validateValueWithNilPattern(value)
 	case map[string]interface{}, []interface{}:
-		log.Println("Maps and arrays as patterns are not supported")
+		glog.Warning("Maps and arrays as patterns are not supported")
 		return false
 	default:
-		log.Printf("Unknown type as pattern: %T\n", pattern)
+		glog.Warningf("Unknown type as pattern: %T\n", pattern)
 		return false
 	}
 }
@@ -70,10 +71,10 @@ func validateValueWithIntPattern(value interface{}, pattern int64) bool {
 			return int64(typedValue) == pattern
 		}
 
-		log.Printf("Expected int, found float: %f\n", typedValue)
+		glog.Warningf("Expected int, found float: %f\n", typedValue)
 		return false
 	default:
-		log.Printf("Expected int, found: %T\n", value)
+		glog.Warningf("Expected int, found: %T\n", value)
 		return false
 	}
 }
@@ -86,12 +87,12 @@ func validateValueWithFloatPattern(value interface{}, pattern float64) bool {
 			return int(pattern) == value
 		}
 
-		log.Printf("Expected float, found int: %d\n", typedValue)
+		glog.Warningf("Expected float, found int: %d\n", typedValue)
 		return false
 	case float64:
 		return typedValue == pattern
 	default:
-		log.Printf("Expected float, found: %T\n", value)
+		glog.Warningf("Expected float, found: %T\n", value)
 		return false
 	}
 }
@@ -111,10 +112,10 @@ func validateValueWithNilPattern(value interface{}) bool {
 	case nil:
 		return true
 	case map[string]interface{}, []interface{}:
-		log.Println("Maps and arrays could not be checked with nil pattern")
+		glog.Warningf("Maps and arrays could not be checked with nil pattern")
 		return false
 	default:
-		log.Printf("Unknown type as value when checking for nil pattern: %T\n", value)
+		glog.Warningf("Unknown type as value when checking for nil pattern: %T\n", value)
 		return false
 	}
 }
@@ -147,7 +148,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 	if NotEqual == operator || Equal == operator {
 		strValue, ok := value.(string)
 		if !ok {
-			log.Printf("Expected string, found %T\n", value)
+			glog.Warningf("Expected string, found %T\n", value)
 			return false
 		}
 
@@ -160,7 +161,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 		return wildcardResult
 	}
 
-	log.Println("Operators >, >=, <, <= are not applicable to strings")
+	glog.Warningf("Operators >, >=, <, <= are not applicable to strings")
 	return false
 }
 
@@ -168,13 +169,13 @@ func validateNumberWithStr(value interface{}, patternNumber, patternStr string, 
 	if "" != patternStr {
 		typedValue, ok := value.(string)
 		if !ok {
-			log.Printf("Number must have suffix: %s", patternStr)
+			glog.Warningf("Number must have suffix: %s", patternStr)
 			return false
 		}
 
 		valueNumber, valueStr := getNumberAndStringPartsFromPattern(typedValue)
 		if !wildcard.Match(patternStr, valueStr) {
-			log.Printf("Suffix %s has not passed wildcard check: %s", valueStr, patternStr)
+			glog.Warningf("Suffix %s has not passed wildcard check: %s", valueStr, patternStr)
 			return false
 		}
 
