@@ -1,5 +1,5 @@
 kind: "Deployment"
-apiVersion: "extensions/v1beta1"
+apiVersion: "apps/v1"
 metadata:
   name: "ghost"
   labels:
@@ -28,8 +28,7 @@ spec:
     spec:
       containers:
       - name: "ghost"
-        image: "ghost:2.9.1-alpine"
-        imagePullPolicy: Always
+        image: "nginx:latest"
         ports:
         - containerPort: 8080
           protocol: "TCP"
