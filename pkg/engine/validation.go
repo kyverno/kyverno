@@ -3,8 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,7 +25,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			log.Printf("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			glog.Infof("Rule \"%s\" is not applicable to resource\n", rule.Name)
 			continue
 		}
 
