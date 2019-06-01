@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"log"
 
+	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/config"
 	controller "github.com/nirmata/kyverno/pkg/controller"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
@@ -18,45 +19,45 @@ var (
 )
 
 func main() {
-	printVersionInfo()
+	defer glog.Flush()
 
+	printVersionInfo()
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v\n", err)
+		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	client, err := client.NewClient(clientConfig, nil)
+	client, err := client.NewClient(clientConfig)
 	if err != nil {
-		log.Fatalf("Error creating client: %v\n", err)
+		glog.Fatalf("Error creating client: %v\n", err)
 	}
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {
-		log.Fatalf("Error creating policy sharedinformer: %v\n", err)
+		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
-	eventController := event.NewEventController(client, policyInformerFactory, nil)
-	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController, nil)
+	eventController := event.NewEventController(client, policyInformerFactory)
+	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
 
 	policyController := controller.NewPolicyController(
 		client,
 		policyInformerFactory,
 		violationBuilder,
-		eventController,
-		nil)
+		eventController)
 
 	tlsPair, err := initTlsPemPair(clientConfig, client)
 	if err != nil {
-		log.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
+		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, nil)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory)
 	if err != nil {
-		log.Fatalf("Unable to create webhook server: %v\n", err)
+		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
 	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client)
 	if err != nil {
-		log.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
+		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
 
 	stopCh := signals.SetupSignalHandler()
@@ -65,11 +66,11 @@ func main() {
 	eventController.Run(stopCh)
 
 	if err = policyController.Run(stopCh); err != nil {
-		log.Fatalf("Error running PolicyController: %v\n", err)
+		glog.Fatalf("Error running PolicyController: %v\n", err)
 	}
 
 	if err = webhookRegistrationClient.Register(); err != nil {
-		log.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
 	server.RunAsync()
@@ -80,5 +81,6 @@ func main() {
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	config.LogDefaultFlags()
 	flag.Parse()
 }

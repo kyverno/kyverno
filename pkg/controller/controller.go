@@ -2,10 +2,9 @@ package controller
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"time"
 
+	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -27,7 +26,6 @@ type PolicyController struct {
 	policySynced     cache.InformerSynced
 	violationBuilder violation.Generator
 	eventBuilder     event.Generator
-	logger           *log.Logger
 	queue            workqueue.RateLimitingInterface
 }
 
@@ -35,19 +33,14 @@ type PolicyController struct {
 func NewPolicyController(client *client.Client,
 	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
-	eventController event.Generator,
-	logger *log.Logger) *PolicyController {
+	eventController event.Generator) *PolicyController {
 
-	if logger == nil {
-		logger = log.New(os.Stdout, "Policy Controller: ", log.LstdFlags)
-	}
 	controller := &PolicyController{
 		client:           client,
 		policyLister:     policyInformer.GetLister(),
 		policySynced:     policyInformer.GetInfomer().HasSynced,
 		violationBuilder: violationBuilder,
 		eventBuilder:     eventController,
-		logger:           logger,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
@@ -79,7 +72,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
 		return
 	}
-	pc.logger.Printf("policy deleted: %s", object.GetName())
+	glog.Infof("policy deleted: %s", object.GetName())
 }
 
 func (pc *PolicyController) enqueuePolicy(obj interface{}) {
@@ -104,13 +97,13 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	for i := 0; i < policyControllerWorkerCount; i++ {
 		go wait.Until(pc.runWorker, time.Second, stopCh)
 	}
-	pc.logger.Println("started policy controller workers")
+	glog.Info("started policy controller workers")
 
 	return nil
 }
 
 func (pc *PolicyController) Stop() {
-	pc.logger.Println("shutting down policy controller workers")
+	glog.Info("shutting down policy controller workers")
 }
 func (pc *PolicyController) runWorker() {
 	for pc.processNextWorkItem() {
@@ -143,7 +136,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if pc.queue.NumRequeues(key) < policyWorkQueueRetryLimit {
-		pc.logger.Printf("Error syncing events %v: %v", key, err)
+		glog.Warningf("Error syncing events %v: %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		pc.queue.AddRateLimited(key)
@@ -151,7 +144,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 	pc.queue.Forget(key)
 	utilruntime.HandleError(err)
-	pc.logger.Printf("Dropping the key %q out of the queue: %v", key, err)
+	glog.Warning("Dropping the key %q out of the queue: %v", key, err)
 }
 
 func (pc *PolicyController) syncHandler(obj interface{}) error {
@@ -179,6 +172,6 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// get the violations and pass to violation Builder
 	// get the events and pass to event Builder
 	//TODO: processPolicy
-	pc.logger.Printf("process policy %s on existing resources", policy.GetName())
+	glog.Infof("process policy %s on existing resources", policy.GetName())
 	return nil
 }
