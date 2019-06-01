@@ -1,5 +1,7 @@
 package config
 
+import "flag"
+
 const (
 	// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
 	KubePolicyNamespace = "kyverno"
@@ -47,3 +49,10 @@ var (
 		"StatefulSet",
 	}
 )
+
+//LogDefaults sets default glog flags
+func LogDefaultFlags() {
+	flag.Set("logtostderr", "true")
+	flag.Set("stderrthreshold", "WARNING")
+	flag.Set("v", "2")
+}

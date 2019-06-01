@@ -7,11 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -29,7 +28,6 @@ type WebhookServer struct {
 	server       http.Server
 	client       *client.Client
 	policyLister v1alpha1.PolicyLister
-	logger       *log.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -37,11 +35,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	shareInformer sharedinformer.PolicyInformer,
-	logger *log.Logger) (*WebhookServer, error) {
-	if logger == nil {
-		logger = log.New(os.Stdout, "Webhook Server:    ", log.LstdFlags)
-	}
+	shareInformer sharedinformer.PolicyInformer) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -57,7 +51,6 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
-		logger:       logger,
 	}
 
 	mux := http.NewServeMux()
@@ -68,7 +61,6 @@ func NewWebhookServer(
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
 		Handler:      mux,
-		ErrorLog:     logger,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
@@ -112,11 +104,10 @@ func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		err := ws.server.ListenAndServeTLS("", "")
 		if err != nil {
-			ws.logger.Fatal(err)
+			glog.Fatal(err)
 		}
 	}(ws)
-
-	ws.logger.Printf("Started Webhook Server")
+	glog.Info("Started Webhook Server")
 }
 
 // Stop TLS server and returns control after the server is shut down
@@ -124,25 +115,26 @@ func (ws *WebhookServer) Stop() {
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {
 		// Error from closing listeners, or context timeout:
-		ws.logger.Printf("Server Shutdown error: %v", err)
+		glog.Info("Server Shutdown error: %v", err)
 		ws.server.Close()
 	}
 }
 
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	ws.logger.Printf("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+	glog.Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		ws.logger.Printf("%v", err)
+		glog.Warning(err)
 		return nil
 	}
 
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
-		ws.logger.Printf("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		policyPatches, _ := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
@@ -150,7 +142,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if len(policyPatches) > 0 {
 			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
 			name := engine.ParseNameFromObject(request.Object.Raw)
-			ws.logger.Printf("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
+			glog.Infof("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 		}
 	}
 
@@ -164,22 +156,22 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 // HandleValidation handles validating webhook admission request
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	ws.logger.Printf("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+	glog.Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
-		ws.logger.Printf("%v", err)
+		glog.Warning(err)
 		return nil
 	}
 
 	for _, policy := range policies {
 		// validation
-		ws.logger.Printf("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
 			message := fmt.Sprintf("validation has failed: %s", err.Error())
-			ws.logger.Println(message)
+			glog.Warning(message)
 
 			return &v1beta1.AdmissionResponse{
 				Allowed: false,
@@ -190,10 +182,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 
 		// generation
-		engine.Generate(ws.client, ws.logger, *policy, request.Object.Raw, request.Kind)
+		engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
 	}
-
-	ws.logger.Println("Validation is successful")
+	glog.Info("Validation is successful")
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -210,21 +201,21 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 		}
 	}
 	if len(body) == 0 {
-		ws.logger.Print("Error: empty body")
+		glog.Error("Error: empty body")
 		http.Error(writer, "empty body", http.StatusBadRequest)
 		return nil
 	}
 
 	contentType := request.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		ws.logger.Printf("Error: invalid Content-Type: %v", contentType)
+		glog.Error("Error: invalid Content-Type: %v", contentType)
 		http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return nil
 	}
 
 	admissionReview := &v1beta1.AdmissionReview{}
 	if err := json.Unmarshal(body, &admissionReview); err != nil {
-		ws.logger.Printf("Error: Can't decode body as AdmissionReview: %v", err)
+		glog.Errorf("Error: Can't decode body as AdmissionReview: %v", err)
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
 	} else {

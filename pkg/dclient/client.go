@@ -2,10 +2,9 @@ package client
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"time"
 
+	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
@@ -28,19 +27,14 @@ import (
 type Client struct {
 	client       dynamic.Interface
 	cachedClient discovery.CachedDiscoveryInterface
-	logger       *log.Logger
 	clientConfig *rest.Config
 	kclient      *kubernetes.Clientset
 }
 
-func NewClient(config *rest.Config, logger *log.Logger) (*Client, error) {
+func NewClient(config *rest.Config) (*Client, error) {
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
-	}
-
-	if logger == nil {
-		logger = log.New(os.Stdout, "Client : ", log.LstdFlags)
 	}
 
 	kclient, err := kubernetes.NewForConfig(config)
@@ -49,7 +43,6 @@ func NewClient(config *rest.Config, logger *log.Logger) (*Client, error) {
 	}
 
 	return &Client{
-		logger:       logger,
 		client:       client,
 		clientConfig: config,
 		kclient:      kclient,
@@ -175,11 +168,11 @@ func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, er
 //GenerateSecret to generate secrets
 
 func (c *Client) GenerateSecret(generator types.Generation, namespace string) error {
-	c.logger.Printf("Preparing to create secret %s/%s", namespace, generator.Name)
+	glog.Infof("Preparing to create secret %s/%s", namespace, generator.Name)
 	secret := v1.Secret{}
 
 	if generator.CopyFrom != nil {
-		c.logger.Printf("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		glog.Infof("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 		// Get configMap resource
 		unstrSecret, err := c.GetResource(Secrets, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 		if err != nil {
@@ -215,11 +208,11 @@ func (c *Client) GenerateSecret(generator types.Generation, namespace string) er
 //TODO: make this generic for all resource type
 //GenerateConfigMap to generate configMap
 func (c *Client) GenerateConfigMap(generator types.Generation, namespace string) error {
-	c.logger.Printf("Preparing to create configmap %s/%s", namespace, generator.Name)
+	glog.Infof("Preparing to create configmap %s/%s", namespace, generator.Name)
 	configMap := v1.ConfigMap{}
 
 	if generator.CopyFrom != nil {
-		c.logger.Printf("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
+		glog.Infof("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 		// Get configMap resource
 		unstrConfigMap, err := c.GetResource(ConfigMaps, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
 		if err != nil {
@@ -281,7 +274,7 @@ func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, 
 		_, err = c.CreateResource(ConfigMaps, namespace, configMap)
 	}
 	if err != nil {
-		c.logger.Printf("Can't create a configmap: %s", err)
+		glog.Errorf("Can't create a configmap: %s", err)
 	}
 }
 
@@ -291,7 +284,7 @@ func (c *Client) createSecretAfterNamespaceIsCreated(secret v1.Secret, namespace
 		_, err = c.CreateResource(Secrets, namespace, secret)
 	}
 	if err != nil {
-		c.logger.Printf("Can't create a secret: %s", err)
+		glog.Errorf("Can't create a secret: %s", err)
 	}
 }
 
