@@ -110,7 +110,7 @@ spec:
                         type: string
                       namespace:
                         type: string
-                      from: 
+                      clone: 
                         type: object
                         required:
                         - namespace

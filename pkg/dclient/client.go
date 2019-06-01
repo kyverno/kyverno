@@ -202,9 +202,6 @@ func keyExist(data map[string]interface{}, key string) (ok bool) {
 // support mode 'data' -> create resource
 // To-Do: support 'from' -> copy/clone the resource
 func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
-	if generator.Data != nil && generator.From != nil {
-		return errors.New("generate only supports on the modes data or from")
-	}
 	var err error
 	rGVR := c.getGVRFromKind(generator.Kind)
 	resource := &unstructured.Unstructured{}
@@ -222,9 +219,9 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 			return errors.New("mandatory keys not defined")
 		}
 	}
-	// from -> create new resource
-	if generator.From != nil {
-		resource, err = c.GetResource(rGVR.Resource, generator.From.Namespace, generator.From.Name)
+	// clone -> copy from existing resource
+	if generator.Clone != nil {
+		resource, err = c.GetResource(rGVR.Resource, generator.Clone.Namespace, generator.Clone.Name)
 		if err != nil {
 			return err
 		}

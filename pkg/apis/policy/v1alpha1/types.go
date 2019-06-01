@@ -65,12 +65,12 @@ type Generation struct {
 	Name      string      `json:"name"`
 	Namespace string      `json:"namespace"`
 	Data      interface{} `json:"data"`
-	From      *CopyFrom   `json:"from"`
+	Clone     *CloneFrom  `json:"clone"`
 }
 
-// CopyFrom - location of a Secret or a ConfigMap
+// CloneFrom - location of a Secret or a ConfigMap
 // which will be used as source when applying 'generate'
-type CopyFrom struct {
+type CloneFrom struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 }

@@ -64,8 +64,11 @@ func (pp *Patch) Validate() error {
 
 // Validate returns error if generator is configured incompletely
 func (pcg *Generation) Validate() error {
-	if pcg.Data == nil && pcg.From == nil {
-		return fmt.Errorf("Neither Data nor CopyFrom (source) of %s is specified", pcg.Kind)
+	if pcg.Data == nil && pcg.Clone == nil {
+		return fmt.Errorf("Neither data nor clone (source) of %s is specified", pcg.Kind)
+	}
+	if pcg.Data != nil && pcg.Clone != nil {
+		return fmt.Errorf("Both data nor clone (source) of %s are specified", pcg.Kind)
 	}
 	return nil
 }
