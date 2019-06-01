@@ -2,15 +2,15 @@ package engine
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Generate should be called to process generate rules on the resource
-func Generate(client *client.Client, logger *log.Logger, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) {
+func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) {
 	// configMapGenerator and secretGenerator can be applied only to namespaces
 	// TODO: support for any resource
 	if gvk.Kind != "Namespace" {
@@ -21,13 +21,13 @@ func Generate(client *client.Client, logger *log.Logger, policy kubepolicy.Polic
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 
 		if !ok {
-			logger.Printf("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
+			glog.Infof("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
 			continue
 		}
 
 		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk)
 		if err != nil {
-			logger.Printf("Failed to apply rule generator: %v", err)
+			glog.Warningf("Failed to apply rule generator: %v", err)
 		}
 	}
 }
@@ -42,19 +42,10 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 	var err error
 
 	namespace := ParseNameFromObject(rawResource)
-	switch generator.Kind {
-	case "ConfigMap":
-		err = client.GenerateConfigMap(*generator, namespace)
-	case "Secret":
-		err = client.GenerateSecret(*generator, namespace)
-	default:
-		err = fmt.Errorf("Unsupported config Kind '%s'", generator.Kind)
-	}
-
+	err = client.GenerateResource(*generator, namespace)
 	if err != nil {
-		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
+		return fmt.Errorf("Unable to apply generator for %s  %s: %v", generator.Kind, namespace, err)
 	}
-
-	log.Printf("Successfully applied generator %s/%s", generator.Kind, generator.Name)
+	glog.Infof("Successfully applied generator %s", generator.Kind)
 	return nil
 }

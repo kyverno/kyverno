@@ -2,10 +2,9 @@ package event
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
@@ -26,7 +25,6 @@ type controller struct {
 	policyLister v1alpha1.PolicyLister
 	queue        workqueue.RateLimitingInterface
 	recorder     record.EventRecorder
-	logger       *log.Logger
 }
 
 //Generator to generate event
@@ -43,19 +41,13 @@ type Controller interface {
 
 //NewEventController to generate a new event controller
 func NewEventController(client *client.Client,
-	shareInformer sharedinformer.PolicyInformer,
-	logger *log.Logger) Controller {
-
-	if logger == nil {
-		logger = log.New(os.Stdout, "Event Controller: ", log.LstdFlags)
-	}
+	shareInformer sharedinformer.PolicyInformer) Controller {
 
 	controller := &controller{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
 		recorder:     initRecorder(client),
-		logger:       logger,
 	}
 	return controller
 }
@@ -68,7 +60,7 @@ func initRecorder(client *client.Client) record.EventRecorder {
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Printf)
+	eventBroadcaster.StartLogging(glog.Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		utilruntime.HandleError(err) // TODO: add more specific error
@@ -94,11 +86,11 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	for i := 0; i < eventWorkerThreadCount; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-	c.logger.Println("Started eventbuilder controller workers")
+	glog.Info("Started eventbuilder controller workers")
 }
 
 func (c *controller) Stop() {
-	c.logger.Println("Shutting down eventbuilder controller workers")
+	glog.Info("Shutting down eventbuilder controller workers")
 }
 func (c *controller) runWorker() {
 	for c.processNextWorkItem() {
@@ -116,7 +108,7 @@ func (c *controller) processNextWorkItem() bool {
 		var ok bool
 		if key, ok = obj.(Info); !ok {
 			c.queue.Forget(obj)
-			c.logger.Printf("Expecting type info by got %v\n", obj)
+			glog.Warningf("Expecting type info by got %v\n", obj)
 			return nil
 		}
 		// Run the syncHandler, passing the resource and the policy
@@ -128,7 +120,7 @@ func (c *controller) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		c.logger.Println((err))
+		glog.Warning(err)
 	}
 	return true
 }
