@@ -44,8 +44,8 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 	namespace := ParseNameFromObject(rawResource)
 	err = client.GenerateResource(*generator, namespace)
 	if err != nil {
-		return fmt.Errorf("Unable to apply generator for %s  %s: %v", generator.Kind, namespace, err)
+		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
 	}
-	glog.Infof("Successfully applied generator %s", generator.Kind)
+	glog.Infof("Successfully applied generator %s/%s", generator.Kind, generator.Name)
 	return nil
 }
