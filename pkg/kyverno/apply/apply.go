@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/spf13/cobra"
@@ -29,9 +30,9 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 		Short:   "Apply policy on the resource(s)",
 		Example: applyExample,
 		Run: func(cmd *cobra.Command, args []string) {
+			defer glog.Flush()
 			var output string
 			policy, resources := complete(args)
-
 			for _, resource := range resources {
 				patchedDocument, err := applyPolicy(policy, resource.rawResource, resource.gvk)
 				if err != nil {
