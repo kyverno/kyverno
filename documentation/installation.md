@@ -6,7 +6,7 @@ The Kyverno policy engine runs as an admission webhook and requires a CA-signed 
 
 There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver:
 
-**Option 1: Use `kube-controller-manager` to generate a CA-signed certificate**
+## Option 1: Use kube-controller-manager to generate a CA-signed certificate
 
 Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
@@ -32,11 +32,11 @@ kubectl describe pod <kyverno-pod-name> -n kyverno
 kubectl logs <kyverno-pod-name> -n kyverno
 ````
 
-**Option 2: Use your own CA-signed certificate**
+## Option 2: Use your own CA-signed certificate
 
 You can install your own CA-signed certificate, or generate a self-signed CA and use it to sign a certifcate. Once you have a CA and X.509 certificate-key pair, you can install these as Kubernetes secrets in your cluster. If Kyverno finds these secrets, it uses them. Otherwise it will request the kube-controller-manager to generate a certificate (see Option 1 above).
 
-1. Generate a self-signed CA and signed certificate-key pair
+### 1. Generate a self-signed CA and signed certificate-key pair
 
 **Note: using a separate self-signed root CA is difficult to manage and not recommeded for production use.** 
 
@@ -57,7 +57,7 @@ The following files will be generated and can be used to create Kubernetes secre
 - webhooks.crt
 - webhooks.key
 
-2. Configure secrets for the CA and TLS certificate-key pair
+### 2. Configure secrets for the CA and TLS certificate-key pair
 
 To create the required secrets, use the following commands (do not change the secret names):
 
@@ -77,7 +77,7 @@ Secret | Data | Content
 
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
 
-3. Install Kyverno
+### 3. Install Kyverno
 
 ````sh
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
