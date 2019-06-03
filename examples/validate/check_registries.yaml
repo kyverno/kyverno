@@ -1,10 +1,10 @@
 apiVersion : kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: check-whitelist-registries
+  name: check-registries
 spec:
   rules:
-  - name: check-whitelist-registries
+  - name: check-registries
     resource:
       kinds:
       - Deployment

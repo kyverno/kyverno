@@ -136,7 +136,7 @@ Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used
 * [Testing Policies](documentation/testing-policies.md)
   * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
   * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
-
+* [Examples](examples/)
 
 ## Roadmap
 
