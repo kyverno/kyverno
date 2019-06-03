@@ -36,7 +36,6 @@ type runner struct {
 const viewName = "lsp_test"
 
 func testLSP(t *testing.T, exporter packagestest.Exporter) {
-	ctx := context.Background()
 	data := tests.Load(t, exporter, "testdata")
 	defer data.Exported.Cleanup()
 
@@ -46,7 +45,7 @@ func testLSP(t *testing.T, exporter packagestest.Exporter) {
 	view := session.NewView(viewName, span.FileURI(data.Config.Dir))
 	view.SetEnv(data.Config.Env)
 	for filename, content := range data.Config.Overlay {
-		view.SetContent(ctx, span.FileURI(filename), content)
+		session.SetOverlay(span.FileURI(filename), content)
 	}
 	r := &runner{
 		server: &Server{
@@ -61,7 +60,15 @@ func testLSP(t *testing.T, exporter packagestest.Exporter) {
 func (r *runner) Diagnostics(t *testing.T, data tests.Diagnostics) {
 	v := r.server.session.View(viewName)
 	for uri, want := range data {
-		results, err := source.Diagnostics(context.Background(), v, uri)
+		f, err := v.GetFile(context.Background(), uri)
+		if err != nil {
+			t.Fatalf("no file for %s: %v", f, err)
+		}
+		gof, ok := f.(source.GoFile)
+		if !ok {
+			t.Fatalf("%s is not a Go file: %v", uri, err)
+		}
+		results, err := source.Diagnostics(context.Background(), v, gof)
 		if err != nil {
 			t.Fatal(err)
 		}

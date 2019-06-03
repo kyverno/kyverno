@@ -12,6 +12,7 @@ import (
 	"path"
 
 	"golang.org/x/tools/internal/jsonrpc2"
+	"golang.org/x/tools/internal/lsp/debug"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
@@ -140,7 +141,7 @@ func (s *Server) initialized(ctx context.Context, params *protocol.InitializedPa
 		}
 	}
 	buf := &bytes.Buffer{}
-	PrintVersionInfo(buf, true, false)
+	debug.PrintVersionInfo(buf, true, debug.PlainText)
 	s.session.Logger().Infof(ctx, "%s", buf)
 	return nil
 }
@@ -165,6 +166,18 @@ func (s *Server) processConfig(view source.View, config interface{}) error {
 			env = append(env, fmt.Sprintf("%s=%s", k, v))
 		}
 		view.SetEnv(env)
+	}
+	// Get the build flags for the go/packages config.
+	if buildFlags := c["buildFlags"]; buildFlags != nil {
+		iflags, ok := buildFlags.([]interface{})
+		if !ok {
+			return fmt.Errorf("invalid config gopls.buildFlags type %T", buildFlags)
+		}
+		flags := make([]string, 0, len(iflags))
+		for _, flag := range iflags {
+			flags = append(flags, fmt.Sprintf("%s", flag))
+		}
+		view.SetBuildFlags(flags)
 	}
 	// Check if placeholders are enabled.
 	if usePlaceholders, ok := c["usePlaceholders"].(bool); ok {
