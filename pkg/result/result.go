@@ -1,10 +1,10 @@
-package event
+package result
 
 import (
 	"fmt"
 )
 
-// Indent acts for indenting in event hierarchy
+// Indent acts for indenting in result hierarchy
 type Indent string
 
 const (
@@ -14,30 +14,30 @@ const (
 	TabIndent Indent = "\t"
 )
 
-// KyvernoEvent is an interface that is used for event polymorphic behavio
-type KyvernoEvent interface {
+// Result is an interface that is used for result polymorphic behavio
+type Result interface {
 	String() string
 	StringWithIndent(indent string) string
 }
 
-// CompositeEvent is used for event hierarchy
-type CompositeEvent struct {
+// CompositeResult is used for result hierarchy
+type CompositeResult struct {
 	Message  string
 	Reason   Reason
-	Children []KyvernoEvent
+	Children []Result
 }
 
-// RuleEvent represents elementary event that is produced by PolicyEngine
-// TODO: It can be used to create Kubernetes Events, so make method for this
-type RuleEvent struct {
+// RuleApplicationResult represents elementary result that is produced by PolicyEngine
+// TODO: It can be used to create Kubernetes Results, so make method for this
+type RuleApplicationResult struct {
 	PolicyRule string
 	Reason     Reason
 	Messages   []string
 }
 
-// StringWithIndent makes event string where each
+// StringWithIndent makes result string where each
 // line is prepended with specified indent
-func (e *RuleEvent) StringWithIndent(indent string) string {
+func (e *RuleApplicationResult) StringWithIndent(indent string) string {
 	message := fmt.Sprintf("%s* %s: policy rule - %s:\n", indent, e.Reason.String(), e.PolicyRule)
 	childrenIndent := indent + string(SpaceIndent)
 	for i, m := range e.Messages {
@@ -51,19 +51,19 @@ func (e *RuleEvent) StringWithIndent(indent string) string {
 	return message
 }
 
-// String makes event string
+// String makes result string
 // for writing it to logs
-func (e *RuleEvent) String() string {
+func (e *RuleApplicationResult) String() string {
 	return e.StringWithIndent("")
 }
 
-// StringWithIndent makes event string where each
+// StringWithIndent makes result string where each
 // line is prepended with specified indent
-func (e *CompositeEvent) StringWithIndent(indent string) string {
+func (e *CompositeResult) StringWithIndent(indent string) string {
 	childrenIndent := indent + string(SpaceIndent)
 	message := fmt.Sprintf("%s- %s: %s\n", indent, e.Reason, e.Message)
-	for _, event := range e.Children {
-		message += (event.StringWithIndent(childrenIndent) + "\n")
+	for _, res := range e.Children {
+		message += (res.StringWithIndent(childrenIndent) + "\n")
 	}
 
 	// remove last line feed
@@ -74,22 +74,22 @@ func (e *CompositeEvent) StringWithIndent(indent string) string {
 	return message
 }
 
-// String makes event string
+// String makes result string
 // for writing it to logs
-func (e *CompositeEvent) String() string {
+func (e *CompositeResult) String() string {
 	return e.StringWithIndent("")
 }
 
-// Append returns CompositeEvent with target and source
-// Or appends source to target if it is composite event
-func Append(target KyvernoEvent, source KyvernoEvent) *CompositeEvent {
-	if composite, ok := target.(*CompositeEvent); ok {
+// Append returns CompositeResult with target and source
+// Or appends source to target if it is composite result
+func Append(target Result, source Result) *CompositeResult {
+	if composite, ok := target.(*CompositeResult); ok {
 		composite.Children = append(composite.Children, source)
 		return composite
 	}
 
-	composite := &CompositeEvent{
-		Children: []KyvernoEvent{
+	composite := &CompositeResult{
+		Children: []Result{
 			target,
 			source,
 		},

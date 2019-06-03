@@ -81,12 +81,12 @@ func complete(args []string) (*kubepolicy.Policy, []*resourceInfo) {
 }
 
 func applyPolicy(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
-	_, patchedDocument := engine.Mutate(*policy, rawResource, *gvk)
+	result := engine.Mutate(*policy, rawResource, *gvk)
 
-	if err := engine.Validate(*policy, patchedDocument, *gvk); err != nil {
+	if err := engine.Validate(*policy, result.PatchedResource, *gvk); err != nil {
 		return nil, err
 	}
-	return patchedDocument, nil
+	return result.PatchedResource, nil
 }
 
 func extractPolicy(fileDir string) (*kubepolicy.Policy, error) {

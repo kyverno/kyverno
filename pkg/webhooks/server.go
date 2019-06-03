@@ -15,7 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -137,7 +137,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches, _ := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind).Patches
 		allPatches = append(allPatches, policyPatches...)
 
 		if len(policyPatches) > 0 {
@@ -168,22 +168,22 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	allowed := true
 
-	admissionEvent := &event.CompositeEvent{
+	admissionResult := &result.CompositeResult{
 		Message: fmt.Sprintf("For resource with UID - %s:", request.UID),
 	}
 
 	// Validation loop
 	for _, policy := range policies {
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		policyEvent := engine.Validate(*policy, request.Object.Raw, request.Kind).(*event.CompositeEvent)
-		admissionEvent = event.Append(admissionEvent, policyEvent)
+		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind).(*result.CompositeResult)
+		admissionResult = result.Append(admissionResult, validationResult)
 
-		if event.RequestBlocked == policyEvent.Reason {
+		if result.RequestBlocked == validationResult.Reason {
 			allowed = false
 		}
 	}
 
-	message := admissionEvent.String()
+	message := admissionResult.String()
 	glog.Info(message)
 
 	// Generation loop after all validation succeeded

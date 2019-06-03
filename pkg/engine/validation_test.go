@@ -42,46 +42,46 @@ func TestWrappedWithParentheses_Empty(t *testing.T) {
 	assert.Assert(t, !wrappedWithParentheses(str))
 }
 
-func TestCheckForWildcard_AsteriskTest(t *testing.T) {
+func TestValidateString_AsteriskTest(t *testing.T) {
 	pattern := "*"
 	value := "anything"
 	empty := ""
 
-	assert.Assert(t, checkForWildcard(value, pattern))
-	assert.Assert(t, checkForWildcard(empty, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(empty, pattern, Equal))
 }
 
-func TestCheckForWildcard_LeftAsteriskTest(t *testing.T) {
+func TestValidateString_LeftAsteriskTest(t *testing.T) {
 	pattern := "*right"
 	value := "leftright"
 	right := "right"
 
-	assert.Assert(t, checkForWildcard(value, pattern))
-	assert.Assert(t, checkForWildcard(right, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(right, pattern, Equal))
 
 	value = "leftmiddle"
 	middle := "middle"
 
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
-	assert.Assert(t, checkForWildcard(middle, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
+	assert.Assert(t, !validateString(middle, pattern, Equal))
 }
 
-func TestCheckForWildcard_MiddleAsteriskTest(t *testing.T) {
+func TestValidateString_MiddleAsteriskTest(t *testing.T) {
 	pattern := "ab*ba"
 	value := "abbeba"
-	assert.NilError(t, checkForWildcard(value, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
 
 	value = "abbca"
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
 }
 
-func TestCheckForWildcard_QuestionMark(t *testing.T) {
+func TestValidateString_QuestionMark(t *testing.T) {
 	pattern := "ab?ba"
 	value := "abbba"
-	assert.NilError(t, checkForWildcard(value, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
 
 	value = "abbbba"
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
 }
 
 func TestSkipArrayObject_OneAnchor(t *testing.T) {

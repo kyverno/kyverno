@@ -9,6 +9,7 @@ import (
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,7 +158,7 @@ func (c *controller) SyncHandler(key Info) error {
 }
 
 //NewEvent returns a new event
-func NewEvent(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) Info {
+func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) Info {
 	msgText, err := getEventMsg(message, args)
 	if err != nil {
 		utilruntime.HandleError(err)
