@@ -64,8 +64,11 @@ func (pp *Patch) Validate() error {
 
 // Validate returns error if generator is configured incompletely
 func (pcg *Generation) Validate() error {
-	if len(pcg.Data) == 0 && pcg.CopyFrom == nil {
-		return fmt.Errorf("Neither Data nor CopyFrom (source) of %s/%s is specified", pcg.Kind, pcg.Name)
+	if pcg.Data == nil && pcg.Clone == nil {
+		return fmt.Errorf("Neither data nor clone (source) of %s is specified", pcg.Kind)
+	}
+	if pcg.Data != nil && pcg.Clone != nil {
+		return fmt.Errorf("Both data nor clone (source) of %s are specified", pcg.Kind)
 	}
 	return nil
 }
@@ -89,6 +92,14 @@ func (pp *Patch) DeepCopyInto(out *Patch) {
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member
 func (in *Validation) DeepCopyInto(out *Validation) {
+	if out != nil {
+		*out = *in
+	}
+}
+
+// DeepCopyInto is declared because k8s:deepcopy-gen is
+// not able to generate this method for interface{} member
+func (in *Generation) DeepCopyInto(out *Generation) {
 	if out != nil {
 		*out = *in
 	}

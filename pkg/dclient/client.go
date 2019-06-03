@@ -1,7 +1,9 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -164,94 +166,86 @@ func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, er
 	return &runtimeObj, nil
 }
 
-//TODO: make this generic for all resource type
-//GenerateSecret to generate secrets
-
-func (c *Client) GenerateSecret(generator types.Generation, namespace string) error {
-	glog.Infof("Preparing to create secret %s/%s", namespace, generator.Name)
-	secret := v1.Secret{}
-
-	if generator.CopyFrom != nil {
-		glog.Infof("Copying data from secret %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		// Get configMap resource
-		unstrSecret, err := c.GetResource(Secrets, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		if err != nil {
-			return err
+// only support 2 levels of keys
+// To-Do support multiple levels of key
+func keysExist(data map[string]interface{}, keys ...string) bool {
+	var v interface{}
+	var t map[string]interface{}
+	var ok bool
+	for _, key := range keys {
+		ks := strings.Split(key, ".")
+		if len(ks) > 2 {
+			glog.Error("Only support 2 levels of keys from root. Support to be extendend in future")
+			return false
 		}
-		// typed object
-		secret, err = convertToSecret(unstrSecret)
-		if err != nil {
-			return err
+		if v, ok = data[ks[0]]; !ok {
+			glog.Infof("key %s does not exist", key)
+			return false
+		}
+		if len(ks) == 2 {
+			if t, ok = v.(map[string]interface{}); !ok {
+				glog.Error("expecting type map[string]interface{}")
+			}
+			return keyExist(t, ks[1])
 		}
 	}
+	return true
+}
 
-	secret.ObjectMeta = meta.ObjectMeta{
-		Name:      generator.Name,
-		Namespace: namespace,
+func keyExist(data map[string]interface{}, key string) (ok bool) {
+	if _, ok = data[key]; !ok {
+		glog.Infof("key %s does not exist", key)
 	}
+	return ok
+}
 
-	// Copy data from generator to the new secret
+// support mode 'data' -> create resource
+// To-Do: support 'from' -> copy/clone the resource
+func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
+	var err error
+	rGVR := c.getGVRFromKind(generator.Kind)
+	resource := &unstructured.Unstructured{}
+
+	var rdata map[string]interface{}
+	// data -> create new resource
 	if generator.Data != nil {
-		if secret.Data == nil {
-			secret.Data = make(map[string][]byte)
+		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&generator.Data)
+		if err != nil {
+			utilruntime.HandleError(err)
+			return err
 		}
-
-		for k, v := range generator.Data {
-			secret.Data[k] = []byte(v)
+		// verify if mandatory attributes have been defined
+		if !keysExist(rdata, "kind", "apiVersion", "metadata.name", "metadata.namespace") {
+			return errors.New("mandatory keys not defined")
 		}
 	}
+	// clone -> copy from existing resource
+	if generator.Clone != nil {
+		resource, err = c.GetResource(rGVR.Resource, generator.Clone.Namespace, generator.Clone.Name)
+		if err != nil {
+			return err
+		}
+		rdata = resource.UnstructuredContent()
+	}
 
-	go c.createSecretAfterNamespaceIsCreated(secret, namespace)
+	resource.SetUnstructuredContent(rdata)
+	resource.SetName(generator.Name)
+	resource.SetNamespace(generator.Namespace)
+	resource.SetResourceVersion("")
+
+	err = c.waitUntilNamespaceIsCreated(namespace)
+	if err != nil {
+		glog.Errorf("Can't create a resource %s: %v", generator.Name, err)
+		return nil
+	}
+	_, err = c.CreateResource(rGVR.Resource, generator.Namespace, resource)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-//TODO: make this generic for all resource type
-//GenerateConfigMap to generate configMap
-func (c *Client) GenerateConfigMap(generator types.Generation, namespace string) error {
-	glog.Infof("Preparing to create configmap %s/%s", namespace, generator.Name)
-	configMap := v1.ConfigMap{}
-
-	if generator.CopyFrom != nil {
-		glog.Infof("Copying data from configmap %s/%s", generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		// Get configMap resource
-		unstrConfigMap, err := c.GetResource(ConfigMaps, generator.CopyFrom.Namespace, generator.CopyFrom.Name)
-		if err != nil {
-			return err
-		}
-		// typed object
-		configMap, err = convertToConfigMap(unstrConfigMap)
-		if err != nil {
-			return err
-		}
-	}
-
-	configMap.ObjectMeta = meta.ObjectMeta{
-		Name:      generator.Name,
-		Namespace: namespace,
-	}
-
-	// Copy data from generator to the new configmap
-	if generator.Data != nil {
-		if configMap.Data == nil {
-			configMap.Data = make(map[string]string)
-		}
-
-		for k, v := range generator.Data {
-			configMap.Data[k] = v
-		}
-	}
-	go c.createConfigMapAfterNamespaceIsCreated(configMap, namespace)
-	return nil
-}
-
-func convertToConfigMap(obj *unstructured.Unstructured) (v1.ConfigMap, error) {
-	configMap := v1.ConfigMap{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &configMap); err != nil {
-		return configMap, err
-	}
-	return configMap, nil
-}
-
+//To-Do remove this to use unstructured type
 func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
 	secret := v1.Secret{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &secret); err != nil {
@@ -260,32 +254,13 @@ func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
 	return secret, nil
 }
 
+//To-Do remove this to use unstructured type
 func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSigningRequest, error) {
 	csr := certificates.CertificateSigningRequest{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &csr); err != nil {
 		return nil, err
 	}
 	return &csr, nil
-}
-
-func (c *Client) createConfigMapAfterNamespaceIsCreated(configMap v1.ConfigMap, namespace string) {
-	err := c.waitUntilNamespaceIsCreated(namespace)
-	if err == nil {
-		_, err = c.CreateResource(ConfigMaps, namespace, configMap)
-	}
-	if err != nil {
-		glog.Errorf("Can't create a configmap: %s", err)
-	}
-}
-
-func (c *Client) createSecretAfterNamespaceIsCreated(secret v1.Secret, namespace string) {
-	err := c.waitUntilNamespaceIsCreated(namespace)
-	if err == nil {
-		_, err = c.CreateResource(Secrets, namespace, secret)
-	}
-	if err != nil {
-		glog.Errorf("Can't create a secret: %s", err)
-	}
 }
 
 // Waits until namespace is created with maximum duration maxWaitTimeForNamespaceCreation
@@ -320,6 +295,30 @@ func (c *Client) getGVR(resource string) schema.GroupVersionResource {
 	for gvr, _ := range resources {
 		if gvr.Resource == resource {
 			return gvr
+		}
+	}
+	return emptyGVR
+}
+
+//To-do: measure performance
+//To-do: evaluate DefaultRESTMapper to fetch kind->resource mapping
+func (c *Client) getGVRFromKind(kind string) schema.GroupVersionResource {
+	emptyGVR := schema.GroupVersionResource{}
+	serverresources, err := c.cachedClient.ServerPreferredResources()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return emptyGVR
+	}
+	for _, serverresource := range serverresources {
+		for _, resource := range serverresource.APIResources {
+			if resource.Kind == kind && !strings.Contains(resource.Name, "/") {
+				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
+				if err != nil {
+					utilruntime.HandleError(err)
+					return emptyGVR
+				}
+				return gv.WithResource(resource.Name)
+			}
 		}
 	}
 	return emptyGVR
