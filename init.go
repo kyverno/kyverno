@@ -1,8 +1,7 @@
 package main
 
 import (
-	"log"
-
+	"github.com/golang/glog"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	tls "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/version"
@@ -12,17 +11,17 @@ import (
 
 func printVersionInfo() {
 	v := version.GetVersion()
-	log.Printf("Kyverno version: %s\n", v.BuildVersion)
-	log.Printf("Kyverno BuildHash: %s\n", v.BuildHash)
-	log.Printf("Kyverno BuildTime: %s\n", v.BuildTime)
+	glog.Infof("Kyverno version: %s\n", v.BuildVersion)
+	glog.Infof("Kyverno BuildHash: %s\n", v.BuildHash)
+	glog.Infof("Kyverno BuildTime: %s\n", v.BuildTime)
 }
 
 func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
-		log.Printf("Using in-cluster configuration")
+		glog.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	log.Printf("Using configuration from '%s'", kubeconfig)
+	glog.Infof("Using configuration from '%s'", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
@@ -36,14 +35,14 @@ func initTlsPemPair(configuration *rest.Config, client *client.Client) (*tls.Tls
 	}
 	tlsPair := client.ReadTlsPair(certProps)
 	if tls.IsTlsPairShouldBeUpdated(tlsPair) {
-		log.Printf("Generating new key/certificate pair for TLS")
+		glog.Info("Generating new key/certificate pair for TLS")
 		tlsPair, err = client.GenerateTlsPemPair(certProps)
 		if err != nil {
 			return nil, err
 		}
 		err = client.WriteTlsPair(certProps, tlsPair)
 		if err != nil {
-			log.Printf("Unable to save TLS pair to the cluster: %v", err)
+			glog.Errorf("Unable to save TLS pair to the cluster: %v", err)
 		}
 	}
 	return tlsPair, nil
