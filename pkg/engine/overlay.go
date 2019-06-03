@@ -3,11 +3,11 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/golang/glog"
 
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,7 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			log.Printf("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			glog.Infof("Rule \"%s\" is not applicable to resource\n", rule.Name)
 			continue
 		}
 

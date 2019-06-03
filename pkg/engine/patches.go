@@ -3,9 +3,9 @@ package engine
 import (
 	"encoding/json"
 	"errors"
-	"log"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
@@ -32,7 +32,7 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 			if patch.Operation == "remove" {
 				continue
 			}
-			log.Printf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
+			glog.Warningf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
 			continue
 		}
 
