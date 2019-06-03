@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 
@@ -102,5 +103,69 @@ func TestCreateWellKnownSid(t *testing.T) {
 	}
 	if sidStr != "S-1-5-32-544" {
 		t.Fatalf("Expecting administrators to be S-1-5-32-544, but found %s instead", sidStr)
+	}
+}
+
+func TestPseudoTokens(t *testing.T) {
+	version, err := windows.GetVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ((version&0xffff)>>8)|((version&0xff)<<8) < 0x0602 {
+		return
+	}
+
+	realProcessToken, err := windows.OpenCurrentProcessToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer realProcessToken.Close()
+	realProcessUser, err := realProcessToken.GetTokenUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pseudoProcessToken := windows.GetCurrentProcessToken()
+	pseudoProcessUser, err := pseudoProcessToken.GetTokenUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !windows.EqualSid(realProcessUser.User.Sid, pseudoProcessUser.User.Sid) {
+		t.Fatal("The real process token does not have the same as the pseudo process token")
+	}
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	err = windows.RevertToSelf()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pseudoThreadToken := windows.GetCurrentThreadToken()
+	_, err = pseudoThreadToken.GetTokenUser()
+	if err != windows.ERROR_NO_TOKEN {
+		t.Fatal("Expected an empty thread token")
+	}
+	pseudoThreadEffectiveToken := windows.GetCurrentThreadEffectiveToken()
+	pseudoThreadEffectiveUser, err := pseudoThreadEffectiveToken.GetTokenUser()
+	if err != nil {
+		t.Fatal(nil)
+	}
+	if !windows.EqualSid(realProcessUser.User.Sid, pseudoThreadEffectiveUser.User.Sid) {
+		t.Fatal("The real process token does not have the same as the pseudo thread effective token, even though we aren't impersonating")
+	}
+
+	err = windows.ImpersonateSelf(windows.SecurityImpersonation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.RevertToSelf()
+	pseudoThreadUser, err := pseudoThreadToken.GetTokenUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !windows.EqualSid(realProcessUser.User.Sid, pseudoThreadUser.User.Sid) {
+		t.Fatal("The real process token does not have the same as the pseudo thread token after impersonating self")
 	}
 }

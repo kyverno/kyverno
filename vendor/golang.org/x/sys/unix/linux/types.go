@@ -804,6 +804,8 @@ const (
 
 type Sigset_t C.sigset_t
 
+const _C__NSIG = C._NSIG
+
 type SignalfdSiginfo C.struct_signalfd_siginfo
 
 const PERF_IOC_FLAG_GROUP = C.PERF_IOC_FLAG_GROUP

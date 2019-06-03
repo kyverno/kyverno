@@ -60,5 +60,5 @@ k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6 h1:4s3/R4+OYYYUKptXPhZKjQ04WJ6Eh
 k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92 h1:PgoMI/L1Nu5Vmvgm+vGheLuxKST8h6FMOqggyAFtHPc=
 k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
-sigs.k8s.io/structured-merge-diff v0.0.0-20190426204423-ea680f03cc65 h1:xJNnO2qzHtgVCSPoGkkltSpyEX7D7IJw1TmbE3G/7lY=
-sigs.k8s.io/structured-merge-diff v0.0.0-20190426204423-ea680f03cc65/go.mod h1:wWxsB5ozmmv/SG7nM11ayaAW51xMvak/t1r0CSlcokI=
+sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e h1:4Z09Hglb792X0kfOBBJUPFEyvVfQWrYT/l8h5EKA6JQ=
+sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e/go.mod h1:wWxsB5ozmmv/SG7nM11ayaAW51xMvak/t1r0CSlcokI=
