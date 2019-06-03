@@ -102,13 +102,10 @@ spec:
                     required:
                     - kind
                     - name
-                    - namespace                    
                     properties:
                       kind:
                         type: string
                       name:
-                        type: string
-                      namespace:
                         type: string
                       clone: 
                         type: object

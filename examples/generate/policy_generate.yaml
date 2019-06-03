@@ -14,21 +14,21 @@ spec:
     generate :
       kind: ConfigMap
       name : copied-cm
-      copyFrom :
+      clone:
         namespace : default
         name : game-config
-      data :
-        secretData: "data from cmg"
   - name: "zk-kafka-address"
-    resource:
+    resource: 
       kinds:
-        - Namespace
+       - Namespace
       selector:
-        matchExpressions:
+       matchExpressions:
         - {key: LabelForSelector, operator: In, values: [namespace2]}
-    generate:
+    generate: 
       kind: ConfigMap
       name: zk-kafka-address
       data:
-        ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
-        KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+        kind: ConfigMap
+        data:
+          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
