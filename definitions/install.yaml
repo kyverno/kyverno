@@ -102,12 +102,15 @@ spec:
                     required:
                     - kind
                     - name
+                    - namespace                    
                     properties:
                       kind:
                         type: string
                       name:
                         type: string
-                      copyFrom:
+                      namespace:
+                        type: string
+                      clone: 
                         type: object
                         required:
                         - namespace
@@ -118,13 +121,7 @@ spec:
                           name:
                             type: string
                       data:
-                        type: object
-                        additionalProperties:
-                          type: string
-                      labels:
-                        type: object
-                        additionalProperties:
-                          type: string
+                        AnyValue: {}
 ---
 kind: Namespace
 apiVersion: v1

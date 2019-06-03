@@ -61,16 +61,16 @@ type Validation struct {
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
-	Kind     string            `json:"kind"`
-	Name     string            `json:"name"`
-	CopyFrom *CopyFrom         `json:"copyFrom"`
-	Data     map[string]string `json:"data"`
-	Labels   map[string]string `json:"labels"`
+	Kind      string      `json:"kind"`
+	Name      string      `json:"name"`
+	Namespace string      `json:"namespace"`
+	Data      interface{} `json:"data"`
+	Clone     *CloneFrom  `json:"clone"`
 }
 
-// CopyFrom - location of a Secret or a ConfigMap
+// CloneFrom - location of a Secret or a ConfigMap
 // which will be used as source when applying 'generate'
-type CopyFrom struct {
+type CloneFrom struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 }
