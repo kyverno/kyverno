@@ -27,12 +27,12 @@ spec :
           matchLabels :
             cli: test
       validate:
-        message: "The imagePullPolicy must be Always when :latest is used as a tag"
+        message: "The imagePullPolicy must be Always when using image nginx"
         pattern:
           spec:
             template:
               spec:
                 containers:
-                - (name): "*:latest"
+                - (image): "nginx*"
                   imagePullPolicy: Always
 
