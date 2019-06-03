@@ -46,6 +46,6 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 	if err != nil {
 		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
 	}
-	glog.Infof("Successfully applied generator %s/%s", generator.Kind, generator.Name)
+	glog.Infof("Successfully applied generator %s '%s/%s'", generator.Kind, namespace, generator.Name)
 	return nil
 }

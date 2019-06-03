@@ -32,11 +32,9 @@ spec :
     generate :
       kind: ConfigMap
       name : copied-cm
-      copyFrom :
+      clone:
         namespace : default
         name : game-config
-      data :
-        secretData: "data from cmg"
        
   - name: "generateCM"
     resource :
@@ -49,13 +47,13 @@ spec :
       kind: ConfigMap
       name : generated-cm
       data :
-        secretData: "very sensitive data from cmg"
-        database: mongodb
-        database_uri: mongodb://localhost:27017
-  
-        keys: | 
-          image.public.key=771 
-          rsa.public.key=42
+        data:
+          secretData: "very sensitive data from cmg"
+          database: mongodb
+          database_uri: mongodb://localhost:27017  
+          keys: | 
+            image.public.key=771 
+            rsa.public.key=42
   
   - name: "generateSecret"
     resource :
