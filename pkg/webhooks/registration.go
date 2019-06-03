@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"github.com/nirmata/kyverno/client"
+	"github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/config"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
@@ -74,7 +74,7 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 	var caData []byte
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	caData = wrc.client.TlsrootCAfromSecret()
+	caData = wrc.client.ReadRootCASecret()
 	if len(caData) == 0 {
 		// load the CA from kubeconfig
 		caData = extractCA(configuration)
@@ -103,7 +103,7 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configuration *rest.Config) (*admregapi.ValidatingWebhookConfiguration, error) {
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	caData := wrc.client.TlsrootCAfromSecret()
+	caData := wrc.client.ReadRootCASecret()
 	if len(caData) == 0 {
 		// load the CA from kubeconfig
 		caData = extractCA(configuration)

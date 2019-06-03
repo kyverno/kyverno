@@ -1,3 +1,4 @@
-FROM scratch
-ADD kyverno /kyverno
-ENTRYPOINT ["/kyverno"]
+FROM alpine:latest
+WORKDIR ~/
+ADD kyverno ./kyverno
+ENTRYPOINT ["./kyverno"]
