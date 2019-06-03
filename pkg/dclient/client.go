@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -166,41 +165,7 @@ func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, er
 	return &runtimeObj, nil
 }
 
-// only support 2 levels of keys
-// To-Do support multiple levels of key
-func keysExist(data map[string]interface{}, keys ...string) bool {
-	var v interface{}
-	var t map[string]interface{}
-	var ok bool
-	for _, key := range keys {
-		ks := strings.Split(key, ".")
-		if len(ks) > 2 {
-			glog.Error("Only support 2 levels of keys from root. Support to be extendend in future")
-			return false
-		}
-		if v, ok = data[ks[0]]; !ok {
-			glog.Infof("key %s does not exist", key)
-			return false
-		}
-		if len(ks) == 2 {
-			if t, ok = v.(map[string]interface{}); !ok {
-				glog.Error("expecting type map[string]interface{}")
-			}
-			return keyExist(t, ks[1])
-		}
-	}
-	return true
-}
-
-func keyExist(data map[string]interface{}, key string) (ok bool) {
-	if _, ok = data[key]; !ok {
-		glog.Infof("key %s does not exist", key)
-	}
-	return ok
-}
-
-// support mode 'data' -> create resource
-// To-Do: support 'from' -> copy/clone the resource
+// GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
 func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
 	var err error
 	rGVR := c.getGVRFromKind(generator.Kind)
@@ -214,10 +179,6 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 			utilruntime.HandleError(err)
 			return err
 		}
-		// verify if mandatory attributes have been defined
-		if !keysExist(rdata, "kind", "apiVersion", "metadata.name", "metadata.namespace") {
-			return errors.New("mandatory keys not defined")
-		}
 	}
 	// clone -> copy from existing resource
 	if generator.Clone != nil {
@@ -230,7 +191,7 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 
 	resource.SetUnstructuredContent(rdata)
 	resource.SetName(generator.Name)
-	resource.SetNamespace(generator.Namespace)
+	resource.SetNamespace(namespace)
 	resource.SetResourceVersion("")
 
 	err = c.waitUntilNamespaceIsCreated(namespace)
@@ -238,7 +199,7 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 		glog.Errorf("Can't create a resource %s: %v", generator.Name, err)
 		return nil
 	}
-	_, err = c.CreateResource(rGVR.Resource, generator.Namespace, resource)
+	_, err = c.CreateResource(rGVR.Resource, namespace, resource)
 	if err != nil {
 		return err
 	}

@@ -98,12 +98,14 @@ spec:
       selector:
         matchExpressions:
         - {key: kafka, operator: Exists}
-    generate:
+    generate: 
       kind: ConfigMap
       name: zk-kafka-address
       data:
-        ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
-        KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+        kind: ConfigMap
+        data:
+          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
 ````
 
 ### 4. More examples
