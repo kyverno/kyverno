@@ -300,6 +300,8 @@ func (c *Client) getGVR(resource string) schema.GroupVersionResource {
 	return emptyGVR
 }
 
+//To-do: measure performance
+//To-do: evaluate DefaultRESTMapper to fetch kind->resource mapping
 func (c *Client) getGVRFromKind(kind string) schema.GroupVersionResource {
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
