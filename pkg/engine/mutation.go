@@ -7,16 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type MutationResult struct {
-	Patches         []PatchBytes
-	PatchedResource []byte
-	Result          result.Result
-}
-
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) MutationResult {
-	result := MutationResult{}
-	var processedPatches []PatchBytes
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.Result) {
+	var allPatches []PatchBytes
+	policyResult := result.NewPolicyApplicationResult(policy.Name)
 	var err error
 	patchedDocument := rawResource
 
@@ -27,6 +21,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
+			// TODO add to res
 			glog.Infof("Rule \"%s\" is not applicable to resource\n", rule.Name)
 			continue
 		}
@@ -36,23 +31,25 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		if rule.Mutation.Overlay != nil {
 			overlayPatches, err := ProcessOverlay(policy, rawResource, gvk)
 			if err != nil {
+				// TODO add to res
 				glog.Warningf("Overlay application has failed for rule %s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
 			} else {
-				result.Patches = append(result.Patches, overlayPatches...)
+				allPatches = append(allPatches, overlayPatches...)
 			}
 		}
 
 		// Process Patches
 
 		if rule.Mutation.Patches != nil {
-			processedPatches, result.PatchedResource, err = ProcessPatches(rule.Mutation.Patches, patchedDocument)
+			rulePatches, _ /*ruleResult*/ := ProcessPatches(rule.Mutation.Patches, patchedDocument)
 			if err != nil {
+				// TODO add to res
 				glog.Warningf("Patches application has failed for rule %s in policy %s, err: %v\n", rule.Name, policy.ObjectMeta.Name, err)
 			} else {
-				result.Patches = append(result.Patches, processedPatches...)
+				allPatches = append(allPatches, rulePatches...)
 			}
 		}
 	}
 
-	return result
+	return allPatches, policyResult
 }

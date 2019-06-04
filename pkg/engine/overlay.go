@@ -8,8 +8,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,8 +32,7 @@ func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.Gro
 			continue
 		}
 
-		overlay := *rule.Mutation.Overlay
-		patch, err := applyOverlay(resource, overlay, "/")
+		patch, err := applyOverlay(resource, *rule.Mutation.Overlay, "/")
 		if err != nil {
 			return nil, fmt.Errorf("Overlay application failed: %v", err.Error())
 		}
@@ -222,14 +221,26 @@ func fillEmptyArray(overlay []interface{}, path string) ([]PatchBytes, error) {
 }
 
 func insertSubtree(overlay interface{}, path string) ([]byte, error) {
-	return processSubtree(overlay, path, "add")
+	// TODO: return result instead of error
+	patch, res := processSubtree(overlay, path, "add")
+	if res.Reason != result.PolicyApplied {
+		return patch, fmt.Errorf(res.String())
+	}
+	return patch, nil
 }
 
 func replaceSubtree(overlay interface{}, path string) ([]byte, error) {
-	return processSubtree(overlay, path, "replace")
+	// TODO: return result instead of error
+	patch, res := processSubtree(overlay, path, "replace")
+	if res.Reason != result.PolicyApplied {
+		return patch, fmt.Errorf(res.String())
+	}
+	return patch, nil
 }
 
-func processSubtree(overlay interface{}, path string, op string) ([]byte, error) {
+func processSubtree(overlay interface{}, path string, op string) (PatchBytes, result.RuleApplicationResult) {
+	res := result.NewRuleApplicationResult("")
+
 	if len(path) > 1 && path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
 	}
@@ -244,10 +255,13 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
-		return nil, err
+		message := fmt.Sprintf("Unable to make '%s' patch from an overlay for path %s", op, path)
+		res.Messages = append(res.Messages, message)
+		res.Reason = result.RequestBlocked
+		return nil, res
 	}
 
-	return []byte(patchStr), nil
+	return PatchBytes(patchStr), res
 }
 
 // TODO: Overlay is already in JSON, remove this code

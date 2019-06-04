@@ -18,6 +18,7 @@ const (
 type Result interface {
 	String() string
 	StringWithIndent(indent string) string
+	ToError() error
 }
 
 // CompositeResult is used for result hierarchy
@@ -33,6 +34,18 @@ type RuleApplicationResult struct {
 	PolicyRule string
 	Reason     Reason
 	Messages   []string
+}
+
+func NewRuleApplicationResult(ruleName string) RuleApplicationResult {
+	return RuleApplicationResult{
+		PolicyRule: ruleName,
+		Reason:     PolicyApplied,
+		Messages:   []string{},
+	}
+}
+
+func (rar *RuleApplicationResult) AddMessagef(message string, a ...interface{}) {
+	rar.Messages = append(rar.Messages, fmt.Sprintf(message, a...))
 }
 
 // StringWithIndent makes result string where each
@@ -57,6 +70,13 @@ func (e *RuleApplicationResult) String() string {
 	return e.StringWithIndent("")
 }
 
+func (e *RuleApplicationResult) ToError() error {
+	if e.Reason != PolicyApplied {
+		return fmt.Errorf(e.String())
+	}
+	return nil
+}
+
 // StringWithIndent makes result string where each
 // line is prepended with specified indent
 func (e *CompositeResult) StringWithIndent(indent string) string {
@@ -78,6 +98,20 @@ func (e *CompositeResult) StringWithIndent(indent string) string {
 // for writing it to logs
 func (e *CompositeResult) String() string {
 	return e.StringWithIndent("")
+}
+
+func (e *CompositeResult) ToError() error {
+	if e.Reason != PolicyApplied {
+		return fmt.Errorf(e.String())
+	}
+	return nil
+}
+
+func NewPolicyApplicationResult(policyName string) *CompositeResult {
+	return &CompositeResult{
+		Message: fmt.Sprintf("policy - %s:", policyName),
+		Reason:  PolicyApplied,
+	}
 }
 
 // Append returns CompositeResult with target and source

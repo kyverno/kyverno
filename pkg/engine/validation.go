@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -17,39 +16,33 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 	json.Unmarshal(rawResource, &resource)
 
 	// Fill message at webhook server level
-	policyResult := &result.CompositeResult{
-		Message: fmt.Sprintf("policy - %s:", policy.Name),
-		Reason:  result.PolicyApplied,
-	}
+	policyResult := result.NewPolicyApplicationResult(policy.Name)
 
 	for _, rule := range policy.Spec.Rules {
 		if rule.Validation == nil {
 			continue
 		}
 
-		RuleApplicationResult := result.RuleApplicationResult{
-			PolicyRule: rule.Name,
-			Reason:     result.PolicyApplied,
-		}
+		ruleApplicationResult := result.NewRuleApplicationResult(rule.Name)
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			RuleApplicationResult.Messages = append(RuleApplicationResult.Messages, fmt.Sprintf("Rule %s is not applicable to resource\n", rule.Name))
-			policyResult = result.Append(policyResult, &RuleApplicationResult)
+			ruleApplicationResult.AddMessagef("Rule %s is not applicable to resource\n", rule.Name)
+			policyResult = result.Append(policyResult, &ruleApplicationResult)
 			continue
 		}
 
 		ruleValidationResult := validateResourceWithPattern(resource, rule.Validation.Pattern)
 		if result.RequestBlocked == ruleValidationResult.Reason {
-			RuleApplicationResult.Reason = ruleValidationResult.Reason
+			ruleApplicationResult.Reason = ruleValidationResult.Reason
 			policyResult.Reason = ruleValidationResult.Reason
-			RuleApplicationResult.Messages = append(RuleApplicationResult.Messages, ruleValidationResult.Messages...)
-			RuleApplicationResult.Messages = append(RuleApplicationResult.Messages, *rule.Validation.Message)
+			ruleApplicationResult.Messages = append(ruleApplicationResult.Messages, ruleValidationResult.Messages...)
+			ruleApplicationResult.AddMessagef(*rule.Validation.Message)
 		} else {
-			RuleApplicationResult.Messages = append(RuleApplicationResult.Messages, "Success")
+			ruleApplicationResult.AddMessagef("Success")
 		}
 
-		policyResult = result.Append(policyResult, &RuleApplicationResult)
+		policyResult = result.Append(policyResult, &ruleApplicationResult)
 	}
 
 	return policyResult
@@ -60,11 +53,7 @@ func validateResourceWithPattern(resource, pattern interface{}) result.RuleAppli
 }
 
 func validateResourceElement(value, pattern interface{}, path string) result.RuleApplicationResult {
-	res := result.RuleApplicationResult{
-		Reason:   result.PolicyApplied,
-		Messages: []string{},
-	}
-
+	res := result.NewRuleApplicationResult("")
 	// TODO: Move similar message templates to message package
 
 	switch typedPattern := pattern.(type) {
@@ -72,9 +61,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 		typedValue, ok := value.(map[string]interface{})
 		if !ok {
 			res.Reason = result.RequestBlocked
-
-			message := fmt.Sprintf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
-			res.Messages = append(res.Messages, message)
+			res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
 			return res
 		}
 
@@ -83,9 +70,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 		typedValue, ok := value.([]interface{})
 		if !ok {
 			res.Reason = result.RequestBlocked
-
-			message := fmt.Sprintf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
-			res.Messages = append(res.Messages, message)
+			res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
 			return res
 		}
 
@@ -93,26 +78,19 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case string, float64, int, int64, bool:
 		if !ValidateValueWithPattern(value, pattern) {
 			res.Reason = result.RequestBlocked
-
-			message := fmt.Sprintf("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
-			res.Messages = append(res.Messages, message)
+			res.AddMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 		}
 
 		return res
 	default:
 		res.Reason = result.RequestBlocked
-
-		message := fmt.Sprintf("Pattern contains unknown type %T. Path: %s", pattern, path)
-		res.Messages = append(res.Messages, message)
+		res.AddMessagef("Pattern contains unknown type %T. Path: %s", pattern, path)
 		return res
 	}
 }
 
 func validateMap(valueMap, patternMap map[string]interface{}, path string) result.RuleApplicationResult {
-	res := result.RuleApplicationResult{
-		Reason:   result.PolicyApplied,
-		Messages: []string{},
-	}
+	res := result.NewRuleApplicationResult("")
 
 	for key, pattern := range patternMap {
 		if wrappedWithParentheses(key) {
@@ -130,10 +108,7 @@ func validateMap(valueMap, patternMap map[string]interface{}, path string) resul
 }
 
 func validateArray(resourceArray, patternArray []interface{}, path string) result.RuleApplicationResult {
-	res := result.RuleApplicationResult{
-		Reason:   result.PolicyApplied,
-		Messages: []string{},
-	}
+	res := result.NewRuleApplicationResult("")
 
 	if 0 == len(patternArray) {
 		return res
@@ -147,9 +122,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 			resource, ok := value.(map[string]interface{})
 			if !ok {
 				res.Reason = result.RequestBlocked
-
-				message := fmt.Sprintf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
-				res.Messages = append(res.Messages, message)
+				res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
 				return res
 			}
 
@@ -167,16 +140,12 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 		for _, value := range resourceArray {
 			if !ValidateValueWithPattern(value, pattern) {
 				res.Reason = result.RequestBlocked
-
-				message := fmt.Sprintf("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
-				res.Messages = append(res.Messages, message)
+				res.AddMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 			}
 		}
 	default:
 		res.Reason = result.RequestBlocked
-
-		message := fmt.Sprintf("Array element pattern of unknown type %T. Path: %s", pattern, path)
-		res.Messages = append(res.Messages, message)
+		res.AddMessagef("Array element pattern of unknown type %T. Path: %s", pattern, path)
 	}
 
 	return res

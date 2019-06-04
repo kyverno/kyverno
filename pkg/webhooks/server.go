@@ -132,13 +132,25 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		return nil
 	}
 
+	allowed := true
+
+	admissionResult := &result.CompositeResult{
+		Message: fmt.Sprintf("For resource with UID - %s:", request.UID),
+	}
+
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches := engine.Mutate(*policy, request.Object.Raw, request.Kind).Patches
+		policyPatches, mutationResult := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
+		admissionResult = result.Append(admissionResult, mutationResult)
+
+		if mutationError := mutationResult.ToError(); mutationError != nil {
+			allowed = false
+			glog.Warningf(mutationError.Error())
+		}
 
 		if len(policyPatches) > 0 {
 			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
@@ -147,11 +159,23 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 	}
 
-	patchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     engine.JoinPatches(allPatches),
-		PatchType: &patchType,
+	message := admissionResult.String()
+	glog.Info(message)
+
+	if allowed {
+		patchType := v1beta1.PatchTypeJSONPatch
+		return &v1beta1.AdmissionResponse{
+			Allowed:   true,
+			Patch:     engine.JoinPatches(allPatches),
+			PatchType: &patchType,
+		}
+	} else {
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: message,
+			},
+		}
 	}
 }
 
@@ -175,11 +199,12 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	// Validation loop
 	for _, policy := range policies {
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind).(*result.CompositeResult)
+		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		admissionResult = result.Append(admissionResult, validationResult)
 
-		if result.RequestBlocked == validationResult.Reason {
+		if validationError := validationResult.ToError(); validationError != nil {
 			allowed = false
+			glog.Warningf(validationError.Error())
 		}
 	}
 
