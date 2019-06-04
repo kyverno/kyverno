@@ -1,0 +1,10 @@
+language: go
+go:
+  - "1.12"
+
+# Skip the install step. Don't `go get` dependencies. Only build with the code
+# in vendor/
+install: true
+
+script: 
+  - make build
