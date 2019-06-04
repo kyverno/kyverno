@@ -42,18 +42,10 @@ func applyRuleGenerator(client *client.Client, rawResource []byte, generator *ku
 	var err error
 
 	namespace := ParseNameFromObject(rawResource)
-	switch generator.Kind {
-	case "ConfigMap":
-		err = client.GenerateConfigMap(*generator, namespace)
-	case "Secret":
-		err = client.GenerateSecret(*generator, namespace)
-	default:
-		err = fmt.Errorf("Unsupported config Kind '%s'", generator.Kind)
-	}
-
+	err = client.GenerateResource(*generator, namespace)
 	if err != nil {
 		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
 	}
-	glog.Infof("Successfully applied generator %s/%s", generator.Kind, generator.Name)
+	glog.Infof("Successfully applied generator %s '%s/%s'", generator.Kind, namespace, generator.Name)
 	return nil
 }

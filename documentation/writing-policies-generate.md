@@ -2,47 +2,82 @@
 
 # Generate Configurations 
 
-```generatate``` feature can be applied to created namespaces to create new resources in them. This feature is useful when every namespace in a cluster must contain some basic required resources. The feature is available for policy rules in which the resource kind is Namespace.
+```generate``` feature can be applied to created namespaces to create new resources in them. This feature is useful when every namespace in a cluster must contain some basic required resources. The feature is available for policy rules in which the resource kind is Namespace.
 
-## Example
+## Example 1
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
-kind : Policy
-metadata :
-  name : basic-policy
-spec :
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: basic-policy
+spec:
   rules:
-    - name: "Basic confog generator for all namespaces"
+    - name: "Basic config generator for all namespaces"
       resource:
-        kind: Namespace
+        kinds: 
+        - Namespace
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
       generate:
-        # For now the next kinds are supported:
-        #  ConfigMap
-        #  Secret
-      - kind: ConfigMap
+        kind: ConfigMap
         name: default-config
-        copyFrom:
+        clone:
           namespace: default
           name: config-template
-        data:
-          DB_ENDPOINT: mongodb://mydomain.ua/db_stage:27017
-        labels:
-          purpose: mongo
-      - kind: Secret
+    - name: "Basic config generator for all namespaces"
+      resource:
+        kinds: 
+        - Namespace
+      selector:
+        matchLabels:
+          LabelForSelector : "namespace2"
+      generate:
+        kind: Secret
         name: mongo-creds
         data:
-          DB_USER: YWJyYWthZGFicmE=
-          DB_PASSWORD: YXBwc3dvcmQ=
-        labels:
-          purpose: mongo
+          data:
+            DB_USER: YWJyYWthZGFicmE=
+            DB_PASSWORD: YXBwc3dvcmQ=
+        metadata:
+          labels:
+            purpose: mongo
 ````
 
-In this example, when this policy is applied, any new namespace will receive 2 new resources after its creation:
-* ConfigMap copied from default/config-template with added value DB_ENDPOINT.
-* Secret with values DB_USER and DB_PASSWORD.
+In this example, when this policy is applied, any new namespace that satisfies the label selector will receive 2 new resources after its creation:
+* ConfigMap copied from default/config-template.
+* Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
 
-Both resources will contain a label ```purpose: mongo```
+
+## Example 2
+````yaml
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: "default"
+spec:
+  rules:
+  - name: "deny-all-traffic"
+    resource: 
+      kinds:
+       - Namespace
+      name: "*"
+    generate: 
+      kind: NetworkPolicy
+      name: deny-all-traffic
+      data:
+        spec:
+        podSelector:
+          matchLabels: {}
+          matchExpressions: []
+        policyTypes: []
+        metadata:
+          annotations: {}
+          labels:
+            policyname: "default"
+````
+In this example, when this policy is applied, any new namespace will receive a new NetworkPolicy resource based on the specified template that by default denies all inbound and outbound traffic.
 
 ---
 <small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>

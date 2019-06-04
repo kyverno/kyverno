@@ -47,6 +47,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		if fn == nil {
 			return // not a static call
 		}
+		if len(call.Args) < 2 {
+			return // not enough arguments, e.g. called with return values of another function
+		}
 		if fn.FullName() == "errors.As" && !pointerToInterfaceOrError(pass, call.Args[1]) {
 			pass.Reportf(call.Pos(), "second argument to errors.As must be a pointer to an interface or a type implementing error")
 		}
@@ -56,9 +59,13 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 
-// pointerToInterfaceOrError reports whether the type of e is a pointer to an interface or a type implementing error.
+// pointerToInterfaceOrError reports whether the type of e is a pointer to an interface or a type implementing error,
+// or is the empty interface.
 func pointerToInterfaceOrError(pass *analysis.Pass, e ast.Expr) bool {
 	t := pass.TypesInfo.Types[e].Type
+	if it, ok := t.Underlying().(*types.Interface); ok && it.NumMethods() == 0 {
+		return true
+	}
 	pt, ok := t.Underlying().(*types.Pointer)
 	if !ok {
 		return false

@@ -1,86 +1,100 @@
 package apply
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/spf13/cobra"
-	yamlv2 "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	yaml "k8s.io/apimachinery/pkg/util/yaml"
+	memory "k8s.io/client-go/discovery/cached/memory"
+	dynamic "k8s.io/client-go/dynamic"
+	kubernetes "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/restmapper"
 )
 
-const applyExample = `  # Apply a policy to the resource.
+const (
+	applyExample = `  # Apply a policy to the resource.
   kyverno apply @policy.yaml @resource.yaml
-  kyverno apply @policy.yaml @resourceDir/`
+  kyverno apply @policy.yaml @resourceDir/
+  kyverno apply @policy.yaml @resource.yaml --kubeconfig=$PATH_TO_KUBECONFIG_FILE`
+
+	defaultYamlSeparator = "---"
+)
 
 // NewCmdApply returns the apply command for kyverno
 func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
+	var kubeconfig string
 	cmd := &cobra.Command{
 		Use:     "apply",
 		Short:   "Apply policy on the resource(s)",
 		Example: applyExample,
 		Run: func(cmd *cobra.Command, args []string) {
-			defer glog.Flush()
-			var output string
-			policy, resources := complete(args)
-			for _, resource := range resources {
-				patchedDocument, err := applyPolicy(policy, resource.rawResource, resource.gvk)
-				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
-
-				out, err := prettyPrint(patchedDocument)
-				if err != nil {
-					fmt.Printf("JSON parse error: %v\n", err)
-					fmt.Printf("%v\n", string(patchedDocument))
-					return
-				}
-
-				output = output + fmt.Sprintf("---\n%s", string(out))
-			}
+			policy, resources := complete(kubeconfig, args)
+			output := applyPolicy(policy, resources)
 			fmt.Printf("%v\n", output)
 		},
 	}
+
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig file")
 	return cmd
 }
 
-func complete(args []string) (*kubepolicy.Policy, []*resourceInfo) {
+func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resourceInfo) {
 
 	policyDir, resourceDir, err := validateDir(args)
 	if err != nil {
-		fmt.Printf("Failed to parse file path, err: %v\n", err)
+		glog.Errorf("Failed to parse file path, err: %v\n", err)
 		os.Exit(1)
 	}
 
 	// extract policy
 	policy, err := extractPolicy(policyDir)
 	if err != nil {
-		log.Printf("failed to extract policy: %v", err)
+		glog.Errorf("failed to extract policy: %v\n", err)
 		os.Exit(1)
 	}
 
 	// extract rawResource
-	resources, err := extractResource(resourceDir)
+	resources, err := extractResource(resourceDir, kubeconfig)
 	if err != nil {
-		log.Printf("failed to parse resource: %v", err)
+		glog.Errorf("failed to parse resource: %v", err)
 		os.Exit(1)
 	}
 
 	return policy, resources
 }
 
-func applyPolicy(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
+func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output string) {
+	for _, resource := range resources {
+		patchedDocument, err := applyPolicyOnRaw(policy, resource.rawResource, resource.gvk)
+		if err != nil {
+			glog.Errorf("Error applying policy on resource %s, err: %v\n", resource.gvk.Kind, err)
+			continue
+		}
+
+		out, err := prettyPrint(patchedDocument)
+		if err != nil {
+			glog.Errorf("JSON parse error: %v\n", err)
+			continue
+		}
+
+		output = output + fmt.Sprintf("---\n%s", string(out))
+	}
+	return
+}
+
+func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
 	patches, result := engine.Mutate(*policy, rawResource, *gvk)
 
 	err := result.ToError()
@@ -124,9 +138,10 @@ type resourceInfo struct {
 	gvk         *metav1.GroupVersionKind
 }
 
-func extractResource(fileDir string) ([]*resourceInfo, error) {
+func extractResource(fileDir, kubeconfig string) ([]*resourceInfo, error) {
 	var files []string
 	var resources []*resourceInfo
+
 	// check if applied on multiple resources
 	isDir, err := isDir(fileDir)
 	if err != nil {
@@ -134,7 +149,7 @@ func extractResource(fileDir string) ([]*resourceInfo, error) {
 	}
 
 	if isDir {
-		files, err = ScanDir(fileDir)
+		files, err = scanDir(fileDir)
 		if err != nil {
 			return nil, err
 		}
@@ -143,102 +158,73 @@ func extractResource(fileDir string) ([]*resourceInfo, error) {
 	}
 
 	for _, dir := range files {
-		file, err := loadFile(dir)
+		data, err := loadFile(dir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load file: %v", err)
+			glog.Warningf("Error while loading file: %v\n", err)
+			continue
 		}
 
-		data := make(map[interface{}]interface{})
+		dd := bytes.Split(data, []byte(defaultYamlSeparator))
 
-		if err = yamlv2.Unmarshal([]byte(file), &data); err != nil {
-			return nil, fmt.Errorf("failed to parse resource: %v", err)
+		for _, d := range dd {
+			decode := scheme.Codecs.UniversalDeserializer().Decode
+			obj, gvk, err := decode([]byte(d), nil, nil)
+			if err != nil {
+				glog.Warningf("Error while decoding YAML object, err: %s\n", err)
+				continue
+			}
+
+			actualObj, err := convertToActualObject(kubeconfig, gvk, obj)
+			if err != nil {
+				glog.V(3).Infof("Failed to convert resource %s to actual k8s object: %v\n", gvk.Kind, err)
+				glog.V(3).Infof("Apply policy on raw resource.\n")
+			}
+
+			raw, err := json.Marshal(actualObj)
+			if err != nil {
+				glog.Warningf("Error while marshalling manifest, err: %v\n", err)
+				continue
+			}
+
+			gvkInfo := &metav1.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind}
+			resources = append(resources, &resourceInfo{rawResource: raw, gvk: gvkInfo})
 		}
-
-		apiVersion, ok := data["apiVersion"].(string)
-		if !ok {
-			return nil, fmt.Errorf("failed to parse apiversion: %v", err)
-		}
-
-		kind, ok := data["kind"].(string)
-		if !ok {
-			return nil, fmt.Errorf("failed to parse kind of resource: %v", err)
-		}
-
-		var gvkInfo *metav1.GroupVersionKind
-		gv := strings.Split(apiVersion, "/")
-		if len(gv) == 2 {
-			gvkInfo = &metav1.GroupVersionKind{Group: gv[0], Version: gv[1], Kind: kind}
-		} else {
-			gvkInfo = &metav1.GroupVersionKind{Version: gv[0], Kind: kind}
-		}
-
-		json, err := yaml.ToJSON(file)
-
-		resources = append(resources, &resourceInfo{rawResource: json, gvk: gvkInfo})
 	}
 
 	return resources, err
 }
 
-func loadFile(fileDir string) ([]byte, error) {
-	if _, err := os.Stat(fileDir); os.IsNotExist(err) {
-		return nil, err
-	}
-
-	return ioutil.ReadFile(fileDir)
-}
-
-func validateDir(args []string) (policyDir, resourceDir string, err error) {
-	if len(args) != 2 {
-		return "", "", fmt.Errorf("missing policy and/or resource manifest")
-	}
-
-	if strings.HasPrefix(args[0], "@") {
-		policyDir = args[0][1:]
-	}
-
-	if strings.HasPrefix(args[1], "@") {
-		resourceDir = args[1][1:]
-	}
-	return
-}
-
-func prettyPrint(data []byte) ([]byte, error) {
-	out := make(map[interface{}]interface{})
-	if err := yamlv2.Unmarshal(data, &out); err != nil {
-		return nil, err
-	}
-
-	return yamlv2.Marshal(&out)
-}
-
-func isDir(dir string) (bool, error) {
-	fi, err := os.Stat(dir)
+func convertToActualObject(kubeconfig string, gvk *schema.GroupVersionKind, obj runtime.Object) (interface{}, error) {
+	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
-		return false, err
+		return obj, err
 	}
 
-	return fi.IsDir(), nil
-}
-
-func ScanDir(dir string) ([]string, error) {
-	var res []string
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", dir, err)
-			return err
-		}
-		/* 		if len(strings.Split(path, "/")) == 4 {
-			fmt.Println(path)
-		} */
-		res = append(res, path)
-		return nil
-	})
-
+	dynamicClient, err := dynamic.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error walking the path %q: %v", dir, err)
+		return obj, err
 	}
 
-	return res[1:], nil
+	kclient, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return obj, err
+	}
+
+	asUnstructured := &unstructured.Unstructured{}
+	if err := scheme.Scheme.Convert(obj, asUnstructured, nil); err != nil {
+		return obj, err
+	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kclient.Discovery()))
+	mapping, err := mapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
+	if err != nil {
+		return obj, err
+	}
+
+	actualObj, err := dynamicClient.Resource(mapping.Resource).Namespace("default").Create(asUnstructured, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+	if err != nil {
+		return obj, err
+	}
+
+	return actualObj, nil
 }
