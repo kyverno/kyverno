@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,10 +23,14 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
-const applyExample = `  # Apply a policy to the resource.
+const (
+	applyExample = `  # Apply a policy to the resource.
   kyverno apply @policy.yaml @resource.yaml
   kyverno apply @policy.yaml @resourceDir/
   kyverno apply @policy.yaml @resource.yaml --kubeconfig=$PATH_TO_KUBECONFIG_FILE`
+
+	defaultYamlSeparator = "---"
+)
 
 // NewCmdApply returns the apply command for kyverno
 func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
@@ -153,27 +158,31 @@ func extractResource(fileDir, kubeconfig string) ([]*resourceInfo, error) {
 			continue
 		}
 
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		obj, gvk, err := decode([]byte(data), nil, nil)
-		if err != nil {
-			fmt.Printf("Warning: error while decoding YAML object, err: %s\n", err)
-			continue
-		}
+		dd := bytes.Split(data, []byte(defaultYamlSeparator))
 
-		actualObj, err := convertToActualObject(kubeconfig, gvk, obj)
-		if err != nil {
-			fmt.Printf("Warning: error while converting resource %s to actual k8s object, err: %v\n", gvk.Kind, err)
-			fmt.Printf("Apply policy on raw resource.\n")
-		}
+		for _, d := range dd {
+			decode := scheme.Codecs.UniversalDeserializer().Decode
+			obj, gvk, err := decode([]byte(d), nil, nil)
+			if err != nil {
+				fmt.Printf("Warning: error while decoding YAML object, err: %s\n", err)
+				continue
+			}
 
-		raw, err := json.Marshal(actualObj)
-		if err != nil {
-			fmt.Printf("Warning: error while marshalling manifest, err: %v\n", err)
-			continue
-		}
+			actualObj, err := convertToActualObject(kubeconfig, gvk, obj)
+			if err != nil {
+				fmt.Printf("Warning: error while converting resource %s to actual k8s object, err: %v\n", gvk.Kind, err)
+				fmt.Printf("Apply policy on raw resource.\n")
+			}
 
-		gvkInfo := &metav1.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind}
-		resources = append(resources, &resourceInfo{rawResource: raw, gvk: gvkInfo})
+			raw, err := json.Marshal(actualObj)
+			if err != nil {
+				fmt.Printf("Warning: error while marshalling manifest, err: %v\n", err)
+				continue
+			}
+
+			gvkInfo := &metav1.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind}
+			resources = append(resources, &resourceInfo{rawResource: raw, gvk: gvkInfo})
+		}
 	}
 
 	return resources, err

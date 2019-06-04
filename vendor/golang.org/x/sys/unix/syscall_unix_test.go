@@ -643,7 +643,8 @@ func TestFchmodat(t *testing.T) {
 	didChmodSymlink := true
 	err = unix.Fchmodat(unix.AT_FDCWD, "symlink1", uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
 	if err != nil {
-		if (runtime.GOOS == "android" || runtime.GOOS == "linux" || runtime.GOOS == "solaris") && err == unix.EOPNOTSUPP {
+		if (runtime.GOOS == "android" || runtime.GOOS == "linux" ||
+			runtime.GOOS == "solaris" || runtime.GOOS == "illumos") && err == unix.EOPNOTSUPP {
 			// Linux and Illumos don't support flags != 0
 			didChmodSymlink = false
 		} else {

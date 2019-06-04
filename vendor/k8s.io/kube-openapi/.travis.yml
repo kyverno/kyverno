@@ -3,9 +3,12 @@ language: go
 go:
 - "1.12"
 
+env:
+- GO111MODULE=on
+
 go_import_path: k8s.io/kube-openapi
 
 script:
-- GO111MODULE=on go mod tidy && git diff --exit-code
-- GO111MODULE=on go build ./cmd/... ./pkg/...
-- GO111MODULE=on go test ./cmd/... ./pkg/... ./test/...
+- go mod tidy && git diff --exit-code
+- go build ./cmd/... ./pkg/...
+- go test ./cmd/... ./pkg/... ./test/...
