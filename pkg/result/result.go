@@ -18,6 +18,7 @@ const (
 type Result interface {
 	String() string
 	StringWithIndent(indent string) string
+	GetReason() Reason
 	ToError() error
 }
 
@@ -39,13 +40,9 @@ type RuleApplicationResult struct {
 func NewRuleApplicationResult(ruleName string) RuleApplicationResult {
 	return RuleApplicationResult{
 		PolicyRule: ruleName,
-		Reason:     PolicyApplied,
+		Reason:     Success,
 		Messages:   []string{},
 	}
-}
-
-func (rar *RuleApplicationResult) AddMessagef(message string, a ...interface{}) {
-	rar.Messages = append(rar.Messages, fmt.Sprintf(message, a...))
 }
 
 // StringWithIndent makes result string where each
@@ -71,10 +68,35 @@ func (e *RuleApplicationResult) String() string {
 }
 
 func (e *RuleApplicationResult) ToError() error {
-	if e.Reason != PolicyApplied {
+	if e.Reason != Success {
 		return fmt.Errorf(e.String())
 	}
 	return nil
+}
+
+func (e *RuleApplicationResult) GetReason() Reason {
+	return e.Reason
+}
+
+// Adds formatted message to this result
+func (rar *RuleApplicationResult) AddMessagef(message string, a ...interface{}) {
+	rar.Messages = append(rar.Messages, fmt.Sprintf(message, a...))
+}
+
+// Sets the Reason Failed and adds formatted message to this result
+func (rar *RuleApplicationResult) FailWithMessagef(message string, a ...interface{}) {
+	rar.Reason = Failed
+	rar.AddMessagef(message, a)
+}
+
+// Takes messages and higher reason from another RuleApplicationResult
+func (e *RuleApplicationResult) MergeWith(other *RuleApplicationResult) {
+	if other != nil {
+		e.Messages = append(e.Messages, other.Messages...)
+	}
+	if other.Reason > e.Reason {
+		e.Reason = other.Reason
+	}
 }
 
 // StringWithIndent makes result string where each
@@ -101,24 +123,43 @@ func (e *CompositeResult) String() string {
 }
 
 func (e *CompositeResult) ToError() error {
-	if e.Reason != PolicyApplied {
+	if e.Reason != Success {
 		return fmt.Errorf(e.String())
 	}
 	return nil
 }
 
-func NewPolicyApplicationResult(policyName string) *CompositeResult {
+func (e *CompositeResult) GetReason() Reason {
+	return e.Reason
+}
+
+func NewPolicyApplicationResult(policyName string) Result {
 	return &CompositeResult{
 		Message: fmt.Sprintf("policy - %s:", policyName),
-		Reason:  PolicyApplied,
+		Reason:  Success,
+	}
+}
+
+func NewAdmissionResult(requestUID string) Result {
+	return &CompositeResult{
+		Message: fmt.Sprintf("For resource with UID - %s:", requestUID),
+		Reason:  Success,
 	}
 }
 
 // Append returns CompositeResult with target and source
 // Or appends source to target if it is composite result
-func Append(target Result, source Result) *CompositeResult {
+// If the source reason is more important than target reason,
+// target takes the reason of the source.
+func Append(target Result, source Result) Result {
+	targetReason := target.GetReason()
+	if targetReason < source.GetReason() {
+		targetReason = source.GetReason()
+	}
+
 	if composite, ok := target.(*CompositeResult); ok {
 		composite.Children = append(composite.Children, source)
+		composite.Reason = targetReason
 		return composite
 	}
 
@@ -127,6 +168,7 @@ func Append(target Result, source Result) *CompositeResult {
 			target,
 			source,
 		},
+		Reason: targetReason,
 	}
 
 	return composite

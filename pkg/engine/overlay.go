@@ -223,7 +223,7 @@ func fillEmptyArray(overlay []interface{}, path string) ([]PatchBytes, error) {
 func insertSubtree(overlay interface{}, path string) ([]byte, error) {
 	// TODO: return result instead of error
 	patch, res := processSubtree(overlay, path, "add")
-	if res.Reason != result.PolicyApplied {
+	if res.Reason != result.Success {
 		return patch, fmt.Errorf(res.String())
 	}
 	return patch, nil
@@ -232,7 +232,7 @@ func insertSubtree(overlay interface{}, path string) ([]byte, error) {
 func replaceSubtree(overlay interface{}, path string) ([]byte, error) {
 	// TODO: return result instead of error
 	patch, res := processSubtree(overlay, path, "replace")
-	if res.Reason != result.PolicyApplied {
+	if res.Reason != result.Success {
 		return patch, fmt.Errorf(res.String())
 	}
 	return patch, nil
@@ -257,7 +257,7 @@ func processSubtree(overlay interface{}, path string, op string) (PatchBytes, re
 	if err != nil {
 		message := fmt.Sprintf("Unable to make '%s' patch from an overlay for path %s", op, path)
 		res.Messages = append(res.Messages, message)
-		res.Reason = result.RequestBlocked
+		res.Reason = result.Failed
 		return nil, res
 	}
 

@@ -8,7 +8,7 @@ import (
 
 func TestAppend_TwoResultObjects(t *testing.T) {
 	firstRuleApplicationResult := RuleApplicationResult{
-		Reason: RequestBlocked,
+		Reason: Failed,
 		Messages: []string{
 			"1. Test",
 			"2. Toast",
@@ -16,7 +16,7 @@ func TestAppend_TwoResultObjects(t *testing.T) {
 	}
 
 	secondRuleApplicationResult := RuleApplicationResult{
-		Reason: PolicyApplied,
+		Reason: Success,
 		Messages: []string{
 			"1. Kyverno",
 			"2. KubePolicy",
@@ -24,9 +24,11 @@ func TestAppend_TwoResultObjects(t *testing.T) {
 	}
 
 	result := Append(&firstRuleApplicationResult, &secondRuleApplicationResult)
-	assert.Equal(t, len(result.Children), 2)
+	composite, ok := result.(*CompositeResult)
+	assert.Assert(t, ok)
+	assert.Equal(t, len(composite.Children), 2)
 
-	RuleApplicationResult, ok := result.Children[0].(*RuleApplicationResult)
+	RuleApplicationResult, ok := composite.Children[0].(*RuleApplicationResult)
 	assert.Assert(t, ok)
 	assert.Equal(t, RuleApplicationResult.Messages[1], "2. Toast")
 }
@@ -35,7 +37,7 @@ func TestAppend_FirstObjectIsComposite(t *testing.T) {
 	composite := &CompositeResult{}
 
 	firstRuleApplicationResult := RuleApplicationResult{
-		Reason: RequestBlocked,
+		Reason: Failed,
 		Messages: []string{
 			"1. Test",
 			"2. Toast",
@@ -43,10 +45,10 @@ func TestAppend_FirstObjectIsComposite(t *testing.T) {
 	}
 
 	result := Append(composite, &firstRuleApplicationResult)
+	composite, ok := result.(*CompositeResult)
+	assert.Equal(t, len(composite.Children), 1)
 
-	assert.Equal(t, len(result.Children), 1)
-
-	RuleApplicationResult, ok := result.Children[0].(*RuleApplicationResult)
+	RuleApplicationResult, ok := composite.Children[0].(*RuleApplicationResult)
 	assert.Assert(t, ok)
 	assert.Equal(t, RuleApplicationResult.Messages[1], "2. Toast")
 }

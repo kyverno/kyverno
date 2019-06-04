@@ -32,11 +32,9 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 			continue
 		}
 
-		ruleValidationResult := validateResourceWithPattern(resource, rule.Validation.Pattern)
-		if result.RequestBlocked == ruleValidationResult.Reason {
-			ruleApplicationResult.Reason = ruleValidationResult.Reason
-			policyResult.Reason = ruleValidationResult.Reason
-			ruleApplicationResult.Messages = append(ruleApplicationResult.Messages, ruleValidationResult.Messages...)
+		validationResult := validateResourceWithPattern(resource, rule.Validation.Pattern)
+		if result.Failed == validationResult.Reason {
+			ruleApplicationResult.MergeWith(&validationResult)
 			ruleApplicationResult.AddMessagef(*rule.Validation.Message)
 		} else {
 			ruleApplicationResult.AddMessagef("Success")
@@ -60,8 +58,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case map[string]interface{}:
 		typedValue, ok := value.(map[string]interface{})
 		if !ok {
-			res.Reason = result.RequestBlocked
-			res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
 			return res
 		}
 
@@ -69,22 +66,19 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case []interface{}:
 		typedValue, ok := value.([]interface{})
 		if !ok {
-			res.Reason = result.RequestBlocked
-			res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
 			return res
 		}
 
 		return validateArray(typedValue, typedPattern, path)
 	case string, float64, int, int64, bool:
 		if !ValidateValueWithPattern(value, pattern) {
-			res.Reason = result.RequestBlocked
-			res.AddMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
+			res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 		}
 
 		return res
 	default:
-		res.Reason = result.RequestBlocked
-		res.AddMessagef("Pattern contains unknown type %T. Path: %s", pattern, path)
+		res.FailWithMessagef("Pattern contains unknown type %T. Path: %s", pattern, path)
 		return res
 	}
 }
@@ -98,7 +92,7 @@ func validateMap(valueMap, patternMap map[string]interface{}, path string) resul
 		}
 
 		elementResult := validateResourceElement(valueMap[key], pattern, path+key+"/")
-		if result.RequestBlocked == elementResult.Reason {
+		if result.Failed == elementResult.Reason {
 			res.Reason = elementResult.Reason
 			res.Messages = append(res.Messages, elementResult.Messages...)
 		}
@@ -121,8 +115,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 			currentPath := path + strconv.Itoa(i) + "/"
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				res.Reason = result.RequestBlocked
-				res.AddMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
+				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
 				return res
 			}
 
@@ -131,7 +124,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 			}
 
 			mapValidationResult := validateMap(resource, pattern, currentPath)
-			if result.RequestBlocked == mapValidationResult.Reason {
+			if result.Failed == mapValidationResult.Reason {
 				res.Reason = mapValidationResult.Reason
 				res.Messages = append(res.Messages, mapValidationResult.Messages...)
 			}
@@ -139,13 +132,11 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 	case string, float64, int, int64, bool:
 		for _, value := range resourceArray {
 			if !ValidateValueWithPattern(value, pattern) {
-				res.Reason = result.RequestBlocked
-				res.AddMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
+				res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 			}
 		}
 	default:
-		res.Reason = result.RequestBlocked
-		res.AddMessagef("Array element pattern of unknown type %T. Path: %s", pattern, path)
+		res.FailWithMessagef("Array element pattern of unknown type %T. Path: %s", pattern, path)
 	}
 
 	return res

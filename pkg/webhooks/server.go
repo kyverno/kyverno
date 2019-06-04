@@ -132,12 +132,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		return nil
 	}
 
-	allowed := true
-
-	admissionResult := &result.CompositeResult{
-		Message: fmt.Sprintf("For resource with UID - %s:", request.UID),
-	}
-
+	admissionResult := result.NewAdmissionResult(string(request.UID))
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
 
@@ -148,7 +143,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		admissionResult = result.Append(admissionResult, mutationResult)
 
 		if mutationError := mutationResult.ToError(); mutationError != nil {
-			allowed = false
 			glog.Warningf(mutationError.Error())
 		}
 
@@ -162,7 +156,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	message := admissionResult.String()
 	glog.Info(message)
 
-	if allowed {
+	if admissionResult.GetReason() == result.Success {
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
 			Allowed:   true,
@@ -190,20 +184,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		return nil
 	}
 
-	allowed := true
-
-	admissionResult := &result.CompositeResult{
-		Message: fmt.Sprintf("For resource with UID - %s:", request.UID),
-	}
-
-	// Validation loop
+	admissionResult := result.NewAdmissionResult(string(request.UID))
 	for _, policy := range policies {
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		admissionResult = result.Append(admissionResult, validationResult)
 
 		if validationError := validationResult.ToError(); validationError != nil {
-			allowed = false
 			glog.Warningf(validationError.Error())
 		}
 	}
@@ -214,7 +201,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	// Generation loop after all validation succeeded
 	var response *v1beta1.AdmissionResponse
 
-	if allowed {
+	if admissionResult.GetReason() == result.Success {
 		for _, policy := range policies {
 			engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
 		}

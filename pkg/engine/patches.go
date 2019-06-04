@@ -16,11 +16,11 @@ type PatchBytes []byte
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, result.RuleApplicationResult) {
 	res := result.RuleApplicationResult{
-		Reason: result.PolicyApplied,
+		Reason: result.Success,
 	}
 	if len(resource) == 0 {
 		res.AddMessagef("Source document for patching is empty")
-		res.Reason = result.RequestBlocked
+		res.Reason = result.Failed
 		return nil, res
 	}
 
