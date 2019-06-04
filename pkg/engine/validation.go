@@ -60,8 +60,14 @@ func validateMap(resourcePart, patternPart interface{}) error {
 			key = key[1 : len(key)-1]
 		}
 
-		if err := validateMapElement(resource[key], value); err != nil {
-			return err
+		if value == "*" && resource[key] != nil {
+			continue
+		} else if value == "*" && resource[key] == nil {
+			return fmt.Errorf("validating error: field %s must be present", key)
+		} else {
+			if err := validateMapElement(resource[key], value); err != nil {
+				return err
+			}
 		}
 	}
 
