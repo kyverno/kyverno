@@ -232,7 +232,7 @@ func makeUnion(extensions map[string]interface{}) (schema.Union, error) {
 			}
 			union.Fields = append(union.Fields, schema.UnionField{
 				FieldName:       field,
-				DiscriminatedBy: discriminated,
+				DiscriminatorValue: discriminated,
 			})
 
 			// Check that we don't have the same discriminateBy multiple times.
@@ -251,11 +251,11 @@ func makeUnion(extensions map[string]interface{}) (schema.Union, error) {
 
 func (c *convert) VisitKind(k *proto.Kind) {
 	a := c.top()
-	a.Struct = &schema.Struct{}
+	a.Map = &schema.Map{}
 	for _, name := range k.FieldOrder {
 		member := k.Fields[name]
 		tr := c.makeRef(member)
-		a.Struct.Fields = append(a.Struct.Fields, schema.StructField{
+		a.Map.Fields = append(a.Map.Fields, schema.StructField{
 			Name: name,
 			Type: tr,
 		})
@@ -268,7 +268,7 @@ func (c *convert) VisitKind(k *proto.Kind) {
 	}
 	// TODO: We should check that the fields and discriminator
 	// specified in the union are actual fields in the struct.
-	a.Struct.Unions = unions
+	a.Map.Unions = unions
 
 	// TODO: Get element relationship when we start adding it to the spec.
 }

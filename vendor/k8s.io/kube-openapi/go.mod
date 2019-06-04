@@ -33,5 +33,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.1
 	k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6
 	k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92
-	sigs.k8s.io/structured-merge-diff v0.0.0-20190426204423-ea680f03cc65
+	sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e
 )

@@ -18,6 +18,7 @@ package trace
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -197,4 +198,17 @@ func TestLogIfLong(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleTrace_Step() {
+	t := New("frobber")
+
+	time.Sleep(5 * time.Millisecond)
+	t.Step("reticulated splines") // took 5ms
+
+	time.Sleep(10 * time.Millisecond)
+	t.Step("sequenced particles") // took 10ms
+
+	klog.SetOutput(os.Stdout) // change output from stderr to stdout
+	t.Log()
 }

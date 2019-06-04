@@ -94,7 +94,8 @@ func clientHandler(log xlog.Logger, client Client) jsonrpc2.Handler {
 				sendParseError(ctx, log, conn, r, err)
 				return
 			}
-			if err := client.RegisterCapability(ctx, &params); err != nil {
+			err := client.RegisterCapability(ctx, &params)
+			if err := conn.Reply(ctx, r, nil, err); err != nil {
 				log.Errorf(ctx, "%v", err)
 			}
 		case "client/unregisterCapability": // req
@@ -103,7 +104,8 @@ func clientHandler(log xlog.Logger, client Client) jsonrpc2.Handler {
 				sendParseError(ctx, log, conn, r, err)
 				return
 			}
-			if err := client.UnregisterCapability(ctx, &params); err != nil {
+			err := client.UnregisterCapability(ctx, &params)
+			if err := conn.Reply(ctx, r, nil, err); err != nil {
 				log.Errorf(ctx, "%v", err)
 			}
 		case "window/showMessageRequest": // req
@@ -171,11 +173,11 @@ func (s *clientDispatcher) Configuration(ctx context.Context, params *Configurat
 }
 
 func (s *clientDispatcher) RegisterCapability(ctx context.Context, params *RegistrationParams) error {
-	return s.Conn.Notify(ctx, "client/registerCapability", params) // Notify? (not Call?)
+	return s.Conn.Call(ctx, "client/registerCapability", params, nil) // Call, not Notify
 }
 
 func (s *clientDispatcher) UnregisterCapability(ctx context.Context, params *UnregistrationParams) error {
-	return s.Conn.Notify(ctx, "client/unregisterCapability", params) // Notify? (not Call?)
+	return s.Conn.Call(ctx, "client/unregisterCapability", params, nil) // Call, not Notify
 }
 
 func (s *clientDispatcher) ShowMessageRequest(ctx context.Context, params *ShowMessageRequestParams) (*MessageActionItem, error) {
