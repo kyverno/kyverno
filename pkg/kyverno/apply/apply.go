@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/spf13/cobra"
@@ -54,21 +54,21 @@ func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resource
 
 	policyDir, resourceDir, err := validateDir(args)
 	if err != nil {
-		fmt.Printf("Failed to parse file path, err: %v\n", err)
+		glog.Errorf("Failed to parse file path, err: %v\n", err)
 		os.Exit(1)
 	}
 
 	// extract policy
 	policy, err := extractPolicy(policyDir)
 	if err != nil {
-		log.Printf("failed to extract policy: %v", err)
+		glog.Errorf("failed to extract policy: %v\n", err)
 		os.Exit(1)
 	}
 
 	// extract rawResource
 	resources, err := extractResource(resourceDir, kubeconfig)
 	if err != nil {
-		log.Printf("failed to parse resource: %v", err)
+		glog.Errorf("failed to parse resource: %v", err)
 		os.Exit(1)
 	}
 
@@ -79,13 +79,13 @@ func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output s
 	for _, resource := range resources {
 		patchedDocument, err := applyPolicyOnRaw(policy, resource.rawResource, resource.gvk)
 		if err != nil {
-			fmt.Printf("Error applying policy on resource %s, err: %v\n", resource.gvk.Kind, err)
+			glog.Errorf("Error applying policy on resource %s, err: %v\n", resource.gvk.Kind, err)
 			continue
 		}
 
 		out, err := prettyPrint(patchedDocument)
 		if err != nil {
-			fmt.Printf("JSON parse error: %v\n", err)
+			glog.Errorf("JSON parse error: %v\n", err)
 			continue
 		}
 
@@ -143,7 +143,7 @@ func extractResource(fileDir, kubeconfig string) ([]*resourceInfo, error) {
 	}
 
 	if isDir {
-		files, err = ScanDir(fileDir)
+		files, err = scanDir(fileDir)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func extractResource(fileDir, kubeconfig string) ([]*resourceInfo, error) {
 	for _, dir := range files {
 		data, err := loadFile(dir)
 		if err != nil {
-			fmt.Printf("Warning: errpr while loading file: %v\n", err)
+			glog.Warningf("Error while loading file: %v\n", err)
 			continue
 		}
 
@@ -164,19 +164,19 @@ func extractResource(fileDir, kubeconfig string) ([]*resourceInfo, error) {
 			decode := scheme.Codecs.UniversalDeserializer().Decode
 			obj, gvk, err := decode([]byte(d), nil, nil)
 			if err != nil {
-				fmt.Printf("Warning: error while decoding YAML object, err: %s\n", err)
+				glog.Warningf("Error while decoding YAML object, err: %s\n", err)
 				continue
 			}
 
 			actualObj, err := convertToActualObject(kubeconfig, gvk, obj)
 			if err != nil {
-				fmt.Printf("Warning: error while converting resource %s to actual k8s object, err: %v\n", gvk.Kind, err)
-				fmt.Printf("Apply policy on raw resource.\n")
+				glog.V(3).Infof("Failed to convert resource %s to actual k8s object: %v\n", gvk.Kind, err)
+				glog.V(3).Infof("Apply policy on raw resource.\n")
 			}
 
 			raw, err := json.Marshal(actualObj)
 			if err != nil {
-				fmt.Printf("Warning: error while marshalling manifest, err: %v\n", err)
+				glog.Warningf("Error while marshalling manifest, err: %v\n", err)
 				continue
 			}
 

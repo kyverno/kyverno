@@ -3,11 +3,11 @@ package apply
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/golang/glog"
 	yamlv2 "gopkg.in/yaml.v2"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -27,7 +27,7 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 func defaultKubeconfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Printf("Warning: failed to get home dir: %v\n", err)
+		glog.Warningf("Warning: failed to get home dir: %v\n", err)
 		return ""
 	}
 
@@ -75,17 +75,14 @@ func isDir(dir string) (bool, error) {
 	return fi.IsDir(), nil
 }
 
-func ScanDir(dir string) ([]string, error) {
+func scanDir(dir string) ([]string, error) {
 	var res []string
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", dir, err)
-			return err
+			return fmt.Errorf("prevent panic by handling failure accessing a path %q: %v\n", dir, err)
 		}
-		/* 		if len(strings.Split(path, "/")) == 4 {
-			fmt.Println(path)
-		} */
+
 		res = append(res, path)
 		return nil
 	})
