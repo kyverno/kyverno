@@ -1,5 +1,7 @@
 # Kyverno - Kubernetes Native Policy Management
 
+[![Build Status](https://travis-ci.org/nirmata/kyverno.svg?branch=master)](https://travis-ci.org/nirmata/kyverno)
+
 ![logo](documentation/images/Kyverno_Horizontal.png)
 
 Kyverno is a policy engine designed for Kubernetes.
