@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"github.com/nirmata/kyverno/pkg/result"
 	"reflect"
 	"testing"
 
@@ -65,8 +66,9 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -138,8 +140,9 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -216,8 +219,9 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
