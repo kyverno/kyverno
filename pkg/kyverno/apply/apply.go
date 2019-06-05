@@ -51,7 +51,6 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 }
 
 func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resourceInfo) {
-
 	policyDir, resourceDir, err := validateDir(args)
 	if err != nil {
 		glog.Errorf("Failed to parse file path, err: %v\n", err)
@@ -61,14 +60,14 @@ func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resource
 	// extract policy
 	policy, err := extractPolicy(policyDir)
 	if err != nil {
-		glog.Errorf("failed to extract policy: %v\n", err)
+		glog.Errorf("Failed to extract policy: %v\n", err)
 		os.Exit(1)
 	}
 
 	// extract rawResource
 	resources, err := extractResource(resourceDir, kubeconfig)
 	if err != nil {
-		glog.Errorf("failed to parse resource: %v", err)
+		glog.Errorf("Failed to parse resource: %v", err)
 		os.Exit(1)
 	}
 
@@ -98,8 +97,8 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 	patches, result := engine.Mutate(*policy, rawResource, *gvk)
 
 	err := result.ToError()
-	var patchedResource []byte
-	if err == nil {
+	patchedResource := rawResource
+	if err != nil && len(patches) != 0 {
 		patchedResource, err = engine.ApplyPatches(rawResource, patches)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)

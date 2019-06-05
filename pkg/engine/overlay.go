@@ -213,7 +213,7 @@ func processSubtree(overlay interface{}, path string, op string, res *result.Rul
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
-		res.FailWithMessagef("Failed to make '%s' patch from an overlay for path %s", op, path)
+		res.FailWithMessagef("Failed to make '%s' patch from an overlay '%s' for path %s", op, value, path)
 		return nil
 	}
 

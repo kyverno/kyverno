@@ -23,36 +23,33 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
 			ruleApplicationResult.AddMessagef("Rule %s is not applicable to resource\n", rule.Name)
-			policyResult = result.Append(policyResult, &ruleApplicationResult)
-			continue
-		}
+		} else {
+			// Process Overlay
+			if rule.Mutation.Overlay != nil {
+				overlayPatches, ruleResult := ProcessOverlay(rule.Mutation.Overlay, rawResource, gvk)
+				if result.Success != ruleResult.GetReason() {
+					ruleApplicationResult.MergeWith(&ruleResult)
+					ruleApplicationResult.AddMessagef("Overlay application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
+				} else {
+					ruleApplicationResult.AddMessagef("Success")
+					allPatches = append(allPatches, overlayPatches...)
+				}
+			}
 
-		// Process Overlay
+			// Process Patches
+			if rule.Mutation.Patches != nil {
+				rulePatches, ruleResult := ProcessPatches(rule.Mutation.Patches, patchedDocument)
 
-		if rule.Mutation.Overlay != nil {
-			overlayPatches, ruleResult := ProcessOverlay(rule.Mutation.Overlay, rawResource, gvk)
-			if result.Success != ruleResult.GetReason() {
-				ruleApplicationResult.MergeWith(&ruleResult)
-				ruleApplicationResult.AddMessagef("Overlay application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
-			} else {
-				ruleApplicationResult.AddMessagef("Success")
-				allPatches = append(allPatches, overlayPatches...)
+				if result.Success != ruleResult.GetReason() {
+					ruleApplicationResult.MergeWith(&ruleResult)
+					ruleApplicationResult.AddMessagef("Patches application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
+				} else {
+					ruleApplicationResult.AddMessagef("Success")
+					allPatches = append(allPatches, rulePatches...)
+				}
 			}
 		}
-
-		// Process Patches
-
-		if rule.Mutation.Patches != nil {
-			rulePatches, ruleResult := ProcessPatches(rule.Mutation.Patches, patchedDocument)
-
-			if result.Success != ruleResult.GetReason() {
-				ruleApplicationResult.MergeWith(&ruleResult)
-				ruleApplicationResult.AddMessagef("Patches application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
-			} else {
-				ruleApplicationResult.AddMessagef("Success")
-				allPatches = append(allPatches, rulePatches...)
-			}
-		}
+		policyResult = result.Append(policyResult, &ruleApplicationResult)
 	}
 
 	return allPatches, policyResult
