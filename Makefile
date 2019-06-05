@@ -14,7 +14,9 @@ MAIN ?=$(PACKAGE)
 
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
-REPO=registry-v2.nirmata.io/nirmata/kyverno
+# default docker hub
+REGISTRY=index.docker.io
+REPO=$(REGISTRY)/nirmata/kyverno
 IMAGE_TAG=$(GIT_VERSION)
 
 GOOS ?= $(shell go env GOOS)
@@ -36,13 +38,21 @@ cli: cli-dirs
 cli-dirs:
 	@mkdir -p _output/cli
 
-image:
-	docker build -t $(REPO):$(IMAGE_TAG) .
-	docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
-
-push:
-	docker push $(REPO):$(IMAGE_TAG)
-	docker push $(REPO):latest
-
 clean:
 	go clean
+
+# docker image build targets
+# user must be logged in the $(REGISTRY) to push images
+.PHONY: docker-build docker-tag-repo docker-push
+
+docker-publish: docker-build  docker-tag-repo  docker-push
+
+docker-build:
+	@docker build -t $(REPO):$(IMAGE_TAG) .
+
+docker-tag-repo:
+	@docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
+
+docker-push:
+	@docker push $(REPO):$(IMAGE_TAG)
+	@docker push $(REPO):latest
