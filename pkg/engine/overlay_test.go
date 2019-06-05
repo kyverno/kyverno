@@ -234,3 +234,82 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, patched != nil)
 }
+
+func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
+	overlayRaw := []byte(`{
+		"spec": {
+			"template": {
+				"spec": {
+					"containers": [
+						{
+							"(image)": "*:latest",
+							"imagePullPolicy": "IfNotPresent",
+							"ports": [
+								{
+									"containerPort": 8080
+								}
+							]
+						}
+					]
+				}
+			}
+		}
+	}`)
+	resourceRaw := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+			"name": "nginx-deployment",
+			"labels": {
+				"app": "nginx"
+			}
+		},
+		"spec": {
+			"replicas": 1,
+			"selector": {
+				"matchLabels": {
+					"app": "nginx"
+				}
+			},
+			"template": {
+				"metadata": {
+					"labels": {
+						"app": "nginx"
+					}
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx:latest",
+							"ports": [
+								{
+									"containerPort": 80
+								}
+							]
+						},
+						{
+							"name": "ghost",
+							"image": "ghost:latest"
+						}
+					]
+				}
+			}
+		}
+	}`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx-deployment","labels":{"app":"nginx"}},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:latest","imagePullPolicy":"IfNotPresent","name":"nginx","ports":[{"containerPort":8080.000000},{"containerPort":80}]},{"image":"ghost:latest","imagePullPolicy":"IfNotPresent","name":"ghost","ports":[{"containerPort":8080.000000}]}]}}}}`)
+	compareJsonAsMap(t, expectedResult, doc)
+}

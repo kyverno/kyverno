@@ -57,7 +57,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case map[string]interface{}:
 		typedValue, ok := value.(map[string]interface{})
 		if !ok {
-			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, pattern, value)
 			return res
 		}
 
@@ -65,12 +65,12 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case []interface{}:
 		typedValue, ok := value.([]interface{})
 		if !ok {
-			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, pattern, value)
 			return res
 		}
 
 		return validateArray(typedValue, typedPattern, path)
-	case string, float64, int, int64, bool:
+	case string, float64, int, int64, bool, nil:
 		if !ValidateValueWithPattern(value, pattern) {
 			res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 		}
@@ -121,7 +121,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 			currentPath := path + strconv.Itoa(i) + "/"
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
+				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, pattern, value)
 				return res
 			}
 
@@ -135,7 +135,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 				res.Messages = append(res.Messages, mapValidationResult.Messages...)
 			}
 		}
-	case string, float64, int, int64, bool:
+	case string, float64, int, int64, bool, nil:
 		for _, value := range resourceArray {
 			if !ValidateValueWithPattern(value, pattern) {
 				res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)

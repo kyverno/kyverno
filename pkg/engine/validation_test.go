@@ -692,6 +692,185 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	assert.Assert(t, res.ToError() != nil)
 }
 
+func TestValidateMap_livenessProbeIsNull(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"template":{
+				"spec":{
+					"containers":[
+						{
+							"name":"*",
+							"livenessProbe":null
+						}
+					]
+				}
+			}
+		}
+	}`)
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"StatefulSet",
+		"metadata":{
+			"name":"game-web",
+			"labels":{
+				"originalLabel":"isHere"
+			}
+		},
+		"spec":{
+			"selector":{
+				"matchLabels":{
+					"app":"nginxo"
+				}
+			},
+			"serviceName":"nginxo",
+			"replicas":3,
+			"template":{
+				"metadata":{
+					"labels":{
+						"app":"nginxo"
+					}
+				},
+				"spec":{
+					"terminationGracePeriodSeconds":10,
+					"containers":[
+						{
+							"name":"nginxo",
+							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"ports":[
+								{
+									"containerPort":8780,
+									"name":"webp"
+								}
+							],
+							"volumeMounts":[
+								{
+									"name":"www",
+									"mountPath":"/usr/share/nginxo/html"
+								}
+							],
+							"livenessProbe":null
+						}
+					]
+				}
+			},
+			"volumeClaimTemplates":[
+				{
+					"metadata":{
+						"name":"www"
+					},
+					"spec":{
+						"accessModes":[
+							"ReadWriteOnce"
+						],
+						"storageClassName":"my-storage-class",
+						"resources":{
+							"requests":{
+								"storage":"1Gi"
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource map[string]interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
+}
+
+func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"template":{
+				"spec":{
+					"containers":[
+						{
+							"name":"*",
+ 							"livenessProbe" : null
+						}
+					]
+				}
+			}
+		}
+	}`)
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"StatefulSet",
+		"metadata":{
+			"name":"game-web",
+			"labels":{
+				"originalLabel":"isHere"
+			}
+		},
+		"spec":{
+			"selector":{
+				"matchLabels":{
+					"app":"nginxo"
+				}
+			},
+			"serviceName":"nginxo",
+			"replicas":3,
+			"template":{
+				"metadata":{
+					"labels":{
+						"app":"nginxo"
+					}
+				},
+				"spec":{
+					"terminationGracePeriodSeconds":10,
+					"containers":[
+						{
+							"name":"nginxo",
+							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"ports":[
+								{
+									"containerPort":8780,
+									"name":"webp"
+								}
+							],
+							"volumeMounts":[
+								{
+									"name":"www",
+									"mountPath":"/usr/share/nginxo/html"
+								}
+							]
+						}
+					]
+				}
+			},
+			"volumeClaimTemplates":[
+				{
+					"metadata":{
+						"name":"www"
+					},
+					"spec":{
+						"accessModes":[
+							"ReadWriteOnce"
+						],
+						"storageClassName":"my-storage-class",
+						"resources":{
+							"requests":{
+								"storage":"1Gi"
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource map[string]interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
+}
+
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	rawPattern := []byte(`[
 		{
