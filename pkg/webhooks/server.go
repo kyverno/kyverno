@@ -153,7 +153,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 	}
 
-	message := admissionResult.String()
+	message := "\n" + admissionResult.String()
 	glog.Info(message)
 
 	if admissionResult.GetReason() == result.Success {
@@ -195,7 +195,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	message := admissionResult.String()
+	message := "\n" + admissionResult.String()
 	glog.Info(message)
 
 	// Generation loop after all validation succeeded

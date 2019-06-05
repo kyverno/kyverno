@@ -57,7 +57,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case map[string]interface{}:
 		typedValue, ok := value.(map[string]interface{})
 		if !ok {
-			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, pattern, value)
 			return res
 		}
 
@@ -65,7 +65,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 	case []interface{}:
 		typedValue, ok := value.([]interface{})
 		if !ok {
-			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, pattern, value)
 			return res
 		}
 
@@ -121,7 +121,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 			currentPath := path + strconv.Itoa(i) + "/"
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
+				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, pattern, value)
 				return res
 			}
 
