@@ -70,7 +70,7 @@ func validateResourceElement(value, pattern interface{}, path string) result.Rul
 		}
 
 		return validateArray(typedValue, typedPattern, path)
-	case string, float64, int, int64, bool:
+	case string, float64, int, int64, bool, nil:
 		if !ValidateValueWithPattern(value, pattern) {
 			res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 		}
@@ -135,7 +135,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 				res.Messages = append(res.Messages, mapValidationResult.Messages...)
 			}
 		}
-	case string, float64, int, int64, bool:
+	case string, float64, int, int64, bool, nil:
 		for _, value := range resourceArray {
 			if !ValidateValueWithPattern(value, pattern) {
 				res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
