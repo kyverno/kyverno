@@ -2,11 +2,20 @@ package engine
 
 import (
 	"encoding/json"
+	"github.com/nirmata/kyverno/pkg/result"
+	"reflect"
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"gotest.tools/assert"
 )
+
+func compareJsonAsMap(t *testing.T, expected, actual []byte) {
+	var expectedMap, actualMap map[string]interface{}
+	assert.NilError(t, json.Unmarshal(expected, &expectedMap))
+	assert.NilError(t, json.Unmarshal(actual, &actualMap))
+	assert.Assert(t, reflect.DeepEqual(expectedMap, actualMap))
+}
 
 func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	resourceRaw := []byte(`
@@ -57,8 +66,9 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -71,7 +81,7 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	assert.Assert(t, patched != nil)
 
 	expectedResult := []byte(`{"apiVersion":"v1","kind":"Endpoints","metadata":{"name":"test-endpoint","labels":{"label":"test"}},"subsets":[{"addresses":[{"ip":"192.168.10.171"}],"ports":[{"name":"secure-connection","port":444.000000,"protocol":"UDP"}]}]}`)
-	assert.Equal(t, string(expectedResult), string(patched))
+	compareJsonAsMap(t, expectedResult, patched)
 }
 
 func TestApplyOverlay_InsertIntoArray(t *testing.T) {
@@ -130,8 +140,9 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -145,7 +156,7 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	assert.Assert(t, patched != nil)
 
 	expectedResult := []byte(`{"apiVersion":"v1","kind":"Endpoints","metadata":{"name":"test-endpoint","labels":{"label":"test"}},"subsets":[{"addresses":[{"ip":"192.168.10.172"},{"ip":"192.168.10.173"}],"ports":[{"name":"insecure-connection","port":80.000000,"protocol":"UDP"}]},{"addresses":[{"ip":"192.168.10.171"}],"ports":[{"name":"secure-connection","port":443,"protocol":"TCP"}]}]}`)
-	assert.Equal(t, string(expectedResult), string(patched))
+	compareJsonAsMap(t, expectedResult, patched)
 }
 
 func TestApplyOverlay_TestInsertToArray(t *testing.T) {
@@ -208,8 +219,9 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, err)
+	res := result.NewRuleApplicationResult("")
+	patches := applyOverlay(resource, overlay, "/", &res)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)

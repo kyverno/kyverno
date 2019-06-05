@@ -95,12 +95,18 @@ func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output s
 }
 
 func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
-	_, patchedDocument := engine.Mutate(*policy, rawResource, *gvk)
+	patches, result := engine.Mutate(*policy, rawResource, *gvk)
 
-	if err := engine.Validate(*policy, patchedDocument, *gvk); err != nil {
-		return nil, err
+	err := result.ToError()
+	var patchedResource []byte
+	if err == nil {
+		patchedResource, err = engine.ApplyPatches(rawResource, patches)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)
+		}
+		err = engine.Validate(*policy, patchedResource, *gvk).ToError()
 	}
-	return patchedDocument, nil
+	return patchedResource, err
 }
 
 func extractPolicy(fileDir string) (*kubepolicy.Policy, error) {

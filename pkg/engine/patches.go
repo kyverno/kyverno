@@ -2,28 +2,35 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/result"
 )
 
+// PatchBytes stands for []byte
 type PatchBytes []byte
 
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
-func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, []byte, error) {
-	if len(resource) == 0 {
-		return nil, nil, errors.New("Source document for patching is empty")
+func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, result.RuleApplicationResult) {
+	res := result.RuleApplicationResult{
+		Reason: result.Success,
 	}
 
-	var appliedPatches []PatchBytes
+	if len(resource) == 0 {
+		res.AddMessagef("Source document for patching is empty")
+		res.Reason = result.Failed
+		return nil, res
+	}
+
+	var allPatches []PatchBytes
 	patchedDocument := resource
 	for i, patch := range patches {
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {
-			return nil, nil, err
+
 		}
 
 		patchedDocument, err = applyPatch(patchedDocument, patchRaw)
@@ -32,13 +39,14 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 			if patch.Operation == "remove" {
 				continue
 			}
-			glog.Warningf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
+			message := fmt.Sprintf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
+			res.Messages = append(res.Messages, message)
 			continue
 		}
 
-		appliedPatches = append(appliedPatches, patchRaw)
+		allPatches = append(allPatches, patchRaw)
 	}
-	return appliedPatches, patchedDocument, nil
+	return allPatches, res
 }
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
@@ -59,12 +67,16 @@ func JoinPatches(patches []PatchBytes) PatchBytes {
 	return result
 }
 
-// ApplyPatch applies patch for resource, returns patched resource.
+// applyPatch applies patch for resource, returns patched resource.
 func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
-	patchRaw = append([]byte{'['}, patchRaw...) // push [ forward
-	patchRaw = append(patchRaw, ']')            // push ] back
+	patchesList := []PatchBytes{patchRaw}
+	return ApplyPatches(resource, patchesList)
+}
 
-	patch, err := jsonpatch.DecodePatch(patchRaw)
+// ApplyPatches patches given resource with given patches and returns patched document
+func ApplyPatches(resource []byte, patches []PatchBytes) ([]byte, error) {
+	joinedPatches := JoinPatches(patches)
+	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -131,13 +132,19 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		return nil
 	}
 
+	admissionResult := result.NewAdmissionResult(string(request.UID))
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches, _ := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyPatches, mutationResult := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		allPatches = append(allPatches, policyPatches...)
+		admissionResult = result.Append(admissionResult, mutationResult)
+
+		if mutationError := mutationResult.ToError(); mutationError != nil {
+			glog.Warningf(mutationError.Error())
+		}
 
 		if len(policyPatches) > 0 {
 			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
@@ -146,11 +153,23 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 	}
 
-	patchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     engine.JoinPatches(allPatches),
-		PatchType: &patchType,
+	message := admissionResult.String()
+	glog.Info(message)
+
+	if admissionResult.GetReason() == result.Success {
+		patchType := v1beta1.PatchTypeJSONPatch
+		return &v1beta1.AdmissionResponse{
+			Allowed:   true,
+			Patch:     engine.JoinPatches(allPatches),
+			PatchType: &patchType,
+		}
+	} else {
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: message,
+			},
+		}
 	}
 }
 
@@ -165,30 +184,42 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		return nil
 	}
 
+	admissionResult := result.NewAdmissionResult(string(request.UID))
 	for _, policy := range policies {
-		// validation
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
+		admissionResult = result.Append(admissionResult, validationResult)
 
-		if err := engine.Validate(*policy, request.Object.Raw, request.Kind); err != nil {
-			message := fmt.Sprintf("validation has failed: %s", err.Error())
-			glog.Warning(message)
-
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: message,
-				},
-			}
+		if validationError := validationResult.ToError(); validationError != nil {
+			glog.Warningf(validationError.Error())
 		}
-
-		// generation
-		engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
-	}
-	glog.Info("Validation is successful")
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
 	}
 
+	message := admissionResult.String()
+	glog.Info(message)
+
+	// Generation loop after all validation succeeded
+	var response *v1beta1.AdmissionResponse
+
+	if admissionResult.GetReason() == result.Success {
+		for _, policy := range policies {
+			engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
+		}
+		glog.Info("Validation is successful")
+
+		response = &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
+	} else {
+		response = &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: message,
+			},
+		}
+	}
+
+	return response
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

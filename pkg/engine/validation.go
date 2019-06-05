@@ -2,166 +2,148 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
+	"strconv"
 
-	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO: Refactor using State pattern
-// TODO: Return Events and pass all checks to get all validation errors (not )
-
 // Validate handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) error {
+func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) result.Result {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
+
+	policyResult := result.NewPolicyApplicationResult(policy.Name)
 
 	for _, rule := range policy.Spec.Rules {
 		if rule.Validation == nil {
 			continue
 		}
 
+		ruleApplicationResult := result.NewRuleApplicationResult(rule.Name)
+
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			glog.Infof("Rule \"%s\" is not applicable to resource\n", rule.Name)
+			ruleApplicationResult.AddMessagef("Rule %s is not applicable to resource\n", rule.Name)
+			policyResult = result.Append(policyResult, &ruleApplicationResult)
 			continue
 		}
 
-		if err := validateMap(resource, rule.Validation.Pattern); err != nil {
-			message := *rule.Validation.Message
-			if len(message) == 0 {
-				message = fmt.Sprintf("%v", err)
-			} else {
-				message = fmt.Sprintf("%s, %s", message, err.Error())
-			}
-
-			return fmt.Errorf("%s: %s", *rule.Validation.Message, err.Error())
+		validationResult := validateResourceWithPattern(resource, rule.Validation.Pattern)
+		if result.Success != validationResult.Reason {
+			ruleApplicationResult.MergeWith(&validationResult)
+			ruleApplicationResult.AddMessagef(*rule.Validation.Message)
+		} else {
+			ruleApplicationResult.AddMessagef("Success")
 		}
+
+		policyResult = result.Append(policyResult, &ruleApplicationResult)
 	}
 
-	return nil
+	return policyResult
 }
 
-func validateMap(resourcePart, patternPart interface{}) error {
-	pattern, ok := patternPart.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("expected map, found %T", patternPart)
-	}
+func validateResourceWithPattern(resource, pattern interface{}) result.RuleApplicationResult {
+	return validateResourceElement(resource, pattern, "/")
+}
 
-	resource, ok := resourcePart.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("expected map, found %T", resourcePart)
-	}
+func validateResourceElement(value, pattern interface{}, path string) result.RuleApplicationResult {
+	res := result.NewRuleApplicationResult("")
+	// TODO: Move similar message templates to message package
 
-	for key, value := range pattern {
+	switch typedPattern := pattern.(type) {
+	case map[string]interface{}:
+		typedValue, ok := value.(map[string]interface{})
+		if !ok {
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			return res
+		}
+
+		return validateMap(typedValue, typedPattern, path)
+	case []interface{}:
+		typedValue, ok := value.([]interface{})
+		if !ok {
+			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, path)
+			return res
+		}
+
+		return validateArray(typedValue, typedPattern, path)
+	case string, float64, int, int64, bool:
+		if !ValidateValueWithPattern(value, pattern) {
+			res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
+		}
+
+		return res
+	default:
+		res.FailWithMessagef("Pattern contains unknown type %T. Path: %s", pattern, path)
+		return res
+	}
+}
+
+func validateMap(valueMap, patternMap map[string]interface{}, path string) result.RuleApplicationResult {
+	res := result.NewRuleApplicationResult("")
+
+	for key, pattern := range patternMap {
 		if wrappedWithParentheses(key) {
 			key = key[1 : len(key)-1]
 		}
 
-		if value == "*" && resource[key] != nil {
+		if pattern == "*" && valueMap[key] != nil {
 			continue
-		} else if value == "*" && resource[key] == nil {
-			return fmt.Errorf("validating error: field %s must be present", key)
+		} else if pattern == "*" && valueMap[key] == nil {
+			res.FailWithMessagef("Field %s is not present", key)
 		} else {
-			if err := validateMapElement(resource[key], value); err != nil {
-				return err
+			elementResult := validateResourceElement(valueMap[key], pattern, path+key+"/")
+			if result.Failed == elementResult.Reason {
+				res.Reason = elementResult.Reason
+				res.Messages = append(res.Messages, elementResult.Messages...)
 			}
 		}
+
 	}
 
-	return nil
+	return res
 }
 
-func validateArray(resourcePart, patternPart interface{}) error {
-	patternArray, ok := patternPart.([]interface{})
-	if !ok {
-		return fmt.Errorf("expected array, found %T", patternPart)
-	}
+func validateArray(resourceArray, patternArray []interface{}, path string) result.RuleApplicationResult {
+	res := result.NewRuleApplicationResult("")
 
-	resourceArray, ok := resourcePart.([]interface{})
-	if !ok {
-		return fmt.Errorf("expected array, found %T", resourcePart)
+	if 0 == len(patternArray) {
+		return res
 	}
 
 	switch pattern := patternArray[0].(type) {
 	case map[string]interface{}:
 		anchors := GetAnchorsFromMap(pattern)
-
-		for _, value := range resourceArray {
+		for i, value := range resourceArray {
+			currentPath := path + strconv.Itoa(i) + "/"
 			resource, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("expected array, found %T", resourcePart)
+				res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", pattern, value, currentPath)
+				return res
 			}
 
-			if skipValidatingObject(resource, anchors) {
+			if skipArrayObject(resource, anchors) {
 				continue
 			}
 
-			if err := validateMap(resource, pattern); err != nil {
-				return err
+			mapValidationResult := validateMap(resource, pattern, currentPath)
+			if result.Failed == mapValidationResult.Reason {
+				res.Reason = mapValidationResult.Reason
+				res.Messages = append(res.Messages, mapValidationResult.Messages...)
 			}
 		}
-	default:
+	case string, float64, int, int64, bool:
 		for _, value := range resourceArray {
-			if !ValidateValueWithPattern(value, patternArray[0]) {
-				return fmt.Errorf("Failed validate %v with %v", value, patternArray[0])
+			if !ValidateValueWithPattern(value, pattern) {
+				res.FailWithMessagef("Failed to validate value %v with pattern %v. Path: %s", value, pattern, path)
 			}
 		}
-	}
-
-	return nil
-}
-
-func validateMapElement(resourcePart, patternPart interface{}) error {
-	switch pattern := patternPart.(type) {
-	case map[string]interface{}:
-		dictionary, ok := resourcePart.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
-		}
-
-		return validateMap(dictionary, pattern)
-	case []interface{}:
-		array, ok := resourcePart.([]interface{})
-		if !ok {
-			return fmt.Errorf("expected %T, found %T", patternPart, resourcePart)
-		}
-
-		return validateArray(array, pattern)
-	case string, float64, int, int64, bool, nil:
-		if !ValidateValueWithPattern(resourcePart, patternPart) {
-			return fmt.Errorf("Failed validate %v with %v", resourcePart, patternPart)
-		}
 	default:
-		return fmt.Errorf("validating error: unknown type in map: %T", patternPart)
+		res.FailWithMessagef("Array element pattern of unknown type %T. Path: %s", pattern, path)
 	}
 
-	return nil
-}
-
-func skipValidatingObject(object, anchors map[string]interface{}) bool {
-	for key, pattern := range anchors {
-		key = key[1 : len(key)-1]
-
-		value, ok := object[key]
-		if !ok {
-			return true
-		}
-
-		if !ValidateValueWithPattern(value, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func wrappedWithParentheses(str string) bool {
-	if len(str) < 2 {
-		return false
-	}
-
-	return (str[0] == '(' && str[len(str)-1] == ')')
+	return res
 }

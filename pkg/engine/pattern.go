@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -166,6 +165,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 }
 
 func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
+	// pattern has suffix
 	if "" != patternStr {
 		typedValue, ok := value.(string)
 		if !ok {
@@ -279,14 +279,6 @@ func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	match := matches[0]
 	return match[1], match[3]
-}
-
-func checkForWildcard(value, pattern string) error {
-	if !wildcard.Match(pattern, value) {
-		return fmt.Errorf("wildcard check has failed. Pattern: \"%s\". Value: \"%s\"", pattern, value)
-	}
-
-	return nil
 }
 
 func parseNumber(number string) (interface{}, error) {

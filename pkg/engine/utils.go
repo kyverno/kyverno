@@ -125,3 +125,29 @@ func findKind(kinds []string, kindGVK string) bool {
 	}
 	return false
 }
+
+func wrappedWithParentheses(str string) bool {
+	if len(str) < 2 {
+		return false
+	}
+
+	return (str[0] == '(' && str[len(str)-1] == ')')
+}
+
+// Checks if array object matches anchors. If not - skip - return true
+func skipArrayObject(object, anchors map[string]interface{}) bool {
+	for key, pattern := range anchors {
+		key = key[1 : len(key)-1]
+
+		value, ok := object[key]
+		if !ok {
+			return true
+		}
+
+		if !ValidateValueWithPattern(value, pattern) {
+			return true
+		}
+	}
+
+	return false
+}

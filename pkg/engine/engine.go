@@ -11,6 +11,7 @@ import (
 // The each function returns the changes that need to be applied on the resource
 // the caller is responsible to apply the changes to the resource
 
+// ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(policy types.Policy, rawResource []byte) ([]violation.Info, []event.Info, error) {
 	var violations []violation.Info
 	var events []event.Info

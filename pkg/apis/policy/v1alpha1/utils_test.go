@@ -46,7 +46,7 @@ func Test_ResourceDescription_EmptyNameAndSelector(t *testing.T) {
 		Kinds: []string{"Deployment"},
 	}
 	err := resourceDescription.Validate()
-	assert.Assert(t, err != nil)
+	assert.NilError(t, err)
 }
 
 func Test_Patch_EmptyPath(t *testing.T) {

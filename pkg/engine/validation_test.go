@@ -44,46 +44,46 @@ func TestWrappedWithParentheses_Empty(t *testing.T) {
 	assert.Assert(t, !wrappedWithParentheses(str))
 }
 
-func TestCheckForWildcard_AsteriskTest(t *testing.T) {
+func TestValidateString_AsteriskTest(t *testing.T) {
 	pattern := "*"
 	value := "anything"
 	empty := ""
 
-	assert.Assert(t, checkForWildcard(value, pattern))
-	assert.Assert(t, checkForWildcard(empty, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(empty, pattern, Equal))
 }
 
-func TestCheckForWildcard_LeftAsteriskTest(t *testing.T) {
+func TestValidateString_LeftAsteriskTest(t *testing.T) {
 	pattern := "*right"
 	value := "leftright"
 	right := "right"
 
-	assert.Assert(t, checkForWildcard(value, pattern))
-	assert.Assert(t, checkForWildcard(right, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(right, pattern, Equal))
 
 	value = "leftmiddle"
 	middle := "middle"
 
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
-	assert.Assert(t, checkForWildcard(middle, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
+	assert.Assert(t, !validateString(middle, pattern, Equal))
 }
 
-func TestCheckForWildcard_MiddleAsteriskTest(t *testing.T) {
+func TestValidateString_MiddleAsteriskTest(t *testing.T) {
 	pattern := "ab*ba"
 	value := "abbeba"
-	assert.NilError(t, checkForWildcard(value, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
 
 	value = "abbca"
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
 }
 
-func TestCheckForWildcard_QuestionMark(t *testing.T) {
+func TestValidateString_QuestionMark(t *testing.T) {
 	pattern := "ab?ba"
 	value := "abbba"
-	assert.NilError(t, checkForWildcard(value, pattern))
+	assert.Assert(t, validateString(value, pattern, Equal))
 
 	value = "abbbba"
-	assert.Assert(t, checkForWildcard(value, pattern) != nil)
+	assert.Assert(t, !validateString(value, pattern, Equal))
 }
 
 func TestSkipArrayObject_OneAnchor(t *testing.T) {
@@ -142,7 +142,7 @@ func TestSkipArrayObject_OneNumberAnchorPass(t *testing.T) {
 func TestSkipArrayObject_TwoAnchorsPass(t *testing.T) {
 	rawAnchors := []byte(`{
 		"(name)":"nirmata-*",
-		"(namespace)":"kube-?olicy"
+		"(namespace)":"kyv?rno"
 	}`)
 	rawResource := []byte(`{
 		"name":"nirmata-resource",
@@ -320,11 +320,12 @@ func TestValidateMap(t *testing.T) {
 		}
 	}`)
 
-	var pattern, resource interface{}
+	var pattern, resource map[string]interface{}
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMap(resource, pattern))
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMap_AsteriskForInt(t *testing.T) {
@@ -414,11 +415,12 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	}
 	`)
 
-	var pattern, resource interface{}
+	var pattern, resource map[string]interface{}
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMap(resource, pattern))
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMap_AsteriskForMap(t *testing.T) {
@@ -505,11 +507,12 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 		}
 	}`)
 
-	var pattern, resource interface{}
+	var pattern, resource map[string]interface{}
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMap(resource, pattern))
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMap_AsteriskForArray(t *testing.T) {
@@ -591,11 +594,12 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 		}
 	}`)
 
-	var pattern, resource interface{}
+	var pattern, resource map[string]interface{}
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMap(resource, pattern))
+	res := validateMap(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
@@ -680,11 +684,12 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 		}
 	}`)
 
-	var pattern, resource interface{}
+	var pattern, resource map[string]interface{}
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.Assert(t, validateMap(resource, pattern) != nil)
+	res := validateMap(resource, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
 }
 
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
@@ -724,7 +729,8 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMapElement(resource, pattern))
+	res := validateResourceElement(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
@@ -755,7 +761,8 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.NilError(t, validateMapElement(resource, pattern))
+	res := validateResourceElement(resource, pattern, "/")
+	assert.NilError(t, res.ToError())
 }
 
 func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
@@ -786,7 +793,8 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	assert.Assert(t, validateMapElement(resource, pattern) != nil)
+	res := validateResourceElement(resource, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
 }
 
 func TestValidate_ServiceTest(t *testing.T) {
@@ -977,5 +985,6 @@ func TestValidate_MapHasFloats(t *testing.T) {
 		Kind: "Deployment",
 	}
 
-	assert.NilError(t, Validate(policy, rawResource, gvk))
+	res := Validate(policy, rawResource, gvk)
+	assert.NilError(t, res.ToError())
 }
