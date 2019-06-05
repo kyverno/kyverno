@@ -93,7 +93,7 @@ func TestSkipArrayObject_OneAnchor(t *testing.T) {
 	}`)
 	rawResource := []byte(`{
 		"name":"nirmata-resource",
-		"namespace":"kube-policy",
+		"namespace":"kyverno",
 		"object":{
 			"label":"app",
 			"array":[
@@ -120,7 +120,7 @@ func TestSkipArrayObject_OneNumberAnchorPass(t *testing.T) {
 	rawResource := []byte(`{
 		"name":"nirmata-resource",
 		"count":1,
-		"namespace":"kube-policy",
+		"namespace":"kyverno",
 		"object":{
 			"label":"app",
 			"array":[
@@ -146,7 +146,7 @@ func TestSkipArrayObject_TwoAnchorsPass(t *testing.T) {
 	}`)
 	rawResource := []byte(`{
 		"name":"nirmata-resource",
-		"namespace":"kube-policy",
+		"namespace":"kyverno",
 		"object":{
 			"label":"app",
 			"array":[
@@ -172,7 +172,7 @@ func TestSkipArrayObject_TwoAnchorsSkip(t *testing.T) {
 	}`)
 	rawResource := []byte(`{
 		"name":"nirmata-resource",
-		"namespace":"kube-policy",
+		"namespace":"kyverno",
 		"object":{
 			"label":"app",
 			"array":[
