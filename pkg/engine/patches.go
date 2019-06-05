@@ -14,9 +14,10 @@ type PatchBytes []byte
 
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
-func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, result.RuleApplicationResult) {
-	res := result.RuleApplicationResult{
-		Reason: result.Success,
+func ProcessPatches(rule kubepolicy.Rule, resource []byte) ([]PatchBytes, result.RuleApplicationResult) {
+	res := result.NewRuleApplicationResult(rule.Name)
+	if rule.Mutation == nil || len(rule.Mutation.Patches) == 0 {
+		return nil, res
 	}
 
 	if len(resource) == 0 {
@@ -27,7 +28,7 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 
 	var allPatches []PatchBytes
 	patchedDocument := resource
-	for i, patch := range patches {
+	for i, patch := range rule.Mutation.Patches {
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {
 

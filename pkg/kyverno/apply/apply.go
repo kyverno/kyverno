@@ -98,7 +98,7 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 
 	err := result.ToError()
 	patchedResource := rawResource
-	if err != nil && len(patches) != 0 {
+	if err == nil && len(patches) != 0 {
 		patchedResource, err = engine.ApplyPatches(rawResource, patches)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)

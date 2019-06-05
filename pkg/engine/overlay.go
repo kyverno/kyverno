@@ -7,23 +7,24 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProcessOverlay handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func ProcessOverlay(overlay interface{}, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.RuleApplicationResult) {
+func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.RuleApplicationResult) {
+	overlayApplicationResult := result.NewRuleApplicationResult(rule.Name)
+	if rule.Mutation == nil || rule.Mutation.Overlay == nil {
+		return nil, overlayApplicationResult
+	}
+
 	var resource interface{}
 	var appliedPatches []PatchBytes
 	json.Unmarshal(rawResource, &resource)
 
-	overlayApplicationResult := result.NewRuleApplicationResult("")
-	if overlay == nil {
-		return nil, overlayApplicationResult
-	}
-
-	patch := applyOverlay(resource, overlay, "/", &overlayApplicationResult)
+	patch := applyOverlay(resource, *rule.Mutation.Overlay, "/", &overlayApplicationResult)
 	if overlayApplicationResult.GetReason() == result.Success {
 		appliedPatches = append(appliedPatches, patch...)
 	}

@@ -34,8 +34,8 @@ const endpointsDocument string = `{
 }`
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
-	var empty []types.Patch
-	patches, res := ProcessPatches(empty, []byte(endpointsDocument))
+	var emptyRule = types.Rule{}
+	patches, res := ProcessPatches(emptyRule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patches) == 0)
 }
@@ -48,33 +48,47 @@ func makeAddIsMutatedLabelPatch() types.Patch {
 	}
 }
 
+func makeRuleWithPatch(patch types.Patch) types.Rule {
+	patches := []types.Patch{patch}
+	return makeRuleWithPatches(patches)
+}
+
+func makeRuleWithPatches(patches []types.Patch) types.Rule {
+	mutation := types.Mutation{
+		Patches: patches,
+	}
+	return types.Rule{
+		Mutation: &mutation,
+	}
+}
+
 func TestProcessPatches_EmptyDocument(t *testing.T) {
-	var patches []types.Patch
-	patches = append(patches, makeAddIsMutatedLabelPatch())
-	patchesBytes, res := ProcessPatches(patches, nil)
+	rule := makeRuleWithPatch(makeAddIsMutatedLabelPatch())
+	patchesBytes, res := ProcessPatches(rule, nil)
 	assert.Assert(t, res.ToError() != nil)
 	assert.Assert(t, len(patchesBytes) == 0)
 }
 
 func TestProcessPatches_AllEmpty(t *testing.T) {
-	patchesBytes, res := ProcessPatches(nil, nil)
-	assert.Assert(t, res.ToError() != nil)
+	emptyRule := types.Rule{}
+	patchesBytes, res := ProcessPatches(emptyRule, nil)
+	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 0)
 }
 
 func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	patch := makeAddIsMutatedLabelPatch()
 	patch.Path = "/metadata/additional/is-mutated"
-	patches := []types.Patch{patch}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatch(patch)
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 0)
 }
 
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	patch := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
-	patches := []types.Patch{patch}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatch(patch)
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 0)
 }
@@ -82,8 +96,8 @@ func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
 	patch1 := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := types.Patch{Path: "/spec/labels/label3", Operation: "add", Value: "label3Value"}
-	patches := []types.Patch{patch1, patch2}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatches([]types.Patch{patch1, patch2})
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 0)
 }
@@ -92,8 +106,8 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 	patch1 := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := types.Patch{Path: "/spec/labels/label2", Operation: "remove", Value: "label2Value"}
 	patch3 := types.Patch{Path: "/metadata/labels/label3", Operation: "add", Value: "label3Value"}
-	patches := []types.Patch{patch1, patch2, patch3}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatches([]types.Patch{patch1, patch2, patch3})
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 1)
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, patchesBytes[0])
@@ -101,8 +115,8 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 
 func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 	patch := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
-	patches := []types.Patch{patch}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatch(patch)
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 0)
 }
@@ -110,8 +124,8 @@ func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	patch1 := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := types.Patch{Path: "/metadata/labels/label2", Operation: "add", Value: "label2Value"}
-	patches := []types.Patch{patch1, patch2}
-	patchesBytes, res := ProcessPatches(patches, []byte(endpointsDocument))
+	rule := makeRuleWithPatches([]types.Patch{patch1, patch2})
+	patchesBytes, res := ProcessPatches(rule, []byte(endpointsDocument))
 	assert.NilError(t, res.ToError())
 	assert.Assert(t, len(patchesBytes) == 1)
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, patchesBytes[0])
