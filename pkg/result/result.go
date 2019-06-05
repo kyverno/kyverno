@@ -14,7 +14,7 @@ const (
 	TabIndent Indent = "\t"
 )
 
-// Result is an interface that is used for result polymorphic behavio
+// Result is an interface that is used for result polymorphic behavior
 type Result interface {
 	String() string
 	StringWithIndent(indent string) string
