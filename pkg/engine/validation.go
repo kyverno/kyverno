@@ -15,7 +15,6 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
 
-	// Fill message at webhook server level
 	policyResult := result.NewPolicyApplicationResult(policy.Name)
 
 	for _, rule := range policy.Spec.Rules {
@@ -33,7 +32,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		}
 
 		validationResult := validateResourceWithPattern(resource, rule.Validation.Pattern)
-		if result.Failed == validationResult.Reason {
+		if result.Success != validationResult.Reason {
 			ruleApplicationResult.MergeWith(&validationResult)
 			ruleApplicationResult.AddMessagef(*rule.Validation.Message)
 		} else {

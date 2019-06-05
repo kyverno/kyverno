@@ -7,41 +7,28 @@ import (
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/glog"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProcessOverlay handles validating admission request
 // Checks the target resourse for rules defined in the policy
-func ProcessOverlay(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.Result) {
+func ProcessOverlay(overlay interface{}, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.RuleApplicationResult) {
 	var resource interface{}
+	var appliedPatches []PatchBytes
 	json.Unmarshal(rawResource, &resource)
 
-	var appliedPatches []PatchBytes
-	policyResult := result.NewPolicyApplicationResult(policy.Name)
-	for _, rule := range policy.Spec.Rules {
-		if rule.Mutation == nil || rule.Mutation.Overlay == nil {
-			continue
-		}
-
-		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
-		if !ok {
-			glog.Infof("Rule \"%s\" is not applicable to resource\n", rule.Name)
-			continue
-		}
-
-		ruleResult := result.NewRuleApplicationResult(rule.Name)
-		patch := applyOverlay(resource, *rule.Mutation.Overlay, "/", &ruleResult)
-		policyResult = result.Append(policyResult, &ruleResult)
-
-		if ruleResult.GetReason() == result.Success {
-			appliedPatches = append(appliedPatches, patch...)
-		}
+	overlayApplicationResult := result.NewRuleApplicationResult("")
+	if overlay == nil {
+		return nil, overlayApplicationResult
 	}
 
-	return appliedPatches, policyResult
+	patch := applyOverlay(resource, overlay, "/", &overlayApplicationResult)
+	if overlayApplicationResult.GetReason() == result.Success {
+		appliedPatches = append(appliedPatches, patch...)
+	}
+
+	return appliedPatches, overlayApplicationResult
 }
 
 // goes down through overlay and resource trees and applies overlay

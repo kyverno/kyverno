@@ -86,7 +86,7 @@ func (rar *RuleApplicationResult) AddMessagef(message string, a ...interface{}) 
 // Sets the Reason Failed and adds formatted message to this result
 func (rar *RuleApplicationResult) FailWithMessagef(message string, a ...interface{}) {
 	rar.Reason = Failed
-	rar.AddMessagef(message, a)
+	rar.AddMessagef(message, a...)
 }
 
 // Takes messages and higher reason from another RuleApplicationResult

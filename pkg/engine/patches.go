@@ -18,6 +18,7 @@ func ProcessPatches(patches []kubepolicy.Patch, resource []byte) ([]PatchBytes, 
 	res := result.RuleApplicationResult{
 		Reason: result.Success,
 	}
+
 	if len(resource) == 0 {
 		res.AddMessagef("Source document for patching is empty")
 		res.Reason = result.Failed
