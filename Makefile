@@ -23,7 +23,7 @@ GOOS ?= $(shell go env GOOS)
 OUTPUT=$(shell pwd)/_output/cli/$(BIN)
 
 build:
-	GOOS=linux go build -ldflags=$(LD_FLAGS) $(MAIN)
+	CGO_ENABLED=0 GOOS=linux go build -ldflags=$(LD_FLAGS) $(MAIN)
 
 local:
 	go build -ldflags=$(LD_FLAGS) $(MAIN)
