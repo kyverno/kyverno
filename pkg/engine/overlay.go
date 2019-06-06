@@ -13,7 +13,7 @@ import (
 )
 
 // ProcessOverlay handles validating admission request
-// Checks the target resourse for rules defined in the policy
+// Checks the target resources for rules defined in the policy
 func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.RuleApplicationResult) {
 	overlayApplicationResult := result.NewRuleApplicationResult(rule.Name)
 	if rule.Mutation == nil || rule.Mutation.Overlay == nil {
@@ -112,7 +112,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string, res *resu
 	case map[string]interface{}:
 		for _, overlayElement := range overlay {
 			typedOverlay := overlayElement.(map[string]interface{})
-			anchors := GetAnchorsFromMap(typedOverlay)
+			anchors := getAnchorsFromMap(typedOverlay)
 			if len(anchors) > 0 {
 				for i, resourceElement := range resource {
 					typedResource := resourceElement.(map[string]interface{})
@@ -170,7 +170,7 @@ func fillEmptyArray(overlay []interface{}, path string, res *result.RuleApplicat
 	case map[string]interface{}:
 		for _, overlayElement := range overlay {
 			typedOverlay := overlayElement.(map[string]interface{})
-			anchors := GetAnchorsFromMap(typedOverlay)
+			anchors := getAnchorsFromMap(typedOverlay)
 
 			if len(anchors) == 0 {
 				patch := insertSubtree(overlayElement, path, res)
@@ -287,7 +287,7 @@ func prepareJSONValue(overlay interface{}) string {
 func hasOnlyAnchors(overlay interface{}) bool {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:
-		if anchors := GetAnchorsFromMap(typed); len(anchors) == len(typed) {
+		if anchors := getAnchorsFromMap(typed); len(anchors) == len(typed) {
 			return true
 		}
 
@@ -306,7 +306,7 @@ func hasOnlyAnchors(overlay interface{}) bool {
 func hasNestedAnchors(overlay interface{}) bool {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:
-		if anchors := GetAnchorsFromMap(typed); len(anchors) > 0 {
+		if anchors := getAnchorsFromMap(typed); len(anchors) > 0 {
 			return true
 		}
 

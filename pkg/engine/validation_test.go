@@ -206,7 +206,7 @@ func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
 	var unmarshalled map[string]interface{}
 	json.Unmarshal(rawMap, &unmarshalled)
 
-	actualMap := GetAnchorsFromMap(unmarshalled)
+	actualMap := getAnchorsFromMap(unmarshalled)
 	assert.Equal(t, len(actualMap), 2)
 	assert.Equal(t, actualMap["(name)"].(string), "nirmata-*")
 	assert.Equal(t, actualMap["(namespace)"].(string), "kube-?olicy")
@@ -227,7 +227,7 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 	var unmarshalled map[string]interface{}
 	json.Unmarshal(rawMap, &unmarshalled)
 
-	actualMap := GetAnchorsFromMap(unmarshalled)
+	actualMap := getAnchorsFromMap(unmarshalled)
 	assert.Assert(t, len(actualMap) == 0)
 }
 

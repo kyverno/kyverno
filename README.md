@@ -1,6 +1,6 @@
 # Kyverno - Kubernetes Native Policy Management
 
-[![Build Status](https://travis-ci.org/nirmata/kyverno.svg?branch=master)](https://travis-ci.org/nirmata/kyverno)
+[![Build Status](https://travis-ci.org/nirmata/kyverno.svg?branch=master)](https://travis-ci.org/nirmata/kyverno) [![Go Report Card](https://goreportcard.com/badge/github.com/nirmata/kyverno)](https://goreportcard.com/report/github.com/nirmata/kyverno)
 
 ![logo](documentation/images/Kyverno_Horizontal.png)
 

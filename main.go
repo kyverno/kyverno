@@ -45,7 +45,7 @@ func main() {
 		violationBuilder,
 		eventController)
 
-	tlsPair, err := initTlsPemPair(clientConfig, client)
+	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}

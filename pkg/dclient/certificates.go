@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// Issues TLS certificate for webhook server using given PEM private key
+//GenerateTlsPemPair Issues TLS certificate for webhook server using given PEM private key
 // Returns signed and approved TLS certificate in PEM format
 func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
 	privateKey, err := tls.TlsGeneratePrivateKey()
@@ -26,17 +26,17 @@ func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemP
 
 	certRequest, err := tls.TlsCertificateGenerateRequest(privateKey, props)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to create certificate request: %v", err))
+		return nil, fmt.Errorf("Unable to create certificate request: %v", err)
 	}
 
 	certRequest, err = c.submitAndApproveCertificateRequest(certRequest)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to submit and approve certificate request: %v", err))
+		return nil, fmt.Errorf("Unable to submit and approve certificate request: %v", err)
 	}
 
 	tlsCert, err := c.fetchCertificateFromRequest(certRequest, 10)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/nirmata/kyverno/installation.md.: %v", err))
+		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/nirmata/kyverno/installation.md.: %v", err)
 	}
 
 	return &tls.TlsPemPair{
@@ -53,14 +53,14 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	}
 	csrList, err := c.ListResource(CSRs, "")
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to list existing certificate requests: %v", err))
+		return nil, fmt.Errorf("Unable to list existing certificate requests: %v", err)
 	}
 
 	for _, csr := range csrList.Items {
 		if csr.GetName() == req.ObjectMeta.Name {
 			err := c.DeleteResouce(CSRs, "", csr.GetName())
 			if err != nil {
-				return nil, errors.New(fmt.Sprintf("Unable to delete existing certificate request: %v", err))
+				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
 			}
 			glog.Info("Old certificate request is deleted")
 			break
@@ -84,7 +84,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	})
 	res, err = certClient.UpdateApproval(res)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to approve certificate request: %v", err))
+		return nil, fmt.Errorf("Unable to approve certificate request: %v", err)
 	}
 	glog.Infof("Certificate request %s is approved", res.ObjectMeta.Name)
 
@@ -115,9 +115,10 @@ func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSignin
 			}
 		}
 	}
-	return nil, errors.New(fmt.Sprintf("Cerificate fetch timeout is reached: %d seconds", maxWaitSeconds))
+	return nil, fmt.Errorf("Cerificate fetch timeout is reached: %d seconds", maxWaitSeconds)
 }
 
+//ReadRootCASecret returns the RootCA from the pre-defined secret
 func (c *Client) ReadRootCASecret() (result []byte) {
 	certProps, err := c.GetTLSCertProps(c.clientConfig)
 	if err != nil {
@@ -147,7 +148,7 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 const selfSignedAnnotation string = "self-signed-cert"
 const rootCAKey string = "rootCA.crt"
 
-// Reads the pair of TLS certificate and key from the specified secret.
+//ReadTlsPair Reads the pair of TLS certificate and key from the specified secret.
 func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	sname := generateTLSPairSecretName(props)
 	unstrSecret, err := c.GetResource(Secrets, props.Namespace, sname)
@@ -186,7 +187,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	return &pemPair
 }
 
-// Writes the pair of TLS certificate and key to the specified secret.
+//WriteTlsPair Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	name := generateTLSPairSecretName(props)

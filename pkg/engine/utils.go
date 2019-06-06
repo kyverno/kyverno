@@ -18,7 +18,7 @@ func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.Resourc
 	}
 
 	if resourceRaw != nil {
-		meta := ParseMetadataFromObject(resourceRaw)
+		meta := parseMetadataFromObject(resourceRaw)
 		name := ParseNameFromObject(resourceRaw)
 
 		if description.Name != nil {
@@ -35,7 +35,7 @@ func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.Resourc
 				return false
 			}
 
-			labelMap := ParseLabelsFromMetadata(meta)
+			labelMap := parseLabelsFromMetadata(meta)
 
 			if !selector.Matches(labelMap) {
 				return false
@@ -46,21 +46,21 @@ func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.Resourc
 	return true
 }
 
-func ParseMetadataFromObject(bytes []byte) map[string]interface{} {
+func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
 	return objectJSON["metadata"].(map[string]interface{})
 }
 
-func ParseKindFromObject(bytes []byte) string {
+func parseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
 	return objectJSON["kind"].(string)
 }
 
-func ParseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
+func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	if interfaceMap, ok := meta["labels"].(map[string]interface{}); ok {
 		labelMap := make(labels.Set, len(interfaceMap))
 
@@ -72,6 +72,7 @@ func ParseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 	return nil
 }
 
+//ParseNameFromObject extracts resource name from JSON obj
 func ParseNameFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
@@ -84,6 +85,7 @@ func ParseNameFromObject(bytes []byte) string {
 	return ""
 }
 
+// ParseNamespaceFromObject extracts the namespace from the JSON obj
 func ParseNamespaceFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
@@ -105,7 +107,7 @@ func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 	return strings.Trim(regex[1], " "), true
 }
 
-func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
+func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {

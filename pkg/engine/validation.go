@@ -10,7 +10,7 @@ import (
 )
 
 // Validate handles validating admission request
-// Checks the target resourse for rules defined in the policy
+// Checks the target resources for rules defined in the policy
 func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) result.Result {
 	var resource interface{}
 	json.Unmarshal(rawResource, &resource)
@@ -116,7 +116,7 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 
 	switch pattern := patternArray[0].(type) {
 	case map[string]interface{}:
-		anchors := GetAnchorsFromMap(pattern)
+		anchors := getAnchorsFromMap(pattern)
 		for i, value := range resourceArray {
 			currentPath := path + strconv.Itoa(i) + "/"
 			resource, ok := value.(map[string]interface{})

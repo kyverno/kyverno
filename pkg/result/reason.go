@@ -4,9 +4,9 @@ package result
 type Reason int
 
 const (
-	//PolicyViolation there is a violation of policy
-	Success Reason = iota
 	//Success policy applied
+	Success Reason = iota
+	//Violation there is a violation of policy
 	Violation
 	//Failed the request to create/update the resource was blocked(generated from admission-controller)
 	Failed

@@ -37,6 +37,7 @@ type RuleApplicationResult struct {
 	Messages   []string
 }
 
+//NewRuleApplicationResult creates a new rule application result
 func NewRuleApplicationResult(ruleName string) RuleApplicationResult {
 	return RuleApplicationResult{
 		PolicyRule: ruleName,
@@ -67,6 +68,7 @@ func (e *RuleApplicationResult) String() string {
 	return e.StringWithIndent("")
 }
 
+// ToError returns the error if reason is not success
 func (e *RuleApplicationResult) ToError() error {
 	if e.Reason != Success {
 		return fmt.Errorf(e.String())
@@ -74,22 +76,23 @@ func (e *RuleApplicationResult) ToError() error {
 	return nil
 }
 
+//GetReason returns reason
 func (e *RuleApplicationResult) GetReason() Reason {
 	return e.Reason
 }
 
-// Adds formatted message to this result
-func (rar *RuleApplicationResult) AddMessagef(message string, a ...interface{}) {
-	rar.Messages = append(rar.Messages, fmt.Sprintf(message, a...))
+//AddMessagef Adds formatted message to this result
+func (e *RuleApplicationResult) AddMessagef(message string, a ...interface{}) {
+	e.Messages = append(e.Messages, fmt.Sprintf(message, a...))
 }
 
-// Sets the Reason Failed and adds formatted message to this result
-func (rar *RuleApplicationResult) FailWithMessagef(message string, a ...interface{}) {
-	rar.Reason = Failed
-	rar.AddMessagef(message, a...)
+//FailWithMessagef Sets the Reason Failed and adds formatted message to this result
+func (e *RuleApplicationResult) FailWithMessagef(message string, a ...interface{}) {
+	e.Reason = Failed
+	e.AddMessagef(message, a...)
 }
 
-// Takes messages and higher reason from another RuleApplicationResult
+//MergeWith Takes messages and higher reason from another RuleApplicationResult
 func (e *RuleApplicationResult) MergeWith(other *RuleApplicationResult) {
 	if other != nil {
 		e.Messages = append(e.Messages, other.Messages...)
@@ -122,6 +125,7 @@ func (e *CompositeResult) String() string {
 	return e.StringWithIndent("")
 }
 
+//ToError returns error if reason is not success
 func (e *CompositeResult) ToError() error {
 	if e.Reason != Success {
 		return fmt.Errorf(e.String())
@@ -129,10 +133,12 @@ func (e *CompositeResult) ToError() error {
 	return nil
 }
 
+//GetReason returns reason
 func (e *CompositeResult) GetReason() Reason {
 	return e.Reason
 }
 
+//NewPolicyApplicationResult creates a new policy application result
 func NewPolicyApplicationResult(policyName string) Result {
 	return &CompositeResult{
 		Message: fmt.Sprintf("policy - %s:", policyName),
@@ -140,6 +146,7 @@ func NewPolicyApplicationResult(policyName string) Result {
 	}
 }
 
+//NewAdmissionResult creates a new admission result
 func NewAdmissionResult(requestUID string) Result {
 	return &CompositeResult{
 		Message: fmt.Sprintf("For resource with UID - %s:", requestUID),

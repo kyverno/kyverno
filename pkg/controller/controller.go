@@ -102,6 +102,7 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
+//Stop to perform actions when controller is stopped
 func (pc *PolicyController) Stop() {
 	glog.Info("shutting down policy controller workers")
 }
@@ -144,7 +145,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 	pc.queue.Forget(key)
 	utilruntime.HandleError(err)
-	glog.Warning("Dropping the key %q out of the queue: %v", key, err)
+	glog.Warningf("Dropping the key %q out of the queue: %v", key, err)
 }
 
 func (pc *PolicyController) syncHandler(obj interface{}) error {

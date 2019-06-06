@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+//Client enables interaction with k8 resource
 type Client struct {
 	client       dynamic.Interface
 	cachedClient discovery.CachedDiscoveryInterface
@@ -32,6 +33,7 @@ type Client struct {
 	kclient      *kubernetes.Clientset
 }
 
+//NewClient creates new instance of client
 func NewClient(config *rest.Config) (*Client, error) {
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
@@ -51,6 +53,7 @@ func NewClient(config *rest.Config) (*Client, error) {
 	}, nil
 }
 
+//GetKubePolicyDeployment returns kube policy depoyment value
 func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	kubePolicyDeployment, err := c.GetResource("deployments", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
 	if err != nil {
@@ -63,13 +66,14 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 	return &deploy, nil
 }
 
+//GetEventsInterface provides typed interface for events
 //TODO: can we use dynamic client to fetch the typed interface
 // or generate a kube client value to access the interface
-//GetEventsInterface provides typed interface for events
 func (c *Client) GetEventsInterface() (event.EventInterface, error) {
 	return c.kclient.CoreV1().Events(""), nil
 }
 
+//GetCSRInterface provides type interface for CSR
 func (c *Client) GetCSRInterface() (csrtype.CertificateSigningRequestInterface, error) {
 	return c.kclient.CertificatesV1beta1().CertificateSigningRequests(), nil
 }
@@ -110,6 +114,7 @@ func (c *Client) ListResource(resource string, namespace string) (*unstructured.
 	return c.getResourceInterface(resource, namespace).List(meta.ListOptions{})
 }
 
+// DeleteResouce deletes the specified resource
 func (c *Client) DeleteResouce(resource string, namespace string, name string) error {
 	return c.getResourceInterface(resource, namespace).Delete(name, &meta.DeleteOptions{})
 
@@ -228,7 +233,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 	timeStart := time.Now()
 
-	var lastError error = nil
+	var lastError error
 	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
 		_, lastError = c.GetResource(Namespaces, "", name)
 		if lastError == nil {
@@ -253,7 +258,7 @@ func (c *Client) getGVR(resource string) schema.GroupVersionResource {
 	}
 	//TODO using cached client to support cache validation and invalidation
 	// iterate over the key to compare the resource
-	for gvr, _ := range resources {
+	for gvr := range resources {
 		if gvr.Resource == resource {
 			return gvr
 		}

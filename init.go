@@ -28,7 +28,7 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 // Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func initTlsPemPair(configuration *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
+func initTLSPemPair(configuration *rest.Config, client *client.Client) (*tls.TlsPemPair, error) {
 	certProps, err := client.GetTLSCertProps(configuration)
 	if err != nil {
 		return nil, err
