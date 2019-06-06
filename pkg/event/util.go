@@ -17,6 +17,7 @@ type Info struct {
 //MsgKey is an identified to determine the preset message formats
 type MsgKey int
 
+//Message id for pre-defined messages
 const (
 	FResourcePolcy MsgKey = iota
 	FProcessRule

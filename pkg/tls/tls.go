@@ -14,25 +14,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Properties of TLS certificate which should be issued for webhook server
+//TlsCertificateProps Properties of TLS certificate which should be issued for webhook server
 type TlsCertificateProps struct {
 	Service       string
 	Namespace     string
 	ApiServerHost string
 }
 
-// The pair of TLS certificate corresponding private key, both in PEM format
+//TlsPemPair The pair of TLS certificate corresponding private key, both in PEM format
 type TlsPemPair struct {
 	Certificate []byte
 	PrivateKey  []byte
 }
 
-// Generates RSA private key
+//TlsGeneratePrivateKey Generates RSA private key
 func TlsGeneratePrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(rand.Reader, 2048)
 }
 
-// Creates PEM block from private key object
+//TlsPrivateKeyToPem Creates PEM block from private key object
 func TlsPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	privateKey := &pem.Block{
 		Type:  "PRIVATE KEY",
@@ -42,7 +42,7 @@ func TlsPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(privateKey)
 }
 
-// Creates PEM block from raw certificate request
+//TlsCertificateRequestToPem Creates PEM block from raw certificate request
 func TlsCertificateRequestToPem(csrRaw []byte) []byte {
 	csrBlock := &pem.Block{
 		Type:  "CERTIFICATE REQUEST",
@@ -52,7 +52,7 @@ func TlsCertificateRequestToPem(csrRaw []byte) []byte {
 	return pem.EncodeToMemory(csrBlock)
 }
 
-// Generates raw certificate signing request
+//TlsCertificateGenerateRequest Generates raw certificate signing request
 func TlsCertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificateProps) (*certificates.CertificateSigningRequest, error) {
 	dnsNames := make([]string, 3)
 	dnsNames[0] = props.Service
@@ -104,12 +104,12 @@ func TlsCertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertific
 	}, nil
 }
 
-// The generated service name should be the common name for TLS certificate
+//GenerateInClusterServiceName The generated service name should be the common name for TLS certificate
 func GenerateInClusterServiceName(props TlsCertificateProps) string {
 	return props.Service + "." + props.Namespace + ".svc"
 }
 
-//Gets NotAfter property from raw certificate
+//TlsCertificateGetExpirationDate Gets NotAfter property from raw certificate
 func TlsCertificateGetExpirationDate(certData []byte) (*time.Time, error) {
 	block, _ := pem.Decode(certData)
 	if block == nil {
@@ -127,6 +127,7 @@ func TlsCertificateGetExpirationDate(certData []byte) (*time.Time, error) {
 // an expired certificate in a controller that has been running for a long time
 const timeReserveBeforeCertificateExpiration time.Duration = time.Hour * 24 * 30 * 6 // About half a year
 
+//IsTlsPairShouldBeUpdated checks if TLS pair has expited and needs to be updated
 func IsTlsPairShouldBeUpdated(tlsPair *TlsPemPair) bool {
 	if tlsPair == nil {
 		return true

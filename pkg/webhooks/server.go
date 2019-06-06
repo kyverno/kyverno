@@ -163,13 +163,13 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			Patch:     engine.JoinPatches(allPatches),
 			PatchType: &patchType,
 		}
-	} else {
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Message: message,
-			},
-		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Message: message,
+		},
 	}
 }
 
@@ -249,7 +249,7 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 		glog.Errorf("Error: Can't decode body as AdmissionReview: %v", err)
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
-	} else {
-		return admissionReview
 	}
+
+	return admissionReview
 }

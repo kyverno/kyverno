@@ -11,11 +11,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+//PolicyInformer access policy informers
 type PolicyInformer interface {
 	GetLister() v1alpha1.PolicyLister
 	GetInfomer() cache.SharedIndexInformer
 }
 
+// SharedInfomer access shared informers
 type SharedInfomer interface {
 	PolicyInformer
 	Run(stopCh <-chan struct{})
@@ -25,7 +27,7 @@ type sharedInfomer struct {
 	policyInformerFactory informers.SharedInformerFactory
 }
 
-//NewSharedInformer returns shared informer
+//NewSharedInformerFactory returns shared informer
 func NewSharedInformerFactory(clientConfig *rest.Config) (SharedInfomer, error) {
 	// create policy client
 	policyClientset, err := policyclientset.NewForConfig(clientConfig)
