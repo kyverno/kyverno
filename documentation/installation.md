@@ -79,6 +79,8 @@ Kyverno uses secrets created above to setup TLS communication with the kube-apis
 
 ### 3. Install Kyverno
 
+To install a specific version, change the image tag with git tag in `install.yaml` -- e.g., v0.X.0.
+
 ````sh
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 ````
