@@ -56,3 +56,33 @@ docker-tag-repo:
 docker-push:
 	@docker push $(REPO):$(IMAGE_TAG)
 	@docker push $(REPO):latest
+
+## Testing & Code-Coverage
+
+## variables
+BIN_DIR := $(GOPATH)/bin
+GO_ACC := $(BIN_DIR)/go-acc
+CODE_COVERAGE_FILE:= coverage
+CODE_COVERAGE_FILE_TXT := $(CODE_COVERAGE_FILE).txt
+CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
+
+## targets
+$(GO_ACC):
+	@echo "	downloading testing tools"
+	go get -v github.com/ory/go-acc
+	$(eval export PATH=$(GO_ACC):$(PATH))
+# go test provides code coverage per packages only.
+# go-acc merges the result for pks so that it be used by	
+# go tool cover for reporting
+
+# go get downloads and installs the binary
+# we temporarily add the GO_ACC to the path
+test-all: $(GO_ACC)
+	@echo "	running unit tests"
+	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
+
+code-cov-report: $(CODE_COVERAGE_FILE_TXT)
+# transform to html format
+	@echo "	generating code coverage report"
+	go tool cover -html=coverage.txt
+	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
