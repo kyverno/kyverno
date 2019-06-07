@@ -89,6 +89,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response.UID = admissionReview.Request.UID
 
 	responseJson, err := json.Marshal(admissionReview)
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 		return
@@ -116,7 +117,7 @@ func (ws *WebhookServer) Stop() {
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {
 		// Error from closing listeners, or context timeout:
-		glog.Info("Server Shutdown error: %v", err)
+		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
 }
@@ -239,7 +240,7 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 
 	contentType := request.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		glog.Error("Error: invalid Content-Type: %v", contentType)
+		glog.Error("Error: invalid Content-Type: ", contentType)
 		http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return nil
 	}

@@ -1,11 +1,10 @@
-package webhooks_test
+package webhooks
 
 import (
 	"bytes"
 	"io/ioutil"
 	"testing"
 
-	"github.com/nirmata/kyverno/pkg/webhooks"
 	"gotest.tools/assert"
 	rest "k8s.io/client-go/rest"
 )
@@ -22,7 +21,7 @@ func TestExtractCA_EmptyBundle(t *testing.T) {
 
 	expected, err := ioutil.ReadFile(CAFile)
 	assert.Assert(t, err == nil)
-	actual := webhooks.ExtractCA(config)
+	actual := extractCA(config)
 	assert.Assert(t, bytes.Equal(expected, actual))
 }
 
@@ -36,7 +35,7 @@ func TestExtractCA_EmptyCAFile(t *testing.T) {
 		},
 	}
 
-	actual := webhooks.ExtractCA(config)
+	actual := extractCA(config)
 	assert.Assert(t, bytes.Equal(CABundle, actual))
 }
 
@@ -48,7 +47,7 @@ func TestExtractCA_EmptyConfig(t *testing.T) {
 		},
 	}
 
-	actual := webhooks.ExtractCA(config)
+	actual := extractCA(config)
 	assert.Assert(t, actual == nil)
 }
 
@@ -60,6 +59,6 @@ func TestExtractCA_InvalidFile(t *testing.T) {
 		},
 	}
 
-	actual := webhooks.ExtractCA(config)
+	actual := extractCA(config)
 	assert.Assert(t, actual == nil)
 }
