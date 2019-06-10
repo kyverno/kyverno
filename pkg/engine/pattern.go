@@ -3,7 +3,6 @@ package engine
 import (
 	"math"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -58,6 +57,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	}
 }
 
+// Handler for int values during validation process
 func validateValueWithIntPattern(value interface{}, pattern int64) bool {
 	switch typedValue := value.(type) {
 	case int:
@@ -78,6 +78,7 @@ func validateValueWithIntPattern(value interface{}, pattern int64) bool {
 	}
 }
 
+// Handler for float values during validation process
 func validateValueWithFloatPattern(value interface{}, pattern float64) bool {
 	switch typedValue := value.(type) {
 	case int:
@@ -96,6 +97,7 @@ func validateValueWithFloatPattern(value interface{}, pattern float64) bool {
 	}
 }
 
+// Handler for nil values during validation process
 func validateValueWithNilPattern(value interface{}) bool {
 	switch typed := value.(type) {
 	case float64:
@@ -119,6 +121,7 @@ func validateValueWithNilPattern(value interface{}) bool {
 	}
 }
 
+// Handler for pattern values during validation process
 func validateValueWithStringPatterns(value interface{}, pattern string) bool {
 	statements := strings.Split(pattern, "|")
 	for _, statement := range statements {
@@ -131,6 +134,8 @@ func validateValueWithStringPatterns(value interface{}, pattern string) bool {
 	return false
 }
 
+// Handler for single pattern value during validation process
+// Detects if pattern has a number
 func validateValueWithStringPattern(value interface{}, pattern string) bool {
 	operator := getOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
@@ -143,6 +148,7 @@ func validateValueWithStringPattern(value interface{}, pattern string) bool {
 	return validateNumberWithStr(value, number, str, operator)
 }
 
+// Handler for string values
 func validateString(value interface{}, pattern string, operator Operator) bool {
 	if NotEqual == operator || Equal == operator {
 		strValue, ok := value.(string)
@@ -164,6 +170,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 	return false
 }
 
+// validateNumberWithStr applies wildcard to suffix and operator to numerical part
 func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
 	// pattern has suffix
 	if "" != patternStr {
@@ -179,51 +186,21 @@ func validateNumberWithStr(value interface{}, patternNumber, patternStr string, 
 			return false
 		}
 
-		valueParsedNumber, err := parseNumber(valueNumber)
-		if err != nil {
-			return false
-		}
-
-		return validateNumber(valueParsedNumber, patternNumber, operator)
+		return validateNumber(valueNumber, patternNumber, operator)
 	}
 
 	return validateNumber(value, patternNumber, operator)
 }
 
+// validateNumber compares two numbers with operator
 func validateNumber(value, pattern interface{}, operator Operator) bool {
-	var floatPattern, floatValue float64
-
-	switch typed := value.(type) {
-	case string:
-		var err error
-		floatValue, err = strconv.ParseFloat(typed, 64)
-		if err != nil {
-			return false
-		}
-	case float64:
-		floatValue = typed
-	case int64:
-		floatValue = float64(typed)
-	case int:
-		floatValue = float64(typed)
-	default:
+	floatPattern, err := convertToFloat(pattern)
+	if err != nil {
 		return false
 	}
 
-	switch typed := pattern.(type) {
-	case string:
-		var err error
-		floatPattern, err = strconv.ParseFloat(typed, 64)
-		if err != nil {
-			return false
-		}
-	case float64:
-		floatPattern = typed
-	case int64:
-		floatPattern = float64(typed)
-	case int:
-		floatPattern = float64(typed)
-	default:
+	floatValue, err := convertToFloat(value)
+	if err != nil {
 		return false
 	}
 
@@ -245,6 +222,7 @@ func validateNumber(value, pattern interface{}, operator Operator) bool {
 	return false
 }
 
+// getOperatorFromStringPattern parses opeartor from pattern
 func getOperatorFromStringPattern(pattern string) Operator {
 	if len(pattern) < 2 {
 		return Equal
@@ -273,24 +251,11 @@ func getOperatorFromStringPattern(pattern string) Operator {
 	return Equal
 }
 
+// detects numerical and string parts in pattern and returns them
 func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
 	regexpStr := `^(\d*(\.\d+)?)(.*)`
 	re := regexp.MustCompile(regexpStr)
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	match := matches[0]
 	return match[1], match[3]
-}
-
-func parseNumber(number string) (interface{}, error) {
-	var err error
-
-	if floatValue, err := strconv.ParseFloat(number, 64); err == nil {
-		return floatValue, nil
-	}
-
-	if intValue, err := strconv.ParseInt(number, 10, 64); err == nil {
-		return intValue, nil
-	}
-
-	return nil, err
 }

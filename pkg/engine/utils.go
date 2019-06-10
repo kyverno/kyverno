@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/minio/minio/pkg/wildcard"
@@ -98,7 +100,7 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
-// returns true if policyResourceName is a regexp
+// ParseRegexPolicyResourceName returns true if policyResourceName is a regexp
 func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 	regex := strings.Split(policyResourceName, "regex:")
 	if len(regex) == 1 {
@@ -154,6 +156,7 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 	return false
 }
 
+// removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
 	if wrappedWithParentheses(key) {
 		return key[1 : len(key)-1]
@@ -162,4 +165,26 @@ func removeAnchor(key string) string {
 	// TODO: Add logic for other anchors here
 
 	return key
+}
+
+// convertToFloat converts string and any other value to float64
+func convertToFloat(value interface{}) (float64, error) {
+	switch typed := value.(type) {
+	case string:
+		var err error
+		floatValue, err := strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return floatValue, nil
+	case float64:
+		return typed, nil
+	case int64:
+		return float64(typed), nil
+	case int:
+		return float64(typed), nil
+	default:
+		return 0, fmt.Errorf("Could not convert %T to float64", value)
+	}
 }
