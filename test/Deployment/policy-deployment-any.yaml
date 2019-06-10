@@ -6,7 +6,7 @@ spec :
   rules:
     - name: "First policy v2"
       resource:
-        kinds : 
+        kinds :
         - Deployment
       mutate:
         patches:

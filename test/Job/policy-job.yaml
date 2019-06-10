@@ -4,6 +4,21 @@ metadata:
   name: policy-job-perl-bigint
 spec :
   rules:
+    - name: job2
+      resource:
+        kinds:
+        - Job
+        name: pi
+      mutate:
+        overlay:
+          spec:
+            template:
+              spec:
+                containers:
+                - (name): piv0
+                  ports:
+                  - containerPort: 80
+                    protocol: TCP    
     - name: job1
       resource:
         kinds:
@@ -36,18 +51,3 @@ spec :
             template:
               spec:
                 restartPolicy: Never
-    - name: job2
-      resource:
-        kinds:
-        - Job
-        name: pi
-      mutate:
-        overlay:
-          spec:
-            template:
-              spec:
-                containers:
-                - (name): piv0
-                  ports:
-                  - containerPort: 80
-                    protocol: TCP

@@ -6,7 +6,7 @@ spec:
   rules:
     - name: statefulset1
       resource:
-        kinds : 
+        kinds :
         - StatefulSet
         selector:
           matchLabels:

@@ -35,4 +35,4 @@ spec:
               - name: "*"
                 resources:
                   requests:
-                    cpu: "<4"
+                    cpu: "<4m"
