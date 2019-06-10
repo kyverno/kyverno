@@ -105,10 +105,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, path string) re
 			res.FailWithMessagef("Field %s is not present", key)
 		} else {
 			elementResult := validateResourceElement(resourceMap[key], patternElement, path+key+"/")
-			if result.Failed == elementResult.Reason {
-				res.Reason = elementResult.Reason
-				res.Messages = append(res.Messages, elementResult.Messages...)
-			}
+			res.MergeWith(&elementResult)
 		}
 	}
 
