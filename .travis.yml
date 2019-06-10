@@ -12,7 +12,8 @@ branches:
 install: true
 
 script: 
-  - make build
+  - make build || travis_terminate 1;
+  - make test-all || travis_terminate 1;
 
 after_script:
   - curl -d "repo=https://github.com/nirmata/kyverno" https://goreportcard.com/checks
