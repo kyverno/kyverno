@@ -6,7 +6,7 @@ spec:
   rules:
     - name: pvc1
       resource:
-        kinds : 
+        kinds :
         - PersistentVolumeClaim
         matchLabels:
             originalLabel: isHere
@@ -22,4 +22,4 @@ spec:
         pattern:
           spec:
             accessModes:
-              - ReadWrite
+              - ReadWrite*

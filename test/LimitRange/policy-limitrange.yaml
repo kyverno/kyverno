@@ -6,20 +6,20 @@ spec :
   rules:
     - name: "rule"
       resource:
-        kinds : 
+        kinds :
         - LimitRange
         selector:
           matchLabels:
             containerSize: minimal
       mutate:
         patches:
-        - path : "/spec/limits/0/memory"
-          op : replace
-          value: "384Mi"
+        - path : "/spec/limits/0/default/memory"
+          op : add
+          value: 384Mi
       validate:
         message: "The CPU value is incorrect"
         pattern:
           spec:
             limits:
             - default:
-                cpu: 9m
+                cpu: 10m

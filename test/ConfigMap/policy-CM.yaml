@@ -12,7 +12,7 @@ spec :
       mutate:
         overlay:
           data:
-            char.properties: |
+            char.properties:
               Name=Ellen Ripley
               Race=human
         patches:

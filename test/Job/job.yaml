@@ -9,7 +9,9 @@ spec:
       - name: piv0
         image: perl
         command: ["perl"]
-          ports: dsvd12
+        ports:
+        - containerPort: 90
+          protocol: TCP
       - name: pi
         image: perl
         command: ["perl"]
