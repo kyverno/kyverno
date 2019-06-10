@@ -153,3 +153,13 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 
 	return false
 }
+
+func removeAnchor(key string) string {
+	if wrappedWithParentheses(key) {
+		return key[1 : len(key)-1]
+	}
+
+	// TODO: Add logic for other anchors here
+
+	return key
+}
