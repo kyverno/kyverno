@@ -16,6 +16,7 @@ import (
 
 var (
 	kubeconfig string
+	serverIP   string
 )
 
 func main() {
@@ -55,7 +56,7 @@ func main() {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
-	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client)
+	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP)
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
@@ -81,6 +82,7 @@ func main() {
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	config.LogDefaultFlags()
 	flag.Parse()
 }

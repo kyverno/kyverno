@@ -7,11 +7,13 @@ const (
 	KubePolicyNamespace = "kyverno"
 	WebhookServiceName  = "kyverno-svc"
 
-	MutatingWebhookConfigurationName = "kyverno-mutating-webhook-cfg"
-	MutatingWebhookName              = "nirmata.kyverno.mutating-webhook"
+	MutatingWebhookConfigurationName  = "kyverno-mutating-webhook-cfg"
+	MutatingWebhookConfigurationDebug = "kyverno-mutating-webhook-cfg-debug"
+	MutatingWebhookName               = "nirmata.kyverno.mutating-webhook"
 
-	ValidatingWebhookConfigurationName = "kyverno-validating-webhook-cfg"
-	ValidatingWebhookName              = "nirmata.kyverno.validating-webhook"
+	ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
+	ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
+	ValidatingWebhookName               = "nirmata.kyverno.validating-webhook"
 
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
