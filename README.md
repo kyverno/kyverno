@@ -6,7 +6,7 @@
 
 Kyverno is a policy engine designed for Kubernetes.
 
-Kubernetes supports declarative management of objects using configurations written in YAML or JSON. Often, parts of the configuration will need to vary based on the runtime environment. For portability, and for separation of concerns, its best to mantain environment specific configurations separately from workload configurations.
+Kubernetes supports declarative management of objects using configurations written in YAML or JSON. Often, parts of the configuration will need to vary based on the runtime environment. For portability, and for separation of concerns, its best to maintain environment specific configurations separately from workload configurations.
 
 Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
 
