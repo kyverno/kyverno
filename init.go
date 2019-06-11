@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	tls "github.com/nirmata/kyverno/pkg/tls"
@@ -40,10 +42,12 @@ func initTLSPemPair(configuration *rest.Config, client *client.Client) (*tls.Tls
 		if err != nil {
 			return nil, err
 		}
-		err = client.WriteTlsPair(certProps, tlsPair)
-		if err != nil {
-			glog.Errorf("Unable to save TLS pair to the cluster: %v", err)
+		if err = client.WriteTlsPair(certProps, tlsPair); err != nil {
+			return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
 		}
+		return tlsPair, nil
 	}
+
+	glog.Infoln("Using existing TLS key/certificate pair")
 	return tlsPair, nil
 }

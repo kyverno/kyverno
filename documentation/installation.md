@@ -112,13 +112,14 @@ kubectl logs <kyverno-pod-name> -n kyverno
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
 
-# Installing in a Development Environment
+# Installing outside of the cluster (debug mode)
 
-To build and run Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
 
-To check if the controller is working, find it in the list of kyverno pods:
+To run controller in this mode you should prepare TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-`kubectl get pods -n kyverno`
+1. Run scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>, where <server_IP> is the IP address of the host where controller runs. This scripts will generate TLS certificate for debug webhook server and register this webhook in the cluster. Also it registers CustomResource Policy.
+2. Start the controller using the following command: sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>
 
 # Try Kyverno without a Kubernetes cluster
 
