@@ -27,15 +27,16 @@ import (
 
 //Client enables interaction with k8 resource
 type Client struct {
-	client       dynamic.Interface
-	cachedClient discovery.CachedDiscoveryInterface
-	clientConfig *rest.Config
-	kclient      *kubernetes.Clientset
+	client          dynamic.Interface
+	cachedClient    discovery.CachedDiscoveryInterface
+	clientConfig    *rest.Config
+	kclient         kubernetes.Interface
+	discoveryClient IDiscovery
 }
 
 //NewClient creates new instance of client
 func NewClient(config *rest.Config) (*Client, error) {
-	client, err := dynamic.NewForConfig(config)
+	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -44,13 +45,15 @@ func NewClient(config *rest.Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &Client{
-		client:       client,
+	client := Client{
+		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
-		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
-	}, nil
+	}
+	// Set discovery client
+	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
+	client.SetDiscovery(discoveryClient)
+	return &client, nil
 }
 
 //GetKubePolicyDeployment returns kube policy depoyment value
@@ -100,7 +103,7 @@ func (c *Client) getGroupVersionMapper(resource string) schema.GroupVersionResou
 	//TODO: add checks to see if the resource is supported
 	//TODO: build the resource list dynamically( by querying the registered resources)
 	//TODO: the error scenarios
-	return c.getGVR(resource)
+	return c.discoveryClient.getGVR(resource)
 }
 
 // GetResource returns the resource in unstructured/json format
@@ -156,24 +159,10 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 	return &unstructured.Unstructured{Object: unstructuredObj}
 }
 
-//ConvertToRuntimeObject converts unstructed to runtime.Object runtime instance
-func ConvertToRuntimeObject(obj *unstructured.Unstructured) (*runtime.Object, error) {
-	scheme := runtime.NewScheme()
-	gvk := obj.GroupVersionKind()
-	runtimeObj, err := scheme.New(gvk)
-	if err != nil {
-		return nil, err
-	}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &runtimeObj); err != nil {
-		return nil, err
-	}
-	return &runtimeObj, nil
-}
-
 // GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
 func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
 	var err error
-	rGVR := c.getGVRFromKind(generator.Kind)
+	rGVR := c.discoveryClient.getGVRFromKind(generator.Kind)
 	resource := &unstructured.Unstructured{}
 
 	var rdata map[string]interface{}
@@ -244,7 +233,20 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 	return lastError
 }
 
-func (c *Client) getGVR(resource string) schema.GroupVersionResource {
+type IDiscovery interface {
+	getGVR(resource string) schema.GroupVersionResource
+	getGVRFromKind(kind string) schema.GroupVersionResource
+}
+
+func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
+	c.discoveryClient = discoveryClient
+}
+
+type ServerPreferredResources struct {
+	cachedClient discovery.CachedDiscoveryInterface
+}
+
+func (c ServerPreferredResources) getGVR(resource string) schema.GroupVersionResource {
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
 	if err != nil {
@@ -268,7 +270,7 @@ func (c *Client) getGVR(resource string) schema.GroupVersionResource {
 
 //To-do: measure performance
 //To-do: evaluate DefaultRESTMapper to fetch kind->resource mapping
-func (c *Client) getGVRFromKind(kind string) schema.GroupVersionResource {
+func (c ServerPreferredResources) getGVRFromKind(kind string) schema.GroupVersionResource {
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
 	if err != nil {
