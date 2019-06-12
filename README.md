@@ -148,9 +148,8 @@ Here are some the major features we plan on completing before a 1.0 release:
 
 * [Events](https://github.com/nirmata/kyverno/issues/14)
 * [Policy Violations](https://github.com/nirmata/kyverno/issues/24)
-* [Generate any resource](https://github.com/nirmata/kyverno/issues/21)
 * [Conditionals on existing resources](https://github.com/nirmata/kyverno/issues/57)
-* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/25)
+* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/164)
 
 ## Getting help
 
