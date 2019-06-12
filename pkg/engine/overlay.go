@@ -34,15 +34,9 @@ func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVe
 	return appliedPatches, overlayApplicationResult
 }
 
-// OverlayProcessor stores context for overlay mutation process
-type OverlayProcessor struct {
-	appliedPatches []PatchBytes
-	result         result.RuleApplicationResult
-}
-
 // mutateResourceWithOverlay is a start of overlaying process
-// It assumes that mutation is started from root, so "/" is passed
 func mutateResourceWithOverlay(resource, pattern interface{}) ([]PatchBytes, result.RuleApplicationResult) {
+	// It assumes that mutation is started from root, so "/" is passed
 	return applyOverlay(resource, pattern, "/")
 }
 
@@ -155,6 +149,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 	}
 
 	if 0 == len(resource) {
+		// If array resource is empty, insert part from overlay
 		patch, res := insertSubtree(overlay, path)
 		overlayResult.MergeWith(&res)
 
@@ -173,6 +168,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 	return applyOverlayToArrayOfSameTypes(resource, overlay, path)
 }
 
+// applyOverlayToArrayOfSameTypes applies overlay to array elements if they (resource and overlay elements) have same type
 func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
 	var appliedPatches []PatchBytes
 	overlayResult := result.NewRuleApplicationResult("")
@@ -186,6 +182,7 @@ func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string
 		// Add elements to the end
 		for i, value := range overlay {
 			currentPath := path + strconv.Itoa(lastElementIdx+i) + "/"
+			// currentPath example: /spec/template/spec/containers/3/
 			patch, res := insertSubtree(value, currentPath)
 			overlayResult.MergeWith(&res)
 
@@ -198,6 +195,7 @@ func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string
 	return appliedPatches, overlayResult
 }
 
+//
 func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
 	var appliedPatches []PatchBytes
 	overlayResult := result.NewRuleApplicationResult("")
@@ -219,6 +217,7 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 			// If we have anchors on the lower level - continue traversing overlay and resource trees
 			for j, resourceElement := range resource {
 				currentPath := path + strconv.Itoa(j) + "/"
+				// currentPath example: /spec/template/spec/containers/3/
 				patches, res := applyOverlay(resourceElement, overlayElement, currentPath)
 				overlayResult.MergeWith(&res)
 
@@ -229,6 +228,7 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 		} else {
 			// Overlay subtree has no anchors - insert new element
 			currentPath := path + strconv.Itoa(lastElementIdx+i) + "/"
+			// currentPath example: /spec/template/spec/containers/3/
 			patch, res := insertSubtree(overlayElement, currentPath)
 			overlayResult.MergeWith(&res)
 
@@ -249,6 +249,7 @@ func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchor
 		typedResource := resourceElement.(map[string]interface{})
 
 		currentPath := path + strconv.Itoa(i) + "/"
+		// currentPath example: /spec/template/spec/containers/3/
 		if !skipArrayObject(typedResource, anchors) {
 			patches, res := applyOverlay(resourceElement, overlay, currentPath)
 			overlayResult.MergeWith(&res)
@@ -305,7 +306,7 @@ func prepareJSONValue(overlay interface{}) string {
 }
 
 // Anchor has pattern value, so resource shouldn't be mutated with it
-// If entire subtree has only anchor keys - we
+// If entire subtree has only anchor keys - we should skip inserting it
 func hasOnlyAnchors(overlay interface{}) bool {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:

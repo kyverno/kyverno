@@ -91,7 +91,7 @@ func validateResourceElement(resourceElement, patternElement interface{}, path s
 }
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
-// For each element of the map we must detect the type again, so we pass this elements to validateResourceElement
+// For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(resourceMap, patternMap map[string]interface{}, path string) result.RuleApplicationResult {
 	res := result.NewRuleApplicationResult("")
 
