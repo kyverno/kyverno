@@ -2,7 +2,7 @@
 
 # Generate Configurations 
 
-```generate``` feature can be applied to created namespaces to create new resources in them. This feature is useful when every namespace in a cluster must contain some basic required resources. The feature is available for policy rules in which the resource kind is Namespace.
+```generate``` is used to create default resources for a namespace. This feature is useful for managing resources that are required in each namespace.
 
 ## Example 1
 

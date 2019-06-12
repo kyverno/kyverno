@@ -2,13 +2,13 @@
 
 # Mutate Configurations 
 
-The ```mutate``` rule contains actions that should be applied to the resource before its creation. Mutation can be made using patches or overlay. Using ```patches``` in the JSONPatch format, you can make point changes to the created resource, and ```overlays``` are designed to bring the resource to the desired view according to a specific pattern.
+The ```mutate``` rule contains actions that will be applied to matching resource before their creation. A mutate rule can be written as a JSON Patch or as an overlay. By using a ```patch``` in the (JSONPatch - RFC 6902)[http://jsonpatch.com/] format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
 
-Resource mutation occurs before validation, so the validation rules should not contradict the changes set in the mutation section.
+Resource mutation occurs before validation, so the validation rules should not contradict the changes performed by the mutation section.
 
 ## Patches
 
-The patches are used to make direct changes in the created resource. In the next example the patch will be applied to all Deployments that contain a word "nirmata" in the name.
+This patch adds an init container to all deployments.
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
@@ -17,29 +17,27 @@ metadata :
   name : policy-v1
 spec :
   rules:
-    - name: "Deployment of *nirmata* images"
+    - name: "add-init-secrets"
       resource:
-        kind: Deployment
-        # Name is optional. By default validation policy is applicable to any resource of supported kind.
-        # Name supports wildcards * and ?
-        name: "*nirmata*"
+        kinds:
+        - Deployment
       mutate:
         patches:
-        # This patch adds sidecar container to every deployment that matches this policy
-        - path: "/spec/template/spec/containers/0/"
+        - path: "/spec/template/spec/initContainers/0/"
           op: add
           value:
-            - image: "nirmata.io/sidecar:latest"
-              imagePullPolicy: "Always"
-              ports:
-              - containerPort: 443
+            - image: "nirmata.io/kube-vault-client:v2"
+              name: "init-secrets"
+
 ````
-There is one patch in the rule, it will add the new image to the "containers" list with specified parameters. Patch is described in [JSONPatch](http://jsonpatch.com/) format and support the operations ('op' field):
+[JSONPatch](http://jsonpatch.com/) supports the following operations (in the 'op' field):
 * **add**
 * **replace**
 * **remove**
 
-Here is the example with of a patch which removes a label from the secret:
+With Kyverno, the add and replace have the same behavior i.e. both operations will add or replace the target element.
+
+Here is the example of a patch that removes a label from the secret:
 ````yaml
 apiVersion : kyverno.io/v1alpha1
 kind : Policy
@@ -49,7 +47,6 @@ spec :
   rules:
     - name: "Remove unwanted label"
       resource:
-        # Will be applied to all secrets, because name and selector are not specified
         kind: Secret
       mutate:
         patches:
@@ -61,9 +58,9 @@ Note, that if **remove** operation cannot be applied, then this **remove** opera
 
 ## Overlay
 
-The Mutation Overlay is the desired form of resource. The existing resource parameters are replaced with the parameters described in the overlay. If there are no such parameters in the target resource, they are copied to the resource from the overlay. The overlay is not used to delete the properties of a resource: use **patches** for this purpose.
+An mutation overlay describes the desired form of resource. The existing resource values are replaced with the values specified in the overlay. If a value is specified in the overlay but not present in the target resource, then it will be added to the resource. The overlay cannot be used to delete values in a resource: use **patches** for this purpose.
 
-The next overlay will add or change the hard limit for memory to 2 gigabytes in every ResourceQuota with label ```quota: low```:
+The following mutation overlay will add (or replace) the memory request and limit to 10Gi for every Pod with a label ```memory: high```:
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
@@ -74,22 +71,27 @@ spec :
   rules:
     - name: "Set hard memory limit to 2Gi"
       resource:
-        # Will be applied to all secrets, because name and selector are not specified
-        kind: ResourceQuota
+        kind: Pod
         selector:
           matchLabels:
-            quota: low
+            memory: high
       mutate:
         overlay:
           spec:
-            hard:
-              limits.memory: 2Gi
+            containers:
+            # the wildcard * will match all containers in the list
+            - name: *
+              resources:
+                requests:
+                  memory: "10Gi"
+                limits:
+                  memory: "10Gi"
+
 ````
-The ```overlay``` keyword under ```mutate``` feature describes the desired form of ResourceQuota.
 
 ### Working with lists
 
-The application of an overlay to the list without additional settings is pretty straightforward: the new items will be added to the list exсept of those that totally equal to existent items. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
+Applying overlays to a list type without is fairly straightforward: new items will be added to the list, unless they already ecist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
 
 ````yaml
 apiVersion: policy.nirmata.io/v1alpha1
@@ -99,7 +101,6 @@ metadata:
 spec:
   rules:
   - resource:
-      # Applied to all endpoints
       kind : Endpoints
     mutate:
       overlay:
@@ -108,16 +109,21 @@ spec:
           - ip: 192.168.10.172
 ````
 
-You can use overlays to merge objects inside lists using **anchor** items marked by parentheses. For example, this overlay will add/replace port to 6443 in all ports with name that start from the word "secure":
+
+### Conditional logic using anchors
+
+An **anchor** field, marked by parentheses, allows conditional processing of configurations. Processing stops when the anchor value does not match. Once processing stops, any child elements or any remaining siblings in a list, will not be processed. 
+
+ For example, this overlay will add or replace the value 6443 for the port field, for all ports with a name value that starts with "secure":
+
 ````yaml
 apiVersion : policy.nirmata.io/v1alpha1
 kind : Policy
 metadata :
-  name : policy-endpoints-should-be-more-secure
+  name : policy-set-port
 spec :
   rules:
   - resource:
-      # Applied to all endpoints
       kind : Endpoints
     mutate:
       overlay:
@@ -127,13 +133,36 @@ spec :
             port: 6443
 ````
 
-The **anchors** marked in parentheses support **wildcards**:
+The **anchors** values support **wildcards**:
 1. `*` - matches zero or more alphanumeric characters
 2. `?` - matches a single alphanumeric character
 
-## Details
 
-The behavior of overlays described more detailed in the project's wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
+### Add if not present
+
+A variation of an anchor, is to add a field value if it is not already defined. This is done by using the ````+(...)```` notation for the field.
+
+ For example, this overlay will set the port to 6443, if a port is not already defined:
+
+````yaml
+apiVersion : policy.nirmata.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-set-port
+spec :
+  rules:
+  - resource:
+      kind : Endpoints
+    mutate:
+      overlay:
+        subsets:
+        - ports:
+            +(port): 6443
+````
+
+## Additional Details
+
+Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
 
 ---
-<small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
+<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
