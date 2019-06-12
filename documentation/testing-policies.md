@@ -22,7 +22,7 @@ kubectl get -f CM.yaml -o yaml
 
 ## Test using the Kyverno CLI
 
-The Kyverno Command Line Interface (CLI) tool enables writing and testing policies without requiring Kubernetes clusters and without having to apply local policy changes to a cluster.
+The Kyverno Command Line Interface (CLI) tool allows writing and testing policies without having to apply local policy changes to a cluster. You can also test policies without a Kubernetes clusters, but results may vary as default values will not be filled in.
 
 ### Building the CLI
 
