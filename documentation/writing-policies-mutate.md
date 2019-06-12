@@ -97,7 +97,7 @@ Applying overlays to a list type without is fairly straightforward: new items wi
 apiVersion: policy.nirmata.io/v1alpha1
 kind: Policy
 metadata:
-  name: policy-endpoints-
+  name: policy-endpoints
 spec:
   rules:
   - resource:
