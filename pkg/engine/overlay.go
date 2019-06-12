@@ -195,7 +195,7 @@ func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string
 	return appliedPatches, overlayResult
 }
 
-//
+// Array of maps needs special handling as far as it can have anchors.
 func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
 	var appliedPatches []PatchBytes
 	overlayResult := result.NewRuleApplicationResult("")
