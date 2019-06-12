@@ -123,7 +123,7 @@ To run controller in this mode you should prepare TLS key/certificate pair for d
 
 # Try Kyverno without a Kubernetes cluster
 
-The [Kyverno CLI](documentation/testing-policies-cli.md) allows you to write and test policies without installing Kyverno in a Kubernetes cluster. Some features are not supported without a Kubernetes cluster.
+The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) allows you to write and test policies without installing Kyverno in a Kubernetes cluster. Some features are not supported without a Kubernetes cluster.
 
 
 
