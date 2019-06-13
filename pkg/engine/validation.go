@@ -144,7 +144,6 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 // and then validates each map due to the pattern
 func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, path string) result.RuleApplicationResult {
 	anchor, pattern := getAnchorFromMap(patternMap)
-	delete(patternMap, anchor)
 
 	handler := CreateAnchorHandler(anchor, pattern, path)
 	return handler.Handle(resourceMapArray, patternMap)
