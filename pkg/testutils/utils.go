@@ -154,16 +154,21 @@ func (tp *testPolicy) applyPolicy(policy *policytypes.Policy, resource *resource
 	err := mResult.ToError()
 	if err == nil && len(mPatches) != 0 {
 		patchedResource, err = engine.ApplyPatches(resource.rawResource, mPatches)
+		fmt.Println(len(resource.rawResource))
+		fmt.Println(len(patchedResource))
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		// Validate
 		vResult = engine.Validate(*policy, patchedResource, *resource.gvk)
+		fmt.Println(len(patchedResource))
 	}
 	// Generate
 	if client == nil {
 		glog.Warning("Client is required to test generate")
 	}
+	fmt.Println(len(patchedResource))
+
 	// transform the patched Resource into resource Info
 	_, ri := extractResourceRaw(patchedResource)
 	// return the results

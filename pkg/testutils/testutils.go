@@ -15,6 +15,7 @@ import (
 const examplesPath string = "examples"
 const resourcesFolder string = "resources"
 const tScenarioFile string = "testScenarios.yaml"
+const outputFolder string = "output"
 
 //LoadTestSuite  reads the resource, policy and scenario files
 func LoadTestSuite(t *testing.T, path string) *testSuite {

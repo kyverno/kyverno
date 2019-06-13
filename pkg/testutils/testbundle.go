@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	ospath "path"
@@ -9,36 +10,98 @@ import (
 	"github.com/golang/glog"
 	policytypes "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/result"
+	"gopkg.in/yaml.v2"
 )
 
 func NewTestBundle(path string) *testBundle {
 	return &testBundle{
-		path:          path,
-		policies:      make(map[string]*policytypes.Policy),
-		resources:     make(map[string]*resourceInfo),
-		initResources: make(map[string]*resourceInfo),
+		path:      path,
+		policies:  make(map[string]*policytypes.Policy),
+		resources: make(map[string]*resourceInfo),
+		output:    make(map[string]*resourceInfo),
 	}
 }
 
-func (tb *testBundle) load() error {
-	// check if resources folder is defined
-	rpath := ospath.Join(tb.path, resourcesFolder)
-	_, err := os.Stat(rpath)
+func loadResources(tbPath string, rs map[string]*resourceInfo, file string) {
+	path := ospath.Join(tbPath, file)
+	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		glog.Warningf("Resources directory not present at %s", tb.path)
-		return fmt.Errorf("Resources directory not present at %s", tb.path)
+		glog.Warningf("%s directory not present at %s", file, tbPath)
+		return
+	}
+	// Load the resources from the output folder
+	yamls := getYAMLfiles(path)
+	if len(yamls) == 0 {
+		glog.Warningf("No resource yaml found at path %s", path)
+		return
+	}
+	for _, r := range yamls {
+		resources, err := extractResource(r)
+		if err != nil {
+			glog.Errorf("unable to extract resource: %s", err)
+		}
+		mergeResources(rs, resources)
+	}
+}
+
+func (tb *testBundle) loadOutput() {
+	// check if output folder is defined
+	opath := ospath.Join(tb.path, outputFolder)
+	_, err := os.Stat(opath)
+	if os.IsNotExist(err) {
+		glog.Warningf("Output directory not present at %s", tb.path)
+		return
+	}
+	// Load the resources from the output folder
+	oYAMLs := getYAMLfiles(opath)
+	if len(oYAMLs) == 0 {
+		glog.Warningf("No resource yaml found at path %s", opath)
+		return
 	}
 
-	// check if scenario yaml is defined
-	spath := ospath.Join(tb.path, tScenarioFile)
-	_, err = os.Stat(spath)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("Scenario file %s not defined at %s", tScenarioFile, tb.path)
+	for _, r := range oYAMLs {
+		resources, err := extractResource(r)
+		if err != nil {
+			glog.Errorf("unable to extract resource: %s", err)
+		}
+		mergeResources(tb.output, resources)
 	}
-	tb.scenarios, err = LoadScenarios(spath)
+}
+
+func loadScenarios(tbPath string, file string) ([]*tScenario, error) {
+	// check if scenario yaml is defined
+	spath := ospath.Join(tbPath, file)
+	_, err := os.Stat(spath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("Scenario file %s not defined at %s", file, tbPath)
+	}
+	ts := []*tScenario{}
+	// read the file
+	data, err := loadFile(spath)
+	if err != nil {
+		glog.Warningf("Error while loading file: %v\n", err)
+		return nil, err
+	}
+	dd := bytes.Split(data, []byte(defaultYamlSeparator))
+	for _, d := range dd {
+		s := &tScenario{}
+		err := yaml.Unmarshal([]byte(d), s)
+		if err != nil {
+			glog.Warningf("Error while decoding YAML object, err: %s", err)
+			continue
+		}
+		fmt.Println(s.Policy)
+		fmt.Println(s.Resource)
+		ts = append(ts, s)
+	}
+	return ts, nil
+}
+func (tb *testBundle) load() error {
+	scenarios, err := loadScenarios(tb.path, tScenarioFile)
 	if err != nil {
 		return err
 	}
+	tb.scenarios = scenarios
 	// check if there are any files
 	pYAMLs := getYAMLfiles(tb.path)
 	if len(pYAMLs) == 0 {
@@ -54,37 +117,30 @@ func (tb *testBundle) load() error {
 		tb.policies[policy.GetName()] = policy
 	}
 
-	// extract resources
-	rYAMLs := getYAMLfiles(rpath)
-	if len(rYAMLs) == 0 {
-		return fmt.Errorf("No resource yaml found at path %s", rpath)
-	}
-	for _, r := range rYAMLs {
-		resources, err := extractResource(r)
-		if err != nil {
-			glog.Errorf("unable to extract resource: %s", err)
-		}
-		tb.mergeResources(resources)
-	}
+	// load resources
+	loadResources(tb.path, tb.resources, resourcesFolder)
+	// load output resources
+	loadResources(tb.path, tb.output, outputFolder)
+
 	return nil
 }
 
-func (tb *testBundle) mergeResources(rs map[string]*resourceInfo) {
-	for k, v := range rs {
-		if _, ok := tb.resources[k]; ok {
+func mergeResources(rs map[string]*resourceInfo, other map[string]*resourceInfo) {
+	for k, v := range other {
+		if _, ok := rs[k]; ok {
 			glog.Infof("resource already defined %s ", k)
 			continue
 		}
-		tb.resources[k] = v
+		rs[k] = v
 	}
 }
 
 type testBundle struct {
-	path          string
-	policies      map[string]*policytypes.Policy
-	resources     map[string]*resourceInfo
-	initResources map[string]*resourceInfo
-	scenarios     []*tScenario
+	path      string
+	policies  map[string]*policytypes.Policy
+	resources map[string]*resourceInfo
+	output    map[string]*resourceInfo
+	scenarios []*tScenario
 }
 
 func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
@@ -135,13 +191,13 @@ func (tb *testBundle) checkMutationResult(t *testing.T, expect *tMutation, pr *r
 		return
 	}
 	// get expected patched resource
-	pr, ok := tb.resources[expect.MPatchedResource]
+	er, ok := tb.resources[expect.MPatchedResource]
 	if !ok {
 		glog.Warningf("Resource %s not found", expect.MPatchedResource)
 		return
 	}
 	// compare patched resources
-	if !checkMutationRPatches(pr, pr) {
+	if !checkMutationRPatches(pr, er) {
 		t.Error("Patched resources not as expected")
 	}
 	// compare result
