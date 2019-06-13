@@ -109,7 +109,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
 		// the value that must replace resource value
-		if wrappedWithParentheses(key) {
+		if isConditionAnchor(key) {
 			continue
 		}
 

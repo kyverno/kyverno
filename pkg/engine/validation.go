@@ -143,24 +143,9 @@ func validateArray(resourceArray, patternArray []interface{}, path string) resul
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
 func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, path string) result.RuleApplicationResult {
-	res := result.NewRuleApplicationResult("")
-	anchors := getAnchorsFromMap(patternMap)
+	anchor, pattern := getAnchorFromMap(patternMap)
+	delete(patternMap, anchor)
 
-	for i, resourceElement := range resourceMapArray {
-		currentPath := path + strconv.Itoa(i) + "/"
-		typedResourceElement, ok := resourceElement.(map[string]interface{})
-		if !ok {
-			res.FailWithMessagef("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternMap, resourceElement)
-			return res
-		}
-
-		if skipArrayObject(typedResourceElement, anchors) {
-			continue
-		}
-
-		mapValidationResult := validateMap(typedResourceElement, patternMap, currentPath)
-		res.MergeWith(&mapValidationResult)
-	}
-
-	return res
+	handler := CreateAnchorHandler(anchor, pattern, path)
+	return handler.Handle(resourceMapArray, patternMap)
 }
