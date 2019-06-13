@@ -114,6 +114,14 @@ spec:
 
 Additional examples are available in [examples](/examples).
 
+## License
+
+[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
+
+## Status
+
+*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
+
 ## Alternatives
 
 ### Open Policy Agent
@@ -127,12 +135,6 @@ Additional examples are available in [examples](/examples).
 ### External configuration management tools
 
 Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
-
-
-## Status
-
-*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
-
 
 ## Documentation
 
@@ -159,4 +161,12 @@ Here are some the major features we plan on completing before a 1.0 release:
 
   * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
   * For discussions or questions, join the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+
+## Contributing
+
+Welcome to our community and thanks for contributing!
+
+  * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing. 
+  * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
+  * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
 
