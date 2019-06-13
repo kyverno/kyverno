@@ -1,0 +1,40 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ghost
+  creationTimestamp: 
+  labels:
+    app: nginx_is_mutated
+    cli: test
+    isMutated: 'true'
+    nirmata.io/application.name: ghost
+    nirmata.io/component: ghost
+    nirmata.io/deployment.name: ghost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      nirmata.io/application.name: ghost
+      nirmata.io/component: ghost
+  template:
+    metadata:
+      creationTimestamp: 
+      labels:
+        nirmata.io/application.name: ghost
+        nirmata.io/component: ghost
+        nirmata.io/deployment.name: ghost
+    spec:
+      containers:
+      - name: ghost
+        image: nginx:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  revisionHistoryLimit: 5
+status: {}

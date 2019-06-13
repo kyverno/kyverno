@@ -1,11 +1,12 @@
 package testutils
 
 import (
-	"fmt"
 	"io/ioutil"
 	ospath "path"
 	"path/filepath"
 	"testing"
+
+	"github.com/golang/glog"
 )
 
 // Load policy & resource files
@@ -19,6 +20,7 @@ const outputFolder string = "output"
 
 //LoadTestSuite  reads the resource, policy and scenario files
 func LoadTestSuite(t *testing.T, path string) *testSuite {
+	glog.Infof("loading test suites at %s", path)
 	// gp := os.Getenv("GOPATH")
 	// ap := ospath.Join(gp, "src/github.com/nirmata/kyverno")
 	// build test suite
@@ -26,6 +28,7 @@ func LoadTestSuite(t *testing.T, path string) *testSuite {
 	// ts := NewTestSuite(t, ospath.Join(ap, examplesPath))
 	ts := NewTestSuite(t, path)
 	ts.buildTestSuite()
+	glog.Infof("done loading test suite at %s", path)
 	return ts
 }
 
@@ -43,7 +46,6 @@ func getYAMLfiles(path string) (yamls []string) {
 		return nil
 	}
 	for _, file := range fileInfo {
-		fmt.Println(filepath.Ext(file.Name()))
 		if file.Name() == tScenarioFile {
 			continue
 		}

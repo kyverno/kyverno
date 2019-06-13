@@ -61,7 +61,7 @@ type resourceInfo struct {
 
 func (ri resourceInfo) isSame(other resourceInfo) bool {
 	// compare gvk
-	if ri.gvk != other.gvk {
+	if *ri.gvk != *other.gvk {
 		return false
 	}
 	// compare rawResource
@@ -69,7 +69,7 @@ func (ri resourceInfo) isSame(other resourceInfo) bool {
 }
 
 func getResourceYAML(d []byte) {
-	fmt.Println(string(d))
+	// fmt.Println(string(d))
 	// convert json to yaml
 	// print the result for reference
 	// can be used as a dry run the get the expected result
@@ -154,20 +154,16 @@ func (tp *testPolicy) applyPolicy(policy *policytypes.Policy, resource *resource
 	err := mResult.ToError()
 	if err == nil && len(mPatches) != 0 {
 		patchedResource, err = engine.ApplyPatches(resource.rawResource, mPatches)
-		fmt.Println(len(resource.rawResource))
-		fmt.Println(len(patchedResource))
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		// Validate
 		vResult = engine.Validate(*policy, patchedResource, *resource.gvk)
-		fmt.Println(len(patchedResource))
 	}
 	// Generate
 	if client == nil {
 		glog.Warning("Client is required to test generate")
 	}
-	fmt.Println(len(patchedResource))
 
 	// transform the patched Resource into resource Info
 	_, ri := extractResourceRaw(patchedResource)
@@ -213,8 +209,6 @@ func LoadScenarios(file string) ([]*tScenario, error) {
 			glog.Warningf("Error while decoding YAML object, err: %s", err)
 			continue
 		}
-		fmt.Println(s.Policy)
-		fmt.Println(s.Resource)
 		ts = append(ts, s)
 	}
 	return ts, nil

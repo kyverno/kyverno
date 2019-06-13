@@ -90,13 +90,14 @@ func loadScenarios(tbPath string, file string) ([]*tScenario, error) {
 			glog.Warningf("Error while decoding YAML object, err: %s", err)
 			continue
 		}
-		fmt.Println(s.Policy)
-		fmt.Println(s.Resource)
 		ts = append(ts, s)
 	}
 	return ts, nil
 }
+
+// Load test structure folder
 func (tb *testBundle) load() error {
+	// scenario file defines the mapping of resources and policies
 	scenarios, err := loadScenarios(tb.path, tScenarioFile)
 	if err != nil {
 		return err
@@ -116,8 +117,7 @@ func (tb *testBundle) load() error {
 		}
 		tb.policies[policy.GetName()] = policy
 	}
-
-	// load resources
+	// load trigger resources
 	loadResources(tb.path, tb.resources, resourcesFolder)
 	// load output resources
 	loadResources(tb.path, tb.output, outputFolder)
@@ -144,8 +144,10 @@ type testBundle struct {
 }
 
 func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
+	glog.Infof("Start: test on test bundles %s", tb.path)
 	// run each scenario
 	for _, ts := range tb.scenarios {
+		fmt.Println(tb.path)
 		// get policy
 		p, ok := tb.policies[ts.Policy]
 		if !ok {
@@ -167,6 +169,7 @@ func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
 		tb.checkMutationResult(t, ts.Mutation, mPatchedResource, mResult)
 		tb.checkValidationResult(t, ts.Validation, vResult)
 	}
+	glog.Infof("Done: test on test bundles %s", tb.path)
 }
 
 func (tb *testBundle) checkValidationResult(t *testing.T, expect *tValidation, vResult result.Result) {
@@ -191,13 +194,17 @@ func (tb *testBundle) checkMutationResult(t *testing.T, expect *tMutation, pr *r
 		return
 	}
 	// get expected patched resource
-	er, ok := tb.resources[expect.MPatchedResource]
+	er, ok := tb.output[expect.MPatchedResource]
 	if !ok {
 		glog.Warningf("Resource %s not found", expect.MPatchedResource)
 		return
 	}
 	// compare patched resources
 	if !checkMutationRPatches(pr, er) {
+		fmt.Printf("Expected Resource %s \n", string(er.rawResource))
+		fmt.Printf("Patched Resource %s \n", string(pr.rawResource))
+
+		glog.Warningf("Expected resource %s ", string(pr.rawResource))
 		t.Error("Patched resources not as expected")
 	}
 	// compare result

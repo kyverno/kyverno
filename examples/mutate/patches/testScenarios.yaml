@@ -9,7 +9,13 @@ mutation:
 validation:
   reason: Success
 ---
+# input
 policy: policy-endpoints
 resource: test-endpoint
 initResources: 
-mPatchedResource: test-endpoint
+# expected
+mutation:
+  mPatchedResource: test-endpoint  
+  reason: Success
+validation:
+  reason: Success

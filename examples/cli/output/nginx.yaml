@@ -1,9 +1,12 @@
-apiVersion: apps/v1
 kind: Deployment
+apiVersion: apps/v1
 metadata:
   name: nginx-deployment
+  creationTimestamp: 
   labels:
-    app: nginx
+    app: nginx_is_mutated
+    cli: test
+    isMutated: 'true'
 spec:
   replicas: 1
   selector:
@@ -11,13 +14,16 @@ spec:
       app: nginx
   template:
     metadata:
+      creationTimestamp: 
       labels:
         app: nginx
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nginx:1.7.9
         ports:
         - containerPort: 80
-      - name: ghost
-        image: ghost:latest
+        resources: {}
+        imagePullPolicy: Always
+  strategy: {}
+status: {}

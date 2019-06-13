@@ -1,7 +1,6 @@
 package testutils
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,20 +40,20 @@ type testSuite struct {
 
 func (ts *testSuite) buildTestSuite() error {
 	// loading test bundles for test suite
-	fmt.Println(ts.path)
 	err := filepath.Walk(ts.path, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
+			glog.Infof("searching for test files at %s", path)
 			// check if there are resources dir and policies yaml
 			tb := NewTestBundle(path)
 			if tb != nil {
-				// load resources
+				// try to load the test folder structure
 				err := tb.load()
 				if err != nil {
-					//					glog.Error(err)
+					glog.Warningf("no supported test structure avaialbe at path %s", path)
 					return nil
 				}
+				glog.Infof("loading test suite at path %s", path)
 				ts.tb = append(ts.tb, tb)
-				//				fmt.Println(path)
 			}
 		}
 		return nil
