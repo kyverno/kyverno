@@ -176,7 +176,6 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
           securityContext:
