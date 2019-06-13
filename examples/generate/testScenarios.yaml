@@ -1,0 +1,29 @@
+# input
+policy: basic-policy
+resource: ns2
+initResources: 
+# expected
+mutation:
+  reason: Success
+validation:
+  reason: Success
+---
+# input
+policy: zk-kafka-address
+resource: ns2
+initResources: 
+# expected
+mutation:
+  reason: Success
+validation:
+  reason: Failed
+---
+# input
+policy: default
+resource: ns2
+initResources: 
+# expected
+mutation:
+  reason: Success
+validation:
+  reason: Failed
