@@ -28,7 +28,7 @@ func TestExamples(t *testing.T) {
 	// 	"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples/cli",
 	// }
 	folders := []string{
-		"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples",
+		"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples/generate",
 	}
 	for _, folder := range folders {
 		runTest(t, folder)

@@ -9,6 +9,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GetResource
@@ -43,10 +44,12 @@ func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[
 func TestClient(t *testing.T) {
 	scheme := runtime.NewScheme()
 	// init groupversion
-	regresource := map[string]string{"group/version": "thekinds",
-		"group2/version": "thekinds",
-		"v1":             "namespaces",
-		"apps/v1":        "deployments"}
+	regResource := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Group: "group", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "group2", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+	}
 	// init resources
 	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
@@ -63,7 +66,7 @@ func TestClient(t *testing.T) {
 	}
 
 	// set discovery Client
-	client.SetDiscovery(NewFakeDiscoveryClient(regresource))
+	client.SetDiscovery(NewFakeDiscoveryClient(regResource))
 	// Get Resource
 	res, err := client.GetResource("thekinds", "ns-foo", "name-foo")
 	if err != nil {

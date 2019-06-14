@@ -2,28 +2,39 @@
 policy: basic-policy
 resource: ns2
 initResources: 
+  - default/config-template
 # expected
-mutation:
-  reason: Success
-validation:
-  reason: Success
+generation:
+    resource:
+      - name: default-config
+        namespace: ns2
+        kind: ConfigMap
+      - name: mongo-creds
+        namespace: ns2
+        kind: Secret
 ---
 # input
 policy: zk-kafka-address
 resource: ns2
 initResources: 
+  - default/game-config
 # expected
-mutation:
-  reason: Success
-validation:
-  reason: Failed
+generation:
+  resource:
+    - name: copied-cm
+      namespace: ns2
+      kind: ConfigMap
+    - name: zk-kafka-address
+      namespace: ns2
+      kind: ConfigMap
 ---
 # input
 policy: default
 resource: ns2
 initResources: 
 # expected
-mutation:
-  reason: Success
-validation:
-  reason: Failed
+generation: 
+  resource:
+    - name: deny-all-traffic
+      namespace: ns2
+      kind: NetworkPolicy

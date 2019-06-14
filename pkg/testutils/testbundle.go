@@ -9,8 +9,14 @@ import (
 
 	"github.com/golang/glog"
 	policytypes "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/result"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	kscheme "k8s.io/client-go/kubernetes/scheme"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewTestBundle(path string) *testBundle {
@@ -143,11 +149,57 @@ type testBundle struct {
 	scenarios []*tScenario
 }
 
+func (tb *testBundle) createClient(t *testing.T, resources []string) *dclient.Client {
+	scheme := runtime.NewScheme()
+	objects := []runtime.Object{}
+	// registered group versions
+	regResources := []schema.GroupVersionResource{}
+	for _, resource := range resources {
+		// get resources
+		r, ok := tb.resources[resource]
+		if !ok {
+			glog.Warningf("Resource %s not found", resource)
+			continue
+		}
+		// get group version resource
+		gv := schema.GroupVersion{Group: r.gvk.Group, Version: r.gvk.Version}
+		gvr := gv.WithResource(getResourceFromKind(r.gvk.Kind))
+		regResources = append(regResources, gvr)
+
+		decode := kscheme.Codecs.UniversalDeserializer().Decode
+		obj, _, err := decode([]byte(r.rawResource), nil, nil)
+		if err != nil {
+			glog.Warning("Unable to deocde")
+			continue
+		}
+		// create unstructured
+		rdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		unstr := unstructured.Unstructured{Object: rdata}
+		objects = append(objects, &unstr)
+	}
+	// new mock client
+	// Mock Client
+	c, err := dclient.NewMockClient(scheme, objects...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// set discovery Client
+	c.SetDiscovery(dclient.NewFakeDiscoveryClient(regResources))
+
+	return c
+}
+
 func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
 	glog.Infof("Start: test on test bundles %s", tb.path)
 	// run each scenario
 	for _, ts := range tb.scenarios {
-		fmt.Println(tb.path)
+		// TODO create client only for generate
+		// If there are init resources defined then load them
+		c := tb.createClient(t, ts.InitResources)
 		// get policy
 		p, ok := tb.policies[ts.Policy]
 		if !ok {
@@ -161,15 +213,40 @@ func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
 			continue
 		}
 		// TODO: handle generate
-		mPatchedResource, mResult, vResult, err := testingapplyTest.applyPolicy(p, r, nil)
+		if ts.Generation != nil {
+			// assuming its namespaces creation
+			decode := kscheme.Codecs.UniversalDeserializer().Decode
+			obj, _, err := decode([]byte(r.rawResource), nil, nil)
+			_, err = c.CreateResource(getResourceFromKind(r.gvk.Kind), "", obj)
+			if err != nil {
+				t.Fatalf("error while creating namespace %s", ts.Resource)
+			}
+		}
+
+		mPatchedResource, mResult, vResult, err := testingapplyTest.applyPolicy(p, r, c)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// check the expected scenario
 		tb.checkMutationResult(t, ts.Mutation, mPatchedResource, mResult)
 		tb.checkValidationResult(t, ts.Validation, vResult)
+		tb.checkGeneration(t, ts.Generation, c)
 	}
 	glog.Infof("Done: test on test bundles %s", tb.path)
+}
+
+func (tb *testBundle) checkGeneration(t *testing.T, expect *tGeneration, c *dclient.Client) {
+	if expect == nil {
+		glog.Info("No Generatin check defined")
+		return
+	}
+	// iterate throught the expected resources and check if the client has them
+	for _, r := range expect.Resources {
+		_, err := c.GetResource(getResourceFromKind(r.Kind), r.Namespace, r.Name)
+		if err != nil {
+			t.Errorf("Resource %s/%s of kind %s not found", r.Namespace, r.Name, r.Kind)
+		}
+	}
 }
 
 func (tb *testBundle) checkValidationResult(t *testing.T, expect *tValidation, vResult result.Result) {

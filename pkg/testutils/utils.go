@@ -114,6 +114,24 @@ func extractResource(resource string) (map[string]*resourceInfo, error) {
 	return resources, nil
 }
 
+func ParseApiVersionFromObject(bytes []byte) string {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+	if apiVersion, ok := objectJSON["apiVersion"].(string); ok {
+		return apiVersion
+	}
+	return ""
+}
+
+func ParseKindFromObject(bytes []byte) string {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+	if kind, ok := objectJSON["kind"].(string); ok {
+		return kind
+	}
+	return ""
+}
+
 //ParseNameFromObject extracts resource name from JSON obj
 func ParseNameFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
@@ -164,8 +182,8 @@ func (tp *testPolicy) applyPolicy(policy *policytypes.Policy, resource *resource
 		vResult = engine.Validate(*policy, patchedResource, *resource.gvk)
 	}
 	// Generate
-	if client == nil {
-		glog.Warning("Client is required to test generate")
+	if client != nil {
+		engine.Generate(client, *policy, resource.rawResource, *resource.gvk)
 	}
 
 	// transform the patched Resource into resource Info
@@ -181,6 +199,17 @@ type tScenario struct {
 	InitResources []string     `yaml:"initResources,omitempty"`
 	Mutation      *tMutation   `yaml:"mutation,omitempty"`
 	Validation    *tValidation `yaml:"validation,omitempty"`
+	Generation    *tGeneration `yaml:"generation,omitempty"`
+}
+
+type tGeneration struct {
+	Resources []tResource `yaml:"resource"`
+}
+
+type tResource struct {
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace,omitempty"`
+	Kind      string `yaml:"kind"`
 }
 
 type tValidation struct {
@@ -262,4 +291,20 @@ func getYAMLfiles(path string) (yamls []string) {
 		}
 	}
 	return yamls
+}
+
+var kindToResource = map[string]string{
+	"ConfigMap":     "configmaps",
+	"Endpoints":     "endpoints",
+	"Namespace":     "namespaces",
+	"Secret":        "secrets",
+	"Deployment":    "deployments",
+	"NetworkPolicy": "networkpolicies",
+}
+
+func getResourceFromKind(kind string) string {
+	if resource, ok := kindToResource[kind]; ok {
+		return resource
+	}
+	return ""
 }
