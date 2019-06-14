@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
@@ -64,4 +65,23 @@ func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResourc
 func (c *fakeDiscoveryClient) getGVRFromKind(kind string) schema.GroupVersionResource {
 	resource := strings.ToLower(kind) + "s"
 	return c.getGVR(resource)
+}
+
+func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"namespace": namespace,
+				"name":      name,
+			},
+		},
+	}
+}
+
+func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
+	u := newUnstructured(apiVersion, kind, namespace, name)
+	u.Object["spec"] = spec
+	return u
 }
