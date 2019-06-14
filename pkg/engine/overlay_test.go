@@ -430,3 +430,46 @@ func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
 
 	compareJsonAsMap(t, expectedResult, doc)
 }
+
+func TestApplyOverlay_AddingAnchor(t *testing.T) {
+	overlayRaw := []byte(`{
+		"metadata": {
+			"name": "nginx-deployment",
+			"labels": {
+				"+(app)": "should-not-be-here",
+				"+(key1)": "value1"
+			}
+		}
+	}`)
+	resourceRaw := []byte(`{
+		"metadata": {
+			"name": "nginx-deployment",
+			"labels": {
+				"app": "nginx"
+			}
+		}
+	}`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, res := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, res.ToError())
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`{  
+		"metadata":{  
+		   "labels":{  
+			  "app":"nginx",
+			  "key1":"value1"
+		   },
+		   "name":"nginx-deployment"
+		}
+	 }`)
+
+	compareJsonAsMap(t, expectedResult, doc)
+}

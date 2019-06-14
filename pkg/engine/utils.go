@@ -138,6 +138,17 @@ func wrappedWithParentheses(str string) bool {
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
+func isAddingAnchor(key string) bool {
+	const left = "+("
+	const right = ")"
+
+	if len(key) < len(left)+len(right) {
+		return false
+	}
+
+	return left == key[:len(left)] && right == key[len(key)-len(right):]
+}
+
 // Checks if array object matches anchors. If not - skip - return true
 func skipArrayObject(object, anchors map[string]interface{}) bool {
 	for key, pattern := range anchors {
@@ -162,7 +173,9 @@ func removeAnchor(key string) string {
 		return key[1 : len(key)-1]
 	}
 
-	// TODO: Add logic for other anchors here
+	if isAddingAnchor(key) {
+		return key[2 : len(key)-1]
+	}
 
 	return key
 }

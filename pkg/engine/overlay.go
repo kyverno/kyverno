@@ -113,10 +113,11 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 			continue
 		}
 
-		currentPath := path + key + "/"
-		resourcePart, ok := resourceMap[key]
+		noAnchorKey := removeAnchor(key)
+		currentPath := path + noAnchorKey + "/"
+		resourcePart, ok := resourceMap[noAnchorKey]
 
-		if ok {
+		if ok && !isAddingAnchor(key) {
 			// Key exists - go down through the overlay and resource trees
 			patches, res := applyOverlay(resourcePart, value, currentPath)
 			overlayResult.MergeWith(&res)
@@ -124,7 +125,9 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 			if result.Success == overlayResult.GetReason() {
 				appliedPatches = append(appliedPatches, patches...)
 			}
-		} else {
+		}
+
+		if !ok {
 			// Key does not exist - insert entire overlay subtree
 			patch, res := insertSubtree(value, currentPath)
 			overlayResult.MergeWith(&res)
