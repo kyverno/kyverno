@@ -14,6 +14,7 @@ import (
 // }
 
 func TestGenerate(t *testing.T) {
+	t.Skip("Under development")
 	folders := []string{
 		"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples/generate",
 	}
@@ -21,6 +22,7 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestMutateOverlay(t *testing.T) {
+	t.Skip("Under development")
 	folders := []string{
 		"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples/mutate/overlay",
 	}
@@ -28,6 +30,7 @@ func TestMutateOverlay(t *testing.T) {
 }
 
 func TestMutatePatches(t *testing.T) {
+	t.Skip("Under development")
 	folders := []string{
 		"/Users/shiv/nirmata/code/go/src/github.com/nirmata/kyverno/examples/mutate/patches",
 	}
