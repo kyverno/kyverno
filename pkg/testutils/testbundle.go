@@ -185,7 +185,7 @@ func (tb *testBundle) createClient(t *testing.T, resources []string) *dclient.Cl
 	// Mock Client
 	c, err := dclient.NewMockClient(scheme, objects...)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	// set discovery Client
 	c.SetDiscovery(dclient.NewFakeDiscoveryClient(regResources))
@@ -219,13 +219,13 @@ func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
 			obj, _, err := decode([]byte(r.rawResource), nil, nil)
 			_, err = c.CreateResource(getResourceFromKind(r.gvk.Kind), "", obj)
 			if err != nil {
-				t.Fatalf("error while creating namespace %s", ts.Resource)
+				t.Errorf("error while creating namespace %s", ts.Resource)
 			}
 		}
 
 		mPatchedResource, mResult, vResult, err := testingapplyTest.applyPolicy(p, r, c)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 		// check the expected scenario
 		tb.checkMutationResult(t, ts.Mutation, mPatchedResource, mResult)
@@ -237,7 +237,7 @@ func (tb *testBundle) run(t *testing.T, testingapplyTest IApplyTest) {
 
 func (tb *testBundle) checkGeneration(t *testing.T, expect *tGeneration, c *dclient.Client) {
 	if expect == nil {
-		glog.Info("No Generatin check defined")
+		glog.Info("No Generate check defined")
 		return
 	}
 	// iterate throught the expected resources and check if the client has them
@@ -254,7 +254,6 @@ func (tb *testBundle) checkValidationResult(t *testing.T, expect *tValidation, v
 		glog.Info("No Validation check defined")
 		return
 	}
-	// compare result
 	// compare reason
 	if len(expect.Reason) > 0 && expect.Reason != vResult.GetReason().String() {
 		t.Error("Reason not matching")
@@ -284,7 +283,6 @@ func (tb *testBundle) checkMutationResult(t *testing.T, expect *tMutation, pr *r
 		glog.Warningf("Expected resource %s ", string(pr.rawResource))
 		t.Error("Patched resources not as expected")
 	}
-	// compare result
 	// compare reason
 	if len(expect.Reason) > 0 && expect.Reason != mResult.GetReason().String() {
 		t.Error("Reason not matching")
