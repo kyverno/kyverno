@@ -8,7 +8,7 @@ relativeURLs=true
 [params]
     description = "Kubernetes Native Policy Management"
     long_description = '''
-        Manage policies as Kubernetes resources to validate, mutate, or generate any configuration. 
+        Manage policies as Kubernetes resources. Validate, mutate, and generate configurations. 
         Select resources based on labels and wildcards. View policy enforcement as events. Detect 
         policy violations for existing resources.'''
     author_name = "Nirmata"
