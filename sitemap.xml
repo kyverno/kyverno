@@ -3,21 +3,21 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://nirmata.github.io/kyverno/features/</loc>
+    <loc>https://kyverno.io/features/</loc>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kyverno/categories/</loc>
+    <loc>https://kyverno.io/categories/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kyverno/</loc>
+    <loc>https://kyverno.io/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://nirmata.github.io/kyverno/tags/</loc>
+    <loc>https://kyverno.io/tags/</loc>
     <priority>0</priority>
   </url>
   
