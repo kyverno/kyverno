@@ -37,16 +37,21 @@ func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, 
 }
 
 // NewFakeDiscoveryClient returns a fakediscovery client
-func NewFakeDiscoveryClient(regResources map[string]string) *fakeDiscoveryClient {
-	registeredResources := make([]schema.GroupVersionResource, len(regResources))
-	for groupVersion, resource := range regResources {
-		gv, err := schema.ParseGroupVersion(groupVersion)
-		if err != nil {
-			continue
-		}
-		registeredResources = append(registeredResources, gv.WithResource(resource))
+func NewFakeDiscoveryClient(registeredResouces []schema.GroupVersionResource) *fakeDiscoveryClient {
+	// Load some-preregistd resources
+	res := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+		schema.GroupVersionResource{Version: "v1", Resource: "endpoints"},
+		schema.GroupVersionResource{Version: "v1", Resource: "namespaces"},
+		schema.GroupVersionResource{Version: "v1", Resource: "resourcequotas"},
+		schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
+		schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"},
 	}
-	return &fakeDiscoveryClient{registeredResouces: registeredResources}
+	registeredResouces = append(registeredResouces, res...)
+	return &fakeDiscoveryClient{registeredResouces: registeredResouces}
 }
 
 type fakeDiscoveryClient struct {
@@ -84,4 +89,23 @@ func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[
 	u := newUnstructured(apiVersion, kind, namespace, name)
 	u.Object["spec"] = spec
 	return u
+}
+
+func retry(attempts int, sleep time.Duration, fn func() error) error {
+	if err := fn(); err != nil {
+		if s, ok := err.(stop); ok {
+			return s.error
+		}
+		if attempts--; attempts > 0 {
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep, fn)
+		}
+		return err
+	}
+	return nil
+}
+
+// Custom error
+type stop struct {
+	error
 }

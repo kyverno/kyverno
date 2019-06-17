@@ -7,6 +7,7 @@ import (
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GetResource
@@ -20,18 +21,19 @@ import (
 // - objects to initialize the client
 
 type fixture struct {
-	t            *testing.T
-	regresources map[string]string
-	objects      []runtime.Object
-	client       *Client
+	t       *testing.T
+	objects []runtime.Object
+	client  *Client
 }
 
 func newFixture(t *testing.T) *fixture {
-	regresource := map[string]string{"group/version": "thekinds",
-		"group2/version": "thekinds",
-		"v1":             "namespaces",
-		"apps/v1":        "deployments"}
-
+	// init groupversion
+	regResource := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Group: "group", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "group2", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+	}
 	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
@@ -47,20 +49,19 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	// set discovery Client
-	client.SetDiscovery(NewFakeDiscoveryClient(regresource))
+	client.SetDiscovery(NewFakeDiscoveryClient(regResource))
 
 	f := fixture{
-		t:            t,
-		regresources: regresource,
-		objects:      objects,
-		client:       client,
+		t:       t,
+		objects: objects,
+		client:  client,
 	}
 	return &f
 
 }
 
 func TestCRUDResource(t *testing.T) {
-	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
+	//	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
 	f := newFixture(t)
 	// Get Resource
 	_, err := f.client.GetResource("thekinds", "ns-foo", "name-foo")
@@ -118,7 +119,7 @@ func TestCSRInterface(t *testing.T) {
 }
 
 func TestGenerateResource(t *testing.T) {
-	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
+	//	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
 
 	f := newFixture(t)
 	//GenerateResource -> copy From
