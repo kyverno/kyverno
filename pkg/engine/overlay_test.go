@@ -473,3 +473,68 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 
 	compareJsonAsMap(t, expectedResult, doc)
 }
+
+func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
+	overlayRaw := []byte(`
+	{
+		"list" : [
+            {
+				"(entity)": "*able",
+				"+(event)": "process"
+			}
+		]
+	}`)
+	resourceRaw := []byte(`
+	{
+		"list" : [
+            {
+				"entity": "movable"
+			},
+			{
+				"entity": "collisionable",
+				"event": "skip"
+			},
+			{
+				"entity": "any",
+				"event": "delete"
+			},
+			{
+				"entity": "none"
+			}
+		]
+	}`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, res := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, res.ToError())
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`
+	 {  
+		"list":[  
+		   {  
+			  "entity":"movable",
+			  "event":"process"
+		   },
+		   {  
+			  "entity":"collisionable",
+			  "event":"skip"
+		   },
+		   {  
+			  "entity":"any",
+			  "event":"delete"
+		   },
+		   {  
+			  "entity":"none"
+		   }
+		]
+	 }`)
+
+	compareJsonAsMap(t, expectedResult, doc)
+}
