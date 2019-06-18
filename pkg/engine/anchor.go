@@ -111,9 +111,9 @@ func NewExistanceAnchorValidationHandler(anchor string, pattern interface{}, pat
 
 // Handle performs validation in context of ExistanceAnchorValidationHandler
 func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}) result.RuleApplicationResult {
-	anchoredEtries, handlingResult := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path)
+	anchoredEntries, handlingResult := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path)
 
-	if 0 == anchoredEtries {
+	if 0 == anchoredEntries {
 		handlingResult.FailWithMessagef("Existance anchor %s used, but no suitable entries were found", eavh.anchor)
 	}
 
@@ -133,10 +133,10 @@ func checkForAnchorCondition(anchor string, pattern interface{}, resourceMap map
 
 // both () and ^() are checking conditions and have a lot of similar logic
 // the only difference is that ^() requires existace of one element
-// anchoredEtries var counts this occurences.
+// anchoredEntries var counts this occurences.
 func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string) (int, result.RuleApplicationResult) {
 	handlingResult := result.NewRuleApplicationResult("")
-	anchoredEtries := 0
+	anchoredEntries := 0
 
 	for i, resourceElement := range resourcePart {
 		currentPath := path + strconv.Itoa(i) + "/"
@@ -151,10 +151,10 @@ func handleConditionCases(resourcePart []interface{}, patternPart map[string]int
 			continue
 		}
 
-		anchoredEtries++
+		anchoredEntries++
 		res := validateMap(typedResourceElement, patternPart, currentPath)
 		handlingResult.MergeWith(&res)
 	}
 
-	return anchoredEtries, handlingResult
+	return anchoredEntries, handlingResult
 }
