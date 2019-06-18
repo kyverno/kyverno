@@ -477,31 +477,62 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 	overlayRaw := []byte(`
 	{
-		"list" : [
-            {
-				"(entity)": "*able",
-				"+(event)": "process"
+		"spec": {
+			"template": {
+				"spec": {
+					"containers": [
+						{
+							"(image)": "*:latest",
+							"+(imagePullPolicy)": "IfNotPresent"
+						}
+					]
+				}
 			}
-		]
+		}
 	}`)
 	resourceRaw := []byte(`
-	{
-		"list" : [
-            {
-				"entity": "movable"
-			},
-			{
-				"entity": "collisionable",
-				"event": "skip"
-			},
-			{
-				"entity": "any",
-				"event": "delete"
-			},
-			{
-				"entity": "none"
+	{  
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{  
+			"name":"nginx-deployment",
+			"labels":{  
+				"app":"nginx"
 			}
-		]
+		},
+		"spec":{  
+			"replicas":1,
+			"selector":{  
+				"matchLabels":{  
+					"app":"nginx"
+				}
+			},
+			"template":{  
+				"metadata":{  
+					"labels":{  
+						"app":"nginx"
+					}
+				},
+				"spec":{  
+					"containers":[  
+						{  
+							"image":"nginx:latest"
+						},
+						{  
+							"image":"ghost:latest",
+							"imagePullPolicy":"Always"
+						},
+						{  
+							"image":"debian:10"
+						},
+						{  
+							"image":"ubuntu:18.04",
+							"imagePullPolicy":"Always"
+						}
+					]
+				}
+			}
+		}
 	}`)
 
 	var resource, overlay interface{}
@@ -516,25 +547,49 @@ func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 	doc, err := ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`
-	 {  
-		"list":[  
-		   {  
-			  "entity":"movable",
-			  "event":"process"
-		   },
-		   {  
-			  "entity":"collisionable",
-			  "event":"skip"
-		   },
-		   {  
-			  "entity":"any",
-			  "event":"delete"
-		   },
-		   {  
-			  "entity":"none"
-		   }
-		]
-	 }`)
-
+	{  
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{  
+			"name":"nginx-deployment",
+			"labels":{  
+				"app":"nginx"
+			}
+		},
+		"spec":{  
+			"replicas":1,
+			"selector":{  
+				"matchLabels":{  
+					"app":"nginx"
+				}
+			},
+			"template":{  
+				"metadata":{  
+					"labels":{  
+						"app":"nginx"
+					}
+				},
+				"spec":{  
+					"containers":[  
+						{  
+							"image":"nginx:latest",
+							"imagePullPolicy":"IfNotPresent"
+						},
+						{  
+							"image":"ghost:latest",
+							"imagePullPolicy":"Always"
+						},
+						{  
+							"image":"debian:10"
+						},
+						{  
+							"image":"ubuntu:18.04",
+							"imagePullPolicy":"Always"
+						}
+					]
+				}
+			}
+		}
+	}`)
 	compareJsonAsMap(t, expectedResult, doc)
 }
