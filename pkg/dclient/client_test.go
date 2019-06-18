@@ -61,7 +61,6 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func TestCRUDResource(t *testing.T) {
-	//	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
 	f := newFixture(t)
 	// Get Resource
 	_, err := f.client.GetResource("thekinds", "ns-foo", "name-foo")
@@ -119,8 +118,6 @@ func TestCSRInterface(t *testing.T) {
 }
 
 func TestGenerateResource(t *testing.T) {
-	//	t.Skip("Under Development. Reason: delay in generation of resources, so test fails at times")
-
 	f := newFixture(t)
 	//GenerateResource -> copy From
 	// 1 create namespace
