@@ -159,6 +159,17 @@ func isExistanceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
+func isAddingAnchor(key string) bool {
+	const left = "+("
+	const right = ")"
+
+	if len(key) < len(left)+len(right) {
+		return false
+	}
+
+	return left == key[:len(left)] && right == key[len(key)-len(right):]
+}
+
 // Checks if array object matches anchors. If not - skip - return true
 func skipArrayObject(object, anchors map[string]interface{}) bool {
 	for key, pattern := range anchors {
@@ -183,11 +194,9 @@ func removeAnchor(key string) string {
 		return key[1 : len(key)-1]
 	}
 
-	if isExistanceAnchor(key) {
+	if isExistanceAnchor(key) || isAddingAnchor(key) {
 		return key[2 : len(key)-1]
 	}
-
-	// TODO: Add logic for other anchors here
 
 	return key
 }

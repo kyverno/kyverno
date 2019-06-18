@@ -8,10 +8,9 @@ relativeURLs=true
 [params]
     description = "Kubernetes Native Policy Management"
     long_description = '''
-        Manage policies as Kuberneres resources using YAML or JSON. Easily validate, 
-        mutate, or generate Kubernetes resources. Match resources based on label selectors 
-        and wildcards. View policy results as events, and policy violations as events or 
-        in policy status.'''
+        Manage policies as Kubernetes resources. Validate, mutate, and generate configurations. 
+        Select resources based on labels and wildcards. View policy enforcement as events. Detect 
+        policy violations for existing resources.'''
     author_name = "Nirmata"
     author_url = "https://nirmata.com"
     project_url = "https://github.com/nirmata/kyverno/"
