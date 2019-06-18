@@ -29,6 +29,7 @@ type WebhookServer struct {
 	server       http.Server
 	client       *client.Client
 	policyLister v1alpha1.PolicyLister
+	filterKinds  []string
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -36,7 +37,8 @@ type WebhookServer struct {
 func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	shareInformer sharedinformer.PolicyInformer) (*WebhookServer, error) {
+	shareInformer sharedinformer.PolicyInformer,
+	filterKinds []string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -52,6 +54,7 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
+		filterKinds:  filterKinds,
 	}
 
 	mux := http.NewServeMux()
@@ -79,11 +82,14 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	switch r.URL.Path {
-	case config.MutatingWebhookServicePath:
-		admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-	case config.ValidatingWebhookServicePath:
-		admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+	if !stringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
+
+		switch r.URL.Path {
+		case config.MutatingWebhookServicePath:
+			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
+		case config.ValidatingWebhookServicePath:
+			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+		}
 	}
 
 	admissionReview.Response.UID = admissionReview.Request.UID
@@ -99,6 +105,15 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(responseJson); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func stringInSlice(kind string, list []string) bool {
+	for _, b := range list {
+		if b == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
