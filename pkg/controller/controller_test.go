@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -78,7 +79,10 @@ func (f *fixture) setupFixture() {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	regresource := map[string]string{"kyverno.io/v1alpha1": "policys"}
+	regresource := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Group: "kyverno.io",
+			Version:  "v1alpha1",
+			Resource: "policys"}}
 	fclient.SetDiscovery(client.NewFakeDiscoveryClient(regresource))
 }
 
