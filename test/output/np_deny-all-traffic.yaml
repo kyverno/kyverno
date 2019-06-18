@@ -1,0 +1,13 @@
+metadata:
+  annotations: {}
+  labels:
+    policyname: default
+  name: deny-all-traffic
+  namespace: ns2
+podSelector:
+  matchExpressions: []
+  matchLabels: {}
+policyTypes: []
+spec: 
+kind: NetworkPolicy
+apiVersion: extensions/v1beta1

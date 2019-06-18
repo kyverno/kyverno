@@ -1,0 +1,8 @@
+# file path relative to project root
+input:
+  policy: examples/mutate/patches/policy_endpoints.yaml
+  resource: examples/mutate/patches/endpoints.yaml
+expected:
+  mutation:
+    patched_resource: test/output/op_patches_endpoints.yaml
+    reason: Success

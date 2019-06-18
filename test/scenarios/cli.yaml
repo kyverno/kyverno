@@ -1,0 +1,20 @@
+# file path relative to project root
+input:
+  policy: examples/cli/policy_deployment.yaml
+  resource: examples/cli/nginx.yaml
+expected:
+  mutation:
+    patched_resource: test/output/nginx.yaml
+    reason: Success
+  validation:
+    reason: Success
+---
+input:
+  policy: examples/cli/policy_deployment.yaml
+  resource: examples/cli/ghost.yaml
+expected:
+  mutation:
+    patched_resource: test/output/ghost.yaml
+    reason: Success
+  validation:
+    reason: Success
