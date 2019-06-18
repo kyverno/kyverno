@@ -124,19 +124,21 @@ func (ws *WebhookServer) Stop() {
 
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	glog.Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		glog.Warning(err)
 		return nil
 	}
+	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	admissionResult := result.NewAdmissionResult(string(request.UID))
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
-
+		if policy.Kind != request.Kind.Kind {
+			continue
+		}
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		policyPatches, mutationResult := engine.Mutate(*policy, request.Object.Raw, request.Kind)
