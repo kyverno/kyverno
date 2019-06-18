@@ -113,12 +113,22 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if wrappedWithParentheses(key) {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
 			result[key] = value
 		}
 	}
 
 	return result
+}
+
+func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
+	for key, value := range anchorsMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			return key, value
+		}
+	}
+
+	return "", nil
 }
 
 func findKind(kinds []string, kindGVK string) bool {
@@ -130,12 +140,23 @@ func findKind(kinds []string, kindGVK string) bool {
 	return false
 }
 
-func wrappedWithParentheses(str string) bool {
+func isConditionAnchor(str string) bool {
 	if len(str) < 2 {
 		return false
 	}
 
 	return (str[0] == '(' && str[len(str)-1] == ')')
+}
+
+func isExistanceAnchor(str string) bool {
+	left := "^("
+	right := ")"
+
+	if len(str) < len(left)+len(right) {
+		return false
+	}
+
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
 func isAddingAnchor(key string) bool {
@@ -169,11 +190,11 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 
 // removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
-	if wrappedWithParentheses(key) {
+	if isConditionAnchor(key) {
 		return key[1 : len(key)-1]
 	}
 
-	if isAddingAnchor(key) {
+	if isExistanceAnchor(key) || isAddingAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 
