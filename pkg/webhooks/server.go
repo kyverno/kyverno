@@ -54,9 +54,8 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
-		filterKinds:  filterKinds,
+		filterKinds:  parseKinds(filterKinds),
 	}
-
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
@@ -82,7 +81,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	if !stringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
+	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
 
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
@@ -105,15 +104,6 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(responseJson); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
-}
-
-func stringInSlice(kind string, list []string) bool {
-	for _, b := range list {
-		if b == kind {
-			return true
-		}
-	}
-	return false
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
