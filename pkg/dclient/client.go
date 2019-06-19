@@ -115,34 +115,50 @@ func (c *Client) ListResource(resource string, namespace string) (*unstructured.
 }
 
 // DeleteResouce deletes the specified resource
-func (c *Client) DeleteResouce(resource string, namespace string, name string) error {
-	return c.getResourceInterface(resource, namespace).Delete(name, &meta.DeleteOptions{})
+func (c *Client) DeleteResouce(resource string, namespace string, name string, dryRun bool) error {
+	options := meta.DeleteOptions{}
+	if dryRun {
+		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}
+	}
+	return c.getResourceInterface(resource, namespace).Delete(name, &options)
 
 }
 
 // CreateResource creates object for the specified resource/namespace
-func (c *Client) CreateResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+func (c *Client) CreateResource(resource string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	options := meta.CreateOptions{}
+	if dryRun {
+		options = meta.CreateOptions{DryRun: []string{meta.DryRunAll}}
+	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(resource, namespace).Create(unstructuredObj, meta.CreateOptions{})
+		return c.getResourceInterface(resource, namespace).Create(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
-func (c *Client) UpdateResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateResource(resource string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	options := meta.UpdateOptions{}
+	if dryRun {
+		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
+	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(resource, namespace).Update(unstructuredObj, meta.UpdateOptions{})
+		return c.getResourceInterface(resource, namespace).Update(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
-func (c *Client) UpdateStatusResource(resource string, namespace string, obj interface{}) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateStatusResource(resource string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	options := meta.UpdateOptions{}
+	if dryRun {
+		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
+	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(resource, namespace).UpdateStatus(unstructuredObj, meta.UpdateOptions{})
+		return c.getResourceInterface(resource, namespace).UpdateStatus(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
@@ -204,7 +220,7 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 		glog.Errorf("Can't create a resource %s: %v", generator.Name, err)
 		return nil
 	}
-	_, err = c.CreateResource(rGVR.Resource, namespace, resource)
+	_, err = c.CreateResource(rGVR.Resource, namespace, resource, false)
 	if err != nil {
 		return err
 	}
