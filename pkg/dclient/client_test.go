@@ -73,22 +73,22 @@ func TestCRUDResource(t *testing.T) {
 		t.Errorf("ListResource not working: %s", err)
 	}
 	// DeleteResouce
-	err = f.client.DeleteResouce("thekinds", "ns-foo", "name-bar")
+	err = f.client.DeleteResouce("thekinds", "ns-foo", "name-bar", false)
 	if err != nil {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource("thekinds", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"))
+	_, err = f.client.CreateResource("thekinds", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}))
+	_, err = f.client.UpdateResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}))
+	_, err = f.client.UpdateStatusResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}
@@ -123,7 +123,7 @@ func TestGenerateResource(t *testing.T) {
 	// 1 create namespace
 	// 2 generate resource
 	// create namespace
-	ns, err := f.client.CreateResource("namespaces", "", newUnstructured("v1", "Namespace", "", "ns1"))
+	ns, err := f.client.CreateResource("namespaces", "", newUnstructured("v1", "Namespace", "", "ns1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
