@@ -41,7 +41,7 @@ func (t *test) run() {
 		// assuming its namespaces creation
 		decode := kscheme.Codecs.UniversalDeserializer().Decode
 		obj, _, err := decode([]byte(t.tResource.rawResource), nil, nil)
-		_, err = client.CreateResource(getResourceFromKind(t.tResource.gvk.Kind), "", obj)
+		_, err = client.CreateResource(getResourceFromKind(t.tResource.gvk.Kind), "", obj, false)
 		if err != nil {
 			t.t.Errorf("error while creating namespace %s", err)
 		}
