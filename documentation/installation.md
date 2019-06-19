@@ -126,6 +126,11 @@ To run controller in this mode you should prepare TLS key/certificate pair for d
 The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) allows you to write and test policies without installing Kyverno in a Kubernetes cluster. Some features are not supported without a Kubernetes cluster.
 
 
+# Filter kuberenetes resources that admission webhook should not process
+
+The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by using the command line argument 'filterKind'. 
+
+By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the [install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>

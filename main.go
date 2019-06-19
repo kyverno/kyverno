@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	kubeconfig string
-	serverIP   string
+	kubeconfig    string
+	serverIP      string
+	filterK8Kinds webhooks.ArrayFlags
 )
 
 func main() {
@@ -50,8 +51,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, filterK8Kinds)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -83,6 +83,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.Var(&filterK8Kinds, "filterKind", "k8 kind where policy is not evaluated by the admission webhook. example --filterKind \"Event\" --filterKind \"TokenReview,ClusterRole\"")
 	config.LogDefaultFlags()
 	flag.Parse()
 }
