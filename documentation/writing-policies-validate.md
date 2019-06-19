@@ -43,24 +43,26 @@ metadata :
   name : validation-example
 spec :
   rules:
-    - resource:
+    - name: check-label
+      resource:
         # Kind specifies one or more resource types to match
         kinds:
           - Deployment
           - StatefuleSet
           - DaemonSet
         # Name is optional and can use wildcards
-        name: *
+        name: "*"
         # Selector is optional
         selector:
       validate:
         # Message is optional
-        message: "The label app is required"
+        message: "The label app is required"    
         pattern:
           spec:
-            selector:
-              matchLabels:
-                app: "?*"
+            template:
+              metadata:
+                labels:
+                  app: "?*"
 
 ````
 
@@ -68,4 +70,4 @@ Additional examples are available in [examples](/examples/)
 
 
 ---
-<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
+<small>*Read Next >> [Generate](/documentation/writing-policies-mutate.md)*</small>

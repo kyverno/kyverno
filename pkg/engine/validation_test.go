@@ -9,41 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestWrappedWithParentheses_StringIsWrappedWithParentheses(t *testing.T) {
-	str := "(something)"
-	assert.Assert(t, wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_StringHasOnlyParentheses(t *testing.T) {
-	str := "()"
-	assert.Assert(t, wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_StringHasNoParentheses(t *testing.T) {
-	str := "something"
-	assert.Assert(t, !wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_StringHasLeftParentheses(t *testing.T) {
-	str := "(something"
-	assert.Assert(t, !wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_StringHasRightParentheses(t *testing.T) {
-	str := "something)"
-	assert.Assert(t, !wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_StringParenthesesInside(t *testing.T) {
-	str := "so)m(et(hin)g"
-	assert.Assert(t, !wrappedWithParentheses(str))
-}
-
-func TestWrappedWithParentheses_Empty(t *testing.T) {
-	str := ""
-	assert.Assert(t, !wrappedWithParentheses(str))
-}
-
 func TestValidateString_AsteriskTest(t *testing.T) {
 	pattern := "*"
 	value := "anything"

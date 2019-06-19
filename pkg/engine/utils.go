@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/minio/minio/pkg/wildcard"
@@ -98,7 +100,7 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
-// returns true if policyResourceName is a regexp
+// ParseRegexPolicyResourceName returns true if policyResourceName is a regexp
 func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
 	regex := strings.Split(policyResourceName, "regex:")
 	if len(regex) == 1 {
@@ -111,12 +113,22 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if wrappedWithParentheses(key) {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
 			result[key] = value
 		}
 	}
 
 	return result
+}
+
+func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
+	for key, value := range anchorsMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			return key, value
+		}
+	}
+
+	return "", nil
 }
 
 func findKind(kinds []string, kindGVK string) bool {
@@ -128,12 +140,34 @@ func findKind(kinds []string, kindGVK string) bool {
 	return false
 }
 
-func wrappedWithParentheses(str string) bool {
+func isConditionAnchor(str string) bool {
 	if len(str) < 2 {
 		return false
 	}
 
 	return (str[0] == '(' && str[len(str)-1] == ')')
+}
+
+func isExistanceAnchor(str string) bool {
+	left := "^("
+	right := ")"
+
+	if len(str) < len(left)+len(right) {
+		return false
+	}
+
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+}
+
+func isAddingAnchor(key string) bool {
+	const left = "+("
+	const right = ")"
+
+	if len(key) < len(left)+len(right) {
+		return false
+	}
+
+	return left == key[:len(left)] && right == key[len(key)-len(right):]
 }
 
 // Checks if array object matches anchors. If not - skip - return true
@@ -152,4 +186,39 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 	}
 
 	return false
+}
+
+// removeAnchor remove special characters around anchored key
+func removeAnchor(key string) string {
+	if isConditionAnchor(key) {
+		return key[1 : len(key)-1]
+	}
+
+	if isExistanceAnchor(key) || isAddingAnchor(key) {
+		return key[2 : len(key)-1]
+	}
+
+	return key
+}
+
+// convertToFloat converts string and any other value to float64
+func convertToFloat(value interface{}) (float64, error) {
+	switch typed := value.(type) {
+	case string:
+		var err error
+		floatValue, err := strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return floatValue, nil
+	case float64:
+		return typed, nil
+	case int64:
+		return float64(typed), nil
+	case int:
+		return float64(typed), nil
+	default:
+		return 0, fmt.Errorf("Could not convert %T to float64", value)
+	}
 }

@@ -114,21 +114,27 @@ spec:
 
 Additional examples are available in [examples](/examples).
 
+## License
+
+[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
+
+## Status
+
+*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
+
 ## Alternatives
 
 ### Open Policy Agent
 
 [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language. 
 
+### Polaris
+
+[Polaris](https://github.com/reactiveops/polaris) validates configurations for best practices. It includes several checks across health, networking, security, etc. Checks can be assigned a severity. A dashboard reports the overall score. 
+
 ### External configuration management tools
 
 Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
-
-
-## Status
-
-*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
-
 
 ## Documentation
 
@@ -148,12 +154,19 @@ Here are some the major features we plan on completing before a 1.0 release:
 
 * [Events](https://github.com/nirmata/kyverno/issues/14)
 * [Policy Violations](https://github.com/nirmata/kyverno/issues/24)
-* [Generate any resource](https://github.com/nirmata/kyverno/issues/21)
 * [Conditionals on existing resources](https://github.com/nirmata/kyverno/issues/57)
-* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/25)
+* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/164)
 
 ## Getting help
 
   * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
   * For discussions or questions, join the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+
+## Contributing
+
+Welcome to our community and thanks for contributing!
+
+  * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing. 
+  * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
+  * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
 
