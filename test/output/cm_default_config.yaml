@@ -1,0 +1,16 @@
+apiVersion: v1
+data:
+  configmap.data: |
+    ns=default
+    labels=originalLabel
+    labelscount=1
+  game.properties: |
+    enemies=predators
+    lives=3
+  ui.properties: "color.good=green\ncolor.bad=red \n"
+kind: ConfigMap
+metadata:
+  labels:
+    originalLabel: isHere
+  name: default-config
+  namespace: ns2

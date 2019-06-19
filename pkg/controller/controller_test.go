@@ -79,6 +79,7 @@ func (f *fixture) setupFixture() {
 	if err != nil {
 		f.t.Fatal(err)
 	}
+
 	regresource := []schema.GroupVersionResource{
 		schema.GroupVersionResource{Group: "kyverno.io",
 			Version:  "v1alpha1",

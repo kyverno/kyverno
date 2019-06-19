@@ -21,5 +21,11 @@ spec:
         image: nginx:latest
         ports:
         - containerPort: 80
+        resources: {}
+        imagePullPolicy: Always
       - name: ghost
         image: ghost:latest
+        resources: {}
+        imagePullPolicy: Always
+  strategy: {}
+status: {}

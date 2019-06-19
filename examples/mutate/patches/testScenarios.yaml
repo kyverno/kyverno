@@ -1,0 +1,21 @@
+# input
+policy: policy-endpoints
+resource: test-endpoint
+initResources: 
+# expected
+mutation:
+  mPatchedResource: test-endpoint  
+  reason: Success
+validation:
+  reason: Success
+---
+# input
+policy: policy-endpoints
+resource: test-endpoint
+initResources: 
+# expected
+mutation:
+  mPatchedResource: test-endpoint  
+  reason: Success
+validation:
+  reason: Success

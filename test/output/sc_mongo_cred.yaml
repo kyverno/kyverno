@@ -1,0 +1,8 @@
+data:
+  DB_PASSWORD: YXBwc3dvcmQ=
+  DB_USER: YWJyYWthZGFicmE=
+metadata:
+  name: mongo-creds
+  namespace: ns2
+kind: Secret
+apiVersion: v1

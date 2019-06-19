@@ -1,0 +1,8 @@
+# file path relative to project root
+input:
+  policy: examples/mutate/overlay/policy_imagePullPolicy.yaml
+  resource: examples/mutate/overlay/nginx.yaml
+expected:
+  mutation:
+    patched_resource: test/output/op_overlay_nginx.yaml
+    reason: Success

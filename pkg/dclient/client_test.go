@@ -34,6 +34,7 @@ func newFixture(t *testing.T) *fixture {
 		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
 		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 	}
+
 	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
@@ -50,6 +51,7 @@ func newFixture(t *testing.T) *fixture {
 
 	// set discovery Client
 	client.SetDiscovery(NewFakeDiscoveryClient(regResource))
+
 
 	f := fixture{
 		t:       t,

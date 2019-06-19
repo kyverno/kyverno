@@ -1,0 +1,20 @@
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: test-endpoint
+  creationTimestamp: 
+  labels:
+    label: test
+subsets:
+- addresses:
+  - ip: 192.168.10.172
+  ports:
+  - name: load-balancer-connection
+    port: 80
+    protocol: UDP
+- addresses:
+  - ip: 192.168.10.171
+  ports:
+  - name: secure-connection
+    port: 9663
+    protocol: TCP
