@@ -2,8 +2,10 @@ package webhooks
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 
@@ -18,10 +20,12 @@ type WebhookRegistrationClient struct {
 	registrationClient *admregclient.AdmissionregistrationV1beta1Client
 	client             *client.Client
 	clientConfig       *rest.Config
+	// serverIP should be used if running Kyverno out of clutser
+	serverIP string
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
-func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client) (*WebhookRegistrationClient, error) {
+func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client, serverIP string) (*WebhookRegistrationClient, error) {
 	registrationClient, err := admregclient.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, err
@@ -31,11 +35,15 @@ func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Clie
 		registrationClient: registrationClient,
 		client:             client,
 		clientConfig:       clientConfig,
+		serverIP:           serverIP,
 	}, nil
 }
 
 // Register creates admission webhooks configs on cluster
 func (wrc *WebhookRegistrationClient) Register() error {
+	if wrc.serverIP != "" {
+		glog.Infof("Registering webhook with url https://%s\n", wrc.serverIP)
+	}
 	// For the case if cluster already has this configs
 	wrc.Deregister()
 
@@ -66,6 +74,12 @@ func (wrc *WebhookRegistrationClient) Register() error {
 // This function does not fail on error:
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) Deregister() {
+	if wrc.serverIP != "" {
+		wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &meta.DeleteOptions{})
+		wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &meta.DeleteOptions{})
+		return
+	}
+
 	wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationName, &meta.DeleteOptions{})
 	wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationName, &meta.DeleteOptions{})
 }
@@ -81,6 +95,10 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 	}
 	if len(caData) == 0 {
 		return nil, errors.New("Unable to extract CA data from configuration")
+	}
+
+	if wrc.serverIP != "" {
+		return wrc.contructDebugMutatingWebhookConfig(caData), nil
 	}
 
 	return &admregapi.MutatingWebhookConfiguration{
@@ -100,6 +118,24 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 	}, nil
 }
 
+func (wrc *WebhookRegistrationClient) contructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
+	glog.V(3).Infof("Debug MutatingWebhookConfig is registered with url %s\n", url)
+
+	return &admregapi.MutatingWebhookConfiguration{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   config.MutatingWebhookConfigurationDebug,
+			Labels: config.KubePolicyAppLabels,
+		},
+		Webhooks: []admregapi.Webhook{
+			constructDebugWebhook(
+				config.MutatingWebhookName,
+				url,
+				caData),
+		},
+	}
+}
+
 func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configuration *rest.Config) (*admregapi.ValidatingWebhookConfiguration, error) {
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
@@ -110,6 +146,10 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configura
 	}
 	if len(caData) == 0 {
 		return nil, errors.New("Unable to extract CA data from configuration")
+	}
+
+	if wrc.serverIP != "" {
+		return wrc.contructDebugValidatingWebhookConfig(caData), nil
 	}
 
 	return &admregapi.ValidatingWebhookConfiguration{
@@ -129,6 +169,24 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configura
 	}, nil
 }
 
+func (wrc *WebhookRegistrationClient) contructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
+	glog.V(3).Infof("Debug ValidatingWebhookConfig is registered with url %s\n", url)
+
+	return &admregapi.ValidatingWebhookConfiguration{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   config.ValidatingWebhookConfigurationName,
+			Labels: config.KubePolicyAppLabels,
+		},
+		Webhooks: []admregapi.Webhook{
+			constructDebugWebhook(
+				config.ValidatingWebhookName,
+				url,
+				caData),
+		},
+	}
+}
+
 func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook {
 	return admregapi.Webhook{
 		Name: name,
@@ -138,6 +196,34 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 				Name:      config.WebhookServiceName,
 				Path:      &servicePath,
 			},
+			CABundle: caData,
+		},
+		Rules: []admregapi.RuleWithOperations{
+			admregapi.RuleWithOperations{
+				Operations: []admregapi.OperationType{
+					admregapi.Create,
+				},
+				Rule: admregapi.Rule{
+					APIGroups: []string{
+						"*",
+					},
+					APIVersions: []string{
+						"*",
+					},
+					Resources: []string{
+						"*/*",
+					},
+				},
+			},
+		},
+	}
+}
+
+func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
+	return admregapi.Webhook{
+		Name: name,
+		ClientConfig: admregapi.WebhookClientConfig{
+			URL:      &url,
 			CABundle: caData,
 		},
 		Rules: []admregapi.RuleWithOperations{

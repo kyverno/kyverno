@@ -82,7 +82,7 @@ func (b *builder) processViolation(info Info) error {
 
 	modifiedPolicy.Status.Violations = modifiedViolations
 	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	_, err = b.client.UpdateStatusResource("policies/status", namespace, modifiedPolicy)
+	_, err = b.client.UpdateStatusResource("policies/status", namespace, modifiedPolicy, false)
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,7 @@ kubectl get -f CM.yaml -o yaml
 
 ## Test using the Kyverno CLI
 
-The Kyverno Command Line Interface (CLI) tool enables writing and testing policies without requiring Kubernetes clusters and without having to apply local policy changes to a cluster.
+The Kyverno Command Line Interface (CLI) tool allows writing and testing policies without having to apply local policy changes to a cluster. You can also test policies without a Kubernetes clusters, but results may vary as default values will not be filled in.
 
 ### Building the CLI
 
@@ -49,14 +49,22 @@ go get -u https://github.com/nirmata/kyverno/cmd/kyverno
 
 ### Using the CLI
 
+The CLI loads default kubeconfig ($HOME/.kube/config) to test policies in Kubernetes cluster. If no kubeconfig is found, the CLI will test policies on raw resources.
+
 To test a policy using the CLI type:
 
-`kyverno <policy> <resource YAML file or folder>`
+`kyverno apply @<policy> @<resource YAML file or folder>`
 
 For example:
 
 ```bash
-kyverno ../../examples/cli/policy-deployment.yaml ../../examples/cli/resources
+kyverno apply @../../examples/cli/policy-deployment.yaml @../../examples/cli/resources
 ```
 
-In future releases, the CLI will support complete validation of policies and will allow testing policies against resources in Kubernetes clusters.
+To test a policy with the specific kubeconfig:
+
+```bash
+kyverno apply @../../examples/cli/policy-deployment.yaml @../../examples/cli/resources --kubeconfig $PATH_TO_KUBECONFIG_FILE
+```
+
+In future releases, the CLI will support complete validation and generation of policies.

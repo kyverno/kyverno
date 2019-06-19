@@ -2,7 +2,7 @@
 
 # Generate Configurations 
 
-```generate``` feature can be applied to created namespaces to create new resources in them. This feature is useful when every namespace in a cluster must contain some basic required resources. The feature is available for policy rules in which the resource kind is Namespace.
+```generate``` is used to create default resources for a namespace. This feature is useful for managing resources that are required in each namespace.
 
 ## Example 1
 
@@ -46,8 +46,8 @@ spec:
 ````
 
 In this example, when this policy is applied, any new namespace that satisfies the label selector will receive 2 new resources after its creation:
-* ConfigMap copied from default/config-template.
-* Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
+  * ConfigMap copied from default/config-template.
+  * Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
 
 
 ## Example 2
@@ -73,11 +73,11 @@ spec:
           matchExpressions: []
         policyTypes: []
         metadata:
-          annotations: {}
           labels:
             policyname: "default"
 ````
-In this example, when this policy is applied, any new namespace will receive a new NetworkPolicy resource based on the specified template that by default denies all inbound and outbound traffic.
+
+In this example, when the policy is applied, any new namespace will receive a nNtworkPolicy based on the specified template that by default denies all inbound and outbound traffic.
 
 ---
 <small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>

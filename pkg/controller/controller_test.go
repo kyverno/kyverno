@@ -79,10 +79,12 @@ func (f *fixture) setupFixture() {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	regResources := []schema.GroupVersionResource{
-		schema.GroupVersionResource{Group: "kyverno.io/", Version: "v1alpha1", Resource: "policys"}}
 
-	fclient.SetDiscovery(client.NewFakeDiscoveryClient(regResources))
+	regresource := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Group: "kyverno.io",
+			Version:  "v1alpha1",
+			Resource: "policys"}}
+	fclient.SetDiscovery(client.NewFakeDiscoveryClient(regresource))
 }
 
 func newPolicy(name string) *types.Policy {
