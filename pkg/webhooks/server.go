@@ -81,6 +81,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
+	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
 
 		switch r.URL.Path {
@@ -135,15 +136,19 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		glog.Warning(err)
 		return nil
 	}
-	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	admissionResult := result.NewAdmissionResult(string(request.UID))
 	var allPatches []engine.PatchBytes
 	for _, policy := range policies {
-		if policy.Kind != request.Kind.Kind {
+
+		// check if policy has a rule for the admission request kind
+		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
+
+		glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		policyPatches, mutationResult := engine.Mutate(*policy, request.Object.Raw, request.Kind)
@@ -159,10 +164,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			name := engine.ParseNameFromObject(request.Object.Raw)
 			glog.Infof("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
 		}
+		glog.Info(admissionResult.String())
 	}
 
 	message := "\n" + admissionResult.String()
-	glog.Info(message)
 
 	if admissionResult.GetReason() == result.Success {
 		patchType := v1beta1.PatchTypeJSONPatch
@@ -183,8 +188,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 // HandleValidation handles validating webhook admission request
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	glog.Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
@@ -194,6 +197,14 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	admissionResult := result.NewAdmissionResult(string(request.UID))
 	for _, policy := range policies {
+
+		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
+			continue
+		}
+
+		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		admissionResult = result.Append(admissionResult, validationResult)
@@ -201,10 +212,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		if validationError := validationResult.ToError(); validationError != nil {
 			glog.Warningf(validationError.Error())
 		}
+		glog.Info(admissionResult.String())
 	}
 
 	message := "\n" + admissionResult.String()
-	glog.Info(message)
 
 	// Generation loop after all validation succeeded
 	var response *v1beta1.AdmissionResponse
@@ -213,7 +224,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		for _, policy := range policies {
 			engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
 		}
-		glog.Info("Validation is successful")
+		glog.V(3).Info("Validation is successful")
 
 		response = &v1beta1.AdmissionResponse{
 			Allowed: true,

@@ -2,6 +2,8 @@ package webhooks
 
 import (
 	"strings"
+
+	"github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 //StringInSlice checks if string is present in slice of strings
@@ -42,4 +44,22 @@ func (i *ArrayFlags) String() string {
 func (i *ArrayFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
+}
+
+// extract the kinds that the policy rules apply to
+func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
+	kindsMap := map[string]interface{}{}
+	kinds := []string{}
+	// iterate over the rules an identify all kinds
+	for _, rule := range p.Spec.Rules {
+		for _, k := range rule.ResourceDescription.Kinds {
+			kindsMap[k] = nil
+		}
+	}
+
+	// get the kinds
+	for k := range kindsMap {
+		kinds = append(kinds, k)
+	}
+	return kinds
 }
