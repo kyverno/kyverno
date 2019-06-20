@@ -28,6 +28,9 @@ const (
 	Less Operator = "<"
 )
 
+const relativePrefix Operator = "./"
+const referenceSign Operator = "$()"
+
 // ValidateValueWithPattern validates value with operators and wildcards
 func ValidateValueWithPattern(value, pattern interface{}) bool {
 	switch typedPattern := pattern.(type) {

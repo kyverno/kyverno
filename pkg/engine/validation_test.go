@@ -289,7 +289,7 @@ func TestValidateMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -384,7 +384,7 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -476,7 +476,7 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -563,7 +563,7 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -653,7 +653,7 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.Assert(t, res.ToError() != nil)
 }
 
@@ -743,7 +743,7 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -832,7 +832,7 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, "/")
+	res := validateMap(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -873,7 +873,7 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, "/")
+	res := validateResourceElement(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
 }
 
@@ -905,8 +905,551 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, "/")
+	res := validateResourceElement(resource, pattern, pattern, "/")
 	assert.NilError(t, res.ToError())
+}
+
+func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=./../../limits/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, res.ToError())
+}
+
+func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(./../somekey/somekey2/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
+}
+
+func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$()"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
+}
+
+func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
+}
+
+func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=./../../lim(its/mem)ory)"
+						},
+						"lim(its":{
+							"mem)ory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"lim(its":{
+							"mem)ory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, res.ToError())
+}
+
+func TestValidateMap_MalformedPath(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(>2048)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
+}
+
+func TestValidateMap_AbosolutePathExists(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=/spec/containers/0/resources/limits/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() == nil)
+}
+
+func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
+	rawPattern := []byte(`{
+		"metadata":{
+			"labels":{
+				"app":"nirmata*"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"(name)":"$(/metadata/labels/app)",
+					"image":"nirmata.io*"
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"labels":{
+				"app":"nirmata*"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					},
+					"name":"nirmata"
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() == nil)
+}
+
+func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=/some/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"1024Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	res := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, res.ToError() != nil)
+}
+
+func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "$(<=./../../limits/memory)"
+
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=./../../limits/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern interface{}
+
+	json.Unmarshal(rawPattern, &pattern)
+
+	pattern, res := actualizePattern(pattern, referencePath, absolutePath)
+
+	assert.Assert(t, res.ToError() == nil)
+}
+
+func TestFormAbsolutePath_RelativePathExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "./../../limits/memory"
+	expectedString := "/spec/containers/0/resources/limits/memory"
+
+	result := FormAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == expectedString)
+}
+
+func TestFormAbsolutePath_RelativePathWithBackToTopInTheBegining(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "../../limits/memory"
+	expectedString := "/spec/containers/0/resources/limits/memory"
+
+	result := FormAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == expectedString)
+}
+
+func TestFormAbsolutePath_AbsolutePathExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "/spec/containers/0/resources/limits/memory"
+
+	result := FormAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == referencePath)
+}
+
+func TestFormAbsolutePath_EmptyPath(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := ""
+
+	result := FormAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == absolutePath)
 }
 
 func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
@@ -937,7 +1480,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, "/")
+	res := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Assert(t, res.ToError() != nil)
 }
 
