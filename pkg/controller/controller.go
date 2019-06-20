@@ -88,7 +88,6 @@ func (pc *PolicyController) enqueuePolicy(obj interface{}) {
 // Run is main controller thread
 func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer pc.queue.ShutDown()
 
 	if ok := cache.WaitForCacheSync(stopCh, pc.policySynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
@@ -104,6 +103,7 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 
 //Stop to perform actions when controller is stopped
 func (pc *PolicyController) Stop() {
+	defer pc.queue.ShutDown()
 	glog.Info("shutting down policy controller workers")
 }
 func (pc *PolicyController) runWorker() {
