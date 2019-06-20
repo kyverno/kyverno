@@ -57,14 +57,14 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	// Initliaze Event Broadcaster
 	err := policyscheme.AddToScheme(scheme.Scheme)
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
-		utilruntime.HandleError(err) // TODO: add more specific error
+		glog.Error(err) // TODO: add more specific error
 		return nil
 	}
 	eventBroadcaster.StartRecordingToSink(
@@ -135,13 +135,13 @@ func (c *controller) SyncHandler(key Info) error {
 		//TODO: policy is clustered resource so wont need namespace
 		resource, err = c.policyLister.Get(key.Resource)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("unable to create event for policy %s, will retry ", key.Resource))
+			glog.Errorf("unable to create event for policy %s, will retry ", key.Resource)
 			return err
 		}
 	default:
 		namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key.Resource))
+			glog.Errorf("invalid resource key: %s", key.Resource)
 			return err
 		}
 		resource, err = c.client.GetResource(key.Kind, namespace, name)
@@ -149,7 +149,7 @@ func (c *controller) SyncHandler(key Info) error {
 			return err
 		}
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("unable to create event for resource %s, will retry ", key.Resource))
+			glog.Errorf("unable to create event for resource %s, will retry ", key.Resource)
 			return err
 		}
 	}
@@ -161,7 +161,7 @@ func (c *controller) SyncHandler(key Info) error {
 func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) Info {
 	msgText, err := getEventMsg(message, args)
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 	}
 	return Info{
 		Kind:     kind,
