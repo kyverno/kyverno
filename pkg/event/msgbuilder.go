@@ -7,13 +7,13 @@ import (
 
 func (k MsgKey) String() string {
 	return [...]string{
-		"Failed to satisfy policy on resource %s.The following rules %s failed to apply. Created Policy Violation",
+		"Failed to satisfy policy on resource %s.The following rule(s) %s failed to apply. Created Policy Violation %s",
 		"Failed to process rule %s of policy %s. Created Policy Violation %s",
 		"Policy %s applied successfully on the resource %s",
-		"Rule %s of Policy %s applied successful",
-		"Failed to apply policy, blocked creation of resource %s. Rule %s failed to apply",
-		"Failed to apply rule %s of policy %s Blocked update of the resource",
-		"Failed to apply policy on resource %s.Blocked update of the resource. The following rules %s failed to apply",
+		"Rule %s of policy %s applied successful",
+		"Failed to apply policy, blocked creation of resource %s. Rule(s) %s failed to apply",
+		"Failed to apply rule %s of policy %s. Blocked update of the resource",
+		"Failed to apply policy on resource %s. Blocked update of the resource. The following rule(s) %s failed to apply",
 	}[k]
 }
 

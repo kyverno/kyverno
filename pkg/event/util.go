@@ -1,10 +1,11 @@
 package event
 
-const eventSource = "policy-controller"
-
-const eventWorkQueueName = "policy-controller-events"
-
-const eventWorkerThreadCount = 1
+const (
+	eventSource            = "policy-controller"
+	eventWorkQueueName     = "policy-controller-events"
+	eventWorkerThreadCount = 1
+	policyKind             = "Policy"
+)
 
 //Info defines the event details
 type Info struct {
@@ -22,7 +23,7 @@ type MsgKey int
 
 //Message id for pre-defined messages
 const (
-	FResourcePolcy MsgKey = iota
+	FProcessPolicy MsgKey = iota
 	FProcessRule
 	SPolicyApply
 	SRuleApply
