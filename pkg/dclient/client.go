@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -169,7 +168,7 @@ func (c *Client) UpdateStatusResource(resource string, namespace string, obj int
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to convert : %v", err))
+		glog.Errorf("Unable to convert : %v", err)
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
@@ -186,7 +185,7 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string) 
 	if generator.Data != nil {
 		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&generator.Data)
 		if err != nil {
-			utilruntime.HandleError(err)
+			glog.Error(err)
 			return err
 		}
 	}
@@ -266,12 +265,12 @@ func (c ServerPreferredResources) getGVR(resource string) schema.GroupVersionRes
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return emptyGVR
 	}
 	resources, err := discovery.GroupVersionResources(serverresources)
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return emptyGVR
 	}
 	//TODO using cached client to support cache validation and invalidation
@@ -290,7 +289,7 @@ func (c ServerPreferredResources) getGVRFromKind(kind string) schema.GroupVersio
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return emptyGVR
 	}
 	for _, serverresource := range serverresources {
@@ -298,7 +297,7 @@ func (c ServerPreferredResources) getGVRFromKind(kind string) schema.GroupVersio
 			if resource.Kind == kind && !strings.Contains(resource.Name, "/") {
 				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
 				if err != nil {
-					utilruntime.HandleError(err)
+					glog.Error(err)
 					return emptyGVR
 				}
 				return gv.WithResource(resource.Name)

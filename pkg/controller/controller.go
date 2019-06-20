@@ -69,7 +69,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = resource.(metav1.Object); !ok {
-		utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
+		glog.Error("error decoding object, invalid type")
 		return
 	}
 	glog.Infof("policy deleted: %s", object.GetName())
@@ -79,7 +79,7 @@ func (pc *PolicyController) enqueuePolicy(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return
 	}
 	pc.queue.Add(key)
@@ -124,7 +124,7 @@ func (pc *PolicyController) processNextWorkItem() bool {
 		return nil
 	}(obj)
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return true
 	}
 	return true
@@ -144,7 +144,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 		return
 	}
 	pc.queue.Forget(key)
-	utilruntime.HandleError(err)
+	glog.Error(err)
 	glog.Warningf("Dropping the key %q out of the queue: %v", key, err)
 }
 
@@ -156,7 +156,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	}
 	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid policy key: %s", key))
+		glog.Errorf("invalid policy key: %s", key)
 		return nil
 	}
 
@@ -164,7 +164,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	policy, err := pc.policyLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("policy '%s' in work queue no longer exists", key))
+			glog.Errorf("policy '%s' in work queue no longer exists", key)
 			return nil
 		}
 		return err

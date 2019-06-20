@@ -1,15 +1,12 @@
 package violation
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -52,12 +49,12 @@ func (b *builder) processViolation(info Info) error {
 	// Get the policy
 	namespace, name, err := cache.SplitMetaNamespaceKey(info.Policy)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to extract namespace and name for %s", info.Policy))
+		glog.Errorf("unable to extract namespace and name for %s", info.Policy)
 		return err
 	}
 	policy, err := b.policyLister.Get(name)
 	if err != nil {
-		utilruntime.HandleError(err)
+		glog.Error(err)
 		return err
 	}
 	modifiedPolicy := policy.DeepCopy()
@@ -69,7 +66,7 @@ func (b *builder) processViolation(info Info) error {
 	for _, violation := range modifiedPolicy.Status.Violations {
 		ok, err := b.isActive(info.Kind, violation.Resource)
 		if err != nil {
-			utilruntime.HandleError(err)
+			glog.Error(err)
 			continue
 		}
 		if !ok {
@@ -92,13 +89,13 @@ func (b *builder) processViolation(info Info) error {
 func (b *builder) isActive(kind string, resource string) (bool, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(resource)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", resource))
+		glog.Errorf("invalid resource key: %s", resource)
 		return false, err
 	}
 	// Generate Merge Patch
 	_, err = b.client.GetResource(kind, namespace, name)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to get resource %s ", resource))
+		glog.Errorf("unable to get resource %s ", resource)
 		return false, err
 	}
 	return true, nil
