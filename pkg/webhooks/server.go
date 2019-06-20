@@ -27,10 +27,11 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server       http.Server
-	client       *client.Client
-	policyLister v1alpha1.PolicyLister
-	filterKinds  []string
+	server          http.Server
+	client          *client.Client
+	policyLister    v1alpha1.PolicyLister
+	eventController event.Generator
+	filterKinds     []string
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -39,6 +40,7 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	shareInformer sharedinformer.PolicyInformer,
+	eventController event.Generator,
 	filterKinds []string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -53,9 +55,10 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:       client,
-		policyLister: shareInformer.GetLister(),
-		filterKinds:  parseKinds(filterKinds),
+		client:          client,
+		policyLister:    shareInformer.GetLister(),
+		eventController: eventController,
+		filterKinds:     parseKinds(filterKinds),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -173,9 +176,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	// create success event here
 	for _, c := range admissionResult.GetChildren() {
 		resource := request.Namespace + "/" + name
-		event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
-		// TODO: create events based on the above eventInfo
-
+		eventsInfo := event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
+		// TODO: test event generation here
+		for i, event := range eventsInfo {
+			glog.Infof("mutation event info %d: %v\n", i, *event)
+			// ws.eventController.Add(*event)
+		}
 	}
 
 	if admissionResult.GetReason() == result.Success {
@@ -188,7 +194,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	return &v1beta1.AdmissionResponse{
-		// create failure events per rule
 		Allowed: false,
 		Result: &metav1.Status{
 			Message: message,
@@ -235,8 +240,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		for _, policy := range policies {
 			engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
 		}
-		glog.V(3).Info("Validation is successful")
-
 		response = &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
@@ -252,8 +255,12 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	// create success event here
 	for _, c := range admissionResult.GetChildren() {
 		resource := request.Namespace + "/" + name
-		event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
-		// TODO: create events based on the above eventInfo
+		eventsInfo := event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
+		// TODO: test event generation here
+		for i, event := range eventsInfo {
+			glog.Infof("validation event info %d: %v\n", i, *event)
+			// ws.eventController.Add(*event)
+		}
 	}
 
 	return response
