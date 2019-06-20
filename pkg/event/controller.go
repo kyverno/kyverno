@@ -158,15 +158,48 @@ func (c *controller) SyncHandler(key Info) error {
 }
 
 //NewEvent returns a new event
-func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args)
+func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) *Info {
+	msgText, err := getEventMsg(message, args...)
 	if err != nil {
-		glog.Error(err)
+		glog.Errorf("Failed to get even message text, err: %v\n", err)
 	}
-	return Info{
+
+	return &Info{
 		Kind:     kind,
 		Resource: resource,
 		Reason:   reason.String(),
 		Message:  msgText,
 	}
+}
+
+// NewEventsFromResultOnResourceCreation create event info list from result
+func NewEventsFromResultOnResourceCreation(kind string, resource string, rslt result.Result) []*Info {
+	var infoList []*Info
+	switch rslt.GetReason() {
+	case result.Success:
+		// create event for policy
+		infoList = append(infoList, NewEvent("Policy", rslt.Name(), result.Success, SPolicyApply, rslt.Name(), resource))
+		// create event for resource
+		infoList = append(infoList, NewEvent(kind, resource, result.Success, SPolicyApply, rslt.Name(), resource))
+		return infoList
+	case result.Failed:
+		results := rslt.GetChildren()
+		// if result has no children, create event direclty
+		if len(results) == 0 {
+			return []*Info{NewEvent("Policy", rslt.Name(), result.Failed, FPolicyApplyBlockCreate, resource, rslt.Name())}
+		}
+
+		for _, r := range results {
+			// add event to policy only on failure
+			if r.GetReason() == result.Failed {
+				infoList = append(infoList,
+					NewEvent("Policy", rslt.Name(), result.Failed, FPolicyApplyBlockCreate, resource, r.Name()))
+			}
+		}
+		return infoList
+		// TODO:
+		// case result.Violation:
+		// default:
+	}
+	return nil
 }
