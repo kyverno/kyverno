@@ -35,7 +35,7 @@ func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemP
 
 	tlsCert, err := c.fetchCertificateFromRequest(certRequest, 10)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/nirmata/kyverno/installation.md.: %v", err)
+		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#option-2-use-your-own-ca-signed-certificate: %v", err)
 	}
 
 	return &tls.TlsPemPair{
