@@ -8,7 +8,10 @@ const eventWorkerThreadCount = 1
 
 //Info defines the event details
 type Info struct {
-	Kind     string
+	// Kind is the kind of the resource
+	Kind string
+	// Resource is namespace/name,
+	// namespace is optional if the resource is non-namepsaced
 	Resource string
 	Reason   string
 	Message  string

@@ -30,8 +30,10 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				ruleApplicationResult.MergeWith(&ruleResult)
 				ruleApplicationResult.AddMessagef("Overlay application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
 			} else {
-				ruleApplicationResult.AddMessagef("Success")
-				allPatches = append(allPatches, overlayPatches...)
+				if overlayPatches != nil {
+					ruleApplicationResult.AddMessagef("Overlay application succeed")
+					allPatches = append(allPatches, overlayPatches...)
+				}
 			}
 
 			// Process Patches
@@ -40,8 +42,10 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				ruleApplicationResult.MergeWith(&ruleResult)
 				ruleApplicationResult.AddMessagef("Patches application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
 			} else {
-				ruleApplicationResult.AddMessagef("Success")
-				allPatches = append(allPatches, rulePatches...)
+				if rulePatches != nil {
+					ruleApplicationResult.AddMessagef("Mutate application succeed")
+					allPatches = append(allPatches, rulePatches...)
+				}
 			}
 		}
 		policyResult = result.Append(policyResult, &ruleApplicationResult)

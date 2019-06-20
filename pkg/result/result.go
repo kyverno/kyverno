@@ -20,13 +20,17 @@ type Result interface {
 	StringWithIndent(indent string) string
 	GetReason() Reason
 	ToError() error
+	Name() string
+	GetResult() map[string]interface{}
+	GetChildren() []Result
 }
 
 // CompositeResult is used for result hierarchy
 type CompositeResult struct {
-	Message  string
-	Reason   Reason
-	Children []Result
+	PolicyName string
+	Message    string
+	Reason     Reason
+	Children   []Result
 }
 
 // RuleApplicationResult represents elementary result that is produced by PolicyEngine
@@ -79,6 +83,26 @@ func (e *RuleApplicationResult) ToError() error {
 //GetReason returns reason
 func (e *RuleApplicationResult) GetReason() Reason {
 	return e.Reason
+}
+
+// Name returns policy rule name of the result
+func (e *RuleApplicationResult) Name() string {
+	return e.PolicyRule
+}
+
+// GetResult returns map[string]interface{}
+// each entry contains message per policy rule
+func (e *RuleApplicationResult) GetResult() map[string]interface{} {
+	return map[string]interface{}{
+		e.PolicyRule: e.Messages,
+	}
+}
+
+// GetChildren of RuleApplicationResult returns nil
+// since RuleApplicationResult is result per rule
+// it does not has children
+func (e *RuleApplicationResult) GetChildren() []Result {
+	return nil
 }
 
 //AddMessagef Adds formatted message to this result
@@ -138,11 +162,34 @@ func (e *CompositeResult) GetReason() Reason {
 	return e.Reason
 }
 
+//Name returns the policy name
+func (e *CompositeResult) Name() string {
+	return e.PolicyName
+}
+
+// GetResult returns the collection of messages
+// each entry contains rule name and its message
+func (e *CompositeResult) GetResult() map[string]interface{} {
+	resultMap := make(map[string]interface{})
+	// resultMap[e.PolicyName] = e.Message
+
+	for _, child := range e.Children {
+		resultMap[child.Name()] = child.GetResult()[child.Name()]
+	}
+	return resultMap
+}
+
+// GetChildren returns children of CompositeResult
+func (e *CompositeResult) GetChildren() []Result {
+	return e.Children
+}
+
 //NewPolicyApplicationResult creates a new policy application result
 func NewPolicyApplicationResult(policyName string) Result {
 	return &CompositeResult{
-		Message: fmt.Sprintf("policy - %s:", policyName),
-		Reason:  Success,
+		PolicyName: policyName,
+		Message:    fmt.Sprintf("policy - %s:", policyName),
+		Reason:     Success,
 	}
 }
 
