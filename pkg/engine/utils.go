@@ -148,6 +148,28 @@ func isConditionAnchor(str string) bool {
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
+func getRawKeyIfWrappedWithAttributes(str string) string {
+	if len(str) < 2 {
+		return str
+	}
+
+	if str[0] == '(' && str[len(str)-1] == ')' {
+		return str[1 : len(str)-1]
+	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+') && (str[1] == '(' && str[len(str)-1] == ')') {
+		return str[2 : len(str)-1]
+	} else {
+		return str
+	}
+}
+
+func isStringIsReference(str string) bool {
+	if len(str) < len(referenceSign) {
+		return false
+	}
+
+	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
+}
+
 func isExistanceAnchor(str string) bool {
 	left := "^("
 	right := ")"

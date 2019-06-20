@@ -23,7 +23,7 @@ func CreateAnchorHandler(anchor string, pattern interface{}, path string) Valida
 // resourcePart must be an array of dictionaries
 // patternPart must be a dictionary with anchors
 type ValidationAnchorHandler interface {
-	Handle(resourcePart []interface{}, patternPart map[string]interface{}) result.RuleApplicationResult
+	Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) result.RuleApplicationResult
 }
 
 // NoAnchorValidationHandler just calls validateMap
@@ -41,7 +41,7 @@ func NewNoAnchorValidationHandler(path string) ValidationAnchorHandler {
 }
 
 // Handle performs validation in context of NoAnchorValidationHandler
-func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}) result.RuleApplicationResult {
+func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) result.RuleApplicationResult {
 	handlingResult := result.NewRuleApplicationResult("")
 
 	for i, resourceElement := range resourcePart {
@@ -53,7 +53,7 @@ func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patter
 			return handlingResult
 		}
 
-		res := validateMap(typedResourceElement, patternPart, currentPath)
+		res := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
 		handlingResult.MergeWith(&res)
 	}
 
@@ -81,8 +81,8 @@ func NewConditionAnchorValidationHandler(anchor string, pattern interface{}, pat
 }
 
 // Handle performs validation in context of ConditionAnchorValidationHandler
-func (cavh *ConditionAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}) result.RuleApplicationResult {
-	_, handlingResult := handleConditionCases(resourcePart, patternPart, cavh.anchor, cavh.pattern, cavh.path)
+func (cavh *ConditionAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) result.RuleApplicationResult {
+	_, handlingResult := handleConditionCases(resourcePart, patternPart, cavh.anchor, cavh.pattern, cavh.path, originPattern)
 
 	return handlingResult
 }
@@ -110,8 +110,8 @@ func NewExistanceAnchorValidationHandler(anchor string, pattern interface{}, pat
 }
 
 // Handle performs validation in context of ExistanceAnchorValidationHandler
-func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}) result.RuleApplicationResult {
-	anchoredEntries, handlingResult := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path)
+func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) result.RuleApplicationResult {
+	anchoredEntries, handlingResult := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path, originPattern)
 
 	if 0 == anchoredEntries {
 		handlingResult.FailWithMessagef("Existance anchor %s used, but no suitable entries were found", eavh.anchor)
@@ -134,7 +134,7 @@ func checkForAnchorCondition(anchor string, pattern interface{}, resourceMap map
 // both () and ^() are checking conditions and have a lot of similar logic
 // the only difference is that ^() requires existace of one element
 // anchoredEntries var counts this occurences.
-func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string) (int, result.RuleApplicationResult) {
+func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string, originPattern interface{}) (int, result.RuleApplicationResult) {
 	handlingResult := result.NewRuleApplicationResult("")
 	anchoredEntries := 0
 
@@ -152,7 +152,7 @@ func handleConditionCases(resourcePart []interface{}, patternPart map[string]int
 		}
 
 		anchoredEntries++
-		res := validateMap(typedResourceElement, patternPart, currentPath)
+		res := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
 		handlingResult.MergeWith(&res)
 	}
 
