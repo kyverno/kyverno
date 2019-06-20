@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
@@ -95,7 +96,6 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response.UID = admissionReview.Request.UID
 
 	responseJson, err := json.Marshal(admissionReview)
-
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 		return
@@ -130,6 +130,7 @@ func (ws *WebhookServer) Stop() {
 
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	name := engine.ParseNameFromObject(request.Object.Raw)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
@@ -146,8 +147,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			continue
 		}
 
-		glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			request.Kind.Kind, request.Namespace, name, request.UID, request.Operation)
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
@@ -169,6 +170,14 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	message := "\n" + admissionResult.String()
 
+	// create success event here
+	for _, c := range admissionResult.GetChildren() {
+		resource := request.Namespace + "/" + name
+		event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
+		// TODO: create events based on the above eventInfo
+
+	}
+
 	if admissionResult.GetReason() == result.Success {
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
@@ -179,6 +188,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	return &v1beta1.AdmissionResponse{
+		// create failure events per rule
 		Allowed: false,
 		Result: &metav1.Status{
 			Message: message,
@@ -188,6 +198,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 // HandleValidation handles validating webhook admission request
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	name := engine.ParseNameFromObject(request.Object.Raw)
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
@@ -202,15 +213,15 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			continue
 		}
 
-		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			request.Kind.Kind, request.Namespace, name, request.UID, request.Operation)
 
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		admissionResult = result.Append(admissionResult, validationResult)
 
 		if validationError := validationResult.ToError(); validationError != nil {
-			glog.Warningf(validationError.Error())
+			glog.Warningf("\n" + validationError.Error())
 		}
 		glog.Info(admissionResult.String())
 	}
@@ -236,6 +247,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 				Message: message,
 			},
 		}
+	}
+
+	// create success event here
+	for _, c := range admissionResult.GetChildren() {
+		resource := request.Namespace + "/" + name
+		event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
+		// TODO: create events based on the above eventInfo
 	}
 
 	return response
