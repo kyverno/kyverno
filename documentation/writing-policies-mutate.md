@@ -1,6 +1,6 @@
 <small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate*</small>
 
-# Mutate Configurations 
+# Mutate Configurations
 
 The ```mutate``` rule contains actions that will be applied to matching resource before their creation. A mutate rule can be written as a JSON Patch or as an overlay. By using a ```patch``` in the (JSONPatch - RFC 6902)[http://jsonpatch.com/] format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
 
@@ -93,7 +93,7 @@ spec :
 
 ### Working with lists
 
-Applying overlays to a list type without is fairly straightforward: new items will be added to the list, unless they already ecist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
+Applying overlays to a list type without is fairly straightforward: new items will be added to the list, unless they already exist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
