@@ -93,7 +93,7 @@ spec :
 
 ### Working with lists
 
-Applying overlays to a list type without is fairly straightforward: new items will be added to the list, unless they already exist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
+Applying overlays to a list type is fairly straightforward: new items will be added to the list, unless they already exist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
