@@ -31,7 +31,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(info Info)
+	Add(infoList []*Info)
 }
 
 //Controller  api
@@ -77,8 +77,10 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(info Info) {
-	c.queue.Add(info)
+func (c *controller) Add(infoList []*Info) {
+	for _, info := range infoList {
+		c.queue.Add(*info)
+	}
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -94,6 +96,7 @@ func (c *controller) Stop() {
 	defer c.queue.ShutDown()
 	glog.Info("Shutting down eventbuilder controller workers")
 }
+
 func (c *controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
@@ -104,6 +107,7 @@ func (c *controller) processNextWorkItem() bool {
 	if shutdown {
 		return false
 	}
+
 	err := func(obj interface{}) error {
 		defer c.queue.Done(obj)
 		var key Info
@@ -136,25 +140,24 @@ func (c *controller) SyncHandler(key Info) error {
 		//TODO: policy is clustered resource so wont need namespace
 		resource, err = c.policyLister.Get(key.Resource)
 		if err != nil {
-			glog.Errorf("unable to create event for policy %s, will retry ", key.Resource)
+			glog.Errorf("Unable to create event for policy %s, will retry ", key.Resource)
 			return err
 		}
 	default:
 		namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
 		if err != nil {
-			glog.Errorf("invalid resource key: %s", key.Resource)
+			glog.Errorf("Invalid resource key: %s", key.Resource)
 			return err
 		}
 		rName := c.client.DiscoveryClient.GetGVRFromKind(key.Kind).Resource
 		resource, err = c.client.GetResource(rName, namespace, name)
 		if err != nil {
-			return err
-		}
-		if err != nil {
-			glog.Errorf("unable to create event for resource %s, will retry ", key.Resource)
+			glog.Errorf("Unable to create event for resource %s, will retry ", key.Resource)
 			return err
 		}
 	}
+
+	glog.Infof("Creating event for resource %s: %s\n", key.Kind, key.Resource)
 	c.recorder.Event(resource, v1.EventTypeNormal, key.Reason, key.Message)
 	return nil
 }

@@ -171,17 +171,15 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		glog.Info(admissionResult.String())
 	}
 
-	message := "\n" + admissionResult.String()
-
 	// create success event here
 	for _, c := range admissionResult.GetChildren() {
+		// skip to create event if no patch
+		if len(allPatches) == 0 {
+			break
+		}
 		resource := request.Namespace + "/" + name
 		eventsInfo := event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
-		// TODO: test event generation here
-		for i, event := range eventsInfo {
-			glog.Infof("mutation event info %d: %v\n", i, *event)
-			// ws.eventController.Add(*event)
-		}
+		ws.eventController.Add(eventsInfo)
 	}
 
 	if admissionResult.GetReason() == result.Success {
@@ -196,7 +194,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	return &v1beta1.AdmissionResponse{
 		Allowed: false,
 		Result: &metav1.Status{
-			Message: message,
+			Message: "\n" + admissionResult.String(),
 		},
 	}
 }
@@ -231,8 +229,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		glog.Info(admissionResult.String())
 	}
 
-	message := "\n" + admissionResult.String()
-
 	// Generation loop after all validation succeeded
 	var response *v1beta1.AdmissionResponse
 
@@ -247,7 +243,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		response = &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: message,
+				Message: "\n" + admissionResult.String(),
 			},
 		}
 	}
@@ -256,11 +252,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	for _, c := range admissionResult.GetChildren() {
 		resource := request.Namespace + "/" + name
 		eventsInfo := event.NewEventsFromResultOnResourceCreation(request.Kind.Kind, resource, c)
-		// TODO: test event generation here
-		for i, event := range eventsInfo {
-			glog.Infof("validation event info %d: %v\n", i, *event)
-			// ws.eventController.Add(*event)
-		}
+		ws.eventController.Add(eventsInfo)
 	}
 
 	return response
