@@ -47,7 +47,8 @@ spec :
   rules:
     - name: "Remove unwanted label"
       resource:
-        kind: Secret
+        kinds:
+          - Secret
       mutate:
         patches:
         - path: "/metadata/labels/purpose"
@@ -71,7 +72,8 @@ spec :
   rules:
     - name: "Set hard memory limit to 2Gi"
       resource:
-        kind: Pod
+        kinds:
+          - Pod
         selector:
           matchLabels:
             memory: high
@@ -80,7 +82,7 @@ spec :
           spec:
             containers:
             # the wildcard * will match all containers in the list
-            - name: *
+            - (name): "*"
               resources:
                 requests:
                   memory: "10Gi"
@@ -94,37 +96,41 @@ spec :
 Applying overlays to a list type without is fairly straightforward: new items will be added to the list, unless they already ecist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
 
 ````yaml
-apiVersion: policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: policy-endpoints
 spec:
   rules:
-  - resource:
-      kind : Endpoints
+  - name: "Add IP to subsets"
+    resource:
+      kinds :
+        - Endpoints
     mutate:
       overlay:
         subsets:
         - addresses:
-          - ip: 192.168.10.172
+          - ip: 192.168.42.172
 ````
 
 
 ### Conditional logic using anchors
 
-An **anchor** field, marked by parentheses, allows conditional processing of configurations. Processing stops when the anchor value does not match. Once processing stops, any child elements or any remaining siblings in a list, will not be processed. 
+An **anchor** field, marked by parentheses, allows conditional processing of configurations. Processing stops when the anchor value does not match. Once processing stops, any child elements or any remaining siblings in a list, will not be processed.
 
  For example, this overlay will add or replace the value 6443 for the port field, for all ports with a name value that starts with "secure":
 
 ````yaml
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-set-port
 spec :
   rules:
-  - resource:
-      kind : Endpoints
+  - name: "Set port"
+    resource:
+      kinds :
+        - Endpoints
     mutate:
       overlay:
         subsets:
@@ -145,18 +151,20 @@ A variation of an anchor, is to add a field value if it is not already defined. 
  For example, this overlay will set the port to 6443, if a port is not already defined:
 
 ````yaml
-apiVersion : policy.nirmata.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind : Policy
 metadata :
   name : policy-set-port
 spec :
   rules:
-  - resource:
-      kind : Endpoints
+  - name: "Set port"
+    resource:
+      kinds :
+        - Endpoints
     mutate:
       overlay:
         subsets:
-        - ports:
+        - (ports):
             +(port): 6443
 ````
 

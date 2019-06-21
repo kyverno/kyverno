@@ -46,8 +46,8 @@ spec:
           - name: "*"
             resources:
               limits:
-                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters. 
-                # Using them togther e.g. '?*' requires at least one character. 
+                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
+                # Using them together e.g. '?*' requires at least one character. 
                 memory: "?*"
                 cpu: "?*"
               requests:
