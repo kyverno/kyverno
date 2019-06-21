@@ -67,7 +67,7 @@ func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResourc
 	return schema.GroupVersionResource{}
 }
 
-func (c *fakeDiscoveryClient) getGVRFromKind(kind string) schema.GroupVersionResource {
+func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) schema.GroupVersionResource {
 	resource := strings.ToLower(kind) + "s"
 	return c.getGVR(resource)
 }

@@ -30,7 +30,7 @@ type Client struct {
 	cachedClient    discovery.CachedDiscoveryInterface
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
-	discoveryClient IDiscovery
+	DiscoveryClient IDiscovery
 }
 
 //NewClient creates new instance of client
@@ -102,7 +102,7 @@ func (c *Client) getGroupVersionMapper(resource string) schema.GroupVersionResou
 	//TODO: add checks to see if the resource is supported
 	//TODO: build the resource list dynamically( by querying the registered resources)
 	//TODO: the error scenarios
-	return c.discoveryClient.getGVR(resource)
+	return c.DiscoveryClient.getGVR(resource)
 }
 
 // GetResource returns the resource in unstructured/json format
@@ -177,7 +177,7 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 // GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
 func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
 	var err error
-	rGVR := c.discoveryClient.getGVRFromKind(generator.Kind)
+	rGVR := c.DiscoveryClient.GetGVRFromKind(generator.Kind)
 	resource := &unstructured.Unstructured{}
 
 	var rdata map[string]interface{}
@@ -250,11 +250,11 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 
 type IDiscovery interface {
 	getGVR(resource string) schema.GroupVersionResource
-	getGVRFromKind(kind string) schema.GroupVersionResource
+	GetGVRFromKind(kind string) schema.GroupVersionResource
 }
 
 func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
-	c.discoveryClient = discoveryClient
+	c.DiscoveryClient = discoveryClient
 }
 
 type ServerPreferredResources struct {
@@ -285,7 +285,7 @@ func (c ServerPreferredResources) getGVR(resource string) schema.GroupVersionRes
 
 //To-do: measure performance
 //To-do: evaluate DefaultRESTMapper to fetch kind->resource mapping
-func (c ServerPreferredResources) getGVRFromKind(kind string) schema.GroupVersionResource {
+func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := c.cachedClient.ServerPreferredResources()
 	if err != nil {

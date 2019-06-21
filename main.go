@@ -77,6 +77,7 @@ func main() {
 	server.RunAsync()
 	<-stopCh
 	server.Stop()
+	eventController.Stop()
 	policyController.Stop()
 }
 
