@@ -46,7 +46,7 @@ metadata :
   name : policy-endpoints
 spec :
   rules:
-    - name:
+    - name: ""
       resource:
         kinds:
           - Endpoints

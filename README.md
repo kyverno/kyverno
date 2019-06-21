@@ -10,13 +10,13 @@ Kubernetes supports declarative management of objects using configurations writt
 
 Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
 
-Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources. 
+Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources.
 
 Kyverno runs as a [dynamic admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) in a Kubernetes cluster. Kyverno receives validating and mutating admission webhook HTTP callbacks from the kube-apiserver and applies matching policies to return results that enforce admission policies or reject requests.
 
 Kyverno policies can match resources using the resource kind, name, and label selectors. Wildcards are supported in names.
 
-Mutating policies can be written as overlays (similar to [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#bases-and-overlays)) or as a [JSON Patch](http://jsonpatch.com/). Validating policies also use an overlay style syntax, with support for pattern matching and conditional (if-then-else) processing. 
+Mutating policies can be written as overlays (similar to [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/#bases-and-overlays)) or as a [JSON Patch](http://jsonpatch.com/). Validating policies also use an overlay style syntax, with support for pattern matching and conditional (if-then-else) processing.
 
 Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
 
@@ -46,8 +46,8 @@ spec:
           - name: "*"
             resources:
               limits:
-                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters. 
-                # Using them togther e.g. '?*' requires at least one character. 
+                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
+                # Using them together e.g. '?*' requires at least one character. 
                 memory: "?*"
                 cpu: "?*"
               requests:
@@ -100,7 +100,7 @@ spec:
       selector:
         matchExpressions:
         - {key: kafka, operator: Exists}
-    generate: 
+    generate:
       kind: ConfigMap
       name: zk-kafka-address
       data:
@@ -126,11 +126,11 @@ Additional examples are available in [examples](/examples).
 
 ### Open Policy Agent
 
-[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language. 
+[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language.
 
 ### Polaris
 
-[Polaris](https://github.com/reactiveops/polaris) validates configurations for best practices. It includes several checks across health, networking, security, etc. Checks can be assigned a severity. A dashboard reports the overall score. 
+[Polaris](https://github.com/reactiveops/polaris) validates configurations for best practices. It includes several checks across health, networking, security, etc. Checks can be assigned a severity. A dashboard reports the overall score.
 
 ### External configuration management tools
 
@@ -166,7 +166,6 @@ Here are some the major features we plan on completing before a 1.0 release:
 
 Welcome to our community and thanks for contributing!
 
-  * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing. 
+  * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
   * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
   * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
-
