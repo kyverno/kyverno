@@ -7,7 +7,7 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 
 1. Validation will fail if a field is defined in the pattern and if the field does not exist in the configuration. 
 2. Undefined fields are treated as wildcards. 
-3. A validation pattern field with the wildcard value '*' will match zero or more alphanumeric characters. Empty values or missing fields are matched.
+3. A validation pattern field with the wildcard value '*' will match zero or more alphanumeric characters. Empty values are matched. Missing fields are not matched.
 4. A validation pattern field with the wildcard value '?' will match any single alphanumeric character. Empty or missing fields are not matched. 
 5. A validation pattern field with the wildcard value '?*' will match any alphanumeric characters and requires the field to be present with non-empty values.
 6. A validation pattern field with the value `null` or "" (empty string) requires that the field not be defined or has no value.
