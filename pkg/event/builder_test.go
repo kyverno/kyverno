@@ -9,8 +9,9 @@ import (
 
 func TestPositive(t *testing.T) {
 	resourceName := "test_resource"
-	expectedMsg := fmt.Sprintf("Policy applied successfully on the resource %s", resourceName)
-	msg, err := getEventMsg(SPolicyApply, resourceName)
+	policy := "test_policy"
+	expectedMsg := fmt.Sprintf("Policy %s applied successfully on the resource %s", policy, resourceName)
+	msg, err := getEventMsg(SPolicyApply, policy, resourceName)
 	assert.NilError(t, err)
 	assert.Equal(t, expectedMsg, msg)
 }
@@ -18,6 +19,6 @@ func TestPositive(t *testing.T) {
 // passing incorrect args
 func TestIncorrectArgs(t *testing.T) {
 	resourceName := "test_resource"
-	_, err := getEventMsg(SPolicyApply, resourceName, "extra_args")
-	assert.Error(t, err, "message expects 1 arguments, but 2 arguments passed")
+	_, err := getEventMsg(SPolicyApply, resourceName)
+	assert.Error(t, err, "message expects 2 arguments, but 1 arguments passed")
 }
