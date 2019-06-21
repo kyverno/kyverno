@@ -59,7 +59,7 @@ Note, that if **remove** operation cannot be applied, then this **remove** opera
 
 ## Overlay
 
-An mutation overlay describes the desired form of resource. The existing resource values are replaced with the values specified in the overlay. If a value is specified in the overlay but not present in the target resource, then it will be added to the resource. The overlay cannot be used to delete values in a resource: use **patches** for this purpose.
+A mutation overlay describes the desired form of resource. The existing resource values are replaced with the values specified in the overlay. If a value is specified in the overlay but not present in the target resource, then it will be added to the resource. The overlay cannot be used to delete values in a resource: use **patches** for this purpose.
 
 The following mutation overlay will add (or replace) the memory request and limit to 10Gi for every Pod with a label ```memory: high```:
 
