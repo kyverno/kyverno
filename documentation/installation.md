@@ -52,7 +52,7 @@ openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test
 openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256
 ````
 
-The following files will be generated and can be used to create Kubernetes secrets:
+Among the files that will be generated, you can use the following files to create Kubernetes secrets:
 - rootCA.crt
 - webhooks.crt
 - webhooks.key
