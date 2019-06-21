@@ -21,7 +21,6 @@ type Result interface {
 	GetReason() Reason
 	ToError() error
 	Name() string
-	GetResult() map[string]interface{}
 	GetChildren() []Result
 }
 
@@ -88,14 +87,6 @@ func (e *RuleApplicationResult) GetReason() Reason {
 // Name returns policy rule name of the result
 func (e *RuleApplicationResult) Name() string {
 	return e.PolicyRule
-}
-
-// GetResult returns map[string]interface{}
-// each entry contains message per policy rule
-func (e *RuleApplicationResult) GetResult() map[string]interface{} {
-	return map[string]interface{}{
-		e.PolicyRule: e.Messages,
-	}
 }
 
 // GetChildren of RuleApplicationResult returns nil
@@ -165,18 +156,6 @@ func (e *CompositeResult) GetReason() Reason {
 //Name returns the policy name
 func (e *CompositeResult) Name() string {
 	return e.PolicyName
-}
-
-// GetResult returns the collection of messages
-// each entry contains rule name and its message
-func (e *CompositeResult) GetResult() map[string]interface{} {
-	resultMap := make(map[string]interface{})
-	// resultMap[e.PolicyName] = e.Message
-
-	for _, child := range e.Children {
-		resultMap[child.Name()] = child.GetResult()[child.Name()]
-	}
-	return resultMap
 }
 
 // GetChildren returns children of CompositeResult
