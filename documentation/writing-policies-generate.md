@@ -77,7 +77,7 @@ spec:
             policyname: "default"
 ````
 
-In this example, when the policy is applied, any new namespace will receive a nNtworkPolicy based on the specified template that by default denies all inbound and outbound traffic.
+In this example, when the policy is applied, any new namespace will receive a NetworkPolicy based on the specified template that by default denies all inbound and outbound traffic.
 
 ---
 <small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>
