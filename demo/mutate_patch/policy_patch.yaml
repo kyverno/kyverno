@@ -1,0 +1,23 @@
+apiVersion : kyverno.io/v1alpha1
+kind : Policy
+metadata :
+  name : policy-endpoints
+spec :
+  rules:
+    - name: pEP
+      resource:
+        kinds : 
+        - Endpoints
+        selector:
+          matchLabels:
+            label : test
+      mutate:
+        patches:
+          # add a new label
+          - path: "metadata/labels/isMutate"
+            op: add
+            value: true
+          # replace port 
+          - path : "/subsets/0/ports/0/port"
+            op : replace
+            value: 9663
