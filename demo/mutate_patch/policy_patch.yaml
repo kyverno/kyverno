@@ -4,7 +4,7 @@ metadata :
   name : policy-endpoints
 spec :
   rules:
-    - name: pEP
+    - name: demo-ep
       resource:
         kinds : 
         - Endpoints
