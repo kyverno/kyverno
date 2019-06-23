@@ -14,10 +14,10 @@ spec :
       mutate:
         patches:
           # add a new label
-          - path: "metadata/labels/isMutate"
+          - path: /metadata/labels/isMutated
             op: add
-            value: true
+            value: "true"
           # replace port 
-          - path : "/subsets/0/ports/0/port"
+          - path : /subsets/0/ports/0/port
             op : replace
             value: 9663

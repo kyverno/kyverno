@@ -23,7 +23,7 @@ spec:
   - name: check-cpu-memory-limits
     resource:
       kinds:
-      - Pod
+      - Deployment
     validate:
       message: "Resource limits are required for CPU and memory"
       pattern:
