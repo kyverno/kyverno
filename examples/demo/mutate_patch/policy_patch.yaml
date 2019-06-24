@@ -14,9 +14,9 @@ spec :
       mutate:
         patches:
           # add a new label
-          - path: /metadata/labels/isMutated
+          - path: /metadata/labels/app.type
             op: add
-            value: "true"
+            value: dev
           # replace port 
           - path : /subsets/0/ports/0/port
             op : replace

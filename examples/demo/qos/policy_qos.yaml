@@ -35,6 +35,6 @@ spec:
               - (name): "*"
                 resources:
                   limits:
-                    # cpu and memory is required despite of the value
+                    # cpu and memory are required
                     memory: "?*"
                     cpu: "?*"
