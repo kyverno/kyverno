@@ -66,6 +66,39 @@ spec :
 
 ````
 
+### Check if one exist
+A variation of an anchor, is to check existance of one element. This is done by using the ^(...) notation for the field.
+
+For example, this pattern will check the existance of "name" field in the list:
+
+````yaml
+apiVersion : kyverno.io/v1alpha1
+kind : Policy
+metadata :
+  name : validation-example2
+spec :
+  rules:
+    - name: check-memory_requests_link_in_yaml_relative
+      resource:
+        # Kind specifies one or more resource types to match
+        kinds:
+          - Deployment
+        # Name is optional and can use wildcards
+        name: "*"
+        # Selector is optional
+        selector:
+      validate:
+        pattern:
+          spec:
+            containers:
+              - ^(name): "*"
+                resources:
+                  requests:
+                    memory: "$(<=./../../lim(its/mem)ory)"
+                  lim(its:
+                    mem)ory: "2048Mi"
+````
+
 Additional examples are available in [examples](/examples/)
 
 
