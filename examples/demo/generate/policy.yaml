@@ -4,14 +4,14 @@ metadata:
   name: "default"
 spec:
   rules:
-  - name: "deny-all-ingress-traffic"
+  - name: "deny-ingress-traffic"
     resource: 
       kinds:
        - Namespace
       name: "*"
     generate: 
       kind: NetworkPolicy
-      name: deny-all-traffic
+      name: deny-ingress-traffic
       data:
         spec:
         podSelector:
