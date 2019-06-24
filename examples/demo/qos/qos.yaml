@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qos-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        resources:
+          limits:
+            cpu: "50m"
+      - name: ghost
+        image: ghost:latest
+        resources:
+          limits:
+            cpu: "50m"
+            memory: "500Mi"

@@ -1,0 +1,21 @@
+apiVersion : kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-security-context
+spec:
+  rules:
+  - name: set-userID
+    resource:
+      kinds:
+      - Deployment
+      selector :
+        matchLabels:
+          app.type: prod
+    mutate:
+      overlay:
+        spec:
+          template:
+            spec:
+              securityContext:
+                runAsUser: 1000
+                fsGroup: 2000
