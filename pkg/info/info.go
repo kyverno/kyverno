@@ -11,7 +11,7 @@ type PolicyInfo struct {
 	Resource  string
 	Namespace string
 	success   bool
-	rules     []*RuleInfo
+	Rules     []*RuleInfo
 }
 
 //NewPolicyInfo returns a new policy info
@@ -33,7 +33,7 @@ func (pi *PolicyInfo) IsSuccessful() bool {
 //ErrorRules returns error msgs from all rule
 func (pi *PolicyInfo) ErrorRules() string {
 	errorMsgs := []string{}
-	for _, r := range pi.rules {
+	for _, r := range pi.Rules {
 		if !r.IsSuccessful() {
 			errorMsgs = append(errorMsgs, r.ToString())
 		}
@@ -41,11 +41,20 @@ func (pi *PolicyInfo) ErrorRules() string {
 	return strings.Join(errorMsgs, ";")
 }
 
+type RuleType int
+
+const (
+	Mutation RuleType = iota
+	Validation
+	Generation
+)
+
 //RuleInfo defines rule struct
 type RuleInfo struct {
-	Name    string
-	Msgs    []string
-	success bool
+	Name     string
+	Msgs     []string
+	ruleType RuleType
+	success  bool
 }
 
 //ToString reule information
@@ -56,11 +65,12 @@ func (ri *RuleInfo) ToString() string {
 }
 
 //NewRuleInfo creates a new RuleInfo
-func NewRuleInfo(ruleName string) *RuleInfo {
+func NewRuleInfo(ruleName string, ruleType RuleType) *RuleInfo {
 	return &RuleInfo{
-		Name:    ruleName,
-		Msgs:    []string{},
-		success: true, // fail to be set explicity
+		Name:     ruleName,
+		Msgs:     []string{},
+		ruleType: ruleType,
+		success:  true, // fail to be set explicity
 	}
 }
 
@@ -99,5 +109,5 @@ func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
 	if !RulesSuccesfuly(rules) {
 		pi.success = false
 	}
-	pi.rules = rules
+	pi.Rules = rules
 }

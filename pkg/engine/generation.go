@@ -19,7 +19,7 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 			continue
 		}
 
-		ri := info.NewRuleInfo(rule.Name)
+		ri := info.NewRuleInfo(rule.Name, info.Generation)
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {

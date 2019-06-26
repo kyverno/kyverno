@@ -30,7 +30,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		if rule.Validation == nil {
 			continue
 		}
-		ri := info.NewRuleInfo(rule.Name)
+		ri := info.NewRuleInfo(rule.Name, info.Validation)
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {

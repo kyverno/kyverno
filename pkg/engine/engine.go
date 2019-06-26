@@ -62,7 +62,6 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			glog.Error(err)
 			continue
 		}
-		// Create events from the policyInfo
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
@@ -111,7 +110,7 @@ func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind)
 	}
 	// compare (original Resource + patch) vs (original resource)
 	// to verify if they are equal
-	ruleInfo := info.NewRuleInfo("mutation rules")
+	ruleInfo := info.NewRuleInfo("mutation rules", info.Mutation)
 	if !jsonpatch.Equal(patchedResource, rawResource) {
 		//resource does not match so there was a mutation rule violated
 		// TODO : check the rule name "mutation rules"

@@ -17,7 +17,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		if rule.Mutation == nil {
 			continue
 		}
-		ri := info.NewRuleInfo(rule.Name)
+		ri := info.NewRuleInfo(rule.Name, info.Mutation)
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/engine"
+
 	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
@@ -173,6 +175,15 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// get the violations and pass to violation Builder
 	// get the events and pass to event Builder
 	//TODO: processPolicy
+	policyInfos := engine.ProcessExisting(pc.client, policy)
+	// Create events from the policyInfo
+	for _, policyInfo := range policyInfos {
+		if !policyInfo.IsSuccessful() {
+			// Create Policy Violation for Mutation rules
+			// Create Policy Violation for Generation rules
+			// Create Events for Violation rules
+		}
+	}
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	return nil
 }
