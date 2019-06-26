@@ -324,15 +324,13 @@ func (ws *WebhookServer) HandleGeneration(request *v1beta1.AdmissionRequest) *v1
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
-	} else {
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Message: msg,
-			},
-		}
 	}
-
+	return &v1beta1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Message: msg,
+		},
+	}
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body
