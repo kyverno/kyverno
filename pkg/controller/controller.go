@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/info"
-	"github.com/nirmata/kyverno/pkg/result"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 
@@ -197,13 +196,13 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 			for _, rule := range policyInfo.Rules {
 				if rule.RuleType == info.Mutation {
 					fruleNames = append(fruleNames, rule.Name)
-					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
 					events = append(events, e)
 				}
 				// Create Policy Violation for Generation rules
 				if rule.RuleType == info.Generation {
 					fruleNames = append(fruleNames, rule.Name)
-					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
 					events = append(events, e)
 
 				}
@@ -211,21 +210,21 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 				if rule.RuleType == info.Generation {
 					fruleNames = append(fruleNames, rule.Name)
 					// create a mutaton event
-					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
 					events = append(events, e)
 				}
 				sruleNames = append(sruleNames, rule.Name)
 			}
 			// Create Event
 			// list of failed rules : ruleNames
-			e := event.NewEvent("Policy", policyInfo.Name, result.Violation, event.FResourcePolcy, policyInfo.Name+"/"+policyInfo.Namespace, strings.Join(fruleNames, ";"))
+			e := event.NewEvent("Policy", policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
 			events = append(events, e)
 		} else {
 			// Policy was processed succesfully
-			e := event.NewEvent("Policy", policyInfo.Name, result.Success, event.SPolicyApply, policyInfo.Name)
+			e := event.NewEvent("Policy", policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
 			events = append(events, e)
 			// Policy applied succesfully on resource
-			e = event.NewEvent(policyInfo.Kind, policyInfo.Name, result.Success, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.Name)
+			e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
 		}
 	}
 }

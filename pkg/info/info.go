@@ -7,22 +7,22 @@ import (
 
 //PolicyInfo defines policy information
 type PolicyInfo struct {
-	Name      string
-	Resource  string
-	Kind      string
-	Namespace string
-	success   bool
-	Rules     []*RuleInfo
+	Name       string
+	RKind      string
+	RName      string
+	RNamespace string
+	Rules      []*RuleInfo
+	success    bool
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName string, kind string, resource string, ns string) *PolicyInfo {
+func NewPolicyInfo(policyName string, rKind string, rName string, rNamespace string) *PolicyInfo {
 	return &PolicyInfo{
-		Name:      policyName,
-		Resource:  resource,
-		Kind:      kind,
-		Namespace: ns,
-		success:   true, // fail to be set explicity
+		Name:       policyName,
+		RKind:      rKind,
+		RName:      rName,
+		RNamespace: rNamespace,
+		success:    true, // fail to be set explicity
 	}
 }
 
