@@ -8,6 +8,7 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -243,4 +244,9 @@ func convertToFloat(value interface{}) (float64, error) {
 	default:
 		return 0, fmt.Errorf("Could not convert %T to float64", value)
 	}
+}
+
+type resourceInfo struct {
+	resource *unstructured.Unstructured
+	gvk      *metav1.GroupVersionKind
 }

@@ -11,6 +11,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -112,8 +113,12 @@ func (c *Client) GetResource(resource string, namespace string, name string) (*u
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(resource string, namespace string) (*unstructured.UnstructuredList, error) {
-	return c.getResourceInterface(resource, namespace).List(meta.ListOptions{})
+func (c *Client) ListResource(resource string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
+	options := meta.ListOptions{}
+	if lselector != nil {
+		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
+	}
+	return c.getResourceInterface(resource, namespace).List(options)
 }
 
 // DeleteResouce deletes the specified resource
