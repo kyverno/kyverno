@@ -6,20 +6,22 @@ import (
 	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Generate should be called to process generate rules on the resource
-func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) {
-	// configMapGenerator and secretGenerator can be applied only to namespaces
-	// TODO: support for any resource
-	if gvk.Kind != "Namespace" {
-		return
-	}
+func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []*info.RuleInfo {
+	ris := []*info.RuleInfo{}
 
 	for _, rule := range policy.Spec.Rules {
-		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
+		if rule.Generation == nil {
+			continue
+		}
 
+		ri := info.NewRuleInfo(rule.Name)
+
+		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
 			glog.Infof("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
 			continue
@@ -27,17 +29,17 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 
 		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk)
 		if err != nil {
-			glog.Warningf("Failed to apply rule generator: %v", err)
+			ri.Fail()
+			ri.Addf(" Failed to apply rule generator. err %v", err)
+		} else {
+			ri.Add("Generation succesfully")
 		}
+		ris = append(ris, ri)
 	}
+	return ris
 }
 
-// Applies "configMapGenerator" and "secretGenerator" described in PolicyRule
-// TODO: plan to support all kinds of generator
 func applyRuleGenerator(client *client.Client, rawResource []byte, generator *kubepolicy.Generation, gvk metav1.GroupVersionKind) error {
-	if generator == nil {
-		return nil
-	}
 
 	var err error
 

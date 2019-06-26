@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -15,7 +16,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/result"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -94,7 +95,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 	admissionReview.Response.UID = admissionReview.Request.UID
 
-	responseJson, err := json.Marshal(admissionReview)
+	responseJSON, err := json.Marshal(admissionReview)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
@@ -102,7 +103,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(responseJson); err != nil {
+	if _, err := w.Write(responseJSON); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }
@@ -133,43 +134,49 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
+		// Unable to connect to policy Lister to access policies
+		glog.Error("Unable to connect to policy controller to access policies. Mutation Rules are NOT being applied")
 		glog.Warning(err)
-		return nil
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
 	}
 
-	admissionResult := result.NewAdmissionResult(string(request.UID))
 	var allPatches []engine.PatchBytes
+	policyInfos := []*info.PolicyInfo{}
 	for _, policy := range policies {
 
 		// check if policy has a rule for the admission request kind
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
+		rname := engine.ParseNameFromObject(request.Object.Raw)
+		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+		policyInfo := info.NewPolicyInfo(policy.Name,
+			rname,
+			rns)
 
 		glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches, mutationResult := engine.Mutate(*policy, request.Object.Raw, request.Kind)
-		allPatches = append(allPatches, policyPatches...)
-		admissionResult = result.Append(admissionResult, mutationResult)
-
-		if mutationError := mutationResult.ToError(); mutationError != nil {
-			glog.Warningf(mutationError.Error())
+		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+		policyInfo.AddRuleInfos(ruleInfos)
+		if !policyInfo.IsSuccessful() {
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			for _, r := range ruleInfos {
+				glog.Warning(r.Msgs)
+			}
+		} else if len(policyPatches) > 0 {
+			allPatches = append(allPatches, policyPatches...)
+			glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 		}
-
-		if len(policyPatches) > 0 {
-			namespace := engine.ParseNamespaceFromObject(request.Object.Raw)
-			name := engine.ParseNameFromObject(request.Object.Raw)
-			glog.Infof("Mutation from policy %s has applied to %s %s/%s", policy.Name, request.Kind.Kind, namespace, name)
-		}
-		glog.Info(admissionResult.String())
+		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	message := "\n" + admissionResult.String()
-
-	if admissionResult.GetReason() == result.Success {
+	ok, msg := isAdmSuccesful(policyInfos)
+	if ok {
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
 			Allowed:   true,
@@ -177,68 +184,155 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			PatchType: &patchType,
 		}
 	}
-
 	return &v1beta1.AdmissionResponse{
 		Allowed: false,
 		Result: &metav1.Status{
-			Message: message,
+			Message: msg,
 		},
 	}
 }
 
+func isAdmSuccesful(policyInfos []*info.PolicyInfo) (bool, string) {
+	var admSuccess = true
+	var errMsgs []string
+	for _, pi := range policyInfos {
+		if !pi.IsSuccessful() {
+			admSuccess = false
+			errMsgs = append(errMsgs, fmt.Sprintf("\nPolicy %s failed with following rules", pi.Name))
+			// Get the error rules
+			errorRules := pi.ErrorRules()
+			errMsgs = append(errMsgs, errorRules)
+		}
+	}
+	return admSuccess, strings.Join(errMsgs, ";")
+}
+
 // HandleValidation handles validating webhook admission request
+// If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	policyInfos := []*info.PolicyInfo{}
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
+		// Unable to connect to policy Lister to access policies
+		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
 		glog.Warning(err)
-		return nil
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
 	}
 
-	admissionResult := result.NewAdmissionResult(string(request.UID))
 	for _, policy := range policies {
 
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
+		rname := engine.ParseNameFromObject(request.Object.Raw)
+		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+
+		policyInfo := info.NewPolicyInfo(policy.Name,
+			rname,
+			rns)
 
 		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 
 		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		validationResult := engine.Validate(*policy, request.Object.Raw, request.Kind)
-		admissionResult = result.Append(admissionResult, validationResult)
-
-		if validationError := validationResult.ToError(); validationError != nil {
-			glog.Warningf(validationError.Error())
+		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
+		if err != nil {
+			// This is not policy error
+			// but if unable to parse request raw resource
+			// TODO : create event ? dont think so
+			glog.Error(err)
+			continue
 		}
-		glog.Info(admissionResult.String())
+		policyInfo.AddRuleInfos(ruleInfos)
+
+		if !policyInfo.IsSuccessful() {
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			for _, r := range ruleInfos {
+				glog.Warning(r.Msgs)
+			}
+		} else {
+			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
+		}
+		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	message := "\n" + admissionResult.String()
-
-	// Generation loop after all validation succeeded
-	var response *v1beta1.AdmissionResponse
-
-	if admissionResult.GetReason() == result.Success {
-		for _, policy := range policies {
-			engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
+	// If Validation fails then reject the request
+	ok, msg := isAdmSuccesful(policyInfos)
+	if !ok {
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: msg,
+			},
 		}
-		glog.V(3).Info("Validation is successful")
+	}
+	// Process Generation
+	return ws.HandleGeneration(request)
+}
 
-		response = &v1beta1.AdmissionResponse{
+//HandleGeneration handles application of generation rules
+func (ws *WebhookServer) HandleGeneration(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	if request.Kind.Kind != "Namespace" {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+	policyInfos := []*info.PolicyInfo{}
+
+	policies, err := ws.policyLister.List(labels.NewSelector())
+	if err != nil {
+		// Unable to connect to policy Lister to access policies
+		glog.Error("Unable to connect to policy controller to access policies. Generation Rules are NOT being applied")
+		glog.Warning(err)
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+	for _, policy := range policies {
+
+		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
+			continue
+		}
+		rname := engine.ParseNameFromObject(request.Object.Raw)
+		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+
+		policyInfo := info.NewPolicyInfo(policy.Name,
+			rname,
+			rns)
+		glog.V(3).Infof("Handling generation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			request.Kind.Kind, rns, rname, request.UID, request.Operation)
+		glog.Infof("Applying  policy %s with generation %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		ruleInfos := engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
+		policyInfo.AddRuleInfos(ruleInfos)
+		if !policyInfo.IsSuccessful() {
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			for _, r := range ruleInfos {
+				glog.Warning(r.Msgs)
+			}
+		} else {
+			glog.Infof("Generation from policy %s has succesfully applied to %s %s/%s", policy.Name, request.Kind.Kind, rns, rname)
+		}
+		policyInfos = append(policyInfos, policyInfo)
+	}
+	ok, msg := isAdmSuccesful(policyInfos)
+	if ok {
+		glog.V(3).Info("Generation is successful")
+		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
 	} else {
-		response = &v1beta1.AdmissionResponse{
+		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: message,
+				Message: msg,
 			},
 		}
 	}
 
-	return response
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

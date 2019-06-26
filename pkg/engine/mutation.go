@@ -1,51 +1,60 @@
 package engine
 
 import (
+	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/result"
+	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.Result) {
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, []*info.RuleInfo) {
 	var allPatches []PatchBytes
-
 	patchedDocument := rawResource
-	policyResult := result.NewPolicyApplicationResult(policy.Name)
+	ris := []*info.RuleInfo{}
 
 	for _, rule := range policy.Spec.Rules {
 		if rule.Mutation == nil {
 			continue
 		}
-
-		ruleApplicationResult := result.NewRuleApplicationResult(rule.Name)
+		ri := info.NewRuleInfo(rule.Name)
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			ruleApplicationResult.AddMessagef("Rule %s is not applicable to resource\n", rule.Name)
-		} else {
-			// Process Overlay
-			overlayPatches, ruleResult := ProcessOverlay(rule, rawResource, gvk)
-			if result.Success != ruleResult.GetReason() {
-				ruleApplicationResult.MergeWith(&ruleResult)
-				ruleApplicationResult.AddMessagef("Overlay application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
+			glog.V(3).Info("Not applicable on specified resource kind%s", gvk.Kind)
+			continue
+		}
+		// Process Overlay
+		if rule.Mutation.Overlay != nil {
+			overlayPatches, err := ProcessOverlay(rule, rawResource, gvk)
+			if err != nil {
+				ri.Fail()
+				ri.Addf("Overlay application has failed. err %s", err)
 			} else {
-				ruleApplicationResult.AddMessagef("Success")
+				ri.Add("Overlay succesfully applied")
+				//TODO: patchbytes -> string
+				//glog.V(3).Info(" Overlay succesfully applied. Patch %s", string(overlayPatches))
 				allPatches = append(allPatches, overlayPatches...)
 			}
+		}
 
-			// Process Patches
-			rulePatches, ruleResult := ProcessPatches(rule, patchedDocument)
-			if result.Success != ruleResult.GetReason() {
-				ruleApplicationResult.MergeWith(&ruleResult)
-				ruleApplicationResult.AddMessagef("Patches application has failed for rule %s in policy %s\n", rule.Name, policy.ObjectMeta.Name)
+		// Process Patches
+		if len(rule.Mutation.Patches) != 0 {
+			rulePatches, errs := ProcessPatches(rule, patchedDocument)
+			if len(errs) > 0 {
+				ri.Fail()
+				for _, err := range errs {
+					ri.Addf("Patches application has failed. err %s", err)
+				}
 			} else {
-				ruleApplicationResult.AddMessagef("Success")
+				ri.Add("Patches succesfully applied")
+				//TODO: patchbytes -> string
+				//glog.V(3).Info("Patches succesfully applied. Patch %s", string(overlayPatches))
 				allPatches = append(allPatches, rulePatches...)
 			}
 		}
-		policyResult = result.Append(policyResult, &ruleApplicationResult)
+		ris = append(ris, ri)
 	}
 
-	return allPatches, policyResult
+	return allPatches, ris
 }

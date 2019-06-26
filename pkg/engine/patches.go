@@ -2,11 +2,10 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/result"
 )
 
 // PatchBytes stands for []byte
@@ -14,40 +13,27 @@ type PatchBytes []byte
 
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
-func ProcessPatches(rule kubepolicy.Rule, resource []byte) ([]PatchBytes, result.RuleApplicationResult) {
-	res := result.NewRuleApplicationResult(rule.Name)
-	if rule.Mutation == nil || len(rule.Mutation.Patches) == 0 {
-		return nil, res
-	}
-
+func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBytes, errs []error) {
 	if len(resource) == 0 {
-		res.AddMessagef("Source document for patching is empty")
-		res.Reason = result.Failed
-		return nil, res
+		errs = append(errs, errors.New("Source document for patching is empty"))
+		return nil, errs
 	}
-
-	var allPatches []PatchBytes
 	patchedDocument := resource
-	for i, patch := range rule.Mutation.Patches {
+	for _, patch := range rule.Mutation.Patches {
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {
-
+			errs = append(errs, err)
+			continue
 		}
 
 		patchedDocument, err = applyPatch(patchedDocument, patchRaw)
 		if err != nil {
-			// TODO: continue on error if one of the patches fails, will add the failure event in such case
-			if patch.Operation == "remove" {
-				continue
-			}
-			message := fmt.Sprintf("Patch failed: patch number = %d, patch Operation = %s, err: %v", i, patch.Operation, err)
-			res.Messages = append(res.Messages, message)
+			errs = append(errs, err)
 			continue
 		}
-
 		allPatches = append(allPatches, patchRaw)
 	}
-	return allPatches, res
+	return allPatches, errs
 }
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
