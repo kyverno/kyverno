@@ -253,7 +253,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			for _, r := range ruleInfos {
 				glog.Warning(r.Msgs)
 			}
-		} else {
+		} else if len(ruleInfos) > 0 {
 			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 		}
 		policyInfos = append(policyInfos, policyInfo)
