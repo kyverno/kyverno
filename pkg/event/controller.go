@@ -131,7 +131,7 @@ func (c *controller) SyncHandler(key Info) error {
 	switch key.Kind {
 	case "Policy":
 		//TODO: policy is clustered resource so wont need namespace
-		robj, err = c.policyLister.Get(key.Reason)
+		robj, err = c.policyLister.Get(key.Name)
 		if err != nil {
 			glog.Errorf("unable to create event for policy %s, will retry ", key.Name)
 			return err
@@ -154,7 +154,7 @@ func (c *controller) SyncHandler(key Info) error {
 
 //NewEvent returns a new event
 func NewEvent(rkind string, rnamespace string, rname string, reason Reason, message MsgKey, args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args)
+	msgText, err := getEventMsg(message, args...)
 	if err != nil {
 		glog.Error(err)
 	}

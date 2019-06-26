@@ -111,5 +111,6 @@ func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
 	if !RulesSuccesfuly(rules) {
 		pi.success = false
 	}
-	pi.Rules = rules
+
+	pi.Rules = append(pi.Rules, rules...)
 }

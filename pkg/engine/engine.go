@@ -17,7 +17,7 @@ import (
 
 // ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
-	glog.Info("Applying policy %s on existing resources", policy.Name)
+	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// policyInfo := info.NewPolicyInfo(policy.Name,
 	// 	rname,
 	// 	rns)
@@ -29,7 +29,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			gvr := client.DiscoveryClient.GetGVRFromKind(k)
 			// label selectors
 			// namespace ? should it be default or allow policy to specify it
-			list, err := client.ListResource(gvr.Resource, "", rule.ResourceDescription.Selector)
+			list, err := client.ListResource(gvr.Resource, "default", rule.ResourceDescription.Selector)
 			if err != nil {
 				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
 				glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
@@ -110,7 +110,7 @@ func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind)
 	}
 	// compare (original Resource + patch) vs (original resource)
 	// to verify if they are equal
-	ruleInfo := info.NewRuleInfo("mutation rules", info.Mutation)
+	ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
 	if !jsonpatch.Equal(patchedResource, rawResource) {
 		//resource does not match so there was a mutation rule violated
 		// TODO : check the rule name "mutation rules"

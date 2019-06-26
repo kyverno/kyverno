@@ -180,51 +180,50 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	createEvents(pc.eventController, policyInfos)
+	events := createEvents(pc.eventController, policyInfos)
+	for _, e := range events {
+		pc.eventController.Add(e)
+	}
 	return nil
 }
 
-func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) {
+func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) []event.Info {
 	events := []event.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
 		fruleNames := []string{}
 		sruleNames := []string{}
-		if !policyInfo.IsSuccessful() {
-			// Create Policy Violation on Policy for Mutation rules
-			// Create Event on Resource for Mutation rules
-			for _, rule := range policyInfo.Rules {
-				if rule.RuleType == info.Mutation {
-					fruleNames = append(fruleNames, rule.Name)
-					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
-					events = append(events, e)
-				}
-				// Create Policy Violation for Generation rules
-				if rule.RuleType == info.Generation {
-					fruleNames = append(fruleNames, rule.Name)
-					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
-					events = append(events, e)
 
+		for _, rule := range policyInfo.Rules {
+			if !rule.IsSuccessful() {
+				e := event.Info{}
+				fruleNames = append(fruleNames, rule.Name)
+				switch rule.RuleType {
+				case info.Mutation, info.Validation, info.Generation:
+					e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
+				default:
+					glog.Info("Unsupported Rule type")
 				}
-				// Create Policy Violation for Violation rules
-				if rule.RuleType == info.Generation {
-					fruleNames = append(fruleNames, rule.Name)
-					// create a mutaton event
-					e := event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
-					events = append(events, e)
-				}
+				fruleNames = append(fruleNames, rule.Name)
+				events = append(events, e)
+			} else {
 				sruleNames = append(sruleNames, rule.Name)
 			}
-			// Create Event
+		}
+
+		if !policyInfo.IsSuccessful() {
+			// build Events
 			// list of failed rules : ruleNames
-			e := event.NewEvent("Policy", policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
+			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
 			events = append(events, e)
 		} else {
 			// Policy was processed succesfully
-			e := event.NewEvent("Policy", policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
+			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
 			events = append(events, e)
 			// Policy applied succesfully on resource
 			e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
+			events = append(events, e)
 		}
 	}
+	return events
 }
