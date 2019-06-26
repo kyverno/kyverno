@@ -35,7 +35,7 @@ func (pi *PolicyInfo) ErrorRules() string {
 	errorMsgs := []string{}
 	for _, r := range pi.rules {
 		if !r.IsSuccessful() {
-			errorMsgs = append(errorMsgs, r.Msgs...)
+			errorMsgs = append(errorMsgs, r.ToString())
 		}
 	}
 	return strings.Join(errorMsgs, ";")
@@ -46,6 +46,13 @@ type RuleInfo struct {
 	Name    string
 	Msgs    []string
 	success bool
+}
+
+//ToString reule information
+func (ri *RuleInfo) ToString() string {
+	str := "rulename: " + ri.Name
+	msgs := strings.Join(ri.Msgs, ";")
+	return strings.Join([]string{str, msgs}, ";")
 }
 
 //NewRuleInfo creates a new RuleInfo
