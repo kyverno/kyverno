@@ -56,7 +56,8 @@ func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	return objectJSON["metadata"].(map[string]interface{})
 }
 
-func parseKindFromObject(bytes []byte) string {
+//ParseKindFromObject get kind from resource
+func ParseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 

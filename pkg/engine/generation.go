@@ -11,7 +11,7 @@ import (
 )
 
 // Generate should be called to process generate rules on the resource
-func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) []*info.RuleInfo {
+func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind, processExisting bool) []*info.RuleInfo {
 	ris := []*info.RuleInfo{}
 
 	for _, rule := range policy.Spec.Rules {
@@ -27,7 +27,7 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 			continue
 		}
 
-		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk)
+		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk, processExisting)
 		if err != nil {
 			ri.Fail()
 			ri.Addf(" Failed to apply rule generator. err %v", err)
@@ -39,12 +39,12 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 	return ris
 }
 
-func applyRuleGenerator(client *client.Client, rawResource []byte, generator *kubepolicy.Generation, gvk metav1.GroupVersionKind) error {
+func applyRuleGenerator(client *client.Client, rawResource []byte, generator *kubepolicy.Generation, gvk metav1.GroupVersionKind, processExistingResources bool) error {
 
 	var err error
 
 	namespace := ParseNameFromObject(rawResource)
-	err = client.GenerateResource(*generator, namespace)
+	err = client.GenerateResource(*generator, namespace, processExistingResources)
 	if err != nil {
 		return fmt.Errorf("Unable to apply generator for %s '%s/%s' : %v", generator.Kind, namespace, generator.Name, err)
 	}

@@ -2,7 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/result"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 
@@ -27,7 +31,7 @@ type PolicyController struct {
 	policyLister     lister.PolicyLister
 	policySynced     cache.InformerSynced
 	violationBuilder violation.Generator
-	eventBuilder     event.Generator
+	eventController  event.Generator
 	queue            workqueue.RateLimitingInterface
 }
 
@@ -42,7 +46,7 @@ func NewPolicyController(client *client.Client,
 		policyLister:     policyInformer.GetLister(),
 		policySynced:     policyInformer.GetInfomer().HasSynced,
 		violationBuilder: violationBuilder,
-		eventBuilder:     eventController,
+		eventController:  eventController,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
@@ -175,15 +179,53 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// get the violations and pass to violation Builder
 	// get the events and pass to event Builder
 	//TODO: processPolicy
+	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
+	createEvents(pc.eventController, policyInfos)
+	return nil
+}
+
+func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) {
+	events := []event.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
+		fruleNames := []string{}
+		sruleNames := []string{}
 		if !policyInfo.IsSuccessful() {
-			// Create Policy Violation for Mutation rules
-			// Create Policy Violation for Generation rules
-			// Create Events for Violation rules
+			// Create Policy Violation on Policy for Mutation rules
+			// Create Event on Resource for Mutation rules
+			for _, rule := range policyInfo.Rules {
+				if rule.RuleType == info.Mutation {
+					fruleNames = append(fruleNames, rule.Name)
+					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					events = append(events, e)
+				}
+				// Create Policy Violation for Generation rules
+				if rule.RuleType == info.Generation {
+					fruleNames = append(fruleNames, rule.Name)
+					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					events = append(events, e)
+
+				}
+				// Create Policy Violation for Violation rules
+				if rule.RuleType == info.Generation {
+					fruleNames = append(fruleNames, rule.Name)
+					// create a mutaton event
+					e := event.NewEvent(policyInfo.Kind, policyInfo.Resource, result.Violation, event.FProcessRule, rule.Name, policyInfo.Name)
+					events = append(events, e)
+				}
+				sruleNames = append(sruleNames, rule.Name)
+			}
+			// Create Event
+			// list of failed rules : ruleNames
+			e := event.NewEvent("Policy", policyInfo.Name, result.Violation, event.FResourcePolcy, policyInfo.Name+"/"+policyInfo.Namespace, strings.Join(fruleNames, ";"))
+			events = append(events, e)
+		} else {
+			// Policy was processed succesfully
+			e := event.NewEvent("Policy", policyInfo.Name, result.Success, event.SPolicyApply, policyInfo.Name)
+			events = append(events, e)
+			// Policy applied succesfully on resource
+			e = event.NewEvent(policyInfo.Kind, policyInfo.Name, result.Success, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.Name)
 		}
 	}
-	glog.Infof("process policy %s on existing resources", policy.GetName())
-	return nil
 }

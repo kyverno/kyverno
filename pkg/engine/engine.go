@@ -69,7 +69,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 }
 
 func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.resource.GetName(), res.resource.GetNamespace())
+	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace())
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.resource.MarshalJSON()
 	if err != nil {
@@ -88,7 +88,7 @@ func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo)
 		return nil, err
 	}
 	// Generate
-	gruleInfos := Generate(client, *policy, rawResource, *res.gvk)
+	gruleInfos := Generate(client, *policy, rawResource, *res.gvk, false)
 	policyInfo.AddRuleInfos(gruleInfos)
 
 	return policyInfo, nil

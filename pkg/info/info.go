@@ -9,16 +9,18 @@ import (
 type PolicyInfo struct {
 	Name      string
 	Resource  string
+	Kind      string
 	Namespace string
 	success   bool
 	Rules     []*RuleInfo
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName string, resource string, ns string) *PolicyInfo {
+func NewPolicyInfo(policyName string, kind string, resource string, ns string) *PolicyInfo {
 	return &PolicyInfo{
 		Name:      policyName,
 		Resource:  resource,
+		Kind:      kind,
 		Namespace: ns,
 		success:   true, // fail to be set explicity
 	}
@@ -53,7 +55,7 @@ const (
 type RuleInfo struct {
 	Name     string
 	Msgs     []string
-	ruleType RuleType
+	RuleType RuleType
 	success  bool
 }
 
@@ -69,7 +71,7 @@ func NewRuleInfo(ruleName string, ruleType RuleType) *RuleInfo {
 	return &RuleInfo{
 		Name:     ruleName,
 		Msgs:     []string{},
-		ruleType: ruleType,
+		RuleType: ruleType,
 		success:  true, // fail to be set explicity
 	}
 }

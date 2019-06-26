@@ -152,7 +152,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 		rname := engine.ParseNameFromObject(request.Object.Raw)
 		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+		rkind := engine.ParseKindFromObject(request.Object.Raw)
 		policyInfo := info.NewPolicyInfo(policy.Name,
+			rkind,
 			rname,
 			rns)
 
@@ -229,8 +231,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 		rname := engine.ParseNameFromObject(request.Object.Raw)
 		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+		rkind := engine.ParseKindFromObject(request.Object.Raw)
 
 		policyInfo := info.NewPolicyInfo(policy.Name,
+			rkind,
 			rname,
 			rns)
 
@@ -298,15 +302,17 @@ func (ws *WebhookServer) HandleGeneration(request *v1beta1.AdmissionRequest) *v1
 		}
 		rname := engine.ParseNameFromObject(request.Object.Raw)
 		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+		rkind := engine.ParseKindFromObject(request.Object.Raw)
 
 		policyInfo := info.NewPolicyInfo(policy.Name,
+			rkind,
 			rname,
 			rns)
 		glog.V(3).Infof("Handling generation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 		glog.Infof("Applying  policy %s with generation %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		ruleInfos := engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind)
+		ruleInfos := engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind, false)
 		policyInfo.AddRuleInfos(ruleInfos)
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)

@@ -5,12 +5,26 @@ import (
 	"regexp"
 )
 
+//MsgKey is an identified to determine the preset message formats
+type MsgKey int
+
+//Message id for pre-defined messages
+const (
+	FResourcePolcy MsgKey = iota
+	FProcessRule
+	SPolicyApply
+	SRuleApply
+	FPolicyApplyBlockCreate
+	FPolicyApplyBlockUpdate
+	FPolicyApplyBlockUpdateRule
+)
+
 func (k MsgKey) String() string {
 	return [...]string{
 		"Failed to satisfy policy on resource %s.The following rules %s failed to apply. Created Policy Violation",
-		"Failed to process rule %s of policy %s. Created Policy Violation %s",
+		"Failed to process rule %s of policy %s. Created Policy Violation",
 		"Policy applied successfully on the resource %s",
-		"Rule %s of Policy %s applied successful",
+		"Rules %s of Policy %s applied successful",
 		"Failed to apply policy, blocked creation of resource %s. The following rules %s failed to apply",
 		"Failed to apply rule %s of policy %s Blocked update of the resource",
 		"Failed to apply policy on resource %s.Blocked update of the resource. The following rules %s failed to apply",

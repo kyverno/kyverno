@@ -180,7 +180,7 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 }
 
 // GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
-func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
+func (c *Client) GenerateResource(generator types.Generation, namespace string, processExistingResources bool) error {
 	var err error
 	rGVR := c.DiscoveryClient.GetGVRFromKind(generator.Kind)
 	resource := &unstructured.Unstructured{}
