@@ -40,7 +40,7 @@ func newFixture(t *testing.T) *fixture {
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		newUnstructured("apps/v1", "Deployment", "kyverno", "kyverno-deployment"),
+		newUnstructured("apps/v1", "Deployment", "kyverno", "kyverno"),
 	}
 	scheme := runtime.NewScheme()
 	// Create mock client
@@ -51,7 +51,6 @@ func newFixture(t *testing.T) *fixture {
 
 	// set discovery Client
 	client.SetDiscovery(NewFakeDiscoveryClient(regResource))
-
 
 	f := fixture{
 		t:       t,

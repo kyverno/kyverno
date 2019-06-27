@@ -20,7 +20,7 @@ const (
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
 	DeploymentKind           = "Deployment"
 	DeploymentAPIVersion     = "extensions/v1beta1"
-	KubePolicyDeploymentName = "kyverno-deployment"
+	KubePolicyDeploymentName = "kyverno"
 )
 
 var (
