@@ -100,6 +100,7 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 	rname := engine.ParseNameFromObject(rawResource)
 	rns := engine.ParseNamespaceFromObject(rawResource)
 	policyInfo := info.NewPolicyInfo(policy.Name,
+		gvk.Kind,
 		rname,
 		rns)
 
