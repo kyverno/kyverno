@@ -162,7 +162,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   namespace: kyverno
-  name: kyverno-deployment
+  name: kyverno
   labels:
     app: kyverno
 spec:
