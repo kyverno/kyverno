@@ -253,6 +253,7 @@ func (wrc *WebhookRegistrationClient) constructOwner() meta.OwnerReference {
 	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
 
 	if err != nil {
+		glog.Errorf("Error when constructing OwnerReference, err: %v\n", err)
 		return meta.OwnerReference{}
 	}
 
