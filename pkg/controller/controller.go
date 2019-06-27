@@ -181,14 +181,12 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
 	events := createEvents(pc.eventController, policyInfos)
-	for _, e := range events {
-		pc.eventController.Add(e)
-	}
+	pc.eventController.Add(events)
 	return nil
 }
 
-func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) []event.Info {
-	events := []event.Info{}
+func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) []*event.Info {
+	events := []*event.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
 		fruleNames := []string{}
@@ -196,7 +194,7 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 
 		for _, rule := range policyInfo.Rules {
 			if !rule.IsSuccessful() {
-				e := event.Info{}
+				e := &event.Info{}
 				fruleNames = append(fruleNames, rule.Name)
 				switch rule.RuleType {
 				case info.Mutation, info.Validation, info.Generation:

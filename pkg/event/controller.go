@@ -28,7 +28,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(info Info)
+	Add(infoList []*Info)
 }
 
 //Controller  api
@@ -74,8 +74,10 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(info Info) {
-	c.queue.Add(info)
+func (c *controller) Add(infoList []*Info) {
+	for _, info := range infoList {
+		c.queue.Add(*info)
+	}
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -153,12 +155,12 @@ func (c *controller) SyncHandler(key Info) error {
 }
 
 //NewEvent returns a new event
-func NewEvent(rkind string, rnamespace string, rname string, reason Reason, message MsgKey, args ...interface{}) Info {
+func NewEvent(rkind string, rnamespace string, rname string, reason Reason, message MsgKey, args ...interface{}) *Info {
 	msgText, err := getEventMsg(message, args...)
 	if err != nil {
 		glog.Error(err)
 	}
-	return Info{
+	return &Info{
 		Kind:      rkind,
 		Name:      rname,
 		Namespace: rnamespace,

@@ -16,6 +16,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
@@ -27,10 +28,11 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server       http.Server
-	client       *client.Client
-	policyLister v1alpha1.PolicyLister
-	filterKinds  []string
+	server          http.Server
+	client          *client.Client
+	policyLister    v1alpha1.PolicyLister
+	eventController event.Generator
+	filterKinds     []string
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -39,6 +41,7 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	shareInformer sharedinformer.PolicyInformer,
+	eventController event.Generator,
 	filterKinds []string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -53,9 +56,10 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:       client,
-		policyLister: shareInformer.GetLister(),
-		filterKinds:  parseKinds(filterKinds),
+		client:          client,
+		policyLister:    shareInformer.GetLister(),
+		eventController: eventController,
+		filterKinds:     parseKinds(filterKinds),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -164,7 +168,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
 		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+
 		policyInfo.AddRuleInfos(ruleInfos)
+
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
 			for _, r := range ruleInfos {
@@ -176,6 +182,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 		policyInfos = append(policyInfos, policyInfo)
 	}
+
+	// eventsInfo := NewEventInfoFromPolicyInfo(policyInfos)
+	// ws.eventController.Add(eventsInfo)
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
@@ -369,4 +378,50 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
+}
+
+const policyKind = "Policy"
+
+// func NewEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
+// 	var eventsInfo []*event.Info
+
+// 	ok, msg := isAdmSuccesful(policyInfoList)
+// 	if ok {
+// 		for _, pi := range policyInfoList {
+// 			ruleNames := getRuleNames(*pi, true)
+// 			eventsInfo = append(eventsInfo,
+// 				event.NewEvent(pi.Kind, pi.Namespace+"/"+pi.Resource, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
+
+// 			eventsInfo = append(eventsInfo,
+// 				event.NewEvent(policyKind, pi.Name, event.PolicyApplied, event.SPolicyApply, pi.Name, pi.Resource))
+
+// 			glog.V(3).Infof("Success events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.Kind, pi.Resource)
+// 		}
+// 		return eventsInfo
+// 	}
+
+// 	for _, pi := range policyInfoList {
+// 		ruleNames := getRuleNames(*pi, false)
+// 		eventsInfo = append(eventsInfo,
+// 			event.NewEvent(policyKind, pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.Resource, ruleNames))
+
+// 		glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
+// 	}
+// 	return eventsInfo
+// }
+
+func getRuleNames(policyInfo info.PolicyInfo, onSuccess bool) string {
+	var ruleNames []string
+	for _, rule := range policyInfo.Rules {
+		if onSuccess {
+			if rule.IsSuccessful() {
+				ruleNames = append(ruleNames, rule.Name)
+			}
+		} else {
+			if !rule.IsSuccessful() {
+				ruleNames = append(ruleNames, rule.Name)
+			}
+		}
+	}
+	return strings.Join(ruleNames, ",")
 }

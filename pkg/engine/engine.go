@@ -58,7 +58,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 
 		policyInfo, err := applyPolicy(client, policy, r)
 		if err != nil {
-			glog.Error("unable to apply policy %s on resource %s/%s", policy.Name, r.resource.GetName(), r.resource.GetNamespace())
+			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, r.resource.GetName(), r.resource.GetNamespace())
 			glog.Error(err)
 			continue
 		}

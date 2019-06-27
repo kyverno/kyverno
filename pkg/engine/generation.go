@@ -30,9 +30,9 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 		err := applyRuleGenerator(client, rawResource, rule.Generation, gvk, processExisting)
 		if err != nil {
 			ri.Fail()
-			ri.Addf(" Failed to apply rule generator. err %v", err)
+			ri.Addf("Rule %s: Failed to apply rule generator, err %v.", rule.Name, err)
 		} else {
-			ri.Add("Generation succesfully")
+			ri.Addf("Rule %s: Generation succesfully.", rule.Name)
 		}
 		ris = append(ris, ri)
 	}

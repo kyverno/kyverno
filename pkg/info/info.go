@@ -7,9 +7,14 @@ import (
 
 //PolicyInfo defines policy information
 type PolicyInfo struct {
-	Name       string
-	RKind      string
-	RName      string
+	// Name is policy name
+	Name string
+	// RKind represents the resource kind
+	RKind string
+	// RName is resource name
+	RName string
+	// Namespace is the ns of resource
+	// empty on non-namespaced resources
 	RNamespace string
 	Rules      []*RuleInfo
 	success    bool
