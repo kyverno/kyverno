@@ -219,7 +219,7 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
 			events = append(events, e)
 			// Policy applied succesfully on resource
-			e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
+			e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRulesApply, strings.Join(sruleNames, ";"), policyInfo.RName)
 			events = append(events, e)
 		}
 	}

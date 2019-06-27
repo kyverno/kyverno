@@ -183,8 +183,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	// eventsInfo := NewEventInfoFromPolicyInfo(policyInfos)
-	// ws.eventController.Add(eventsInfo)
+	eventsInfo := newEventInfoFromPolicyInfo(policyInfos)
+	ws.eventController.Add(eventsInfo)
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
@@ -271,6 +271,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 		policyInfos = append(policyInfos, policyInfo)
 	}
+
+	eventsInfo := newEventInfoFromPolicyInfo(policyInfos)
+	ws.eventController.Add(eventsInfo)
 
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
@@ -382,7 +385,7 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 
 const policyKind = "Policy"
 
-func NewEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
+func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
 	var eventsInfo []*event.Info
 
 	ok, msg := isAdmSuccesful(policyInfoList)
@@ -392,10 +395,7 @@ func NewEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info
 			eventsInfo = append(eventsInfo,
 				event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
 
-			eventsInfo = append(eventsInfo,
-				event.NewEvent(policyKind, "", pi.Name, event.PolicyApplied, event.SPolicyApply, pi.RName))
-
-			glog.V(3).Infof("Success events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
+			glog.V(3).Infof("Success event info prepared for %s/%s\n", pi.RKind, pi.RName)
 		}
 		return eventsInfo
 	}
