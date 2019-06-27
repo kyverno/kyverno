@@ -202,6 +202,7 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 			admregapi.RuleWithOperations{
 				Operations: []admregapi.OperationType{
 					admregapi.Create,
+					admregapi.Update,
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -230,6 +231,7 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 			admregapi.RuleWithOperations{
 				Operations: []admregapi.OperationType{
 					admregapi.Create,
+					admregapi.Update,
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{

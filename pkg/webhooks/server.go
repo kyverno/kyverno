@@ -183,7 +183,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	eventsInfo := newEventInfoFromPolicyInfo(policyInfos)
+	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
 	ws.eventController.Add(eventsInfo)
 
 	ok, msg := isAdmSuccesful(policyInfos)
@@ -272,7 +272,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	eventsInfo := newEventInfoFromPolicyInfo(policyInfos)
+	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
 	ws.eventController.Add(eventsInfo)
 
 	// If Validation fails then reject the request
@@ -385,10 +385,28 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 
 const policyKind = "Policy"
 
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
+func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) []*event.Info {
 	var eventsInfo []*event.Info
 
 	ok, msg := isAdmSuccesful(policyInfoList)
+	// create events on operation UPDATE
+	if onUpdate {
+		if !ok {
+			for _, pi := range policyInfoList {
+				ruleNames := getRuleNames(*pi, false)
+				eventsInfo = append(eventsInfo,
+					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.RequestBlocked, event.FPolicyApplyBlockUpdate, ruleNames, pi.Name))
+
+				eventsInfo = append(eventsInfo,
+					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
+
+				glog.V(3).Infof("Request blocked events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
+			}
+		}
+		return eventsInfo
+	}
+
+	// create events on operation CREATE
 	if ok {
 		for _, pi := range policyInfoList {
 			ruleNames := getRuleNames(*pi, true)

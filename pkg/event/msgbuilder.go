@@ -16,7 +16,7 @@ const (
 	SRulesApply
 	FPolicyApplyBlockCreate
 	FPolicyApplyBlockUpdate
-	FPolicyApplyBlockUpdateRule
+	FPolicyBlockResourceUpdate
 )
 
 func (k MsgKey) String() string {
@@ -25,9 +25,9 @@ func (k MsgKey) String() string {
 		"Failed to process rule '%s' of policy '%s'. Created Policy Violation",
 		"Policy applied successfully on the resource '%s'",
 		"Rule(s) '%s' of Policy '%s' applied successful",
-		"Resource %s blocked by rule(s) %s",
-		"Failed to apply rule '%s' of policy '%s' Blocked update of the resource",
-		"Failed to apply policy on resource '%s'.Blocked update of the resource. The following rules '%s' failed to apply",
+		"Resource %s creation blocked by rule(s) %s",
+		"Rule(s) '%s' of policy '%s' blocked update of the resource",
+		"Resource %s update blocked by rule(s) %s",
 	}[k]
 }
 
