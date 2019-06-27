@@ -17,7 +17,7 @@ import (
 
 // ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
-	glog.Info("Applying policy %s on existing resources", policy.Name)
+	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// policyInfo := info.NewPolicyInfo(policy.Name,
 	// 	rname,
 	// 	rns)
@@ -58,7 +58,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 
 		policyInfo, err := applyPolicy(client, policy, r)
 		if err != nil {
-			glog.Error("unable to apply policy %s on resource %s/%s", policy.Name, r.resource.GetName(), r.resource.GetNamespace())
+			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, r.resource.GetName(), r.resource.GetNamespace())
 			glog.Error(err)
 			continue
 		}
@@ -69,7 +69,10 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 }
 
 func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.resource.GetName(), res.resource.GetNamespace())
+	policyInfo := info.NewPolicyInfo(policy.Name, res.resource.GetName(),
+		res.resource.GroupVersionKind().Kind,
+		res.resource.GetNamespace())
+
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.resource.MarshalJSON()
 	if err != nil {

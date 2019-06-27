@@ -9,7 +9,6 @@ import (
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +29,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(info Info)
+	Add(infoList []*Info)
 }
 
 //Controller  api
@@ -76,8 +75,10 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(info Info) {
-	c.queue.Add(info)
+func (c *controller) Add(infoList []*Info) {
+	for _, info := range infoList {
+		c.queue.Add(*info)
+	}
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -158,13 +159,14 @@ func (c *controller) SyncHandler(key Info) error {
 	return nil
 }
 
-//NewEvent returns a new event
-func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args)
+// NewEvent returns a new event
+// resource contains namespace/resourceName
+func NewEvent(kind string, resource string, reason Reason, message MsgKey, args ...interface{}) *Info {
+	msgText, err := getEventMsg(message, args...)
 	if err != nil {
 		glog.Error(err)
 	}
-	return Info{
+	return &Info{
 		Kind:     kind,
 		Resource: resource,
 		Reason:   reason.String(),

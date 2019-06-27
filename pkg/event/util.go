@@ -22,7 +22,7 @@ const (
 	FResourcePolcy MsgKey = iota
 	FProcessRule
 	SPolicyApply
-	SRuleApply
+	SRulesApply
 	FPolicyApplyBlockCreate
 	FPolicyApplyBlockUpdate
 	FPolicyApplyBlockUpdateRule
