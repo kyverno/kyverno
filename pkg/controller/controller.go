@@ -180,13 +180,18 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	events := createEvents(pc.eventController, policyInfos)
-	pc.eventController.Add(events)
+	events, violations := createEventsAndViolations(pc.eventController, policyInfos)
+	pc.eventController.Add(events...)
+	err = pc.violationBuilder.Add(violations...)
+	if err != nil {
+		glog.Error(err)
+	}
 	return nil
 }
 
-func createEvents(eventController event.Generator, policyInfos []*info.PolicyInfo) []*event.Info {
+func createEventsAndViolations(eventController event.Generator, policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
 	events := []*event.Info{}
+	violations := []*violation.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
 		fruleNames := []string{}
@@ -198,11 +203,11 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 				fruleNames = append(fruleNames, rule.Name)
 				switch rule.RuleType {
 				case info.Mutation, info.Validation, info.Generation:
+					// Events
 					e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
 				default:
 					glog.Info("Unsupported Rule type")
 				}
-				fruleNames = append(fruleNames, rule.Name)
 				events = append(events, e)
 			} else {
 				sruleNames = append(sruleNames, rule.Name)
@@ -210,18 +215,22 @@ func createEvents(eventController event.Generator, policyInfos []*info.PolicyInf
 		}
 
 		if !policyInfo.IsSuccessful() {
-			// build Events
+			// Event
 			// list of failed rules : ruleNames
 			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
 			events = append(events, e)
-		} else {
-			// Policy was processed succesfully
-			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
-			events = append(events, e)
-			// Policy applied succesfully on resource
-			e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
-			events = append(events, e)
+			// Violation
+			v := violation.NewViolationFromEvent(e, policyInfo.Name, policyInfo.RKind, policyInfo.RName, policyInfo.RNamespace)
+			violations = append(violations, v)
 		}
+		// else {
+		// 	// Policy was processed succesfully
+		// 	e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
+		// 	events = append(events, e)
+		// 	// Policy applied succesfully on resource
+		// 	e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
+		// 	events = append(events, e)
+		// }
 	}
-	return events
+	return events, violations
 }

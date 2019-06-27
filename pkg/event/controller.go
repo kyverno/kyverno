@@ -28,7 +28,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(infoList []*Info)
+	Add(infoList ...*Info)
 }
 
 //Controller  api
@@ -74,8 +74,8 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(infoList []*Info) {
-	for _, info := range infoList {
+func (c *controller) Add(infos ...*Info) {
+	for _, info := range infos {
 		c.queue.Add(*info)
 	}
 }

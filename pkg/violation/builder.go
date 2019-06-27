@@ -12,7 +12,7 @@ import (
 
 //Generator to generate policy violation
 type Generator interface {
-	Add(info Info) error
+	Add(infos ...*Info) error
 }
 
 type builder struct {
@@ -24,7 +24,7 @@ type builder struct {
 //Builder is to build policy violations
 type Builder interface {
 	Generator
-	processViolation(info Info) error
+	processViolation(info *Info) error
 	isActive(kind string, resource string) (bool, error)
 }
 
@@ -41,18 +41,15 @@ func NewPolicyViolationBuilder(client *client.Client,
 	return builder
 }
 
-func (b *builder) Add(info Info) error {
-	return b.processViolation(info)
+func (b *builder) Add(infos ...*Info) error {
+	for _, info := range infos {
+		return b.processViolation(info)
+	}
+	return nil
 }
 
-func (b *builder) processViolation(info Info) error {
-	// Get the policy
-	namespace, name, err := cache.SplitMetaNamespaceKey(info.Policy)
-	if err != nil {
-		glog.Errorf("unable to extract namespace and name for %s", info.Policy)
-		return err
-	}
-	policy, err := b.policyLister.Get(name)
+func (b *builder) processViolation(info *Info) error {
+	policy, err := b.policyLister.Get(info.Policy)
 	if err != nil {
 		glog.Error(err)
 		return err
@@ -79,7 +76,7 @@ func (b *builder) processViolation(info Info) error {
 
 	modifiedPolicy.Status.Violations = modifiedViolations
 	// Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	_, err = b.client.UpdateStatusResource("policies/status", namespace, modifiedPolicy, false)
+	_, err = b.client.UpdateStatusResource("policies", "", modifiedPolicy, false)
 	if err != nil {
 		return err
 	}
@@ -102,14 +99,26 @@ func (b *builder) isActive(kind string, resource string) (bool, error) {
 }
 
 //NewViolation return new policy violation
-func NewViolation(policyName string, kind string, rname string, rnamespace string, ruleName string, reason string, msg string) Info {
+func NewViolation(policyName string, kind string, rname string, rnamespace string, reason string, msg string) Info {
 	return Info{Policy: policyName,
 		Violation: types.Violation{
 			Kind:      kind,
 			Name:      rname,
 			Namespace: rnamespace,
-			Rule:      ruleName,
 			Reason:    reason,
+		},
+	}
+}
+
+//NewViolationFromEvent returns violation info from event
+func NewViolationFromEvent(e *event.Info, pName string, rKind string, rName string, rnamespace string) *Info {
+	return &Info{
+		Policy: pName,
+		Violation: types.Violation{
+			Kind:      rKind,
+			Name:      rName,
+			Namespace: rnamespace,
+			Reason:    e.Message,
 		},
 	}
 }
