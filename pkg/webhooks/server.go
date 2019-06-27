@@ -382,33 +382,33 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 
 const policyKind = "Policy"
 
-// func NewEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
-// 	var eventsInfo []*event.Info
+func NewEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo) []*event.Info {
+	var eventsInfo []*event.Info
 
-// 	ok, msg := isAdmSuccesful(policyInfoList)
-// 	if ok {
-// 		for _, pi := range policyInfoList {
-// 			ruleNames := getRuleNames(*pi, true)
-// 			eventsInfo = append(eventsInfo,
-// 				event.NewEvent(pi.Kind, pi.Namespace+"/"+pi.Resource, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
+	ok, msg := isAdmSuccesful(policyInfoList)
+	if ok {
+		for _, pi := range policyInfoList {
+			ruleNames := getRuleNames(*pi, true)
+			eventsInfo = append(eventsInfo,
+				event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
 
-// 			eventsInfo = append(eventsInfo,
-// 				event.NewEvent(policyKind, pi.Name, event.PolicyApplied, event.SPolicyApply, pi.Name, pi.Resource))
+			eventsInfo = append(eventsInfo,
+				event.NewEvent(policyKind, "", pi.Name, event.PolicyApplied, event.SPolicyApply, pi.RName))
 
-// 			glog.V(3).Infof("Success events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.Kind, pi.Resource)
-// 		}
-// 		return eventsInfo
-// 	}
+			glog.V(3).Infof("Success events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
+		}
+		return eventsInfo
+	}
 
-// 	for _, pi := range policyInfoList {
-// 		ruleNames := getRuleNames(*pi, false)
-// 		eventsInfo = append(eventsInfo,
-// 			event.NewEvent(policyKind, pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.Resource, ruleNames))
+	for _, pi := range policyInfoList {
+		ruleNames := getRuleNames(*pi, false)
+		eventsInfo = append(eventsInfo,
+			event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
 
-// 		glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
-// 	}
-// 	return eventsInfo
-// }
+		glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
+	}
+	return eventsInfo
+}
 
 func getRuleNames(policyInfo info.PolicyInfo, onSuccess bool) string {
 	var ruleNames []string
