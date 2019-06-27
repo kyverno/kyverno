@@ -64,7 +64,7 @@ func (b *builder) processViolation(info Info) error {
 	newViolation := info.Violation
 
 	for _, violation := range modifiedPolicy.Status.Violations {
-		ok, err := b.isActive(info.Kind, violation.Resource)
+		ok, err := b.isActive(info.Kind, violation.Name)
 		if err != nil {
 			glog.Error(err)
 			continue
@@ -102,9 +102,14 @@ func (b *builder) isActive(kind string, resource string) (bool, error) {
 }
 
 //NewViolation return new policy violation
-func NewViolation(policyName string, kind string, resource string, rule string) Info {
+func NewViolation(policyName string, kind string, rname string, rnamespace string, ruleName string, reason string, msg string) Info {
 	return Info{Policy: policyName,
 		Violation: types.Violation{
-			Kind: kind, Resource: resource, Rule: rule},
+			Kind:      kind,
+			Name:      rname,
+			Namespace: rnamespace,
+			Rule:      ruleName,
+			Reason:    reason,
+		},
 	}
 }
