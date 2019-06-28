@@ -69,7 +69,7 @@ func TestCRUDResource(t *testing.T) {
 		t.Errorf("GetResource not working: %s", err)
 	}
 	// List Resources
-	_, err = f.client.ListResource("thekinds", "ns-foo")
+	_, err = f.client.ListResource("thekinds", "ns-foo", nil)
 	if err != nil {
 		t.Errorf("ListResource not working: %s", err)
 	}
@@ -131,7 +131,7 @@ func TestGenerateResource(t *testing.T) {
 	gen := policytypes.Generation{Kind: "TheKind",
 		Name:  "gen-kind",
 		Clone: &policytypes.CloneFrom{Namespace: "ns-foo", Name: "name-foo"}}
-	err = f.client.GenerateResource(gen, ns.GetName())
+	err = f.client.GenerateResource(gen, ns.GetName(), false)
 	if err != nil {
 		t.Errorf("GenerateResource not working: %s", err)
 	}
@@ -143,7 +143,7 @@ func TestGenerateResource(t *testing.T) {
 	gen = policytypes.Generation{Kind: "TheKind",
 		Name: "name2-baz-new",
 		Data: newUnstructured("group2/version", "TheKind", "ns1", "name2-baz-new")}
-	err = f.client.GenerateResource(gen, ns.GetName())
+	err = f.client.GenerateResource(gen, ns.GetName(), false)
 	if err != nil {
 		t.Errorf("GenerateResource not working: %s", err)
 	}

@@ -9,7 +9,7 @@ import (
 
 func TestPositive(t *testing.T) {
 	resourceName := "test_resource"
-	expectedMsg := fmt.Sprintf("Policy applied successfully on the resource %s", resourceName)
+	expectedMsg := fmt.Sprintf("Policy applied successfully on the resource '%s'", resourceName)
 	msg, err := getEventMsg(SPolicyApply, resourceName)
 	assert.NilError(t, err)
 	assert.Equal(t, expectedMsg, msg)
