@@ -6,7 +6,9 @@ import (
 	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	violation "github.com/nirmata/kyverno/pkg/violation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,12 +32,16 @@ func (f *fixture) runControler(policyName string) {
 	if err != nil {
 		f.t.Fatal(err)
 	}
+
+	eventController := event.NewEventController(f.Client, policyInformerFactory)
+	violationBuilder := violation.NewPolicyViolationBuilder(f.Client, policyInformerFactory, eventController)
+
 	// new controller
 	policyController := NewPolicyController(
 		f.Client,
 		policyInformerFactory,
-		nil,
-		nil)
+		violationBuilder,
+		eventController)
 
 	stopCh := signals.SetupSignalHandler()
 	// start informer & controller
@@ -66,8 +72,38 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T) *fixture {
-	f := &fixture{}
-	f.t = t
+
+	// init groupversion
+	regResource := []schema.GroupVersionResource{
+		schema.GroupVersionResource{Group: "group", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "group2", Version: "version", Resource: "thekinds"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+	}
+
+	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
+		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
+		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
+		newUnstructured("apps/v1", "Deployment", "kyverno", "kyverno"),
+	}
+
+	scheme := runtime.NewScheme()
+	// Create mock client
+	fclient, err := client.NewMockClient(scheme, objects...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// set discovery Client
+	fclient.SetDiscovery(client.NewFakeDiscoveryClient(regResource))
+
+	f := &fixture{
+		t:      t,
+		Client: fclient,
+	}
+
 	return f
 }
 
