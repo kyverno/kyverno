@@ -21,7 +21,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 
 		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
 		if !ok {
-			glog.V(3).Info("Not applicable on specified resource kind%s", gvk.Kind)
+			glog.V(3).Infof("Not applicable on specified resource kind%s", gvk.Kind)
 			continue
 		}
 		// Process Overlay

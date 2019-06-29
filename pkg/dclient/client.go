@@ -107,8 +107,8 @@ func (c *Client) getGroupVersionMapper(resource string) schema.GroupVersionResou
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *Client) GetResource(resource string, namespace string, name string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(resource, namespace).Get(name, meta.GetOptions{})
+func (c *Client) GetResource(resource string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(resource, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
 // ListResource returns the list of resources in unstructured/json format

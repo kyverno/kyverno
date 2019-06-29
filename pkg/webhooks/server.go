@@ -149,7 +149,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	var allPatches []engine.PatchBytes
 	policyInfos := []*info.PolicyInfo{}
 	for _, policy := range policies {
-
 		// check if policy has a rule for the admission request kind
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue

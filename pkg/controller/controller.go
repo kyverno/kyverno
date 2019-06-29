@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -64,7 +65,11 @@ func (pc *PolicyController) createPolicyHandler(resource interface{}) {
 func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
 	newPolicy := newResource.(*types.Policy)
 	oldPolicy := oldResource.(*types.Policy)
-	if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
+	newPolicy.Status = types.Status{}
+	oldPolicy.Status = types.Status{}
+	newPolicy.ResourceVersion = ""
+	oldPolicy.ResourceVersion = ""
+	if reflect.DeepEqual(newPolicy.ResourceVersion, oldPolicy.ResourceVersion) {
 		return
 	}
 	pc.enqueuePolicy(newResource)
