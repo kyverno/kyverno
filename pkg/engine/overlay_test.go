@@ -65,8 +65,8 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -165,8 +165,8 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -286,8 +286,8 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
 	patch := JoinPatches(patches)
@@ -369,8 +369,8 @@ func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
 	doc, err := ApplyPatches(resourceRaw, patches)
@@ -455,8 +455,8 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
 	doc, err := ApplyPatches(resourceRaw, patches)
@@ -540,8 +540,8 @@ func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, res := applyOverlay(resource, overlay, "/")
-	assert.NilError(t, res.ToError())
+	patches, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
 	doc, err := ApplyPatches(resourceRaw, patches)

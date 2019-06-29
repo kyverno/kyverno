@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/golang/glog"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
@@ -14,7 +16,7 @@ type PatchBytes []byte
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBytes, errs []error) {
-	if len(resource) == 0 {
+	if len(resource) == 0 || rule.Mutation == nil {
 		errs = append(errs, errors.New("Source document for patching is empty"))
 		return nil, errs
 	}
@@ -27,6 +29,11 @@ func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBy
 		}
 
 		patchedDocument, err = applyPatch(patchedDocument, patchRaw)
+		// TODO: continue on error if one of the patches fails, will add the failure event in such case
+		if patch.Operation == "remove" {
+			glog.Info(err)
+			continue
+		}
 		if err != nil {
 			errs = append(errs, err)
 			continue

@@ -470,7 +470,7 @@ func TestAllTest(t *testing.T) {
 		} else if !c.result && err == nil {
 			t.Errorf("Testing passed when it should have faild: %s", err)
 		} else if !c.result {
-			expected := fmt.Sprintf("Testing value %s failed", c.failedPath)
+			expected := fmt.Sprintf("testing value %s failed: test failed", c.failedPath)
 			if err.Error() != expected {
 				t.Errorf("Testing failed as expected but invalid message: expected [%s], got [%s]", expected, err)
 			}
