@@ -29,7 +29,11 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			gvr := client.DiscoveryClient.GetGVRFromKind(k)
 			// label selectors
 			// namespace ? should it be default or allow policy to specify it
-			list, err := client.ListResource(gvr.Resource, "default", rule.ResourceDescription.Selector)
+			namespace := "default"
+			if rule.ResourceDescription.Namespace != nil {
+				namespace = *rule.ResourceDescription.Namespace
+			}
+			list, err := client.ListResource(gvr.Resource, namespace, rule.ResourceDescription.Selector)
 			if err != nil {
 				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
 				glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
