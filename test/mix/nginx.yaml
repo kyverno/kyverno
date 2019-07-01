@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
-  creationTimestamp: 
   labels:
     app: nginx
+    cli: test
 spec:
   replicas: 1
   selector:
@@ -12,20 +12,14 @@ spec:
       app: nginx
   template:
     metadata:
-      creationTimestamp: 
       labels:
         app: nginx
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nirmata/nginx:green
+        # imagePullPolicy: Always
         ports:
         - containerPort: 80
-        resources: {}
-        imagePullPolicy: IfNotPresent
-      - name: ghost
-        image: ghost:latest
-        resources: {}
-        imagePullPolicy: IfNotPresent
-  strategy: {}
-status: {}
+      - name: nginx1
+        image: launcher.gcr.io/google/nginx1

@@ -11,6 +11,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -106,14 +107,18 @@ func (c *Client) getGroupVersionMapper(resource string) schema.GroupVersionResou
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *Client) GetResource(resource string, namespace string, name string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(resource, namespace).Get(name, meta.GetOptions{})
+func (c *Client) GetResource(resource string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(resource, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(resource string, namespace string) (*unstructured.UnstructuredList, error) {
-	return c.getResourceInterface(resource, namespace).List(meta.ListOptions{})
+func (c *Client) ListResource(resource string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
+	options := meta.ListOptions{}
+	if lselector != nil {
+		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
+	}
+	return c.getResourceInterface(resource, namespace).List(options)
 }
 
 // DeleteResouce deletes the specified resource
@@ -175,7 +180,7 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 }
 
 // GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
-func (c *Client) GenerateResource(generator types.Generation, namespace string) error {
+func (c *Client) GenerateResource(generator types.Generation, namespace string, processExistingResources bool) error {
 	var err error
 	rGVR := c.DiscoveryClient.GetGVRFromKind(generator.Kind)
 	resource := &unstructured.Unstructured{}

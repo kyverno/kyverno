@@ -50,7 +50,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, err
 	}
-	csrList, err := c.ListResource(CSRs, "")
+	csrList, err := c.ListResource(CSRs, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to list existing certificate requests: %v", err)
 	}

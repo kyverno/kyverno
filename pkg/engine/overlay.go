@@ -2,109 +2,99 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 
+	"github.com/golang/glog"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProcessOverlay handles validating admission request
 // Checks the target resources for rules defined in the policy
-func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, result.RuleApplicationResult) {
-	overlayApplicationResult := result.NewRuleApplicationResult(rule.Name)
-	if rule.Mutation == nil || rule.Mutation.Overlay == nil {
-		return nil, overlayApplicationResult
-	}
+func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, error) {
 
 	var resource interface{}
 	var appliedPatches []PatchBytes
-	json.Unmarshal(rawResource, &resource)
-
-	patches, res := mutateResourceWithOverlay(resource, *rule.Mutation.Overlay)
-	overlayApplicationResult.MergeWith(&res)
-
-	if overlayApplicationResult.GetReason() == result.Success {
-		appliedPatches = append(appliedPatches, patches...)
+	err := json.Unmarshal(rawResource, &resource)
+	if err != nil {
+		return nil, err
 	}
 
-	return appliedPatches, overlayApplicationResult
+	patches, err := mutateResourceWithOverlay(resource, *rule.Mutation.Overlay)
+	if err != nil {
+		return nil, err
+	}
+	appliedPatches = append(appliedPatches, patches...)
+
+	return appliedPatches, err
 }
 
 // mutateResourceWithOverlay is a start of overlaying process
-func mutateResourceWithOverlay(resource, pattern interface{}) ([]PatchBytes, result.RuleApplicationResult) {
+func mutateResourceWithOverlay(resource, pattern interface{}) ([]PatchBytes, error) {
 	// It assumes that mutation is started from root, so "/" is passed
 	return applyOverlay(resource, pattern, "/")
 }
 
 // applyOverlay detects type of current item and goes down through overlay and resource trees applying overlay
-func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
-
 	// resource item exists but has different type - replace
 	// all subtree within this path by overlay
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
-		patch, res := replaceSubtree(overlay, path)
-		overlayResult.MergeWith(&res)
-
-		if result.Success == overlayResult.GetReason() {
-			appliedPatches = append(appliedPatches, patch)
+		patch, err := replaceSubtree(overlay, path)
+		if err != nil {
+			return nil, err
 		}
-		return appliedPatches, overlayResult
-	}
 
+		appliedPatches = append(appliedPatches, patch)
+	}
 	return applyOverlayForSameTypes(resource, overlay, path)
 }
 
 // applyOverlayForSameTypes is applyOverlay for cases when TypeOf(resource) == TypeOf(overlay)
-func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	// detect the type of resource and overlay and select corresponding handler
 	switch typedOverlay := overlay.(type) {
 	// map
 	case map[string]interface{}:
 		typedResource := resource.(map[string]interface{})
-		patches, res := applyOverlayToMap(typedResource, typedOverlay, path)
-		overlayResult.MergeWith(&res)
-
-		if result.Success == overlayResult.GetReason() {
-			appliedPatches = append(appliedPatches, patches...)
+		patches, err := applyOverlayToMap(typedResource, typedOverlay, path)
+		if err != nil {
+			return nil, err
 		}
+		appliedPatches = append(appliedPatches, patches...)
 	// array
 	case []interface{}:
 		typedResource := resource.([]interface{})
-		patches, res := applyOverlayToArray(typedResource, typedOverlay, path)
-		overlayResult.MergeWith(&res)
-
-		if result.Success == overlayResult.GetReason() {
-			appliedPatches = append(appliedPatches, patches...)
+		patches, err := applyOverlayToArray(typedResource, typedOverlay, path)
+		if err != nil {
+			return nil, err
 		}
+		appliedPatches = append(appliedPatches, patches...)
 	// elementary types
 	case string, float64, int64, bool:
-		patch, res := replaceSubtree(overlay, path)
-		overlayResult.MergeWith(&res)
-
-		if result.Success == overlayResult.GetReason() {
-			appliedPatches = append(appliedPatches, patch)
+		patch, err := replaceSubtree(overlay, path)
+		if err != nil {
+			return nil, err
 		}
+		appliedPatches = append(appliedPatches, patch)
 	default:
-		overlayResult.FailWithMessagef("Overlay has unsupported type: %T", overlay)
-		return nil, overlayResult
+		return nil, fmt.Errorf("Overlay has unsupported type: %T", overlay)
 	}
 
-	return appliedPatches, overlayResult
+	return appliedPatches, nil
 }
 
 // for each overlay and resource map elements applies overlay
-func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
@@ -119,62 +109,55 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 
 		if ok && !isAddingAnchor(key) {
 			// Key exists - go down through the overlay and resource trees
-			patches, res := applyOverlay(resourcePart, value, currentPath)
-			overlayResult.MergeWith(&res)
-
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patches...)
+			patches, err := applyOverlay(resourcePart, value, currentPath)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patches...)
 		}
 
 		if !ok {
 			// Key does not exist - insert entire overlay subtree
-			patch, res := insertSubtree(value, currentPath)
-			overlayResult.MergeWith(&res)
-
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patch)
+			patch, err := insertSubtree(value, currentPath)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patch)
 		}
 	}
 
-	return appliedPatches, overlayResult
+	return appliedPatches, nil
 }
 
 // for each overlay and resource array elements applies overlay
-func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	if 0 == len(overlay) {
-		overlayResult.FailWithMessagef("Empty array detected in the overlay")
-		return nil, overlayResult
+		return nil, errors.New("Empty array detected in the overlay")
 	}
 
 	if 0 == len(resource) {
 		// If array resource is empty, insert part from overlay
-		patch, res := insertSubtree(overlay, path)
-		overlayResult.MergeWith(&res)
-
-		if result.Success == overlayResult.GetReason() {
-			appliedPatches = append(appliedPatches, patch)
+		patch, err := insertSubtree(overlay, path)
+		if err != nil {
+			return nil, err
 		}
+		appliedPatches = append(appliedPatches, patch)
 
-		return appliedPatches, res
+		return appliedPatches, nil
 	}
 
 	if reflect.TypeOf(resource[0]) != reflect.TypeOf(overlay[0]) {
-		overlayResult.FailWithMessagef("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
-		return nil, overlayResult
+		return nil, fmt.Errorf("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
 	}
 
 	return applyOverlayToArrayOfSameTypes(resource, overlay, path)
 }
 
 // applyOverlayToArrayOfSameTypes applies overlay to array elements if they (resource and overlay elements) have same type
-func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	switch overlay[0].(type) {
 	case map[string]interface{}:
@@ -186,22 +169,20 @@ func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string
 		for i, value := range overlay {
 			currentPath := path + strconv.Itoa(lastElementIdx+i) + "/"
 			// currentPath example: /spec/template/spec/containers/3/
-			patch, res := insertSubtree(value, currentPath)
-			overlayResult.MergeWith(&res)
-
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patch)
+			patch, err := insertSubtree(value, currentPath)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patch)
 		}
 	}
 
-	return appliedPatches, overlayResult
+	return appliedPatches, nil
 }
 
 // Array of maps needs special handling as far as it can have anchors.
-func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	lastElementIdx := len(resource)
 	for i, overlayElement := range overlay {
@@ -210,43 +191,39 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 
 		if len(anchors) > 0 {
 			// If we have anchors - choose corresponding resource element and mutate it
-			patches, res := applyOverlayWithAnchors(resource, overlayElement, anchors, path)
-			overlayResult.MergeWith(&res)
-
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patches...)
+			patches, err := applyOverlayWithAnchors(resource, overlayElement, anchors, path)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patches...)
 		} else if hasNestedAnchors(overlayElement) {
 			// If we have anchors on the lower level - continue traversing overlay and resource trees
 			for j, resourceElement := range resource {
 				currentPath := path + strconv.Itoa(j) + "/"
 				// currentPath example: /spec/template/spec/containers/3/
-				patches, res := applyOverlay(resourceElement, overlayElement, currentPath)
-				overlayResult.MergeWith(&res)
-
-				if result.Success == overlayResult.GetReason() {
-					appliedPatches = append(appliedPatches, patches...)
+				patches, err := applyOverlay(resourceElement, overlayElement, currentPath)
+				if err != nil {
+					return nil, err
 				}
+				appliedPatches = append(appliedPatches, patches...)
 			}
 		} else {
 			// Overlay subtree has no anchors - insert new element
 			currentPath := path + strconv.Itoa(lastElementIdx+i) + "/"
 			// currentPath example: /spec/template/spec/containers/3/
-			patch, res := insertSubtree(overlayElement, currentPath)
-			overlayResult.MergeWith(&res)
-
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patch)
+			patch, err := insertSubtree(overlayElement, currentPath)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patch)
 		}
 	}
 
-	return appliedPatches, overlayResult
+	return appliedPatches, nil
 }
 
-func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchors map[string]interface{}, path string) ([]PatchBytes, result.RuleApplicationResult) {
+func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchors map[string]interface{}, path string) ([]PatchBytes, error) {
 	var appliedPatches []PatchBytes
-	overlayResult := result.NewRuleApplicationResult("")
 
 	for i, resourceElement := range resource {
 		typedResource := resourceElement.(map[string]interface{})
@@ -254,27 +231,26 @@ func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchor
 		currentPath := path + strconv.Itoa(i) + "/"
 		// currentPath example: /spec/template/spec/containers/3/
 		if !skipArrayObject(typedResource, anchors) {
-			patches, res := applyOverlay(resourceElement, overlay, currentPath)
-			overlayResult.MergeWith(&res)
-			if result.Success == overlayResult.GetReason() {
-				appliedPatches = append(appliedPatches, patches...)
+			patches, err := applyOverlay(resourceElement, overlay, currentPath)
+			if err != nil {
+				return nil, err
 			}
+			appliedPatches = append(appliedPatches, patches...)
 		}
 	}
 
-	return appliedPatches, overlayResult
+	return appliedPatches, nil
 }
 
-func insertSubtree(overlay interface{}, path string) (PatchBytes, result.RuleApplicationResult) {
+func insertSubtree(overlay interface{}, path string) (PatchBytes, error) {
 	return processSubtree(overlay, path, "add")
 }
 
-func replaceSubtree(overlay interface{}, path string) (PatchBytes, result.RuleApplicationResult) {
+func replaceSubtree(overlay interface{}, path string) (PatchBytes, error) {
 	return processSubtree(overlay, path, "replace")
 }
 
-func processSubtree(overlay interface{}, path string, op string) (PatchBytes, result.RuleApplicationResult) {
-	overlayResult := result.NewRuleApplicationResult("")
+func processSubtree(overlay interface{}, path string, op string) (PatchBytes, error) {
 
 	if len(path) > 1 && path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
@@ -290,11 +266,11 @@ func processSubtree(overlay interface{}, path string, op string) (PatchBytes, re
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
-		overlayResult.FailWithMessagef("Failed to make '%s' patch from an overlay '%s' for path %s", op, value, path)
-		return nil, overlayResult
+		glog.V(3).Info(err)
+		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s", op, value, path)
 	}
 
-	return PatchBytes(patchStr), overlayResult
+	return PatchBytes(patchStr), nil
 }
 
 // converts overlay to JSON string to be inserted into the JSON Patch
@@ -302,6 +278,7 @@ func prepareJSONValue(overlay interface{}) string {
 	jsonOverlay, err := json.Marshal(overlay)
 
 	if err != nil || hasOnlyAnchors(overlay) {
+		glog.V(3).Info(err)
 		return ""
 	}
 

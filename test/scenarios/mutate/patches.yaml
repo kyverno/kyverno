@@ -3,6 +3,11 @@ input:
   policy: examples/mutate/patches/policy_endpoints.yaml
   resource: examples/mutate/patches/endpoints.yaml
 expected:
+  passes: true
   mutation:
     patched_resource: test/output/op_patches_endpoints.yaml
-    reason: Success
+    rules:
+      - name: pEP
+        type: Mutation
+        messages:
+          - "Rule pEP: Patches succesfully applied."

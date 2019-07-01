@@ -2,7 +2,13 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/info"
+
+	"github.com/nirmata/kyverno/pkg/engine"
 
 	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -25,7 +31,7 @@ type PolicyController struct {
 	policyLister     lister.PolicyLister
 	policySynced     cache.InformerSynced
 	violationBuilder violation.Generator
-	eventBuilder     event.Generator
+	eventController  event.Generator
 	queue            workqueue.RateLimitingInterface
 }
 
@@ -40,7 +46,7 @@ func NewPolicyController(client *client.Client,
 		policyLister:     policyInformer.GetLister(),
 		policySynced:     policyInformer.GetInfomer().HasSynced,
 		violationBuilder: violationBuilder,
-		eventBuilder:     eventController,
+		eventController:  eventController,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
@@ -59,7 +65,11 @@ func (pc *PolicyController) createPolicyHandler(resource interface{}) {
 func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
 	newPolicy := newResource.(*types.Policy)
 	oldPolicy := oldResource.(*types.Policy)
-	if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
+	newPolicy.Status = types.Status{}
+	oldPolicy.Status = types.Status{}
+	newPolicy.ResourceVersion = ""
+	oldPolicy.ResourceVersion = ""
+	if reflect.DeepEqual(newPolicy.ResourceVersion, oldPolicy.ResourceVersion) {
 		return
 	}
 	pc.enqueuePolicy(newResource)
@@ -174,5 +184,58 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	// get the events and pass to event Builder
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
+	policyInfos := engine.ProcessExisting(pc.client, policy)
+	events, violations := createEventsAndViolations(pc.eventController, policyInfos)
+	pc.eventController.Add(events...)
+	err = pc.violationBuilder.Add(violations...)
+	if err != nil {
+		glog.Error(err)
+	}
 	return nil
+}
+
+func createEventsAndViolations(eventController event.Generator, policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
+	events := []*event.Info{}
+	violations := []*violation.Info{}
+	// Create events from the policyInfo
+	for _, policyInfo := range policyInfos {
+		fruleNames := []string{}
+		sruleNames := []string{}
+
+		for _, rule := range policyInfo.Rules {
+			if !rule.IsSuccessful() {
+				e := &event.Info{}
+				fruleNames = append(fruleNames, rule.Name)
+				switch rule.RuleType {
+				case info.Mutation, info.Validation, info.Generation:
+					// Events
+					e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
+				default:
+					glog.Info("Unsupported Rule type")
+				}
+				events = append(events, e)
+			} else {
+				sruleNames = append(sruleNames, rule.Name)
+			}
+		}
+
+		if !policyInfo.IsSuccessful() {
+			// Event
+			// list of failed rules : ruleNames
+			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
+			events = append(events, e)
+			// Violation
+			v := violation.NewViolationFromEvent(e, policyInfo.Name, policyInfo.RKind, policyInfo.RName, policyInfo.RNamespace)
+			violations = append(violations, v)
+		}
+		// else {
+		// 	// Policy was processed succesfully
+		// 	e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
+		// 	events = append(events, e)
+		// 	// Policy applied succesfully on resource
+		// 	e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
+		// 	events = append(events, e)
+		// }
+	}
+	return events, violations
 }

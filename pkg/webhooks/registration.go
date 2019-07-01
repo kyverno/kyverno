@@ -202,6 +202,7 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 			admregapi.RuleWithOperations{
 				Operations: []admregapi.OperationType{
 					admregapi.Create,
+					admregapi.Update,
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -230,6 +231,7 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 			admregapi.RuleWithOperations{
 				Operations: []admregapi.OperationType{
 					admregapi.Create,
+					admregapi.Update,
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -251,6 +253,7 @@ func (wrc *WebhookRegistrationClient) constructOwner() meta.OwnerReference {
 	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
 
 	if err != nil {
+		glog.Errorf("Error when constructing OwnerReference, err: %v\n", err)
 		return meta.OwnerReference{}
 	}
 

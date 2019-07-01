@@ -81,11 +81,11 @@ type Status struct {
 
 // Violation for the policy
 type Violation struct {
-	Kind     string `json:"kind,omitempty"`
-	Resource string `json:"resource,omitempty"`
-	Rule     string `json:"rule,omitempty"`
-	Reason   string `json:"reason,omitempty"`
-	Message  string `json:"message,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Message   string `json:"message,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

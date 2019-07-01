@@ -10,6 +10,7 @@ import (
 	"github.com/golang/glog"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -94,18 +95,50 @@ func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output s
 }
 
 func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
-	patches, result := engine.Mutate(*policy, rawResource, *gvk)
-
-	err := result.ToError()
 	patchedResource := rawResource
-	if err == nil && len(patches) != 0 {
-		patchedResource, err = engine.ApplyPatches(rawResource, patches)
+
+	rname := engine.ParseNameFromObject(rawResource)
+	rns := engine.ParseNamespaceFromObject(rawResource)
+	policyInfo := info.NewPolicyInfo(policy.Name,
+		gvk.Kind,
+		rname,
+		rns)
+
+	// Process Mutation
+	patches, ruleInfos := engine.Mutate(*policy, rawResource, *gvk)
+	policyInfo.AddRuleInfos(ruleInfos)
+	if !policyInfo.IsSuccessful() {
+		glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+		for _, r := range ruleInfos {
+			glog.Warning(r.Msgs)
+		}
+	} else if len(patches) > 0 {
+		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
+		patchedResource, err := engine.ApplyPatches(rawResource, patches)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)
 		}
-		err = engine.Validate(*policy, patchedResource, *gvk).ToError()
+		// Process Validation
+		ruleInfos, err := engine.Validate(*policy, patchedResource, *gvk)
+		if err != nil {
+			// This is not policy error
+			// but if unable to parse request raw resource
+			// TODO : create event ? dont think so
+			glog.Error(err)
+			return patchedResource, err
+		}
+		policyInfo.AddRuleInfos(ruleInfos)
+		if !policyInfo.IsSuccessful() {
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			for _, r := range ruleInfos {
+				glog.Warning(r.Msgs)
+			}
+			return patchedResource, fmt.Errorf("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+		} else if len(ruleInfos) > 0 {
+			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
+		}
 	}
-	return patchedResource, err
+	return patchedResource, nil
 }
 
 func extractPolicy(fileDir string) (*kubepolicy.Policy, error) {

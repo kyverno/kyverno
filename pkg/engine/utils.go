@@ -8,6 +8,7 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -55,7 +56,8 @@ func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	return objectJSON["metadata"].(map[string]interface{})
 }
 
-func parseKindFromObject(bytes []byte) string {
+//ParseKindFromObject get kind from resource
+func ParseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
 
@@ -243,4 +245,9 @@ func convertToFloat(value interface{}) (float64, error) {
 	default:
 		return 0, fmt.Errorf("Could not convert %T to float64", value)
 	}
+}
+
+type resourceInfo struct {
+	resource *unstructured.Unstructured
+	gvk      *metav1.GroupVersionKind
 }

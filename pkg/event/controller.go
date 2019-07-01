@@ -9,14 +9,12 @@ import (
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/result"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -30,7 +28,7 @@ type controller struct {
 
 //Generator to generate event
 type Generator interface {
-	Add(info Info)
+	Add(infoList ...*Info)
 }
 
 //Controller  api
@@ -76,8 +74,10 @@ func initRecorder(client *client.Client) record.EventRecorder {
 	return recorder
 }
 
-func (c *controller) Add(info Info) {
-	c.queue.Add(info)
+func (c *controller) Add(infos ...*Info) {
+	for _, info := range infos {
+		c.queue.Add(*info)
+	}
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -115,7 +115,7 @@ func (c *controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing the resource and the policy
 		if err := c.SyncHandler(key); err != nil {
 			c.queue.AddRateLimited(key)
-			return fmt.Errorf("error syncing '%s' : %s, requeuing event creation request", key.Resource, err.Error())
+			return fmt.Errorf("error syncing '%s' : %s, requeuing event creation request", key.Namespace+"/"+key.Name, err.Error())
 		}
 		return nil
 	}(obj)
@@ -127,47 +127,44 @@ func (c *controller) processNextWorkItem() bool {
 }
 
 func (c *controller) SyncHandler(key Info) error {
-	var resource runtime.Object
+	var robj runtime.Object
 	var err error
 
 	switch key.Kind {
 	case "Policy":
 		//TODO: policy is clustered resource so wont need namespace
-		resource, err = c.policyLister.Get(key.Resource)
+		robj, err = c.policyLister.Get(key.Name)
 		if err != nil {
-			glog.Errorf("unable to create event for policy %s, will retry ", key.Resource)
+			glog.Errorf("unable to create event for policy %s, will retry ", key.Name)
 			return err
 		}
 	default:
-		namespace, name, err := cache.SplitMetaNamespaceKey(key.Resource)
+		resource := c.client.DiscoveryClient.GetGVRFromKind(key.Kind).Resource
+		robj, err = c.client.GetResource(resource, key.Namespace, key.Name)
 		if err != nil {
-			glog.Errorf("invalid resource key: %s", key.Resource)
-			return err
-		}
-		rName := c.client.DiscoveryClient.GetGVRFromKind(key.Kind).Resource
-		resource, err = c.client.GetResource(rName, namespace, name)
-		if err != nil {
-			return err
-		}
-		if err != nil {
-			glog.Errorf("unable to create event for resource %s, will retry ", key.Resource)
+			glog.Errorf("unable to create event for resource %s, will retry ", key.Namespace+"/"+key.Name)
 			return err
 		}
 	}
-	c.recorder.Event(resource, v1.EventTypeNormal, key.Reason, key.Message)
+	if key.Reason == PolicyApplied.String() {
+		c.recorder.Event(robj, v1.EventTypeNormal, key.Reason, key.Message)
+	} else {
+		c.recorder.Event(robj, v1.EventTypeWarning, key.Reason, key.Message)
+	}
 	return nil
 }
 
 //NewEvent returns a new event
-func NewEvent(kind string, resource string, reason result.Reason, message MsgKey, args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args)
+func NewEvent(rkind string, rnamespace string, rname string, reason Reason, message MsgKey, args ...interface{}) *Info {
+	msgText, err := getEventMsg(message, args...)
 	if err != nil {
 		glog.Error(err)
 	}
-	return Info{
-		Kind:     kind,
-		Resource: resource,
-		Reason:   reason.String(),
-		Message:  msgText,
+	return &Info{
+		Kind:      rkind,
+		Name:      rname,
+		Namespace: rnamespace,
+		Reason:    reason.String(),
+		Message:   msgText,
 	}
 }

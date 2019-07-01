@@ -289,8 +289,8 @@ func TestValidateMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_AsteriskForInt(t *testing.T) {
@@ -384,8 +384,8 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_AsteriskForMap(t *testing.T) {
@@ -476,8 +476,8 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_AsteriskForArray(t *testing.T) {
@@ -563,8 +563,8 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
@@ -653,8 +653,8 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_livenessProbeIsNull(t *testing.T) {
@@ -743,8 +743,8 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
@@ -832,8 +832,8 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateMap(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateMap(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
@@ -873,8 +873,8 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
@@ -905,8 +905,8 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
@@ -958,8 +958,8 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
@@ -1011,8 +1011,8 @@ func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
@@ -1064,8 +1064,8 @@ func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
@@ -1117,8 +1117,8 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
@@ -1170,8 +1170,8 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.NilError(t, res.ToError())
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.NilError(t, err)
 }
 
 func TestValidateMap_MalformedPath(t *testing.T) {
@@ -1223,8 +1223,8 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_AbosolutePathExists(t *testing.T) {
@@ -1276,8 +1276,8 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() == nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err == nil)
 }
 
 func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
@@ -1326,8 +1326,8 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() == nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err == nil)
 }
 
 func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
@@ -1379,8 +1379,8 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
@@ -1409,9 +1409,9 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	json.Unmarshal(rawPattern, &pattern)
 
-	pattern, res := actualizePattern(pattern, referencePath, absolutePath)
+	pattern, err := actualizePattern(pattern, referencePath, absolutePath)
 
-	assert.Assert(t, res.ToError() == nil)
+	assert.Assert(t, err == nil)
 }
 
 func TestFormAbsolutePath_RelativePathExists(t *testing.T) {
@@ -1480,8 +1480,8 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	res := validateResourceElement(resource, pattern, pattern, "/")
-	assert.Assert(t, res.ToError() != nil)
+	err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidate_ServiceTest(t *testing.T) {
@@ -1573,8 +1573,8 @@ func TestValidate_ServiceTest(t *testing.T) {
 	gvk := metav1.GroupVersionKind{
 		Kind: "Service",
 	}
-
-	assert.Assert(t, Validate(policy, rawResource, gvk) != nil)
+	_, err := Validate(policy, rawResource, gvk)
+	assert.Assert(t, err == nil)
 }
 
 func TestValidate_MapHasFloats(t *testing.T) {
@@ -1672,6 +1672,6 @@ func TestValidate_MapHasFloats(t *testing.T) {
 		Kind: "Deployment",
 	}
 
-	res := Validate(policy, rawResource, gvk)
-	assert.NilError(t, res.ToError())
+	_, err := Validate(policy, rawResource, gvk)
+	assert.NilError(t, err)
 }

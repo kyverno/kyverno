@@ -4,7 +4,7 @@ metadata :
   name : basic-policy
 spec :
   rules:
-    - name: "Basic config generator for all namespaces"
+    - name: "Basic clone config generator for all namespaces"
       resource:
         kinds: 
         - Namespace

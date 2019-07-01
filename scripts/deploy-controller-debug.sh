@@ -34,3 +34,4 @@ chmod +x "${certsGenerator}"
 ${certsGenerator} "--service=${service}" "--serverIP=${serverIP}" || exit 2
 echo -e "\n### You can build and run kyverno project locally.\n### To check its work, run it with flags --kubeconfig and --serverIP parameters."
 
+sudo ./kyverno --kubeconfig ~/.kube/config --serverIP=10.0.0.11 -v 4

@@ -16,4 +16,4 @@ spec:
               containers:
                 # if the image tag is latest, set the imagePullPolicy to Always
                 - (image): "*:latest"
-                  imagePullPolicy: "Always"
+                  imagePullPolicy: "IfNotPresent"
