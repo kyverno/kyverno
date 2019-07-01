@@ -16,8 +16,12 @@ type PatchBytes []byte
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
 func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBytes, errs []error) {
-	if len(resource) == 0 || rule.Mutation == nil {
+	if len(resource) == 0 {
 		errs = append(errs, errors.New("Source document for patching is empty"))
+		return nil, errs
+	}
+	if rule.Mutation == nil {
+		errs = append(errs, errors.New("No Mutation rules defined"))
 		return nil, errs
 	}
 	patchedDocument := resource

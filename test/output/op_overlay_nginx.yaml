@@ -22,10 +22,10 @@ spec:
         ports:
         - containerPort: 80
         resources: {}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
       - name: ghost
         image: ghost:latest
         resources: {}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
   strategy: {}
 status: {}

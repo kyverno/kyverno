@@ -29,6 +29,7 @@ spec:
       containers:
       - name: "ghost"
         image: "nginx:latest"
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           protocol: "TCP"

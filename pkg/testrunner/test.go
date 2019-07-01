@@ -1,7 +1,7 @@
 package testrunner
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	ospath "path"
@@ -10,7 +10,7 @@ import (
 	pt "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/result"
+	"github.com/nirmata/kyverno/pkg/info"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -48,56 +48,102 @@ func (t *test) run() {
 
 	}
 	// apply the policy engine
-	pr, mResult, vResult, err := t.applyPolicy(t.policy, t.tResource, client)
+	pr, policyInfo, err := t.applyPolicy(t.policy, t.tResource, client)
 	if err != nil {
 		t.t.Error(err)
 		return
 	}
 	// Expected Result
-	t.checkMutationResult(pr, mResult)
-	t.checkValidationResult(vResult)
-	t.checkGenerationResult(client)
+	// Test succesfuly ?
+	t.overAllPass(policyInfo.IsSuccessful(), t.testCase.Expected.Passes)
+	t.checkMutationResult(pr, policyInfo)
+	t.checkValidationResult(policyInfo)
+	t.checkGenerationResult(client, policyInfo)
 }
 
-func (t *test) checkMutationResult(pr *resourceInfo, result result.Result) {
+func (t *test) checkMutationResult(pr *resourceInfo, policyInfo *info.PolicyInfo) {
 	if t.testCase.Expected.Mutation == nil {
 		glog.Info("No Mutation check defined")
 		return
 	}
 	// patched resource
 	if !compareResource(pr, t.patchedResource) {
-		fmt.Printf("Expected Resource %s \n", string(t.patchedResource.rawResource))
-		fmt.Printf("Patched Resource %s \n", string(pr.rawResource))
 		glog.Warningf("Expected resource %s ", string(pr.rawResource))
 		t.t.Error("Patched resources not as expected")
 	}
-	// reason
-	reason := t.testCase.Expected.Mutation.Reason
-	if len(reason) > 0 && result.GetReason().String() != reason {
-		t.t.Error("Reason not matching")
+
+	// check if rules match
+	t.compareRules(policyInfo.Rules, t.testCase.Expected.Mutation.Rules)
+}
+
+func (t *test) overAllPass(result bool, expected string) {
+	b, err := strconv.ParseBool(expected)
+	if err != nil {
+		t.t.Error(err)
+	}
+	if result != b {
+		t.t.Errorf("Expected value %v and actual value %v dont match", expected, result)
 	}
 }
 
-func (t *test) checkValidationResult(result result.Result) {
+func (t *test) compareRules(ruleInfos []*info.RuleInfo, rules []tRules) {
+	// Compare the rules specified in the expected against the actual rule info returned by the apply policy
+	for _, eRule := range rules {
+		// Look-up the rule from the policy info
+		rule := lookUpRule(eRule.Name, ruleInfos)
+		if rule == nil {
+			t.t.Errorf("Rule with name %s not found", eRule.Name)
+			continue
+		}
+		// get the corresponding rule
+		if rule.Name != eRule.Name {
+			t.t.Errorf("Rule Name not matching!. expected %s , actual %s", eRule.Name, rule.Name)
+		}
+		if rule.RuleType.String() != eRule.Type {
+			t.t.Errorf("Rule type mismatch!. expected %s, actual %s", eRule.Type, rule.RuleType.String())
+		}
+		if len(eRule.Messages) != len(rule.Msgs) {
+			t.t.Errorf("Number of rule messages not same. expected %d, actual %d", len(eRule.Messages), len(rule.Msgs))
+		}
+		for i, msg := range eRule.Messages {
+			if msg != rule.Msgs[i] {
+				t.t.Errorf("Messges dont match!. expected %s, actual %s", msg, rule.Msgs[i])
+			}
+		}
+	}
+}
+
+func lookUpRule(name string, ruleInfos []*info.RuleInfo) *info.RuleInfo {
+	for _, r := range ruleInfos {
+		if r.Name == name {
+			return r
+		}
+	}
+	return nil
+}
+
+func (t *test) checkValidationResult(policyInfo *info.PolicyInfo) {
 	if t.testCase.Expected.Validation == nil {
 		glog.Info("No Validation check defined")
 		return
 	}
-	// reason
-	reason := t.testCase.Expected.Validation.Reason
-	if len(reason) > 0 && result.GetReason().String() != reason {
-		t.t.Error("Reason not matching")
-	}
+
+	// check if rules match
+	t.compareRules(policyInfo.Rules, t.testCase.Expected.Validation.Rules)
 }
 
-func (t *test) checkGenerationResult(client *client.Client) {
+func (t *test) checkGenerationResult(client *client.Client, policyInfo *info.PolicyInfo) {
 	if t.testCase.Expected.Generation == nil {
 		glog.Info("No Generate check defined")
 		return
 	}
 	if client == nil {
-		glog.Info("client needs to be configured")
+		t.t.Error("client needs to be configured")
 	}
+
+	// check if rules match
+	t.compareRules(policyInfo.Rules, t.testCase.Expected.Generation.Rules)
+
 	// check if the expected resources are generated
 	for _, r := range t.genResources {
 		n := ParseNameFromObject(r.rawResource)
@@ -113,33 +159,51 @@ func (t *test) checkGenerationResult(client *client.Client) {
 
 func (t *test) applyPolicy(policy *pt.Policy,
 	tresource *resourceInfo,
-	client *client.Client) (*resourceInfo, result.Result, result.Result, error) {
+	client *client.Client) (*resourceInfo, *info.PolicyInfo, error) {
 	// apply policy on the trigger resource
 	// Mutate
-	var vResult result.Result
-	var patchedResource []byte
-	mPatches, mResult := engine.Mutate(*policy, tresource.rawResource, *tresource.gvk)
+	var err error
+	rawResource := tresource.rawResource
+	rname := engine.ParseNameFromObject(rawResource)
+	rns := engine.ParseNamespaceFromObject(rawResource)
+	rkind := engine.ParseKindFromObject(rawResource)
+	policyInfo := info.NewPolicyInfo(policy.Name,
+		rkind,
+		rname,
+		rns)
+	// Apply Mutation Rules
+	patches, ruleInfos := engine.Mutate(*policy, rawResource, *tresource.gvk)
+	policyInfo.AddRuleInfos(ruleInfos)
 	// TODO: only validate if there are no errors in mutate, why?
-	err := mResult.ToError()
-	if err == nil && len(mPatches) != 0 {
-		patchedResource, err = engine.ApplyPatches(tresource.rawResource, mPatches)
-		if err != nil {
-			return nil, nil, nil, err
+	if policyInfo.IsSuccessful() {
+		if len(patches) != 0 {
+			rawResource, err = engine.ApplyPatches(rawResource, patches)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
-		// Validate
-		vResult = engine.Validate(*policy, patchedResource, *tresource.gvk)
+	}
+	// Validate
+	ruleInfos, err = engine.Validate(*policy, rawResource, *tresource.gvk)
+	policyInfo.AddRuleInfos(ruleInfos)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if rkind == "Namespace" {
+		if client != nil {
+			ruleInfos := engine.Generate(client, *policy, rawResource, *tresource.gvk, false)
+			policyInfo.AddRuleInfos(ruleInfos)
+		}
 	}
 	// Generate
-	if client != nil {
-		engine.Generate(client, *policy, tresource.rawResource, *tresource.gvk)
-	}
 	// transform the patched Resource into resource Info
-	ri, err := extractResourceRaw(patchedResource)
+	ri, err := extractResourceRaw(rawResource)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	// return the results
-	return ri, mResult, vResult, nil
+	return ri, policyInfo, nil
 }
 
 func NewTest(ap string, t *testing.T, tc *testCase) (*test, error) {

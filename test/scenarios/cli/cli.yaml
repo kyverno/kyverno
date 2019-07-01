@@ -1,0 +1,38 @@
+# file path relative to project root
+input:
+  policy: examples/cli/policy_deployment.yaml
+  resource: examples/cli/nginx.yaml
+expected:
+  passes: true
+  mutation:
+    patched_resource: test/output/nginx.yaml
+    rules:
+      - name: add-label
+        type: Mutation
+        messages:
+          - "Rule add-label: Patches succesfully applied."
+  validation:
+    rules:
+      - name: check-image
+        type : Validation
+        messages:
+          - "Rule check-image: Validation succesfully."
+---
+input:
+  policy: examples/cli/policy_deployment.yaml
+  resource: examples/cli/ghost.yaml
+expected:
+  passes: true
+  mutation:
+    patched_resource: test/output/ghost.yaml
+    rules:
+      - name: add-label
+        type: Mutation
+        messages:
+          - "Rule add-label: Patches succesfully applied."
+  validation:
+    rules:
+      - name: check-image
+        type : Validation
+        messages:
+          - "Rule check-image: Validation succesfully."

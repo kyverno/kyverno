@@ -32,22 +32,30 @@ type tInput struct {
 }
 
 type tExpected struct {
+	Passes     string       `yaml:"passes"`
 	Mutation   *tMutation   `yaml:"mutation,omitempty"`
 	Validation *tValidation `yaml:"validation,omitempty"`
 	Generation *tGeneration `yaml:"generation,omitempty"`
 }
 
 type tMutation struct {
-	Patched_Resource string `yaml:"patched_resource,omitempty"`
-	tResult
+	PatchedResource string   `yaml:"patched_resource,omitempty"`
+	Rules           []tRules `yaml:"rules"`
 }
 
 type tValidation struct {
-	tResult
+	Rules []tRules `yaml:"rules"`
 }
 
 type tGeneration struct {
 	Resources []string `yaml:"resources"`
+	Rules     []tRules `yaml:"rules"`
+}
+
+type tRules struct {
+	Name     string   `yaml:"name"`
+	Type     string   `yaml:"type"`
+	Messages []string `yaml:"messages"`
 }
 
 type tResult struct {
@@ -73,7 +81,7 @@ func (tc *testCase) loadPatchedResource(ap string) (*resourceInfo, error) {
 	if tc.Expected.Mutation == nil {
 		return nil, nil
 	}
-	rs, err := loadResources(ap, tc.Expected.Mutation.Patched_Resource)
+	rs, err := loadResources(ap, tc.Expected.Mutation.PatchedResource)
 	if err != nil {
 		return nil, err
 	}
