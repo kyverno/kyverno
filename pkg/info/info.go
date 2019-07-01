@@ -56,6 +56,14 @@ const (
 	Generation
 )
 
+func (ri RuleType) String() string {
+	return [...]string{
+		"Mutation",
+		"Validation",
+		"Generation",
+	}[ri]
+}
+
 //RuleInfo defines rule struct
 type RuleInfo struct {
 	Name     string
