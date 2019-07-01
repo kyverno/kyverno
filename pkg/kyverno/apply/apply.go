@@ -96,6 +96,7 @@ func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output s
 
 func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
 	patchedResource := rawResource
+	var err error
 
 	rname := engine.ParseNameFromObject(rawResource)
 	rns := engine.ParseNamespaceFromObject(rawResource)
@@ -114,7 +115,7 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 		}
 	} else if len(patches) > 0 {
 		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
-		patchedResource, err := engine.ApplyPatches(rawResource, patches)
+		patchedResource, err = engine.ApplyPatches(rawResource, patches)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)
 		}
