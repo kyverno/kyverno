@@ -23,12 +23,17 @@ func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.Resourc
 	if resourceRaw != nil {
 		meta := parseMetadataFromObject(resourceRaw)
 		name := ParseNameFromObject(resourceRaw)
+		namespace := ParseNamespaceFromObject(resourceRaw)
 
 		if description.Name != nil {
 
 			if !wildcard.Match(*description.Name, name) {
 				return false
 			}
+		}
+
+		if description.Namespace != nil && *description.Namespace != namespace {
+			return false
 		}
 
 		if description.Selector != nil {

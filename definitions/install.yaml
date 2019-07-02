@@ -43,6 +43,8 @@ spec:
                           type: string
                       name:
                         type: string
+                      namespace:
+                        type: string
                       selector:
                         properties:
                           matchLabels:
