@@ -11,6 +11,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admregclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
@@ -86,9 +87,21 @@ func (wrc *WebhookRegistrationClient) Register() error {
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) Deregister() {
 	if wrc.serverIP != "" {
-		wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &meta.DeleteOptions{})
-		wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &meta.DeleteOptions{})
-		wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationDebug, &meta.DeleteOptions{})
+		if err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug mutatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
+		if err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug validatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
+		if err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug policyValidatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
 		return
 	}
 
