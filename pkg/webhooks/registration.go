@@ -253,8 +253,12 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 
 func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook {
 	resource := "*/*"
+	apiGroups := "*"
+	apiversions := "*"
 	if servicePath == config.PolicyValidatingWebhookServicePath {
 		resource = "policies/*"
+		apiGroups = "kyverno.io"
+		apiversions = "v1alpha1"
 	}
 
 	return admregapi.Webhook{
@@ -275,10 +279,10 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
-						"*",
+						apiGroups,
 					},
 					APIVersions: []string{
-						"*",
+						apiversions,
 					},
 					Resources: []string{
 						resource,
@@ -291,8 +295,13 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 
 func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 	resource := "*/*"
+	apiGroups := "*"
+	apiversions := "*"
+
 	if strings.Contains(url, config.PolicyValidatingWebhookServicePath) {
 		resource = "policies/*"
+		apiGroups = "kyverno.io"
+		apiversions = "v1alpha1"
 	}
 
 	return admregapi.Webhook{
@@ -309,10 +318,10 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
-						"*",
+						apiGroups,
 					},
 					APIVersions: []string{
-						"*",
+						apiversions,
 					},
 					Resources: []string{
 						resource,
