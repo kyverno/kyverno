@@ -55,7 +55,6 @@ openssl x509 -req -in ${destdir}/webhook.csr -CA ${destdir}/rootCA.crt -CAkey ${
 
 
 kubectl delete -f definitions/install_debug.yaml 2>/dev/null
-kubectl delete csr,MutatingWebhookConfiguration,ValidatingWebhookConfiguration --all 2>/dev/null
 
 echo "Generating corresponding kubernetes secrets for TLS pair and root CA"
 # create project namespace

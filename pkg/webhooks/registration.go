@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admregclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
@@ -67,6 +69,16 @@ func (wrc *WebhookRegistrationClient) Register() error {
 		return err
 	}
 
+	policyValidationWebhookConfig, err := wrc.contructPolicyValidatingWebhookConfig()
+	if err != nil {
+		return err
+	}
+
+	_, err = wrc.registrationClient.ValidatingWebhookConfigurations().Create(policyValidationWebhookConfig)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -75,13 +87,27 @@ func (wrc *WebhookRegistrationClient) Register() error {
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) Deregister() {
 	if wrc.serverIP != "" {
-		wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &meta.DeleteOptions{})
-		wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &meta.DeleteOptions{})
+		if err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug mutatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
+		if err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug validatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
+		if err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationDebug, &meta.DeleteOptions{}); err != nil {
+			if !errorsapi.IsNotFound(err) {
+				glog.Errorf("Failed to deregister debug policyValidatingWebhookConfiguratinos, err: %v\n", err)
+			}
+		}
 		return
 	}
 
 	wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationName, &meta.DeleteOptions{})
 	wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationName, &meta.DeleteOptions{})
+	wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationName, &meta.DeleteOptions{})
 }
 
 func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configuration *rest.Config) (*admregapi.MutatingWebhookConfiguration, error) {
@@ -175,7 +201,7 @@ func (wrc *WebhookRegistrationClient) contructDebugValidatingWebhookConfig(caDat
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
-			Name:   config.ValidatingWebhookConfigurationName,
+			Name:   config.ValidatingWebhookConfigurationDebug,
 			Labels: config.KubePolicyAppLabels,
 		},
 		Webhooks: []admregapi.Webhook{
@@ -187,7 +213,67 @@ func (wrc *WebhookRegistrationClient) contructDebugValidatingWebhookConfig(caDat
 	}
 }
 
+func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig() (*admregapi.ValidatingWebhookConfiguration, error) {
+	// Check if ca is defined in the secret tls-ca
+	// assume the key and signed cert have been defined in secret tls.kyverno
+	caData := wrc.client.ReadRootCASecret()
+	if len(caData) == 0 {
+		// load the CA from kubeconfig
+		caData = extractCA(wrc.clientConfig)
+	}
+	if len(caData) == 0 {
+		return nil, errors.New("Unable to extract CA data from configuration")
+	}
+
+	if wrc.serverIP != "" {
+		return wrc.contructDebugPolicyValidatingWebhookConfig(caData), nil
+	}
+
+	return &admregapi.ValidatingWebhookConfiguration{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   config.PolicyValidatingWebhookConfigurationName,
+			Labels: config.KubePolicyAppLabels,
+			OwnerReferences: []meta.OwnerReference{
+				wrc.constructOwner(),
+			},
+		},
+		Webhooks: []admregapi.Webhook{
+			constructWebhook(
+				config.PolicyValidatingWebhookName,
+				config.PolicyValidatingWebhookServicePath,
+				caData),
+		},
+	}, nil
+}
+
+func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
+	glog.V(3).Infof("Debug PolicyValidatingWebhookConfig is registered with url %s\n", url)
+
+	return &admregapi.ValidatingWebhookConfiguration{
+		ObjectMeta: meta.ObjectMeta{
+			Name:   config.PolicyValidatingWebhookConfigurationDebug,
+			Labels: config.KubePolicyAppLabels,
+		},
+		Webhooks: []admregapi.Webhook{
+			constructDebugWebhook(
+				config.PolicyValidatingWebhookName,
+				url,
+				caData),
+		},
+	}
+}
+
 func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook {
+	resource := "*/*"
+	apiGroups := "*"
+	apiversions := "*"
+	if servicePath == config.PolicyValidatingWebhookServicePath {
+		resource = "policies/*"
+		apiGroups = "kyverno.io"
+		apiversions = "v1alpha1"
+	}
+
 	return admregapi.Webhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
@@ -206,13 +292,13 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
-						"*",
+						apiGroups,
 					},
 					APIVersions: []string{
-						"*",
+						apiversions,
 					},
 					Resources: []string{
-						"*/*",
+						resource,
 					},
 				},
 			},
@@ -221,6 +307,16 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 }
 
 func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
+	resource := "*/*"
+	apiGroups := "*"
+	apiversions := "*"
+
+	if strings.Contains(url, config.PolicyValidatingWebhookServicePath) {
+		resource = "policies/*"
+		apiGroups = "kyverno.io"
+		apiversions = "v1alpha1"
+	}
+
 	return admregapi.Webhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
@@ -235,13 +331,13 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 				},
 				Rule: admregapi.Rule{
 					APIGroups: []string{
-						"*",
+						apiGroups,
 					},
 					APIVersions: []string{
-						"*",
+						apiversions,
 					},
 					Resources: []string{
-						"*/*",
+						resource,
 					},
 				},
 			},

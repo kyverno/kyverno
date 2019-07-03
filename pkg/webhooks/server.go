@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	policyv1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -20,10 +21,13 @@ import (
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+const policyKind = "Policy"
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
@@ -64,6 +68,7 @@ func NewWebhookServer(
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -86,6 +91,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
+
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
 
@@ -94,13 +100,14 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
 		case config.ValidatingWebhookServicePath:
 			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+		case config.PolicyValidatingWebhookServicePath:
+			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 		}
 	}
 
 	admissionReview.Response.UID = admissionReview.Request.UID
 
 	responseJSON, err := json.Marshal(admissionReview)
-
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 		return
@@ -382,7 +389,37 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	return admissionReview
 }
 
-const policyKind = "Policy"
+func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	return ws.validateUniqueRuleName(request.Object.Raw)
+}
+
+func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
+	var policy *policyv1.Policy
+	var ruleNames []string
+
+	json.Unmarshal(rawPolicy, &policy)
+
+	for _, rule := range policy.Spec.Rules {
+		if utils.Contains(ruleNames, rule.Name) {
+			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
+			glog.Errorln(msg)
+
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: msg,
+				},
+			}
+		} else {
+			ruleNames = append(ruleNames, rule.Name)
+		}
+	}
+
+	glog.V(3).Infof("Policy validation passed.")
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
+}
 
 func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) []*event.Info {
 	var eventsInfo []*event.Info

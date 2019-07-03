@@ -15,6 +15,10 @@ const (
 	ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
 	ValidatingWebhookName               = "nirmata.kyverno.validating-webhook"
 
+	PolicyValidatingWebhookConfigurationName  = "kyverno-policy-validating-webhook-cfg"
+	PolicyValidatingWebhookConfigurationDebug = "kyverno-policy-validating-webhook-cfg-debug"
+	PolicyValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
+
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
@@ -24,9 +28,10 @@ const (
 )
 
 var (
-	MutatingWebhookServicePath   = "/mutate"
-	ValidatingWebhookServicePath = "/validate"
-	KubePolicyAppLabels          = map[string]string{
+	MutatingWebhookServicePath         = "/mutate"
+	ValidatingWebhookServicePath       = "/validate"
+	PolicyValidatingWebhookServicePath = "/policyvalidate"
+	KubePolicyAppLabels                = map[string]string{
 		"app": "kyverno",
 	}
 
