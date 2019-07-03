@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	policyv1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -24,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+const policyKind = "Policy"
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
@@ -86,6 +89,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
+
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
 
@@ -97,10 +101,15 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// validateUniqueRuleName MUST be called after admission webhook
+	// otherwise admissionReview.Response will be overwritten
+	if admissionReview.Request.Kind.Kind == policyKind {
+		admissionReview.Response = ws.validateUniqueRuleName(admissionReview.Request.Object.Raw)
+	}
+
 	admissionReview.Response.UID = admissionReview.Request.UID
 
 	responseJSON, err := json.Marshal(admissionReview)
-
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 		return
@@ -382,7 +391,32 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	return admissionReview
 }
 
-const policyKind = "Policy"
+func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
+	var policy *policyv1.Policy
+	var ruleNames []string
+
+	json.Unmarshal(rawPolicy, &policy)
+
+	for _, rule := range policy.Spec.Rules {
+		if contains(ruleNames, rule.Name) {
+			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
+			glog.Errorln(msg)
+
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: msg,
+				},
+			}
+		} else {
+			ruleNames = append(ruleNames, rule.Name)
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
+}
 
 func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) []*event.Info {
 	var eventsInfo []*event.Info
