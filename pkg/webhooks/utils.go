@@ -63,12 +63,3 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 	}
 	return kinds
 }
-
-func contains(ruleNames []string, ruleName string) bool {
-	for _, rn := range ruleNames {
-		if rn == ruleName {
-			return true
-		}
-	}
-	return false
-}

@@ -21,6 +21,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -399,7 +400,7 @@ func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.Admis
 	json.Unmarshal(rawPolicy, &policy)
 
 	for _, rule := range policy.Spec.Rules {
-		if contains(ruleNames, rule.Name) {
+		if utils.Contains(ruleNames, rule.Name) {
 			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
 			glog.Errorln(msg)
 
