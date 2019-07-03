@@ -25,6 +25,10 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.Kinds {
+			if k == "Namespace" {
+				// REWORK: will be handeled by namespace controller
+				continue
+			}
 			// kind -> resource
 			gvr := client.DiscoveryClient.GetGVRFromKind(k)
 			// label selectors
@@ -87,9 +91,9 @@ func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo)
 	if err != nil {
 		return nil, err
 	}
-	// Generate
-	gruleInfos := Generate(client, *policy, rawResource, *res.gvk, false)
-	policyInfo.AddRuleInfos(gruleInfos)
+	// // Generate
+	// gruleInfos := Generate(client, *policy, rawResource, *res.gvk, false)
+	// policyInfo.AddRuleInfos(gruleInfos)
 
 	return policyInfo, nil
 }
