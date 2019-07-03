@@ -67,6 +67,7 @@ func NewWebhookServer(
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -98,13 +99,9 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
 		case config.ValidatingWebhookServicePath:
 			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+		case config.PolicyValidatingWebhookServicePath:
+			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 		}
-	}
-
-	// validateUniqueRuleName MUST be called after admission webhook
-	// otherwise admissionReview.Response will be overwritten
-	if admissionReview.Request.Kind.Kind == policyKind {
-		admissionReview.Response = ws.validateUniqueRuleName(admissionReview.Request.Object.Raw)
 	}
 
 	admissionReview.Response.UID = admissionReview.Request.UID
@@ -391,6 +388,10 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	return admissionReview
 }
 
+func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	return ws.validateUniqueRuleName(request.Object.Raw)
+}
+
 func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
 	var policy *policyv1.Policy
 	var ruleNames []string
@@ -413,6 +414,7 @@ func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.Admis
 		}
 	}
 
+	glog.V(3).Infof("Policy validation passed.")
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
