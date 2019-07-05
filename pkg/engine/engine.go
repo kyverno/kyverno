@@ -18,9 +18,6 @@ import (
 // ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
-	// policyInfo := info.NewPolicyInfo(policy.Name,
-	// 	rname,
-	// 	rns)
 	resources := []*resourceInfo{}
 
 	for _, rule := range policy.Spec.Rules {
@@ -91,9 +88,7 @@ func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo)
 	if err != nil {
 		return nil, err
 	}
-	// // Generate
-	// gruleInfos := Generate(client, *policy, rawResource, *res.gvk, false)
-	// policyInfo.AddRuleInfos(gruleInfos)
+	// Generate rule managed by generation controller
 
 	return policyInfo, nil
 }
