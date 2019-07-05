@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+//NewKubeInformerFactory returns a kubeinformer
 func NewKubeInformerFactory(cfg *rest.Config) kubeinformers.SharedInformerFactory {
 	// kubernetes client
 	kubeClient, err := kubernetes.NewForConfig(cfg)

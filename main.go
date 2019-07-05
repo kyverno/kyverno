@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -36,19 +35,6 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
-	// test Code
-	rGVR := client.DiscoveryClient.GetGVRFromKind("ConfigMap")
-	obj, err := client.GetResource(rGVR.Resource, "ns2", "default-config")
-	if err != nil {
-		fmt.Println(err)
-	}
-	data, err := obj.MarshalJSON()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(string(data))
-
-	// test Code
 
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
 	if err != nil {

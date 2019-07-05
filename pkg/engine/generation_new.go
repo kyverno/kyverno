@@ -1,26 +1,29 @@
 package engine
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/golang/glog"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //GenerateNew apply generation rules on a resource
-func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns *corev1.Namespace, processExisting bool) []*info.RuleInfo {
+func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns *corev1.Namespace) []*info.RuleInfo {
 	ris := []*info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == nil {
 			continue
 		}
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
-		err := applyRuleGeneratorNew(client, ns, rule.Generation, processExisting)
+		err := applyRuleGeneratorNew(client, ns, rule.Generation)
 		if err != nil {
 			ri.Fail()
 			ri.Addf("Rule %s: Failed to apply rule generator, err %v.", rule.Name, err)
@@ -33,39 +36,45 @@ func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns *corev1.Name
 	return ris
 }
 
-func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1alpha1.Generation, processExisting bool) error {
+func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1alpha1.Generation) error {
 	var err error
 	resource := &unstructured.Unstructured{}
+	var rdata map[string]interface{}
 	// get resource from kind
 	rGVR := client.DiscoveryClient.GetGVRFromKind(gen.Kind)
 	if rGVR.Resource == "" {
 		return fmt.Errorf("Kind to Resource Name conversion failed for %s", gen.Kind)
 	}
-	// If processing Existing resource, we only check if the resource
-	// already exists
-	if processExisting {
-		obj, err := client.GetResource(rGVR.Resource, ns.Name, gen.Name)
-		if err != nil {
-			return err
-		}
-		data := []byte{}
-		if err := obj.UnmarshalJSON(data); err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println(string(data))
-	}
 
-	var rdata map[string]interface{}
-	// data -> create new resource
 	if gen.Data != nil {
+		// 1> Check if resource exists
+		obj, err := client.GetResource(rGVR.Resource, ns.Name, gen.Name)
+		if err == nil {
+			// 2> If already exsists, then verify the content is contained
+			// found the resource
+			// check if the rule is create, if yes, then verify if the specified configuration is present in the resource
+			ok, err := checkResource(gen.Data, obj)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return errors.New("rule configuration not present in resource")
+			}
+			return nil
+		}
 		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&gen.Data)
 		if err != nil {
 			glog.Error(err)
 			return err
 		}
 	}
-	// clone -> copy from existing resource
 	if gen.Clone != nil {
+		// 1> Check if resource exists
+		_, err := client.GetResource(rGVR.Resource, ns.Name, gen.Name)
+		if err == nil {
+			return nil
+		}
+		// 2> If already exists return
 		resource, err = client.GetResource(rGVR.Resource, gen.Clone.Namespace, gen.Clone.Name)
 		if err != nil {
 			return err
@@ -83,4 +92,42 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 		return err
 	}
 	return nil
+}
+
+func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
+	var err error
+
+	objByte, err := resource.MarshalJSON()
+	if err != nil {
+		// unable to parse the json
+		return false, err
+	}
+	err = resource.UnmarshalJSON(objByte)
+	if err != nil {
+		// unable to parse the json
+		return false, err
+	}
+	// marshall and unmarshall json to verify if its right format
+	configByte, err := json.Marshal(config)
+	if err != nil {
+		// unable to marshall the config
+		return false, err
+	}
+	var configData interface{}
+	err = json.Unmarshal(configByte, &configData)
+	if err != nil {
+		// unable to unmarshall
+		return false, err
+
+	}
+
+	var objData interface{}
+	err = json.Unmarshal(objByte, &objData)
+	if err != nil {
+		// unable to unmarshall
+		return false, err
+	}
+
+	// Check if the config is a subset of resource
+	return utils.JSONsubsetValue(configData, objData), nil
 }

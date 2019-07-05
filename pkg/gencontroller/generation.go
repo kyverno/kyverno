@@ -1,8 +1,6 @@
 package gencontroller
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -13,7 +11,6 @@ import (
 
 func (c *Controller) processNamespace(ns *corev1.Namespace) error {
 	//Get all policies and then verify if the namespace matches any of the defined selectors
-	fmt.Println(ns.Name)
 	policies, err := c.listPolicies(ns)
 	if err != nil {
 		return err
@@ -37,7 +34,6 @@ func (c *Controller) listPolicies(ns *corev1.Namespace) ([]*v1alpha1.Policy, err
 		// Check if the policy contains a generatoin rule
 		for _, r := range p.Spec.Rules {
 			if r.Generation != nil {
-				fmt.Println(p.Name)
 				// Check if the resource meets the description
 				if namespaceMeetsRuleDescription(ns, r.ResourceDescription) {
 					fpolicies = append(fpolicies, p)
@@ -56,7 +52,7 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) err
 		ns.Name,
 		"") // Namespace has no namespace..WOW
 
-	ruleInfos := engine.GenerateNew(c.client, p, ns, false)
+	ruleInfos := engine.GenerateNew(c.client, p, ns)
 	policyInfo.AddRuleInfos(ruleInfos)
 	if !policyInfo.IsSuccessful() {
 		glog.Infof("Failed to apply policy %s on resource %s %s", p.Name, ns.Kind, ns.Name)
