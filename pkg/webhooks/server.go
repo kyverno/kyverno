@@ -291,70 +291,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
-	// Process Generation
-	return ws.HandleGeneration(request)
-}
-
-//HandleGeneration handles application of generation rules
-func (ws *WebhookServer) HandleGeneration(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	if request.Kind.Kind != "Namespace" {
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-		}
-	}
-	policyInfos := []*info.PolicyInfo{}
-
-	policies, err := ws.policyLister.List(labels.NewSelector())
-	if err != nil {
-		// Unable to connect to policy Lister to access policies
-		glog.Error("Unable to connect to policy controller to access policies. Generation Rules are NOT being applied")
-		glog.Warning(err)
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-		}
-	}
-	for _, policy := range policies {
-
-		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
-			continue
-		}
-		rname := engine.ParseNameFromObject(request.Object.Raw)
-		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-		rkind := engine.ParseKindFromObject(request.Object.Raw)
-
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			rkind,
-			rname,
-			rns)
-		glog.V(3).Infof("Handling generation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, rns, rname, request.UID, request.Operation)
-		glog.Infof("Applying  policy %s with generation %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-
-		ruleInfos := engine.Generate(ws.client, *policy, request.Object.Raw, request.Kind, false)
-		policyInfo.AddRuleInfos(ruleInfos)
-		if !policyInfo.IsSuccessful() {
-			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
-				glog.Warning(r.Msgs)
-			}
-		} else {
-			glog.Infof("Generation from policy %s has succesfully applied to %s %s/%s", policy.Name, request.Kind.Kind, rns, rname)
-		}
-		policyInfos = append(policyInfos, policyInfo)
-	}
-	ok, msg := isAdmSuccesful(policyInfos)
-	if ok {
-		glog.V(3).Info("Generation is successful")
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-		}
-	}
+	glog.V(3).Info("Validation is successful")
 	return &v1beta1.AdmissionResponse{
-		Allowed: false,
-		Result: &metav1.Status{
-			Message: msg,
-		},
+		Allowed: true,
 	}
+	// Generation rules applied via generation controller
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

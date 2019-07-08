@@ -8,7 +8,9 @@ import (
 	controller "github.com/nirmata/kyverno/pkg/controller"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
+	gencontroller "github.com/nirmata/kyverno/pkg/gencontroller"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/violation"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
@@ -38,6 +40,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
+	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
 	eventController := event.NewEventController(client, policyInformerFactory)
 	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
 
@@ -47,6 +50,7 @@ func main() {
 		violationBuilder,
 		eventController)
 
+	genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces())
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
@@ -64,8 +68,9 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 
 	policyInformerFactory.Run(stopCh)
+	kubeInformer.Start(stopCh)
 	eventController.Run(stopCh)
-
+	genControler.Run(stopCh)
 	if err = policyController.Run(stopCh); err != nil {
 		glog.Fatalf("Error running PolicyController: %v\n", err)
 	}
@@ -77,6 +82,7 @@ func main() {
 	server.RunAsync()
 	<-stopCh
 	server.Stop()
+	genControler.Stop()
 	eventController.Stop()
 	policyController.Stop()
 }
