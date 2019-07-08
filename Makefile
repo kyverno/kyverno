@@ -15,9 +15,9 @@ MAIN ?=$(PACKAGE)
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
 # default docker hub
-REGISTRY=index.docker.io
+REGISTRY=registry-v2.nirmata.io
 REPO=$(REGISTRY)/nirmata/kyverno
-IMAGE_TAG=$(GIT_VERSION)
+IMAGE_TAG=testImage
 
 GOOS ?= $(shell go env GOOS)
 OUTPUT=$(shell pwd)/_output/cli/$(BIN)

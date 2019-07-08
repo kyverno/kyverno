@@ -26,6 +26,7 @@ type Controller struct {
 	namespaceLister v1CoreLister.NamespaceLister
 	namespaceSynced cache.InformerSynced
 	policyLister    policyLister.PolicyLister
+	eventController event.Generator
 	workqueue       workqueue.RateLimitingInterface
 }
 
@@ -42,6 +43,7 @@ func NewGenController(client *client.Client,
 		namespaceLister: namespaceInformer.Lister(),
 		namespaceSynced: namespaceInformer.Informer().HasSynced,
 		policyLister:    policyInformer.GetLister(),
+		eventController: eventController,
 		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), wqNamespace),
 	}
 	namespaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -148,7 +150,6 @@ func (c *Controller) syncHandler(obj interface{}) error {
 		}
 	}
 
-	glog.Info("apply generation policy to resources :)")
 	//TODO: need to find a way to store the policy such that we can directly queury the
 	// policies with generation policies
 	// PolicyListerExpansion

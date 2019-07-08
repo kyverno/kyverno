@@ -127,3 +127,21 @@ func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
 
 	pi.Rules = append(pi.Rules, rules...)
 }
+
+//GetRuleNames gets the name of successful rules
+func (pi *PolicyInfo) GetRuleNames(onSuccess bool) string {
+	var ruleNames []string
+	for _, rule := range pi.Rules {
+		if onSuccess {
+			if rule.IsSuccessful() {
+				ruleNames = append(ruleNames, rule.Name)
+			}
+		} else {
+			if !rule.IsSuccessful() {
+				ruleNames = append(ruleNames, rule.Name)
+			}
+		}
+	}
+
+	return strings.Join(ruleNames, ",")
+}
