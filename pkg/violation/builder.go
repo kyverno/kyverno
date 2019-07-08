@@ -55,7 +55,7 @@ func (b *builder) processViolation(info *Info) error {
 	statusMap := map[string]interface{}{}
 	var ok bool
 	//TODO: hack get from client
-	p1, err := b.client.GetResource("policies", "", info.Policy, "status")
+	p1, err := b.client.GetResource("Policy", "", info.Policy, "status")
 	if err != nil {
 		return err
 	}
@@ -106,54 +106,6 @@ func (b *builder) processViolation(info *Info) error {
 		return err
 	}
 	return nil
-	// modifiedViolations := []types.Violation{}
-	// modifiedViolations = append(modifiedViolations, types.Violation{Name: "name", Kind: "Deploymeny"})
-	// unstr["status"] = modifiedViolations
-	// p1.SetUnstructuredContent(unstr)
-	// rdata, err := p1.MarshalJSON()
-	// if err != nil {
-	// 	glog.Info(err)
-	// }
-	// glog.Info(string(rdata))
-	// _, err = b.client.UpdateStatusResource("policies", "", p1, false)
-	// if err != nil {
-	// 	glog.Info(err)
-	// }
-
-	// p, err := b.policyLister.Get(info.Policy)
-	// if err != nil {
-	// 	glog.Error(err)
-	// 	return err
-	// }
-
-	// glog.Info(p.TypeMeta.Kind)
-	// glog.Info(p.Kind)
-	// modifiedPolicy := p.DeepCopy()
-	// glog.Info(modifiedPolicy.Kind)
-	// // Create new violation
-	// newViolation := info.Violation
-
-	// for _, violation := range modifiedPolicy.Status.Violations {
-	// 	ok, err := b.isActive(info.Kind, violation.Name)
-	// 	if err != nil {
-	// 		glog.Error(err)
-	// 		continue
-	// 	}
-	// 	if !ok {
-	// 		glog.Info("removed violation")
-	// 	}
-	// }
-	// // If violation already exists for this rule, we update the violation
-	// //TODO: update violation, instead of re-creating one every time
-	// modifiedViolations = append(modifiedViolations, newViolation)
-	// modifiedPolicy.Status.Violations = modifiedViolations
-	// // Violations are part of the status sub resource, so we can use the Update Status api instead of updating the policy object
-	// _, err = b.client.UpdateStatusResource("policies", "", *modifiedPolicy, false)
-	// if err != nil {
-	// 	glog.Info(err)
-	// 	return err
-	// }
-	// return nil
 }
 
 func (b *builder) isActive(kind string, rname string, rnamespace string) (bool, error) {

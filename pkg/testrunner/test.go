@@ -1,6 +1,7 @@
 package testrunner
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -41,7 +42,7 @@ func (t *test) run() {
 		// assuming its namespaces creation
 		decode := kscheme.Codecs.UniversalDeserializer().Decode
 		obj, _, err := decode([]byte(t.tResource.rawResource), nil, nil)
-		_, err = client.CreateResource(getResourceFromKind(t.tResource.gvk.Kind), "", obj, false)
+		_, err = client.CreateResource(t.tResource.gvk.Kind, "", obj, false)
 		if err != nil {
 			t.t.Errorf("error while creating namespace %s", err)
 		}
@@ -68,6 +69,8 @@ func (t *test) checkMutationResult(pr *resourceInfo, policyInfo *info.PolicyInfo
 	}
 	// patched resource
 	if !compareResource(pr, t.patchedResource) {
+		fmt.Println(string(t.patchedResource.rawResource))
+		fmt.Println(string(pr.rawResource))
 		glog.Warningf("Expected resource %s ", string(pr.rawResource))
 		t.t.Error("Patched resources not as expected")
 	}
@@ -148,7 +151,7 @@ func (t *test) checkGenerationResult(client *client.Client, policyInfo *info.Pol
 	for _, r := range t.genResources {
 		n := ParseNameFromObject(r.rawResource)
 		ns := ParseNamespaceFromObject(r.rawResource)
-		_, err := client.GetResource(getResourceFromKind(r.gvk.Kind), ns, n)
+		_, err := client.GetResource(r.gvk.Kind, ns, n)
 		if err != nil {
 			t.t.Errorf("Resource %s/%s of kinf %s not found", ns, n, r.gvk.Kind)
 		}

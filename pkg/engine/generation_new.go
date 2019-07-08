@@ -3,7 +3,6 @@ package engine
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/golang/glog"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -40,15 +39,10 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
-	// get resource from kind
-	rGVR := client.DiscoveryClient.GetGVRFromKind(gen.Kind)
-	if rGVR.Resource == "" {
-		return fmt.Errorf("Kind to Resource Name conversion failed for %s", gen.Kind)
-	}
 
 	if gen.Data != nil {
 		// 1> Check if resource exists
-		obj, err := client.GetResource(rGVR.Resource, ns.Name, gen.Name)
+		obj, err := client.GetResource(gen.Kind, ns.Name, gen.Name)
 		if err == nil {
 			// 2> If already exsists, then verify the content is contained
 			// found the resource
@@ -70,12 +64,12 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 	}
 	if gen.Clone != nil {
 		// 1> Check if resource exists
-		_, err := client.GetResource(rGVR.Resource, ns.Name, gen.Name)
+		_, err := client.GetResource(gen.Kind, ns.Name, gen.Name)
 		if err == nil {
 			return nil
 		}
 		// 2> If already exists return
-		resource, err = client.GetResource(rGVR.Resource, gen.Clone.Namespace, gen.Clone.Name)
+		resource, err = client.GetResource(gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		if err != nil {
 			return err
 		}
@@ -87,7 +81,7 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 	// Reset resource version
 	resource.SetResourceVersion("")
 
-	_, err = client.CreateResource(rGVR.Resource, ns.Name, resource, false)
+	_, err = client.CreateResource(gen.Kind, ns.Name, resource, false)
 	if err != nil {
 		return err
 	}
