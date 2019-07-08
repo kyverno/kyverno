@@ -10,12 +10,9 @@ import (
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
-// PatchBytes stands for []byte
-type PatchBytes []byte
-
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
-func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBytes, errs []error) {
+func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches [][]byte, errs []error) {
 	if len(resource) == 0 {
 		errs = append(errs, errors.New("Source document for patching is empty"))
 		return nil, errs
@@ -48,8 +45,8 @@ func ProcessPatches(rule kubepolicy.Rule, resource []byte) (allPatches []PatchBy
 }
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
-func JoinPatches(patches []PatchBytes) PatchBytes {
-	var result PatchBytes
+func JoinPatches(patches [][]byte) []byte {
+	var result []byte
 	if len(patches) == 0 {
 		return result
 	}
@@ -67,12 +64,12 @@ func JoinPatches(patches []PatchBytes) PatchBytes {
 
 // applyPatch applies patch for resource, returns patched resource.
 func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
-	patchesList := []PatchBytes{patchRaw}
+	patchesList := [][]byte{patchRaw}
 	return ApplyPatches(resource, patchesList)
 }
 
 // ApplyPatches patches given resource with given patches and returns patched document
-func ApplyPatches(resource []byte, patches []PatchBytes) ([]byte, error) {
+func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 	joinedPatches := JoinPatches(patches)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {

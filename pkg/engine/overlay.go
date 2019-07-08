@@ -16,10 +16,10 @@ import (
 
 // ProcessOverlay handles validating admission request
 // Checks the target resources for rules defined in the policy
-func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([]PatchBytes, error) {
+func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, error) {
 
 	var resource interface{}
-	var appliedPatches []PatchBytes
+	var appliedPatches [][]byte
 	err := json.Unmarshal(rawResource, &resource)
 	if err != nil {
 		return nil, err
@@ -35,14 +35,14 @@ func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVe
 }
 
 // mutateResourceWithOverlay is a start of overlaying process
-func mutateResourceWithOverlay(resource, pattern interface{}) ([]PatchBytes, error) {
+func mutateResourceWithOverlay(resource, pattern interface{}) ([][]byte, error) {
 	// It assumes that mutation is started from root, so "/" is passed
 	return applyOverlay(resource, pattern, "/")
 }
 
 // applyOverlay detects type of current item and goes down through overlay and resource trees applying overlay
-func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlay(resource, overlay interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 	// resource item exists but has different type - replace
 	// all subtree within this path by overlay
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
@@ -57,8 +57,8 @@ func applyOverlay(resource, overlay interface{}, path string) ([]PatchBytes, err
 }
 
 // applyOverlayForSameTypes is applyOverlay for cases when TypeOf(resource) == TypeOf(overlay)
-func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	// detect the type of resource and overlay and select corresponding handler
 	switch typedOverlay := overlay.(type) {
@@ -93,8 +93,8 @@ func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([]Pat
 }
 
 // for each overlay and resource map elements applies overlay
-func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
@@ -130,8 +130,8 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 }
 
 // for each overlay and resource array elements applies overlay
-func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	if 0 == len(overlay) {
 		return nil, errors.New("Empty array detected in the overlay")
@@ -156,8 +156,8 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([]PatchB
 }
 
 // applyOverlayToArrayOfSameTypes applies overlay to array elements if they (resource and overlay elements) have same type
-func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	switch overlay[0].(type) {
 	case map[string]interface{}:
@@ -181,8 +181,8 @@ func applyOverlayToArrayOfSameTypes(resource, overlay []interface{}, path string
 }
 
 // Array of maps needs special handling as far as it can have anchors.
-func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	lastElementIdx := len(resource)
 	for i, overlayElement := range overlay {
@@ -222,8 +222,8 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 	return appliedPatches, nil
 }
 
-func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchors map[string]interface{}, path string) ([]PatchBytes, error) {
-	var appliedPatches []PatchBytes
+func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchors map[string]interface{}, path string) ([][]byte, error) {
+	var appliedPatches [][]byte
 
 	for i, resourceElement := range resource {
 		typedResource := resourceElement.(map[string]interface{})
@@ -242,15 +242,15 @@ func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchor
 	return appliedPatches, nil
 }
 
-func insertSubtree(overlay interface{}, path string) (PatchBytes, error) {
+func insertSubtree(overlay interface{}, path string) ([]byte, error) {
 	return processSubtree(overlay, path, "add")
 }
 
-func replaceSubtree(overlay interface{}, path string) (PatchBytes, error) {
+func replaceSubtree(overlay interface{}, path string) ([]byte, error) {
 	return processSubtree(overlay, path, "replace")
 }
 
-func processSubtree(overlay interface{}, path string, op string) (PatchBytes, error) {
+func processSubtree(overlay interface{}, path string, op string) ([]byte, error) {
 
 	if len(path) > 1 && path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
@@ -270,7 +270,7 @@ func processSubtree(overlay interface{}, path string, op string) (PatchBytes, er
 		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s", op, value, path)
 	}
 
-	return PatchBytes(patchStr), nil
+	return []byte(patchStr), nil
 }
 
 // converts overlay to JSON string to be inserted into the JSON Patch

@@ -153,7 +153,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 	}
 
-	var allPatches []engine.PatchBytes
+	var allPatches [][]byte
 	policyInfos := []*info.PolicyInfo{}
 	for _, policy := range policies {
 		// check if policy has a rule for the admission request kind
@@ -330,6 +330,7 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	return admissionReview
 }
 
+//HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	return ws.validateUniqueRuleName(request.Object.Raw)
 }
@@ -351,9 +352,8 @@ func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.Admis
 					Message: msg,
 				},
 			}
-		} else {
-			ruleNames = append(ruleNames, rule.Name)
 		}
+		ruleNames = append(ruleNames, rule.Name)
 	}
 
 	glog.V(3).Infof("Policy validation passed.")
