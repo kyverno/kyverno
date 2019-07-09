@@ -36,7 +36,7 @@ spec :
         - path: /metadata/labels/app1
           op: replace
           value: "nginx_is_mutated" 
-    - name: add-label
+    - name: add-label3
       resource:
         kinds : 
         - Deployment

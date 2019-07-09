@@ -177,7 +177,7 @@ spec:
       serviceAccountName: kyverno-service-account
       containers:
         - name: kyverno
-          image: registry-v2.nirmata.io/nirmata/kyverno:testImage
+          image: nirmata/kyverno:latest
           args: ["--filterKind","Nodes,Events,APIService,SubjectAccessReview"]
           ports:
           - containerPort: 443
