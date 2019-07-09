@@ -141,7 +141,7 @@ func (c *controller) SyncHandler(key Info) error {
 	default:
 		robj, err = c.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			glog.Errorf("Error creating event: unable to get resource %s, %s, will retry ", resource, key.Namespace+"/"+key.Name)
+			glog.Errorf("Error creating event: unable to get resource %s, %s, will retry ", key.Kind, key.Namespace+"/"+key.Name)
 			return err
 		}
 	}
