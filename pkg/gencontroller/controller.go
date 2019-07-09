@@ -148,7 +148,6 @@ func (c *Controller) syncHandler(obj interface{}) error {
 		}
 	}
 
-	glog.Info("apply generation policy to resources :)")
 	//TODO: need to find a way to store the policy such that we can directly queury the
 	// policies with generation policies
 	// PolicyListerExpansion

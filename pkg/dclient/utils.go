@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	//CSRs certificatesigningrequests
-	CSRs string = "certificatesigningrequests"
-	// Secrets secrets
-	Secrets string = "secrets"
-	// ConfigMaps configmaps
-	ConfigMaps string = "configmaps"
-	// Namespaces namespaces
-	Namespaces string = "namespaces"
+	// Kind names are case sensitive
+	//CSRs CertificateSigningRequest
+	CSRs string = "CertificateSigningRequest"
+	// Secrets Secret
+	Secrets string = "Secret"
+	// ConfigMaps ConfigMap
+	ConfigMaps string = "ConfigMap"
+	// Namespaces Namespace
+	Namespaces string = "Namespace"
 )
 const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
 const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond

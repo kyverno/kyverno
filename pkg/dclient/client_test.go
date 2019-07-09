@@ -64,32 +64,32 @@ func newFixture(t *testing.T) *fixture {
 func TestCRUDResource(t *testing.T) {
 	f := newFixture(t)
 	// Get Resource
-	_, err := f.client.GetResource("thekinds", "ns-foo", "name-foo")
+	_, err := f.client.GetResource("thekind", "ns-foo", "name-foo")
 	if err != nil {
 		t.Errorf("GetResource not working: %s", err)
 	}
 	// List Resources
-	_, err = f.client.ListResource("thekinds", "ns-foo", nil)
+	_, err = f.client.ListResource("thekind", "ns-foo", nil)
 	if err != nil {
 		t.Errorf("ListResource not working: %s", err)
 	}
 	// DeleteResouce
-	err = f.client.DeleteResouce("thekinds", "ns-foo", "name-bar", false)
+	err = f.client.DeleteResouce("thekind", "ns-foo", "name-bar", false)
 	if err != nil {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource("thekinds", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
+	_, err = f.client.CreateResource("thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
+	_, err = f.client.UpdateResource("thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource("thekinds", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
+	_, err = f.client.UpdateStatusResource("thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}
@@ -124,7 +124,7 @@ func TestGenerateResource(t *testing.T) {
 	// 1 create namespace
 	// 2 generate resource
 	// create namespace
-	ns, err := f.client.CreateResource("namespaces", "", newUnstructured("v1", "Namespace", "", "ns1"), false)
+	ns, err := f.client.CreateResource("Namespace", "", newUnstructured("v1", "Namespace", "", "ns1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
@@ -135,7 +135,7 @@ func TestGenerateResource(t *testing.T) {
 	if err != nil {
 		t.Errorf("GenerateResource not working: %s", err)
 	}
-	_, err = f.client.GetResource("thekinds", "ns1", "gen-kind")
+	_, err = f.client.GetResource("TheKind", "ns1", "gen-kind")
 	if err != nil {
 		t.Errorf("GetResource not working: %s", err)
 	}
@@ -147,7 +147,7 @@ func TestGenerateResource(t *testing.T) {
 	if err != nil {
 		t.Errorf("GenerateResource not working: %s", err)
 	}
-	_, err = f.client.GetResource("thekinds", "ns1", "name2-baz-new")
+	_, err = f.client.GetResource("TheKind", "ns1", "name2-baz-new")
 	if err != nil {
 		t.Errorf("GetResource not working: %s", err)
 	}
