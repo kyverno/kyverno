@@ -139,8 +139,7 @@ func (c *controller) SyncHandler(key Info) error {
 			return err
 		}
 	default:
-		resource := c.client.DiscoveryClient.GetGVRFromKind(key.Kind).Resource
-		robj, err = c.client.GetResource(resource, key.Namespace, key.Name)
+		robj, err = c.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			glog.Errorf("Error creating event: unable to get resource %s, %s, will retry ", resource, key.Namespace+"/"+key.Name)
 			return err
