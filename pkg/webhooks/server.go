@@ -189,8 +189,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
-	ws.eventController.Add(eventsInfo...)
+	if len(allPatches) > 0 {
+		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		ws.eventController.Add(eventsInfo...)
+	}
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
@@ -278,8 +280,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		policyInfos = append(policyInfos, policyInfo)
 	}
 
-	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
-	ws.eventController.Add(eventsInfo...)
+	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
+		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		ws.eventController.Add(eventsInfo...)
+
+	}
 
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
@@ -291,7 +296,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
-	glog.V(3).Info("Validation is successful")
+
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -356,7 +361,7 @@ func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.Admis
 		ruleNames = append(ruleNames, rule.Name)
 	}
 
-	glog.V(3).Infof("Policy validation passed.")
+	glog.V(3).Infof("Policy validation passed")
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -377,7 +382,7 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 				eventsInfo = append(eventsInfo,
 					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
 
-				glog.V(3).Infof("Request blocked events info prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
+				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
 		}
 		return eventsInfo
@@ -387,16 +392,18 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 	if ok {
 		for _, pi := range policyInfoList {
 			ruleNames := getRuleNames(*pi, true)
+
 			eventsInfo = append(eventsInfo,
 				event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
 
-			glog.V(3).Infof("Success event info prepared for %s/%s\n", pi.RKind, pi.RName)
+			glog.V(3).Infof("Success event info has prepared for %s/%s\n", pi.RKind, pi.RName)
 		}
 		return eventsInfo
 	}
 
 	for _, pi := range policyInfoList {
 		ruleNames := getRuleNames(*pi, false)
+
 		eventsInfo = append(eventsInfo,
 			event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
 

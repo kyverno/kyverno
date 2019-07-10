@@ -12,6 +12,7 @@ const (
 	wqNamespace  string = "namespace"
 	workerCount  int    = 1
 	wqRetryLimit int    = 5
+	policyKind   string = "Policy"
 )
 
 func namespaceMeetsRuleDescription(ns *corev1.Namespace, resourceDescription v1alpha1.ResourceDescription) bool {

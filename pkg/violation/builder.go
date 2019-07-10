@@ -108,7 +108,7 @@ func (b *builder) processViolation(info *Info) error {
 	return nil
 }
 
-func (b *builder) isActive(kind string, rname string, rnamespace string) (bool, error) {
+func (b *builder) isActive(kind, rname, rnamespace string) (bool, error) {
 	// Generate Merge Patch
 	_, err := b.client.GetResource(b.client.DiscoveryClient.GetGVRFromKind(kind).Resource, rnamespace, rname)
 	if err != nil {
@@ -119,19 +119,20 @@ func (b *builder) isActive(kind string, rname string, rnamespace string) (bool, 
 }
 
 //NewViolation return new policy violation
-func NewViolation(policyName string, kind string, rname string, rnamespace string, reason string, msg string) Info {
-	return Info{Policy: policyName,
+func NewViolation(reason event.Reason, policyName, kind, rname, rnamespace, msg string) *Info {
+	return &Info{Policy: policyName,
 		Violation: types.Violation{
 			Kind:      kind,
 			Name:      rname,
 			Namespace: rnamespace,
-			Reason:    reason,
+			Reason:    reason.String(),
+			Message:   msg,
 		},
 	}
 }
 
 //NewViolationFromEvent returns violation info from event
-func NewViolationFromEvent(e *event.Info, pName string, rKind string, rName string, rnamespace string) *Info {
+func NewViolationFromEvent(e *event.Info, pName, rKind, rName, rnamespace string) *Info {
 	return &Info{
 		Policy: pName,
 		Violation: types.Violation{

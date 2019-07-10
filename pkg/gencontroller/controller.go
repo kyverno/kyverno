@@ -22,11 +22,13 @@ import (
 
 //Controller watches the 'Namespace' resource creation/update and applied the generation rules on them
 type Controller struct {
-	client          *client.Client
-	namespaceLister v1CoreLister.NamespaceLister
-	namespaceSynced cache.InformerSynced
-	policyLister    policyLister.PolicyLister
-	workqueue       workqueue.RateLimitingInterface
+	client           *client.Client
+	namespaceLister  v1CoreLister.NamespaceLister
+	namespaceSynced  cache.InformerSynced
+	policyLister     policyLister.PolicyLister
+	eventController  event.Generator
+	violationBuilder violation.Generator
+	workqueue        workqueue.RateLimitingInterface
 }
 
 //NewGenController returns a new Controller to manage generation rules
@@ -38,11 +40,13 @@ func NewGenController(client *client.Client,
 
 	// create the controller
 	controller := &Controller{
-		client:          client,
-		namespaceLister: namespaceInformer.Lister(),
-		namespaceSynced: namespaceInformer.Informer().HasSynced,
-		policyLister:    policyInformer.GetLister(),
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), wqNamespace),
+		client:           client,
+		namespaceLister:  namespaceInformer.Lister(),
+		namespaceSynced:  namespaceInformer.Informer().HasSynced,
+		policyLister:     policyInformer.GetLister(),
+		eventController:  eventController,
+		violationBuilder: violationBuilder,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), wqNamespace),
 	}
 	namespaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.createNamespaceHandler,

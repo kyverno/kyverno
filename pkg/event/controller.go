@@ -135,16 +135,17 @@ func (c *controller) SyncHandler(key Info) error {
 		//TODO: policy is clustered resource so wont need namespace
 		robj, err = c.policyLister.Get(key.Name)
 		if err != nil {
-			glog.Errorf("unable to create event for policy %s, will retry ", key.Name)
+			glog.Errorf("Error creating event: unable to get policy %s, will retry ", key.Name)
 			return err
 		}
 	default:
 		robj, err = c.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			glog.Errorf("unable to create event for resource %s, will retry ", key.Namespace+"/"+key.Name)
+			glog.Errorf("Error creating event: unable to get resource %s, %s, will retry ", key.Kind, key.Namespace+"/"+key.Name)
 			return err
 		}
 	}
+
 	if key.Reason == PolicyApplied.String() {
 		c.recorder.Event(robj, v1.EventTypeNormal, key.Reason, key.Message)
 	} else {
