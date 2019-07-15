@@ -21,7 +21,16 @@ spec:
         spec:
           required:
           - rules
+          # set as required, as we cannot set default yet. check below for more details
+          - mode
           properties:
+            mode:
+              type: string
+              # default can only be set if CustomResourceDefaulting feature gate is enabled
+              # default: blockChanges
+              enum: 
+              - blockChanges 
+              - reportViolation
             rules:
               type: array
               items:
