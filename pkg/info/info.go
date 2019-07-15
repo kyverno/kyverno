@@ -37,6 +37,28 @@ func (pi *PolicyInfo) IsSuccessful() bool {
 	return pi.success
 }
 
+// SuccessfulRules returns list of successful rule names
+func (pi *PolicyInfo) SuccessfulRules() []string {
+	var rules []string
+	for _, r := range pi.Rules {
+		if r.IsSuccessful() {
+			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
+// FailedRules returns list of failed rule names
+func (pi *PolicyInfo) FailedRules() []string {
+	var rules []string
+	for _, r := range pi.Rules {
+		if !r.IsSuccessful() {
+			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
 //ErrorRules returns error msgs from all rule
 func (pi *PolicyInfo) ErrorRules() string {
 	errorMsgs := []string{}

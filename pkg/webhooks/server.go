@@ -391,59 +391,39 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 	var eventsInfo []*event.Info
 
 	ok, msg := isAdmSuccesful(policyInfoList)
-	// create events on operation UPDATE
-	if onUpdate {
-		if !ok {
-			for _, pi := range policyInfoList {
-				ruleNames := getRuleNames(*pi, false)
+	// Some policies failed to apply succesfully
+	if !ok {
+		for _, pi := range policyInfoList {
+			rules := pi.FailedRules()
+			ruleNames := strings.Join(rules, ";")
+			if !onUpdate {
+				// CREATE
+				eventsInfo = append(eventsInfo,
+					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
+
+				glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
+			} else {
+				// UPDATE
 				eventsInfo = append(eventsInfo,
 					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.RequestBlocked, event.FPolicyApplyBlockUpdate, ruleNames, pi.Name))
-
 				eventsInfo = append(eventsInfo,
 					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
-
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
 		}
-		return eventsInfo
-	}
+	} else {
+		if !onUpdate {
+			// All policies were applied succesfully
+			// CREATE
+			for _, pi := range policyInfoList {
+				rules := pi.SuccessfulRules()
+				ruleNames := strings.Join(rules, ";")
+				eventsInfo = append(eventsInfo,
+					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
 
-	// create events on operation CREATE
-	if ok {
-		for _, pi := range policyInfoList {
-			ruleNames := getRuleNames(*pi, true)
-
-			eventsInfo = append(eventsInfo,
-				event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
-
-			glog.V(3).Infof("Success event info has prepared for %s/%s\n", pi.RKind, pi.RName)
+				glog.V(3).Infof("Success event info has prepared for %s/%s\n", pi.RKind, pi.RName)
+			}
 		}
-		return eventsInfo
-	}
-
-	for _, pi := range policyInfoList {
-		ruleNames := getRuleNames(*pi, false)
-
-		eventsInfo = append(eventsInfo,
-			event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
-
-		glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
 	}
 	return eventsInfo
-}
-
-func getRuleNames(policyInfo info.PolicyInfo, onSuccess bool) string {
-	var ruleNames []string
-	for _, rule := range policyInfo.Rules {
-		if onSuccess {
-			if rule.IsSuccessful() {
-				ruleNames = append(ruleNames, rule.Name)
-			}
-		} else {
-			if !rule.IsSuccessful() {
-				ruleNames = append(ruleNames, rule.Name)
-			}
-		}
-	}
-	return strings.Join(ruleNames, ",")
 }
