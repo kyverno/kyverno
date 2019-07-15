@@ -22,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -182,9 +183,14 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			for _, r := range ruleInfos {
 				glog.Warning(r.Msgs)
 			}
-		} else if len(policyPatches) > 0 {
-			allPatches = append(allPatches, policyPatches...)
-			glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
+		} else {
+			fmt.Println("cleanup")
+			// CleanUp Violations if exists
+			violation.RemoveViolation(policy, request.Kind.Kind, rns, rname)
+			if len(policyPatches) > 0 {
+				allPatches = append(allPatches, policyPatches...)
+				glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
+			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
 	}
@@ -274,8 +280,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			for _, r := range ruleInfos {
 				glog.Warning(r.Msgs)
 			}
-		} else if len(ruleInfos) > 0 {
-			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
+		} else {
+			// CleanUp Violations if exists
+			violation.RemoveViolation(policy, request.Kind.Kind, rns, rname)
+
+			if len(ruleInfos) > 0 {
+				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
+			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
 	}

@@ -77,16 +77,17 @@ type CloneFrom struct {
 
 // Status contains violations for existing resources
 type Status struct {
-	Violations []Violation `json:"violations,omitempty"`
+	// Violations map[kind/namespace/resource]Violation
+	Violations map[string]Violation `json:"violations,omitempty"`
 }
 
 // Violation for the policy
 type Violation struct {
-	Kind      string `json:"kind,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	Reason    string `json:"reason,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Kind      string   `json:"kind,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Rules     []string `json:"rules"`
+	Reason    string   `json:"reason,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

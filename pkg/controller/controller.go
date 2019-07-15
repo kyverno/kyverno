@@ -225,7 +225,9 @@ func createEventsAndViolations(eventController event.Generator, policyInfos []*i
 			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
 			events = append(events, e)
 			// Violation
-			v := violation.NewViolationFromEvent(e, policyInfo.Name, policyInfo.RKind, policyInfo.RName, policyInfo.RNamespace)
+			// TODO: Violation is currently create at policy, level not resource level
+			// As we create violation, we check if the
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), fruleNames)
 			violations = append(violations, v)
 		}
 		// else {
