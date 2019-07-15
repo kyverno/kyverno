@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, filterK8Kinds)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, filterK8Kinds)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}

@@ -33,11 +33,12 @@ const policyKind = "Policy"
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server          http.Server
-	client          *client.Client
-	policyLister    v1alpha1.PolicyLister
-	eventController event.Generator
-	filterKinds     []string
+	server           http.Server
+	client           *client.Client
+	policyLister     v1alpha1.PolicyLister
+	eventController  event.Generator
+	violationBuilder violation.Generator
+	filterKinds      []string
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -47,6 +48,7 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	shareInformer sharedinformer.PolicyInformer,
 	eventController event.Generator,
+	violationBuilder violation.Generator,
 	filterKinds []string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -61,10 +63,11 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:          client,
-		policyLister:    shareInformer.GetLister(),
-		eventController: eventController,
-		filterKinds:     parseKinds(filterKinds),
+		client:           client,
+		policyLister:     shareInformer.GetLister(),
+		eventController:  eventController,
+		violationBuilder: violationBuilder,
+		filterKinds:      parseKinds(filterKinds),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -184,9 +187,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				glog.Warning(r.Msgs)
 			}
 		} else {
-			fmt.Println("cleanup")
 			// CleanUp Violations if exists
-			violation.RemoveViolation(policy, request.Kind.Kind, rns, rname)
+			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
+			if err != nil {
+				glog.Info(err)
+			}
+
 			if len(policyPatches) > 0 {
 				allPatches = append(allPatches, policyPatches...)
 				glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
@@ -264,7 +270,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 
-		glog.Infof("Validating resource with policy %s with %d rules", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
 		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		if err != nil {
 			// This is not policy error
@@ -282,7 +288,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			}
 		} else {
 			// CleanUp Violations if exists
-			violation.RemoveViolation(policy, request.Kind.Kind, rns, rname)
+			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
+			if err != nil {
+				glog.Info(err)
+			}
 
 			if len(ruleInfos) > 0 {
 				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)

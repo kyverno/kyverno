@@ -83,11 +83,17 @@ type Status struct {
 
 // Violation for the policy
 type Violation struct {
-	Kind      string   `json:"kind,omitempty"`
-	Name      string   `json:"name,omitempty"`
-	Namespace string   `json:"namespace,omitempty"`
-	Rules     []string `json:"rules"`
-	Reason    string   `json:"reason,omitempty"`
+	Kind      string       `json:"kind,omitempty"`
+	Name      string       `json:"name,omitempty"`
+	Namespace string       `json:"namespace,omitempty"`
+	Rules     []FailedRule `json:"rules"`
+	Reason    string       `json:"reason,omitempty"`
+}
+
+// FailedRule stored info and type of failed rules
+type FailedRule struct {
+	Name string `json:"name"`
+	Type string `json:"type"` //Mutation, Validation, Genertaion
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -2,24 +2,27 @@ package violation
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/golang/glog"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 )
 
 //Generator to generate policy violation
 type Generator interface {
 	Add(infos ...*Info) error
+	RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error
 }
 
 type builder struct {
 	client       *client.Client
-	policyLister v1alpha1.PolicyLister
+	policyLister lister.PolicyLister
 	eventBuilder event.Generator
 }
 
@@ -155,7 +158,7 @@ func (b *builder) isActive(kind, rname, rnamespace string) (bool, error) {
 //NewViolation return new policy violation
 func NewViolation(reason event.Reason, policyName, kind, rname, rnamespace, msg string) *Info {
 	return &Info{Policy: policyName,
-		Violation: types.Violation{
+		Violation: v1alpha1.Violation{
 			Kind:      kind,
 			Name:      rname,
 			Namespace: rnamespace,
@@ -178,29 +181,61 @@ func NewViolation(reason event.Reason, policyName, kind, rname, rnamespace, msg 
 // 	}
 // }
 // Build a new Violation
-func BuldNewViolation(pName string, rKind string, rNs string, rName string, reason string, rules []string) *Info {
+func BuldNewViolation(pName string, rKind string, rNs string, rName string, reason string, frules []v1alpha1.FailedRule) *Info {
 	return &Info{
 		Policy: pName,
-		Violation: types.Violation{
+		Violation: v1alpha1.Violation{
 			Kind:      rKind,
 			Namespace: rNs,
 			Name:      rName,
 			Reason:    reason,
-			Rules:     rules,
+			Rules:     frules,
 		},
 	}
 }
 
-func isRuleNamesEqual(currRules []interface{}, newRules []string) bool {
+func removeRuleTypes(currRules []interface{}, ruleType info.RuleType) ([]interface{}, error) {
+	//rules := []v1alpha1.FailedRule{}
+	var rules []interface{}
+	// removedRuleCount := 0
+	for _, r := range currRules {
+		glog.Info(reflect.TypeOf(r))
+		rfule, ok := r.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("incorrect type")
+		}
+		glog.Info(reflect.TypeOf(rfule["type"]))
+		rtype, ok := rfule["type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("incorrect type")
+		}
+		name, ok := rfule["name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("incorrect type")
+		}
+		if rtype != ruleType.String() {
+			rules = append(rules, v1alpha1.FailedRule{Name: name, Type: rtype})
+		}
+	}
+	return rules, nil
+}
+
+func isRuleNamesEqual(currRules []interface{}, newRules []v1alpha1.FailedRule) bool {
 	if len(currRules) != len(newRules) {
 		return false
 	}
 	for i, r := range currRules {
-		name, ok := r.(string)
+		glog.Info(reflect.TypeOf(r))
+		rfule, ok := r.(map[string]interface{})
 		if !ok {
 			return false
 		}
-		if name != newRules[i] {
+		glog.Info(reflect.TypeOf(rfule["name"]))
+		name, ok := rfule["name"].(string)
+		if !ok {
+			return false
+		}
+		if name != newRules[i].Name {
 			return false
 		}
 	}
@@ -208,10 +243,76 @@ func isRuleNamesEqual(currRules []interface{}, newRules []string) bool {
 }
 
 //RemoveViolation will remove the violation for the resource if there was one
-func RemoveViolation(policy *types.Policy, rKind string, rNs string, rName string) {
+func (b *builder) RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error {
 	// Remove the <resource, Violation> pair from map
-	if policy.Status.Violations != nil {
-		glog.Infof("Cleaning up violalation for policy %s, resource %s/%s/%s", policy.Name, rKind, rNs, rName)
-		delete(policy.Status.Violations, BuildKey(rKind, rNs, rName))
+	statusMap := map[string]interface{}{}
+	currVs := map[string]interface{}{}
+	// Get the policy
+	p, err := b.client.GetResource("Policy", "", policy, "status")
+	if err != nil {
+		glog.Infof("policy %s not found", policy)
+		return err
 	}
+	unstr := p.UnstructuredContent()
+
+	// check if "status" field exists
+	status, ok := unstr["status"]
+	if ok {
+		// status is already present then we append violations
+		if statusMap, ok = status.(map[string]interface{}); !ok {
+			return errors.New("Unable to parse status subresource")
+		}
+		violations, ok := statusMap["violations"]
+		if !ok {
+			glog.Info("violation not present")
+		}
+		glog.Info(reflect.TypeOf(violations))
+		if currVs, ok = violations.(map[string]interface{}); !ok {
+			return errors.New("Unable to parse violations")
+		}
+		currV, ok := currVs[BuildKey(rKind, rNs, rName)]
+		if !ok {
+			// No Violation present
+			return nil
+		}
+		glog.Info(reflect.TypeOf(currV))
+		v, ok := currV.(map[string]interface{})
+		if !ok {
+			glog.Info("type not matching")
+		}
+		// get rules
+		rules, ok := v["rules"]
+		if !ok {
+			glog.Info("rules not found")
+		}
+		glog.Info(reflect.TypeOf(rules))
+		rs, ok := rules.([]interface{})
+		if !ok {
+			glog.Info("type not matching")
+		}
+		// Remove rules of defined type
+		newrs, err := removeRuleTypes(rs, ruleType)
+		if err != nil {
+			glog.Info(err)
+		}
+		if newrs == nil {
+			// all records are removed and is empty
+			glog.Info("can remove the record")
+			delete(currVs, BuildKey(rKind, rNs, rName))
+		} else {
+			v["rules"] = newrs
+			// update the violation with new rule
+			currVs[BuildKey(rKind, rNs, rName)] = v
+		}
+		// update violations
+		statusMap["violations"] = currVs
+		// update status
+		unstr["status"] = statusMap
+		p.SetUnstructuredContent(unstr)
+		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

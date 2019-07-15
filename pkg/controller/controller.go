@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/info"
@@ -11,7 +10,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine"
 
 	"github.com/golang/glog"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -63,13 +62,13 @@ func (pc *PolicyController) createPolicyHandler(resource interface{}) {
 }
 
 func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
-	newPolicy := newResource.(*types.Policy)
-	oldPolicy := oldResource.(*types.Policy)
-	newPolicy.Status = types.Status{}
-	oldPolicy.Status = types.Status{}
+	newPolicy := newResource.(*v1alpha1.Policy)
+	oldPolicy := oldResource.(*v1alpha1.Policy)
+	newPolicy.Status = v1alpha1.Status{}
+	oldPolicy.Status = v1alpha1.Status{}
 	newPolicy.ResourceVersion = ""
 	oldPolicy.ResourceVersion = ""
-	if reflect.DeepEqual(newPolicy.ResourceVersion, oldPolicy.ResourceVersion) {
+	if reflect.DeepEqual(newPolicy, oldPolicy) {
 		return
 	}
 	pc.enqueuePolicy(newResource)
@@ -185,7 +184,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	events, violations := createEventsAndViolations(pc.eventController, policyInfos)
+	events, violations := pc.createEventsAndViolations(policyInfos)
 	pc.eventController.Add(events...)
 	err = pc.violationBuilder.Add(violations...)
 	if err != nil {
@@ -194,25 +193,34 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	return nil
 }
 
-func createEventsAndViolations(eventController event.Generator, policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
+func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
 	events := []*event.Info{}
 	violations := []*violation.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
-		fruleNames := []string{}
+		frules := []v1alpha1.FailedRule{}
 		sruleNames := []string{}
 
 		for _, rule := range policyInfo.Rules {
 			if !rule.IsSuccessful() {
 				e := &event.Info{}
-				fruleNames = append(fruleNames, rule.Name)
+				frule := v1alpha1.FailedRule{Name: rule.Name}
 				switch rule.RuleType {
 				case info.Mutation, info.Validation, info.Generation:
 					// Events
 					e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
+					switch rule.RuleType {
+					case info.Mutation:
+						frule.Type = info.Mutation.String()
+					case info.Validation:
+						frule.Type = info.Validation.String()
+					case info.Generation:
+						frule.Type = info.Generation.String()
+					}
 				default:
 					glog.Info("Unsupported Rule type")
 				}
+				frules = append(frules, frule)
 				events = append(events, e)
 			} else {
 				sruleNames = append(sruleNames, rule.Name)
@@ -222,14 +230,20 @@ func createEventsAndViolations(eventController event.Generator, policyInfos []*i
 		if !policyInfo.IsSuccessful() {
 			// Event
 			// list of failed rules : ruleNames
-			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
+
+			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, concatFailedRules(frules))
 			events = append(events, e)
 			// Violation
 			// TODO: Violation is currently create at policy, level not resource level
 			// As we create violation, we check if the
-			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), fruleNames)
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), frules)
 			violations = append(violations, v)
+		} else {
+			// clean up violations
+			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Mutation)
+			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Validation)
 		}
+
 		// else {
 		// 	// Policy was processed succesfully
 		// 	e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
