@@ -1,10 +1,29 @@
 package webhooks
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/info"
 )
+
+const policyKind = "Policy"
+
+func isAdmSuccesful(policyInfos []*info.PolicyInfo) (bool, string) {
+	var admSuccess = true
+	var errMsgs []string
+	for _, pi := range policyInfos {
+		if !pi.IsSuccessful() {
+			admSuccess = false
+			errMsgs = append(errMsgs, fmt.Sprintf("\nPolicy %s failed with following rules", pi.Name))
+			// Get the error rules
+			errorRules := pi.ErrorRules()
+			errMsgs = append(errMsgs, errorRules)
+		}
+	}
+	return admSuccess, strings.Join(errMsgs, ";")
+}
 
 //StringInSlice checks if string is present in slice of strings
 func StringInSlice(kind string, list []string) bool {

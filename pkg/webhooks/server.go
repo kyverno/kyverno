@@ -8,27 +8,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
-	policyv1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
-	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
-
-const policyKind = "Policy"
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
@@ -144,185 +135,6 @@ func (ws *WebhookServer) Stop() {
 	}
 }
 
-// HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-
-	policies, err := ws.policyLister.List(labels.NewSelector())
-	if err != nil {
-		// Unable to connect to policy Lister to access policies
-		glog.Error("Unable to connect to policy controller to access policies. Mutation Rules are NOT being applied")
-		glog.Warning(err)
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-		}
-	}
-
-	var allPatches [][]byte
-	policyInfos := []*info.PolicyInfo{}
-	for _, policy := range policies {
-		// check if policy has a rule for the admission request kind
-		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
-			continue
-		}
-		rname := engine.ParseNameFromObject(request.Object.Raw)
-		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-		rkind := engine.ParseKindFromObject(request.Object.Raw)
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			rkind,
-			rname,
-			rns)
-
-		glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, rns, rname, request.UID, request.Operation)
-
-		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-
-		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
-
-		policyInfo.AddRuleInfos(ruleInfos)
-
-		if !policyInfo.IsSuccessful() {
-			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
-				glog.Warning(r.Msgs)
-			}
-		} else {
-			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
-			if err != nil {
-				glog.Info(err)
-			}
-
-			if len(policyPatches) > 0 {
-				allPatches = append(allPatches, policyPatches...)
-				glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
-			}
-		}
-		policyInfos = append(policyInfos, policyInfo)
-	}
-
-	if len(allPatches) > 0 {
-		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
-		ws.eventController.Add(eventsInfo...)
-	}
-
-	ok, msg := isAdmSuccesful(policyInfos)
-	if ok {
-		patchType := v1beta1.PatchTypeJSONPatch
-		return &v1beta1.AdmissionResponse{
-			Allowed:   true,
-			Patch:     engine.JoinPatches(allPatches),
-			PatchType: &patchType,
-		}
-	}
-	return &v1beta1.AdmissionResponse{
-		Allowed: false,
-		Result: &metav1.Status{
-			Message: msg,
-		},
-	}
-}
-
-func isAdmSuccesful(policyInfos []*info.PolicyInfo) (bool, string) {
-	var admSuccess = true
-	var errMsgs []string
-	for _, pi := range policyInfos {
-		if !pi.IsSuccessful() {
-			admSuccess = false
-			errMsgs = append(errMsgs, fmt.Sprintf("\nPolicy %s failed with following rules", pi.Name))
-			// Get the error rules
-			errorRules := pi.ErrorRules()
-			errMsgs = append(errMsgs, errorRules)
-		}
-	}
-	return admSuccess, strings.Join(errMsgs, ";")
-}
-
-// HandleValidation handles validating webhook admission request
-// If there are no errors in validating rule we apply generation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	policyInfos := []*info.PolicyInfo{}
-
-	policies, err := ws.policyLister.List(labels.NewSelector())
-	if err != nil {
-		// Unable to connect to policy Lister to access policies
-		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
-		glog.Warning(err)
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-		}
-	}
-
-	for _, policy := range policies {
-
-		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
-			continue
-		}
-		rname := engine.ParseNameFromObject(request.Object.Raw)
-		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-		rkind := engine.ParseKindFromObject(request.Object.Raw)
-
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			rkind,
-			rname,
-			rns)
-
-		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, rns, rname, request.UID, request.Operation)
-
-		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
-		if err != nil {
-			// This is not policy error
-			// but if unable to parse request raw resource
-			// TODO : create event ? dont think so
-			glog.Error(err)
-			continue
-		}
-		policyInfo.AddRuleInfos(ruleInfos)
-
-		if !policyInfo.IsSuccessful() {
-			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
-				glog.Warning(r.Msgs)
-			}
-		} else {
-			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
-			if err != nil {
-				glog.Info(err)
-			}
-
-			if len(ruleInfos) > 0 {
-				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
-			}
-		}
-		policyInfos = append(policyInfos, policyInfo)
-	}
-
-	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
-		ws.eventController.Add(eventsInfo...)
-
-	}
-
-	// If Validation fails then reject the request
-	ok, msg := isAdmSuccesful(policyInfos)
-	if !ok {
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Message: msg,
-			},
-		}
-	}
-
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-	}
-	// Generation rules applied via generation controller
-}
-
 // bodyToAdmissionReview creates AdmissionReview object from request body
 // Answers to the http.ResponseWriter if request is not valid
 func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer http.ResponseWriter) *v1beta1.AdmissionReview {
@@ -353,77 +165,4 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
-}
-
-//HandlePolicyValidation performs the validation check on policy resource
-func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	return ws.validateUniqueRuleName(request.Object.Raw)
-}
-
-func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
-	var policy *policyv1.Policy
-	var ruleNames []string
-
-	json.Unmarshal(rawPolicy, &policy)
-
-	for _, rule := range policy.Spec.Rules {
-		if utils.Contains(ruleNames, rule.Name) {
-			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
-			glog.Errorln(msg)
-
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: msg,
-				},
-			}
-		}
-		ruleNames = append(ruleNames, rule.Name)
-	}
-
-	glog.V(3).Infof("Policy validation passed")
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-	}
-}
-
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) []*event.Info {
-	var eventsInfo []*event.Info
-
-	ok, msg := isAdmSuccesful(policyInfoList)
-	// Some policies failed to apply succesfully
-	if !ok {
-		for _, pi := range policyInfoList {
-			rules := pi.FailedRules()
-			ruleNames := strings.Join(rules, ";")
-			if !onUpdate {
-				// CREATE
-				eventsInfo = append(eventsInfo,
-					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
-
-				glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
-			} else {
-				// UPDATE
-				eventsInfo = append(eventsInfo,
-					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.RequestBlocked, event.FPolicyApplyBlockUpdate, ruleNames, pi.Name))
-				eventsInfo = append(eventsInfo,
-					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
-				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
-			}
-		}
-	} else {
-		if !onUpdate {
-			// All policies were applied succesfully
-			// CREATE
-			for _, pi := range policyInfoList {
-				rules := pi.SuccessfulRules()
-				ruleNames := strings.Join(rules, ";")
-				eventsInfo = append(eventsInfo,
-					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.PolicyApplied, event.SRulesApply, ruleNames, pi.Name))
-
-				glog.V(3).Infof("Success event info has prepared for %s/%s\n", pi.RKind, pi.RName)
-			}
-		}
-	}
-	return eventsInfo
 }
