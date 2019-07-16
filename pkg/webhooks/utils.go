@@ -82,3 +82,9 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 	}
 	return kinds
 }
+
+// Policy Reporting Modes
+const (
+	BlockChanges    = "blockChanges"
+	ReportViolation = "reportViolation"
+)

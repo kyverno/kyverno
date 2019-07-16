@@ -3,7 +3,9 @@ package webhooks
 import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -13,7 +15,8 @@ import (
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policyInfos := []*info.PolicyInfo{}
-
+	var violations []*violation.Info
+	var eventsInfo []*event.Info
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -36,7 +39,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,
 			rname,
-			rns)
+			rns,
+			policy.Spec.ValidationFailureAction)
 
 		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
@@ -72,14 +76,19 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		eventsInfo, violations = newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		// If the validationFailureAction flag is set "report",
+		// then we dont block the request and report the violations
+		ws.violationBuilder.Add(violations...)
 		ws.eventController.Add(eventsInfo...)
-
 	}
 
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
-	if !ok {
+	// violations are created if "report" flag is set
+	// and if there are any then we dont bock the resource creation
+	// Even if one the policy being applied
+	if !ok && violations == nil {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{

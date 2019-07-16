@@ -3,14 +3,16 @@ package webhooks
 import (
 	"strings"
 
+	"github.com/nirmata/kyverno/pkg/violation"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
 )
 
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) []*event.Info {
+func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) ([]*event.Info, []*violation.Info) {
 	var eventsInfo []*event.Info
-
+	var violations []*violation.Info
 	ok, msg := isAdmSuccesful(policyInfoList)
 	// Some policies failed to apply succesfully
 	if !ok {
@@ -31,6 +33,12 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
+			// if report flag is set
+			if pi.Mode == "reportViolation" {
+				// Create Violations
+				v := violation.BuldNewViolation(pi.Name, pi.RKind, pi.RNamespace, pi.RName, event.PolicyViolation.String(), pi.GetFailedRules())
+				violations = append(violations, v)
+			}
 		}
 	} else {
 		if !onUpdate {
@@ -46,5 +54,5 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 			}
 		}
 	}
-	return eventsInfo
+	return eventsInfo, violations
 }

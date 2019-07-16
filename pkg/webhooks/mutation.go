@@ -35,7 +35,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,
 			rname,
-			rns)
+			rns,
+			policy.Spec.ValidationFailureAction)
 
 		glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
@@ -67,7 +68,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	if len(allPatches) > 0 {
-		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
 		ws.eventController.Add(eventsInfo...)
 	}
 

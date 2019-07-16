@@ -18,8 +18,8 @@ type Policy struct {
 
 // Spec describes policy behavior by its rules
 type Spec struct {
-	Rules []Rule `json:"rules"`
-	Mode  string `json:"mode"`
+	Rules                   []Rule `json:"rules"`
+	ValidationFailureAction string `json:"validationFailureAction"`
 }
 
 // Rule is set of mutation, validation and generation actions

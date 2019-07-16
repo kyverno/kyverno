@@ -3,6 +3,8 @@ package info
 import (
 	"fmt"
 	"strings"
+
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 //PolicyInfo defines policy information
@@ -16,18 +18,21 @@ type PolicyInfo struct {
 	// Namespace is the ns of resource
 	// empty on non-namespaced resources
 	RNamespace string
-	Rules      []*RuleInfo
-	success    bool
+	//TODO: add check/enum for types
+	Mode    string // BlockChanges, ReportViolation
+	Rules   []*RuleInfo
+	success bool
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName string, rKind string, rName string, rNamespace string) *PolicyInfo {
+func NewPolicyInfo(policyName, rKind, rName, rNamespace, mode string) *PolicyInfo {
 	return &PolicyInfo{
 		Name:       policyName,
 		RKind:      rKind,
 		RName:      rName,
 		RNamespace: rNamespace,
 		success:    true, // fail to be set explicity
+		Mode:       mode,
 	}
 }
 
@@ -54,6 +59,17 @@ func (pi *PolicyInfo) FailedRules() []string {
 	for _, r := range pi.Rules {
 		if !r.IsSuccessful() {
 			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
+//GetFailedRules returns the failed rules with rule type
+func (pi *PolicyInfo) GetFailedRules() []v1alpha1.FailedRule {
+	var rules []v1alpha1.FailedRule
+	for _, r := range pi.Rules {
+		if !r.IsSuccessful() {
+			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String()})
 		}
 	}
 	return rules

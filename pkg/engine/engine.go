@@ -74,7 +74,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 }
 
 func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace())
+	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.resource.MarshalJSON()
 	if err != nil {
