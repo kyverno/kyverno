@@ -18,6 +18,7 @@ import (
 type Generator interface {
 	Add(infos ...*Info) error
 	RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error
+	ResourceRemoval(policy, rKind, rNs, rName string) error
 }
 
 type builder struct {
@@ -304,6 +305,53 @@ func (b *builder) RemoveInactiveViolation(policy, rKind, rNs, rName string, rule
 			// update the violation with new rule
 			currVs[BuildKey(rKind, rNs, rName)] = v
 		}
+		// update violations
+		statusMap["violations"] = currVs
+		// update status
+		unstr["status"] = statusMap
+		p.SetUnstructuredContent(unstr)
+		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *builder) ResourceRemoval(policy, rKind, rNs, rName string) error {
+	// Remove the <resource, Violation> pair from map
+	statusMap := map[string]interface{}{}
+	currVs := map[string]interface{}{}
+	// Get the policy
+	p, err := b.client.GetResource("Policy", "", policy, "status")
+	if err != nil {
+		glog.Infof("policy %s not found", policy)
+		return err
+	}
+	unstr := p.UnstructuredContent()
+	// check if "status" field exists
+	status, ok := unstr["status"]
+	if ok {
+		// status is already present then we append violations
+		if statusMap, ok = status.(map[string]interface{}); !ok {
+			return errors.New("Unable to parse status subresource")
+		}
+		violations, ok := statusMap["violations"]
+		if !ok {
+			glog.Info("violation not present")
+		}
+		glog.Info(reflect.TypeOf(violations))
+		if currVs, ok = violations.(map[string]interface{}); !ok {
+			return errors.New("Unable to parse violations")
+		}
+		_, ok = currVs[BuildKey(rKind, rNs, rName)]
+		if !ok {
+			// No Violation for this resource
+			return nil
+		}
+		// remove the pair from the map
+		delete(currVs, BuildKey(rKind, rNs, rName))
+		glog.Info("Removed Violation")
 		// update violations
 		statusMap["violations"] = currVs
 		// update status

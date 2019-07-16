@@ -89,14 +89,30 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
+		// if the resource is being deleted we need to clear any existing Policy Violations
+		// TODO: can report to the user that we clear the violation corresponding to this resource
+		if admissionReview.Request.Operation == v1beta1.Delete {
+			// Resource DELETE
+			err := ws.removePolicyViolation(admissionReview.Request)
+			if err != nil {
+				glog.Info(err)
+			}
+			admissionReview.Response = &v1beta1.AdmissionResponse{
+				Allowed: true,
+			}
+			admissionReview.Response.UID = admissionReview.Request.UID
+		} else {
+			// Resource CREATE
+			// Resource UPDATE
+			switch r.URL.Path {
+			case config.MutatingWebhookServicePath:
+				admissionReview.Response = ws.HandleMutation(admissionReview.Request)
+			case config.ValidatingWebhookServicePath:
+				admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+			case config.PolicyValidatingWebhookServicePath:
+				admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
+			}
 
-		switch r.URL.Path {
-		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-		case config.ValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
-		case config.PolicyValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 		}
 	}
 
