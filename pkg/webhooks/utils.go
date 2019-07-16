@@ -85,6 +85,15 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 
 // Policy Reporting Modes
 const (
-	BlockChanges    = "blockChanges"
-	ReportViolation = "reportViolation"
+	BlockChanges    = "block"
+	ReportViolation = "report"
 )
+
+func toBlock(pis []*info.PolicyInfo) bool {
+	for _, pi := range pis {
+		if pi.ValidationFailureAction != ReportViolation {
+			return true
+		}
+	}
+	return false
+}

@@ -19,20 +19,20 @@ type PolicyInfo struct {
 	// empty on non-namespaced resources
 	RNamespace string
 	//TODO: add check/enum for types
-	Mode    string // BlockChanges, ReportViolation
-	Rules   []*RuleInfo
-	success bool
+	ValidationFailureAction string // BlockChanges, ReportViolation
+	Rules                   []*RuleInfo
+	success                 bool
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName, rKind, rName, rNamespace, mode string) *PolicyInfo {
+func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) *PolicyInfo {
 	return &PolicyInfo{
-		Name:       policyName,
-		RKind:      rKind,
-		RName:      rName,
-		RNamespace: rNamespace,
-		success:    true, // fail to be set explicity
-		Mode:       mode,
+		Name:                    policyName,
+		RKind:                   rKind,
+		RName:                   rName,
+		RNamespace:              rNamespace,
+		success:                 true, // fail to be set explicity
+		ValidationFailureAction: validationFailureAction,
 	}
 }
 

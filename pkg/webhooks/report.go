@@ -10,13 +10,17 @@ import (
 	"github.com/nirmata/kyverno/pkg/info"
 )
 
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool) ([]*event.Info, []*violation.Info) {
+//TODO: change validation from bool -> enum(validation, mutation)
+func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool, validation bool) ([]*event.Info, []*violation.Info) {
 	var eventsInfo []*event.Info
 	var violations []*violation.Info
 	ok, msg := isAdmSuccesful(policyInfoList)
 	// Some policies failed to apply succesfully
 	if !ok {
 		for _, pi := range policyInfoList {
+			if pi.IsSuccessful() {
+				continue
+			}
 			rules := pi.FailedRules()
 			ruleNames := strings.Join(rules, ";")
 			if !onUpdate {
@@ -34,7 +38,7 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
 			// if report flag is set
-			if pi.Mode == "reportViolation" {
+			if pi.ValidationFailureAction == ReportViolation && validation {
 				// Create Violations
 				v := violation.BuldNewViolation(pi.Name, pi.RKind, pi.RNamespace, pi.RName, event.PolicyViolation.String(), pi.GetFailedRules())
 				violations = append(violations, v)

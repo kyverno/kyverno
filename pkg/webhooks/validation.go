@@ -76,7 +76,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo, violations = newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update))
+		eventsInfo, violations = newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), true)
 		// If the validationFailureAction flag is set "report",
 		// then we dont block the request and report the violations
 		ws.violationBuilder.Add(violations...)
@@ -88,7 +88,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	// violations are created if "report" flag is set
 	// and if there are any then we dont bock the resource creation
 	// Even if one the policy being applied
-	if !ok && violations == nil {
+
+	if !ok && toBlock(policyInfos) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{

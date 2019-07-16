@@ -82,7 +82,7 @@ func (b *builder) processViolation(info *Info) error {
 		}
 	}
 	// Info:
-	// Resource - Kind, Namespace, Name
+	// Key - Kind, Namespace, Name
 	// policy - Name
 	//	violation, ok := currVs[info.getKey()]
 	// Key -> resource
@@ -232,6 +232,7 @@ func isRuleNamesEqual(currRules []interface{}, newRules []v1alpha1.FailedRule) b
 			return false
 		}
 		glog.Info(reflect.TypeOf(rfule["name"]))
+		// name
 		name, ok := rfule["name"].(string)
 		if !ok {
 			return false
@@ -239,6 +240,16 @@ func isRuleNamesEqual(currRules []interface{}, newRules []v1alpha1.FailedRule) b
 		if name != newRules[i].Name {
 			return false
 		}
+		// type
+
+		rtype, ok := rfule["type"].(string)
+		if !ok {
+			return false
+		}
+		if rtype != newRules[i].Type {
+			return false
+		}
+
 	}
 	return true
 }
