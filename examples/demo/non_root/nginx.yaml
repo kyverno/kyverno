@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: psp-demo-unprivileged
+  labels:
+    app.type: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: psp
+  template:
+    metadata:
+      labels:
+        app: psp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - name: sec-ctx-unprivileged
+        image: nginxinc/nginx-unprivileged
