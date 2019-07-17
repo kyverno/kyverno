@@ -80,7 +80,7 @@ func scanDir(dir string) ([]string, error) {
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("prevent panic by handling failure accessing a path %q: %v\n", dir, err)
+			return fmt.Errorf("prevent panic by handling failure accessing a path %q: %v", dir, err)
 		}
 
 		res = append(res, path)

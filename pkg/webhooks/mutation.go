@@ -1,7 +1,12 @@
 package webhooks
 
 import (
+	"fmt"
+
+	jsonpatch "github.com/evanphx/json-patch"
+
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/annotations"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -23,6 +28,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	var allPatches [][]byte
+	var annPatches []byte
 	policyInfos := []*info.PolicyInfo{}
 	for _, policy := range policies {
 		// check if policy has a rule for the admission request kind
@@ -65,6 +71,18 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
+		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Mutation)
+		if annPatch != nil {
+			if annPatches == nil {
+				annPatches = annPatch
+			} else {
+				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
+				if err != nil {
+					fmt.Println("Mergining docs")
+					fmt.Println(err)
+				}
+			}
+		}
 	}
 
 	if len(allPatches) > 0 {
@@ -74,10 +92,17 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
+		patches := engine.JoinPatches(allPatches)
+		if len(annPatches) > 0 {
+			patches, err = jsonpatch.MergePatch(patches, annPatches)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
 			Allowed:   true,
-			Patch:     engine.JoinPatches(allPatches),
+			Patch:     patches,
 			PatchType: &patchType,
 		}
 	}
@@ -87,4 +112,15 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			Message: msg,
 		},
 	}
+}
+
+func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType info.RuleType) []byte {
+	// get annotations
+	ann := annotations.ParseAnnotationsFromObject(rawResource)
+	patch, err := annotations.AddPolicyJSONPatch(ann, pi, ruleType)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return patch
 }
