@@ -4,22 +4,6 @@ metadata:
   name: policy-qos
 spec:
   rules:
-  - name: add-memory-limit
-    resource:
-      kinds:
-      - Deployment
-    mutate:
-      overlay:
-        spec:
-          template:
-            spec:
-              containers:
-                # the wildcard * will match all containers in the list
-                - (name): "*"
-                  resources:
-                    limits:
-                      # add memory limit if it is not exist
-                      "+(memory)": "300Mi"
   - name: check-cpu-memory-limits
     resource:
       kinds:
@@ -38,3 +22,19 @@ spec:
                     # cpu and memory are required
                     memory: "?*"
                     cpu: "?*"
+  - name: add-memory-limit
+    resource:
+      kinds:
+      - Deployment
+    mutate:
+      overlay:
+        spec:
+          template:
+            spec:
+              containers:
+                # the wildcard * will match all containers in the list
+                - (name): "*"
+                  resources:
+                    limits:
+                      # add memory limit if it is not exist
+                      "+(memory)": "300Mi"

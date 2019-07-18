@@ -1,0 +1,26 @@
+apiVersion : kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: container-security-context
+spec:
+  rules:
+  - name: validate-user-privilege
+    resource:
+      kinds:
+      - Deployment
+      selector :
+        matchLabels:
+          app.type: prod
+    validate:
+      message: "validate container security contexts"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - securityContext:
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                  # fields can be customized
+                  # privileged: false
+                  # readOnlyRootFilesystem: true
