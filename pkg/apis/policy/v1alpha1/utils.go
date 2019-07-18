@@ -105,6 +105,26 @@ func (in *Generation) DeepCopyInto(out *Generation) {
 	}
 }
 
+// return true -> if there were any removals
+// return false -> if it looks the same
+func (v *Violation) RemoveRulesOfType(ruleType string) bool {
+	removed := false
+	updatedRules := []FailedRule{}
+	for _, r := range v.Rules {
+		if r.Type == ruleType {
+			removed = true
+			continue
+		}
+		updatedRules = append(updatedRules, r)
+	}
+
+	if removed {
+		v.Rules = updatedRules
+		return true
+	}
+	return false
+}
+
 //IsEqual Check if violatiosn are equal
 func (v *Violation) IsEqual(nv Violation) bool {
 	// We do not need to compare resource info as it will be same

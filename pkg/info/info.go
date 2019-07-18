@@ -159,6 +159,9 @@ func RulesSuccesfuly(rules []*RuleInfo) bool {
 
 //AddRuleInfos sets the rule information
 func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
+	if rules == nil {
+		return
+	}
 	if !RulesSuccesfuly(rules) {
 		pi.success = false
 	}

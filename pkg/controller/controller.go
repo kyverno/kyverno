@@ -162,7 +162,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 	pc.queue.Forget(key)
 	glog.Error(err)
-	glog.Warningf("Dropping the key %q out of the queue: %v", key, err)
+	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
 func (pc *PolicyController) syncHandler(obj interface{}) error {
@@ -192,12 +192,12 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	events, _ := pc.createEventsAndViolations(policyInfos)
+	events, violations := pc.createEventsAndViolations(policyInfos)
 	pc.eventController.Add(events...)
-	// err = pc.violationBuilder.Add(violations...)
-	// if err != nil {
-	// 	glog.Error(err)
-	// }
+	err = pc.violationBuilder.Add(violations...)
+	if err != nil {
+		glog.Error(err)
+	}
 
 	// add annotations to resources
 	pc.createAnnotations(policyInfos)

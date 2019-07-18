@@ -12,6 +12,7 @@ import (
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //Generator to generate policy violation
@@ -48,6 +49,9 @@ func NewPolicyViolationBuilder(client *client.Client,
 }
 
 func (b *builder) Add(infos ...*Info) error {
+	if infos == nil {
+		return nil
+	}
 	for _, info := range infos {
 		return b.processViolation(info)
 	}
@@ -55,96 +59,296 @@ func (b *builder) Add(infos ...*Info) error {
 }
 
 func (b *builder) processViolation(info *Info) error {
-	currVs := map[string]interface{}{}
 	statusMap := map[string]interface{}{}
-	var ok bool
-	//TODO: hack get from client
-	p1, err := b.client.GetResource("Policy", "", info.Policy, "status")
+	violationsMap := map[string]interface{}{}
+	violationMap := map[string]interface{}{}
+	var violations interface{}
+	var violation interface{}
+	// Get Policy
+	obj, err := b.client.GetResource("Policy", "", info.Policy, "status")
 	if err != nil {
 		return err
 	}
-	unstr := p1.UnstructuredContent()
-	// check if "status" field exists
+	unstr := obj.UnstructuredContent()
+	// get "status" subresource
 	status, ok := unstr["status"]
 	if ok {
+		// status exists
 		// status is already present then we append violations
 		if statusMap, ok = status.(map[string]interface{}); !ok {
 			return errors.New("Unable to parse status subresource")
 		}
-		violations, ok := statusMap["violations"]
+		// get policy violations
+		violations, ok = statusMap["violations"]
 		if !ok {
-			glog.Info("violation not present")
-		}
-		// Violations map[string][]Violations
-		glog.Info(reflect.TypeOf(violations))
-		if currVs, ok = violations.(map[string]interface{}); !ok {
-			return errors.New("Unable to parse violations")
-		}
-	}
-	// Info:
-	// Key - Kind, Namespace, Name
-	// policy - Name
-	//	violation, ok := currVs[info.getKey()]
-	// Key -> resource
-	// 1> Check if there were any previous violations for the given key
-	// 2> If No, create a new one
-	if !ok {
-		currVs[info.getKey()] = info.Violation
-	} else {
-		currV := currVs[info.getKey()]
-		glog.Info(reflect.TypeOf(currV))
-		v, ok := currV.(map[string]interface{})
-		if !ok {
-			glog.Info("type not matching")
-		}
-		// get rules
-		rules, ok := v["rules"]
-		if !ok {
-			glog.Info("rules not found")
-		}
-		glog.Info(reflect.TypeOf(rules))
-		rs, ok := rules.([]interface{})
-		if !ok {
-			glog.Info("type not matching")
-		}
-		// check if rules are samre
-		if isRuleNamesEqual(rs, info.Violation.Rules) {
 			return nil
 		}
-		// else update the errors
-		currVs[info.getKey()] = info.Violation
+		violationsMap, ok = violations.(map[string]interface{})
+		if !ok {
+			return errors.New("Unable to get status.violations subresource")
+		}
+		// check if the resource has a violation
+		violation, ok = violationsMap[info.getKey()]
+		if !ok {
+			// add resource violation
+			violationsMap[info.getKey()] = info.Violation
+			statusMap["violations"] = violationsMap
+			unstr["status"] = statusMap
+		} else {
+			violationMap, ok = violation.(map[string]interface{})
+			if !ok {
+				return errors.New("Unable to get status.violations.violation subresource")
+			}
+			// we check if the new violation updates are different from stored violation info
+			v := v1alpha1.Violation{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(violationMap, &v)
+			if err != nil {
+				return err
+			}
+			// compare v & info.Violation
+			if v.IsEqual(info.Violation) {
+				// no updates to violation
+				// do nothing
+				return nil
+			}
+			// update the violation
+			violationsMap[info.getKey()] = info.Violation
+			statusMap["violations"] = violationsMap
+			unstr["status"] = statusMap
+		}
+	} else {
+		violationsMap[info.getKey()] = info.Violation
+		statusMap["violations"] = violationsMap
+		unstr["status"] = statusMap
 	}
-	// newViolation := info.Violation
-	// for _, violation := range currentViolations {
-	// 	glog.Info(reflect.TypeOf(violation))
-	// 	if v, ok := violation.(map[string]interface{}); ok {
-	// 		if name, ok := v["name"].(string); ok {
-	// 			if namespace, ok := v["namespace"].(string); ok {
-	// 				ok, err := b.isActive(info.Kind, name, namespace)
-	// 				if err != nil {
-	// 					glog.Error(err)
-	// 					continue
-	// 				}
-	// 				if !ok {
-	// 					//TODO remove the violation as it corresponds to resource that does not exist
-	// 					glog.Info("removed violation")
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// currentViolations = append(currentViolations, newViolation)
-	// // update violations
-	// set the updated status
-	statusMap["violations"] = currVs
-	unstr["status"] = statusMap
-	p1.SetUnstructuredContent(unstr)
-	_, err = b.client.UpdateStatusResource("Policy", "", p1, false)
+
+	obj.SetUnstructuredContent(unstr)
+	// update the status sub-resource for policy
+	_, err = b.client.UpdateStatusResource("Policy", "", obj, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+func (b *builder) RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error {
+	statusMap := map[string]interface{}{}
+	violationsMap := map[string]interface{}{}
+	violationMap := map[string]interface{}{}
+	var violations interface{}
+	var violation interface{}
+	// Get Policy
+	obj, err := b.client.GetResource("Policy", "", policy, "status")
+	if err != nil {
+		return err
+	}
+	unstr := obj.UnstructuredContent()
+	// get "status" subresource
+	status, ok := unstr["status"]
+	if !ok {
+		return nil
+	}
+	// status exists
+	// status is already present then we append violations
+	if statusMap, ok = status.(map[string]interface{}); !ok {
+		return errors.New("Unable to parse status subresource")
+	}
+	// get policy violations
+	violations, ok = statusMap["violations"]
+	if !ok {
+		return nil
+	}
+	violationsMap, ok = violations.(map[string]interface{})
+	if !ok {
+		return errors.New("Unable to get status.violations subresource")
+	}
+	// check if the resource has a violation
+	violation, ok = violationsMap[BuildKey(rKind, rNs, rName)]
+	if !ok {
+		// no violation for this resource
+		return nil
+	}
+	violationMap, ok = violation.(map[string]interface{})
+	if !ok {
+		return errors.New("Unable to get status.violations.violation subresource")
+	}
+	// check remove the rules of the given type
+	// this is called when the policy is applied succesfully, so we can remove the previous failed rules
+	// if all rules are to be removed, the deleted the violation
+	v := v1alpha1.Violation{}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(violationMap, &v)
+	if err != nil {
+		return err
+	}
+	if !v.RemoveRulesOfType(ruleType.String()) {
+		// no rule of given type found,
+		// no need to remove rule
+		return nil
+	}
+	// if there are no faile rules remove the violation
+	if len(v.Rules) == 0 {
+		delete(violationsMap, BuildKey(rKind, rNs, rName))
+	} else {
+		// update the rules
+		violationsMap[BuildKey(rKind, rNs, rName)] = v
+	}
+	statusMap["violations"] = violationsMap
+	unstr["status"] = statusMap
+
+	obj.SetUnstructuredContent(unstr)
+	// update the status sub-resource for policy
+	_, err = b.client.UpdateStatusResource("Policy", "", obj, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *builder) ResourceRemoval(policy, rKind, rNs, rName string) error {
+	statusMap := map[string]interface{}{}
+	violationsMap := map[string]interface{}{}
+	var violations interface{}
+	// Get Policy
+	obj, err := b.client.GetResource("Policy", "", policy, "status")
+	if err != nil {
+		return err
+	}
+	unstr := obj.UnstructuredContent()
+	// get "status" subresource
+	status, ok := unstr["status"]
+	if !ok {
+		return nil
+	}
+	// status exists
+	// status is already present then we append violations
+	if statusMap, ok = status.(map[string]interface{}); !ok {
+		return errors.New("Unable to parse status subresource")
+	}
+	// get policy violations
+	violations, ok = statusMap["violations"]
+	if !ok {
+		return nil
+	}
+	violationsMap, ok = violations.(map[string]interface{})
+	if !ok {
+		return errors.New("Unable to get status.violations subresource")
+	}
+
+	// check if the resource has a violation
+	_, ok = violationsMap[BuildKey(rKind, rNs, rName)]
+	if !ok {
+		// no violation for this resource
+		return nil
+	}
+	// remove the pair from the map
+	delete(violationsMap, BuildKey(rKind, rNs, rName))
+	if len(violationsMap) == 0 {
+		delete(statusMap, "violations")
+	} else {
+		statusMap["violations"] = violationsMap
+	}
+	unstr["status"] = statusMap
+
+	obj.SetUnstructuredContent(unstr)
+	// update the status sub-resource for policy
+	_, err = b.client.UpdateStatusResource("Policy", "", obj, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// func (b *builder) processViolation(info *Info) error {
+// 	currVs := map[string]interface{}{}
+// 	statusMap := map[string]interface{}{}
+// 	var ok bool
+// 	//TODO: hack get from client
+// 	p1, err := b.client.GetResource("Policy", "", info.Policy, "status")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	unstr := p1.UnstructuredContent()
+// 	// check if "status" field exists
+// 	status, ok := unstr["status"]
+// 	if ok {
+// 		// status is already present then we append violations
+// 		if statusMap, ok = status.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse status subresource")
+// 		}
+// 		violations, ok := statusMap["violations"]
+// 		if !ok {
+// 			glog.Info("violation not present")
+// 		}
+// 		// Violations map[string][]Violations
+// 		glog.Info(reflect.TypeOf(violations))
+// 		if currVs, ok = violations.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse violations")
+// 		}
+// 	}
+// 	// Info:
+// 	// Key - Kind, Namespace, Name
+// 	// policy - Name
+// 	//	violation, ok := currVs[info.getKey()]
+// 	// Key -> resource
+// 	// 1> Check if there were any previous violations for the given key
+// 	// 2> If No, create a new one
+// 	if !ok {
+// 		currVs[info.getKey()] = info.Violation
+// 	} else {
+// 		currV := currVs[info.getKey()]
+// 		glog.Info(reflect.TypeOf(currV))
+// 		v, ok := currV.(map[string]interface{})
+// 		if !ok {
+// 			glog.Info("type not matching")
+// 		}
+// 		// get rules
+// 		rules, ok := v["rules"]
+// 		if !ok {
+// 			glog.Info("rules not found")
+// 		}
+// 		glog.Info(reflect.TypeOf(rules))
+// 		rs, ok := rules.([]interface{})
+// 		if !ok {
+// 			glog.Info("type not matching")
+// 		}
+// 		// check if rules are samre
+// 		if isRuleNamesEqual(rs, info.Violation.Rules) {
+// 			return nil
+// 		}
+// 		// else update the errors
+// 		currVs[info.getKey()] = info.Violation
+// 	}
+// 	// newViolation := info.Violation
+// 	// for _, violation := range currentViolations {
+// 	// 	glog.Info(reflect.TypeOf(violation))
+// 	// 	if v, ok := violation.(map[string]interface{}); ok {
+// 	// 		if name, ok := v["name"].(string); ok {
+// 	// 			if namespace, ok := v["namespace"].(string); ok {
+// 	// 				ok, err := b.isActive(info.Kind, name, namespace)
+// 	// 				if err != nil {
+// 	// 					glog.Error(err)
+// 	// 					continue
+// 	// 				}
+// 	// 				if !ok {
+// 	// 					//TODO remove the violation as it corresponds to resource that does not exist
+// 	// 					glog.Info("removed violation")
+// 	// 				}
+// 	// 			}
+// 	// 		}
+// 	// 	}
+// 	// }
+// 	// currentViolations = append(currentViolations, newViolation)
+// 	// // update violations
+// 	// set the updated status
+// 	statusMap["violations"] = currVs
+// 	unstr["status"] = statusMap
+// 	p1.SetUnstructuredContent(unstr)
+// 	_, err = b.client.UpdateStatusResource("Policy", "", p1, false)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func (b *builder) isActive(kind, rname, rnamespace string) (bool, error) {
 	// Generate Merge Patch
@@ -254,124 +458,124 @@ func isRuleNamesEqual(currRules []interface{}, newRules []v1alpha1.FailedRule) b
 	return true
 }
 
-//RemoveViolation will remove the violation for the resource if there was one
-func (b *builder) RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error {
-	// Remove the <resource, Violation> pair from map
-	statusMap := map[string]interface{}{}
-	currVs := map[string]interface{}{}
-	// Get the policy
-	p, err := b.client.GetResource("Policy", "", policy, "status")
-	if err != nil {
-		glog.Infof("policy %s not found", policy)
-		return err
-	}
-	unstr := p.UnstructuredContent()
+// //RemoveViolation will remove the violation for the resource if there was one
+// func (b *builder) RemoveInactiveViolation(policy, rKind, rNs, rName string, ruleType info.RuleType) error {
+// 	// Remove the <resource, Violation> pair from map
+// 	statusMap := map[string]interface{}{}
+// 	currVs := map[string]interface{}{}
+// 	// Get the policy
+// 	p, err := b.client.GetResource("Policy", "", policy, "status")
+// 	if err != nil {
+// 		glog.Infof("policy %s not found", policy)
+// 		return err
+// 	}
+// 	unstr := p.UnstructuredContent()
 
-	// check if "status" field exists
-	status, ok := unstr["status"]
-	if ok {
-		// status is already present then we append violations
-		if statusMap, ok = status.(map[string]interface{}); !ok {
-			return errors.New("Unable to parse status subresource")
-		}
-		violations, ok := statusMap["violations"]
-		if !ok {
-			glog.Info("violation not present")
-		}
-		glog.Info(reflect.TypeOf(violations))
-		if currVs, ok = violations.(map[string]interface{}); !ok {
-			return errors.New("Unable to parse violations")
-		}
-		currV, ok := currVs[BuildKey(rKind, rNs, rName)]
-		if !ok {
-			// No Violation present
-			return nil
-		}
-		glog.Info(reflect.TypeOf(currV))
-		v, ok := currV.(map[string]interface{})
-		if !ok {
-			glog.Info("type not matching")
-		}
-		// get rules
-		rules, ok := v["rules"]
-		if !ok {
-			glog.Info("rules not found")
-		}
-		glog.Info(reflect.TypeOf(rules))
-		rs, ok := rules.([]interface{})
-		if !ok {
-			glog.Info("type not matching")
-		}
-		// Remove rules of defined type
-		newrs, err := removeRuleTypes(rs, ruleType)
-		if err != nil {
-			glog.Info(err)
-		}
-		if newrs == nil {
-			// all records are removed and is empty
-			glog.Info("can remove the record")
-			delete(currVs, BuildKey(rKind, rNs, rName))
-		} else {
-			v["rules"] = newrs
-			// update the violation with new rule
-			currVs[BuildKey(rKind, rNs, rName)] = v
-		}
-		// update violations
-		statusMap["violations"] = currVs
-		// update status
-		unstr["status"] = statusMap
-		p.SetUnstructuredContent(unstr)
-		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 	// check if "status" field exists
+// 	status, ok := unstr["status"]
+// 	if ok {
+// 		// status is already present then we append violations
+// 		if statusMap, ok = status.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse status subresource")
+// 		}
+// 		violations, ok := statusMap["violations"]
+// 		if !ok {
+// 			glog.Info("violation not present")
+// 		}
+// 		glog.Info(reflect.TypeOf(violations))
+// 		if currVs, ok = violations.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse violations")
+// 		}
+// 		currV, ok := currVs[BuildKey(rKind, rNs, rName)]
+// 		if !ok {
+// 			// No Violation present
+// 			return nil
+// 		}
+// 		glog.Info(reflect.TypeOf(currV))
+// 		v, ok := currV.(map[string]interface{})
+// 		if !ok {
+// 			glog.Info("type not matching")
+// 		}
+// 		// get rules
+// 		rules, ok := v["rules"]
+// 		if !ok {
+// 			glog.Info("rules not found")
+// 		}
+// 		glog.Info(reflect.TypeOf(rules))
+// 		rs, ok := rules.([]interface{})
+// 		if !ok {
+// 			glog.Info("type not matching")
+// 		}
+// 		// Remove rules of defined type
+// 		newrs, err := removeRuleTypes(rs, ruleType)
+// 		if err != nil {
+// 			glog.Info(err)
+// 		}
+// 		if newrs == nil {
+// 			// all records are removed and is empty
+// 			glog.Info("can remove the record")
+// 			delete(currVs, BuildKey(rKind, rNs, rName))
+// 		} else {
+// 			v["rules"] = newrs
+// 			// update the violation with new rule
+// 			currVs[BuildKey(rKind, rNs, rName)] = v
+// 		}
+// 		// update violations
+// 		statusMap["violations"] = currVs
+// 		// update status
+// 		unstr["status"] = statusMap
+// 		p.SetUnstructuredContent(unstr)
+// 		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (b *builder) ResourceRemoval(policy, rKind, rNs, rName string) error {
-	// Remove the <resource, Violation> pair from map
-	statusMap := map[string]interface{}{}
-	currVs := map[string]interface{}{}
-	// Get the policy
-	p, err := b.client.GetResource("Policy", "", policy, "status")
-	if err != nil {
-		glog.Infof("policy %s not found", policy)
-		return err
-	}
-	unstr := p.UnstructuredContent()
-	// check if "status" field exists
-	status, ok := unstr["status"]
-	if ok {
-		// status is already present then we append violations
-		if statusMap, ok = status.(map[string]interface{}); !ok {
-			return errors.New("Unable to parse status subresource")
-		}
-		violations, ok := statusMap["violations"]
-		if !ok {
-			glog.Info("violation not present")
-		}
-		glog.Info(reflect.TypeOf(violations))
-		if currVs, ok = violations.(map[string]interface{}); !ok {
-			return errors.New("Unable to parse violations")
-		}
-		_, ok = currVs[BuildKey(rKind, rNs, rName)]
-		if !ok {
-			// No Violation for this resource
-			return nil
-		}
-		// remove the pair from the map
-		delete(currVs, BuildKey(rKind, rNs, rName))
-		glog.Info("Removed Violation")
-		// update violations
-		statusMap["violations"] = currVs
-		// update status
-		unstr["status"] = statusMap
-		p.SetUnstructuredContent(unstr)
-		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (b *builder) ResourceRemoval(policy, rKind, rNs, rName string) error {
+// 	// Remove the <resource, Violation> pair from map
+// 	statusMap := map[string]interface{}{}
+// 	currVs := map[string]interface{}{}
+// 	// Get the policy
+// 	p, err := b.client.GetResource("Policy", "", policy, "status")
+// 	if err != nil {
+// 		glog.Infof("policy %s not found", policy)
+// 		return err
+// 	}
+// 	unstr := p.UnstructuredContent()
+// 	// check if "status" field exists
+// 	status, ok := unstr["status"]
+// 	if ok {
+// 		// status is already present then we append violations
+// 		if statusMap, ok = status.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse status subresource")
+// 		}
+// 		violations, ok := statusMap["violations"]
+// 		if !ok {
+// 			glog.Info("violation not present")
+// 		}
+// 		glog.Info(reflect.TypeOf(violations))
+// 		if currVs, ok = violations.(map[string]interface{}); !ok {
+// 			return errors.New("Unable to parse violations")
+// 		}
+// 		_, ok = currVs[BuildKey(rKind, rNs, rName)]
+// 		if !ok {
+// 			// No Violation for this resource
+// 			return nil
+// 		}
+// 		// remove the pair from the map
+// 		delete(currVs, BuildKey(rKind, rNs, rName))
+// 		glog.Info("Removed Violation")
+// 		// update violations
+// 		statusMap["violations"] = currVs
+// 		// update status
+// 		unstr["status"] = statusMap
+// 		p.SetUnstructuredContent(unstr)
+// 		_, err = b.client.UpdateStatusResource("Policy", "", p, false)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }

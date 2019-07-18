@@ -88,7 +88,7 @@ func (pc *controller) handleErr(err error, key interface{}) {
 	}
 	pc.queue.Forget(key)
 	glog.Error(err)
-	glog.Warningf("Dropping the key %q out of the queue: %v", key, err)
+	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
 func (c *controller) syncHandler(obj interface{}) error {

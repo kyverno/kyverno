@@ -89,6 +89,8 @@ const (
 	ReportViolation = "report"
 )
 
+// returns true -> if there is even one policy that blocks resource requst
+// returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlock(pis []*info.PolicyInfo) bool {
 	for _, pi := range pis {
 		if pi.ValidationFailureAction != ReportViolation {

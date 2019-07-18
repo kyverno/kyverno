@@ -13,7 +13,7 @@ import (
 )
 
 //TODO: change validation from bool -> enum(validation, mutation)
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool, validation bool) ([]*event.Info, []*violation.Info) {
+func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool, ruleType info.RuleType) ([]*event.Info, []*violation.Info) {
 	var eventsInfo []*event.Info
 	var violations []*violation.Info
 	ok, msg := isAdmSuccesful(policyInfoList)
@@ -40,7 +40,7 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
 			// if report flag is set
-			if pi.ValidationFailureAction == ReportViolation && validation {
+			if pi.ValidationFailureAction == ReportViolation && ruleType == info.Validation {
 				// Create Violations
 				v := violation.BuldNewViolation(pi.Name, pi.RKind, pi.RNamespace, pi.RName, event.PolicyViolation.String(), pi.GetFailedRules())
 				violations = append(violations, v)

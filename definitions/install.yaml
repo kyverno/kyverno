@@ -21,16 +21,13 @@ spec:
         spec:
           required:
           - rules
-          # set as required, as we cannot set default yet. check below for more details
-          - mode
           properties:
-            mode:
+          # default values to be handled by user
+            validationFailureAction:
               type: string
-              # default can only be set if CustomResourceDefaulting feature gate is enabled
-              # default: blockChanges
               enum: 
-              - blockChanges 
-              - reportViolation
+              - block 
+              - report
             rules:
               type: array
               items:
@@ -186,7 +183,8 @@ spec:
       serviceAccountName: kyverno-service-account
       containers:
         - name: kyverno
-          image: nirmata/kyverno:dev-testing
+          image: nirmata/kyverno:latest
+#          image: registry-v2.nirmata.io/nirmata/kyverno:testImage
           args: ["--filterKind","Nodes,Events,APIService,SubjectAccessReview"]
           ports:
           - containerPort: 443

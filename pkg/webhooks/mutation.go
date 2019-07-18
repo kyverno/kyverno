@@ -56,7 +56,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				glog.Warning(r.Msgs)
 			}
 		} else {
-			// CleanUp Violations if exists
+			// //	CleanUp Violations if exists
 			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
 			// if err != nil {
 			// 	glog.Info(err)
@@ -82,7 +82,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	if len(allPatches) > 0 {
-		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), false)
+		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
 		ws.eventController.Add(eventsInfo...)
 	}
 
