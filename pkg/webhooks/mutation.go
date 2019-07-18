@@ -1,8 +1,6 @@
 package webhooks
 
 import (
-	"fmt"
-
 	jsonpatch "github.com/evanphx/json-patch"
 
 	"github.com/golang/glog"
@@ -59,10 +57,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			}
 		} else {
 			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
-			if err != nil {
-				glog.Info(err)
-			}
+			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
+			// if err != nil {
+			// 	glog.Info(err)
+			// }
 
 			if len(policyPatches) > 0 {
 				allPatches = append(allPatches, policyPatches...)
@@ -78,8 +76,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
 				if err != nil {
 					glog.Error(err)
-					fmt.Println("Mergining docs")
-					fmt.Println(err)
 				}
 			}
 		}
@@ -96,7 +92,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if len(annPatches) > 0 {
 			patches, err = jsonpatch.MergePatch(patches, annPatches)
 			if err != nil {
-				fmt.Println(err)
+				glog.Error(err)
 			}
 		}
 		patchType := v1beta1.PatchTypeJSONPatch

@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nirmata/kyverno/pkg/annotations"
@@ -63,8 +64,12 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 }
 
 func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType info.RuleType) []byte {
+	if len(pi.Rules) == 0 {
+		return nil
+	}
 	// get annotations
 	ann := annotations.ParseAnnotationsFromObject(rawResource)
+	fmt.Println(ann)
 	ann, patch, err := annotations.AddPolicyJSONPatch(ann, pi, ruleType)
 	if err != nil {
 		glog.Error(err)

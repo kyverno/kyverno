@@ -9,7 +9,7 @@ import (
 )
 
 func (ws *WebhookServer) removePolicyViolation(request *v1beta1.AdmissionRequest) error {
-
+	return nil
 	// Get the list of policies that apply on the resource
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {

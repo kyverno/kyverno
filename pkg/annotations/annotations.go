@@ -22,7 +22,7 @@ type Policy struct {
 //Rule information for annotations
 type Rule struct {
 	Status  string `json:"status"`
-	Changes string `json:"changes"`
+	Changes string `json:"changes,omitempty"` // TODO for mutation changes
 }
 
 func getStatus(status bool) string {
@@ -187,6 +187,9 @@ func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pi
 func RemovePolicy(obj *unstructured.Unstructured, policy string) bool {
 	// get annotations
 	ann := obj.GetAnnotations()
+	if ann == nil {
+		return false
+	}
 	if _, ok := ann[policy]; !ok {
 		return false
 	}
@@ -205,10 +208,11 @@ func ParseAnnotationsFromObject(bytes []byte) map[string]string {
 		glog.Error("unable to parse")
 		return nil
 	}
-	if annotations, ok := meta["annotations"].(map[string]string); ok {
-		return annotations
+	ann, ok, err := unstructured.NestedStringMap(meta, "annotations")
+	if err != nil || !ok {
+		return nil
 	}
-	return nil
+	return ann
 }
 
 //AddPolicyJSONPatch generate JSON Patch to add policy informatino JSON patch
@@ -227,6 +231,12 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 		ann[pi.Name] = string(PolicyByte)
 		// create add JSON patch
 		jsonPatch, err := createAddJSONPatch(ann)
+		// var jsonPatch []byte
+		// if len(ann) == 0 {
+		// 	jsonPatch, err = createAddJSONPatch(ann)
+		// } else {
+		// 	jsonPatch, err = createReplaceJSONPatch(ann)
+		// }
 		return ann, jsonPatch, err
 	}
 	cPolicyObj := Policy{}
@@ -234,8 +244,8 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 	// update policy information inside the annotation
 	// 1> policy status
 	// 2> rule (name, status,changes,type)
-	cPolicyObj.updatePolicy(PolicyObj, ruleType)
-	if err != nil {
+	update := cPolicyObj.updatePolicy(PolicyObj, ruleType)
+	if !update {
 		return nil, nil, err
 	}
 	cPolicyByte, err := json.Marshal(cPolicyObj)

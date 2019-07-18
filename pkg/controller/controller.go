@@ -88,6 +88,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		return
 	}
 	//TODO: need to clear annotations on the resources
+	cleanAnnotations(pc.client, resource)
 	glog.Infof("policy deleted: %s", object.GetName())
 }
 
@@ -191,12 +192,12 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	//TODO: processPolicy
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	events, violations := pc.createEventsAndViolations(policyInfos)
+	events, _ := pc.createEventsAndViolations(policyInfos)
 	pc.eventController.Add(events...)
-	err = pc.violationBuilder.Add(violations...)
-	if err != nil {
-		glog.Error(err)
-	}
+	// err = pc.violationBuilder.Add(violations...)
+	// if err != nil {
+	// 	glog.Error(err)
+	// }
 
 	// add annotations to resources
 	pc.createAnnotations(policyInfos)
@@ -241,10 +242,9 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 		if mpatch == nil {
 			patch = vpatch
 		} else {
-			patch = vpatch
+			patch = mpatch
 		}
-
-		// add the anotation to the resource
+		//		add the anotation to the resource
 		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
 		if err != nil {
 			glog.Error(err)

@@ -6,7 +6,6 @@ import (
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
-	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -16,7 +15,7 @@ import (
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policyInfos := []*info.PolicyInfo{}
-	var violations []*violation.Info
+	// var violations []*violation.Info
 	var eventsInfo []*event.Info
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
@@ -27,6 +26,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			Allowed: true,
 		}
 	}
+
 	rname := engine.ParseNameFromObject(request.Object.Raw)
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
 	rkind := engine.ParseKindFromObject(request.Object.Raw)
@@ -64,18 +64,18 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 				glog.Warning(r.Msgs)
 			}
 		} else {
-			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
-			if err != nil {
-				glog.Info(err)
-			}
+			// // CleanUp Violations if exists
+			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
+			// if err != nil {
+			// 	glog.Info(err)
+			// }
 
 			if len(ruleInfos) > 0 {
 				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
-		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Mutation)
+		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
 		if annPatch != nil {
 			if annPatches == nil {
 				annPatches = annPatch
@@ -89,13 +89,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo, violations = newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), true)
+		eventsInfo, _ = newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), true)
 		// If the validationFailureAction flag is set "report",
 		// then we dont block the request and report the violations
-		ws.violationBuilder.Add(violations...)
+		// ws.violationBuilder.Add(violations...)
 		ws.eventController.Add(eventsInfo...)
 	}
-	// add annotations
+	//	add annotations
 	if annPatches != nil {
 		ws.annotationsController.Add(rkind, rns, rname, annPatches)
 	}
