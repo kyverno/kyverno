@@ -13,7 +13,7 @@ spec:
     - -c
     - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
     readinessProbe:
-      periodSeconds: 5
+      # successThreshold: 3
       exec:
         command:
         - cat

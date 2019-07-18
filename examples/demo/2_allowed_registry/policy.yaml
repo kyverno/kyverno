@@ -9,6 +9,7 @@ spec:
       kinds:
       - Deployment
       - StatefulSet
+      namespace: default
     validate:
       message: "Registry is not allowed"
       pattern:
@@ -18,5 +19,4 @@ spec:
               containers:
               - name: "*"
                 # Check allowed registries
-                image: "*nirmata*"
-                # image: "*nirmata* | https://private.registry.io/*"
+                image: "*nirmata* | https://private.registry.io/*"

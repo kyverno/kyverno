@@ -8,6 +8,12 @@ spec:
     resource:
       kinds:
       - Deployment
+      # - StatefulSet
+      # name: "my-deployment"
+      # selector :
+      #   matchLabels:
+      #     app.type: prod
+      # namespace: "my-namespace"
     mutate:
       overlay:
         spec:

@@ -9,19 +9,19 @@ spec:
       kinds :
       - Pod
     validate:
-      message: "a readinessProbe is required"
+      message: "readinessProbe is required"
       pattern:
         spec:
           containers:
           - (name): "readiness"
             readinessProbe:
-              periodSeconds: ">0"
+              successThreshold: ">1"
   - name: check-livenessProbe-exists
     resource:
       kinds :
       - Pod
     validate:
-      message: "a livenessProbe is required"
+      message: "livenessProbe is required"
       pattern:
         spec:
           containers:
