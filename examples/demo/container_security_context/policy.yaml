@@ -4,7 +4,7 @@ metadata:
   name: container-security-context
 spec:
   rules:
-  - name: set-userID
+  - name: validate-user-privilege
     resource:
       kinds:
       - Deployment
@@ -18,8 +18,9 @@ spec:
           template:
             spec:
               containers:
-                securityContext:
-                  # privileged: false
-                  # allowPrivilegeEscalation: false
-                  # readOnlyRootFilesystem: true
+              - securityContext:
                   runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                  # fields can be customized
+                  # privileged: false
+                  # readOnlyRootFilesystem: true

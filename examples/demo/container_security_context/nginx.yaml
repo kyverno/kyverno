@@ -19,4 +19,4 @@ spec:
         image: nginxinc/nginx-unprivileged
         securityContext:
           runAsNonRoot: true
-
+          allowPrivilegeEscalation: true
