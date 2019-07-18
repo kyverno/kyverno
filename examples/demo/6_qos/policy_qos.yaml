@@ -3,6 +3,7 @@ kind: Policy
 metadata:
   name: policy-qos
 spec:
+  validationFailureAction: "report"
   rules:
   - name: check-cpu-memory-limits
     resource:
@@ -22,19 +23,19 @@ spec:
                     # cpu and memory are required
                     memory: "?*"
                     cpu: "?*"
-  - name: add-memory-limit
-    resource:
-      kinds:
-      - Deployment
-    mutate:
-      overlay:
-        spec:
-          template:
-            spec:
-              containers:
-                # the wildcard * will match all containers in the list
-                - (name): "*"
-                  resources:
-                    limits:
-                      # add memory limit if it is not exist
-                      "+(memory)": "300Mi"
+  # - name: add-memory-limit
+  #   resource:
+  #     kinds:
+  #     - Deployment
+  #   mutate:
+  #     overlay:
+  #       spec:
+  #         template:
+  #           spec:
+  #             containers:
+  #               # the wildcard * will match all containers in the list
+  #               - (name): "*"
+  #                 resources:
+  #                   limits:
+  #                     # add memory limit if it is not exist
+  #                     "+(memory)": "300Mi"
