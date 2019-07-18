@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -24,12 +25,13 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server           http.Server
-	client           *client.Client
-	policyLister     v1alpha1.PolicyLister
-	eventController  event.Generator
-	violationBuilder violation.Generator
-	filterKinds      []string
+	server                http.Server
+	client                *client.Client
+	policyLister          v1alpha1.PolicyLister
+	eventController       event.Generator
+	violationBuilder      violation.Generator
+	annotationsController annotations.Controller
+	filterKinds           []string
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -40,6 +42,7 @@ func NewWebhookServer(
 	shareInformer sharedinformer.PolicyInformer,
 	eventController event.Generator,
 	violationBuilder violation.Generator,
+	annotationsController annotations.Controller,
 	filterKinds []string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -54,11 +57,12 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:           client,
-		policyLister:     shareInformer.GetLister(),
-		eventController:  eventController,
-		violationBuilder: violationBuilder,
-		filterKinds:      parseKinds(filterKinds),
+		client:                client,
+		policyLister:          shareInformer.GetLister(),
+		eventController:       eventController,
+		violationBuilder:      violationBuilder,
+		annotationsController: annotationsController,
+		filterKinds:           parseKinds(filterKinds),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)

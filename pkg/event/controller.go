@@ -42,13 +42,12 @@ type Controller interface {
 func NewEventController(client *client.Client,
 	shareInformer sharedinformer.PolicyInformer) Controller {
 
-	controller := &controller{
+	return &controller{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
 		recorder:     initRecorder(client),
 	}
-	return controller
 }
 
 func initRecorder(client *client.Client) record.EventRecorder {

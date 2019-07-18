@@ -2,24 +2,26 @@ package annotations
 
 import (
 	"encoding/json"
+	"reflect"
 
 	"github.com/golang/glog"
+	pinfo "github.com/nirmata/kyverno/pkg/info"
 
-	"github.com/nirmata/kyverno/pkg/info"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 //Policy information for annotations
 type Policy struct {
 	Status string `json:"status"`
-	Rules  []Rule `json:"rules,omitempty"`
+	// Key Type/Name
+	MutationRules   map[string]Rule `json:"mutationrules,omitempty"`
+	ValidationRules map[string]Rule `json:"validationrules,omitempty"`
+	GenerationRules map[string]Rule `json:"generationrules,omitempty"`
 }
 
 //Rule information for annotations
 type Rule struct {
-	Name    string `json:"name"`
 	Status  string `json:"status"`
-	Type    string `json:"type"`
 	Changes string `json:"changes"`
 }
 
@@ -29,50 +31,117 @@ func getStatus(status bool) string {
 	}
 	return "Failure"
 }
-func getRules(rules []*info.RuleInfo) []Rule {
-	var annrules []Rule
+
+func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule {
+	if len(rules) == 0 {
+		return nil
+	}
+	annrules := make(map[string]Rule, 0)
+	// var annrules map[string]Rule
 	for _, r := range rules {
-		annrule := Rule{Name: r.Name,
-			Status: getStatus(r.IsSuccessful()),
-			Type:   r.RuleType.String()}
-		//TODO: add mutation changes in policyInfo and in annotation
-		annrules = append(annrules, annrule)
+		if r.RuleType != ruleType {
+			continue
+		}
+		annrules[r.Name] =
+			Rule{Status: getStatus(r.IsSuccessful())}
+		// //TODO: add mutation changes in policyInfo and in annotation
+		// annrules = append(annrules, annrule)
 	}
 	return annrules
 }
 
-func (p *Policy) updatePolicy(obj *Policy, ruleType info.RuleType) {
+func (p *Policy) updatePolicy(obj *Policy, ruleType pinfo.RuleType) bool {
+	updates := false
+	if p.Status != obj.Status {
+		updates = true
+	}
 	p.Status = obj.Status
-	p.updatePolicyRules(obj.Rules, ruleType)
-}
-
-// Update rules of a given type
-func (p *Policy) updatePolicyRules(rules []Rule, ruleType info.RuleType) {
-	var updatedRules []Rule
-	//TODO: check the selecting update add advantage
-	// filter rules for different type
-	for _, r := range rules {
-		if r.Type != ruleType.String() {
-			updatedRules = append(updatedRules, r)
+	// Check Mutation rules
+	switch ruleType {
+	case pinfo.Mutation:
+		if p.compareMutationRules(obj.MutationRules) {
+			updates = true
+		}
+	case pinfo.Validation:
+		if p.compareValidationRules(obj.ValidationRules) {
+			updates = true
+		}
+	case pinfo.Generation:
+		if p.compareGenerationRules(obj.GenerationRules) {
+			updates = true
 		}
 	}
-	// Add rules for current type
-	updatedRules = append(updatedRules, rules...)
-	// set the rule
-	p.Rules = updatedRules
+	// If there are any updates then the annotation can be updated, can skip
+	return updates
 }
+
+func (p *Policy) compareMutationRules(rules map[string]Rule) bool {
+	// check if the rules have changed
+	if !reflect.DeepEqual(p.MutationRules, rules) {
+		p.MutationRules = rules
+		return true
+	}
+	return false
+}
+
+func (p *Policy) compareValidationRules(rules map[string]Rule) bool {
+	// check if the rules have changed
+	if !reflect.DeepEqual(p.ValidationRules, rules) {
+		p.ValidationRules = rules
+		return true
+	}
+	return false
+}
+
+func (p *Policy) compareGenerationRules(rules map[string]Rule) bool {
+	// check if the rules have changed
+	if !reflect.DeepEqual(p.GenerationRules, rules) {
+		p.GenerationRules = rules
+		return true
+	}
+	return false
+}
+
+// // Update rules of a given type
+// func (p *Policy) updatePolicyRules(rules map[string]Rule, ruleType info.RuleType) bool {
+// 	updates := false
+// 	// Check if new rules are present in existing rules
+// 	// for k, v := range rules {
+// 	// 	_,
+// 	// }
+
+// 	var updatedRules []Rule
+// 	//TODO: check the selecting update add advantage
+// 	// filter rules for different type
+// 	for _, r := range rules {
+// 		if r.Type != ruleType.String() {
+// 			updatedRules = append(updatedRules, r)
+// 		}
+// 	}
+// 	// Add rules for current type
+// 	updatedRules = append(updatedRules, rules...)
+// 	// set the rule
+// 	p.Rules = updatedRules
+// }
 
 // func (p *Policy) containsPolicyRules(rules []Rule, ruleType info.RuleType) {
 // 	for _, r := range rules {
 // 	}
 // }
-func newAnnotationForPolicy(pi *info.PolicyInfo) *Policy {
+
+func newAnnotationForPolicy(pi *pinfo.PolicyInfo) *Policy {
 	return &Policy{Status: getStatus(pi.IsSuccessful()),
-		Rules: getRules(pi.Rules)}
+		MutationRules:   getRules(pi.Rules, pinfo.Mutation),
+		ValidationRules: getRules(pi.Rules, pinfo.Validation),
+		GenerationRules: getRules(pi.Rules, pinfo.Generation),
+	}
 }
 
 //AddPolicy will add policy annotation if not present or update if present
-func AddPolicy(obj *unstructured.Unstructured, pi *info.PolicyInfo, ruleType info.RuleType) error {
+// modifies obj
+// returns true, if there is any update -> caller need to update the obj
+// returns false, if there is no change -> caller can skip the update
+func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pinfo.RuleType) bool {
 	PolicyObj := newAnnotationForPolicy(pi)
 	// get annotation
 	ann := obj.GetAnnotations()
@@ -81,41 +150,50 @@ func AddPolicy(obj *unstructured.Unstructured, pi *info.PolicyInfo, ruleType inf
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
 		if err != nil {
-			return err
+			glog.Error(err)
+			return false
 		}
 		// insert policy information
 		ann[pi.Name] = string(PolicyByte)
 		// set annotation back to unstr
 		obj.SetAnnotations(ann)
-		return nil
+		return true
 	}
 	cPolicyObj := Policy{}
 	err := json.Unmarshal([]byte(cPolicy), &cPolicyObj)
+	if err != nil {
+		return false
+	}
 	// update policy information inside the annotation
 	// 1> policy status
-	// 2> rule (name, status,changes,type)
-	cPolicyObj.updatePolicy(PolicyObj, ruleType)
-	if err != nil {
-		return err
+	// 2> Mutation, Validation, Generation
+	if cPolicyObj.updatePolicy(PolicyObj, ruleType) {
+		cPolicyByte, err := json.Marshal(cPolicyObj)
+		if err != nil {
+			return false
+		}
+		// update policy information
+		ann[pi.Name] = string(cPolicyByte)
+		// set annotation back to unstr
+		obj.SetAnnotations(ann)
+		return true
 	}
-	cPolicyByte, err := json.Marshal(cPolicyObj)
-	if err != nil {
-		return err
-	}
-	// update policy information
-	ann[pi.Name] = string(cPolicyByte)
-	// set annotation back to unstr
-	obj.SetAnnotations(ann)
-	return nil
+	return false
 }
 
-//RemovePolicy to remove annotations fro
-func RemovePolicy(obj *unstructured.Unstructured, policy string) {
+//RemovePolicy to remove annotations
+// return true -> if there was an entry and we deleted it
+// return false -> if there is no entry, caller need not update
+func RemovePolicy(obj *unstructured.Unstructured, policy string) bool {
 	// get annotations
 	ann := obj.GetAnnotations()
+	if _, ok := ann[policy]; !ok {
+		return false
+	}
 	delete(ann, policy)
 	// set annotation back to unstr
 	obj.SetAnnotations(ann)
+	return true
 }
 
 //ParseAnnotationsFromObject extracts annotations from the JSON obj
@@ -134,7 +212,7 @@ func ParseAnnotationsFromObject(bytes []byte) map[string]string {
 }
 
 //AddPolicyJSONPatch generate JSON Patch to add policy informatino JSON patch
-func AddPolicyJSONPatch(ann map[string]string, pi *info.PolicyInfo, ruleType info.RuleType) ([]byte, error) {
+func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pinfo.RuleType) (map[string]string, []byte, error) {
 	if ann == nil {
 		ann = make(map[string]string, 0)
 	}
@@ -143,12 +221,13 @@ func AddPolicyJSONPatch(ann map[string]string, pi *info.PolicyInfo, ruleType inf
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// insert policy information
 		ann[pi.Name] = string(PolicyByte)
 		// create add JSON patch
-		return createAddJSONPatch(ann)
+		jsonPatch, err := createAddJSONPatch(ann)
+		return ann, jsonPatch, err
 	}
 	cPolicyObj := Policy{}
 	err := json.Unmarshal([]byte(cPolicy), &cPolicyObj)
@@ -157,28 +236,31 @@ func AddPolicyJSONPatch(ann map[string]string, pi *info.PolicyInfo, ruleType inf
 	// 2> rule (name, status,changes,type)
 	cPolicyObj.updatePolicy(PolicyObj, ruleType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cPolicyByte, err := json.Marshal(cPolicyObj)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// update policy information
 	ann[pi.Name] = string(cPolicyByte)
 	// create update JSON patch
-	return createReplaceJSONPatch(ann)
+	jsonPatch, err := createReplaceJSONPatch(ann)
+	return ann, jsonPatch, err
 }
 
 //RemovePolicyJSONPatch remove JSON patch
-func RemovePolicyJSONPatch(ann map[string]string, policy string) ([]byte, error) {
+func RemovePolicyJSONPatch(ann map[string]string, policy string) (map[string]string, []byte, error) {
 	if ann == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	delete(ann, policy)
 	if len(ann) == 0 {
-		return createRemoveJSONPatch(ann)
+		jsonPatch, err := createRemoveJSONPatch(ann)
+		return nil, jsonPatch, err
 	}
-	return createReplaceJSONPatch(ann)
+	jsonPatch, err := createReplaceJSONPatch(ann)
+	return ann, jsonPatch, err
 }
 
 type patchMapValue struct {
@@ -195,6 +277,7 @@ func createRemoveJSONPatch(ann map[string]string) ([]byte, error) {
 	return json.Marshal(payload)
 
 }
+
 func createAddJSONPatch(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string, 0)

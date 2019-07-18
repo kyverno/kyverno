@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
+
+	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/info"
 
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -26,27 +29,30 @@ import (
 
 //PolicyController to manage Policy CRD
 type PolicyController struct {
-	client           *client.Client
-	policyLister     lister.PolicyLister
-	policySynced     cache.InformerSynced
-	violationBuilder violation.Generator
-	eventController  event.Generator
-	queue            workqueue.RateLimitingInterface
+	client                *client.Client
+	policyLister          lister.PolicyLister
+	policySynced          cache.InformerSynced
+	violationBuilder      violation.Generator
+	eventController       event.Generator
+	annotationsController annotations.Controller
+	queue                 workqueue.RateLimitingInterface
 }
 
 // NewPolicyController from cmd args
 func NewPolicyController(client *client.Client,
 	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
-	eventController event.Generator) *PolicyController {
+	eventController event.Generator,
+	annotationsController annotations.Controller) *PolicyController {
 
 	controller := &PolicyController{
-		client:           client,
-		policyLister:     policyInformer.GetLister(),
-		policySynced:     policyInformer.GetInfomer().HasSynced,
-		violationBuilder: violationBuilder,
-		eventController:  eventController,
-		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
+		client:                client,
+		policyLister:          policyInformer.GetLister(),
+		policySynced:          policyInformer.GetInfomer().HasSynced,
+		violationBuilder:      violationBuilder,
+		eventController:       eventController,
+		annotationsController: annotationsController,
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
 	policyInformer.GetInfomer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -81,6 +87,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		glog.Error("error decoding object, invalid type")
 		return
 	}
+	//TODO: need to clear annotations on the resources
 	glog.Infof("policy deleted: %s", object.GetName())
 }
 
@@ -190,7 +197,60 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 	if err != nil {
 		glog.Error(err)
 	}
+
+	// add annotations to resources
+	pc.createAnnotations(policyInfos)
+
 	return nil
+}
+
+func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
+	for _, pi := range policyInfos {
+		var patch []byte
+		//get resource
+		obj, err := pc.client.GetResource(pi.RKind, pi.RNamespace, pi.RName)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+		// add annotation for policy application
+		ann := obj.GetAnnotations()
+		// Mutation rules
+		ann, mpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Mutation)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+		// Validation rules
+		ann, vpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Validation)
+		if err != nil {
+			glog.Error(err)
+		}
+		if mpatch == nil && mpatch == nil {
+			//nothing to patch
+			continue
+		}
+		// merge the patches
+		if mpatch != nil && vpatch != nil {
+			patch, err = jsonpatch.MergePatch(mpatch, vpatch)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+		}
+		if mpatch == nil {
+			patch = vpatch
+		} else {
+			patch = vpatch
+		}
+
+		// add the anotation to the resource
+		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+	}
 }
 
 func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
@@ -228,9 +288,6 @@ func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.Policy
 		}
 
 		if !policyInfo.IsSuccessful() {
-			// Event
-			// list of failed rules : ruleNames
-
 			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, concatFailedRules(frules))
 			events = append(events, e)
 			// Violation

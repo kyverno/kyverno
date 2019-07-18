@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/config"
 	controller "github.com/nirmata/kyverno/pkg/controller"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -24,7 +25,6 @@ var (
 
 func main() {
 	defer glog.Flush()
-
 	printVersionInfo()
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
@@ -43,19 +43,20 @@ func main() {
 	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
 	eventController := event.NewEventController(client, policyInformerFactory)
 	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
-
+	annotationsController := annotations.NewAnnotationControler(client)
 	policyController := controller.NewPolicyController(
 		client,
 		policyInformerFactory,
 		violationBuilder,
-		eventController)
+		eventController,
+		annotationsController)
 
 	genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces())
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, filterK8Kinds)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, filterK8Kinds)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -71,6 +72,7 @@ func main() {
 	kubeInformer.Start(stopCh)
 	eventController.Run(stopCh)
 	genControler.Run(stopCh)
+	annotationsController.Run(stopCh)
 	if err = policyController.Run(stopCh); err != nil {
 		glog.Fatalf("Error running PolicyController: %v\n", err)
 	}
@@ -84,6 +86,7 @@ func main() {
 	server.Stop()
 	genControler.Stop()
 	eventController.Stop()
+	annotationsController.Stop()
 	policyController.Stop()
 }
 

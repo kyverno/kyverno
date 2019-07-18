@@ -3,6 +3,7 @@ package webhooks
 import (
 	"strings"
 
+	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/violation"
 
 	"github.com/golang/glog"
@@ -59,4 +60,15 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 		}
 	}
 	return eventsInfo, violations
+}
+
+func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType info.RuleType) []byte {
+	// get annotations
+	ann := annotations.ParseAnnotationsFromObject(rawResource)
+	ann, patch, err := annotations.AddPolicyJSONPatch(ann, pi, ruleType)
+	if err != nil {
+		glog.Error(err)
+		return nil
+	}
+	return patch
 }

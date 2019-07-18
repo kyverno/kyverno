@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -26,15 +27,16 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			Allowed: true,
 		}
 	}
+	rname := engine.ParseNameFromObject(request.Object.Raw)
+	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+	rkind := engine.ParseKindFromObject(request.Object.Raw)
 
+	var annPatches []byte
 	for _, policy := range policies {
 
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
-		rname := engine.ParseNameFromObject(request.Object.Raw)
-		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-		rkind := engine.ParseKindFromObject(request.Object.Raw)
 
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,
@@ -73,6 +75,17 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
+		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Mutation)
+		if annPatch != nil {
+			if annPatches == nil {
+				annPatches = annPatch
+			} else {
+				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
+				if err != nil {
+					glog.Error(err)
+				}
+			}
+		}
 	}
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
@@ -82,7 +95,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		ws.violationBuilder.Add(violations...)
 		ws.eventController.Add(eventsInfo...)
 	}
-
+	// add annotations
+	if annPatches != nil {
+		ws.annotationsController.Add(rkind, rns, rname, annPatches)
+	}
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
 	// violations are created if "report" flag is set

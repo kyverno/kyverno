@@ -6,7 +6,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -78,6 +77,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			} else {
 				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
 				if err != nil {
+					glog.Error(err)
 					fmt.Println("Mergining docs")
 					fmt.Println(err)
 				}
@@ -112,15 +112,4 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			Message: msg,
 		},
 	}
-}
-
-func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType info.RuleType) []byte {
-	// get annotations
-	ann := annotations.ParseAnnotationsFromObject(rawResource)
-	patch, err := annotations.AddPolicyJSONPatch(ann, pi, ruleType)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return patch
 }
