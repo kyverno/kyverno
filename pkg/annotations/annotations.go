@@ -32,6 +32,10 @@ func getStatus(status bool) string {
 	return "Failure"
 }
 
+func buildKey(policyName string) string {
+	return "policies.kyverno.io." + policyName
+}
+
 func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule {
 	if len(rules) == 0 {
 		return nil
@@ -146,7 +150,7 @@ func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pi
 	// get annotation
 	ann := obj.GetAnnotations()
 	// check if policy already has annotation
-	cPolicy, ok := ann[pi.Name]
+	cPolicy, ok := ann[buildKey(pi.Name)]
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
 		if err != nil {
@@ -154,7 +158,7 @@ func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pi
 			return false
 		}
 		// insert policy information
-		ann[pi.Name] = string(PolicyByte)
+		ann[buildKey(pi.Name)] = string(PolicyByte)
 		// set annotation back to unstr
 		obj.SetAnnotations(ann)
 		return true
@@ -173,7 +177,7 @@ func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pi
 			return false
 		}
 		// update policy information
-		ann[pi.Name] = string(cPolicyByte)
+		ann[buildKey(pi.Name)] = string(cPolicyByte)
 		// set annotation back to unstr
 		obj.SetAnnotations(ann)
 		return true
@@ -190,10 +194,10 @@ func RemovePolicy(obj *unstructured.Unstructured, policy string) bool {
 	if ann == nil {
 		return false
 	}
-	if _, ok := ann[policy]; !ok {
+	if _, ok := ann[buildKey(policy)]; !ok {
 		return false
 	}
-	delete(ann, policy)
+	delete(ann, buildKey(policy))
 	// set annotation back to unstr
 	obj.SetAnnotations(ann)
 	return true
@@ -221,14 +225,14 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 		ann = make(map[string]string, 0)
 	}
 	PolicyObj := newAnnotationForPolicy(pi)
-	cPolicy, ok := ann[pi.Name]
+	cPolicy, ok := ann[buildKey(pi.Name)]
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
 		if err != nil {
 			return nil, nil, err
 		}
 		// insert policy information
-		ann[pi.Name] = string(PolicyByte)
+		ann[buildKey(pi.Name)] = string(PolicyByte)
 		// create add JSON patch
 		jsonPatch, err := createAddJSONPatch(ann)
 		// var jsonPatch []byte
@@ -253,7 +257,7 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 		return nil, nil, err
 	}
 	// update policy information
-	ann[pi.Name] = string(cPolicyByte)
+	ann[buildKey(pi.Name)] = string(cPolicyByte)
 	// create update JSON patch
 	jsonPatch, err := createReplaceJSONPatch(ann)
 	return ann, jsonPatch, err
