@@ -79,7 +79,7 @@ func (pc *controller) handleErr(err error, key interface{}) {
 		return
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
-	if pc.queue.NumRequeues(key) < WorkQueueRetryLimit {
+	if pc.queue.NumRequeues(key) < workQueueRetryLimit {
 		glog.Warningf("Error syncing events %v: %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.

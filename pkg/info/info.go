@@ -69,7 +69,7 @@ func (pi *PolicyInfo) GetFailedRules() []v1alpha1.FailedRule {
 	var rules []v1alpha1.FailedRule
 	for _, r := range pi.Rules {
 		if !r.IsSuccessful() {
-			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String()})
+			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String(), Error: r.GetErrorString()})
 		}
 	}
 	return rules
@@ -111,10 +111,16 @@ type RuleInfo struct {
 }
 
 //ToString reule information
+//TODO: check if this is needed
 func (ri *RuleInfo) ToString() string {
 	str := "rulename: " + ri.Name
 	msgs := strings.Join(ri.Msgs, ";")
 	return strings.Join([]string{str, msgs}, ";")
+}
+
+//GetErrorString returns the error message for a rule
+func (ri *RuleInfo) GetErrorString() string {
+	return strings.Join(ri.Msgs, ";")
 }
 
 //NewRuleInfo creates a new RuleInfo

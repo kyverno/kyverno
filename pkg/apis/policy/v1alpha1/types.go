@@ -93,8 +93,9 @@ type Violation struct {
 
 // FailedRule stored info and type of failed rules
 type FailedRule struct {
-	Name string `json:"name"`
-	Type string `json:"type"` //Mutation, Validation, Genertaion
+	Name  string `json:"name"`
+	Type  string `json:"type"` //Mutation, Validation, Genertaion
+	Error string `json:"error"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

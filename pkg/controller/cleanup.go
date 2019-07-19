@@ -28,7 +28,6 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.Kinds {
 			if k == "Namespace" {
-				// REWORK: will be handeled by namespace controller
 				continue
 			}
 			// kind -> resource
@@ -63,7 +62,7 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 		// get annotations
 		ann := obj.GetAnnotations()
 
-		_, patch, err := annotations.RemovePolicyJSONPatch(ann, policy.Name)
+		_, patch, err := annotations.RemovePolicyJSONPatch(ann, annotations.BuildKey(policy.Name))
 		if err != nil {
 			glog.Error(err)
 			continue

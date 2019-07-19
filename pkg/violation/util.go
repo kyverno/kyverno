@@ -11,7 +11,7 @@ const workqueueViolationName = "Policy-Violations"
 // Event Reason
 const violationEventResrouce = "Violation"
 
-//ViolationInfo describes the policyviolation details
+//Info describes the policyviolation details
 type Info struct {
 	Policy string
 	policytype.Violation
@@ -25,4 +25,3 @@ func (i Info) getKey() string {
 func BuildKey(rKind, rNs, rName string) string {
 	return rKind + "/" + rNs + "/" + rName
 }
-

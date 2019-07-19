@@ -87,7 +87,6 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		glog.Error("error decoding object, invalid type")
 		return
 	}
-	//TODO: need to clear annotations on the resources
 	cleanAnnotations(pc.client, resource)
 	glog.Infof("policy deleted: %s", object.GetName())
 }
@@ -176,8 +175,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 		glog.Errorf("invalid policy key: %s", key)
 		return nil
 	}
-
-	// Get Policy resource with namespace/name
+	// Get Policy
 	policy, err := pc.policyLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -186,20 +184,20 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 		}
 		return err
 	}
-	// process policy on existing resource
-	// get the violations and pass to violation Builder
-	// get the events and pass to event Builder
-	//TODO: processPolicy
+
 	glog.Infof("process policy %s on existing resources", policy.GetName())
+	// Process policy on existing resources
 	policyInfos := engine.ProcessExisting(pc.client, policy)
+
 	events, violations := pc.createEventsAndViolations(policyInfos)
+	// Events, Violations
 	pc.eventController.Add(events...)
 	err = pc.violationBuilder.Add(violations...)
 	if err != nil {
 		glog.Error(err)
 	}
 
-	// add annotations to resources
+	// Annotations
 	pc.createAnnotations(policyInfos)
 
 	return nil
@@ -277,9 +275,11 @@ func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.Policy
 					case info.Generation:
 						frule.Type = info.Generation.String()
 					}
+					frule.Error = rule.GetErrorString()
 				default:
 					glog.Info("Unsupported Rule type")
 				}
+				frule.Error = rule.GetErrorString()
 				frules = append(frules, frule)
 				events = append(events, e)
 			} else {
@@ -291,24 +291,13 @@ func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.Policy
 			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, concatFailedRules(frules))
 			events = append(events, e)
 			// Violation
-			// TODO: Violation is currently create at policy, level not resource level
-			// As we create violation, we check if the
-			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), frules)
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), policyInfo.GetFailedRules())
 			violations = append(violations, v)
 		} else {
 			// clean up violations
 			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Mutation)
 			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Validation)
 		}
-
-		// else {
-		// 	// Policy was processed succesfully
-		// 	e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
-		// 	events = append(events, e)
-		// 	// Policy applied succesfully on resource
-		// 	e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
-		// 	events = append(events, e)
-		// }
 	}
 	return events, violations
 }

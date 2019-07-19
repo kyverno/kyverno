@@ -14,8 +14,6 @@ import (
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policyInfos := []*info.PolicyInfo{}
-	// var violations []*violation.Info
-	// var eventsInfo []*event.Info
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -81,6 +79,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
+		// annotations
 		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
 		if annPatch != nil {
 			if annPatches == nil {

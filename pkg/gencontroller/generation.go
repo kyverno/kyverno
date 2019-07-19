@@ -78,9 +78,7 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) {
 
 		if onViolation {
 			glog.Infof("Adding violation for generation rule of policy %s\n", policyInfo.Name)
-
-			v := violation.NewViolation(event.PolicyViolation, policyInfo.Name, policyInfo.RKind, policyInfo.RName,
-				policyInfo.RNamespace, msg)
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), policyInfo.GetFailedRules())
 			c.violationBuilder.Add(v)
 		} else {
 			eventInfo = event.NewEvent(policyKind, "", policyInfo.Name, event.RequestBlocked,
