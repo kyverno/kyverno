@@ -105,6 +105,10 @@ func toBlock(pis []*info.PolicyInfo) bool {
 }
 
 func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
+	// process only if its for existing resources
+	if request.Operation != v1beta1.Update {
+		return false
+	}
 	// updated resoruce
 	obj := request.Object
 	objUnstr := unstructured.Unstructured{}
