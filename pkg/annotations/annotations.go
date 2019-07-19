@@ -36,8 +36,12 @@ func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule 
 		if r.RuleType != ruleType {
 			continue
 		}
-		annrules[r.Name] =
-			Rule{Status: getStatus(r.IsSuccessful()), Error: r.GetErrorString()}
+
+		rule := Rule{Status: getStatus(r.IsSuccessful())}
+		if !r.IsSuccessful() {
+			rule.Error = r.GetErrorString()
+		}
+		annrules[r.Name] = rule
 	}
 	return annrules
 }
