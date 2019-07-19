@@ -2,10 +2,14 @@ package webhooks
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
+	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const policyKind = "Policy"
@@ -97,5 +101,32 @@ func toBlock(pis []*info.PolicyInfo) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
+	// updated resoruce
+	obj := request.Object
+	objUnstr := unstructured.Unstructured{}
+	err := objUnstr.UnmarshalJSON(obj.Raw)
+	if err != nil {
+		glog.Error(err)
+		return false
+	}
+	objUnstr.SetAnnotations(nil)
+	objUnstr.SetGeneration(0)
+	oldobj := request.OldObject
+	oldobjUnstr := unstructured.Unstructured{}
+	err = oldobjUnstr.UnmarshalJSON(oldobj.Raw)
+	if err != nil {
+		glog.Error(err)
+		return false
+	}
+	oldobjUnstr.SetAnnotations(nil)
+	oldobjUnstr.SetGeneration(0)
+	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
+		return true
+	}
+
 	return false
 }

@@ -36,6 +36,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
+		//TODO: HACK Check if an update of annotations
+		if checkIfOnlyAnnotationsUpdate(request) {
+			// allow the update of resource to add annotations
+			return &v1beta1.AdmissionResponse{
+				Allowed: true,
+			}
+		}
 
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,

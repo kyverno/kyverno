@@ -32,6 +32,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
+		//TODO: HACK Check if an update of annotations
+		if checkIfOnlyAnnotationsUpdate(request) {
+			return &v1beta1.AdmissionResponse{
+				Allowed: true,
+			}
+		}
 		rname := engine.ParseNameFromObject(request.Object.Raw)
 		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
 		rkind := engine.ParseKindFromObject(request.Object.Raw)
