@@ -8,7 +8,7 @@ import (
 
 const policyWorkQueueName = "policyworkqueue"
 
-const policyWorkQueueRetryLimit = 5
+const policyWorkQueueRetryLimit = 3
 
 const policyControllerWorkerCount = 2
 
