@@ -58,7 +58,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
 			for _, r := range ruleInfos {
-				glog.Warning(r.Msgs)
+				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
 		} else {
 			// TODO

@@ -65,7 +65,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
 			for _, r := range ruleInfos {
-				glog.Warning(r.Msgs)
+				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
 		} else {
 			// CleanUp Violations if exists

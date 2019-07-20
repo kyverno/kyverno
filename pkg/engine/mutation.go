@@ -29,7 +29,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 			overlayPatches, err := ProcessOverlay(rule, rawResource, gvk)
 			if err != nil {
 				ri.Fail()
-				ri.Addf("Rule %s: Overlay application has failed, err %s.", rule.Name, err)
+				ri.Addf("overlay application has failed, err %v.", err)
 			} else {
 				ri.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
 				//TODO: patchbytes -> string
@@ -44,7 +44,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 			if len(errs) > 0 {
 				ri.Fail()
 				for _, err := range errs {
-					ri.Addf("Rule %s: Patches application has failed, err %s.", rule.Name, err)
+					ri.Addf("patches application has failed, err %v.", err)
 				}
 			} else {
 				ri.Addf("Rule %s: Patches succesfully applied.", rule.Name)
