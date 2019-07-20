@@ -103,7 +103,8 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 	policyInfo := info.NewPolicyInfo(policy.Name,
 		gvk.Kind,
 		rname,
-		rns)
+		rns,
+		policy.Spec.ValidationFailureAction)
 
 	// Process Mutation
 	patches, ruleInfos := engine.Mutate(*policy, rawResource, *gvk)

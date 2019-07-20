@@ -18,7 +18,8 @@ type Policy struct {
 
 // Spec describes policy behavior by its rules
 type Spec struct {
-	Rules []Rule `json:"rules"`
+	Rules                   []Rule `json:"rules"`
+	ValidationFailureAction string `json:"validationFailureAction"`
 }
 
 // Rule is set of mutation, validation and generation actions
@@ -77,16 +78,24 @@ type CloneFrom struct {
 
 // Status contains violations for existing resources
 type Status struct {
-	Violations []Violation `json:"violations,omitempty"`
+	// Violations map[kind/namespace/resource]Violation
+	Violations map[string]Violation `json:"violations,omitempty"`
 }
 
 // Violation for the policy
 type Violation struct {
-	Kind      string `json:"kind,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	Reason    string `json:"reason,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Kind      string       `json:"kind,omitempty"`
+	Name      string       `json:"name,omitempty"`
+	Namespace string       `json:"namespace,omitempty"`
+	Rules     []FailedRule `json:"rules"`
+	Reason    string       `json:"reason,omitempty"`
+}
+
+// FailedRule stored info and type of failed rules
+type FailedRule struct {
+	Name  string `json:"name"`
+	Type  string `json:"type"` //Mutation, Validation, Genertaion
+	Error string `json:"error"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

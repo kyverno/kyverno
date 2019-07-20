@@ -104,3 +104,44 @@ func (in *Generation) DeepCopyInto(out *Generation) {
 		*out = *in
 	}
 }
+
+// return true -> if there were any removals
+// return false -> if it looks the same
+func (v *Violation) RemoveRulesOfType(ruleType string) bool {
+	removed := false
+	updatedRules := []FailedRule{}
+	for _, r := range v.Rules {
+		if r.Type == ruleType {
+			removed = true
+			continue
+		}
+		updatedRules = append(updatedRules, r)
+	}
+
+	if removed {
+		v.Rules = updatedRules
+		return true
+	}
+	return false
+}
+
+//IsEqual Check if violatiosn are equal
+func (v *Violation) IsEqual(nv Violation) bool {
+	// We do not need to compare resource info as it will be same
+	// Reason
+	if v.Reason != nv.Reason {
+		return false
+	}
+	// Rule
+	if len(v.Rules) != len(nv.Rules) {
+		return false
+	}
+	// assumes the rules will be in order, as the rule are proceeed in order
+	// if the rule order changes, it means the policy has changed.. as it will afffect the order in which mutation rules are applied
+	for i, r := range v.Rules {
+		if r != nv.Rules[i] {
+			return false
+		}
+	}
+	return true
+}

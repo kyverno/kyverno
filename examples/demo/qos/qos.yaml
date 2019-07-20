@@ -18,9 +18,3 @@ spec:
         resources:
           limits:
             cpu: "50m"
-      - name: ghost
-        image: ghost:latest
-        resources:
-          limits:
-            cpu: "50m"
-            memory: "500Mi"
