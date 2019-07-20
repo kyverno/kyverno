@@ -3,15 +3,17 @@ package controller
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
+
+	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/info"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 
 	"github.com/golang/glog"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -27,27 +29,30 @@ import (
 
 //PolicyController to manage Policy CRD
 type PolicyController struct {
-	client           *client.Client
-	policyLister     lister.PolicyLister
-	policySynced     cache.InformerSynced
-	violationBuilder violation.Generator
-	eventController  event.Generator
-	queue            workqueue.RateLimitingInterface
+	client                *client.Client
+	policyLister          lister.PolicyLister
+	policySynced          cache.InformerSynced
+	violationBuilder      violation.Generator
+	eventController       event.Generator
+	annotationsController annotations.Controller
+	queue                 workqueue.RateLimitingInterface
 }
 
 // NewPolicyController from cmd args
 func NewPolicyController(client *client.Client,
 	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
-	eventController event.Generator) *PolicyController {
+	eventController event.Generator,
+	annotationsController annotations.Controller) *PolicyController {
 
 	controller := &PolicyController{
-		client:           client,
-		policyLister:     policyInformer.GetLister(),
-		policySynced:     policyInformer.GetInfomer().HasSynced,
-		violationBuilder: violationBuilder,
-		eventController:  eventController,
-		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
+		client:                client,
+		policyLister:          policyInformer.GetLister(),
+		policySynced:          policyInformer.GetInfomer().HasSynced,
+		violationBuilder:      violationBuilder,
+		eventController:       eventController,
+		annotationsController: annotationsController,
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
 	policyInformer.GetInfomer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -63,13 +68,13 @@ func (pc *PolicyController) createPolicyHandler(resource interface{}) {
 }
 
 func (pc *PolicyController) updatePolicyHandler(oldResource, newResource interface{}) {
-	newPolicy := newResource.(*types.Policy)
-	oldPolicy := oldResource.(*types.Policy)
-	newPolicy.Status = types.Status{}
-	oldPolicy.Status = types.Status{}
+	newPolicy := newResource.(*v1alpha1.Policy)
+	oldPolicy := oldResource.(*v1alpha1.Policy)
+	newPolicy.Status = v1alpha1.Status{}
+	oldPolicy.Status = v1alpha1.Status{}
 	newPolicy.ResourceVersion = ""
 	oldPolicy.ResourceVersion = ""
-	if reflect.DeepEqual(newPolicy.ResourceVersion, oldPolicy.ResourceVersion) {
+	if reflect.DeepEqual(newPolicy, oldPolicy) {
 		return
 	}
 	pc.enqueuePolicy(newResource)
@@ -82,6 +87,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		glog.Error("error decoding object, invalid type")
 		return
 	}
+	cleanAnnotations(pc.client, resource)
 	glog.Infof("policy deleted: %s", object.GetName())
 }
 
@@ -155,7 +161,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 	pc.queue.Forget(key)
 	glog.Error(err)
-	glog.Warningf("Dropping the key %q out of the queue: %v", key, err)
+	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
 func (pc *PolicyController) syncHandler(obj interface{}) error {
@@ -169,8 +175,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 		glog.Errorf("invalid policy key: %s", key)
 		return nil
 	}
-
-	// Get Policy resource with namespace/name
+	// Get Policy
 	policy, err := pc.policyLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -179,40 +184,103 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 		}
 		return err
 	}
-	// process policy on existing resource
-	// get the violations and pass to violation Builder
-	// get the events and pass to event Builder
-	//TODO: processPolicy
+
 	glog.Infof("process policy %s on existing resources", policy.GetName())
+	// Process policy on existing resources
 	policyInfos := engine.ProcessExisting(pc.client, policy)
-	events, violations := createEventsAndViolations(pc.eventController, policyInfos)
+
+	events, violations := pc.createEventsAndViolations(policyInfos)
+	// Events, Violations
 	pc.eventController.Add(events...)
 	err = pc.violationBuilder.Add(violations...)
 	if err != nil {
 		glog.Error(err)
 	}
+
+	// Annotations
+	pc.createAnnotations(policyInfos)
+
 	return nil
 }
 
-func createEventsAndViolations(eventController event.Generator, policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
+func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
+	for _, pi := range policyInfos {
+		var patch []byte
+		//get resource
+		obj, err := pc.client.GetResource(pi.RKind, pi.RNamespace, pi.RName)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+		// add annotation for policy application
+		ann := obj.GetAnnotations()
+		// Mutation rules
+		ann, mpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Mutation)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+		// Validation rules
+		ann, vpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Validation)
+		if err != nil {
+			glog.Error(err)
+		}
+		if mpatch == nil && vpatch == nil {
+			//nothing to patch
+			continue
+		}
+		// merge the patches
+		if mpatch != nil && vpatch != nil {
+			patch, err = jsonpatch.MergePatch(mpatch, vpatch)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+		}
+		if mpatch == nil {
+			patch = vpatch
+		} else {
+			patch = mpatch
+		}
+		//		add the anotation to the resource
+		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+	}
+}
+
+func (pc *PolicyController) createEventsAndViolations(policyInfos []*info.PolicyInfo) ([]*event.Info, []*violation.Info) {
 	events := []*event.Info{}
 	violations := []*violation.Info{}
 	// Create events from the policyInfo
 	for _, policyInfo := range policyInfos {
-		fruleNames := []string{}
+		frules := []v1alpha1.FailedRule{}
 		sruleNames := []string{}
 
 		for _, rule := range policyInfo.Rules {
 			if !rule.IsSuccessful() {
 				e := &event.Info{}
-				fruleNames = append(fruleNames, rule.Name)
+				frule := v1alpha1.FailedRule{Name: rule.Name}
 				switch rule.RuleType {
 				case info.Mutation, info.Validation, info.Generation:
 					// Events
 					e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation, event.FProcessRule, rule.Name, policyInfo.Name)
+					switch rule.RuleType {
+					case info.Mutation:
+						frule.Type = info.Mutation.String()
+					case info.Validation:
+						frule.Type = info.Validation.String()
+					case info.Generation:
+						frule.Type = info.Generation.String()
+					}
+					frule.Error = rule.GetErrorString()
 				default:
 					glog.Info("Unsupported Rule type")
 				}
+				frule.Error = rule.GetErrorString()
+				frules = append(frules, frule)
 				events = append(events, e)
 			} else {
 				sruleNames = append(sruleNames, rule.Name)
@@ -220,22 +288,16 @@ func createEventsAndViolations(eventController event.Generator, policyInfos []*i
 		}
 
 		if !policyInfo.IsSuccessful() {
-			// Event
-			// list of failed rules : ruleNames
-			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, strings.Join(fruleNames, ";"))
+			e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyViolation, event.FResourcePolcy, policyInfo.RNamespace+"/"+policyInfo.RName, concatFailedRules(frules))
 			events = append(events, e)
 			// Violation
-			v := violation.NewViolationFromEvent(e, policyInfo.Name, policyInfo.RKind, policyInfo.RName, policyInfo.RNamespace)
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), policyInfo.GetFailedRules())
 			violations = append(violations, v)
+		} else {
+			// clean up violations
+			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Mutation)
+			pc.violationBuilder.RemoveInactiveViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, info.Validation)
 		}
-		// else {
-		// 	// Policy was processed succesfully
-		// 	e := event.NewEvent("Policy", "", policyInfo.Name, event.PolicyApplied, event.SPolicyApply, policyInfo.Name)
-		// 	events = append(events, e)
-		// 	// Policy applied succesfully on resource
-		// 	e = event.NewEvent(policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyApplied, event.SRuleApply, strings.Join(sruleNames, ";"), policyInfo.RName)
-		// 	events = append(events, e)
-		// }
 	}
 	return events, violations
 }

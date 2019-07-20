@@ -1,10 +1,33 @@
 package webhooks
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/info"
+	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+const policyKind = "Policy"
+
+func isAdmSuccesful(policyInfos []*info.PolicyInfo) (bool, string) {
+	var admSuccess = true
+	var errMsgs []string
+	for _, pi := range policyInfos {
+		if !pi.IsSuccessful() {
+			admSuccess = false
+			errMsgs = append(errMsgs, fmt.Sprintf("\nPolicy %s failed with following rules", pi.Name))
+			// Get the error rules
+			errorRules := pi.ErrorRules()
+			errMsgs = append(errMsgs, errorRules)
+		}
+	}
+	return admSuccess, strings.Join(errMsgs, ";")
+}
 
 //StringInSlice checks if string is present in slice of strings
 func StringInSlice(kind string, list []string) bool {
@@ -62,4 +85,51 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 		kinds = append(kinds, k)
 	}
 	return kinds
+}
+
+// Policy Reporting Modes
+const (
+	BlockChanges    = "block"
+	ReportViolation = "report"
+)
+
+// returns true -> if there is even one policy that blocks resource requst
+// returns false -> if all the policies are meant to report only, we dont block resource request
+func toBlock(pis []*info.PolicyInfo) bool {
+	for _, pi := range pis {
+		if pi.ValidationFailureAction != ReportViolation {
+			return true
+		}
+	}
+	return false
+}
+
+func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
+	// process only if its for existing resources
+	if request.Operation != v1beta1.Update {
+		return false
+	}
+	// updated resoruce
+	obj := request.Object
+	objUnstr := unstructured.Unstructured{}
+	err := objUnstr.UnmarshalJSON(obj.Raw)
+	if err != nil {
+		glog.Error(err)
+		return false
+	}
+	objUnstr.SetAnnotations(nil)
+	objUnstr.SetGeneration(0)
+	oldobj := request.OldObject
+	oldobjUnstr := unstructured.Unstructured{}
+	err = oldobjUnstr.UnmarshalJSON(oldobj.Raw)
+	if err != nil {
+		glog.Error(err)
+		return false
+	}
+	oldobjUnstr.SetAnnotations(nil)
+	oldobjUnstr.SetGeneration(0)
+	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
+		return true
+	}
+	return false
 }

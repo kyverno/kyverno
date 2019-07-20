@@ -3,6 +3,8 @@ package info
 import (
 	"fmt"
 	"strings"
+
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 //PolicyInfo defines policy information
@@ -16,25 +18,68 @@ type PolicyInfo struct {
 	// Namespace is the ns of resource
 	// empty on non-namespaced resources
 	RNamespace string
-	Rules      []*RuleInfo
-	success    bool
+	//TODO: add check/enum for types
+	ValidationFailureAction string // BlockChanges, ReportViolation
+	Rules                   []*RuleInfo
+	success                 bool
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName string, rKind string, rName string, rNamespace string) *PolicyInfo {
+func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) *PolicyInfo {
 	return &PolicyInfo{
-		Name:       policyName,
-		RKind:      rKind,
-		RName:      rName,
-		RNamespace: rNamespace,
-		success:    true, // fail to be set explicity
+		Name:                    policyName,
+		RKind:                   rKind,
+		RName:                   rName,
+		RNamespace:              rNamespace,
+		success:                 true, // fail to be set explicity
+		ValidationFailureAction: validationFailureAction,
 	}
 }
 
 //IsSuccessful checks if policy is succesful
 // the policy is set to fail, if any of the rules have failed
 func (pi *PolicyInfo) IsSuccessful() bool {
-	return pi.success
+	for _, r := range pi.Rules {
+		if !r.success {
+			pi.success = false
+			return false
+		}
+	}
+	pi.success = true
+	return true
+}
+
+// SuccessfulRules returns list of successful rule names
+func (pi *PolicyInfo) SuccessfulRules() []string {
+	var rules []string
+	for _, r := range pi.Rules {
+		if r.IsSuccessful() {
+			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
+// FailedRules returns list of failed rule names
+func (pi *PolicyInfo) FailedRules() []string {
+	var rules []string
+	for _, r := range pi.Rules {
+		if !r.IsSuccessful() {
+			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
+//GetFailedRules returns the failed rules with rule type
+func (pi *PolicyInfo) GetFailedRules() []v1alpha1.FailedRule {
+	var rules []v1alpha1.FailedRule
+	for _, r := range pi.Rules {
+		if !r.IsSuccessful() {
+			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String(), Error: r.GetErrorString()})
+		}
+	}
+	return rules
 }
 
 //ErrorRules returns error msgs from all rule
@@ -73,10 +118,16 @@ type RuleInfo struct {
 }
 
 //ToString reule information
+//TODO: check if this is needed
 func (ri *RuleInfo) ToString() string {
 	str := "rulename: " + ri.Name
 	msgs := strings.Join(ri.Msgs, ";")
 	return strings.Join([]string{str, msgs}, ";")
+}
+
+//GetErrorString returns the error message for a rule
+func (ri *RuleInfo) GetErrorString() string {
+	return strings.Join(ri.Msgs, ";")
 }
 
 //NewRuleInfo creates a new RuleInfo
@@ -121,6 +172,9 @@ func RulesSuccesfuly(rules []*RuleInfo) bool {
 
 //AddRuleInfos sets the rule information
 func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
+	if rules == nil {
+		return
+	}
 	if !RulesSuccesfuly(rules) {
 		pi.success = false
 	}

@@ -28,7 +28,7 @@ spec:
         message: "This SS is broken"
         pattern:
           spec:
-            replicas: ">20"
+            replicas: ">2"
             volumeClaimTemplates:
             - metadata:
                 name: www

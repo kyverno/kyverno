@@ -22,6 +22,12 @@ spec:
           required:
           - rules
           properties:
+          # default values to be handled by user
+            validationFailureAction:
+              type: string
+              enum: 
+              - block 
+              - report
             rules:
               type: array
               items:

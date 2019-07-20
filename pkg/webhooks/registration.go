@@ -139,7 +139,8 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 			constructWebhook(
 				config.MutatingWebhookName,
 				config.MutatingWebhookServicePath,
-				caData),
+				caData,
+				false),
 		},
 	}, nil
 }
@@ -157,7 +158,8 @@ func (wrc *WebhookRegistrationClient) contructDebugMutatingWebhookConfig(caData 
 			constructDebugWebhook(
 				config.MutatingWebhookName,
 				url,
-				caData),
+				caData,
+				false),
 		},
 	}
 }
@@ -190,7 +192,8 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configura
 			constructWebhook(
 				config.ValidatingWebhookName,
 				config.ValidatingWebhookServicePath,
-				caData),
+				caData,
+				true),
 		},
 	}, nil
 }
@@ -208,7 +211,8 @@ func (wrc *WebhookRegistrationClient) contructDebugValidatingWebhookConfig(caDat
 			constructDebugWebhook(
 				config.ValidatingWebhookName,
 				url,
-				caData),
+				caData,
+				true),
 		},
 	}
 }
@@ -241,7 +245,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig() (*
 			constructWebhook(
 				config.PolicyValidatingWebhookName,
 				config.PolicyValidatingWebhookServicePath,
-				caData),
+				caData,
+				true),
 		},
 	}, nil
 }
@@ -259,12 +264,13 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 			constructDebugWebhook(
 				config.PolicyValidatingWebhookName,
 				url,
-				caData),
+				caData,
+				true),
 		},
 	}
 }
 
-func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook {
+func constructWebhook(name, servicePath string, caData []byte, validation bool) admregapi.Webhook {
 	resource := "*/*"
 	apiGroups := "*"
 	apiversions := "*"
@@ -272,6 +278,15 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 		resource = "policies/*"
 		apiGroups = "kyverno.io"
 		apiversions = "v1alpha1"
+	}
+	operationtypes := []admregapi.OperationType{
+		admregapi.Create,
+		admregapi.Update,
+	}
+	// Add operation DELETE for validation
+	if validation {
+		operationtypes = append(operationtypes, admregapi.Delete)
+
 	}
 
 	return admregapi.Webhook{
@@ -286,10 +301,7 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 		},
 		Rules: []admregapi.RuleWithOperations{
 			admregapi.RuleWithOperations{
-				Operations: []admregapi.OperationType{
-					admregapi.Create,
-					admregapi.Update,
-				},
+				Operations: operationtypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
 						apiGroups,
@@ -306,7 +318,7 @@ func constructWebhook(name, servicePath string, caData []byte) admregapi.Webhook
 	}
 }
 
-func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
+func constructDebugWebhook(name, url string, caData []byte, validation bool) admregapi.Webhook {
 	resource := "*/*"
 	apiGroups := "*"
 	apiversions := "*"
@@ -315,6 +327,14 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 		resource = "policies/*"
 		apiGroups = "kyverno.io"
 		apiversions = "v1alpha1"
+	}
+	operationtypes := []admregapi.OperationType{
+		admregapi.Create,
+		admregapi.Update,
+	}
+	// Add operation DELETE for validation
+	if validation {
+		operationtypes = append(operationtypes, admregapi.Delete)
 	}
 
 	return admregapi.Webhook{
@@ -325,10 +345,7 @@ func constructDebugWebhook(name, url string, caData []byte) admregapi.Webhook {
 		},
 		Rules: []admregapi.RuleWithOperations{
 			admregapi.RuleWithOperations{
-				Operations: []admregapi.OperationType{
-					admregapi.Create,
-					admregapi.Update,
-				},
+				Operations: operationtypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
 						apiGroups,

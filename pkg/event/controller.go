@@ -1,7 +1,6 @@
 package event
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -42,13 +41,12 @@ type Controller interface {
 func NewEventController(client *client.Client,
 	shareInformer sharedinformer.PolicyInformer) Controller {
 
-	controller := &controller{
+	return &controller{
 		client:       client,
 		policyLister: shareInformer.GetLister(),
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
 		recorder:     initRecorder(client),
 	}
-	return controller
 }
 
 func initRecorder(client *client.Client) record.EventRecorder {
@@ -93,9 +91,28 @@ func (c *controller) Stop() {
 	defer c.queue.ShutDown()
 	glog.Info("Shutting down eventbuilder controller workers")
 }
+
 func (c *controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
+}
+
+func (c *controller) handleErr(err error, key interface{}) {
+	if err == nil {
+		c.queue.Forget(key)
+		return
+	}
+	// This controller retries if something goes wrong. After that, it stops trying.
+	if c.queue.NumRequeues(key) < workQueueRetryLimit {
+		glog.Warningf("Error syncing events %v: %v", key, err)
+		// Re-enqueue the key rate limited. Based on the rate limiter on the
+		// queue and the re-enqueue history, the key will be processed later again.
+		c.queue.AddRateLimited(key)
+		return
+	}
+	c.queue.Forget(key)
+	glog.Error(err)
+	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
 func (c *controller) processNextWorkItem() bool {
@@ -103,30 +120,29 @@ func (c *controller) processNextWorkItem() bool {
 	if shutdown {
 		return false
 	}
+
 	err := func(obj interface{}) error {
 		defer c.queue.Done(obj)
 		var key Info
 		var ok bool
+
 		if key, ok = obj.(Info); !ok {
 			c.queue.Forget(obj)
 			glog.Warningf("Expecting type info by got %v\n", obj)
 			return nil
 		}
-		// Run the syncHandler, passing the resource and the policy
-		if err := c.SyncHandler(key); err != nil {
-			c.queue.AddRateLimited(key)
-			return fmt.Errorf("error syncing '%s' : %s, requeuing event creation request", key.Namespace+"/"+key.Name, err.Error())
-		}
+		err := c.syncHandler(key)
+		c.handleErr(err, obj)
 		return nil
 	}(obj)
-
 	if err != nil {
-		glog.Warning(err)
+		glog.Error(err)
+		return true
 	}
 	return true
 }
 
-func (c *controller) SyncHandler(key Info) error {
+func (c *controller) syncHandler(key Info) error {
 	var robj runtime.Object
 	var err error
 

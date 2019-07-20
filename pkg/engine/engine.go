@@ -14,11 +14,11 @@ import (
 // Instead we expose them as standalone functions passing the required atrributes
 // The each function returns the changes that need to be applied on the resource
 // the caller is responsible to apply the changes to the resource
-
 // ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
-	resources := []*resourceInfo{}
+	// key uid
+	resourceMap := map[string]*resourceInfo{}
 
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.Kinds {
@@ -34,7 +34,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			if rule.ResourceDescription.Namespace != nil {
 				namespace = *rule.ResourceDescription.Namespace
 			}
-			list, err := client.ListResource(gvr.Resource, namespace, rule.ResourceDescription.Selector)
+			list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
 			if err != nil {
 				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
 				glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
@@ -52,18 +52,19 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 				ri := &resourceInfo{resource: &res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind}}
-				resources = append(resources, ri)
+
+				resourceMap[string(res.GetUID())] = ri
 
 			}
 		}
 	}
 	policyInfos := []*info.PolicyInfo{}
 	// for the filtered resource apply policy
-	for _, r := range resources {
+	for _, v := range resourceMap {
 
-		policyInfo, err := applyPolicy(client, policy, r)
+		policyInfo, err := applyPolicy(client, policy, v)
 		if err != nil {
-			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, r.resource.GetName(), r.resource.GetNamespace())
+			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, v.resource.GetName(), v.resource.GetNamespace())
 			glog.Error(err)
 			continue
 		}
@@ -74,7 +75,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 }
 
 func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace())
+	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.resource.MarshalJSON()
 	if err != nil {
@@ -99,6 +100,10 @@ func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo)
 
 func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
 	patches, ruleInfos := Mutate(*p, rawResource, *gvk)
+	if len(ruleInfos) == 0 {
+		// no rules were processed
+		return nil, nil
+	}
 	// option 2: (original Resource + patch) compare with (original resource)
 	mergePatches := JoinPatches(patches)
 	// merge the patches

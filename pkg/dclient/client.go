@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	patchTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -40,7 +41,6 @@ func NewClient(config *rest.Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	kclient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -108,6 +108,11 @@ func (c *Client) getGroupVersionMapper(kind string) schema.GroupVersionResource 
 // GetResource returns the resource in unstructured/json format
 func (c *Client) GetResource(kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
 	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{}, subresources...)
+}
+
+//Patch
+func (c *Client) PatchResource(kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
 // ListResource returns the list of resources in unstructured/json format
