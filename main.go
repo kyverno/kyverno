@@ -68,6 +68,10 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
+	if err = webhookRegistrationClient.Register(); err != nil {
+		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+	}
+
 	policyInformerFactory.Run(stopCh)
 	kubeInformer.Start(stopCh)
 	eventController.Run(stopCh)
@@ -75,10 +79,6 @@ func main() {
 	annotationsController.Run(stopCh)
 	if err = policyController.Run(stopCh); err != nil {
 		glog.Fatalf("Error running PolicyController: %v\n", err)
-	}
-
-	if err = webhookRegistrationClient.Register(); err != nil {
-		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
 	server.RunAsync()
