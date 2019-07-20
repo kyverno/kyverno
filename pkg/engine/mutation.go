@@ -29,7 +29,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 			overlayPatches, err := ProcessOverlay(rule, rawResource, gvk)
 			if err != nil {
 				ri.Fail()
-				ri.Addf("Rule %s: Overlay application has failed, err %s.", rule.Name, err)
+				ri.Addf("overlay application has failed, err %v.", err)
 			} else {
 				// Apply the JSON patches from the rule to the resource
 				rawResource, err = ApplyPatches(rawResource, overlayPatches)
@@ -49,14 +49,14 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 			if len(errs) > 0 {
 				ri.Fail()
 				for _, err := range errs {
-					ri.Addf("Rule %s: Patches application has failed, err %s.", rule.Name, err)
+					ri.Addf("patches application has failed, err %v.", err)
 				}
 			} else {
 				// Apply the JSON patches from the rule to the resource
 				rawResource, err = ApplyPatches(rawResource, rulePatches)
 				if err != nil {
 					ri.Fail()
-					ri.Addf("Unable to apply JSON patch to resource, err %s.", err)
+					ri.Addf("Unable to apply JSON patch to resource, err %v.", err)
 				} else {
 					ri.Addf("Rule %s: Patches succesfully applied.", rule.Name)
 					allPatches = append(allPatches, rulePatches...)

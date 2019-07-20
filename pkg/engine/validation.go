@@ -41,7 +41,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		err := validateResourceWithPattern(resource, rule.Validation.Pattern)
 		if err != nil {
 			ri.Fail()
-			ri.Addf("Rule %s: Validation has failed, err %s.", rule.Name, err)
+			ri.Addf("validation has failed, err %v.", err)
 		} else {
 			ri.Addf("Rule %s: Validation succesfully.", rule.Name)
 
