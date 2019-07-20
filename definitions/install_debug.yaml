@@ -21,16 +21,13 @@ spec:
         spec:
           required:
           - rules
-          # set as required, as we cannot set default yet. check below for more details
-          - mode
           properties:
-            mode:
+          # default values to be handled by user
+            validationFailureAction:
               type: string
-              # default can only be set if CustomResourceDefaulting feature gate is enabled
-              # default: blockChanges
               enum: 
-              - blockChanges 
-              - reportViolation
+              - block 
+              - report
             rules:
               type: array
               items:

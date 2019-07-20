@@ -26,6 +26,28 @@ type Rule struct {
 	Error   string `json:"error,omitempty"`
 }
 
+func (p *Policy) getOverAllStatus() string {
+	// mutation
+	for _, v := range p.MutationRules {
+		if v.Status == "Failure" {
+			return "Failure"
+		}
+	}
+	// validation
+	for _, v := range p.ValidationRules {
+		if v.Status == "Failure" {
+			return "Failure"
+		}
+	}
+	// generation
+	for _, v := range p.GenerationRules {
+		if v.Status == "Failure" {
+			return "Failure"
+		}
+	}
+	return "Success"
+}
+
 func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule {
 	if len(rules) == 0 {
 		return nil
@@ -48,10 +70,6 @@ func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule 
 
 func (p *Policy) updatePolicy(obj *Policy, ruleType pinfo.RuleType) bool {
 	updates := false
-	if p.Status != obj.Status {
-		updates = true
-	}
-	p.Status = obj.Status
 	// Check Mutation rules
 	switch ruleType {
 	case pinfo.Mutation:
@@ -66,7 +84,13 @@ func (p *Policy) updatePolicy(obj *Policy, ruleType pinfo.RuleType) bool {
 		if p.compareGenerationRules(obj.GenerationRules) {
 			updates = true
 		}
+		if p.Status != obj.Status {
+			updates = true
+		}
 	}
+	p.Status = obj.Status
+	// check if any rules failed
+	p.Status = p.getOverAllStatus()
 	// If there are any updates then the annotation can be updated, can skip
 	return updates
 }
@@ -137,6 +161,7 @@ func AddPolicy(obj *unstructured.Unstructured, pi *pinfo.PolicyInfo, ruleType pi
 	// 1> policy status
 	// 2> Mutation, Validation, Generation
 	if cPolicyObj.updatePolicy(PolicyObj, ruleType) {
+
 		cPolicyByte, err := json.Marshal(cPolicyObj)
 		if err != nil {
 			return false
@@ -212,6 +237,7 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 	if !update {
 		return nil, nil, err
 	}
+
 	cPolicyByte, err := json.Marshal(cPolicyObj)
 	if err != nil {
 		return nil, nil, err

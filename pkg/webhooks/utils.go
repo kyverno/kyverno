@@ -131,6 +131,5 @@ func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
 	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
 		return true
 	}
-
 	return false
 }

@@ -35,4 +35,3 @@ spec :
                 containers:
                 - (image): "nginx*"
                   imagePullPolicy: Always
-

@@ -41,7 +41,8 @@ func (f *fixture) runControler(policyName string) {
 		f.Client,
 		policyInformerFactory,
 		violationBuilder,
-		eventController)
+		eventController,
+		nil)
 
 	stopCh := signals.SetupSignalHandler()
 	// start informer & controller

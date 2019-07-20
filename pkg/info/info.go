@@ -39,7 +39,14 @@ func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction
 //IsSuccessful checks if policy is succesful
 // the policy is set to fail, if any of the rules have failed
 func (pi *PolicyInfo) IsSuccessful() bool {
-	return pi.success
+	for _, r := range pi.Rules {
+		if !r.success {
+			pi.success = false
+			return false
+		}
+	}
+	pi.success = true
+	return true
 }
 
 // SuccessfulRules returns list of successful rule names

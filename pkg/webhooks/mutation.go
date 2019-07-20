@@ -2,7 +2,6 @@ package webhooks
 
 import (
 	jsonpatch "github.com/evanphx/json-patch"
-
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
@@ -23,6 +22,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			Allowed: true,
 		}
 	}
+	rname := engine.ParseNameFromObject(request.Object.Raw)
+	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+	rkind := engine.ParseKindFromObject(request.Object.Raw)
 
 	var allPatches [][]byte
 	var annPatches []byte
@@ -38,9 +40,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				Allowed: true,
 			}
 		}
-		rname := engine.ParseNameFromObject(request.Object.Raw)
-		rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-		rkind := engine.ParseKindFromObject(request.Object.Raw)
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,
 			rname,
@@ -62,18 +61,17 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				glog.Warning(r.Msgs)
 			}
 		} else {
-			// //	CleanUp Violations if exists
-			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
+			// TODO
+			// // CleanUp Violations if exists
+			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
 			// if err != nil {
 			// 	glog.Info(err)
 			// }
-
-			if len(policyPatches) > 0 {
-				allPatches = append(allPatches, policyPatches...)
-				glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
-			}
+			allPatches = append(allPatches, policyPatches...)
+			glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 		}
 		policyInfos = append(policyInfos, policyInfo)
+
 		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Mutation)
 		if annPatch != nil {
 			if annPatches == nil {
@@ -91,20 +89,18 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
 		ws.eventController.Add(eventsInfo...)
 	}
+	//	add annotations
+	if annPatches != nil {
+		// fmt.Println(string(annPatches))
+		ws.annotationsController.Add(rkind, rns, rname, annPatches)
+	}
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
-		patches := engine.JoinPatches(allPatches)
-		if len(annPatches) > 0 {
-			patches, err = jsonpatch.MergePatch(patches, annPatches)
-			if err != nil {
-				glog.Error(err)
-			}
-		}
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
 			Allowed:   true,
-			Patch:     patches,
+			Patch:     engine.JoinPatches(allPatches),
 			PatchType: &patchType,
 		}
 	}

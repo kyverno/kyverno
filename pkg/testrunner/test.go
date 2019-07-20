@@ -174,7 +174,7 @@ func (t *test) applyPolicy(policy *pt.Policy,
 		rkind,
 		rname,
 		rns,
-		policy.Spec.Mode)
+		policy.Spec.ValidationFailureAction)
 	// Apply Mutation Rules
 	patches, ruleInfos := engine.Mutate(*policy, rawResource, *tresource.gvk)
 	policyInfo.AddRuleInfos(ruleInfos)

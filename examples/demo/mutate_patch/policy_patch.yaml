@@ -11,6 +11,7 @@ spec :
         selector:
           matchLabels:
             label : test
+        name: demo-endpoint
       mutate:
         patches:
           # add a new label

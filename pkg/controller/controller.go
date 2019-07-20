@@ -225,7 +225,7 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 		if err != nil {
 			glog.Error(err)
 		}
-		if mpatch == nil && mpatch == nil {
+		if mpatch == nil && vpatch == nil {
 			//nothing to patch
 			continue
 		}
