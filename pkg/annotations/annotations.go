@@ -88,7 +88,6 @@ func (p *Policy) updatePolicy(obj *Policy, ruleType pinfo.RuleType) bool {
 			updates = true
 		}
 	}
-	p.Status = obj.Status
 	// check if any rules failed
 	p.Status = p.getOverAllStatus()
 	// If there are any updates then the annotation can be updated, can skip
