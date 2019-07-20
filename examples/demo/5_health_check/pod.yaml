@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: probe
+  name: probe
+spec:
+  containers:
+  - name: readiness
+    image: k8s.gcr.io/busybox
+    args:
+    - /bin/sh
+    - -c
+    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+    readinessProbe:
+      # successThreshold: 3
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+  - name: liveness
+    image: k8s.gcr.io/liveness
+    args:
+    - /server
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+        httpHeaders:
+        - name: Custom-Header
+          value: Awesome
+      periodSeconds: 3

@@ -184,7 +184,7 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          args: ["--filterKind","Nodes,Events,APIService,SubjectAccessReview"]
+          args: ["--filterKind","Node,Event,APIService,Policy,TokenReview,SubjectAccessReview"]
           ports:
           - containerPort: 443
           securityContext:

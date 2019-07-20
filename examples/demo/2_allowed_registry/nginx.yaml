@@ -1,7 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: qos-demo
+  name: nginx-deployment
+  labels:
+    app: nginx
+    cli: test
 spec:
   replicas: 1
   selector:
@@ -14,7 +17,5 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
-        resources:
-          limits:
-            cpu: "50m"
+        # image: nginx
+        image: nirmata/nginx
