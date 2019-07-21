@@ -13,6 +13,9 @@ import (
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
+	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -26,8 +29,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
 	rkind := request.Kind.Kind
 	if rkind == "" {
-		//TODO TEST: just to check if we actually recieve a api-request that is blank ?
-		glog.Error(request)
+		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
 	}
 
 	var allPatches [][]byte
