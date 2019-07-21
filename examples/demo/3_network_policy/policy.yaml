@@ -8,7 +8,7 @@ spec:
     resource: 
       kinds:
        - Namespace
-      name: "*"
+      name: "devtest"
     generate: 
       kind: NetworkPolicy
       name: deny-ingress-traffic
@@ -23,3 +23,8 @@ spec:
           annotations: {}
           labels:
             policyname: "default"
+      # kind: ConfigMap
+      # name: default-config
+      # clone:
+      #   namespace: default
+      #   name: config-template

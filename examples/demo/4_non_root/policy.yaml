@@ -1,0 +1,21 @@
+apiVersion : kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-security-context
+spec:
+  rules:
+  - name: validate-runAsNonRoot
+    resource:
+      kinds:
+      - Deployment
+      selector :
+        matchLabels:
+          app.type: prod
+    validate:
+      message: "security context 'runAsNonRoot' shoud be set to true"
+      pattern:
+        spec:
+          template:
+            spec:
+              securityContext:
+                runAsNonRoot: true

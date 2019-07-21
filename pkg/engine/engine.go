@@ -52,7 +52,6 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 				ri := &resourceInfo{resource: &res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind}}
-				// resources = append(resources, ri)
 
 				resourceMap[string(res.GetUID())] = ri
 

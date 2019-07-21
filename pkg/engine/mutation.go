@@ -32,8 +32,6 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				ri.Addf("overlay application has failed, err %v.", err)
 			} else {
 				ri.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
-				//TODO: patchbytes -> string
-				//glog.V(3).Info(" Overlay succesfully applied. Patch %s", string(overlayPatches))
 				allPatches = append(allPatches, overlayPatches...)
 			}
 		}
@@ -48,8 +46,6 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				}
 			} else {
 				ri.Addf("Rule %s: Patches succesfully applied.", rule.Name)
-				//TODO: patchbytes -> string
-				//glog.V(3).Info("Patches succesfully applied. Patch %s", string(overlayPatches))
 				allPatches = append(allPatches, rulePatches...)
 			}
 		}
