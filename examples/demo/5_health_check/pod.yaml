@@ -6,7 +6,7 @@ metadata:
   name: probe
 spec:
   containers:
-  - name: readiness
+  - name: check-readiness
     image: k8s.gcr.io/busybox
     args:
     - /bin/sh
@@ -18,7 +18,7 @@ spec:
         command:
         - cat
         - /tmp/healthy
-  - name: liveness
+  - name: check-liveness
     image: k8s.gcr.io/liveness
     args:
     - /server
