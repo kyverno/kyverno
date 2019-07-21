@@ -13,6 +13,9 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
 	policyInfos := []*info.PolicyInfo{}
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
@@ -26,7 +29,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	rname := engine.ParseNameFromObject(request.Object.Raw)
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-	rkind := engine.ParseKindFromObject(request.Object.Raw)
+	rkind := request.Kind.Kind
+	if rkind == "" {
+		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
+	}
 
 	var annPatches []byte
 	for _, policy := range policies {

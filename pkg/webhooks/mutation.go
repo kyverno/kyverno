@@ -13,6 +13,9 @@ import (
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
+	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
+
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -24,7 +27,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 	rname := engine.ParseNameFromObject(request.Object.Raw)
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-	rkind := engine.ParseKindFromObject(request.Object.Raw)
+	rkind := request.Kind.Kind
+	if rkind == "" {
+		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
+	}
 
 	var allPatches [][]byte
 	var annPatches []byte
