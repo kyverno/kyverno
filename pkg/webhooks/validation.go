@@ -26,7 +26,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	rname := engine.ParseNameFromObject(request.Object.Raw)
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-	rkind := engine.ParseKindFromObject(request.Object.Raw)
+	rkind := request.Kind.Kind
+	if rkind == "" {
+		//TODO TEST: just to check if we actually recieve a api-request that is blank ?
+		glog.Error(request)
+	}
 
 	var annPatches []byte
 	for _, policy := range policies {

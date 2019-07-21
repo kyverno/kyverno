@@ -24,7 +24,11 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 	rname := engine.ParseNameFromObject(request.Object.Raw)
 	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-	rkind := engine.ParseKindFromObject(request.Object.Raw)
+	rkind := request.Kind.Kind
+	if rkind == "" {
+		//TODO TEST: just to check if we actually recieve a api-request that is blank ?
+		glog.Error(request)
+	}
 
 	var allPatches [][]byte
 	var annPatches []byte
