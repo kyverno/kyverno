@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -112,24 +113,68 @@ func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
 	// updated resoruce
 	obj := request.Object
 	objUnstr := unstructured.Unstructured{}
+	objUnstr.SetKind(request.Kind.Kind)
+	//TODO: hack, set kind for unmarshalling and observed generation
+	obj.Raw = setKindForObject(obj.Raw, request.Kind.Kind)
+	obj.Raw = setObserverdGenerationAsZero(obj.Raw)
 	err := objUnstr.UnmarshalJSON(obj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
+	objUnstr.SetSelfLink("")
 	objUnstr.SetAnnotations(nil)
 	objUnstr.SetGeneration(0)
+	objUnstr.SetResourceVersion("")
+
 	oldobj := request.OldObject
 	oldobjUnstr := unstructured.Unstructured{}
+	oldobj.Raw = setKindForObject(oldobj.Raw, request.Kind.Kind)
+	oldobj.Raw = setObserverdGenerationAsZero(oldobj.Raw)
 	err = oldobjUnstr.UnmarshalJSON(oldobj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
+	oldobjUnstr.SetSelfLink("")
 	oldobjUnstr.SetAnnotations(nil)
 	oldobjUnstr.SetGeneration(0)
+	oldobjUnstr.SetResourceVersion("")
+
 	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
+		glog.Info("only annoations added")
 		return true
 	}
+	glog.Info("more than annotations changed")
 	return false
+}
+
+func setKindForObject(bytes []byte, kind string) []byte {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+	objectJSON["kind"] = kind
+	data, err := json.Marshal(objectJSON)
+	if err != nil {
+		glog.Error(err)
+		return nil
+	}
+	return data
+}
+
+func setObserverdGenerationAsZero(bytes []byte) []byte {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+	status, ok := objectJSON["status"].(map[string]interface{})
+	if !ok {
+		glog.Error("type mismatch")
+	}
+	status["observedGeneration"] = 0
+	objectJSON["status"] = status
+	data, err := json.Marshal(objectJSON)
+	if err != nil {
+		glog.Error(err)
+		return nil
+	}
+	return data
+
 }
