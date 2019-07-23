@@ -23,7 +23,7 @@ type Policy struct {
 type Rule struct {
 	Status  string `json:"status"`
 	Changes string `json:"changes,omitempty"` // TODO for mutation changes
-	Error   string `json:"error,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 func (p *Policy) getOverAllStatus() string {
@@ -61,7 +61,7 @@ func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule 
 
 		rule := Rule{Status: getStatus(r.IsSuccessful())}
 		if !r.IsSuccessful() {
-			rule.Error = r.GetErrorString()
+			rule.Message = r.GetErrorString()
 		}
 		annrules[r.Name] = rule
 	}
