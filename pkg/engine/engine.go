@@ -104,6 +104,16 @@ func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind)
 		// no rules were processed
 		return nil, nil
 	}
+	// if there are any errors return
+	for _, r := range ruleInfos {
+		if !r.IsSuccessful() {
+			return ruleInfos, nil
+		}
+	}
+	// if there are no patches // for overlay
+	if len(patches) == 0 {
+		return ruleInfos, nil
+	}
 	// option 2: (original Resource + patch) compare with (original resource)
 	mergePatches := JoinPatches(patches)
 	// merge the patches
