@@ -167,7 +167,7 @@ func setObserverdGenerationAsZero(bytes []byte) []byte {
 	json.Unmarshal(bytes, &objectJSON)
 	status, ok := objectJSON["status"].(map[string]interface{})
 	if !ok {
-		glog.Error("status block not found, not setting observed generation")
+		// glog.Error("status block not found, not setting observed generation")
 		return bytes
 	}
 	status["observedGeneration"] = 0
