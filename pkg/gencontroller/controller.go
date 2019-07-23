@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/annotations"
 	policyLister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -22,13 +23,14 @@ import (
 
 //Controller watches the 'Namespace' resource creation/update and applied the generation rules on them
 type Controller struct {
-	client           *client.Client
-	namespaceLister  v1CoreLister.NamespaceLister
-	namespaceSynced  cache.InformerSynced
-	policyLister     policyLister.PolicyLister
-	eventController  event.Generator
-	violationBuilder violation.Generator
-	workqueue        workqueue.RateLimitingInterface
+	client                *client.Client
+	namespaceLister       v1CoreLister.NamespaceLister
+	namespaceSynced       cache.InformerSynced
+	policyLister          policyLister.PolicyLister
+	eventController       event.Generator
+	violationBuilder      violation.Generator
+	annotationsController annotations.Controller
+	workqueue             workqueue.RateLimitingInterface
 }
 
 //NewGenController returns a new Controller to manage generation rules
@@ -36,17 +38,19 @@ func NewGenController(client *client.Client,
 	eventController event.Generator,
 	policyInformer policySharedInformer.PolicyInformer,
 	violationBuilder violation.Generator,
-	namespaceInformer v1Informer.NamespaceInformer) *Controller {
+	namespaceInformer v1Informer.NamespaceInformer,
+	annotationsController annotations.Controller) *Controller {
 
 	// create the controller
 	controller := &Controller{
-		client:           client,
-		namespaceLister:  namespaceInformer.Lister(),
-		namespaceSynced:  namespaceInformer.Informer().HasSynced,
-		policyLister:     policyInformer.GetLister(),
-		eventController:  eventController,
-		violationBuilder: violationBuilder,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), wqNamespace),
+		client:                client,
+		namespaceLister:       namespaceInformer.Lister(),
+		namespaceSynced:       namespaceInformer.Informer().HasSynced,
+		policyLister:          policyInformer.GetLister(),
+		eventController:       eventController,
+		violationBuilder:      violationBuilder,
+		annotationsController: annotationsController,
+		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), wqNamespace),
 	}
 	namespaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.createNamespaceHandler,
@@ -77,7 +81,7 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 	if ok := cache.WaitForCacheSync(stopCh, c.namespaceSynced); !ok {
-		return fmt.Errorf("faield to wait for caches to sync")
+		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	for i := 0; i < workerCount; i++ {

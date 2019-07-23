@@ -10,22 +10,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// As the logic to process the policies in stateless, we do not need to define struct and implement behaviors for it
-// Instead we expose them as standalone functions passing the required atrributes
-// The each function returns the changes that need to be applied on the resource
-// the caller is responsible to apply the changes to the resource
 // ProcessExisting checks for mutation and validation violations of existing resources
 func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// key uid
-	resourceMap := map[string]*resourceInfo{}
+	resourceMap := map[string]resourceInfo{}
 
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.Kinds {
-			if k == "Namespace" {
-				// REWORK: will be handeled by namespace controller
-				continue
-			}
 			// kind -> resource
 			gvr := client.DiscoveryClient.GetGVRFromKind(k)
 			// label selectors
@@ -34,6 +26,10 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			if rule.ResourceDescription.Namespace != nil {
 				namespace = *rule.ResourceDescription.Namespace
 			}
+			if k == "Namespace" {
+				namespace = ""
+			}
+
 			list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
 			if err != nil {
 				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
@@ -49,7 +45,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 						continue
 					}
 				}
-				ri := &resourceInfo{resource: &res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
+				ri := resourceInfo{resource: res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind}}
 
@@ -74,7 +70,7 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 	return policyInfos
 }
 
-func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo) (*info.PolicyInfo, error) {
+func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) (*info.PolicyInfo, error) {
 	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.resource.MarshalJSON()
@@ -93,7 +89,12 @@ func applyPolicy(client *client.Client, policy *types.Policy, res *resourceInfo)
 	if err != nil {
 		return nil, err
 	}
-	// Generate rule managed by generation controller
+	if res.gvk.Kind == "Namespace" {
+
+		// Generation
+		gruleInfos := GenerateNew(client, policy, res.resource)
+		policyInfo.AddRuleInfos(gruleInfos)
+	}
 
 	return policyInfo, nil
 }
