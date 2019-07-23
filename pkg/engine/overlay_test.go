@@ -9,7 +9,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func compareJsonAsMap(t *testing.T, expected, actual []byte) {
+func compareJSONAsMap(t *testing.T, expected, actual []byte) {
 	var expectedMap, actualMap map[string]interface{}
 	assert.NilError(t, json.Unmarshal(expected, &expectedMap))
 	assert.NilError(t, json.Unmarshal(actual, &actualMap))
@@ -106,7 +106,7 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 		]
 	 }`)
 
-	compareJsonAsMap(t, expectedResult, patched)
+	compareJSONAsMap(t, expectedResult, patched)
 }
 
 func TestApplyOverlay_InsertIntoArray(t *testing.T) {
@@ -223,7 +223,7 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 		]
 	 }`)
 
-	compareJsonAsMap(t, expectedResult, patched)
+	compareJSONAsMap(t, expectedResult, patched)
 }
 
 func TestApplyOverlay_TestInsertToArray(t *testing.T) {
@@ -428,7 +428,7 @@ func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
 		}
 	 }`)
 
-	compareJsonAsMap(t, expectedResult, doc)
+	compareJSONAsMap(t, expectedResult, doc)
 }
 
 func TestApplyOverlay_AddingAnchor(t *testing.T) {
@@ -471,7 +471,7 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 		}
 	 }`)
 
-	compareJsonAsMap(t, expectedResult, doc)
+	compareJSONAsMap(t, expectedResult, doc)
 }
 
 func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
@@ -591,5 +591,5 @@ func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 			}
 		}
 	}`)
-	compareJsonAsMap(t, expectedResult, doc)
+	compareJSONAsMap(t, expectedResult, doc)
 }
