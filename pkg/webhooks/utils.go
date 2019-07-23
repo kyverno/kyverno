@@ -92,8 +92,8 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 
 // Policy Reporting Modes
 const (
-	BlockChanges    = "block"
-	ReportViolation = "report"
+	BlockChanges    = "enforce"
+	ReportViolation = "audit"
 )
 
 // returns true -> if there is even one policy that blocks resource requst
