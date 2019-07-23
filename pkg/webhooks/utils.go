@@ -156,7 +156,8 @@ func setKindForObject(bytes []byte, kind string) []byte {
 	data, err := json.Marshal(objectJSON)
 	if err != nil {
 		glog.Error(err)
-		return nil
+		glog.Error("unable to marshall, not setting the kind")
+		return bytes
 	}
 	return data
 }
@@ -166,15 +167,16 @@ func setObserverdGenerationAsZero(bytes []byte) []byte {
 	json.Unmarshal(bytes, &objectJSON)
 	status, ok := objectJSON["status"].(map[string]interface{})
 	if !ok {
-		glog.Error("type mismatch")
+		glog.Error("status block not found, not setting observed generation")
+		return bytes
 	}
 	status["observedGeneration"] = 0
 	objectJSON["status"] = status
 	data, err := json.Marshal(objectJSON)
 	if err != nil {
 		glog.Error(err)
-		return nil
+		glog.Error("unable to marshall, not setting observed generation")
+		return bytes
 	}
 	return data
-
 }
