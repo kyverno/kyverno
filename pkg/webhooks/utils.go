@@ -167,7 +167,6 @@ func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
 			policiesAppliedOld++
 		}
 	}
-
 	diffCount := policiesAppliedNew - policiesAppliedOld
 	switch diffCount {
 	case 1: // policy applied
@@ -180,6 +179,11 @@ func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
 			return true
 		}
 	}
+	//TODO: Hack if there an update on self link then we ignore
+	if oldObjUnstr.GetSelfLink() != newObjUnstr.GetSelfLink() {
+		return true
+	}
+
 	// then there is some other change and we should process it
 	return false
 }
