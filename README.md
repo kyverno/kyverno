@@ -160,7 +160,7 @@ Here are some the major features we plan on completing before a 1.0 release:
 ## Getting help
 
   * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
-  * For discussions or questions, join the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+  * For discussions or questions, join our [Kubernetes Slack channel #kyverno](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
 
 ## Contributing
 
