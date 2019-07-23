@@ -106,46 +106,81 @@ func toBlock(pis []*info.PolicyInfo) bool {
 }
 
 func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
+	var err error
 	// process only if its for existing resources
 	if request.Operation != v1beta1.Update {
 		return false
 	}
-	// updated resoruce
-	obj := request.Object
-	objUnstr := unstructured.Unstructured{}
-	objUnstr.SetKind(request.Kind.Kind)
-	//TODO: hack, set kind for unmarshalling and observed generation
-	obj.Raw = setKindForObject(obj.Raw, request.Kind.Kind)
-	obj.Raw = setObserverdGenerationAsZero(obj.Raw)
-	err := objUnstr.UnmarshalJSON(obj.Raw)
+
+	// approach : we only compare if the addition contains annotations the are added with prefix "policies.kyverno.io"
+	// get annotations for the old resource
+	oldObj := request.OldObject
+	oldObjUnstr := unstructured.Unstructured{}
+	// need to set kind as some request dont contain kind meta-data raw resource but in the api request
+	oldObj.Raw = setKindForObject(oldObj.Raw, request.Kind.Kind)
+	err = oldObjUnstr.UnmarshalJSON(oldObj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
-	objUnstr.SetSelfLink("")
-	objUnstr.SetAnnotations(nil)
-	objUnstr.SetGeneration(0)
-	objUnstr.SetResourceVersion("")
+	oldAnn := oldObjUnstr.GetAnnotations()
 
-	oldobj := request.OldObject
-	oldobjUnstr := unstructured.Unstructured{}
-	oldobj.Raw = setKindForObject(oldobj.Raw, request.Kind.Kind)
-	oldobj.Raw = setObserverdGenerationAsZero(oldobj.Raw)
-	err = oldobjUnstr.UnmarshalJSON(oldobj.Raw)
+	// get annotations for the new resource
+	newObj := request.Object
+	newObjUnstr := unstructured.Unstructured{}
+	// need to set kind as some request dont contain kind meta-data raw resource but in the api request
+	newObj.Raw = setKindForObject(newObj.Raw, request.Kind.Kind)
+	err = newObjUnstr.UnmarshalJSON(newObj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
-	oldobjUnstr.SetSelfLink("")
-	oldobjUnstr.SetAnnotations(nil)
-	oldobjUnstr.SetGeneration(0)
-	oldobjUnstr.SetResourceVersion("")
+	newAnn := newObjUnstr.GetAnnotations()
+	policiesAppliedNew := 0
+	newAnnPolicy := map[string]string{}
+	// check if annotations changed
+	// assuming that we only add an annotation with the given prefix
+	for k, v := range newAnn {
+		// check prefix
+		policyName := strings.Split(k, "/")
+		if len(policyName) == 1 {
+			continue
+		}
+		if policyName[0] == "policies.kyverno.io" {
+			newAnnPolicy[policyName[1]] = v
+			policiesAppliedNew++
+		}
+	}
 
-	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
-		glog.Info("only annoations added")
+	oldAnnPolicy := map[string]string{}
+	policiesAppliedOld := 0
+	// check if annotations changed
+	// assuming that we only add an annotation with the given prefix
+	for k, v := range oldAnn {
+		// check prefix
+		policyName := strings.Split(k, "/")
+		if len(policyName) == 1 {
+			continue
+		}
+		if policyName[0] == "policies.kyverno.io" {
+			oldAnnPolicy[policyName[1]] = v
+			policiesAppliedOld++
+		}
+	}
+
+	diffCount := policiesAppliedNew - policiesAppliedOld
+	switch diffCount {
+	case 1: // policy applied
 		return true
+	case -1: // policy removed
+		return true
+	case 0: // no new policy added or remove
+		// need to check if the policy was updated
+		if !reflect.DeepEqual(newAnnPolicy, oldAnnPolicy) {
+			return true
+		}
 	}
-	glog.Info("more than annotations changed")
+	// then there is some other change and we should process it
 	return false
 }
 
