@@ -55,6 +55,7 @@ func parseKinds(list []string) []string {
 	return kinds
 }
 
+//ArrayFlags to store filterkinds
 type ArrayFlags []string
 
 func (i *ArrayFlags) String() string {
@@ -65,6 +66,7 @@ func (i *ArrayFlags) String() string {
 	return sb.String()
 }
 
+//Set setter for array flags
 func (i *ArrayFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil

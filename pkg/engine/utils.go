@@ -253,6 +253,6 @@ func convertToFloat(value interface{}) (float64, error) {
 }
 
 type resourceInfo struct {
-	resource *unstructured.Unstructured
+	resource unstructured.Unstructured
 	gvk      *metav1.GroupVersionKind
 }

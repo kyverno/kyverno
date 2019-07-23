@@ -197,6 +197,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 	}
 }
 
+//FormAbsolutePath returns absolute path
 func FormAbsolutePath(referencePath, absolutePath string) string {
 	if filepath.IsAbs(referencePath) {
 		return referencePath
