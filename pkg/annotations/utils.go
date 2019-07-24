@@ -2,7 +2,7 @@ package annotations
 
 const annotationQueueName = "annotation-queue"
 const workerThreadCount = 1
-const workQueueRetryLimit = 3
+const workQueueRetryLimit = 5
 
 func getStatus(status bool) string {
 	if status {
@@ -12,5 +12,6 @@ func getStatus(status bool) string {
 }
 
 func BuildKey(policyName string) string {
-	return "policies.kyverno.io/" + policyName
+	//JSON Pointers
+	return "policies.kyverno.io~1" + policyName
 }
