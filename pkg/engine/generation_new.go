@@ -9,13 +9,12 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //GenerateNew apply generation rules on a resource
-func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns *corev1.Namespace) []*info.RuleInfo {
+func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Unstructured) []*info.RuleInfo {
 	ris := []*info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == nil {
@@ -35,14 +34,14 @@ func GenerateNew(client *client.Client, policy *v1alpha1.Policy, ns *corev1.Name
 	return ris
 }
 
-func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1alpha1.Generation) error {
+func applyRuleGeneratorNew(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
 
 	if gen.Data != nil {
 		// 1> Check if resource exists
-		obj, err := client.GetResource(gen.Kind, ns.Name, gen.Name)
+		obj, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
 		if err == nil {
 			// 2> If already exsists, then verify the content is contained
 			// found the resource
@@ -64,7 +63,7 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 	}
 	if gen.Clone != nil {
 		// 1> Check if resource exists
-		_, err := client.GetResource(gen.Kind, ns.Name, gen.Name)
+		_, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
 		if err == nil {
 			return nil
 		}
@@ -77,11 +76,11 @@ func applyRuleGeneratorNew(client *client.Client, ns *corev1.Namespace, gen *v1a
 	}
 	resource.SetUnstructuredContent(rdata)
 	resource.SetName(gen.Name)
-	resource.SetNamespace(ns.Name)
+	resource.SetNamespace(ns.GetName())
 	// Reset resource version
 	resource.SetResourceVersion("")
 
-	_, err = client.CreateResource(gen.Kind, ns.Name, resource, false)
+	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
 		return err
 	}

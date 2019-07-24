@@ -12,5 +12,5 @@ func getStatus(status bool) string {
 }
 
 func BuildKey(policyName string) string {
-	return "policies.kyverno.io." + policyName
+	return "policies.kyverno.io/" + policyName
 }

@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -54,6 +55,7 @@ func parseKinds(list []string) []string {
 	return kinds
 }
 
+//ArrayFlags to store filterkinds
 type ArrayFlags []string
 
 func (i *ArrayFlags) String() string {
@@ -64,6 +66,7 @@ func (i *ArrayFlags) String() string {
 	return sb.String()
 }
 
+//Set setter for array flags
 func (i *ArrayFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
@@ -89,8 +92,8 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 
 // Policy Reporting Modes
 const (
-	BlockChanges    = "block"
-	ReportViolation = "report"
+	BlockChanges    = "enforce"
+	ReportViolation = "audit"
 )
 
 // returns true -> if there is even one policy that blocks resource requst
@@ -105,31 +108,97 @@ func toBlock(pis []*info.PolicyInfo) bool {
 }
 
 func checkIfOnlyAnnotationsUpdate(request *v1beta1.AdmissionRequest) bool {
+	var err error
 	// process only if its for existing resources
 	if request.Operation != v1beta1.Update {
 		return false
 	}
-	// updated resoruce
-	obj := request.Object
-	objUnstr := unstructured.Unstructured{}
-	err := objUnstr.UnmarshalJSON(obj.Raw)
+
+	// approach : we only compare if the addition contains annotations the are added with prefix "policies.kyverno.io"
+	// get annotations for the old resource
+	oldObj := request.OldObject
+	oldObjUnstr := unstructured.Unstructured{}
+	// need to set kind as some request dont contain kind meta-data raw resource but in the api request
+	oldObj.Raw = setKindForObject(oldObj.Raw, request.Kind.Kind)
+	err = oldObjUnstr.UnmarshalJSON(oldObj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
-	objUnstr.SetAnnotations(nil)
-	objUnstr.SetGeneration(0)
-	oldobj := request.OldObject
-	oldobjUnstr := unstructured.Unstructured{}
-	err = oldobjUnstr.UnmarshalJSON(oldobj.Raw)
+	oldAnn := oldObjUnstr.GetAnnotations()
+
+	// get annotations for the new resource
+	newObj := request.Object
+	newObjUnstr := unstructured.Unstructured{}
+	// need to set kind as some request dont contain kind meta-data raw resource but in the api request
+	newObj.Raw = setKindForObject(newObj.Raw, request.Kind.Kind)
+	err = newObjUnstr.UnmarshalJSON(newObj.Raw)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
-	oldobjUnstr.SetAnnotations(nil)
-	oldobjUnstr.SetGeneration(0)
-	if reflect.DeepEqual(objUnstr, oldobjUnstr) {
+	newAnn := newObjUnstr.GetAnnotations()
+	policiesAppliedNew := 0
+	newAnnPolicy := map[string]string{}
+	// check if annotations changed
+	// assuming that we only add an annotation with the given prefix
+	for k, v := range newAnn {
+		// check prefix
+		policyName := strings.Split(k, "/")
+		if len(policyName) == 1 {
+			continue
+		}
+		if policyName[0] == "policies.kyverno.io" {
+			newAnnPolicy[policyName[1]] = v
+			policiesAppliedNew++
+		}
+	}
+
+	oldAnnPolicy := map[string]string{}
+	policiesAppliedOld := 0
+	// check if annotations changed
+	// assuming that we only add an annotation with the given prefix
+	for k, v := range oldAnn {
+		// check prefix
+		policyName := strings.Split(k, "/")
+		if len(policyName) == 1 {
+			continue
+		}
+		if policyName[0] == "policies.kyverno.io" {
+			oldAnnPolicy[policyName[1]] = v
+			policiesAppliedOld++
+		}
+	}
+	diffCount := policiesAppliedNew - policiesAppliedOld
+	switch diffCount {
+	case 1: // policy applied
+		return true
+	case -1: // policy removed
+		return true
+	case 0: // no new policy added or remove
+		// need to check if the policy was updated
+		if !reflect.DeepEqual(newAnnPolicy, oldAnnPolicy) {
+			return true
+		}
+	}
+	//TODO: Hack if there an update on self link then we ignore
+	if oldObjUnstr.GetSelfLink() != newObjUnstr.GetSelfLink() {
 		return true
 	}
+
+	// then there is some other change and we should process it
 	return false
+}
+
+func setKindForObject(bytes []byte, kind string) []byte {
+	var objectJSON map[string]interface{}
+	json.Unmarshal(bytes, &objectJSON)
+	objectJSON["kind"] = kind
+	data, err := json.Marshal(objectJSON)
+	if err != nil {
+		glog.Error(err)
+		glog.Error("unable to marshall, not setting the kind")
+		return bytes
+	}
+	return data
 }

@@ -102,7 +102,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
 		eventsInfo, violations := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
-		// If the validationFailureAction flag is set "report",
+		// If the validationFailureAction flag is set "audit",
 		// then we dont block the request and report the violations
 		ws.violationBuilder.Add(violations...)
 		ws.eventController.Add(eventsInfo...)
@@ -113,7 +113,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
-	// violations are created if "report" flag is set
+	// violations are created if "audit" flag is set
 	// and if there are any then we dont bock the resource creation
 	// Even if one the policy being applied
 

@@ -26,8 +26,8 @@ spec:
             validationFailureAction:
               type: string
               enum: 
-              - block 
-              - report
+              - enforce # blocks the resorce api-reques if a rule fails. Default behavior
+              - audit # allows resource creationg and reports the failed validation rules as violations
             rules:
               type: array
               items:

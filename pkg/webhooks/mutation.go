@@ -67,12 +67,11 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
 		} else {
-			// TODO
-			// // CleanUp Violations if exists
-			// err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
-			// if err != nil {
-			// 	glog.Info(err)
-			// }
+			// CleanUp Violations if exists
+			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Mutation)
+			if err != nil {
+				glog.Info(err)
+			}
 			allPatches = append(allPatches, policyPatches...)
 			glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 		}
