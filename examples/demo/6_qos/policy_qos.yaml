@@ -3,7 +3,7 @@ kind: Policy
 metadata:
   name: policy-qos
 spec:
-  validationFailureAction: "report"
+  validationFailureAction: "audit"
   rules:
     - name: add-memory-limit
       resource:
