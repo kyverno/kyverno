@@ -13,7 +13,8 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	glog.V(3).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+
+	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policyInfos := []*info.PolicyInfo{}

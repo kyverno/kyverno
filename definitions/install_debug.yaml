@@ -125,8 +125,3 @@ spec:
                             type: string
                       data:
                         AnyValue: {}
----
-kind: Namespace
-apiVersion: v1
-metadata: 
-    name: "kyverno"
