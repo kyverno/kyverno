@@ -22,40 +22,7 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 		return
 	}
 	// Get the resources that apply to the policy
-	// key uid
 	resourceMap := engine.ListResourcesThatApplyToPolicy(client, &policy)
-	// for _, rule := range policy.Spec.Rules {
-	// 	for _, k := range rule.Kinds {
-	// 		if k == "Namespace" {
-	// 			continue
-	// 		}
-	// 		// kind -> resource
-	// 		gvr := client.DiscoveryClient.GetGVRFromKind(k)
-	// 		// label selectors
-	// 		// namespace ? should it be default or allow policy to specify it
-	// 		namespace := "default"
-	// 		if rule.ResourceDescription.Namespace != nil {
-	// 			namespace = *rule.ResourceDescription.Namespace
-	// 		}
-	// 		list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
-	// 		if err != nil {
-	// 			glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
-	// 			glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
-	// 			continue
-	// 		}
-	// 		for _, res := range list.Items {
-	// 			name := rule.ResourceDescription.Name
-	// 			if name != nil {
-	// 				// wild card matching
-	// 				if !wildcard.Match(*name, res.GetName()) {
-	// 					continue
-	// 				}
-	// 			}
-	// 			resourceMap[string(res.GetUID())] = res
-	// 		}
-	// 	}
-	// }
-
 	// remove annotations for the resources
 	for _, obj := range resourceMap {
 		// get annotations
