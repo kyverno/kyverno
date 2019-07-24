@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/glog"
+
 	"github.com/minio/minio/pkg/wildcard"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,8 +17,8 @@ import (
 )
 
 // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
-func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.ResourceDescription, gvk metav1.GroupVersionKind) bool {
-	if !findKind(description.Kinds, gvk.Kind) {
+func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescription, exclude v1alpha1.ResourceDescription, gvk metav1.GroupVersionKind) bool {
+	if !findKind(matches.Kinds, gvk.Kind) {
 		return false
 	}
 
@@ -25,31 +27,53 @@ func ResourceMeetsDescription(resourceRaw []byte, description kubepolicy.Resourc
 		name := ParseNameFromObject(resourceRaw)
 		namespace := ParseNamespaceFromObject(resourceRaw)
 
-		if description.Name != nil {
-
-			if !wildcard.Match(*description.Name, name) {
+		if matches.Name != nil {
+			// Matches
+			if !wildcard.Match(*matches.Name, name) {
 				return false
 			}
+			// Exclude
+			// the resource name matches the exclude resource name then reject
+			if exclude.Name != nil {
+				if wildcard.Match(*exclude.Name, name) {
+					return false
+				}
+			}
 		}
-
-		if description.Namespace != nil && *description.Namespace != namespace {
+		// Matches
+		if matches.Namespace != nil && *matches.Namespace != namespace {
 			return false
 		}
-
-		if description.Selector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(description.Selector)
-
+		// Exclude
+		if exclude.Namespace != nil && *exclude.Namespace == namespace {
+			return false
+		}
+		// Matches
+		if matches.Selector != nil {
+			selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
 			if err != nil {
+				glog.Error(err)
 				return false
 			}
-
 			labelMap := parseLabelsFromMetadata(meta)
-
 			if !selector.Matches(labelMap) {
 				return false
 			}
-
 		}
+		// Exclude
+		if exclude.Selector != nil {
+			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+			// if the label selector is incorrect, should be fail or
+			if err != nil {
+				glog.Error(err)
+				return false
+			}
+			labelMap := parseLabelsFromMetadata(meta)
+			if selector.Matches(labelMap) {
+				return false
+			}
+		}
+
 	}
 	return true
 }
@@ -253,6 +277,6 @@ func convertToFloat(value interface{}) (float64, error) {
 }
 
 type resourceInfo struct {
-	resource unstructured.Unstructured
-	gvk      *metav1.GroupVersionKind
+	Resource unstructured.Unstructured
+	Gvk      *metav1.GroupVersionKind
 }

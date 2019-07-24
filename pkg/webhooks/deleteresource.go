@@ -26,7 +26,7 @@ func (ws *WebhookServer) removePolicyViolation(request *v1beta1.AdmissionRequest
 		rkind := request.Kind.Kind
 		// check if the resource meets the policy Resource description
 		for _, rule := range policy.Spec.Rules {
-			ok := engine.ResourceMeetsDescription(request.Object.Raw, rule.ResourceDescription, request.Kind)
+			ok := engine.ResourceMeetsDescription(request.Object.Raw, rule.MatchResources.ResourceDescription, rule.ExcludeResources.ResourceDescription, request.Kind)
 			if ok {
 				// Check if the policy has a violation for this resource
 				err := ws.violationBuilder.ResourceRemoval(policy.Name, rkind, rns, rname)

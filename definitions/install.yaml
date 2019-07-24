@@ -34,45 +34,90 @@ spec:
                 type: object
                 required:
                 - name
-                - resource
+                - match
                 properties:
                   name:
                     type: string
-                  resource:
+                  match:
                     type: object
                     required:
-                    - kinds
+                    - resources
                     properties:
-                      kinds:
-                        type: array
-                        items:
-                          type: string
-                      name:
-                        type: string
-                      namespace:
-                        type: string
-                      selector:
+                      resources:
+                        type: object
+                        required:
+                        - kinds
                         properties:
-                          matchLabels:
-                            type: object
-                            additionalProperties:
-                              type: string
-                          matchExpressions:
+                          kinds:
                             type: array
                             items:
-                              type: object
-                              required:
-                              - key
-                              - operator
-                              properties:
-                                key:
+                              type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          selector:
+                            properties:
+                              matchLabels:
+                                type: object
+                                additionalProperties:
                                   type: string
-                                operator:
+                              matchExpressions:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                  - key
+                                  - operator
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      type: array
+                                      items:
+                                        type: string
+                  exclude:
+                    type: object
+                    required:
+                    - resources
+                    properties:
+                      resources:
+                        type: object
+                        required:
+                        - kinds
+                        properties:
+                          kinds:
+                            type: array
+                            items:
+                              type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          selector:
+                            properties:
+                              matchLabels:
+                                type: object
+                                additionalProperties:
                                   type: string
-                                values:
-                                  type: array
-                                  items:
-                                    type: string
+                              matchExpressions:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                  - key
+                                  - operator
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      type: array
+                                      items:
+                                        type: string
                   mutate:
                     type: object
                     properties:

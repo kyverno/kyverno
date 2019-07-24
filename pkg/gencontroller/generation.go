@@ -14,6 +14,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/info"
 	violation "github.com/nirmata/kyverno/pkg/violation"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -44,7 +45,15 @@ func (c *Controller) listPolicies(ns *corev1.Namespace) ([]*v1alpha1.Policy, err
 		for _, r := range p.Spec.Rules {
 			if r.Generation != nil {
 				// Check if the resource meets the description
-				if namespaceMeetsRuleDescription(ns, r.ResourceDescription) {
+				data, err := ns.Marshal()
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+				// convert types of GVK
+				nsGvk := ns.GroupVersionKind()
+				gvk := metav1.GroupVersionKind{Group: nsGvk.Group, Kind: nsGvk.Kind, Version: nsGvk.Version}
+				if engine.ResourceMeetsDescription(data, r.MatchResources.ResourceDescription, r.ExcludeResources.ResourceDescription, gvk) {
 					fpolicies = append(fpolicies, p)
 					break
 				}

@@ -8,44 +8,80 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
-// ProcessExisting checks for mutation and validation violations of existing resources
-func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
-	glog.Infof("Applying policy %s on existing resources", policy.Name)
+func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy) map[string]resourceInfo {
 	// key uid
 	resourceMap := map[string]resourceInfo{}
-
 	for _, rule := range policy.Spec.Rules {
-		for _, k := range rule.Kinds {
+		// Match
+		for _, k := range rule.MatchResources.Kinds {
 			// kind -> resource
 			gvr := client.DiscoveryClient.GetGVRFromKind(k)
-			// label selectors
-			// namespace ? should it be default or allow policy to specify it
+			// Namespace
 			namespace := "default"
-			if rule.ResourceDescription.Namespace != nil {
-				namespace = *rule.ResourceDescription.Namespace
+			if rule.MatchResources.Namespace != nil {
+				namespace = *rule.MatchResources.Namespace
 			}
 			if k == "Namespace" {
 				namespace = ""
 			}
+			// Check if exclude namespace is not clashing
+			if rule.ExcludeResources.Namespace != nil && *rule.ExcludeResources.Namespace == namespace {
+				// as the namespace is excluded
+				continue
+			}
 
-			list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
+			// List resources
+			list, err := client.ListResource(k, namespace, rule.MatchResources.Selector)
 			if err != nil {
-				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
+				glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.MatchResources.Selector.String())
 				glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
 				continue
 			}
+			var selector labels.Selector
+			// exclude label selector
+			if rule.ExcludeResources.Selector != nil {
+				selector, err = v1helper.LabelSelectorAsSelector(rule.ExcludeResources.Selector)
+				if err != nil {
+					glog.Error(err)
+				}
+			}
 			for _, res := range list.Items {
-				name := rule.ResourceDescription.Name
-				gvk := res.GroupVersionKind()
+				// exclude label selectors
+				if selector != nil {
+					set := labels.Set(res.GetLabels())
+					if selector.Matches(set) {
+						// if matches
+						continue
+					}
+				}
+				var name *string
+				// match
+				// name
+				// wild card matching
+				name = rule.MatchResources.Name
 				if name != nil {
-					// wild card matching
+					// if does not match then we skip
 					if !wildcard.Match(*name, res.GetName()) {
 						continue
 					}
 				}
-				ri := resourceInfo{resource: res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
+				// exclude
+				// name
+				// wild card matching
+				name = rule.ExcludeResources.Name
+				if name != nil {
+					// if matches then we skip
+					if wildcard.Match(*name, res.GetName()) {
+						continue
+					}
+				}
+				gvk := res.GroupVersionKind()
+
+				ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind}}
 
@@ -54,13 +90,60 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 			}
 		}
 	}
+	return resourceMap
+}
+
+// ProcessExisting checks for mutation and validation violations of existing resources
+func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
+	glog.Infof("Applying policy %s on existing resources", policy.Name)
+	// key uid
+	resourceMap := ListResourcesThatApplyToPolicy(client, policy)
+
+	// for _, rule := range policy.Spec.Rules {
+	// 	for _, k := range rule.Kinds {
+	// 		// kind -> resource
+	// 		gvr := client.DiscoveryClient.GetGVRFromKind(k)
+	// 		// label selectors
+	// 		// namespace ? should it be default or allow policy to specify it
+	// 		namespace := "default"
+	// 		if rule.ResourceDescription.Namespace != nil {
+	// 			namespace = *rule.ResourceDescription.Namespace
+	// 		}
+	// 		if k == "Namespace" {
+	// 			namespace = ""
+	// 		}
+
+	// 		list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
+	// 		if err != nil {
+	// 			glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
+	// 			glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
+	// 			continue
+	// 		}
+	// 		for _, res := range list.Items {
+	// 			name := rule.ResourceDescription.Name
+	// 			gvk := res.GroupVersionKind()
+	// 			if name != nil {
+	// 				// wild card matching
+	// 				if !wildcard.Match(*name, res.GetName()) {
+	// 					continue
+	// 				}
+	// 			}
+	// 			ri := resourceInfo{resource: res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
+	// 				Version: gvk.Version,
+	// 				Kind:    gvk.Kind}}
+
+	// 			resourceMap[string(res.GetUID())] = ri
+
+	// 		}
+	// 	}
+	// }
 	policyInfos := []*info.PolicyInfo{}
 	// for the filtered resource apply policy
 	for _, v := range resourceMap {
 
 		policyInfo, err := applyPolicy(client, policy, v)
 		if err != nil {
-			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, v.resource.GetName(), v.resource.GetNamespace())
+			glog.Errorf("unable to apply policy %s on resource %s/%s", policy.Name, v.Resource.GetName(), v.Resource.GetNamespace())
 			glog.Error(err)
 			continue
 		}
@@ -71,28 +154,28 @@ func ProcessExisting(client *client.Client, policy *types.Policy) []*info.Policy
 }
 
 func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.gvk.Kind, res.resource.GetName(), res.resource.GetNamespace(), policy.Spec.ValidationFailureAction)
+	policyInfo := info.NewPolicyInfo(policy.Name, res.Gvk.Kind, res.Resource.GetName(), res.Resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
-	rawResource, err := res.resource.MarshalJSON()
+	rawResource, err := res.Resource.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 	// Mutate
-	mruleInfos, err := mutation(policy, rawResource, res.gvk)
+	mruleInfos, err := mutation(policy, rawResource, res.Gvk)
 	policyInfo.AddRuleInfos(mruleInfos)
 	if err != nil {
 		return nil, err
 	}
 	// Validation
-	vruleInfos, err := Validate(*policy, rawResource, *res.gvk)
+	vruleInfos, err := Validate(*policy, rawResource, *res.Gvk)
 	policyInfo.AddRuleInfos(vruleInfos)
 	if err != nil {
 		return nil, err
 	}
-	if res.gvk.Kind == "Namespace" {
+	if res.Gvk.Kind == "Namespace" {
 
 		// Generation
-		gruleInfos := GenerateNew(client, policy, res.resource)
+		gruleInfos := GenerateNew(client, policy, res.Resource)
 		policyInfo.AddRuleInfos(gruleInfos)
 	}
 
