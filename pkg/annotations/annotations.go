@@ -210,10 +210,23 @@ func ParseAnnotationsFromObject(bytes []byte) map[string]string {
 
 //AddPolicyJSONPatch generate JSON Patch to add policy informatino JSON patch
 func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pinfo.RuleType) (map[string]string, []byte, error) {
-	if ann == nil {
-		ann = make(map[string]string, 0)
+	if !pi.ContainsRuleType(ruleType) {
+		return nil, nil, nil
 	}
 	PolicyObj := newAnnotationForPolicy(pi)
+	if ann == nil {
+		ann = make(map[string]string, 0)
+		PolicyByte, err := json.Marshal(PolicyObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		// create a json patch to add annotation object
+		ann[BuildKeyString(pi.Name)] = string(PolicyByte)
+		// create add JSON patch
+		jsonPatch, err := createAddJSONPatchMap(ann)
+		return ann, jsonPatch, err
+	}
+	// if the annotations map is present then we
 	cPolicy, ok := ann[BuildKey(pi.Name)]
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
@@ -276,6 +289,15 @@ func createRemoveJSONPatchMap() ([]byte, error) {
 	}}
 	return json.Marshal(payload)
 
+}
+func createAddJSONPatchMap(ann map[string]string) ([]byte, error) {
+
+	payload := []patchMapValue{{
+		Op:    "add",
+		Path:  "/metadata/annotations",
+		Value: ann,
+	}}
+	return json.Marshal(payload)
 }
 
 func createAddJSONPatch(key, value string) ([]byte, error) {

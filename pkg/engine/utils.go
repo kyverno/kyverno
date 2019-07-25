@@ -32,12 +32,12 @@ func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescr
 			if !wildcard.Match(*matches.Name, name) {
 				return false
 			}
-			// Exclude
-			// the resource name matches the exclude resource name then reject
-			if exclude.Name != nil {
-				if wildcard.Match(*exclude.Name, name) {
-					return false
-				}
+		}
+		// Exclude
+		// the resource name matches the exclude resource name then reject
+		if exclude.Name != nil {
+			if wildcard.Match(*exclude.Name, name) {
+				return false
 			}
 		}
 		// Matches
@@ -55,9 +55,11 @@ func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescr
 				glog.Error(err)
 				return false
 			}
-			labelMap := parseLabelsFromMetadata(meta)
-			if !selector.Matches(labelMap) {
-				return false
+			if meta != nil {
+				labelMap := parseLabelsFromMetadata(meta)
+				if !selector.Matches(labelMap) {
+					return false
+				}
 			}
 		}
 		// Exclude
@@ -68,9 +70,12 @@ func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescr
 				glog.Error(err)
 				return false
 			}
-			labelMap := parseLabelsFromMetadata(meta)
-			if selector.Matches(labelMap) {
-				return false
+
+			if meta != nil {
+				labelMap := parseLabelsFromMetadata(meta)
+				if selector.Matches(labelMap) {
+					return false
+				}
 			}
 		}
 
@@ -81,8 +86,11 @@ func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescr
 func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
-
-	return objectJSON["metadata"].(map[string]interface{})
+	meta, ok := objectJSON["metadata"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return meta
 }
 
 //ParseKindFromObject get kind from resource
@@ -109,10 +117,16 @@ func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
 func ParseNameFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
+	meta, ok := objectJSON["metadata"]
+	if !ok {
+		return ""
+	}
 
-	meta := objectJSON["metadata"].(map[string]interface{})
-
-	if name, ok := meta["name"].(string); ok {
+	metaMap, ok := meta.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if name, ok := metaMap["name"].(string); ok {
 		return name
 	}
 	return ""
@@ -122,12 +136,19 @@ func ParseNameFromObject(bytes []byte) string {
 func ParseNamespaceFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
 	json.Unmarshal(bytes, &objectJSON)
-
-	meta := objectJSON["metadata"].(map[string]interface{})
-
-	if namespace, ok := meta["namespace"].(string); ok {
-		return namespace
+	meta, ok := objectJSON["metadata"]
+	if !ok {
+		return ""
 	}
+	metaMap, ok := meta.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	if name, ok := metaMap["namespace"].(string); ok {
+		return name
+	}
+
 	return ""
 }
 

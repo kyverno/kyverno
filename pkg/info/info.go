@@ -199,3 +199,13 @@ func (pi *PolicyInfo) GetRuleNames(onSuccess bool) string {
 
 	return strings.Join(ruleNames, ",")
 }
+
+//ContainsRuleType checks if a policy info contains a rule type
+func (pi *PolicyInfo) ContainsRuleType(ruleType RuleType) bool {
+	for _, r := range pi.Rules {
+		if r.RuleType == ruleType {
+			return true
+		}
+	}
+	return false
+}

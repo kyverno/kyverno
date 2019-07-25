@@ -227,7 +227,7 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 		}
 
 		// Generation rules
-		ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Validation)
+		ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Generation)
 		if err != nil {
 			glog.Error(err)
 		}
@@ -251,14 +251,24 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 			patch = mpatch
 		}
 
-		// generation
 		if gpatch != nil {
-			patch, err = jsonpatch.MergePatch(patch, gpatch)
-			if err != nil {
-				glog.Error(err)
-				continue
+			// generation
+			if patch != nil {
+				patch, err = jsonpatch.MergePatch(patch, gpatch)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+			} else {
+				patch = gpatch
 			}
 		}
+
+		if patch == nil {
+			return
+		}
+
+		fmt.Println(string(patch))
 		//		add the anotation to the resource
 		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
 		if err != nil {

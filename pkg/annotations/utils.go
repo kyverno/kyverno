@@ -15,3 +15,7 @@ func BuildKey(policyName string) string {
 	//JSON Pointers
 	return "policies.kyverno.io~1" + policyName
 }
+
+func BuildKeyString(policyName string) string {
+	return "policies.kyverno.io/" + policyName
+}
