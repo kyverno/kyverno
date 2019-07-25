@@ -113,6 +113,7 @@ func (ri RuleType) String() string {
 type RuleInfo struct {
 	Name     string
 	Msgs     []string
+	Changes  string // this will store the mutation patch being applied by the rule
 	RuleType RuleType
 	success  bool
 }
