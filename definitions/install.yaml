@@ -85,8 +85,6 @@ spec:
                     properties:
                       resources:
                         type: object
-                        required:
-                        - kinds
                         properties:
                           kinds:
                             type: array
