@@ -36,8 +36,6 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 			glog.Error(err)
 			continue
 		}
-		fmt.Println(string(patch))
-
 		// patch the resource
 		_, err = client.PatchResource(obj.Resource.GetKind(), obj.Resource.GetNamespace(), obj.Resource.GetName(), patch)
 		if err != nil {

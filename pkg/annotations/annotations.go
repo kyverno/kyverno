@@ -221,9 +221,9 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 			return nil, nil, err
 		}
 		// create a json patch to add annotation object
-		ann[BuildKeyString(pi.Name)] = string(PolicyByte)
+		ann[BuildKey(pi.Name)] = string(PolicyByte)
 		// create add JSON patch
-		jsonPatch, err := createAddJSONPatchMap(ann)
+		jsonPatch, err := createAddJSONPatch(BuildKey(pi.Name), string(PolicyByte))
 		return ann, jsonPatch, err
 	}
 	// if the annotations map is present then we
