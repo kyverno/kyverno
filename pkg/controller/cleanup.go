@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/annotations"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -34,6 +36,8 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 			glog.Error(err)
 			continue
 		}
+		fmt.Println(string(patch))
+
 		// patch the resource
 		_, err = client.PatchResource(obj.Resource.GetKind(), obj.Resource.GetNamespace(), obj.Resource.GetName(), patch)
 		if err != nil {

@@ -268,7 +268,6 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 			return
 		}
 
-		fmt.Println(string(patch))
 		//		add the anotation to the resource
 		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
 		if err != nil {

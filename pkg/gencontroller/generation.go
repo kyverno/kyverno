@@ -149,7 +149,6 @@ func (c *Controller) createAnnotations(pi *info.PolicyInfo) {
 		// nothing to patch
 		return
 	}
-	fmt.Println(string(gpatch))
 	//		add the anotation to the resource
 	_, err = c.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, gpatch)
 	if err != nil {
