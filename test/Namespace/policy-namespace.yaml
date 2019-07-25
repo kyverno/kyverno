@@ -6,12 +6,13 @@ metadata :
 spec :
   rules:
     - name: ns1
-      resource:
-        kinds : 
-        - Namespace
-        selector:
-          matchLabels:
-            LabelForSelector : "namespace"
+      match:
+        resources:
+          kinds : 
+          - Namespace
+          selector:
+            matchLabels:
+              LabelForSelector : "namespace"
       mutate:
         patches:
         - path: "/metadata/labels/replaced"

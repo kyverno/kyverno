@@ -5,9 +5,10 @@ metadata:
 spec:
   rules:
   - name: check-node-port
-    resource:
-      kinds:
-      - Service
+    match:
+      resources:
+        kinds:
+        - Service
     validate:
       message: "NodePort type is not allowed"
       pattern:

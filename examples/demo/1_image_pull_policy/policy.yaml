@@ -5,15 +5,17 @@ metadata:
 spec:
   rules:
   - name: image-pull-policy
-    resource:
-      kinds:
-      - Deployment
-      # - StatefulSet
-      # name: "my-deployment"
-      # selector :
-      #   matchLabels:
-      #     app.type: prod
-      # namespace: "my-namespace"
+    match:
+      resources:
+        kinds:
+        - Deployment
+    exclude:
+      resources:
+       name: nginx-deployment1
+       selector :
+        matchLabels:
+          app: nginx1
+       namespace: "default"
     mutate:
       overlay:
         spec:

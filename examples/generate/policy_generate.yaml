@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
   - name: "copy-comfigmap"
-    resource :
-      kinds : 
-      - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
     generate :
       kind: ConfigMap
       name : copied-cm
@@ -18,12 +19,13 @@ spec:
         namespace : default
         name : game-config
   - name: "zk-kafka-address"
-    resource: 
-      kinds:
-       - Namespace
-      selector:
-       matchExpressions:
-        - {key: LabelForSelector, operator: In, values: [namespace2]}
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        selector:
+        matchExpressions:
+          - {key: LabelForSelector, operator: In, values: [namespace2]}
     generate: 
       kind: ConfigMap
       name: zk-kafka-address

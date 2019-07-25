@@ -5,10 +5,11 @@ metadata:
 spec:
   rules:
   - name: "deny-all-traffic"
-    resource: 
-      kinds:
-       - Namespace
-      name: "*"
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "*"
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic

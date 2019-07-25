@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: add-label
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       mutate:
         patches:
         - path: /metadata/labels/isMutated
@@ -20,12 +21,13 @@ spec :
           op: replace
           value: "nginx_is_mutated" 
     - name: check-image
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       validate:
         message: "The imagePullPolicy must be Always when using image nginx"
         pattern:

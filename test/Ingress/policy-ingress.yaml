@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: ingress1
-      resource:
-        kinds : 
-        - Ingress
-        selector:
-          matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds : 
+          - Ingress
+          selector:
+            matchLabels:
+              originalLabel: isHere
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"

@@ -5,9 +5,10 @@ metadata:
 spec:
   rules:
   - name: image-pull-policy
-    resource:
-      kinds:
-      - Deployment
+    match:
+      resources:
+        kinds:
+        - Deployment
     validate:
       message: "Image tag ':latest' requires imagePullPolicy 'Always'"
       pattern:

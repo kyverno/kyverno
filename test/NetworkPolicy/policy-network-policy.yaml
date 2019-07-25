@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
     - name: np1
-      resource:
-        kinds :
-        - NetworkPolicy
-        selector:
-          matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds :
+          - NetworkPolicy
+          selector:
+            matchLabels:
+              originalLabel: isHere
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"
