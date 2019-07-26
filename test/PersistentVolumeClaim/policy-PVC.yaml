@@ -5,11 +5,12 @@ metadata:
 spec:
   rules:
     - name: pvc1
-      resource:
-        kinds :
-        - PersistentVolumeClaim
-        matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds :
+          - PersistentVolumeClaim
+          matchLabels:
+              originalLabel: isHere
       mutate:
         patches:
         - path: "/metadata/labels/originalLabel"

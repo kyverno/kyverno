@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
     - name: statefulset1
-      resource:
-        kinds :
-        - StatefulSet
-        selector:
-          matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds :
+          - StatefulSet
+          selector:
+            matchLabels:
+              originalLabel: isHere
       mutate:
         patches:
         - path: "/spec/template/metadata/labels/isMutated"

@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: "rule"
-      resource:
-        kinds : 
-        - ResourceQuota
-        selector:
-          matchLabels:
-            quota: low
+      match:
+        resources:
+          kinds : 
+          - ResourceQuota
+          selector:
+            matchLabels:
+              quota: low
       mutate:
         patches:
         - path : "/spec/scopeSelector/matchExpressions/1"

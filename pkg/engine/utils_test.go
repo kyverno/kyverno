@@ -18,6 +18,7 @@ func TestResourceMeetsDescription_Kind(t *testing.T) {
 			MatchExpressions: nil,
 		},
 	}
+	excludeResourcesResourceDesc := types.ResourceDescription{}
 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
 
 	rawResource := []byte(`{
@@ -32,12 +33,12 @@ func TestResourceMeetsDescription_Kind(t *testing.T) {
 		}
 	}`)
 
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 	resourceDescription.Kinds[0] = "Deployment"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 	resourceDescription.Kinds[0] = "ConfigMap"
 	groupVersionKind.Kind = "Deployment"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 }
 
 func TestResourceMeetsDescription_Name(t *testing.T) {
@@ -50,6 +51,8 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 			MatchExpressions: nil,
 		},
 	}
+	excludeResourcesResourceDesc := types.ResourceDescription{}
+
 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
 
 	rawResource := []byte(`{
@@ -64,9 +67,9 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 		}
 	}`)
 
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 	resourceName = "test-config-map-new"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	rawResource = []byte(`{
 		"metadata":{
@@ -79,7 +82,7 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 			}
 		}
 	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	rawResource = []byte(`{
 		"metadata":{
@@ -92,7 +95,7 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 			}
 		}
 	}`)
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 }
 
 func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
@@ -134,6 +137,8 @@ func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
 			},
 		},
 	}
+	excludeResourcesResourceDesc := types.ResourceDescription{}
+
 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
 	rawResource := []byte(`{
 		"metadata":{
@@ -147,7 +152,7 @@ func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
 		}
 	}`)
 
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	rawResource = []byte(`{
 		"metadata":{
@@ -161,7 +166,7 @@ func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
 		}
 	}`)
 
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 }
 
 func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
@@ -178,6 +183,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 		},
 	}
 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
+	excludeResourcesResourceDesc := types.ResourceDescription{}
 
 	rawResource := []byte(`{
 		"metadata":{
@@ -190,7 +196,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 			}
 		}
 	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	rawResource = []byte(`{
 		"metadata":{
@@ -203,7 +209,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 			}
 		}
 	}`)
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
@@ -217,7 +223,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 		},
 	}
 
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 }
 
 func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
@@ -241,6 +247,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 		},
 	}
 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
+	excludeResourcesResourceDesc := types.ResourceDescription{}
 
 	rawResource := []byte(`{
 		"metadata":{
@@ -254,7 +261,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 		}
 	}`)
 
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
@@ -286,7 +293,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 			}
 		}
 	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
@@ -307,7 +314,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 		},
 	}
 
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
@@ -329,7 +336,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 		},
 	}
 
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, groupVersionKind))
+	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 }
 
 func TestWrappedWithParentheses_StringIsWrappedWithParentheses(t *testing.T) {

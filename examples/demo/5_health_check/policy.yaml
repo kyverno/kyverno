@@ -5,9 +5,10 @@ metadata :
 spec:
   rules:
   - name: check-readinessProbe-exists
-    resource:
-      kinds :
-      - Pod
+    match:
+      resources:
+        kinds :
+        - Pod
     validate:
       message: "readinessProbe is required"
       pattern:
@@ -17,9 +18,10 @@ spec:
             readinessProbe:
               successThreshold: ">1"
   - name: check-livenessProbe-exists
-    resource:
-      kinds :
-      - Pod
+    match:    
+      resources:
+        kinds :
+        - Pod
     validate:
       message: "livenessProbe is required"
       pattern:

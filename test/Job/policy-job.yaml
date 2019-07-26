@@ -5,10 +5,11 @@ metadata:
 spec :
   rules:
     - name: job2
-      resource:
-        kinds:
-        - Job
-        name: pi
+      match:
+        resources:
+          kinds:
+          - Job
+          name: pi
       mutate:
         overlay:
           spec:
@@ -20,10 +21,11 @@ spec :
                   - containerPort: 80
                     protocol: TCP    
     - name: job1
-      resource:
-        kinds:
-        - Job
-        name: pi
+      match:
+        resources:
+          kinds:
+          - Job
+          name: pi
       mutate:
         overlay:
           metadata:

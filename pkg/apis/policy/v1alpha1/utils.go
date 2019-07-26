@@ -9,7 +9,8 @@ import (
 
 // Validate checks if rule is not empty and all substructures are valid
 func (r *Rule) Validate() error {
-	err := r.ResourceDescription.Validate()
+	// check matches Resoource Description of match resource
+	err := r.MatchResources.ResourceDescription.Validate()
 	if err != nil {
 		return err
 	}

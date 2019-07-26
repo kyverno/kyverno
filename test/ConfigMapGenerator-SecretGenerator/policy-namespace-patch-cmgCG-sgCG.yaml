@@ -10,12 +10,13 @@ metadata :
 spec :
   rules:
   - name: "patchNamespace2"
-    resource :
-      kinds : 
-      - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
     mutate:
       patches:
         - path: "/metadata/labels/isMutatedByPolicy"
@@ -23,12 +24,13 @@ spec :
           value: "true"
 
   - name: "copyCM"
-    resource :
-      kinds : 
-      - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
     generate :
       kind: ConfigMap
       name : copied-cm
@@ -37,12 +39,13 @@ spec :
         name : game-config
        
   - name: "generateCM"
-    resource :
-      kinds : 
-      - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
     generate :
       kind: ConfigMap
       name : generated-cm
@@ -56,10 +59,11 @@ spec :
             rsa.public.key=42
   
   - name: "generateSecret"
-    resource :
-      kinds : 
-      - Namespace
-      name: ns2
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        name: ns2
     generate :
       kind: Secret
       name : generated-secrets
@@ -73,10 +77,11 @@ spec :
           foo2=bar2
 
   - name: "copySecret"
-    resource :
-      kinds : 
-      - Namespace
-      name: ns2
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        name: ns2
     generate :
       kind: Secret
       name : copied-secrets

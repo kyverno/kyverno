@@ -77,9 +77,17 @@ func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
 	kindsMap := map[string]interface{}{}
 	kinds := []string{}
 	// iterate over the rules an identify all kinds
+	// Matching
 	for _, rule := range p.Spec.Rules {
-		for _, k := range rule.ResourceDescription.Kinds {
+		for _, k := range rule.MatchResources.Kinds {
 			kindsMap[k] = nil
+		}
+		// remove excluded ones
+		for _, k := range rule.ExcludeResources.Kinds {
+			if _, ok := kindsMap[k]; ok {
+				// delete kind
+				delete(kindsMap, k)
+			}
 		}
 	}
 

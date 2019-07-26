@@ -113,6 +113,7 @@ func (ri RuleType) String() string {
 type RuleInfo struct {
 	Name     string
 	Msgs     []string
+	Changes  string // this will store the mutation patch being applied by the rule
 	RuleType RuleType
 	success  bool
 }
@@ -198,4 +199,14 @@ func (pi *PolicyInfo) GetRuleNames(onSuccess bool) string {
 	}
 
 	return strings.Join(ruleNames, ",")
+}
+
+//ContainsRuleType checks if a policy info contains a rule type
+func (pi *PolicyInfo) ContainsRuleType(ruleType RuleType) bool {
+	for _, r := range pi.Rules {
+		if r.RuleType == ruleType {
+			return true
+		}
+	}
+	return false
 }

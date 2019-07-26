@@ -25,11 +25,22 @@ type Spec struct {
 // Rule is set of mutation, validation and generation actions
 // for the single resource description
 type Rule struct {
-	Name                string `json:"name"`
-	ResourceDescription `json:"resource"`
-	Mutation            *Mutation   `json:"mutate"`
-	Validation          *Validation `json:"validate"`
-	Generation          *Generation `json:"generate"`
+	Name             string           `json:"name"`
+	MatchResources   MatchResources   `json:"match"`
+	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
+	Mutation         *Mutation        `json:"mutate"`
+	Validation       *Validation      `json:"validate"`
+	Generation       *Generation      `json:"generate"`
+}
+
+//MatchResources contains resource description of the resources that the rule is to apply on
+type MatchResources struct {
+	ResourceDescription `json:"resources"`
+}
+
+//ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule
+type ExcludeResources struct {
+	ResourceDescription `json:"resources"`
 }
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.

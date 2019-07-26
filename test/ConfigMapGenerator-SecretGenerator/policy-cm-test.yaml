@@ -5,12 +5,13 @@ metadata :
 spec:
   rules:
   - name: "copyCM"
-    resource :
-      kinds : 
-      - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+    match:
+      resources:
+        kinds : 
+        - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
     generate :
       kind: ConfigMap
       name : copied-cm

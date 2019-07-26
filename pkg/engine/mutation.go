@@ -19,7 +19,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		}
 		ri := info.NewRuleInfo(rule.Name, info.Mutation)
 
-		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
+		ok := ResourceMeetsDescription(rawResource, rule.MatchResources.ResourceDescription, rule.ExcludeResources.ResourceDescription, gvk)
 		if !ok {
 			glog.V(3).Infof("Not applicable on specified resource kind%s", gvk.Kind)
 			continue
@@ -27,12 +27,22 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			overlayPatches, err := ProcessOverlay(rule, rawResource, gvk)
-			if err != nil {
+			if err == nil {
+				if len(overlayPatches) == 0 {
+					// if array elements dont match then we skip(nil patch, no error)
+					// or if acnohor is defined and doenst match
+					// policy is not applicable
+					continue
+				}
+				ri.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
+				// merge the json patches
+				patch := JoinPatches(overlayPatches)
+				// strip slashes from string
+				ri.Changes = string(patch)
+				allPatches = append(allPatches, overlayPatches...)
+			} else {
 				ri.Fail()
 				ri.Addf("overlay application has failed, err %v.", err)
-			} else {
-				ri.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
-				allPatches = append(allPatches, overlayPatches...)
 			}
 		}
 

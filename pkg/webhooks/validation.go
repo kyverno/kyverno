@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
@@ -35,7 +34,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
 	}
 
-	var annPatches []byte
 	for _, policy := range policies {
 
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
@@ -89,14 +87,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		// annotations
 		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
 		if annPatch != nil {
-			if annPatches == nil {
-				annPatches = annPatch
-			} else {
-				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
-				if err != nil {
-					glog.Error(err)
-				}
-			}
+			ws.annotationsController.Add(rkind, rns, rname, annPatch)
 		}
 	}
 
@@ -106,10 +97,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		// then we dont block the request and report the violations
 		ws.violationBuilder.Add(violations...)
 		ws.eventController.Add(eventsInfo...)
-	}
-	//	add annotations
-	if annPatches != nil {
-		ws.annotationsController.Add(rkind, rns, rname, annPatches)
 	}
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)

@@ -8,6 +8,7 @@ import (
 )
 
 var defaultResourceDescriptionName = "defaultResourceDescription"
+
 var defaultResourceDescription = ResourceDescription{
 	Kinds: []string{"Deployment"},
 	Name:  &defaultResourceDescriptionName,
@@ -18,8 +19,8 @@ var defaultResourceDescription = ResourceDescription{
 
 func Test_EmptyRule(t *testing.T) {
 	emptyRule := Rule{
-		Name:                "defaultRule",
-		ResourceDescription: defaultResourceDescription,
+		Name:           "defaultRule",
+		MatchResources: MatchResources{ResourceDescription: defaultResourceDescription},
 	}
 	err := emptyRule.Validate()
 	assert.Assert(t, err != nil)

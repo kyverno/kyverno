@@ -5,11 +5,12 @@ metadata:
 spec:
   rules:
   - name: check-registries
-    resource:
-      kinds:
-      - Deployment
-      - StatefulSet
-      namespace: default
+    match:
+      resources:
+        kinds:
+        - Deployment
+        - StatefulSet
+        namespace: default
     validate:
       message: "Registry is not allowed"
       pattern:

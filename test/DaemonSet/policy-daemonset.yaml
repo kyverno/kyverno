@@ -5,10 +5,11 @@ metadata:
 spec:
   rules:
     - name: "Patch and Volume validation"
-      resource:
-        kinds:
-        - DaemonSet
-        name: fluentd-elasticsearch
+      match:
+        resources:
+          kinds:
+          - DaemonSet
+          name: fluentd-elasticsearch
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"

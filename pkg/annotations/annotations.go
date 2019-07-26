@@ -62,6 +62,12 @@ func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule 
 		rule := Rule{Status: getStatus(r.IsSuccessful())}
 		if !r.IsSuccessful() {
 			rule.Message = r.GetErrorString()
+		} else {
+			if ruleType == pinfo.Mutation {
+				// If ruleType is Mutation
+				// then for succesful mutation we store the json patch being applied in the annotation information
+				rule.Changes = r.Changes
+			}
 		}
 		annrules[r.Name] = rule
 	}
@@ -210,10 +216,23 @@ func ParseAnnotationsFromObject(bytes []byte) map[string]string {
 
 //AddPolicyJSONPatch generate JSON Patch to add policy informatino JSON patch
 func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pinfo.RuleType) (map[string]string, []byte, error) {
-	if ann == nil {
-		ann = make(map[string]string, 0)
+	if !pi.ContainsRuleType(ruleType) {
+		return nil, nil, nil
 	}
 	PolicyObj := newAnnotationForPolicy(pi)
+	if ann == nil {
+		ann = make(map[string]string, 0)
+		PolicyByte, err := json.Marshal(PolicyObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		// create a json patch to add annotation object
+		ann[BuildKey(pi.Name)] = string(PolicyByte)
+		// create add JSON patch
+		jsonPatch, err := createAddJSONPatch(BuildKey(pi.Name), string(PolicyByte))
+		return ann, jsonPatch, err
+	}
+	// if the annotations map is present then we
 	cPolicy, ok := ann[BuildKey(pi.Name)]
 	if !ok {
 		PolicyByte, err := json.Marshal(PolicyObj)
@@ -223,7 +242,7 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 		// insert policy information
 		ann[BuildKey(pi.Name)] = string(PolicyByte)
 		// create add JSON patch
-		jsonPatch, err := createAddJSONPatch(ann)
+		jsonPatch, err := createAddJSONPatch(BuildKey(pi.Name), string(PolicyByte))
 
 		return ann, jsonPatch, err
 	}
@@ -244,7 +263,7 @@ func AddPolicyJSONPatch(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pi
 	// update policy information
 	ann[BuildKey(pi.Name)] = string(cPolicyByte)
 	// create update JSON patch
-	jsonPatch, err := createReplaceJSONPatch(ann)
+	jsonPatch, err := createReplaceJSONPatch(BuildKey(pi.Name), string(cPolicyByte))
 	return ann, jsonPatch, err
 }
 
@@ -253,12 +272,7 @@ func RemovePolicyJSONPatch(ann map[string]string, policy string) (map[string]str
 	if ann == nil {
 		return nil, nil, nil
 	}
-	delete(ann, policy)
-	if len(ann) == 0 {
-		jsonPatch, err := createRemoveJSONPatch(ann)
-		return nil, jsonPatch, err
-	}
-	jsonPatch, err := createReplaceJSONPatch(ann)
+	jsonPatch, err := createRemoveJSONPatchKey(policy)
 	return ann, jsonPatch, err
 }
 
@@ -268,7 +282,13 @@ type patchMapValue struct {
 	Value map[string]string `json:"value"`
 }
 
-func createRemoveJSONPatch(ann map[string]string) ([]byte, error) {
+type patchStringValue struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value string `json:"value"`
+}
+
+func createRemoveJSONPatchMap() ([]byte, error) {
 	payload := []patchMapValue{{
 		Op:   "remove",
 		Path: "/metadata/annotations",
@@ -276,11 +296,8 @@ func createRemoveJSONPatch(ann map[string]string) ([]byte, error) {
 	return json.Marshal(payload)
 
 }
+func createAddJSONPatchMap(ann map[string]string) ([]byte, error) {
 
-func createAddJSONPatch(ann map[string]string) ([]byte, error) {
-	if ann == nil {
-		ann = make(map[string]string, 0)
-	}
 	payload := []patchMapValue{{
 		Op:    "add",
 		Path:  "/metadata/annotations",
@@ -289,14 +306,33 @@ func createAddJSONPatch(ann map[string]string) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func createReplaceJSONPatch(ann map[string]string) ([]byte, error) {
-	if ann == nil {
-		ann = make(map[string]string, 0)
-	}
-	payload := []patchMapValue{{
-		Op:    "replace",
-		Path:  "/metadata/annotations",
-		Value: ann,
+func createAddJSONPatch(key, value string) ([]byte, error) {
+
+	payload := []patchStringValue{{
+		Op:    "add",
+		Path:  "/metadata/annotations/" + key,
+		Value: value,
 	}}
 	return json.Marshal(payload)
+}
+
+func createReplaceJSONPatch(key, value string) ([]byte, error) {
+	// if ann == nil {
+	// 	ann = make(map[string]string, 0)
+	// }
+	payload := []patchStringValue{{
+		Op:    "replace",
+		Path:  "/metadata/annotations/" + key,
+		Value: value,
+	}}
+	return json.Marshal(payload)
+}
+
+func createRemoveJSONPatchKey(key string) ([]byte, error) {
+	payload := []patchStringValue{{
+		Op:   "remove",
+		Path: "/metadata/annotations/" + key,
+	}}
+	return json.Marshal(payload)
+
 }

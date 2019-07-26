@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: add-label
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       mutate:
         patches:
         - path: /metadata/labels/isMutated
@@ -25,36 +26,39 @@ spec :
                   - (image): "*nginx*"
                     imagePullPolicy: "Always"
     - name: add-label2
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       mutate:
         patches:
         - path: /metadata/labels/app1
           op: replace
           value: "nginx_is_mutated" 
     - name: add-label3
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       mutate:
         patches:
         - path: /metadata/labels/app2
           op: add
           value: "nginx_is_mutated2" 
     - name: check-image
-      resource:
-        kinds : 
-        - Deployment
-        selector :
-          matchLabels :
-            cli: test
+      match:
+        resources:
+          kinds : 
+          - Deployment
+          selector :
+            matchLabels :
+              cli: test
       validate:
         message: "The imagePullPolicy must be Always when using image nginx"
         pattern:
@@ -65,10 +69,11 @@ spec :
                 - (image): "*nginx*"
                   imagePullPolicy: "Always"
     - name: check-registries
-      resource:
-        kinds:
-        - Deployment
-        - StatefulSet
+      match:
+        resources:
+          kinds:
+          - Deployment
+          - StatefulSet
       validate:
         message: "Registry is not allowed"
         pattern:

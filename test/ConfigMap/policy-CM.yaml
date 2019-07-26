@@ -5,10 +5,11 @@ metadata :
 spec :
   rules:
     - name: pCM1
-      resource:
-        kinds :
-        - ConfigMap
-        name: "game-config"
+      match:
+        resources:
+          kinds :
+          - ConfigMap
+          name: "game-config"
       mutate:
         overlay:
           data:
@@ -25,10 +26,11 @@ spec :
           op : add
           value : newValue
     - name: pCM2
-      resource:
-        kinds :
-        - ConfigMap
-        name: "game-config"
+      match:
+        resources:
+          kinds :
+          - ConfigMap
+          name: "game-config"
       mutate:
         patches:
         - path : "/data/secretData"
@@ -37,10 +39,11 @@ spec :
           op : replace
           value : "data is replaced"
     - name: pCM3
-      resource:
-        kinds :
-        - ConfigMap
-        name: "game-config"
+      match:
+        resources:
+          kinds :
+          - ConfigMap
+          name: "game-config"
       mutate:
         patches:
         - path : "/data/secretData"
@@ -52,10 +55,11 @@ spec :
           data:
             game.properties: "*enemies=aliens*"
     - name: pCM4
-      resource:
-        kinds :
-        - ConfigMap
-        name: "game-config"
+      match:
+        resources:
+          kinds :
+          - ConfigMap
+          name: "game-config"
       validate:
         message: "This CM data is broken because it does not have ui.properties"
         pattern:

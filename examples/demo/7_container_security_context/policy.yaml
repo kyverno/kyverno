@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
   - name: validate-user-privilege
-    resource:
-      kinds:
-      - Deployment
-      selector :
-        matchLabels:
-          app.type: prod
+    match:
+      resources:
+        kinds:
+        - Deployment
+        selector :
+          matchLabels:
+            app.type: prod
     validate:
       message: "validate container security contexts"
       pattern:

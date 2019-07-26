@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
     - name: podtemplate1
-      resource:
-        kinds :
-        - PodTemplate
-        selector:
-          matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds :
+          - PodTemplate
+          selector:
+            matchLabels:
+              originalLabel: isHere
       mutate:
         overlay:
           template:

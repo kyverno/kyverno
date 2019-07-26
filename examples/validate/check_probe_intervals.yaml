@@ -5,9 +5,10 @@ metadata :
 spec:
   rules:
   - name: check-probe-intervals
-    resource:
-      kinds :
-      - Deployment
+    match:
+      resources:
+        kinds :
+        - Deployment
     validate:
       message: "livenessProbe must be > 10s"
       pattern:
@@ -19,9 +20,10 @@ spec:
                   livenessProbe:
                     periodSeconds: ">10"
   - name: check-probe-intervals
-    resource:
-      kinds :
-      - Deployment
+    match:
+      resources:
+        kinds :
+        - Deployment
     validate:
       message: "readinessProbe must be > 10s"
       pattern:
