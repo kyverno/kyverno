@@ -93,6 +93,15 @@ func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	return meta
 }
 
+// ParseResourceInfoFromObject get kind/namepace/name from resource
+func ParseResourceInfoFromObject(rawResource []byte) string {
+
+	kind := ParseKindFromObject(rawResource)
+	namespace := ParseNamespaceFromObject(rawResource)
+	name := ParseNameFromObject(rawResource)
+	return strings.Join([]string{kind, namespace, name}, "/")
+}
+
 //ParseKindFromObject get kind from resource
 func ParseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}

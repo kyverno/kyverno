@@ -95,6 +95,10 @@ func checkConditionsOnArrayOfMaps(resource, overlay []interface{}) bool {
 		anchors, overlayWithoutAnchor := getElementsFromMap(typedOverlay)
 
 		if len(anchors) > 0 {
+			if !validAnchorMap(anchors) {
+				return false
+			}
+
 			if !isConditionMet(resource, anchors) {
 				return false
 			}
@@ -117,6 +121,17 @@ func checkConditionsOnArrayOfMaps(resource, overlay []interface{}) bool {
 	return true
 }
 
+func validAnchorMap(anchors map[string]interface{}) bool {
+	for _, val := range anchors {
+		switch val.(type) {
+		case map[string]interface{}, []interface{}:
+			glog.Warning("Maps and arrays as patterns are not supported")
+			return false
+		}
+	}
+	return true
+}
+
 func isConditionMet(resource []interface{}, anchors map[string]interface{}) bool {
 	for _, resourceElement := range resource {
 		typedResource := resourceElement.(map[string]interface{})
@@ -128,8 +143,8 @@ func isConditionMet(resource []interface{}, anchors map[string]interface{}) bool
 				continue
 			}
 
-			if !ValidateValueWithPattern(value, pattern) {
-				return false
+			if ValidateValueWithPattern(value, pattern) {
+				return true
 			}
 		}
 	}
