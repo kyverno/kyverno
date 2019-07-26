@@ -175,7 +175,7 @@ func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) 
 	if res.Gvk.Kind == "Namespace" {
 
 		// Generation
-		gruleInfos := GenerateNew(client, policy, res.Resource)
+		gruleInfos := Generate(client, policy, res.Resource)
 		policyInfo.AddRuleInfos(gruleInfos)
 	}
 

@@ -85,7 +85,7 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) {
 		return
 	}
 	unstObj := unstructured.Unstructured{Object: unstrMap}
-	ruleInfos := engine.GenerateNew(c.client, p, unstObj)
+	ruleInfos := engine.Generate(c.client, p, unstObj)
 	policyInfo.AddRuleInfos(ruleInfos)
 
 	// generate annotations on namespace

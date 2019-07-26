@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	ospath "path"
 
 	"github.com/golang/glog"
@@ -196,7 +198,13 @@ func (t *test) applyPolicy(policy *pt.Policy,
 
 	if rkind == "Namespace" {
 		if client != nil {
-			ruleInfos := engine.Generate(client, *policy, rawResource, *tresource.gvk, false)
+			// convert []byte to unstructured
+			unstr := unstructured.Unstructured{}
+			err := unstr.UnmarshalJSON(rawResource)
+			if err != nil {
+				glog.Error(err)
+			}
+			ruleInfos := engine.Generate(client, policy, unstr)
 			policyInfo.AddRuleInfos(ruleInfos)
 		}
 	}
