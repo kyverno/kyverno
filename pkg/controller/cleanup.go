@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/annotations"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
