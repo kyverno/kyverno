@@ -62,6 +62,12 @@ func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule 
 		rule := Rule{Status: getStatus(r.IsSuccessful())}
 		if !r.IsSuccessful() {
 			rule.Message = r.GetErrorString()
+		} else {
+			if ruleType == pinfo.Mutation {
+				// If ruleType is Mutation
+				// then for succesful mutation we store the json patch being applied in the annotation information
+				rule.Changes = r.Changes
+			}
 		}
 		annrules[r.Name] = rule
 	}
