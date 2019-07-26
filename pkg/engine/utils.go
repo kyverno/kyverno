@@ -128,6 +128,20 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	return result
 }
 
+func getElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	anchors := make(map[string]interface{})
+	elementsWithoutanchor := make(map[string]interface{})
+	for key, value := range anchorsMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			anchors[key] = value
+		} else if !isAddingAnchor(key) {
+			elementsWithoutanchor[key] = value
+		}
+	}
+
+	return anchors, elementsWithoutanchor
+}
+
 func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
 	for key, value := range anchorsMap {
 		if isConditionAnchor(key) || isExistanceAnchor(key) {
