@@ -5,22 +5,19 @@ metadata:
 spec:
   rules:
   - name: "deny-ingress-traffic"
-    resource: 
-      kinds:
-       - Namespace
-      name: "devtest"
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "devtest"
     generate: 
       kind: NetworkPolicy
       name: deny-ingress-traffic
       data:
         spec:
-        podSelector:
-          matchLabels: {}
-          matchExpressions: []
-        policyTypes: 
-        - Ingress
+          policyTypes: 
+          - Ingress
         metadata:
-          annotations: {}
           labels:
             policyname: "default"
       # kind: ConfigMap

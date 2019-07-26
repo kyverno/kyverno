@@ -5,9 +5,10 @@ metadata :
 spec :
   rules:
     - name: "First policy v2"
-      resource:
-        kinds :
-        - Deployment
+      match:
+        resources:
+          kinds :
+          - Deployment
       mutate:
         patches:
         - path: /metadata/labels/isMutated
@@ -16,7 +17,6 @@ spec :
         - path: /metadata/labels/app
           op: replace
           value: "nginx_is_mutated"
-
       validate:
         message: "Because I like only mutated resources"
         pattern:

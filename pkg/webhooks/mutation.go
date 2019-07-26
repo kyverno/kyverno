@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
@@ -33,7 +32,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	var allPatches [][]byte
-	var annPatches []byte
 	policyInfos := []*info.PolicyInfo{}
 	for _, policy := range policies {
 		// check if policy has a rule for the admission request kind
@@ -79,14 +77,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Mutation)
 		if annPatch != nil {
-			if annPatches == nil {
-				annPatches = annPatch
-			} else {
-				annPatches, err = jsonpatch.MergePatch(annPatches, annPatch)
-				if err != nil {
-					glog.Error(err)
-				}
-			}
+			// add annotations
+			ws.annotationsController.Add(rkind, rns, rname, annPatch)
 		}
 	}
 
@@ -94,12 +86,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
 		ws.eventController.Add(eventsInfo...)
 	}
-	//	add annotations
-	if annPatches != nil {
-		// fmt.Println(string(annPatches))
-		ws.annotationsController.Add(rkind, rns, rname, annPatches)
-	}
-
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
 		patchType := v1beta1.PatchTypeJSONPatch

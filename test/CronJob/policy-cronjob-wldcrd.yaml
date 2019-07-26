@@ -5,10 +5,11 @@ metadata:
 spec:
   rules:
     - name: pCJ
-      resource:
-        kinds : 
-        - CronJob
-        name: "?ell*"
+      match:
+        resources:
+          kinds : 
+          - CronJob
+          name: "?ell*"
       mutate:
         patches:
           - path: "/metadata/labels/isMutated"

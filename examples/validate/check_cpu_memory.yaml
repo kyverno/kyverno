@@ -5,9 +5,10 @@ metadata:
 spec:
   rules:
   - name: check-defined
-    resource:
-      kinds:
-      - Deployment
+    match:
+      resources:
+        kinds:
+        - Deployment
     validate:
       message: "Resource limits are required for CPU and memory"
       pattern:
@@ -22,9 +23,10 @@ spec:
                     cpu: "?*"
 
   - name: check-cpu
-    resource:
-      kinds:
-      - Deployment
+    match:
+      resources:
+        kinds:
+        - Deployment
     validate:
       message: "CPU request should be less than 4"
       pattern:

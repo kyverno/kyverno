@@ -5,9 +5,10 @@ metadata:
 spec:
   rules:
   - name: check-host-path
-    resource:
-      kinds:
-      - Pod
+    match:
+      resources:
+        kinds:
+        - Pod
     validate:
       message: "Host path is not allowed"
       pattern:

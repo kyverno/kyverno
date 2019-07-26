@@ -3,12 +3,13 @@ kind: Policy
 metadata:
   name: policy-qos
 spec:
-  validationFailureAction: "audit"
+#  validationFailureAction: "audit"
   rules:
     - name: add-memory-limit
-      resource:
-        kinds:
-        - Deployment
+      match:
+        resources:
+          kinds:
+          - Deployment
       mutate:
         overlay:
           spec:
@@ -21,10 +22,12 @@ spec:
                       limits:
                         # add memory limit if it is not exist
                         "+(memory)": "300Mi"  
+                        "+(cpu)": "100"
     - name: check-cpu-memory-limits
-      resource:
-        kinds:
-        - Deployment
+      match:
+        resources:
+          kinds:
+          - Deployment
       validate:
         message: "Resource limits are required for CPU and memory"
         pattern:

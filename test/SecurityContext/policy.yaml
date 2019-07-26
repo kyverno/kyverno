@@ -5,12 +5,13 @@ metadata:
 spec:
   rules:
   - name: set-userID
-    resource:
-      kinds:
-      - Deployment
-      selector :
-        matchLabels:
-          app.type: prod
+    match:
+      resources:
+        kinds:
+        - Deployment
+        selector :
+          matchLabels:
+            app.type: prod
     mutate:
       overlay:
         spec:

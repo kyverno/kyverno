@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: "rule"
-      resource:
-        kinds :
-        - LimitRange
-        selector:
-          matchLabels:
-            containerSize: minimal
+      match:
+        resources:
+          kinds :
+          - LimitRange
+          selector:
+            matchLabels:
+              containerSize: minimal
       mutate:
         patches:
         - path : "/spec/limits/0/default/memory"

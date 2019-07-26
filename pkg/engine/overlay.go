@@ -275,14 +275,41 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 
 // converts overlay to JSON string to be inserted into the JSON Patch
 func prepareJSONValue(overlay interface{}) string {
-	jsonOverlay, err := json.Marshal(overlay)
-
+	var err error
 	if err != nil || hasOnlyAnchors(overlay) {
 		glog.V(3).Info(err)
 		return ""
 	}
-
+	// Need to remove anchors from the overlay struct
+	overlayWithoutAnchors := removeAnchorFromSubTree(overlay)
+	jsonOverlay, err := json.Marshal(overlayWithoutAnchors)
 	return string(jsonOverlay)
+}
+
+func removeAnchorFromSubTree(overlay interface{}) interface{} {
+	var result interface{}
+	switch typed := overlay.(type) {
+	case map[string]interface{}:
+		// assuming only keys have anchors
+		result = removeAnchroFromMap(typed)
+	case []interface{}:
+		arrayResult := make([]interface{}, 0)
+		for _, value := range typed {
+			arrayResult = append(arrayResult, removeAnchorFromSubTree(value))
+		}
+		result = arrayResult
+	default:
+		result = overlay
+	}
+	return result
+}
+
+func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{}, 0)
+	for k, v := range overlay {
+		result[getRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
+	}
+	return result
 }
 
 // Anchor has pattern value, so resource shouldn't be mutated with it

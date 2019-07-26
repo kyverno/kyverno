@@ -5,10 +5,11 @@ metadata :
 spec :
   rules:
     - name: ps1
-      resource:
-        kinds: 
-        - Service
-        name: "game-service*"
+      match:
+        resources:
+          kinds: 
+          - Service
+          name: "game-service*"
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"

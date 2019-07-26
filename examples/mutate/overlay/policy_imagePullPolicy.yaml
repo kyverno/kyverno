@@ -5,9 +5,10 @@ metadata:
 spec:
   rules:
   - name: set-image-pull-policy
-    resource:
-      kinds:
-      - Deployment
+    match:
+      resources:
+        kinds:
+        - Deployment
     mutate:
       overlay:
         spec:

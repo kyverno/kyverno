@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: "rule1"
-      resource:
-        kinds : 
-        - ResourceQuota
-        selector:
-          matchLabels:
-            quota: low
+      match:
+        resources:
+          kinds : 
+          - ResourceQuota
+          selector:
+            matchLabels:
+              quota: low
       validate:
         message: "This RQ requests too many RAM"
         pattern:
@@ -18,12 +19,13 @@ spec :
             hard:
               memory: "8Gi|12Gi"
     - name: "rule2"
-      resource:
-        kinds : 
-        - ResourceQuota
-        selector:
-          matchLabels:
-            quota: low
+      match:
+        resources:
+          kinds : 
+          - ResourceQuota
+          selector:
+            matchLabels:
+              quota: low
       validate:
         message: "This RQ requests too many CPUs"
         pattern:
@@ -31,12 +33,13 @@ spec :
             hard:
               cpu: <3
     - name: "rule3"
-      resource:
-        kinds : 
-        - ResourceQuota
-        selector:
-          matchLabels:
-            quota: low
+      match:
+        resources:
+          kinds : 
+          - ResourceQuota
+          selector:
+            matchLabels:
+              quota: low
       validate:
         message: "This RQ requests too many PODs"
         pattern:

@@ -34,7 +34,7 @@ func NewAnnotationControler(client *client.Client) Controller {
 }
 
 func (c *controller) Add(rkind, rns, rname string, patch []byte) {
-	c.queue.Add(newInfo(rkind, rns, rname, patch))
+	c.queue.Add(newInfo(rkind, rns, rname, &patch))
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -99,14 +99,7 @@ func (c *controller) syncHandler(obj interface{}) error {
 	}
 
 	var err error
-	// check if the resource is created
-	_, err = c.client.GetResource(key.RKind, key.RNs, key.RName)
-	if err != nil {
-		glog.Errorf("Error creating annotation: unable to get resource %s/%s/%s, will retry: %s ", key.RKind, key.RNs, key.RName, err)
-		return err
-	}
-	// if it is patch the resource
-	_, err = c.client.PatchResource(key.RKind, key.RNs, key.RName, *key.Patch)
+	_, err = c.client.PatchResource(key.RKind, key.RNs, key.RName, *key.patch)
 	if err != nil {
 		glog.Errorf("Error creating annotation: unable to get resource %s/%s/%s, will retry: %s", key.RKind, key.RNs, key.RName, err)
 		return err

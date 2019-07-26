@@ -5,10 +5,11 @@ metadata:
 spec:
   rules:
     - name: pdb1
-      resource:
-        kinds : 
-        - PodDisruptionBudget
-        name: "game-pdb"
+      match:
+        resources:
+          kinds : 
+          - PodDisruptionBudget
+          name: "game-pdb"
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"

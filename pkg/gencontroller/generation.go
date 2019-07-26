@@ -1,10 +1,12 @@
 package gencontroller
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/annotations"
@@ -14,6 +16,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/info"
 	violation "github.com/nirmata/kyverno/pkg/violation"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -44,7 +47,16 @@ func (c *Controller) listPolicies(ns *corev1.Namespace) ([]*v1alpha1.Policy, err
 		for _, r := range p.Spec.Rules {
 			if r.Generation != nil {
 				// Check if the resource meets the description
-				if namespaceMeetsRuleDescription(ns, r.ResourceDescription) {
+				data, err := json.Marshal(ns)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+				// convert types of GVK
+				nsGvk := schema.FromAPIVersionAndKind("v1", "Namespace")
+				// Hardcode as we have a informer on specified gvk
+				gvk := metav1.GroupVersionKind{Group: nsGvk.Group, Kind: nsGvk.Kind, Version: nsGvk.Version}
+				if engine.ResourceMeetsDescription(data, r.MatchResources.ResourceDescription, r.ExcludeResources.ResourceDescription, gvk) {
 					fpolicies = append(fpolicies, p)
 					break
 				}
@@ -76,8 +88,9 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) {
 	ruleInfos := engine.GenerateNew(c.client, p, unstObj)
 	policyInfo.AddRuleInfos(ruleInfos)
 
-	// generate annotations
+	// generate annotations on namespace
 	c.createAnnotations(policyInfo)
+	//TODO generate namespace on created resources
 
 	if !policyInfo.IsSuccessful() {
 		glog.Infof("Failed to apply policy %s on resource %s %s", p.Name, ns.Kind, ns.Name)
@@ -127,7 +140,7 @@ func (c *Controller) createAnnotations(pi *info.PolicyInfo) {
 	// add annotation for policy application
 	ann := obj.GetAnnotations()
 	// Generation rules
-	ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Mutation)
+	ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Generation)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -136,7 +149,6 @@ func (c *Controller) createAnnotations(pi *info.PolicyInfo) {
 		// nothing to patch
 		return
 	}
-
 	//		add the anotation to the resource
 	_, err = c.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, gpatch)
 	if err != nil {

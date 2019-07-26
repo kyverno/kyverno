@@ -5,12 +5,13 @@ metadata :
 spec :
   rules:
     - name: pEP
-      resource:
-        kinds : 
-        - Endpoints
-        selector:
-          matchLabels:
-            label : test
+      match:
+        resources:
+          kinds : 
+          - Endpoints
+          selector:
+            matchLabels:
+              label : test
       mutate:
         patches:
           - path : "/subsets/0/ports/0/port"

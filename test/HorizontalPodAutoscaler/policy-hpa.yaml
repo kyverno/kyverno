@@ -5,12 +5,13 @@ metadata:
 spec :
   rules:
     - name: hpa1
-      resource:
-        kinds : 
-        - HorizontalPodAutoscaler
-        selector:
-          matchLabels:
-            originalLabel: isHere
+      match:
+        resources:
+          kinds : 
+          - HorizontalPodAutoscaler
+          selector:
+            matchLabels:
+              originalLabel: isHere
       mutate:
         patches:
         - path: "/metadata/labels/isMutated"

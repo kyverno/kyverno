@@ -21,7 +21,7 @@ func Generate(client *client.Client, policy kubepolicy.Policy, rawResource []byt
 
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
 
-		ok := ResourceMeetsDescription(rawResource, rule.ResourceDescription, gvk)
+		ok := ResourceMeetsDescription(rawResource, rule.MatchResources.ResourceDescription, rule.ExcludeResources.ResourceDescription, gvk)
 		if !ok {
 			glog.Infof("Rule is not applicable to the request: rule name = %s in policy %s \n", rule.Name, policy.ObjectMeta.Name)
 			continue
