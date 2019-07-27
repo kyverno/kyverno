@@ -809,3 +809,140 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 	assert.Error(t, err, "Conditions are not met")
 	assert.Assert(t, len(patches) == 0)
 }
+
+func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "psp-demo-unprivileged",
+		   "labels": {
+			  "app.type": "prod"
+		   }
+		},
+		"spec": {
+		   "replicas": 1,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "psp"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "psp"
+				 }
+			  },
+			  "spec": {
+				 "securityContext": {
+					"runAsNonRoot": true
+				 },
+				 "containers": [
+					{
+					   "name": "sec-ctx-unprivileged",
+					   "image": "nginxinc/nginx-unprivileged",
+					   "securityContext": {
+						  "runAsNonRoot": true,
+						  "allowPrivilegeEscalation": false
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_KEY",
+							 "value": "ENV_VALUE"
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
+	overlayRaw := []byte(`{
+		"spec": {
+		   "template": {
+			  "spec": {
+				 "containers": [
+					{
+					   "(image)": "*/nginx-unprivileged",
+					   "securityContext": {
+						  "(runAsNonRoot)": true,
+						  "allowPrivilegeEscalation": true
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_NEW_KEY",
+							 "value": "ENV_NEW_VALUE"
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err := processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "psp-demo-unprivileged",
+		   "labels": {
+			  "app.type": "prod"
+		   }
+		},
+		"spec": {
+		   "replicas": 1,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "psp"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "psp"
+				 }
+			  },
+			  "spec": {
+				 "securityContext": {
+					"runAsNonRoot": true
+				 },
+				 "containers": [
+					{
+					   "name": "sec-ctx-unprivileged",
+					   "image": "nginxinc/nginx-unprivileged",
+					   "securityContext": {
+						  "runAsNonRoot": true,
+						  "allowPrivilegeEscalation": true
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_KEY",
+							 "value": "ENV_VALUE"
+						  },
+						  {
+							 "name": "ENV_NEW_KEY",
+							 "value": "ENV_NEW_VALUE"
+						 }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
+	compareJSONAsMap(t, expectedResult, doc)
+}
