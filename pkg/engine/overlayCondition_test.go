@@ -144,15 +144,45 @@ func TestMeetConditions_DifferentTypes(t *testing.T) {
 	// anchor exist
 	res := meetConditions(resource, overlay)
 	assert.Assert(t, !res)
+}
 
-	overlayRaw = []byte(`
+func TestMeetConditions_anchosInSameObject(t *testing.T) {
+	resourceRaw := []byte(`
+	{  
+	   "apiVersion":"v1",
+	   "kind":"Endpoints",
+	   "metadata":{  
+		  "name":"test-endpoint",
+		  "labels":{  
+			 "label":"test"
+		  }
+	   },
+	   "subsets":[  
+		  {  
+			 "addresses":[  
+				{  
+				   "ip":"192.168.10.171"
+				}
+			 ],
+			 "ports":[  
+				{  
+				   "name":"secure-connection",
+				   "port":443,
+				   "protocol":"TCP"
+				}
+			 ]
+		  }
+	   ]
+	}`)
+
+	overlayRaw := []byte(`
 	{  
 	   "subsets":[  
 		  {  
 			 "ports":[  
 				{  
-				   "name":"secure-connection",
-				   "port":444,
+				   "(name)":"secure-connection",
+				   "(port)":444,
 				   "protocol":"UDP"
 				}
 			 ]
@@ -160,14 +190,17 @@ func TestMeetConditions_DifferentTypes(t *testing.T) {
 	   ]
 	}`)
 
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
 	// no anchor
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	res := meetConditions(resource, overlay)
+	assert.Assert(t, !res)
 }
 
-func TestMeetConditions_singleAnchor(t *testing.T) {
+func TestMeetConditions_anchorOnPeer(t *testing.T) {
 	resourceRaw := []byte(`
 	 {  
 		"apiVersion":"v1",
