@@ -9,13 +9,6 @@ spec:
       resources:
         kinds:
         - Deployment
-    exclude:
-      resources:
-       name: nginx-deployment1
-       selector :
-        matchLabels:
-          app: nginx1
-       namespace: "default"
     mutate:
       overlay:
         spec:

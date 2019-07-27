@@ -10,6 +10,9 @@ spec:
         resources:
           kinds:
           - Deployment
+          selector :
+            matchLabels:
+              test: qos
       mutate:
         overlay:
           spec:
@@ -28,6 +31,9 @@ spec:
         resources:
           kinds:
           - Deployment
+          selector :
+            matchLabels:
+              test: qos
       validate:
         message: "Resource limits are required for CPU and memory"
         pattern:
