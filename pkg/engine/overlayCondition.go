@@ -143,7 +143,12 @@ func isConditionMet(resource []interface{}, anchors map[string]interface{}) bool
 				continue
 			}
 
-			if ValidateValueWithPattern(value, pattern) {
+			if len(resource) == 1 {
+				if !ValidateValueWithPattern(value, pattern) {
+					return false
+				}
+			} else {
+				ValidateValueWithPattern(value, pattern)
 				return true
 			}
 		}

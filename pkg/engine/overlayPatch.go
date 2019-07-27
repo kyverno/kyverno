@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 
 	"github.com/golang/glog"
@@ -23,13 +22,4 @@ func patchOverlay(rule kubepolicy.Rule, rawResource []byte) ([][]byte, error) {
 	}
 
 	return patches, err
-}
-
-func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
-
-	if !meetConditions(resource, overlay) {
-		return nil, errors.New("Conditions are not met")
-	}
-
-	return mutateResourceWithOverlay(resource, overlay)
 }
