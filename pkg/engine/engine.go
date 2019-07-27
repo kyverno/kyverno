@@ -7,12 +7,13 @@ import (
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy) map[string]resourceInfo {
+func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
 	// key uid
 	resourceMap := map[string]resourceInfo{}
 	for _, rule := range policy.Spec.Rules {
@@ -84,7 +85,10 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy)
 				ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind}}
-
+				// Skip the filtered resources
+				if utils.SkipFilteredResources(gvk.Kind, res.GetNamespace(), res.GetName(), filterK8Resources) {
+					continue
+				}
 				resourceMap[string(res.GetUID())] = ri
 
 			}
@@ -94,49 +98,10 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy)
 }
 
 // ProcessExisting checks for mutation and validation violations of existing resources
-func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
+func ProcessExisting(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) []*info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// key uid
-	resourceMap := ListResourcesThatApplyToPolicy(client, policy)
-
-	// for _, rule := range policy.Spec.Rules {
-	// 	for _, k := range rule.Kinds {
-	// 		// kind -> resource
-	// 		gvr := client.DiscoveryClient.GetGVRFromKind(k)
-	// 		// label selectors
-	// 		// namespace ? should it be default or allow policy to specify it
-	// 		namespace := "default"
-	// 		if rule.ResourceDescription.Namespace != nil {
-	// 			namespace = *rule.ResourceDescription.Namespace
-	// 		}
-	// 		if k == "Namespace" {
-	// 			namespace = ""
-	// 		}
-
-	// 		list, err := client.ListResource(k, namespace, rule.ResourceDescription.Selector)
-	// 		if err != nil {
-	// 			glog.Errorf("unable to list resource for %s with label selector %s", gvr.Resource, rule.Selector.String())
-	// 			glog.Errorf("unable to apply policy %s rule %s. err: %s", policy.Name, rule.Name, err)
-	// 			continue
-	// 		}
-	// 		for _, res := range list.Items {
-	// 			name := rule.ResourceDescription.Name
-	// 			gvk := res.GroupVersionKind()
-	// 			if name != nil {
-	// 				// wild card matching
-	// 				if !wildcard.Match(*name, res.GetName()) {
-	// 					continue
-	// 				}
-	// 			}
-	// 			ri := resourceInfo{resource: res, gvk: &metav1.GroupVersionKind{Group: gvk.Group,
-	// 				Version: gvk.Version,
-	// 				Kind:    gvk.Kind}}
-
-	// 			resourceMap[string(res.GetUID())] = ri
-
-	// 		}
-	// 	}
-	// }
+	resourceMap := ListResourcesThatApplyToPolicy(client, policy, filterK8Resources)
 	policyInfos := []*info.PolicyInfo{}
 	// for the filtered resource apply policy
 	for _, v := range resourceMap {

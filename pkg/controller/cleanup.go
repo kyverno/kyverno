@@ -6,10 +6,11 @@ import (
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func cleanAnnotations(client *client.Client, obj interface{}) {
+func cleanAnnotations(client *client.Client, obj interface{}, filterK8Resources []utils.K8Resource) {
 	// get the policy struct from interface
 	unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
@@ -22,7 +23,7 @@ func cleanAnnotations(client *client.Client, obj interface{}) {
 		return
 	}
 	// Get the resources that apply to the policy
-	resourceMap := engine.ListResourcesThatApplyToPolicy(client, &policy)
+	resourceMap := engine.ListResourcesThatApplyToPolicy(client, &policy, filterK8Resources)
 	// remove annotations for the resources
 	for _, obj := range resourceMap {
 		// get annotations
