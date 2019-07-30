@@ -1,10 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: qos-demo
   labels:
-    app: nginx
-    cli: test
+    test: qos
 spec:
   replicas: 1
   selector:
@@ -18,4 +17,6 @@ spec:
       containers:
       - name: nginx
         image: nginx:latest
-        # imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: "50m"

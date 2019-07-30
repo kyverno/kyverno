@@ -2,24 +2,19 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
-  creationTimestamp: 
   labels:
-    app: nginx
+    app: nginxlatest
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx
+      app: nginxlatest
   template:
     metadata:
-      creationTimestamp: 
       labels:
-        app: nginx
+        app: nginxlatest
     spec:
       containers:
       - name: nginx
         image: nginx:latest
-        ports:
-        - containerPort: 80
-      - name: ghost
-        image: ghost:latest
+        # imagePullPolicy: IfNotPresent

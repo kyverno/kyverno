@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: psp-demo-unprivileged
+  name: csc-demo-unprivileged
   labels:
     app.type: prod
 spec:
@@ -14,8 +14,9 @@ spec:
       labels:
         app: psp
     spec:
-      securityContext:
-        runAsNonRoot: true
       containers:
       - name: sec-ctx-unprivileged
         image: nginxinc/nginx-unprivileged
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false

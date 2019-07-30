@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: nirmata-nginx
   labels:
-    app: nginx
+    app: nirmata-nginx
     cli: test
 spec:
   replicas: 1
@@ -16,6 +16,6 @@ spec:
         app: nginx
     spec:
       containers:
-      - name: nginx
+      - name: nirmata-nginx
         # image: nginx
         image: nirmata/nginx

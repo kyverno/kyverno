@@ -3,20 +3,19 @@ kind: Deployment
 metadata:
   name: psp-demo-unprivileged
   labels:
-    app.type: prod
+    test: psp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: psp
+      test: psp
   template:
     metadata:
       labels:
-        app: psp
+        test: psp
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: sec-ctx-unprivileged
         image: nginxinc/nginx-unprivileged
-        securityContext:
-          runAsNonRoot: true
-          allowPrivilegeEscalation: true
