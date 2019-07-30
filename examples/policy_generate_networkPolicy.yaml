@@ -25,4 +25,4 @@ spec:
           - {}
           # allow all egress traffic
           egress:
-            - {}
+          - {}
