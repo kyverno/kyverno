@@ -11,7 +11,7 @@ spec:
         - Deployment
         selector :
           matchLabels:
-            app.type: prod
+            test: psp
     validate:
       message: "security context 'runAsNonRoot' shoud be set to true"
       pattern:

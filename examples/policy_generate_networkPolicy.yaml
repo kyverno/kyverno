@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: "default"
+  name: "deny-ingress-traffic"
 spec:
   rules:
   - name: "deny-ingress-traffic"
@@ -15,13 +15,14 @@ spec:
       name: deny-ingress-traffic
       data:
         spec:
+          podSelector: {}
           policyTypes: 
           - Ingress
+          ingress:
+          - from:
+            - podSelector:
+                matchLabels:
+                  role: frontend
         metadata:
           labels:
             policyname: "default"
-      # kind: ConfigMap
-      # name: default-config
-      # clone:
-      #   namespace: default
-      #   name: config-template
