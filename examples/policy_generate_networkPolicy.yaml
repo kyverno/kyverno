@@ -20,13 +20,9 @@ spec:
           policyTypes: 
           - Ingress
           - Egress
+          # allow all ingress traffic from pods within this namespace
           ingress:
-          - from:
-            # allow traffic from any pod in a 
-            # namespace with the label app=prod
-            - namespaceSelector:
-                matchLabels:
-                  app: prod
-          # deny all the egrass traffic
+          - {}
+          # allow all egress traffic
           egress:
             - {}
