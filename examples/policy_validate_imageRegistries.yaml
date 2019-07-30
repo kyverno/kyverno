@@ -10,7 +10,9 @@ spec:
         kinds:
         - Deployment
         - StatefulSet
-        namespace: default
+        selector:
+          matchLabels:
+            app: nirmata-nginx
     validate:
       message: "Registry is not allowed"
       pattern:

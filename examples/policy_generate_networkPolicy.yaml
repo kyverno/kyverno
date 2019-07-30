@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: "default-networkPolicy"
+spec:
+  rules:
+  - name: "default-networkPolicy"
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "devtest"
+    generate: 
+      kind: NetworkPolicy
+      name: default-networkPolicy
+      data:
+        spec:
+          # select all pods in the namespace
+          podSelector: {}
+          policyTypes: 
+          - Ingress
+          - Egress
+          # allow all ingress traffic from pods within this namespace
+          ingress:
+          - {}
+          # allow all egress traffic
+          egress:
+          - {}

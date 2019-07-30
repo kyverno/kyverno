@@ -17,12 +17,6 @@ spec :
           - path : "/subsets/0/ports/0/port"
             op : replace
             value: 9663
-          - path : "/subsets/0"
+          - path : "/metadata/labels/isMutated"
             op: add
-            value:
-              addresses:
-              - ip: "192.168.10.172"
-              ports:
-              - name: load-balancer-connection
-                port: 80
-                protocol: UDP
+            value: "true"

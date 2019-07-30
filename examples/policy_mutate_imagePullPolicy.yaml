@@ -9,6 +9,9 @@ spec:
       resources:
         kinds:
         - Deployment
+        selector:
+          matchLabels:
+            app : nginxlatest
     mutate:
       overlay:
         spec:
