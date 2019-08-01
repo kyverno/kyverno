@@ -33,6 +33,8 @@ func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Clie
 		return nil, err
 	}
 
+	glog.V(3).Infof("Registering webhook client using serverIP %s\n", serverIP)
+
 	return &WebhookRegistrationClient{
 		registrationClient: registrationClient,
 		client:             client,

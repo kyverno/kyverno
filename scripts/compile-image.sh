@@ -13,7 +13,7 @@ hub_user_name="nirmata"
 project_name="kyverno"
 
 echo "# Ensuring Go dependencies..."
-dep ensure || exit 2
+dep ensure -v || exit 2
 
 echo "# Building executable ${project_name}..."
 chmod +x scripts/update-codegen.sh

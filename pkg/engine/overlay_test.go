@@ -16,7 +16,7 @@ func compareJSONAsMap(t *testing.T, expected, actual []byte) {
 	assert.Assert(t, reflect.DeepEqual(expectedMap, actualMap))
 }
 
-func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
+func TestProcessOverlayPatches_NestedListWithAnchor(t *testing.T) {
 	resourceRaw := []byte(`
 	 {  
 		"apiVersion":"v1",
@@ -65,7 +65,7 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
@@ -109,7 +109,7 @@ func TestApplyOverlay_NestedListWithAnchor(t *testing.T) {
 	compareJSONAsMap(t, expectedResult, patched)
 }
 
-func TestApplyOverlay_InsertIntoArray(t *testing.T) {
+func TestProcessOverlayPatches_InsertIntoArray(t *testing.T) {
 	resourceRaw := []byte(`
 	 {  
 		"apiVersion":"v1",
@@ -165,7 +165,7 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
@@ -226,7 +226,7 @@ func TestApplyOverlay_InsertIntoArray(t *testing.T) {
 	compareJSONAsMap(t, expectedResult, patched)
 }
 
-func TestApplyOverlay_TestInsertToArray(t *testing.T) {
+func TestProcessOverlayPatches_TestInsertToArray(t *testing.T) {
 	overlayRaw := []byte(`
 	 {  
 		"spec":{  
@@ -286,7 +286,7 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, patches != nil)
 
@@ -301,7 +301,7 @@ func TestApplyOverlay_TestInsertToArray(t *testing.T) {
 	assert.Assert(t, patched != nil)
 }
 
-func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
+func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 	overlayRaw := []byte(`{
 		"spec": {
 			"template": {
@@ -369,7 +369,7 @@ func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
@@ -429,9 +429,76 @@ func TestApplyOverlay_ImagePullPolicy(t *testing.T) {
 	 }`)
 
 	compareJSONAsMap(t, expectedResult, doc)
+
+	overlayRaw = []byte(`{
+		"spec": {
+			"template": {
+				"metadata": {
+					"labels": {
+						"(app)": "nginx"
+					}
+				},
+				"spec": {
+					"containers": [
+						{
+							"(image)": "*:latest",
+							"imagePullPolicy": "IfNotPresent",
+							"ports": [
+								{
+									"containerPort": 8080
+								}
+							]
+						}
+					]
+				}
+			}
+		}
+	}`)
+
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err = processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err = ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+
+	compareJSONAsMap(t, expectedResult, doc)
+
+	overlayRaw = []byte(`{
+		"spec": {
+			"template": {
+				"metadata": {
+					"labels": {
+						"(app)": "nginx1"
+					}
+				},
+				"spec": {
+					"containers": [
+						{
+							"(image)": "*:latest",
+							"imagePullPolicy": "IfNotPresent",
+							"ports": [
+								{
+									"containerPort": 8080
+								}
+							]
+						}
+					]
+				}
+			}
+		}
+	}`)
+
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err = processOverlayPatches(resource, overlay)
+	assert.Error(t, err, "Conditions are not met")
+	assert.Assert(t, len(patches) == 0)
 }
 
-func TestApplyOverlay_AddingAnchor(t *testing.T) {
+func TestProcessOverlayPatches_AddingAnchor(t *testing.T) {
 	overlayRaw := []byte(`{
 		"metadata": {
 			"name": "nginx-deployment",
@@ -455,7 +522,7 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
@@ -474,7 +541,7 @@ func TestApplyOverlay_AddingAnchor(t *testing.T) {
 	compareJSONAsMap(t, expectedResult, doc)
 }
 
-func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
+func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 	overlayRaw := []byte(`
 	{
 		"spec": {
@@ -540,7 +607,7 @@ func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err := applyOverlay(resource, overlay, "/")
+	patches, err := processOverlayPatches(resource, overlay)
 	assert.NilError(t, err)
 	assert.Assert(t, len(patches) != 0)
 
@@ -591,5 +658,291 @@ func TestApplyOverlay_AddingAnchorInsideListElement(t *testing.T) {
 			}
 		}
 	}`)
+	compareJSONAsMap(t, expectedResult, doc)
+
+	// multiple anchors
+	overlayRaw = []byte(`
+	{
+		"spec": {
+			"template": {
+				"metadata": {
+					"labels": {
+						"(app)": "nginx"
+					}
+				},
+				"spec": {
+					"containers": [
+						{
+							"(image)": "*:latest",
+							"+(imagePullPolicy)": "IfNotPresent"
+						}
+					]
+				}
+			}
+		}
+	}`)
+
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err = processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err = ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+
+	compareJSONAsMap(t, expectedResult, doc)
+}
+
+func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
+	resourceRaw := []byte(`
+	{  
+	   "apiVersion":"v1",
+	   "kind":"Endpoints",
+	   "metadata":{  
+		  "name":"test-endpoint",
+		  "labels":{  
+			 "label":"test"
+		  }
+	   },
+	   "subsets":[  
+		  {  
+			 "addresses":[  
+				{  
+				   "ip":"192.168.10.171"
+				}
+			 ],
+			 "ports":[  
+				{  
+				   "name":"secure-connection",
+				   "port":443,
+				   "protocol":"TCP"
+				}
+			 ]
+		  }
+	   ]
+	}`)
+
+	overlayRaw := []byte(`
+	{  
+	   "subsets":[  
+		  {  
+		   "addresses":[  
+			   {  
+				  "(ip)":"192.168.10.171"
+			   }
+			],
+			 "ports":[  
+				{  
+				   "(name)":"secure-connection",
+				   "port":444,
+				   "protocol":"UDP"
+				}
+			 ]
+		  }
+	   ]
+	}`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err := processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`	{  
+		"apiVersion":"v1",
+		"kind":"Endpoints",
+		"metadata":{  
+		   "name":"test-endpoint",
+		   "labels":{  
+			  "label":"test"
+		   }
+		},
+		"subsets":[  
+		   {  
+			  "addresses":[  
+				 {  
+					"ip":"192.168.10.171"
+				 }
+			  ],
+			  "ports":[  
+				 {  
+					"name":"secure-connection",
+					"port":444,
+					"protocol":"UDP"
+				 }
+			  ]
+		   }
+		]
+	 }`)
+
+	compareJSONAsMap(t, expectedResult, doc)
+
+	overlayRaw = []byte(`
+	{  
+	   "subsets":[  
+		  {  
+		   "addresses":[  
+			   {  
+				  "ip":"192.168.10.171"
+			   }
+			],
+			 "ports":[  
+				{  
+				   "(name)":"secure-connection",
+				   "(port)":444,
+				   "protocol":"UDP"
+				}
+			 ]
+		  }
+	   ]
+	}`)
+
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err = processOverlayPatches(resource, overlay)
+	assert.Error(t, err, "Conditions are not met")
+	assert.Assert(t, len(patches) == 0)
+}
+
+func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "psp-demo-unprivileged",
+		   "labels": {
+			  "app.type": "prod"
+		   }
+		},
+		"spec": {
+		   "replicas": 1,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "psp"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "psp"
+				 }
+			  },
+			  "spec": {
+				 "securityContext": {
+					"runAsNonRoot": true
+				 },
+				 "containers": [
+					{
+					   "name": "sec-ctx-unprivileged",
+					   "image": "nginxinc/nginx-unprivileged",
+					   "securityContext": {
+						  "runAsNonRoot": true,
+						  "allowPrivilegeEscalation": false
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_KEY",
+							 "value": "ENV_VALUE"
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
+	overlayRaw := []byte(`{
+		"spec": {
+		   "template": {
+			  "spec": {
+				 "containers": [
+					{
+					   "(image)": "*/nginx-unprivileged",
+					   "securityContext": {
+						  "(runAsNonRoot)": true,
+						  "allowPrivilegeEscalation": true
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_NEW_KEY",
+							 "value": "ENV_NEW_VALUE"
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err := processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+	expectedResult := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "psp-demo-unprivileged",
+		   "labels": {
+			  "app.type": "prod"
+		   }
+		},
+		"spec": {
+		   "replicas": 1,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "psp"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "psp"
+				 }
+			  },
+			  "spec": {
+				 "securityContext": {
+					"runAsNonRoot": true
+				 },
+				 "containers": [
+					{
+					   "name": "sec-ctx-unprivileged",
+					   "image": "nginxinc/nginx-unprivileged",
+					   "securityContext": {
+						  "runAsNonRoot": true,
+						  "allowPrivilegeEscalation": true
+					   },
+					   "env": [
+						  {
+							 "name": "ENV_KEY",
+							 "value": "ENV_VALUE"
+						  },
+						  {
+							 "name": "ENV_NEW_KEY",
+							 "value": "ENV_NEW_VALUE"
+						 }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+
 	compareJSONAsMap(t, expectedResult, doc)
 }

@@ -222,6 +222,15 @@ func parseMetadataFromObject(bytes []byte) map[string]interface{} {
 	return meta
 }
 
+// ParseResourceInfoFromObject get kind/namepace/name from resource
+func ParseResourceInfoFromObject(rawResource []byte) string {
+
+	kind := ParseKindFromObject(rawResource)
+	namespace := ParseNamespaceFromObject(rawResource)
+	name := ParseNameFromObject(rawResource)
+	return strings.Join([]string{kind, namespace, name}, "/")
+}
+
 //ParseKindFromObject get kind from resource
 func ParseKindFromObject(bytes []byte) string {
 	var objectJSON map[string]interface{}
@@ -300,6 +309,20 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	}
 
 	return result
+}
+
+func getElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	anchors := make(map[string]interface{})
+	elementsWithoutanchor := make(map[string]interface{})
+	for key, value := range anchorsMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			anchors[key] = value
+		} else if !isAddingAnchor(key) {
+			elementsWithoutanchor[key] = value
+		}
+	}
+
+	return anchors, elementsWithoutanchor
 }
 
 func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {

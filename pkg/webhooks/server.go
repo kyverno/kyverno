@@ -137,9 +137,10 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
+		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
 		err := ws.server.ListenAndServeTLS("", "")
 		if err != nil {
-			glog.Fatal(err)
+			glog.Fatalf("error serving TLS: %v\n", err)
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")

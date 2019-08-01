@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -19,19 +20,27 @@ import (
 func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, error) {
 
 	var resource interface{}
-	var appliedPatches [][]byte
-	err := json.Unmarshal(rawResource, &resource)
-	if err != nil {
+	if err := json.Unmarshal(rawResource, &resource); err != nil {
 		return nil, err
 	}
 
-	patches, err := mutateResourceWithOverlay(resource, *rule.Mutation.Overlay)
-	if err != nil {
-		return nil, err
+	resourceInfo := ParseResourceInfoFromObject(rawResource)
+	patches, err := processOverlayPatches(resource, *rule.Mutation.Overlay)
+	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
+		glog.Infof("Resource does not meet conditions in overlay pattern, resource=%s, rule=%s\n", resourceInfo, rule.Name)
+		return nil, nil
 	}
-	appliedPatches = append(appliedPatches, patches...)
 
-	return appliedPatches, err
+	return patches, err
+}
+
+func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
+
+	if !meetConditions(resource, overlay) {
+		return nil, errors.New("Conditions are not met")
+	}
+
+	return mutateResourceWithOverlay(resource, overlay)
 }
 
 // mutateResourceWithOverlay is a start of overlaying process
