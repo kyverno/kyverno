@@ -12,6 +12,7 @@ import (
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -20,7 +21,7 @@ import (
 )
 
 //ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
-func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy) map[string]resourceInfo {
+func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
 	// key uid
 	resourceMap := map[string]resourceInfo{}
 	for _, rule := range policy.Spec.Rules {
@@ -45,7 +46,7 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy)
 			// If kind is namespace then namespace is "", override
 			// Get resources in the namespace
 			for _, ns := range namespaces {
-				rMap := getResourcesPerNamespace(k, client, ns, rule)
+				rMap := getResourcesPerNamespace(k, client, ns, rule, filterK8Resources)
 				mergeresources(resourceMap, rMap)
 			}
 		}
@@ -53,7 +54,7 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy)
 	return resourceMap
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule types.Rule) map[string]resourceInfo {
+func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule types.Rule, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
 	resourceMap := map[string]resourceInfo{}
 	// List resources
 	list, err := client.ListResource(kind, namespace, rule.MatchResources.Selector)
@@ -104,6 +105,10 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
 			Version: gvk.Version,
 			Kind:    gvk.Kind}}
+		// Skip the filtered resources
+		if utils.SkipFilteredResources(gvk.Kind, res.GetNamespace(), res.GetName(), filterK8Resources) {
+			continue
+		}
 
 		resourceMap[string(res.GetUID())] = ri
 	}

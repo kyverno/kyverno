@@ -6,14 +6,15 @@ import (
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProcessExisting checks for mutation and validation violations of existing resources
-func ProcessExisting(client *client.Client, policy *types.Policy) []*info.PolicyInfo {
+func ProcessExisting(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) []*info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// key uid
-	resourceMap := ListResourcesThatApplyToPolicy(client, policy)
+	resourceMap := ListResourcesThatApplyToPolicy(client, policy, filterK8Resources)
 	policyInfos := []*info.PolicyInfo{}
 	// for the filtered resource apply policy
 	for _, v := range resourceMap {

@@ -18,6 +18,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
@@ -31,7 +32,7 @@ type WebhookServer struct {
 	eventController       event.Generator
 	violationBuilder      violation.Generator
 	annotationsController annotations.Controller
-	filterKinds           []string
+	filterK8Resources     []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -43,7 +44,7 @@ func NewWebhookServer(
 	eventController event.Generator,
 	violationBuilder violation.Generator,
 	annotationsController annotations.Controller,
-	filterKinds []string) (*WebhookServer, error) {
+	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -62,7 +63,7 @@ func NewWebhookServer(
 		eventController:       eventController,
 		violationBuilder:      violationBuilder,
 		annotationsController: annotationsController,
-		filterKinds:           parseKinds(filterKinds),
+		filterK8Resources:     utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -92,7 +93,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
-	if !StringInSlice(admissionReview.Request.Kind.Kind, ws.filterKinds) {
+	if !utils.SkipFilteredResourcesReq(admissionReview.Request, ws.filterK8Resources) {
 		// if the resource is being deleted we need to clear any existing Policy Violations
 		// TODO: can report to the user that we clear the violation corresponding to this resource
 		if admissionReview.Request.Operation == v1beta1.Delete {

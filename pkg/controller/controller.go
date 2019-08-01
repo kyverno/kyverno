@@ -9,6 +9,7 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 
@@ -36,6 +37,7 @@ type PolicyController struct {
 	eventController       event.Generator
 	annotationsController annotations.Controller
 	queue                 workqueue.RateLimitingInterface
+	filterK8Resources     []utils.K8Resource
 }
 
 // NewPolicyController from cmd args
@@ -43,7 +45,8 @@ func NewPolicyController(client *client.Client,
 	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
 	eventController event.Generator,
-	annotationsController annotations.Controller) *PolicyController {
+	annotationsController annotations.Controller,
+	filterK8Resources string) *PolicyController {
 
 	controller := &PolicyController{
 		client:                client,
@@ -52,6 +55,7 @@ func NewPolicyController(client *client.Client,
 		violationBuilder:      violationBuilder,
 		eventController:       eventController,
 		annotationsController: annotationsController,
+		filterK8Resources:     utils.ParseKinds(filterK8Resources),
 		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
@@ -87,7 +91,7 @@ func (pc *PolicyController) deletePolicyHandler(resource interface{}) {
 		glog.Error("error decoding object, invalid type")
 		return
 	}
-	cleanAnnotations(pc.client, resource)
+	cleanAnnotations(pc.client, resource, pc.filterK8Resources)
 	glog.Infof("policy deleted: %s", object.GetName())
 }
 
@@ -187,7 +191,7 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 
 	glog.Infof("process policy %s on existing resources", policy.GetName())
 	// Process policy on existing resources
-	policyInfos := engine.ProcessExisting(pc.client, policy)
+	policyInfos := engine.ProcessExisting(pc.client, policy, pc.filterK8Resources)
 
 	events, violations := pc.createEventsAndViolations(policyInfos)
 	// Events, Violations

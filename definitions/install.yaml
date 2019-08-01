@@ -227,7 +227,7 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          args: ["--filterKind","Node,Event,APIService,Policy,TokenReview,SubjectAccessReview"]
+          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*]Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][Deployment,default,nginx-deployment]"]
           ports:
           - containerPort: 443
           securityContext:

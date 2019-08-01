@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	kubeconfig    string
-	serverIP      string
-	filterK8Kinds webhooks.ArrayFlags
+	kubeconfig        string
+	serverIP          string
+	filterK8Resources string
 )
 
 func main() {
@@ -49,14 +49,15 @@ func main() {
 		policyInformerFactory,
 		violationBuilder,
 		eventController,
-		annotationsController)
+		annotationsController,
+		filterK8Resources)
 
 	genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces(), annotationsController)
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, filterK8Kinds)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -93,7 +94,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.Var(&filterK8Kinds, "filterKind", "k8 kind where policy is not evaluated by the admission webhook. example --filterKind \"Event\" --filterKind \"TokenReview,ClusterRole\"")
+	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	config.LogDefaultFlags()
 	flag.Parse()
 }
