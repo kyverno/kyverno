@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -24,6 +23,7 @@ type K8Resource struct {
 	Name      string
 }
 
+//SkipFilteredResourcesReq checks if request is to be skipped based on filtered kinds
 func SkipFilteredResourcesReq(request *v1beta1.AdmissionRequest, filterK8Resources []K8Resource) bool {
 	kind := request.Kind.Kind
 	namespace := request.Namespace
@@ -36,6 +36,7 @@ func SkipFilteredResourcesReq(request *v1beta1.AdmissionRequest, filterK8Resourc
 	return false
 }
 
+//SkipFilteredResources checks if the resource is to be skipped based on filtered kinds
 func SkipFilteredResources(kind, namespace, name string, filterK8Resources []K8Resource) bool {
 	for _, r := range filterK8Resources {
 		if wildcard.Match(r.Kind, kind) && wildcard.Match(r.Namespace, namespace) && wildcard.Match(r.Name, name) {
@@ -45,7 +46,7 @@ func SkipFilteredResources(kind, namespace, name string, filterK8Resources []K8R
 	return false
 }
 
-//parseKinds parses the kinds if a single string contains comma seperated kinds
+//ParseKinds parses the kinds if a single string contains comma seperated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func ParseKinds(list string) []K8Resource {
 	resources := []K8Resource{}
@@ -69,7 +70,6 @@ func ParseKinds(list string) []K8Resource {
 		if len(elements) == 1 {
 			resource = K8Resource{Kind: elements[0]}
 		}
-		fmt.Println(resource)
 		resources = append(resources, resource)
 	}
 	return resources
