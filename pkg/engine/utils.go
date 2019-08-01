@@ -9,12 +9,141 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
+	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+//ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
+func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy) map[string]resourceInfo {
+	// key uid
+	resourceMap := map[string]resourceInfo{}
+	for _, rule := range policy.Spec.Rules {
+		// Match
+		for _, k := range rule.MatchResources.Kinds {
+			namespaces := []string{}
+			if k == "Namespace" {
+				namespaces = []string{""}
+			} else {
+				if rule.MatchResources.Namespace != nil {
+					// if namespace is specified then we add the namespace
+					namespaces = append(namespaces, *rule.MatchResources.Namespace)
+				} else {
+					// no namespace specified, refer to all namespaces
+					namespaces = getAllNamespaces(client)
+				}
+
+				// Check if exclude namespace is not clashing
+				namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespace)
+			}
+
+			// If kind is namespace then namespace is "", override
+			// Get resources in the namespace
+			for _, ns := range namespaces {
+				rMap := getResourcesPerNamespace(k, client, ns, rule)
+				mergeresources(resourceMap, rMap)
+			}
+		}
+	}
+	return resourceMap
+}
+
+func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule types.Rule) map[string]resourceInfo {
+	resourceMap := map[string]resourceInfo{}
+	// List resources
+	list, err := client.ListResource(kind, namespace, rule.MatchResources.Selector)
+	if err != nil {
+		glog.Errorf("unable to list resource for %s with label selector %s", kind, rule.MatchResources.Selector.String())
+		return nil
+	}
+	var selector labels.Selector
+	// exclude label selector
+	if rule.ExcludeResources.Selector != nil {
+		selector, err = v1helper.LabelSelectorAsSelector(rule.ExcludeResources.Selector)
+		if err != nil {
+			glog.Error(err)
+		}
+	}
+	for _, res := range list.Items {
+		// exclude label selectors
+		if selector != nil {
+			set := labels.Set(res.GetLabels())
+			if selector.Matches(set) {
+				// if matches
+				continue
+			}
+		}
+		var name *string
+		// match
+		// name
+		// wild card matching
+		name = rule.MatchResources.Name
+		if name != nil {
+			// if does not match then we skip
+			if !wildcard.Match(*name, res.GetName()) {
+				continue
+			}
+		}
+		// exclude
+		// name
+		// wild card matching
+		name = rule.ExcludeResources.Name
+		if name != nil {
+			// if matches then we skip
+			if wildcard.Match(*name, res.GetName()) {
+				continue
+			}
+		}
+		gvk := res.GroupVersionKind()
+
+		ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind}}
+
+		resourceMap[string(res.GetUID())] = ri
+	}
+	return resourceMap
+}
+
+// merge b into a map
+func mergeresources(a, b map[string]resourceInfo) {
+	for k, v := range b {
+		a[k] = v
+	}
+}
+
+func getAllNamespaces(client *client.Client) []string {
+	namespaces := []string{}
+	// get all namespaces
+	nsList, err := client.ListResource("Namespace", "", nil)
+	if err != nil {
+		glog.Error(err)
+		return namespaces
+	}
+	for _, ns := range nsList.Items {
+		namespaces = append(namespaces, ns.GetName())
+	}
+	return namespaces
+}
+
+func excludeNamespaces(namespaces []string, excludeNs *string) []string {
+	if excludeNs == nil {
+		return namespaces
+	}
+	filteredNamespaces := []string{}
+	for _, n := range namespaces {
+		if n == *excludeNs {
+			continue
+		}
+		filteredNamespaces = append(filteredNamespaces, n)
+	}
+	return filteredNamespaces
+}
 
 // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
 func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescription, exclude v1alpha1.ResourceDescription, gvk metav1.GroupVersionKind) bool {

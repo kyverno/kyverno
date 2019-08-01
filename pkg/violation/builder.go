@@ -3,6 +3,8 @@ package violation
 import (
 	"errors"
 
+	"github.com/golang/glog"
+
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -63,7 +65,10 @@ func (b *builder) Add(infos ...*Info) error {
 		return nil
 	}
 	for _, info := range infos {
-		return b.processViolation(info)
+		err := b.processViolation(info)
+		if err != nil {
+			glog.Error(err)
+		}
 	}
 	return nil
 }
