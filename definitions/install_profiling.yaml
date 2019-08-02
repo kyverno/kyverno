@@ -227,9 +227,17 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*]Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
+          # open one of the profiling flag here
+          args: ["--cpu=true", "--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*]Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
           ports:
           - containerPort: 443
           securityContext:
             privileged: true
-
+          volumeMounts:
+          - mountPath: /opt/nirmata
+            name: profiling-volume
+      volumes:
+      - name: profiling-volume
+        hostPath:
+          path: /opt/nirmata
+          type: Directory
