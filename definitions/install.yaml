@@ -232,4 +232,12 @@ spec:
           - containerPort: 443
           securityContext:
             privileged: true
+          volumeMounts:
+          - mountPath: /opt/nirmata
+            name: profiling-volume
+      volumes:
+      - name: profiling-volume
+        hostPath:
+          path: /opt/nirmata
+          type: Directory
 
