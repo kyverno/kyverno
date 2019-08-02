@@ -9,8 +9,40 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path/filepath"
 	"strings"
 )
+
+func DetectLanguage(langID, filename string) FileKind {
+	switch langID {
+	case "go":
+		return Go
+	case "go.mod":
+		return Mod
+	case "go.sum":
+		return Sum
+	}
+	// Fallback to detecting the language based on the file extension.
+	switch filepath.Ext(filename) {
+	case ".mod":
+		return Mod
+	case ".sum":
+		return Sum
+	default: // fallback to Go
+		return Go
+	}
+}
+
+func (k FileKind) String() string {
+	switch k {
+	case Mod:
+		return "go.mod"
+	case Sum:
+		return "go.sum"
+	default:
+		return "go"
+	}
+}
 
 // indexExprAtPos returns the index of the expression containing pos.
 func indexExprAtPos(pos token.Pos, args []ast.Expr) int {
@@ -38,18 +70,20 @@ func fieldSelections(T types.Type) (fields []*types.Var) {
 	// selections that match more than one field/method.
 	// types.NewSelectionSet should do that for us.
 
-	seen := make(map[types.Type]bool) // for termination on recursive types
+	seen := make(map[*types.Var]bool) // for termination on recursive types
+
 	var visit func(T types.Type)
 	visit = func(T types.Type) {
-		if !seen[T] {
-			seen[T] = true
-			if T, ok := deref(T).Underlying().(*types.Struct); ok {
-				for i := 0; i < T.NumFields(); i++ {
-					f := T.Field(i)
-					fields = append(fields, f)
-					if f.Anonymous() {
-						visit(f.Type())
-					}
+		if T, ok := deref(T).Underlying().(*types.Struct); ok {
+			for i := 0; i < T.NumFields(); i++ {
+				f := T.Field(i)
+				if seen[f] {
+					continue
+				}
+				seen[f] = true
+				fields = append(fields, f)
+				if f.Anonymous() {
+					visit(f.Type())
 				}
 			}
 		}
@@ -74,7 +108,7 @@ func resolveInvalid(obj types.Object, node ast.Node, info *types.Info) types.Obj
 		default:
 			return nil
 		}
-		typ := types.NewNamed(types.NewTypeName(token.NoPos, obj.Pkg(), typename, nil), nil, nil)
+		typ := types.NewNamed(types.NewTypeName(token.NoPos, obj.Pkg(), typename, nil), types.Typ[types.Invalid], nil)
 		return types.NewVar(obj.Pos(), obj.Pkg(), obj.Name(), typ)
 	}
 	var resultExpr ast.Expr
@@ -125,6 +159,37 @@ func deref(typ types.Type) types.Type {
 		return p.Elem()
 	}
 	return typ
+}
+
+func isTypeName(obj types.Object) bool {
+	_, ok := obj.(*types.TypeName)
+	return ok
+}
+
+func isFunc(obj types.Object) bool {
+	_, ok := obj.(*types.Func)
+	return ok
+}
+
+// typeConversion returns the type being converted to if call is a type
+// conversion expression.
+func typeConversion(call *ast.CallExpr, info *types.Info) types.Type {
+	var ident *ast.Ident
+	switch expr := call.Fun.(type) {
+	case *ast.Ident:
+		ident = expr
+	case *ast.SelectorExpr:
+		ident = expr.Sel
+	default:
+		return nil
+	}
+
+	// Type conversion (e.g. "float64(foo)").
+	if fun, _ := info.ObjectOf(ident).(*types.TypeName); fun != nil {
+		return fun.Type()
+	}
+
+	return nil
 }
 
 func formatParams(tup *types.Tuple, variadic bool, qf types.Qualifier) []string {
@@ -186,17 +251,22 @@ func formatType(typ types.Type, qf types.Qualifier) (detail string, kind Complet
 	return detail, kind
 }
 
-func formatFunction(name string, params []string, results []string, writeResultParens bool) (string, string) {
-	var label, detail strings.Builder
-	label.WriteString(name)
-	label.WriteByte('(')
+func formatFunction(params []string, results []string, writeResultParens bool) string {
+	var detail strings.Builder
+
+	detail.WriteByte('(')
 	for i, p := range params {
 		if i > 0 {
-			label.WriteString(", ")
+			detail.WriteString(", ")
 		}
-		label.WriteString(p)
+		detail.WriteString(p)
 	}
-	label.WriteByte(')')
+	detail.WriteByte(')')
+
+	// Add space between parameters and results.
+	if len(results) > 0 {
+		detail.WriteByte(' ')
+	}
 
 	if writeResultParens {
 		detail.WriteByte('(')
@@ -211,5 +281,5 @@ func formatFunction(name string, params []string, results []string, writeResultP
 		detail.WriteByte(')')
 	}
 
-	return label.String(), detail.String()
+	return detail.String()
 }

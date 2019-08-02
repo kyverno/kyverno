@@ -6,7 +6,6 @@ package lsp
 
 import (
 	"context"
-	"fmt"
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
@@ -17,32 +16,35 @@ func (s *Server) formatting(ctx context.Context, params *protocol.DocumentFormat
 	uri := span.NewURI(params.TextDocument.URI)
 	view := s.session.ViewOf(uri)
 	spn := span.New(uri, span.Point{}, span.Point{})
-	return formatRange(ctx, view, spn)
-}
-
-// formatRange formats a document with a given range.
-func formatRange(ctx context.Context, v source.View, s span.Span) ([]protocol.TextEdit, error) {
-	f, m, err := getGoFile(ctx, v, s.URI())
+	f, m, rng, err := spanToRange(ctx, view, spn)
 	if err != nil {
 		return nil, err
-	}
-	rng, err := s.Range(m.Converter)
-	if err != nil {
-		return nil, err
-	}
-	if rng.Start == rng.End {
-		// If we have a single point, assume we want the whole file.
-		tok := f.GetToken(ctx)
-		if tok == nil {
-			return nil, fmt.Errorf("no file information for %s", f.URI())
-		}
-		rng.End = tok.Pos(tok.Size())
 	}
 	edits, err := source.Format(ctx, f, rng)
 	if err != nil {
 		return nil, err
 	}
 	return ToProtocolEdits(m, edits)
+}
+
+func spanToRange(ctx context.Context, view source.View, s span.Span) (source.GoFile, *protocol.ColumnMapper, span.Range, error) {
+	f, m, err := getGoFile(ctx, view, s.URI())
+	if err != nil {
+		return nil, nil, span.Range{}, err
+	}
+	rng, err := s.Range(m.Converter)
+	if err != nil {
+		return nil, nil, span.Range{}, err
+	}
+	if rng.Start == rng.End {
+		// If we have a single point, assume we want the whole file.
+		tok, err := f.GetToken(ctx)
+		if err != nil {
+			return nil, nil, span.Range{}, err
+		}
+		rng.End = tok.Pos(tok.Size())
+	}
+	return f, m, rng, nil
 }
 
 func ToProtocolEdits(m *protocol.ColumnMapper, edits []source.TextEdit) ([]protocol.TextEdit, error) {

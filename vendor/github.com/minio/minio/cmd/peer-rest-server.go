@@ -23,14 +23,18 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/event"
+	"github.com/minio/minio/pkg/lifecycle"
 	xnet "github.com/minio/minio/pkg/net"
 	"github.com/minio/minio/pkg/policy"
+	trace "github.com/minio/minio/pkg/trace"
 )
 
 // To abstract a node over network.
@@ -117,7 +121,125 @@ func (s *peerRESTServer) GetLocksHandler(w http.ResponseWriter, r *http.Request)
 
 }
 
-// LoadUsersHandler - returns server info.
+// DeletePolicyHandler - deletes a policy on the server.
+func (s *peerRESTServer) DeletePolicyHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		s.writeErrorResponse(w, errServerNotInitialized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	policyName := vars[peerRESTPolicy]
+	if policyName == "" {
+		s.writeErrorResponse(w, errors.New("policyName is missing"))
+		return
+	}
+
+	if err := globalIAMSys.DeletePolicy(policyName); err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+
+	w.(http.Flusher).Flush()
+}
+
+// LoadPolicyHandler - reloads a policy on the server.
+func (s *peerRESTServer) LoadPolicyHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		s.writeErrorResponse(w, errServerNotInitialized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	policyName := vars[peerRESTPolicy]
+	if policyName == "" {
+		s.writeErrorResponse(w, errors.New("policyName is missing"))
+		return
+	}
+
+	if err := globalIAMSys.LoadPolicy(objAPI, policyName); err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+
+	w.(http.Flusher).Flush()
+}
+
+// DeleteUserHandler - deletes a user on the server.
+func (s *peerRESTServer) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		s.writeErrorResponse(w, errServerNotInitialized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	accessKey := vars[peerRESTUser]
+	if accessKey == "" {
+		s.writeErrorResponse(w, errors.New("username is missing"))
+		return
+	}
+
+	if err := globalIAMSys.DeleteUser(accessKey); err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+
+	w.(http.Flusher).Flush()
+}
+
+// LoadUserHandler - reloads a user on the server.
+func (s *peerRESTServer) LoadUserHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		s.writeErrorResponse(w, errServerNotInitialized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	accessKey := vars[peerRESTUser]
+	if accessKey == "" {
+		s.writeErrorResponse(w, errors.New("username is missing"))
+		return
+	}
+
+	temp, err := strconv.ParseBool(vars[peerRESTUserTemp])
+	if err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+
+	if err = globalIAMSys.LoadUser(objAPI, accessKey, temp); err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+
+	w.(http.Flusher).Flush()
+}
+
+// LoadUsersHandler - reloads all users and canned policies.
 func (s *peerRESTServer) LoadUsersHandler(w http.ResponseWriter, r *http.Request) {
 	if !s.IsValid(w, r) {
 		s.writeErrorResponse(w, errors.New("Invalid request"))
@@ -211,7 +333,7 @@ func (s *peerRESTServer) CPULoadInfoHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	ctx := newContext(r, w, "CPULoadInfo")
-	info := localEndpointsCPULoad(globalEndpoints)
+	info := localEndpointsCPULoad(globalEndpoints, r)
 
 	defer w.(http.Flusher).Flush()
 	logger.LogIf(ctx, gob.NewEncoder(w).Encode(info))
@@ -225,7 +347,7 @@ func (s *peerRESTServer) DrivePerfInfoHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	ctx := newContext(r, w, "DrivePerfInfo")
-	info := localEndpointsDrivePerf(globalEndpoints)
+	info := localEndpointsDrivePerf(globalEndpoints, r)
 
 	defer w.(http.Flusher).Flush()
 	logger.LogIf(ctx, gob.NewEncoder(w).Encode(info))
@@ -238,7 +360,7 @@ func (s *peerRESTServer) MemUsageInfoHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	ctx := newContext(r, w, "MemUsageInfo")
-	info := localEndpointsMemUsage(globalEndpoints)
+	info := localEndpointsMemUsage(globalEndpoints, r)
 
 	defer w.(http.Flusher).Flush()
 	logger.LogIf(ctx, gob.NewEncoder(w).Encode(info))
@@ -345,6 +467,47 @@ func (s *peerRESTServer) SetBucketPolicyHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	globalPolicySys.Set(bucketName, policyData)
+	w.(http.Flusher).Flush()
+}
+
+// RemoveBucketLifecycleHandler - Remove bucket lifecycle.
+func (s *peerRESTServer) RemoveBucketLifecycleHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+
+	vars := mux.Vars(r)
+	bucketName := vars[peerRESTBucket]
+	if bucketName == "" {
+		s.writeErrorResponse(w, errors.New("Bucket name is missing"))
+		return
+	}
+
+	globalLifecycleSys.Remove(bucketName)
+	w.(http.Flusher).Flush()
+}
+
+// SetBucketLifecycleHandler - Set bucket lifecycle.
+func (s *peerRESTServer) SetBucketLifecycleHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars[peerRESTBucket]
+	if bucketName == "" {
+		s.writeErrorResponse(w, errors.New("Bucket name is missing"))
+		return
+	}
+	var lifecycleData lifecycle.Lifecycle
+	if r.ContentLength < 0 {
+		s.writeErrorResponse(w, errInvalidArgument)
+		return
+	}
+
+	err := gob.NewDecoder(r.Body).Decode(&lifecycleData)
+	if err != nil {
+		s.writeErrorResponse(w, err)
+		return
+	}
+	globalLifecycleSys.Set(bucketName, lifecycleData)
 	w.(http.Flusher).Flush()
 }
 
@@ -547,6 +710,68 @@ func (s *peerRESTServer) SignalServiceHandler(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// TraceHandler sends http trace messages back to peer rest client
+func (s *peerRESTServer) TraceHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("Invalid request"))
+		return
+	}
+	trcAll := r.URL.Query().Get(peerRESTTraceAll) == "true"
+	trcErr := r.URL.Query().Get(peerRESTTraceErr) == "true"
+
+	w.Header().Set(xhttp.Connection, "close")
+	w.WriteHeader(http.StatusOK)
+	w.(http.Flusher).Flush()
+
+	filter := func(entry interface{}) bool {
+		trcInfo := entry.(trace.Info)
+
+		if trcErr && isHTTPStatusOK(trcInfo.RespInfo.StatusCode) {
+			return false
+		}
+		if trcAll {
+			return true
+		}
+		return !strings.HasPrefix(trcInfo.ReqInfo.Path, minioReservedBucketPath)
+
+	}
+
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	// Trace Publisher uses nonblocking publish and hence does not wait for slow subscribers.
+	// Use buffered channel to take care of burst sends or slow w.Write()
+	ch := make(chan interface{}, 2000)
+	globalHTTPTrace.Subscribe(ch, doneCh, filter)
+
+	enc := gob.NewEncoder(w)
+	for {
+		select {
+		case entry := <-ch:
+			if err := enc.Encode(entry); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+func (s *peerRESTServer) BackgroundHealStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValid(w, r) {
+		s.writeErrorResponse(w, errors.New("invalid request"))
+		return
+	}
+
+	ctx := newContext(r, w, "BackgroundHealStatus")
+
+	state := getLocalBackgroundHealStatus()
+
+	defer w.(http.Flusher).Flush()
+	logger.LogIf(ctx, gob.NewEncoder(w).Encode(state))
+}
+
 func (s *peerRESTServer) writeErrorResponse(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusForbidden)
 	w.Write([]byte(err.Error()))
@@ -576,6 +801,10 @@ func registerPeerRESTHandlers(router *mux.Router) {
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBucketPolicyRemove).HandlerFunc(httpTraceAll(server.RemoveBucketPolicyHandler)).Queries(restQueries(peerRESTBucket)...)
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBucketPolicySet).HandlerFunc(httpTraceHdrs(server.SetBucketPolicyHandler)).Queries(restQueries(peerRESTBucket)...)
 
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodDeletePolicy).HandlerFunc(httpTraceAll(server.LoadPolicyHandler)).Queries(restQueries(peerRESTPolicy)...)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodLoadPolicy).HandlerFunc(httpTraceAll(server.LoadPolicyHandler)).Queries(restQueries(peerRESTPolicy)...)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodDeleteUser).HandlerFunc(httpTraceAll(server.LoadUserHandler)).Queries(restQueries(peerRESTUser)...)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodLoadUser).HandlerFunc(httpTraceAll(server.LoadUserHandler)).Queries(restQueries(peerRESTUser, peerRESTUserTemp)...)
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodLoadUsers).HandlerFunc(httpTraceAll(server.LoadUsersHandler))
 
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodStartProfiling).HandlerFunc(httpTraceAll(server.StartProfilingHandler)).Queries(restQueries(peerRESTProfiler)...)
@@ -587,6 +816,11 @@ func registerPeerRESTHandlers(router *mux.Router) {
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBucketNotificationListen).HandlerFunc(httpTraceHdrs(server.ListenBucketNotificationHandler)).Queries(restQueries(peerRESTBucket)...)
 
 	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodReloadFormat).HandlerFunc(httpTraceHdrs(server.ReloadFormatHandler)).Queries(restQueries(peerRESTDryRun)...)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBucketLifecycleSet).HandlerFunc(httpTraceHdrs(server.SetBucketLifecycleHandler)).Queries(restQueries(peerRESTBucket)...)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBucketLifecycleRemove).HandlerFunc(httpTraceHdrs(server.RemoveBucketLifecycleHandler)).Queries(restQueries(peerRESTBucket)...)
+
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodTrace).HandlerFunc(server.TraceHandler)
+	subrouter.Methods(http.MethodPost).Path("/" + peerRESTMethodBackgroundHealStatus).HandlerFunc(server.BackgroundHealStatusHandler)
 
 	router.NotFoundHandler = http.HandlerFunc(httpTraceAll(notFoundHandler))
 }

@@ -15,7 +15,7 @@ require (
 	github.com/go-openapi/swag v0.0.0-20160704191624-1d0bd113de87 // indirect
 	github.com/golang/protobuf v0.0.0-20161109072736-4bd1920723d7
 	github.com/google/gofuzz v0.0.0-20161122191042-44d81051d367
-	github.com/googleapis/gnostic v0.0.0-20170426233943-68f4ded48ba9
+	github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d
 	github.com/json-iterator/go v0.0.0-20180612202835-f2b4162afba3
 	github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

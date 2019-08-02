@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
-	"log"
 	"reflect"
 	"sort"
 	"strings"
@@ -20,9 +19,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/internal/lsp/telemetry/trace"
 )
 
 func analyze(ctx context.Context, v View, pkgs []Package, analyzers []*analysis.Analyzer) ([]*Action, error) {
+	ctx, done := trace.StartSpan(ctx, "source.analyze")
+	defer done()
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -145,7 +147,7 @@ func (act *Action) execOnce(ctx context.Context, fset *token.FileSet) error {
 	pass := &analysis.Pass{
 		Analyzer:          act.Analyzer,
 		Fset:              fset,
-		Files:             act.Pkg.GetSyntax(),
+		Files:             act.Pkg.GetSyntax(ctx),
 		Pkg:               act.Pkg.GetTypes(),
 		TypesInfo:         act.Pkg.GetTypesInfo(),
 		TypesSizes:        act.Pkg.GetTypesSizes(),
@@ -155,6 +157,8 @@ func (act *Action) execOnce(ctx context.Context, fset *token.FileSet) error {
 		ExportObjectFact:  act.exportObjectFact,
 		ImportPackageFact: act.importPackageFact,
 		ExportPackageFact: act.exportPackageFact,
+		AllObjectFacts:    act.allObjectFacts,
+		AllPackageFacts:   act.allPackageFacts,
 	}
 	act.pass = pass
 
@@ -240,16 +244,25 @@ func (act *Action) importObjectFact(obj types.Object, ptr analysis.Fact) bool {
 // exportObjectFact implements Pass.ExportObjectFact.
 func (act *Action) exportObjectFact(obj types.Object, fact analysis.Fact) {
 	if act.pass.ExportObjectFact == nil {
-		log.Panicf("%s: Pass.ExportObjectFact(%s, %T) called after Run", act, obj, fact)
+		panic(fmt.Sprintf("%s: Pass.ExportObjectFact(%s, %T) called after Run", act, obj, fact))
 	}
 
 	if obj.Pkg() != act.Pkg.GetTypes() {
-		log.Panicf("internal error: in analysis %s of package %s: Fact.Set(%s, %T): can't set facts on objects belonging another package",
-			act.Analyzer, act.Pkg, obj, fact)
+		panic(fmt.Sprintf("internal error: in analysis %s of package %s: Fact.Set(%s, %T): can't set facts on objects belonging another package",
+			act.Analyzer, act.Pkg, obj, fact))
 	}
 
 	key := objectFactKey{obj, factType(fact)}
 	act.objectFacts[key] = fact // clobber any existing entry
+}
+
+// allObjectFacts implements Pass.AllObjectFacts.
+func (act *Action) allObjectFacts() []analysis.ObjectFact {
+	facts := make([]analysis.ObjectFact, 0, len(act.objectFacts))
+	for k := range act.objectFacts {
+		facts = append(facts, analysis.ObjectFact{Object: k.obj, Fact: act.objectFacts[k]})
+	}
+	return facts
 }
 
 // importPackageFact implements Pass.ImportPackageFact.
@@ -270,7 +283,7 @@ func (act *Action) importPackageFact(pkg *types.Package, ptr analysis.Fact) bool
 // exportPackageFact implements Pass.ExportPackageFact.
 func (act *Action) exportPackageFact(fact analysis.Fact) {
 	if act.pass.ExportPackageFact == nil {
-		log.Panicf("%s: Pass.ExportPackageFact(%T) called after Run", act, fact)
+		panic(fmt.Sprintf("%s: Pass.ExportPackageFact(%T) called after Run", act, fact))
 	}
 
 	key := packageFactKey{act.pass.Pkg, factType(fact)}
@@ -280,7 +293,16 @@ func (act *Action) exportPackageFact(fact analysis.Fact) {
 func factType(fact analysis.Fact) reflect.Type {
 	t := reflect.TypeOf(fact)
 	if t.Kind() != reflect.Ptr {
-		log.Fatalf("invalid Fact type: got %T, want pointer", t)
+		panic(fmt.Sprintf("invalid Fact type: got %T, want pointer", t))
 	}
 	return t
+}
+
+// allObjectFacts implements Pass.AllObjectFacts.
+func (act *Action) allPackageFacts() []analysis.PackageFact {
+	facts := make([]analysis.PackageFact, 0, len(act.packageFacts))
+	for k := range act.packageFacts {
+		facts = append(facts, analysis.PackageFact{Package: k.pkg, Fact: act.packageFacts[k]})
+	}
+	return facts
 }

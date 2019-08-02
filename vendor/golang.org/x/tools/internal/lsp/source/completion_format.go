@@ -14,23 +14,37 @@ import (
 	"strings"
 
 	"golang.org/x/tools/internal/lsp/snippet"
+	"golang.org/x/tools/internal/lsp/telemetry/log"
+	"golang.org/x/tools/internal/lsp/telemetry/tag"
+	"golang.org/x/tools/internal/span"
 )
 
-// formatCompletion creates a completion item for a given types.Object.
-func (c *completer) item(obj types.Object, score float64) CompletionItem {
+// formatCompletion creates a completion item for a given candidate.
+func (c *completer) item(cand candidate) (CompletionItem, error) {
+	obj := cand.obj
+
 	// Handle builtin types separately.
 	if obj.Parent() == types.Universe {
-		return c.formatBuiltin(obj, score)
+		return c.formatBuiltin(cand)
 	}
 
 	var (
-		label              = obj.Name()
+		label              = c.deepState.chainString(obj.Name())
 		detail             = types.TypeString(obj.Type(), c.qf)
 		insert             = label
 		kind               CompletionItemKind
 		plainSnippet       *snippet.Builder
 		placeholderSnippet *snippet.Builder
 	)
+
+	// expandFuncCall mutates the completion label, detail, and snippets
+	// to that of an invocation of sig.
+	expandFuncCall := func(sig *types.Signature) {
+		params := formatParams(sig.Params(), sig.Variadic(), c.qf)
+		plainSnippet, placeholderSnippet = c.functionCallSnippets(label, params)
+		results, writeParens := formatResults(sig.Results(), c.qf)
+		detail = "func" + formatFunction(params, results, writeParens)
+	}
 
 	switch obj := obj.(type) {
 	case *types.TypeName:
@@ -49,34 +63,75 @@ func (c *completer) item(obj types.Object, score float64) CompletionItem {
 		} else {
 			kind = VariableCompletionItem
 		}
+
+		if sig, ok := obj.Type().Underlying().(*types.Signature); ok && cand.expandFuncCall {
+			expandFuncCall(sig)
+		}
 	case *types.Func:
-		sig, ok := obj.Type().(*types.Signature)
+		sig, ok := obj.Type().Underlying().(*types.Signature)
 		if !ok {
 			break
 		}
-		params := formatParams(sig.Params(), sig.Variadic(), c.qf)
-		results, writeParens := formatResults(sig.Results(), c.qf)
-		label, detail = formatFunction(obj.Name(), params, results, writeParens)
-		plainSnippet, placeholderSnippet = c.functionCallSnippets(obj.Name(), params)
 		kind = FunctionCompletionItem
-		if sig.Recv() != nil {
+		if sig != nil && sig.Recv() != nil {
 			kind = MethodCompletionItem
+		}
+
+		if cand.expandFuncCall {
+			expandFuncCall(sig)
 		}
 	case *types.PkgName:
 		kind = PackageCompletionItem
-		detail = fmt.Sprintf("\"%s\"", obj.Imported().Path())
+		detail = fmt.Sprintf("%q", obj.Imported().Path())
 	}
-	detail = strings.TrimPrefix(detail, "untyped ")
 
-	return CompletionItem{
+	detail = strings.TrimPrefix(detail, "untyped ")
+	item := CompletionItem{
 		Label:              label,
 		InsertText:         insert,
 		Detail:             detail,
 		Kind:               kind,
-		Score:              score,
+		Score:              cand.score,
+		Depth:              len(c.deepState.chain),
 		plainSnippet:       plainSnippet,
 		placeholderSnippet: placeholderSnippet,
 	}
+	if c.opts.WantDocumentaton {
+		declRange, err := objToRange(c.ctx, c.view.Session().Cache().FileSet(), obj)
+		if err != nil {
+			log.Error(c.ctx, "failed to get declaration range for object", err, tag.Of("Name", obj.Name()))
+			goto Return
+		}
+		pos := declRange.FileSet.Position(declRange.Start)
+		if !pos.IsValid() {
+			log.Error(c.ctx, "invalid declaration position", err, tag.Of("Label", item.Label))
+			goto Return
+		}
+		uri := span.FileURI(pos.Filename)
+		f, err := c.view.GetFile(c.ctx, uri)
+		if err != nil {
+			log.Error(c.ctx, "unable to get file", err, tag.Of("URI", uri))
+			goto Return
+		}
+		gof, ok := f.(GoFile)
+		if !ok {
+			log.Error(c.ctx, "declaration in a Go file", err, tag.Of("Label", item.Label))
+			goto Return
+		}
+		ident, err := Identifier(c.ctx, c.view, gof, declRange.Start)
+		if err != nil {
+			log.Error(c.ctx, "no identifier", err, tag.Of("Name", obj.Name()))
+			goto Return
+		}
+		documentation, err := ident.Documentation(c.ctx, SynopsisDocumentation)
+		if err != nil {
+			log.Error(c.ctx, "no documentation", err, tag.Of("Name", obj.Name()))
+			goto Return
+		}
+		item.Documentation = documentation
+	}
+Return:
+	return item, nil
 }
 
 // isParameter returns true if the given *types.Var is a parameter
@@ -93,11 +148,12 @@ func (c *completer) isParameter(v *types.Var) bool {
 	return false
 }
 
-func (c *completer) formatBuiltin(obj types.Object, score float64) CompletionItem {
+func (c *completer) formatBuiltin(cand candidate) (CompletionItem, error) {
+	obj := cand.obj
 	item := CompletionItem{
 		Label:      obj.Name(),
 		InsertText: obj.Name(),
-		Score:      score,
+		Score:      cand.score,
 	}
 	switch obj.(type) {
 	case *types.Const:
@@ -110,7 +166,8 @@ func (c *completer) formatBuiltin(obj types.Object, score float64) CompletionIte
 		}
 		params, _ := formatFieldList(c.ctx, c.view, decl.Type.Params)
 		results, writeResultParens := formatFieldList(c.ctx, c.view, decl.Type.Results)
-		item.Label, item.Detail = formatFunction(obj.Name(), params, results, writeResultParens)
+		item.Label = obj.Name()
+		item.Detail = "func" + formatFunction(params, results, writeResultParens)
 		item.plainSnippet, item.placeholderSnippet = c.functionCallSnippets(obj.Name(), params)
 	case *types.TypeName:
 		if types.IsInterface(obj.Type()) {
@@ -121,7 +178,7 @@ func (c *completer) formatBuiltin(obj types.Object, score float64) CompletionIte
 	case *types.Nil:
 		item.Kind = VariableCompletionItem
 	}
-	return item
+	return item, nil
 }
 
 var replacer = strings.NewReplacer(
@@ -144,7 +201,7 @@ func formatFieldList(ctx context.Context, v View, list *ast.FieldList) ([]string
 		cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 4}
 		b := &bytes.Buffer{}
 		if err := cfg.Fprint(b, v.Session().Cache().FileSet(), p.Type); err != nil {
-			v.Session().Logger().Errorf(ctx, "unable to print type %v", p.Type)
+			log.Error(ctx, "unable to print type", nil, tag.Of("Type", p.Type))
 			continue
 		}
 		typ := replacer.Replace(b.String())

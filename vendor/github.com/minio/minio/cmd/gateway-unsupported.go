@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/lifecycle"
 	"github.com/minio/minio/pkg/madmin"
 	"github.com/minio/minio/pkg/policy"
 )
@@ -81,6 +82,22 @@ func (a GatewayUnsupported) DeleteBucketPolicy(ctx context.Context, bucket strin
 	return NotImplemented{}
 }
 
+// SetBucketLifecycle sets lifecycle on bucket
+func (a GatewayUnsupported) SetBucketLifecycle(ctx context.Context, bucket string, lifecycle *lifecycle.Lifecycle) error {
+	logger.LogIf(ctx, NotImplemented{})
+	return NotImplemented{}
+}
+
+// GetBucketLifecycle will get lifecycle on bucket
+func (a GatewayUnsupported) GetBucketLifecycle(ctx context.Context, bucket string) (*lifecycle.Lifecycle, error) {
+	return nil, NotImplemented{}
+}
+
+// DeleteBucketLifecycle deletes all lifecycle on bucket
+func (a GatewayUnsupported) DeleteBucketLifecycle(ctx context.Context, bucket string) error {
+	return NotImplemented{}
+}
+
 // ReloadFormat - Not implemented stub.
 func (a GatewayUnsupported) ReloadFormat(ctx context.Context, dryRun bool) error {
 	return NotImplemented{}
@@ -99,6 +116,11 @@ func (a GatewayUnsupported) HealBucket(ctx context.Context, bucket string, dryRu
 // ListBucketsHeal - Not implemented stub
 func (a GatewayUnsupported) ListBucketsHeal(ctx context.Context) (buckets []BucketInfo, err error) {
 	return nil, NotImplemented{}
+}
+
+// ListObjectsHeal - Not implemented stub
+func (a GatewayUnsupported) ListObjectsHeal(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result ListObjectsInfo, err error) {
+	return ListObjectsInfo{}, NotImplemented{}
 }
 
 // HealObject - Not implemented stub

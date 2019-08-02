@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
@@ -27,10 +28,12 @@ type viewFile interface {
 type fileBase struct {
 	uris  []span.URI
 	fname string
+	kind  source.FileKind
 
-	view  *view
-	fc    *source.FileContent
-	token *token.File
+	view *view
+
+	handleMu sync.Mutex
+	handle   source.FileHandle
 }
 
 func basename(filename string) string {
@@ -50,40 +53,16 @@ func (f *fileBase) View() source.View {
 	return f.view
 }
 
-// Content returns the contents of the file, reading it from file system if needed.
-func (f *fileBase) Content(ctx context.Context) *source.FileContent {
-	f.view.mu.Lock()
-	defer f.view.mu.Unlock()
-
-	f.read(ctx)
-	return f.fc
+// Content returns a handle for the contents of the file.
+func (f *fileBase) Handle(ctx context.Context) source.FileHandle {
+	f.handleMu.Lock()
+	defer f.handleMu.Unlock()
+	if f.handle == nil {
+		f.handle = f.view.Session().GetFile(f.URI())
+	}
+	return f.handle
 }
 
 func (f *fileBase) FileSet() *token.FileSet {
 	return f.view.Session().Cache().FileSet()
-}
-
-// read is the internal part of GetContent. It assumes that the caller is
-// holding the mutex of the file's view.
-func (f *fileBase) read(ctx context.Context) {
-	if err := ctx.Err(); err != nil {
-		f.fc = &source.FileContent{Error: err}
-		return
-	}
-	if f.fc != nil {
-		if len(f.view.contentChanges) == 0 {
-			return
-		}
-
-		f.view.mcache.mu.Lock()
-		err := f.view.applyContentChanges(ctx)
-		f.view.mcache.mu.Unlock()
-
-		if err != nil {
-			f.fc = &source.FileContent{Error: err}
-			return
-		}
-	}
-	// We don't know the content yet, so read it.
-	f.fc = f.view.Session().ReadFile(f.URI())
 }

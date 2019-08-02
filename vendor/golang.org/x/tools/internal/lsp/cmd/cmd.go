@@ -24,8 +24,10 @@ import (
 	"golang.org/x/tools/internal/lsp/cache"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/lsp/telemetry/ocagent"
 	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/tool"
+	"golang.org/x/tools/internal/xcontext"
 )
 
 // Application is the main application as passed to tool.Main
@@ -44,6 +46,9 @@ type Application struct {
 	// The base cache to use for sessions from this application.
 	cache source.Cache
 
+	// The name of the binary, used in help and telemetry.
+	name string
+
 	// The working directory to run commands in.
 	wd string
 
@@ -55,23 +60,28 @@ type Application struct {
 
 	// Enable verbose logging
 	Verbose bool `flag:"v" help:"Verbose output"`
+
+	// Control ocagent export of telemetry
+	OCAgent string `flag:"ocagent" help:"The address of the ocagent, or off"`
 }
 
 // Returns a new Application ready to run.
-func New(wd string, env []string) *Application {
+func New(name, wd string, env []string) *Application {
 	if wd == "" {
 		wd, _ = os.Getwd()
 	}
 	app := &Application{
-		cache: cache.New(),
-		wd:    wd,
-		env:   env,
+		cache:   cache.New(),
+		name:    name,
+		wd:      wd,
+		env:     env,
+		OCAgent: "off", //TODO: Remove this line to default the exporter to on
 	}
 	return app
 }
 
 // Name implements tool.Application returning the binary name.
-func (app *Application) Name() string { return "gopls" }
+func (app *Application) Name() string { return app.name }
 
 // Usage implements tool.Application returning empty extra argument usage.
 func (app *Application) Usage() string { return "<command> [command-flags] [command-args]" }
@@ -101,6 +111,7 @@ gopls flags are:
 // If no arguments are passed it will invoke the server sub command, as a
 // temporary measure for compatibility.
 func (app *Application) Run(ctx context.Context, args ...string) error {
+	ocagent.Export(app.name, app.OCAgent)
 	app.Serve.app = app
 	if len(args) == 0 {
 		tool.Main(ctx, &app.Serve, args)
@@ -139,7 +150,7 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 	switch app.Remote {
 	case "":
 		connection := newConnection(app)
-		connection.Server = lsp.NewClientServer(app.cache, connection.Client)
+		ctx, connection.Server = lsp.NewClientServer(ctx, app.cache, connection.Client)
 		return connection, connection.initialize(ctx)
 	case "internal":
 		internalMu.Lock()
@@ -148,13 +159,16 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 			return c, nil
 		}
 		connection := newConnection(app)
-		ctx := context.Background() //TODO:a way of shutting down the internal server
+		ctx := xcontext.Detach(ctx) //TODO:a way of shutting down the internal server
 		cr, sw, _ := os.Pipe()
 		sr, cw, _ := os.Pipe()
 		var jc *jsonrpc2.Conn
-		jc, connection.Server, _ = protocol.NewClient(jsonrpc2.NewHeaderStream(cr, cw), connection.Client)
+		ctx, jc, connection.Server = protocol.NewClient(ctx, jsonrpc2.NewHeaderStream(cr, cw), connection.Client)
 		go jc.Run(ctx)
-		go lsp.NewServer(app.cache, jsonrpc2.NewHeaderStream(sr, sw)).Run(ctx)
+		go func() {
+			ctx, srv := lsp.NewServer(ctx, app.cache, jsonrpc2.NewHeaderStream(sr, sw))
+			srv.Run(ctx)
+		}()
 		if err := connection.initialize(ctx); err != nil {
 			return nil, err
 		}
@@ -168,7 +182,7 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 		}
 		stream := jsonrpc2.NewHeaderStream(conn, conn)
 		var jc *jsonrpc2.Conn
-		jc, connection.Server, _ = protocol.NewClient(stream, connection.Client)
+		ctx, jc, connection.Server = protocol.NewClient(ctx, stream, connection.Client)
 		go jc.Run(ctx)
 		return connection, connection.initialize(ctx)
 	}
@@ -318,11 +332,7 @@ func (c *cmdClient) getFile(ctx context.Context, uri span.URI) *cmdFile {
 		c.files[uri] = file
 	}
 	if file.mapper == nil {
-		fname, err := uri.Filename()
-		if err != nil {
-			file.err = fmt.Errorf("%v: %v", uri, err)
-			return file
-		}
+		fname := uri.Filename()
 		content, err := ioutil.ReadFile(fname)
 		if err != nil {
 			file.err = fmt.Errorf("%v: %v", uri, err)
@@ -338,12 +348,14 @@ func (c *cmdClient) getFile(ctx context.Context, uri span.URI) *cmdFile {
 func (c *connection) AddFile(ctx context.Context, uri span.URI) *cmdFile {
 	c.Client.filesMu.Lock()
 	defer c.Client.filesMu.Unlock()
+
 	file := c.Client.getFile(ctx, uri)
 	if !file.added {
 		file.added = true
 		p := &protocol.DidOpenTextDocumentParams{}
 		p.TextDocument.URI = string(uri)
 		p.TextDocument.Text = string(file.mapper.Content)
+		p.TextDocument.LanguageID = source.DetectLanguage("", file.uri.Filename()).String()
 		if err := c.Server.DidOpen(ctx, p); err != nil {
 			file.err = fmt.Errorf("%v: %v", uri, err)
 		}

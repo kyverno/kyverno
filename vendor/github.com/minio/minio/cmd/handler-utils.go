@@ -27,10 +27,10 @@ import (
 	"net/url"
 	"strings"
 
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/handlers"
-	httptracer "github.com/minio/minio/pkg/handlers"
 )
 
 // Parses location constraint from the incoming reader.
@@ -220,8 +220,8 @@ func extractReqParams(r *http.Request) map[string]string {
 func extractRespElements(w http.ResponseWriter) map[string]string {
 
 	return map[string]string{
-		"requestId":      w.Header().Get(responseRequestIDKey),
-		"content-length": w.Header().Get("Content-Length"),
+		"requestId":      w.Header().Get(xhttp.AmzRequestID),
+		"content-length": w.Header().Get(xhttp.ContentLength),
 		// Add more fields here.
 	}
 }
@@ -326,18 +326,26 @@ func extractPostPolicyFormValues(ctx context.Context, form *multipart.Form) (fil
 
 // Log headers and body.
 func httpTraceAll(f http.HandlerFunc) http.HandlerFunc {
-	if globalHTTPTraceFile == nil {
-		return f
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !globalHTTPTrace.HasSubscribers() {
+			f.ServeHTTP(w, r)
+			return
+		}
+		trace := Trace(f, true, w, r)
+		globalHTTPTrace.Publish(trace)
 	}
-	return httptracer.TraceReqHandlerFunc(f, globalHTTPTraceFile, true)
 }
 
 // Log only the headers.
 func httpTraceHdrs(f http.HandlerFunc) http.HandlerFunc {
-	if globalHTTPTraceFile == nil {
-		return f
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !globalHTTPTrace.HasSubscribers() {
+			f.ServeHTTP(w, r)
+			return
+		}
+		trace := Trace(f, false, w, r)
+		globalHTTPTrace.Publish(trace)
 	}
-	return httptracer.TraceReqHandlerFunc(f, globalHTTPTraceFile, false)
 }
 
 // Returns "/bucketName/objectName" for path-style or virtual-host-style requests.
@@ -375,4 +383,31 @@ func notFoundHandlerJSON(w http.ResponseWriter, r *http.Request) {
 // If none of the http routes match respond with MethodNotAllowed
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	writeErrorResponse(context.Background(), w, errorCodes.ToAPIErr(ErrMethodNotAllowed), r.URL, guessIsBrowserReq(r))
+}
+
+// gets host name for current node
+func getHostName(r *http.Request) (hostName string) {
+	if globalIsDistXL {
+		hostName = GetLocalPeer(globalEndpoints)
+	} else {
+		hostName = r.Host
+	}
+	return
+}
+
+func isHTTPStatusOK(statusCode int) bool {
+	// List of success status.
+	var successStatus = []int{
+		http.StatusOK,
+		http.StatusCreated,
+		http.StatusAccepted,
+		http.StatusNoContent,
+		http.StatusPartialContent,
+	}
+	for _, okstatus := range successStatus {
+		if statusCode == okstatus {
+			return true
+		}
+	}
+	return false
 }

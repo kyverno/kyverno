@@ -12,12 +12,13 @@ import (
 	"go/types"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/lsp/telemetry/trace"
 )
 
 type SignatureInformation struct {
-	Label           string
-	Parameters      []ParameterInformation
-	ActiveParameter int
+	Label, Documentation string
+	Parameters           []ParameterInformation
+	ActiveParameter      int
 }
 
 type ParameterInformation struct {
@@ -25,9 +26,12 @@ type ParameterInformation struct {
 }
 
 func SignatureHelp(ctx context.Context, f GoFile, pos token.Pos) (*SignatureInformation, error) {
-	file := f.GetAST(ctx)
+	ctx, done := trace.StartSpan(ctx, "source.SignatureHelp")
+	defer done()
+
+	file, err := f.GetAST(ctx, ParseFull)
 	if file == nil {
-		return nil, fmt.Errorf("no AST for %s", f.URI())
+		return nil, err
 	}
 	pkg := f.GetPackage(ctx)
 	if pkg == nil || pkg.IsIllTyped() {
@@ -40,10 +44,19 @@ func SignatureHelp(ctx context.Context, f GoFile, pos token.Pos) (*SignatureInfo
 	if path == nil {
 		return nil, fmt.Errorf("cannot find node enclosing position")
 	}
+FindCall:
 	for _, node := range path {
-		if c, ok := node.(*ast.CallExpr); ok && pos >= c.Lparen && pos <= c.Rparen {
-			callExpr = c
-			break
+		switch node := node.(type) {
+		case *ast.CallExpr:
+			if pos >= node.Lparen && pos <= node.Rparen {
+				callExpr = node
+				break FindCall
+			}
+		case *ast.FuncLit, *ast.FuncType:
+			// The user is within an anonymous function,
+			// which may be the parameter to the *ast.CallExpr.
+			// Don't show signature help in this case.
+			return nil, fmt.Errorf("no signature help within a function declaration")
 		}
 	}
 	if callExpr == nil || callExpr.Fun == nil {
@@ -82,13 +95,34 @@ func SignatureHelp(ctx context.Context, f GoFile, pos token.Pos) (*SignatureInfo
 	results, writeResultParens := formatResults(sig.Results(), qf)
 	activeParam := activeParameter(callExpr, sig.Params().Len(), sig.Variadic(), pos)
 
-	var name string
+	var (
+		name    string
+		comment *ast.CommentGroup
+	)
 	if obj != nil {
+		rng, err := objToRange(ctx, f.FileSet(), obj)
+		if err != nil {
+			return nil, err
+		}
+		node, err := objToNode(ctx, f.View(), pkg.GetTypes(), obj, rng)
+		if err != nil {
+			return nil, err
+		}
+		decl := &declaration{
+			obj:  obj,
+			rng:  rng,
+			node: node,
+		}
+		d, err := decl.hover(ctx)
+		if err != nil {
+			return nil, err
+		}
 		name = obj.Name()
+		comment = d.comment
 	} else {
 		name = "func"
 	}
-	return signatureInformation(name, params, results, writeResultParens, activeParam), nil
+	return signatureInformation(name, comment, params, results, writeResultParens, activeParam), nil
 }
 
 func builtinSignature(ctx context.Context, v View, callExpr *ast.CallExpr, name string, pos token.Pos) (*SignatureInformation, error) {
@@ -111,21 +145,19 @@ func builtinSignature(ctx context.Context, v View, callExpr *ast.CallExpr, name 
 		}
 	}
 	activeParam := activeParameter(callExpr, numParams, variadic, pos)
-	return signatureInformation(name, params, results, writeResultParens, activeParam), nil
+	return signatureInformation(name, nil, params, results, writeResultParens, activeParam), nil
 }
 
-func signatureInformation(name string, params, results []string, writeResultParens bool, activeParam int) *SignatureInformation {
+func signatureInformation(name string, comment *ast.CommentGroup, params, results []string, writeResultParens bool, activeParam int) *SignatureInformation {
 	paramInfo := make([]ParameterInformation, 0, len(params))
 	for _, p := range params {
 		paramInfo = append(paramInfo, ParameterInformation{Label: p})
 	}
-	label, detail := formatFunction(name, params, results, writeResultParens)
-	// Show return values of the function in the label.
-	if detail != "" {
-		label += " " + detail
-	}
+	label := name + formatFunction(params, results, writeResultParens)
 	return &SignatureInformation{
-		Label:           label,
+		Label: label,
+		// TODO: Should we have the HoverKind apply to signature information as well?
+		Documentation:   formatDocumentation(comment, SynopsisDocumentation),
 		Parameters:      paramInfo,
 		ActiveParameter: activeParam,
 	}

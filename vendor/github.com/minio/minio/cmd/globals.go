@@ -35,6 +35,7 @@ import (
 	"github.com/minio/minio/pkg/dns"
 	iampolicy "github.com/minio/minio/pkg/iam/policy"
 	"github.com/minio/minio/pkg/iam/validator"
+	"github.com/minio/minio/pkg/pubsub"
 )
 
 // minio configuration related constants.
@@ -82,6 +83,11 @@ const (
 	// GlobalMultipartCleanupInterval - Cleanup interval when the stale multipart cleanup is initiated.
 	GlobalMultipartCleanupInterval = time.Hour * 24 // 24 hrs.
 
+	// GlobalServiceExecutionInterval - Executes the Lifecycle events.
+	GlobalServiceExecutionInterval = time.Hour * 24 // 24 hrs.
+
+	// Refresh interval to update in-memory bucket lifecycle cache.
+	globalRefreshBucketLifecycleInterval = 5 * time.Minute
 	// Refresh interval to update in-memory iam config cache.
 	globalRefreshIAMInterval = 5 * time.Minute
 
@@ -147,6 +153,8 @@ var (
 	globalPolicySys       *PolicySys
 	globalIAMSys          *IAMSys
 
+	globalLifecycleSys *LifecycleSys
+
 	// CA root certificates, a nil value means system certs pool will be used
 	globalRootCAs *x509.CertPool
 
@@ -159,8 +167,9 @@ var (
 	globalHTTPServerErrorCh = make(chan error)
 	globalOSSignalCh        = make(chan os.Signal, 1)
 
-	// File to log HTTP request/response headers and body.
-	globalHTTPTraceFile *os.File
+	// global Trace system to send HTTP request/response logs to
+	// registered listeners
+	globalHTTPTrace = pubsub.New()
 
 	globalEndpoints EndpointList
 
@@ -259,6 +268,11 @@ var (
 
 	// GlobalGatewaySSE sse options
 	GlobalGatewaySSE gatewaySSE
+
+	// The always present healing routine ready to heal objects
+	globalBackgroundHealing *healRoutine
+	globalAllHealState      *allHealState
+	globalSweepHealState    *allHealState
 
 	// Add new variable global values here.
 )
