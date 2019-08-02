@@ -21,11 +21,15 @@ var (
 	kubeconfig        string
 	serverIP          string
 	filterK8Resources string
+	cpu               bool
+	memory            bool
 )
 
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
+	prof = enableProfiling(cpu, memory)
+
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
@@ -83,15 +87,24 @@ func main() {
 	}
 
 	server.RunAsync()
+
 	<-stopCh
-	server.Stop()
 	genControler.Stop()
 	eventController.Stop()
 	annotationsController.Stop()
 	policyController.Stop()
+	disableProfiling(prof)
+	server.Stop()
 }
 
 func init() {
+	// profiling feature gate
+	// cpu and memory profiling cannot be enabled at same time
+	// if both cpu and memory are enabled
+	// by default is to profile cpu
+	flag.BoolVar(&cpu, "cpu", false, "cpu profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
+	flag.BoolVar(&memory, "memory", false, "memory profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
+
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")

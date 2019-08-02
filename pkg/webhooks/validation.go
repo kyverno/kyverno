@@ -101,7 +101,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	// If Validation fails then reject the request
 	ok, msg := isAdmSuccesful(policyInfos)
 	// violations are created if "audit" flag is set
-	// and if there are any then we dont bock the resource creation
+	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
 
 	if !ok && toBlock(policyInfos) {
