@@ -56,7 +56,9 @@
 				"enable": false,
 				"format": "",
 				"url": "",
-				"index": ""
+				"index": "",
+                                "queueDir": "",
+                                "queueLimit": 0
 			}
 		},
 		"kafka": {
@@ -131,7 +133,9 @@
 				"tls": {
 					"enable": false,
 					"skipVerify": true
-				}
+				},
+                                "queueDir": "",
+                                "queueLimit": 0                 
 			}
 		},
 		"postgresql": {
@@ -159,7 +163,9 @@
 		"webhook": {
 			"1": {
 				"enable": false,
-				"endpoint": ""
+				"endpoint": "",
+                                "queueDir": "",
+                                "queueLimit": 0
 			}
 		}
 	},

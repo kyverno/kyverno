@@ -123,9 +123,10 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) error {
 
 //Stop to perform actions when controller is stopped
 func (pc *PolicyController) Stop() {
-	defer pc.queue.ShutDown()
+	pc.queue.ShutDown()
 	glog.Info("shutting down policy controller workers")
 }
+
 func (pc *PolicyController) runWorker() {
 	for pc.processNextWorkItem() {
 	}

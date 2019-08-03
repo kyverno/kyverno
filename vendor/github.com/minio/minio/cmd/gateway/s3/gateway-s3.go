@@ -77,37 +77,37 @@ ENVIRONMENT VARIABLES:
 
 EXAMPLES:
   1. Start minio gateway server for AWS S3 backend.
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}accesskey
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}secretkey
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}accesskey
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}secretkey
      {{.Prompt}} {{.HelpName}}
 
   2. Start minio gateway server for S3 backend on custom endpoint.
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}Q3AM3UQ867SPQQA43P2F
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}Q3AM3UQ867SPQQA43P2F
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
      {{.Prompt}} {{.HelpName}} https://play.min.io:9000
 
   3. Start minio gateway server for AWS S3 backend logging all requests to http endpoint.
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}Q3AM3UQ867SPQQA43P2F
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}"http://localhost:8000/"
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}Q3AM3UQ867SPQQA43P2F
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_LOGGER_HTTP_ENDPOINT{{.AssignmentOperator}}"http://localhost:8000/"
      {{.Prompt}} {{.HelpName}} https://play.min.io:9000
 
   4. Start minio gateway server for AWS S3 backend with edge caching enabled.
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}accesskey
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}secretkey
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}"/mnt/drive1;/mnt/drive2;/mnt/drive3;/mnt/drive4"
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}"bucket1/*;*.png"
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}40
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}80
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}accesskey
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}secretkey
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_DRIVES{{.AssignmentOperator}}"/mnt/drive1;/mnt/drive2;/mnt/drive3;/mnt/drive4"
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXCLUDE{{.AssignmentOperator}}"bucket1/*;*.png"
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXPIRY{{.AssignmentOperator}}40
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_MAXUSE{{.AssignmentOperator}}80
      {{.Prompt}} {{.HelpName}}
 
   4. Start minio gateway server for AWS S3 backend using AWS environment variables.
      NOTE: The access and secret key in this case will authenticate with MinIO instead
      of AWS and AWS envs will be used to authenticate to AWS S3.
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}aws_access_key
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}aws_secret_key
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}accesskey
-     {{.Prompt}} {{.EnvVarSetCommand}}(.*){{.AssignmentOperator}}secretkey
+     {{.Prompt}} {{.EnvVarSetCommand}} AWS_ACCESS_KEY_ID{{.AssignmentOperator}}aws_access_key
+     {{.Prompt}} {{.EnvVarSetCommand}} AWS_SECRET_ACCESS_KEY{{.AssignmentOperator}}aws_secret_key
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}accesskey
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}secretkey
      {{.Prompt}} {{.HelpName}}
 `
 
@@ -169,14 +169,6 @@ func randString(n int, src rand.Source, prefix string) string {
 	return prefix + string(b[0:30-len(prefix)])
 }
 
-func isAmazonS3Endpoint(urlStr string) bool {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		panic(err)
-	}
-	return s3utils.IsAmazonEndpoint(*u)
-}
-
 // Chains all credential types, in the following order:
 //  - AWS env vars (i.e. AWS_ACCESS_KEY_ID)
 //  - AWS creds file (i.e. AWS_SHARED_CREDENTIALS_FILE or ~/.aws/credentials)
@@ -210,6 +202,11 @@ func newS3(urlStr string) (*miniogo.Core, error) {
 		urlStr = "https://s3.amazonaws.com"
 	}
 
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
 	// Override default params if the host is provided
 	endpoint, secure, err := minio.ParseGatewayEndpoint(urlStr)
 	if err != nil {
@@ -217,15 +214,23 @@ func newS3(urlStr string) (*miniogo.Core, error) {
 	}
 
 	var creds *credentials.Credentials
-	if isAmazonS3Endpoint(urlStr) {
+	if s3utils.IsAmazonEndpoint(*u) {
 		// If we see an Amazon S3 endpoint, then we use more ways to fetch backend credentials.
 		// Specifically IAM style rotating credentials are only supported with AWS S3 endpoint.
 		creds = credentials.NewChainCredentials(defaultAWSCredProviders)
+
 	} else {
 		creds = credentials.NewChainCredentials(defaultProviders)
 	}
 
-	clnt, err := miniogo.NewWithCredentials(endpoint, creds, secure, "")
+	options := miniogo.Options{
+		Creds:        creds,
+		Secure:       secure,
+		Region:       s3utils.GetRegionFromURL(*u),
+		BucketLookup: miniogo.BucketLookupAuto,
+	}
+
+	clnt, err := miniogo.NewWithOptions(endpoint, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -234,9 +239,12 @@ func newS3(urlStr string) (*miniogo.Core, error) {
 	clnt.SetCustomTransport(minio.NewCustomHTTPTransport())
 
 	probeBucketName := randString(60, rand.NewSource(time.Now().UnixNano()), "probe-bucket-sign-")
+
 	// Check if the provided keys are valid.
 	if _, err = clnt.BucketExists(probeBucketName); err != nil {
-		return nil, err
+		if miniogo.ToErrorResponse(err).Code != "AccessDenied" {
+			return nil, err
+		}
 	}
 
 	return &miniogo.Core{Client: clnt}, nil
@@ -313,7 +321,19 @@ func (l *s3Objects) MakeBucketWithLocation(ctx context.Context, bucket, location
 func (l *s3Objects) GetBucketInfo(ctx context.Context, bucket string) (bi minio.BucketInfo, e error) {
 	buckets, err := l.Client.ListBuckets()
 	if err != nil {
-		return bi, minio.ErrorRespToObjectError(err, bucket)
+		// Listbuckets may be disallowed, proceed to check if
+		// bucket indeed exists, if yes return success.
+		var ok bool
+		if ok, err = l.Client.BucketExists(bucket); err != nil {
+			return bi, minio.ErrorRespToObjectError(err, bucket)
+		}
+		if !ok {
+			return bi, minio.BucketNotFound{Bucket: bucket}
+		}
+		return minio.BucketInfo{
+			Name:    bi.Name,
+			Created: time.Now().UTC(),
+		}, nil
 	}
 
 	for _, bi := range buckets {

@@ -36,6 +36,7 @@ import (
 	snappy "github.com/golang/snappy"
 	"github.com/minio/minio-go/v6/pkg/s3utils"
 	"github.com/minio/minio/cmd/crypto"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/hash"
@@ -135,7 +136,7 @@ func IsValidObjectName(object string) bool {
 	if len(object) == 0 {
 		return false
 	}
-	if hasSuffix(object, slashSeparator) || hasPrefix(object, slashSeparator) {
+	if hasSuffix(object, slashSeparator) {
 		return false
 	}
 	return IsValidObjectPrefix(object)
@@ -147,9 +148,6 @@ func IsValidObjectPrefix(object string) bool {
 	if hasBadPathComponent(object) {
 		return false
 	}
-	if len(object) > 1024 {
-		return false
-	}
 	if !utf8.ValidString(object) {
 		return false
 	}
@@ -158,6 +156,25 @@ func IsValidObjectPrefix(object string) bool {
 		return false
 	}
 	return true
+}
+
+// checkObjectNameForLengthAndSlash -check for the validity of object name length and prefis as slash
+func checkObjectNameForLengthAndSlash(bucket, object string) error {
+	// Check for the length of object name
+	if len(object) > 1024 {
+		return ObjectNameTooLong{
+			Bucket: bucket,
+			Object: object,
+		}
+	}
+	// Check for slash as prefix in object name
+	if hasPrefix(object, slashSeparator) {
+		return ObjectNamePrefixAsSlash{
+			Bucket: bucket,
+			Object: object,
+		}
+	}
+	return nil
 }
 
 // Slash separator.
@@ -346,7 +363,7 @@ func isCompressible(header http.Header, object string) bool {
 // Eliminate the non-compressible objects.
 func excludeForCompression(header http.Header, object string) bool {
 	objStr := object
-	contentType := header.Get("Content-Type")
+	contentType := header.Get(xhttp.ContentType)
 	if globalIsCompressionEnabled {
 		// We strictly disable compression for standard extensions/content-types (`compressed`).
 		if hasStringSuffixInSlice(objStr, standardExcludeCompressExtensions) || hasPattern(standardExcludeCompressContentTypes, contentType) {
@@ -792,4 +809,19 @@ func (cr *snappyCompressReader) Read(p []byte) (int, error) {
 		err = readErr
 	}
 	return n, err
+}
+
+// Returns error if the cancelCh has been closed (indicating that S3 client has disconnected)
+type detectDisconnect struct {
+	io.ReadCloser
+	cancelCh <-chan struct{}
+}
+
+func (d *detectDisconnect) Read(p []byte) (int, error) {
+	select {
+	case <-d.cancelCh:
+		return 0, io.ErrUnexpectedEOF
+	default:
+		return d.ReadCloser.Read(p)
+	}
 }

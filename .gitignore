@@ -4,3 +4,4 @@ Gopkg.lock
 kyverno
 gh-pages/public
 _output
+coverage.txt

@@ -25,10 +25,15 @@ package generated
 import (
 	spec "github.com/go-openapi/spec"
 	common "k8s.io/kube-openapi/pkg/common"
+	custom "k8s.io/kube-openapi/test/integration/testdata/custom"
 )
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"k8s.io/kube-openapi/test/integration/testdata/custom.Bac":              common.EmbedOpenAPIDefinitionIntoV2Extension(custom.Bac{}.OpenAPIV3Definition(), custom.Bac{}.OpenAPIDefinition()),
+		"k8s.io/kube-openapi/test/integration/testdata/custom.Bah":              schema_test_integration_testdata_custom_Bah(ref),
+		"k8s.io/kube-openapi/test/integration/testdata/custom.Bak":              custom.Bak{}.OpenAPIDefinition(),
+		"k8s.io/kube-openapi/test/integration/testdata/custom.Bal":              custom.Bal{}.OpenAPIV3Definition(),
 		"k8s.io/kube-openapi/test/integration/testdata/dummytype.Bar":           schema_test_integration_testdata_dummytype_Bar(ref),
 		"k8s.io/kube-openapi/test/integration/testdata/dummytype.Baz":           schema_test_integration_testdata_dummytype_Baz(ref),
 		"k8s.io/kube-openapi/test/integration/testdata/dummytype.Foo":           schema_test_integration_testdata_dummytype_Foo(ref),
@@ -43,6 +48,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/kube-openapi/test/integration/testdata/uniontype.Union":         schema_test_integration_testdata_uniontype_Union(ref),
 		"k8s.io/kube-openapi/test/integration/testdata/uniontype.Union2":        schema_test_integration_testdata_uniontype_Union2(ref),
 	}
+}
+
+func schema_test_integration_testdata_custom_Bah(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.EmbedOpenAPIDefinitionIntoV2Extension(custom.Bah{}.OpenAPIV3Definition(), common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type:   custom.Bah{}.OpenAPISchemaType(),
+				Format: custom.Bah{}.OpenAPISchemaFormat(),
+			},
+		},
+	})
 }
 
 func schema_test_integration_testdata_dummytype_Bar(ref common.ReferenceCallback) common.OpenAPIDefinition {

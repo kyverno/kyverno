@@ -18,7 +18,7 @@ dep ensure -v || exit 2
 echo "# Building executable ${project_name}..."
 chmod +x scripts/update-codegen.sh
 scripts/update-codegen.sh
-CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${project_name} . || exit 3
+make build || exit 3
 
 echo "# Building docker image ${hub_user_name}/${project_name}:${version}"
 cat <<EOF > Dockerfile

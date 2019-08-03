@@ -105,7 +105,7 @@ When the -plugin option is specified, these flags are ignored.`)
 			env.Request.AddModel("openapi.v2.Document", documentv2)
 			// include experimental API surface model
 			surfaceModel, err := surface.NewModelFromOpenAPI2(documentv2)
-			if err != nil {
+			if err == nil {
 				env.Request.AddModel("surface.v1.Model", surfaceModel)
 			}
 			return env, err
@@ -117,7 +117,7 @@ When the -plugin option is specified, these flags are ignored.`)
 			env.Request.AddModel("openapi.v3.Document", documentv3)
 			// include experimental API surface model
 			surfaceModel, err := surface.NewModelFromOpenAPI3(documentv3)
-			if err != nil {
+			if err == nil {
 				env.Request.AddModel("surface.v1.Model", surfaceModel)
 			}
 			return env, err

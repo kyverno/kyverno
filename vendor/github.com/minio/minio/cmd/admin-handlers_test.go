@@ -91,7 +91,9 @@ var (
         "enable": false,
         "format": "namespace",
         "url": "",
-        "index": ""
+        "index": "",
+        "queueDir": "",
+        "queueLimit": 0
       }
     },
     "kafka": {
@@ -166,7 +168,9 @@ var (
         "tls": {
 			"enable": false,
 			"skipVerify": false
-		}
+		},
+        "queueDir": "",
+        "queueLimit": 0
       }
     },
     "postgresql": {
@@ -194,7 +198,9 @@ var (
     "webhook": {
       "1": {
         "enable": false,
-        "endpoint": ""
+        "endpoint": "",
+        "queueDir": "",
+        "queueLimit": 0
       }
     }
   },
@@ -268,7 +274,9 @@ func prepareAdminXLTestBed() (*adminXLTestBed, error) {
 	initNSLock(isDistXL)
 
 	// Init global heal state
-	initAllHealState(globalIsXL)
+	if globalIsXL {
+		globalAllHealState = initHealState()
+	}
 
 	globalConfigSys = NewConfigSys()
 
@@ -702,9 +710,6 @@ func TestAdminServerInfo(t *testing.T) {
 	}
 
 	for _, serverInfo := range results {
-		if len(serverInfo.Addr) == 0 {
-			t.Error("Expected server address to be non empty")
-		}
 		if serverInfo.Error != "" {
 			t.Errorf("Unexpected error = %v\n", serverInfo.Error)
 		}

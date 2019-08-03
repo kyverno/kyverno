@@ -130,3 +130,12 @@ func NewTypeModel() *TypeModel {
 	typeModel.Properties = make([]*TypeProperty, 0)
 	return typeModel
 }
+
+func (typeModel *TypeModel) IsRequired(propertyName string) bool {
+	for _, requiredName := range typeModel.Required {
+		if requiredName == propertyName {
+			return true
+		}
+	}
+	return false
+}

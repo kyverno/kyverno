@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -28,18 +29,17 @@ import (
 	pb "github.com/googleapis/gnostic/OpenAPIv2"
 )
 
-func readDocumentFromFileWithName(filename string) *pb.Document {
+func readDocumentFromFileWithName(filename string) (*pb.Document, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Printf("File error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 	document := &pb.Document{}
 	err = proto.Unmarshal(data, document)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return document
+	return document, nil
 }
 
 func printDocument(code *printer.Code, document *pb.Document) {
@@ -229,8 +229,12 @@ func main() {
 		return
 	}
 
-	document := readDocumentFromFileWithName(args[0])
+	document, err := readDocumentFromFileWithName(args[0])
 
+	if err != nil {
+		log.Printf("Error reading %s. This sample expects OpenAPI v2.", args[0])
+		os.Exit(-1)
+	}
 	code := &printer.Code{}
 	code.Print("API REPORT")
 	code.Print("----------")

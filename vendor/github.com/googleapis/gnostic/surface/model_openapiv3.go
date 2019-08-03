@@ -24,6 +24,8 @@ import (
 	openapiv3 "github.com/googleapis/gnostic/OpenAPIv3"
 )
 
+var knownTypes = map[string]bool{"string": true, "integer": true, "number": true, "boolean": true, "array": true, "object": true}
+
 // NewModelFromOpenAPIv3 builds a model of an API service for use in code generation.
 func NewModelFromOpenAPI3(document *openapiv3.Document) (*Model, error) {
 	return newOpenAPI3Builder().buildModel(document)
@@ -51,9 +53,30 @@ func (b *OpenAPI3Builder) buildModel(document *openapiv3.Document) (*Model, erro
 
 // build builds an API service description, preprocessing its types and methods for code generation.
 func (b *OpenAPI3Builder) build(document *openapiv3.Document) (err error) {
+	err = b.buildTypesFromComponents(document.Components)
+	if err != nil {
+		return err
+	}
+
+	// Collect service method descriptions from each PathItem.
+	if document.Paths != nil {
+		for _, pair := range document.Paths.Path {
+			b.buildMethodFromPathItem(pair.Name, pair.Value)
+		}
+	}
+	return err
+}
+
+// buildTypesFromComponents builds multiple service type description from the "Components" section
+// in the OpenAPI specification.
+func (b *OpenAPI3Builder) buildTypesFromComponents(components *openapiv3.Components) (err error) {
+	if components == nil {
+		return nil
+	}
+
 	// Collect service type descriptions from Components/Schemas.
-	if document.Components != nil && document.Components.Schemas != nil {
-		for _, pair := range document.Components.Schemas.AdditionalProperties {
+	if components.Schemas != nil {
+		for _, pair := range components.Schemas.AdditionalProperties {
 			t, err := b.buildTypeFromSchemaOrReference(pair.Name, pair.Value)
 			if err != nil {
 				return err
@@ -63,10 +86,38 @@ func (b *OpenAPI3Builder) build(document *openapiv3.Document) (err error) {
 			}
 		}
 	}
-	// Collect service method descriptions from each PathItem.
-	for _, pair := range document.Paths.Path {
-		b.buildMethodFromPathItem(pair.Name, pair.Value)
+	// Collect service type descriptions from Components/Parameters.
+	if components.Parameters != nil {
+		for _, pair := range components.Parameters.AdditionalProperties {
+			parameters := []*openapiv3.ParameterOrReference{pair.Value}
+			_, err := b.buildTypeFromParameters(pair.Name, parameters, nil, true)
+			if err != nil {
+				return err
+			}
+		}
 	}
+	// Collect service type descriptions from Components/requestBodies
+	if components.RequestBodies != nil {
+		for _, pair := range components.RequestBodies.AdditionalProperties {
+			t, err := b.buildTypeFromRequestBody(pair.Name, pair.Value, nil)
+
+			if err != nil {
+				return err
+			}
+			if t != nil {
+				b.model.addType(t)
+			}
+		}
+	}
+	// Collect service type descriptions from Components/responses
+	if components.Responses != nil {
+		for _, pair := range components.Responses.AdditionalProperties {
+			namedResponseOrReference := []*openapiv3.NamedResponseOrReference{pair}
+			responses := &openapiv3.Responses{ResponseOrReference: namedResponseOrReference}
+			b.buildTypeFromResponses(pair.Name, responses, true)
+		}
+	}
+
 	return err
 }
 
@@ -84,13 +135,14 @@ func (b *OpenAPI3Builder) buildTypeFromSchemaOrReference(
 				// If the schema has properties, generate a struct.
 				t.Kind = TypeKind_STRUCT
 			}
-			for _, pair2 := range schema.Properties.AdditionalProperties {
-				if schema := pair2.Value; schema != nil {
-					var f Field
-					f.Name = pair2.Name
+			for _, pair := range schema.Properties.AdditionalProperties {
+				if schema := pair.Value; schema != nil {
+					f := &Field{
+						Name:      pair.Name,
+						Serialize: true,
+					}
 					f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(schema)
-					f.Serialize = true
-					t.addField(&f)
+					t.addField(f)
 				}
 			}
 		}
@@ -133,18 +185,19 @@ func (b *OpenAPI3Builder) buildMethodFromPathItem(
 			op = pathItem.Trace
 		}
 		if op != nil {
-			var m Method
-			m.Operation = op.OperationId
-			m.Path = path
-			m.Method = method
-			m.Name = sanitizeOperationName(op.OperationId)
+			m := &Method{
+				Operation:   op.OperationId,
+				Path:        path,
+				Method:      method,
+				Name:        sanitizeOperationName(op.OperationId),
+				Description: op.Description,
+			}
 			if m.Name == "" {
 				m.Name = generateOperationName(method, path)
 			}
-			m.Description = op.Description
-			m.ParametersTypeName, err = b.buildTypeFromParameters(m.Name, op.Parameters, op.RequestBody)
-			m.ResponsesTypeName, err = b.buildTypeFromResponses(&m, m.Name, op.Responses)
-			b.model.addMethod(&m)
+			m.ParametersTypeName, err = b.buildTypeFromParameters(m.Name, op.Parameters, op.RequestBody, false)
+			m.ResponsesTypeName, err = b.buildTypeFromResponses(m.Name, op.Responses, false)
+			b.model.addMethod(m)
 		}
 	}
 	return err
@@ -154,15 +207,25 @@ func (b *OpenAPI3Builder) buildMethodFromPathItem(
 func (b *OpenAPI3Builder) buildTypeFromParameters(
 	name string,
 	parameters []*openapiv3.ParameterOrReference,
-	requestBody *openapiv3.RequestBodyOrReference) (typeName string, err error) {
-	t := &Type{}
-	t.Name = name + "Parameters"
-	t.Description = t.Name + " holds parameters to " + name
-	t.Kind = TypeKind_STRUCT
-	t.Fields = make([]*Field, 0)
+	requestBody *openapiv3.RequestBodyOrReference,
+	fromComponent bool) (typeName string, err error) {
+
+	pName := name + "Parameters"
+	t := &Type{
+		Name:        pName,
+		Kind:        TypeKind_STRUCT,
+		Fields:      make([]*Field, 0),
+		Description: pName + " holds parameters to " + name,
+	}
+
+	if fromComponent {
+		t.Name = name
+		t.Description = t.Name + " is a parameter"
+	}
 	for _, parametersItem := range parameters {
-		var f Field
-		f.Type = fmt.Sprintf("%+v", parametersItem)
+		f := Field{
+			Type: fmt.Sprintf("%+v", parametersItem),
+		}
 		parameter := parametersItem.GetParameter()
 		if parameter != nil {
 			switch parameter.In {
@@ -183,21 +246,16 @@ func (b *OpenAPI3Builder) buildTypeFromParameters(
 			}
 			f.Serialize = true
 			t.addField(&f)
+		} else if parameterRef := parametersItem.GetReference(); parameterRef != nil {
+			f.Type = typeForRef(parameterRef.GetXRef())
+			f.Name = strings.ToLower(f.Type)
+			f.Kind = FieldKind_REFERENCE
+			t.addField(&f)
 		}
 	}
-	if requestBody != nil {
-		content := requestBody.GetRequestBody().GetContent()
-		if content != nil {
-			for _, pair2 := range content.GetAdditionalProperties() {
-				var f Field
-				f.Position = Position_BODY
-				f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(pair2.GetValue().GetSchema())
-				f.Name = strings.ToLower(f.Type) // use the schema name as the parameter name, since none is directly specified
-				f.Serialize = true
-				t.addField(&f)
-			}
-		}
-	}
+
+	_, err = b.buildTypeFromRequestBody(name, requestBody, t)
+
 	if len(t.Fields) > 0 {
 		b.model.addType(t)
 		return t.Name, err
@@ -205,28 +263,79 @@ func (b *OpenAPI3Builder) buildTypeFromParameters(
 	return "", err
 }
 
+// buildTypeFromRequestBody builds a service type description from the request bodies of an OpenAPI
+// description. If tIn is not given, a new type is created. Otherwise tIn is used.
+func (b *OpenAPI3Builder) buildTypeFromRequestBody(name string, requestBody *openapiv3.RequestBodyOrReference, tIn *Type) (tOut *Type, err error) {
+	tOut = &Type{
+		Name: name,
+	}
+
+	if tIn != nil {
+		tOut = tIn
+	}
+
+	if requestBody != nil {
+		content := requestBody.GetRequestBody().GetContent()
+		f := &Field{
+			Position:  Position_BODY,
+			Serialize: true,
+		}
+
+		if content != nil {
+			for _, pair := range content.GetAdditionalProperties() {
+				if pair.Name != "application/json" {
+					log.Printf("unimplemented: %q requestBody(%s)", name, pair.Name)
+					continue
+				}
+				f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(pair.GetValue().GetSchema())
+				f.Name = strings.ToLower(f.Type) // use the schema name as the parameter name, since none is directly specified
+				tOut.addField(f)
+			}
+		} else if reference := requestBody.GetReference(); reference != nil {
+			schemaOrReference := openapiv3.SchemaOrReference{&openapiv3.SchemaOrReference_Reference{Reference: reference}}
+			f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(&schemaOrReference)
+			f.Name = strings.ToLower(f.Type) // use the schema name as the parameter name, since none is directly specified
+			tOut.addField(f)
+		}
+	}
+
+	return tOut, err
+}
+
 // buildTypeFromResponses builds a service type description from the responses of an API method
 func (b *OpenAPI3Builder) buildTypeFromResponses(
-	m *Method,
 	name string,
-	responses *openapiv3.Responses) (typeName string, err error) {
-	t := &Type{}
-	t.Name = name + "Responses"
-	t.Description = t.Name + " holds responses of " + name
-	t.Kind = TypeKind_STRUCT
-	t.Fields = make([]*Field, 0)
+	responses *openapiv3.Responses,
+	fromComponent bool) (typeName string, err error) {
+
+	rName := name + "Responses"
+	t := &Type{
+		Name:        name + "Responses",
+		Kind:        TypeKind_STRUCT,
+		Fields:      make([]*Field, 0),
+		Description: rName + " holds responses of " + name,
+	}
+
+	if fromComponent {
+		t.Name = name
+		t.Description = t.Name + " is a response"
+	}
 
 	addResponse := func(name string, value *openapiv3.ResponseOrReference) {
-		var f Field
-		f.Name = name
-		f.Serialize = false
+		f := Field{
+			Name:      name,
+			Serialize: false,
+		}
 		response := value.GetResponse()
 		if response != nil && response.GetContent() != nil {
 			for _, pair2 := range response.GetContent().GetAdditionalProperties() {
 				f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(pair2.GetValue().GetSchema())
-				f.Kind = FieldKind_REFERENCE
 				t.addField(&f)
 			}
+		} else if responseRef := value.GetReference(); responseRef != nil {
+			schemaOrReference := openapiv3.SchemaOrReference{&openapiv3.SchemaOrReference_Reference{Reference: responseRef}}
+			f.Kind, f.Type, f.Format = b.typeForSchemaOrReference(&schemaOrReference)
+			t.addField(&f)
 		}
 	}
 
@@ -250,7 +359,7 @@ func (b *OpenAPI3Builder) typeForSchemaOrReference(value *openapiv3.SchemaOrRefe
 		return b.typeForSchema(value.GetSchema())
 	}
 	if value.GetReference() != nil {
-		return FieldKind_SCALAR, typeForRef(value.GetReference().XRef), ""
+		return FieldKind_REFERENCE, typeForRef(value.GetReference().XRef), ""
 	}
 	return FieldKind_SCALAR, "todo", ""
 }
@@ -276,10 +385,9 @@ func (b *OpenAPI3Builder) typeForSchema(schema *openapiv3.Schema) (kind FieldKin
 					a := items.GetSchemaOrReference()
 					if a[0].GetReference().GetXRef() != "" {
 						return FieldKind_ARRAY, typeForRef(a[0].GetReference().GetXRef()), format
-					} else if a[0].GetSchema().Type == "string" {
-						return FieldKind_ARRAY, "string", format
-					} else if a[0].GetSchema().Type == "object" {
-						return FieldKind_ARRAY, "interface{}", format
+					} else if knownTypes[a[0].GetSchema().Type] {
+						// The items of the array is one of the known types.
+						return FieldKind_ARRAY, a[0].GetSchema().Type, a[0].GetSchema().Format
 					}
 				}
 			}
@@ -287,6 +395,8 @@ func (b *OpenAPI3Builder) typeForSchema(schema *openapiv3.Schema) (kind FieldKin
 			if schema.AdditionalProperties == nil {
 				return FieldKind_MAP, "object", format
 			}
+		case "any":
+			return FieldKind_ANY, "any", format
 		default:
 
 		}
@@ -299,7 +409,7 @@ func (b *OpenAPI3Builder) typeForSchema(schema *openapiv3.Schema) (kind FieldKin
 			}
 		}
 	}
-	// this function is incomplete... return a string representing anything that we don't handle
+	// this function is incomplete... use generic interface{} for now
 	log.Printf("unimplemented: %v", schema)
-	return FieldKind_SCALAR, fmt.Sprintf("unimplemented: %v", schema), ""
+	return FieldKind_SCALAR, "object", ""
 }

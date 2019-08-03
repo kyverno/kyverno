@@ -365,6 +365,9 @@ func UnstartedTestServer(t TestErrHandler, instanceType string) TestServer {
 	globalNotificationSys = NewNotificationSys(globalServerConfig, testServer.Disks)
 	globalNotificationSys.Init(objLayer)
 
+	globalLifecycleSys = NewLifecycleSys()
+	globalLifecycleSys.Init(objLayer)
+
 	return testServer
 }
 
@@ -470,6 +473,9 @@ func resetGlobalStorageEnvs() {
 
 // reset global heal state
 func resetGlobalHealState() {
+	if globalAllHealState == nil {
+		return
+	}
 	globalAllHealState.Lock()
 	defer globalAllHealState.Unlock()
 	for _, v := range globalAllHealState.healSeqMap {
@@ -2132,7 +2138,7 @@ func registerBucketLevelFunc(bucket *mux.Router, api objectAPIHandlers, apiFunct
 func registerAPIFunctions(muxRouter *mux.Router, objLayer ObjectLayer, apiFunctions ...string) {
 	if len(apiFunctions) == 0 {
 		// Register all api endpoints by default.
-		registerAPIRouter(muxRouter, true)
+		registerAPIRouter(muxRouter, true, false)
 		return
 	}
 	// API Router.
@@ -2173,7 +2179,7 @@ func initTestAPIEndPoints(objLayer ObjectLayer, apiFunctions []string) http.Hand
 		registerAPIFunctions(muxRouter, objLayer, apiFunctions...)
 		return muxRouter
 	}
-	registerAPIRouter(muxRouter, true)
+	registerAPIRouter(muxRouter, true, false)
 	return muxRouter
 }
 

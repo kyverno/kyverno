@@ -19,6 +19,18 @@
 			"Rev": "27f122750802"
 		},
 		{
+			"ImportPath": "github.com/NYTimes/gziphandler",
+			"Rev": "56545f4a5d46"
+		},
+		{
+			"ImportPath": "github.com/PuerkitoBio/purell",
+			"Rev": "v1.1.1"
+		},
+		{
+			"ImportPath": "github.com/PuerkitoBio/urlesc",
+			"Rev": "de5bf2ad4578"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew",
 			"Rev": "v1.1.1"
 		},
@@ -35,16 +47,40 @@
 			"Rev": "c4fc26588b6e"
 		},
 		{
+			"ImportPath": "github.com/emicklei/go-restful",
+			"Rev": "v2.9.5"
+		},
+		{
 			"ImportPath": "github.com/evanphx/json-patch",
-			"Rev": "5858425f7550"
+			"Rev": "v4.2.0"
 		},
 		{
 			"ImportPath": "github.com/fsnotify/fsnotify",
 			"Rev": "v1.4.7"
 		},
 		{
+			"ImportPath": "github.com/ghodss/yaml",
+			"Rev": "73d445a93680"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/jsonpointer",
+			"Rev": "v0.19.2"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/jsonreference",
+			"Rev": "v0.19.2"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/spec",
+			"Rev": "v0.19.2"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/swag",
+			"Rev": "v0.19.2"
+		},
+		{
 			"ImportPath": "github.com/gogo/protobuf",
-			"Rev": "342cbe0a0415"
+			"Rev": "v1.0.0"
 		},
 		{
 			"ImportPath": "github.com/golang/groupcache",
@@ -64,11 +100,11 @@
 		},
 		{
 			"ImportPath": "github.com/google/gofuzz",
-			"Rev": "24818f796faf"
+			"Rev": "v1.0.0"
 		},
 		{
 			"ImportPath": "github.com/google/uuid",
-			"Rev": "v1.0.0"
+			"Rev": "v1.1.1"
 		},
 		{
 			"ImportPath": "github.com/googleapis/gnostic",
@@ -76,7 +112,7 @@
 		},
 		{
 			"ImportPath": "github.com/gophercloud/gophercloud",
-			"Rev": "c818fa66e4c8"
+			"Rev": "v0.1.0"
 		},
 		{
 			"ImportPath": "github.com/gregjones/httpcache",
@@ -96,7 +132,23 @@
 		},
 		{
 			"ImportPath": "github.com/json-iterator/go",
-			"Rev": "ab8a2e0c74be"
+			"Rev": "v1.1.6"
+		},
+		{
+			"ImportPath": "github.com/kr/pretty",
+			"Rev": "v0.1.0"
+		},
+		{
+			"ImportPath": "github.com/kr/pty",
+			"Rev": "v1.1.5"
+		},
+		{
+			"ImportPath": "github.com/kr/text",
+			"Rev": "v0.1.0"
+		},
+		{
+			"ImportPath": "github.com/mailru/easyjson",
+			"Rev": "94de47d64c63"
 		},
 		{
 			"ImportPath": "github.com/modern-go/concurrent",
@@ -107,16 +159,20 @@
 			"Rev": "v1.0.1"
 		},
 		{
+			"ImportPath": "github.com/munnerz/goautoneg",
+			"Rev": "a547fc61f48d"
+		},
+		{
 			"ImportPath": "github.com/mxk/go-flowrate",
 			"Rev": "cca7078d478f"
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "v1.6.0"
+			"Rev": "v1.8.0"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "5533ce8a0da3"
+			"Rev": "v1.5.0"
 		},
 		{
 			"ImportPath": "github.com/peterbourgon/diskv",
@@ -131,12 +187,20 @@
 			"Rev": "52369c62f446"
 		},
 		{
+			"ImportPath": "github.com/spf13/afero",
+			"Rev": "v1.2.2"
+		},
+		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "v1.0.1"
+			"Rev": "v1.0.3"
+		},
+		{
+			"ImportPath": "github.com/stretchr/objx",
+			"Rev": "v0.2.0"
 		},
 		{
 			"ImportPath": "github.com/stretchr/testify",
-			"Rev": "v1.2.2"
+			"Rev": "v1.3.0"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto",
@@ -196,7 +260,7 @@
 		},
 		{
 			"ImportPath": "gopkg.in/check.v1",
-			"Rev": "20d25e280405"
+			"Rev": "788fd7840127"
 		},
 		{
 			"ImportPath": "gopkg.in/fsnotify.v1",
@@ -212,39 +276,39 @@
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
-			"Rev": "v2.2.1"
+			"Rev": "v2.2.2"
 		},
 		{
 			"ImportPath": "k8s.io/api",
-			"Rev": "d3f5f50bdd94"
+			"Rev": "c8a0b81cb10e"
 		},
 		{
 			"ImportPath": "k8s.io/apimachinery",
-			"Rev": "859a0ba5e71a"
+			"Rev": "0bb8574e0887"
 		},
 		{
 			"ImportPath": "k8s.io/client-go",
-			"Rev": "d58e65e5f4b1"
+			"Rev": "0c47f9da0001"
 		},
 		{
 			"ImportPath": "k8s.io/code-generator",
-			"Rev": "17d711082421"
+			"Rev": "77f3a1fe56bb"
 		},
 		{
 			"ImportPath": "k8s.io/gengo",
-			"Rev": "f8a0810f38af"
+			"Rev": "0689ccc1d7d6"
 		},
 		{
 			"ImportPath": "k8s.io/klog",
-			"Rev": "v0.3.2"
+			"Rev": "v0.3.1"
 		},
 		{
 			"ImportPath": "k8s.io/kube-openapi",
-			"Rev": "b3a7cee44a30"
+			"Rev": "33be087ad058"
 		},
 		{
 			"ImportPath": "k8s.io/utils",
-			"Rev": "c2654d5206da"
+			"Rev": "c55fbcfc754a"
 		},
 		{
 			"ImportPath": "modernc.org/cc",
@@ -265,6 +329,10 @@
 		{
 			"ImportPath": "modernc.org/xc",
 			"Rev": "v1.0.0"
+		},
+		{
+			"ImportPath": "sigs.k8s.io/structured-merge-diff",
+			"Rev": "15d366b2352e"
 		},
 		{
 			"ImportPath": "sigs.k8s.io/yaml",

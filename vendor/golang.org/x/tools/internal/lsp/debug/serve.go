@@ -9,15 +9,20 @@ import (
 	"context"
 	"go/token"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	_ "net/http/pprof" // pull in the standard pprof handlers
 	"path"
 	"runtime"
 	"strconv"
 	"sync"
 
+	"golang.org/x/tools/internal/lsp/telemetry/log"
+	"golang.org/x/tools/internal/lsp/telemetry/metric"
+	"golang.org/x/tools/internal/lsp/telemetry/tag"
+	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	"golang.org/x/tools/internal/lsp/telemetry/worker"
 	"golang.org/x/tools/internal/span"
 )
 
@@ -56,17 +61,6 @@ var (
 		Views    []View
 	}{}
 )
-
-func init() {
-	http.HandleFunc("/", Render(mainTmpl, func(*http.Request) interface{} { return data }))
-	http.HandleFunc("/debug/", Render(debugTmpl, nil))
-	http.HandleFunc("/cache/", Render(cacheTmpl, getCache))
-	http.HandleFunc("/session/", Render(sessionTmpl, getSession))
-	http.HandleFunc("/view/", Render(viewTmpl, getView))
-	http.HandleFunc("/file/", Render(fileTmpl, getFile))
-	http.HandleFunc("/info", Render(infoTmpl, getInfo))
-	http.HandleFunc("/memory", Render(memoryTmpl, getMemory))
-}
 
 // AddCache adds a cache to the set being served
 func AddCache(cache Cache) {
@@ -221,26 +215,54 @@ func Serve(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Debug serving on port: %d", listener.Addr().(*net.TCPAddr).Port)
+	log.Print(ctx, "Debug serving", tag.Of("Port", listener.Addr().(*net.TCPAddr).Port))
+	prometheus := prometheus{}
+	metric.RegisterObservers(prometheus.observeMetric)
+	rpcs := rpcs{}
+	metric.RegisterObservers(rpcs.observeMetric)
+	traces := traces{}
+	trace.RegisterObservers(traces.export)
 	go func() {
-		if err := http.Serve(listener, nil); err != nil {
-			log.Printf("Debug server failed with %v", err)
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", Render(mainTmpl, func(*http.Request) interface{} { return data }))
+		mux.HandleFunc("/debug/", Render(debugTmpl, nil))
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		mux.HandleFunc("/metrics/", prometheus.serve)
+		mux.HandleFunc("/rpc/", Render(rpcTmpl, rpcs.getData))
+		mux.HandleFunc("/trace/", Render(traceTmpl, traces.getData))
+		mux.HandleFunc("/cache/", Render(cacheTmpl, getCache))
+		mux.HandleFunc("/session/", Render(sessionTmpl, getSession))
+		mux.HandleFunc("/view/", Render(viewTmpl, getView))
+		mux.HandleFunc("/file/", Render(fileTmpl, getFile))
+		mux.HandleFunc("/info", Render(infoTmpl, getInfo))
+		mux.HandleFunc("/memory", Render(memoryTmpl, getMemory))
+		if err := http.Serve(listener, mux); err != nil {
+			log.Error(ctx, "Debug server failed", err)
 			return
 		}
-		log.Printf("Debug server finished")
+		log.Print(ctx, "Debug server finished")
 	}()
 	return nil
 }
 
 func Render(tmpl *template.Template, fun func(*http.Request) interface{}) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var data interface{}
-		if fun != nil {
-			data = fun(r)
-		}
-		if err := tmpl.Execute(w, data); err != nil {
-			log.Print(err)
-		}
+		done := make(chan struct{})
+		worker.Do(func() {
+			defer close(done)
+			var data interface{}
+			if fun != nil {
+				data = fun(r)
+			}
+			if err := tmpl.Execute(w, data); err != nil {
+				log.Error(context.Background(), "", err)
+			}
+		})
+		<-done
 	}
 }
 
@@ -272,6 +294,10 @@ var BaseTemplate = template.Must(template.New("").Parse(`
 td.value {
   text-align: right;
 }
+ul.events {
+	list-style-type: none;
+}
+
 </style>
 {{block "head" .}}{{end}}
 </head>
@@ -279,7 +305,9 @@ td.value {
 <a href="/">Main</a>
 <a href="/info">Info</a>
 <a href="/memory">Memory</a>
-<a href="/debug/">Debug</a>
+<a href="/metrics">Metrics</a>
+<a href="/rpc">RPC</a>
+<a href="/trace">Trace</a>
 <hr>
 <h1>{{template "title" .}}</h1>
 {{block "body" .}}

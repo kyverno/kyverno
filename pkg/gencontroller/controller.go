@@ -93,7 +93,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 //Stop to stop the controller
 func (c *Controller) Stop() {
-	defer c.workqueue.ShutDown()
+	c.workqueue.ShutDown()
 	glog.Info("shutting down namespace controller workers")
 }
 
