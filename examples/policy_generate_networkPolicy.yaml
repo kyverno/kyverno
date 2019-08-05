@@ -1,10 +1,10 @@
 apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: "default-networkPolicy"
+  name: "default-networkpolicy"
 spec:
   rules:
-  - name: "default-networkPolicy"
+  - name: "default-networkpolicy"
     match:
       resources: 
         kinds:
@@ -12,7 +12,7 @@ spec:
         name: "devtest"
     generate: 
       kind: NetworkPolicy
-      name: default-networkPolicy
+      name: default-networkpolicy
       data:
         spec:
           # select all pods in the namespace

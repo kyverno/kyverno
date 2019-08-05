@@ -14,7 +14,7 @@ import (
 	yaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-var policyPath, resourcePath string
+var policyPath, replica string
 
 func main() {
 	generatePolicies()
@@ -22,7 +22,6 @@ func main() {
 
 func generatePolicies() error {
 	var policy *kubepolicy.Policy
-	numbers := 10
 
 	file, err := ioutil.ReadFile(policyPath)
 	if err != nil {
@@ -41,8 +40,8 @@ func generatePolicies() error {
 	}
 
 	oldName := policy.Name
-
-	for i := 0; i < numbers; i++ {
+	repl, _ := strconv.Atoi(replica)
+	for i := 0; i < repl; i++ {
 		newName := oldName + "-" + strconv.Itoa(i)
 		data := bytes.Replace(file, []byte(oldName), []byte(newName), -1)
 
@@ -68,7 +67,7 @@ func writeToFile(data []byte, filename string) {
 
 func init() {
 	flag.StringVar(&policyPath, "policyPath", "", "Path to a policy")
-	flag.StringVar(&resourcePath, "resourcePath", "", "Path to a resource")
+	flag.StringVar(&replica, "replica", "10", "the number of replicas to generate")
 
 	flag.Parse()
 }
