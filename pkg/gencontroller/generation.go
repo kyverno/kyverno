@@ -111,7 +111,7 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) {
 		} else {
 			// Event
 			eventInfo = event.NewEvent(policyKind, "", policyInfo.Name, event.RequestBlocked,
-				event.FPolicyApplyBlockCreate, policyInfo.RName, policyInfo.GetRuleNames(false))
+				event.FPolicyApplyBlockCreate, policyInfo.RNamespace+"/"+policyInfo.RName, policyInfo.GetRuleNames(false))
 
 			glog.V(2).Infof("Request blocked event info has prepared for %s/%s\n", policyKind, policyInfo.Name)
 
