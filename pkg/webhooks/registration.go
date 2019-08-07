@@ -17,6 +17,9 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
+// defaultWebhookTimeout = 2s
+var defaultWebhookTimeout = int32(2)
+
 // WebhookRegistrationClient is client for registration webhooks on cluster
 type WebhookRegistrationClient struct {
 	registrationClient *admregclient.AdmissionregistrationV1beta1Client
@@ -317,6 +320,7 @@ func constructWebhook(name, servicePath string, caData []byte, validation bool) 
 				},
 			},
 		},
+		TimeoutSeconds: &defaultWebhookTimeout,
 	}
 }
 
@@ -361,6 +365,7 @@ func constructDebugWebhook(name, url string, caData []byte, validation bool) adm
 				},
 			},
 		},
+		TimeoutSeconds: &defaultWebhookTimeout,
 	}
 }
 
