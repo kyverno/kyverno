@@ -178,7 +178,7 @@ metadata:
 spec:
   group: kyverno.io
   versions:
-    - name: v1alpha1
+    - name: v1aplha1
       served: true
       storage: true
   scope: Cluster
@@ -193,31 +193,93 @@ spec:
       properties:
         spec:
           required:
-          - policyName
-          - resource
-          - rules
-          properties:
-            policyName:
-              type: string
-            resource:
-              type: object
-              required:
-                - kind
-                - name
-              properties:
-                kind:
-                  type: string
-                name:
-                  type: string
-                namespace:
-                  type: string
-            rules:
-              type: array
-              items:
+            - policyName
+            - resource
+            - rules
+            properties:
+              policyName:
+                type: string
+              resource:
                 type: object
                 required:
+                  - kind
                   - name
-                  - type
-                  - status
-                  - message
+                properties:
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+              rules:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - type
+                    - status
+                    - message
+---  
+kind: Namespace
+apiVersion: v1
+metadata: 
+    name: "kyverno"
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kyverno
+  name: kyverno-svc
+  labels:
+    app: kyverno
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    app: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-service-account
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: kyverno
+  name: kyverno
+  labels:
+    app: kyverno
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kyverno
+    spec:
+      serviceAccountName: kyverno-service-account
+      containers:
+        - name: kyverno
+          image: nirmata/kyverno:latest
+          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*]Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
+          ports:
+          - containerPort: 443
+          securityContext:
+            privileged: true
+

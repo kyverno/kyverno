@@ -1,0 +1,15 @@
+apiVersion: kyverno.io/v1alpha1
+kind: PolicyViolation
+metadata:
+  name: pv1
+spec:
+  policyName: check-cpu-memory
+  resource: 
+    kind: Pod
+    namespace: ""
+    name: pod1
+  rules:
+  - name: r1
+    type: Mutation
+    status: Failed
+    message: test mesaage for rule failure
