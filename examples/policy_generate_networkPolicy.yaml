@@ -1,11 +1,10 @@
 apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: "defaultnetworkpolicy"
+  name: defaultgeneratenetworkpolicy
 spec:
   rules:
-    validationFailureAction: audit
-  - name: "default-networkPolicy"
+  - name: "default-networkpolicy"
     match:
       resources: 
         kinds:
