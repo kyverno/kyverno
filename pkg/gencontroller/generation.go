@@ -140,7 +140,7 @@ func (c *Controller) createAnnotations(pi *info.PolicyInfo) {
 	// add annotation for policy application
 	ann := obj.GetAnnotations()
 	// Generation rules
-	ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Generation)
+	gpatch, err := annotations.PatchAnnotations(ann, pi, info.Generation)
 	if err != nil {
 		glog.Error(err)
 		return

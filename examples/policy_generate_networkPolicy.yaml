@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: "default-networkpolicy"
+  name: defaultgeneratenetworkpolicy
 spec:
   rules:
   - name: "default-networkpolicy"
@@ -12,7 +12,7 @@ spec:
         name: "devtest"
     generate: 
       kind: NetworkPolicy
-      name: default-networkpolicy
+      name: defaultnetworkpolicy
       data:
         spec:
           # select all pods in the namespace

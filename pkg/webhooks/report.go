@@ -68,7 +68,7 @@ func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType 
 	}
 	// get annotations
 	ann := annotations.ParseAnnotationsFromObject(rawResource)
-	ann, patch, err := annotations.AddPolicyJSONPatch(ann, pi, ruleType)
+	patch, err := annotations.PatchAnnotations(ann, pi, ruleType)
 	if err != nil {
 		glog.Error(err)
 		return nil

@@ -34,9 +34,10 @@ metadata:
 spec:
   rules:
   - name: check-pod-resources
-    resource:
-      kinds:
-      - Pod
+    match:
+      resources:
+        kinds:
+        - Pod
     validate:
       message: "CPU and memory resource requests and limits are required"
       pattern:
@@ -67,9 +68,10 @@ metadata:
 spec:
   rules:
   - name: set-image-pull-policy
-    resource:
-      kinds:
-      - Deployment
+    match:
+      resources:
+        kinds:
+        - Deployment
     mutate:
       overlay:
         spec:
@@ -94,12 +96,13 @@ metadata:
 spec:
   rules:
   - name: "zk-kafka-address"
-    resource:
-      kinds:
-        - Namespace
-      selector:
-        matchExpressions:
-        - {key: kafka, operator: Exists}
+    match:
+      resources:
+        kinds:
+          - Namespace
+        selector:
+          matchExpressions:
+          - {key: kafka, operator: Exists}
     generate:
       kind: ConfigMap
       name: zk-kafka-address

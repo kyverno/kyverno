@@ -21,7 +21,7 @@ func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Un
 			continue
 		}
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
-		err := applyRuleGenerator(client, ns, rule.Generation)
+		err := applyRuleGenerator(client, ns, rule.Generation, policy.Spec.ValidationFailureAction)
 		if err != nil {
 			ri.Fail()
 			ri.Addf("Rule %s: Failed to apply rule generator, err %v.", rule.Name, err)
@@ -34,7 +34,7 @@ func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Un
 	return ris
 }
 
-func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation) error {
+func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation, validationFailureAction string) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
@@ -79,7 +79,16 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 	resource.SetNamespace(ns.GetName())
 	// Reset resource version
 	resource.SetResourceVersion("")
-
+	// TODO based on https://github.com/nirmata/kyverno/issues/268
+	// if validationFailureAction != "audit" {
+	// 	// if not audit, then enforce..
+	// 	// with enforce we will block the creation of resource and instead generate an error
+	// 	// the error will then create a policyViolation so that the resource owner can add the defaults
+	// 	return errors.New("policy flag validationFailureAction:'audit' blocked the creation of default resource for the namespace")
+	// }
+	// for "audit" mode, the resource will create the resource
+	// but wont generate a policy violation as the generate controller doesnt know if the generate request
+	// is a new resource via admission controller or via syncing its cache after a controller
 	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
 		return err
