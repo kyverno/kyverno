@@ -23,11 +23,12 @@ type WebhookRegistrationClient struct {
 	client             *client.Client
 	clientConfig       *rest.Config
 	// serverIP should be used if running Kyverno out of clutser
-	serverIP string
+	serverIP       string
+	timeoutSeconds int32
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
-func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client, serverIP string) (*WebhookRegistrationClient, error) {
+func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client, serverIP string, webhookTimeout int32) (*WebhookRegistrationClient, error) {
 	registrationClient, err := admregclient.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, err
@@ -40,6 +41,7 @@ func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Clie
 		client:             client,
 		clientConfig:       clientConfig,
 		serverIP:           serverIP,
+		timeoutSeconds:     webhookTimeout,
 	}, nil
 }
 
@@ -142,7 +144,9 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configurati
 				config.MutatingWebhookName,
 				config.MutatingWebhookServicePath,
 				caData,
-				false),
+				false,
+				wrc.timeoutSeconds,
+			),
 		},
 	}, nil
 }
@@ -161,7 +165,8 @@ func (wrc *WebhookRegistrationClient) contructDebugMutatingWebhookConfig(caData 
 				config.MutatingWebhookName,
 				url,
 				caData,
-				false),
+				false,
+				wrc.timeoutSeconds),
 		},
 	}
 }
@@ -195,7 +200,8 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(configura
 				config.ValidatingWebhookName,
 				config.ValidatingWebhookServicePath,
 				caData,
-				true),
+				true,
+				wrc.timeoutSeconds),
 		},
 	}, nil
 }
@@ -214,7 +220,8 @@ func (wrc *WebhookRegistrationClient) contructDebugValidatingWebhookConfig(caDat
 				config.ValidatingWebhookName,
 				url,
 				caData,
-				true),
+				true,
+				wrc.timeoutSeconds),
 		},
 	}
 }
@@ -248,7 +255,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig() (*
 				config.PolicyValidatingWebhookName,
 				config.PolicyValidatingWebhookServicePath,
 				caData,
-				true),
+				true,
+				wrc.timeoutSeconds),
 		},
 	}, nil
 }
@@ -267,12 +275,13 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 				config.PolicyValidatingWebhookName,
 				url,
 				caData,
-				true),
+				true,
+				wrc.timeoutSeconds),
 		},
 	}
 }
 
-func constructWebhook(name, servicePath string, caData []byte, validation bool) admregapi.Webhook {
+func constructWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32) admregapi.Webhook {
 	resource := "*/*"
 	apiGroups := "*"
 	apiversions := "*"
@@ -317,10 +326,11 @@ func constructWebhook(name, servicePath string, caData []byte, validation bool) 
 				},
 			},
 		},
+		TimeoutSeconds: &timeoutSeconds,
 	}
 }
 
-func constructDebugWebhook(name, url string, caData []byte, validation bool) admregapi.Webhook {
+func constructDebugWebhook(name, url string, caData []byte, validation bool, timeoutSeconds int32) admregapi.Webhook {
 	resource := "*/*"
 	apiGroups := "*"
 	apiversions := "*"
@@ -361,6 +371,7 @@ func constructDebugWebhook(name, url string, caData []byte, validation bool) adm
 				},
 			},
 		},
+		TimeoutSeconds: &timeoutSeconds,
 	}
 }
 
