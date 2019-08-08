@@ -14,13 +14,27 @@ import (
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var policy *policyv1.Policy
-	json.Unmarshal(request.Object.Raw, &policy)
+	admissionResp := &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
 
-	admissionResp := ws.validateUniqueRuleName(policy)
+	raw := request.Object.Raw
+	if request.Operation == v1beta1.Delete {
+		raw = request.OldObject.Raw
+	}
+	if err := json.Unmarshal(raw, &policy); err != nil {
+		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
+		return &v1beta1.AdmissionResponse{Allowed: false}
+	}
+
+	if request.Operation != v1beta1.Delete {
+		admissionResp = ws.validateUniqueRuleName(policy)
+	}
 
 	if admissionResp.Allowed {
-		ws.registerWebhookConfigurations(*policy)
+		ws.manageWebhookConfigurations(*policy, request.Operation)
 	}
+
 	return admissionResp
 }
 

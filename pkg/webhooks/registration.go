@@ -55,7 +55,7 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	}
 
 	// For the case if cluster already has this configs
-	wrc.Deregister()
+	wrc.DeregisterAll()
 
 	// register policy validating webhook during inital start
 	return wrc.RegisterPolicyValidatingWebhook()
@@ -71,6 +71,7 @@ func (wrc *WebhookRegistrationClient) RegisterMutatingWebhook() error {
 		return err
 	}
 
+	wrc.MutationRegistered.Set()
 	return nil
 }
 
@@ -84,6 +85,7 @@ func (wrc *WebhookRegistrationClient) RegisterValidatingWebhook() error {
 		return err
 	}
 
+	wrc.ValidationRegistered.Set()
 	return nil
 }
 
@@ -101,29 +103,64 @@ func (wrc *WebhookRegistrationClient) RegisterPolicyValidatingWebhook() error {
 	return nil
 }
 
-// Deregister deletes webhook configs from cluster
+// DeregisterAll deletes webhook configs from cluster
 // This function does not fail on error:
 // Register will fail if the config exists, so there is no need to fail on error
-func (wrc *WebhookRegistrationClient) Deregister() {
-	listOpt := v1.ListOptions{LabelSelector: "app=kyverno"}
+func (wrc *WebhookRegistrationClient) DeregisterAll() {
+	wrc.deregisterMutatingWebhook()
+	wrc.deregisterValidatingWebhook()
 
-	// cleanup MutatingWebhookConfigurations
-	mutatingWebhookConfigList, _ := wrc.registrationClient.MutatingWebhookConfigurations().List(listOpt)
-
-	for _, mwc := range mutatingWebhookConfigList.Items {
-		if err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(mwc.ObjectMeta.Name, &v1.DeleteOptions{}); err != nil {
-			glog.Errorf("Failed to delete mutatingWebhookConfiguration, %s, err: %v\n", mwc.ObjectMeta.Name, err)
+	if wrc.serverIP != "" {
+		err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationDebug, &v1.DeleteOptions{})
+		if err != nil {
+			glog.Error(err)
 		}
 	}
-
-	// cleanup validatingWebhookConfiguratinos
-	validatingWebhookConfigList, _ := wrc.registrationClient.ValidatingWebhookConfigurations().List(listOpt)
-
-	for _, mwc := range validatingWebhookConfigList.Items {
-		if err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(mwc.ObjectMeta.Name, &v1.DeleteOptions{}); err != nil {
-			glog.Errorf("Failed to delete validatingWebhookConfiguration, %s, err: %v\n", mwc.ObjectMeta.Name, err)
-		}
+	err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationName, &v1.DeleteOptions{})
+	if err != nil {
+		glog.Error(err)
 	}
+}
+
+func (wrc *WebhookRegistrationClient) deregister() {
+	wrc.deregisterMutatingWebhook()
+	wrc.deregisterValidatingWebhook()
+}
+
+func (wrc *WebhookRegistrationClient) deregisterMutatingWebhook() {
+	if wrc.serverIP != "" {
+		err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &v1.DeleteOptions{})
+		if err != nil {
+			glog.Error(err)
+		} else {
+			wrc.MutationRegistered.UnSet()
+		}
+		return
+	}
+
+	err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationName, &v1.DeleteOptions{})
+	if err != nil {
+		glog.Error(err)
+	} else {
+		wrc.MutationRegistered.UnSet()
+	}
+}
+
+func (wrc *WebhookRegistrationClient) deregisterValidatingWebhook() {
+	if wrc.serverIP != "" {
+		err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &v1.DeleteOptions{})
+		if err != nil {
+			glog.Error(err)
+		}
+		wrc.ValidationRegistered.UnSet()
+		return
+	}
+
+	err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationName, &v1.DeleteOptions{})
+	if err != nil {
+		glog.Error(err)
+	}
+	wrc.ValidationRegistered.UnSet()
 }
 
 func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(configuration *rest.Config) (*admregapi.MutatingWebhookConfiguration, error) {

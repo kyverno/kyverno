@@ -99,7 +99,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if !utils.SkipFilteredResourcesReq(admissionReview.Request, ws.filterK8Resources) {
 		// if the resource is being deleted we need to clear any existing Policy Violations
 		// TODO: can report to the user that we clear the violation corresponding to this resource
-		if admissionReview.Request.Operation == v1beta1.Delete {
+		if admissionReview.Request.Operation == v1beta1.Delete && admissionReview.Request.Kind.Kind != policyKind {
 			// Resource DELETE
 			err := ws.removePolicyViolation(admissionReview.Request)
 			if err != nil {
