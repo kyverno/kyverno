@@ -193,11 +193,11 @@ spec:
       properties:
         spec:
           required:
-          - policyName
+          - policy
           - resource
           - rules
           properties:
-            policyName:
+            policy:
               type: string
             resource:
               type: object
