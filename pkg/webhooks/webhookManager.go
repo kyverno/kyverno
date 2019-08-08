@@ -45,22 +45,13 @@ func (ws *WebhookServer) registerWebhookConfigurations(policy v1alpha1.Policy) e
 }
 
 func (ws *WebhookServer) deregisterWebhookConfigurations(policy v1alpha1.Policy) error {
-	pt := none
 	glog.V(3).Infof("Retreiving policy type for %s\n", policy.Name)
 
-	for _, rule := range policy.Spec.Rules {
-		if rule.Validation != nil {
-			pt = pt | validate
-		}
+	pt := GetPolicyType([]*v1alpha1.Policy{&policy}, "")
 
-		if rule.Mutation != nil {
-			pt = pt | mutate
-		}
-	}
+	glog.V(3).Infof("Policy to be deleted type==%v\n", pt)
 
-	glog.V(3).Infof("Scanning policy type==%v\n", pt)
-
-	existPolicyType := ws.isPolicyTypeExist(pt, policy.Name)
+	existPolicyType := ws.getExistingPolicyType(policy.Name)
 	glog.V(3).Infof("Found existing policy type==%v\n", existPolicyType)
 
 	switch existPolicyType {
@@ -84,17 +75,24 @@ func (ws *WebhookServer) deregisterWebhookConfigurations(policy v1alpha1.Policy)
 	return nil
 }
 
-func (ws *WebhookServer) isPolicyTypeExist(pt policyType, policyName string) policyType {
-	ptype := none
+func (ws *WebhookServer) getExistingPolicyType(policyName string) policyType {
 
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
 		glog.Errorf("Failed to get policy list")
 	}
 
-	for _, p := range policies {
-		if p.Name == policyName {
-			glog.Infof("Skipping policy type check on %s\n", policyName)
+	return GetPolicyType(policies, policyName)
+}
+
+// GetPolicyType get the type of policies
+// excludes is the policy name to be skipped
+func GetPolicyType(policyList []*v1alpha1.Policy, excludes string) policyType {
+	ptype := none
+
+	for _, p := range policyList {
+		if p.Name == excludes {
+			glog.Infof("Skipping policy type check on %s\n", excludes)
 			continue
 		}
 
