@@ -48,12 +48,14 @@ func (pl *policyLister) GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation)
 
 	var policies []*kyverno.Policy
 	for _, p := range pList {
-		labelPolicy := fmt.Sprintf("policy=%s", p.Name)
-		labelSelector, err := metav1.ParseToLabelSelector(labelPolicy)
+		policyLabelmap := map[string]string{"policy": p.Name}
+
+		ls := &metav1.LabelSelector{}
+		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build label selector for %s: %v", labelPolicy, err)
+			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
 		}
-		selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+		selector, err := metav1.LabelSelectorAsSelector(ls)
 		if err != nil {
 			return nil, fmt.Errorf("invalid label selector: %v", err)
 		}
