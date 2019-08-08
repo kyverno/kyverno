@@ -78,6 +78,16 @@ func (p *Policy) updatePolicy(obj *Policy, ruleType pinfo.RuleType) bool {
 	updates := false
 	// Check Mutation rules
 	switch ruleType {
+	case pinfo.All:
+		if p.compareMutationRules(obj.MutationRules) {
+			updates = true
+		}
+		if p.compareValidationRules(obj.ValidationRules) {
+			updates = true
+		}
+		if p.compareGenerationRules(obj.GenerationRules) {
+			updates = true
+		}
 	case pinfo.Mutation:
 		if p.compareMutationRules(obj.MutationRules) {
 			updates = true
@@ -212,6 +222,59 @@ func ParseAnnotationsFromObject(bytes []byte) map[string]string {
 		return nil
 	}
 	return ann
+}
+
+func PatchAnnotations(ann map[string]string, pi *pinfo.PolicyInfo, ruleType pinfo.RuleType) ([]byte, error) {
+	if ruleType != pinfo.All && !pi.ContainsRuleType(ruleType) {
+		// the rule was not proceesed in the current policy application
+		return nil, nil
+	}
+	// transform the PolicyInfo to anotation struct
+	policyObj := newAnnotationForPolicy(pi)
+	if ann == nil {
+		ann = make(map[string]string, 0)
+		policyByte, err := json.Marshal(policyObj)
+		if err != nil {
+			return nil, err
+		}
+		// create a json patch to add annotation object
+		ann[BuildKeyString(pi.Name)] = string(policyByte)
+		// patch adds the annotation map with the policy information
+		jsonPatch, err := createAddJSONPatchMap(ann)
+		return jsonPatch, err
+	}
+	// if the annotations map already exists then we need to update it by adding a patch to the field inside the annotation
+	cPolicy, ok := ann[BuildKey(pi.Name)]
+	if !ok {
+		// annotations does not contain the policy
+		policyByte, err := json.Marshal(policyObj)
+		if err != nil {
+			return nil, err
+		}
+		jsonPatch, err := createAddJSONPatch(BuildKey(pi.Name), string(policyByte))
+		return jsonPatch, err
+	}
+	// an annotaion exists for the policy, we need to update the information if anything has changed
+	cPolicyObj := Policy{}
+	err := json.Unmarshal([]byte(cPolicy), &cPolicyObj)
+	if err != nil {
+		// error while unmarshallign the content
+		return nil, err
+	}
+	// update policy information inside the annotation
+	// 1> policy status
+	// 2> rule (name, status,changes,type)
+	update := cPolicyObj.updatePolicy(policyObj, ruleType)
+	if !update {
+		// there is not update, so we dont
+		return nil, nil
+	}
+	policyByte, err := json.Marshal(cPolicyObj)
+	if err != nil {
+		return nil, err
+	}
+	jsonPatch, err := createAddJSONPatch(BuildKey(pi.Name), string(policyByte))
+	return jsonPatch, err
 }
 
 //AddPolicyJSONPatch generate JSON Patch to add policy informatino JSON patch

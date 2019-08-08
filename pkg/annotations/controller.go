@@ -46,7 +46,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 }
 
 func (c *controller) Stop() {
-	defer c.queue.ShutDown()
+	c.queue.ShutDown()
 	glog.Info("Shutting down annotation controller workers")
 }
 
