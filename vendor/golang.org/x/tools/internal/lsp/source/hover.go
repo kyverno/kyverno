@@ -6,7 +6,6 @@ package source
 
 import (
 	"context"
-	"fmt"
 	"go/ast"
 	"go/doc"
 	"go/format"
@@ -14,6 +13,7 @@ import (
 	"strings"
 
 	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	errors "golang.org/x/xerrors"
 )
 
 type documentation struct {
@@ -25,16 +25,21 @@ type HoverKind int
 
 const (
 	NoDocumentation = HoverKind(iota)
+	SingleLine
 	SynopsisDocumentation
 	FullDocumentation
-
-	// TODO: Support a single-line hover mode for clients like Vim.
-	singleLine
 )
 
 func (i *IdentifierInfo) Hover(ctx context.Context, markdownSupported bool, hoverKind HoverKind) (string, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Hover")
 	defer done()
+
+	// If the user has explicitly requested a single line of hover information,
+	// fall back to using types.ObjectString.
+	if hoverKind == SingleLine {
+		return types.ObjectString(i.decl.obj, i.qf), nil
+	}
+
 	h, err := i.decl.hover(ctx)
 	if err != nil {
 		return "", err
@@ -124,7 +129,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*docume
 		}
 	}
 	if spec == nil {
-		return nil, fmt.Errorf("no spec for node %v at position %v", node, obj.Pos())
+		return nil, errors.Errorf("no spec for node %v at position %v", node, obj.Pos())
 	}
 	// If we have a field or method.
 	switch obj.(type) {
@@ -145,7 +150,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*docume
 	case *ast.ImportSpec:
 		return &documentation{spec, spec.Doc}, nil
 	}
-	return nil, fmt.Errorf("unable to format spec %v (%T)", spec, spec)
+	return nil, errors.Errorf("unable to format spec %v (%T)", spec, spec)
 }
 
 func formatVar(node ast.Spec, obj types.Object) (*documentation, error) {

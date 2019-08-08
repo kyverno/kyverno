@@ -8,7 +8,6 @@ package source
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"go/format"
 
 	"golang.org/x/tools/go/ast/astutil"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/tools/internal/lsp/telemetry/log"
 	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/span"
+	errors "golang.org/x/xerrors"
 )
 
 // Format formats a file with a given range.
@@ -30,12 +30,20 @@ func Format(ctx context.Context, f GoFile, rng span.Range) ([]TextEdit, error) {
 		return nil, err
 	}
 	pkg := f.GetPackage(ctx)
-	if hasListErrors(pkg.GetErrors()) || hasParseErrors(pkg.GetErrors()) {
-		return nil, fmt.Errorf("%s has parse errors, not formatting", f.URI())
+	if hasListErrors(pkg.GetErrors()) || hasParseErrors(pkg, f.URI()) {
+		// Even if this package has list or parse errors, this file may not
+		// have any parse errors and can still be formatted. Using format.Node
+		// on an ast with errors may result in code being added or removed.
+		// Attempt to format the source of this file instead.
+		formatted, err := formatSource(ctx, f)
+		if err != nil {
+			return nil, err
+		}
+		return computeTextEdits(ctx, f, string(formatted)), nil
 	}
 	path, exact := astutil.PathEnclosingInterval(file, rng.Start, rng.End)
 	if !exact || len(path) == 0 {
-		return nil, fmt.Errorf("no exact AST node matching the specified range")
+		return nil, errors.Errorf("no exact AST node matching the specified range")
 	}
 	node := path[0]
 
@@ -52,6 +60,16 @@ func Format(ctx context.Context, f GoFile, rng span.Range) ([]TextEdit, error) {
 	return computeTextEdits(ctx, f, buf.String()), nil
 }
 
+func formatSource(ctx context.Context, file File) ([]byte, error) {
+	ctx, done := trace.StartSpan(ctx, "source.formatSource")
+	defer done()
+	data, _, err := file.Handle(ctx).Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return format.Source(data)
+}
+
 // Imports formats a file using the goimports tool.
 func Imports(ctx context.Context, view View, f GoFile, rng span.Range) ([]TextEdit, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Imports")
@@ -62,23 +80,13 @@ func Imports(ctx context.Context, view View, f GoFile, rng span.Range) ([]TextEd
 	}
 	pkg := f.GetPackage(ctx)
 	if pkg == nil || pkg.IsIllTyped() {
-		return nil, fmt.Errorf("no package for file %s", f.URI())
+		return nil, errors.Errorf("no package for file %s", f.URI())
 	}
 	if hasListErrors(pkg.GetErrors()) {
-		return nil, fmt.Errorf("%s has list errors, not running goimports", f.URI())
+		return nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
 	}
 
-	if resolver, ok := view.ProcessEnv(ctx).GetResolver().(*imports.ModuleResolver); ok && resolver.Initialized {
-		// TODO(suzmue): only reset this state when necessary (eg when the go.mod files of this
-		// module or modules with replace directive changes).
-		resolver.Initialized = false
-		resolver.Main = nil
-		resolver.ModsByModPath = nil
-		resolver.ModsByDir = nil
-		resolver.ModCachePkgs = nil
-	}
 	options := &imports.Options{
-		Env: view.ProcessEnv(ctx),
 		// Defaults.
 		AllErrors:  true,
 		Comments:   true,
@@ -87,16 +95,89 @@ func Imports(ctx context.Context, view View, f GoFile, rng span.Range) ([]TextEd
 		TabIndent:  true,
 		TabWidth:   8,
 	}
-	formatted, err := imports.Process(f.URI().Filename(), data, options)
+	var formatted []byte
+	importFn := func(opts *imports.Options) error {
+		formatted, err = imports.Process(f.URI().Filename(), data, opts)
+		return err
+	}
+	err = view.RunProcessEnvFunc(ctx, importFn, options)
 	if err != nil {
 		return nil, err
 	}
 	return computeTextEdits(ctx, f, string(formatted)), nil
 }
 
-func hasParseErrors(errors []packages.Error) bool {
-	for _, err := range errors {
-		if err.Kind == packages.ParseError {
+type ImportFix struct {
+	Fix   *imports.ImportFix
+	Edits []TextEdit
+}
+
+// AllImportsFixes formats f for each possible fix to the imports.
+// In addition to returning the result of applying all edits,
+// it returns a list of fixes that could be applied to the file, with the
+// corresponding TextEdits that would be needed to apply that fix.
+func AllImportsFixes(ctx context.Context, view View, f GoFile, rng span.Range) (edits []TextEdit, editsPerFix []*ImportFix, err error) {
+	ctx, done := trace.StartSpan(ctx, "source.AllImportsFixes")
+	defer done()
+	data, _, err := f.Handle(ctx).Read(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	pkg := f.GetPackage(ctx)
+	if pkg == nil || pkg.IsIllTyped() {
+		return nil, nil, errors.Errorf("no package for file %s", f.URI())
+	}
+	if hasListErrors(pkg.GetErrors()) {
+		return nil, nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
+	}
+
+	options := &imports.Options{
+		// Defaults.
+		AllErrors:  true,
+		Comments:   true,
+		Fragment:   true,
+		FormatOnly: false,
+		TabIndent:  true,
+		TabWidth:   8,
+	}
+	importFn := func(opts *imports.Options) error {
+		fixes, err := imports.FixImports(f.URI().Filename(), data, opts)
+		if err != nil {
+			return err
+		}
+		// Apply all of the import fixes to the file.
+		formatted, err := imports.ApplyFixes(fixes, f.URI().Filename(), data, options)
+		if err != nil {
+			return err
+		}
+		edits = computeTextEdits(ctx, f, string(formatted))
+		// Add the edits for each fix to the result.
+		editsPerFix = make([]*ImportFix, len(fixes))
+		for i, fix := range fixes {
+			formatted, err := imports.ApplyFixes([]*imports.ImportFix{fix}, f.URI().Filename(), data, options)
+			if err != nil {
+				return err
+			}
+			editsPerFix[i] = &ImportFix{
+				Fix:   fix,
+				Edits: computeTextEdits(ctx, f, string(formatted)),
+			}
+		}
+		return err
+	}
+	err = view.RunProcessEnvFunc(ctx, importFn, options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return edits, editsPerFix, nil
+}
+
+// hasParseErrors returns true if the given file has parse errors.
+func hasParseErrors(pkg Package, uri span.URI) bool {
+	for _, err := range pkg.GetErrors() {
+		spn := packagesErrorSpan(err)
+		if spn.URI() == uri && err.Kind == packages.ParseError {
 			return true
 		}
 	}

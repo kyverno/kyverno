@@ -516,7 +516,7 @@ func TestClockNanosleep(t *testing.T) {
 		t.Skip("clock_nanosleep syscall is not available, skipping test")
 	} else if err != nil {
 		t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) = %v", &rel, err)
-	} else if slept := time.Now().Sub(start); slept < delay {
+	} else if slept := time.Since(start); slept < delay {
 		t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) slept only %v", &rel, slept)
 	}
 
@@ -527,7 +527,7 @@ func TestClockNanosleep(t *testing.T) {
 	err = unix.ClockNanosleep(unix.CLOCK_REALTIME, unix.TIMER_ABSTIME, &abs, nil)
 	if err != nil {
 		t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) = %v", &abs, until, err)
-	} else if slept := time.Now().Sub(start); slept < delay {
+	} else if slept := time.Since(start); slept < delay {
 		t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) slept only %v", &abs, until, slept)
 	}
 

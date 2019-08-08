@@ -80,7 +80,7 @@
 		},
 		{
 			"ImportPath": "github.com/gogo/protobuf",
-			"Rev": "v1.0.0"
+			"Rev": "65acae22fc9d"
 		},
 		{
 			"ImportPath": "github.com/golang/groupcache",
@@ -132,7 +132,15 @@
 		},
 		{
 			"ImportPath": "github.com/json-iterator/go",
-			"Rev": "v1.1.6"
+			"Rev": "v1.1.7"
+		},
+		{
+			"ImportPath": "github.com/kisielk/errcheck",
+			"Rev": "v1.2.0"
+		},
+		{
+			"ImportPath": "github.com/kisielk/gotool",
+			"Rev": "v1.0.0"
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
@@ -280,19 +288,19 @@
 		},
 		{
 			"ImportPath": "k8s.io/api",
-			"Rev": "c8a0b81cb10e"
+			"Rev": "077ce48e77da"
 		},
 		{
 			"ImportPath": "k8s.io/apimachinery",
-			"Rev": "0bb8574e0887"
+			"Rev": "ac5d3b819fc6"
 		},
 		{
 			"ImportPath": "k8s.io/client-go",
-			"Rev": "0c47f9da0001"
+			"Rev": "396a06da3bd7"
 		},
 		{
 			"ImportPath": "k8s.io/code-generator",
-			"Rev": "77f3a1fe56bb"
+			"Rev": "d0071a119380"
 		},
 		{
 			"ImportPath": "k8s.io/gengo",
@@ -308,7 +316,7 @@
 		},
 		{
 			"ImportPath": "k8s.io/utils",
-			"Rev": "c55fbcfc754a"
+			"Rev": "581e00157fb1"
 		},
 		{
 			"ImportPath": "modernc.org/cc",

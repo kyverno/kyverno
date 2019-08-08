@@ -930,12 +930,6 @@ func testNewPackagesInOverlay(t *testing.T, exporter packagestest.Exporter) {
 			"b/b.go": `package b; import "golang.org/fake/c"; const B = "b" + c.C`,
 			"c/c.go": `package c; const C = "c"`,
 			"d/d.go": `package d; const D = "d"`,
-
-			// TODO: Remove these temporary files when golang.org/issue/33157 is resolved.
-			filepath.Join("e/e_temp.go"): ``,
-			filepath.Join("f/f_temp.go"): ``,
-			filepath.Join("g/g_temp.go"): ``,
-			filepath.Join("h/h_temp.go"): ``,
 		}}})
 	defer exported.Cleanup()
 
@@ -1013,6 +1007,46 @@ func testNewPackagesInOverlay(t *testing.T, exporter packagestest.Exporter) {
 		if got != test.want {
 			t.Errorf("%d. e.E: got %s, want %s", i, got, test.want)
 		}
+	}
+}
+
+func TestAdHocOverlays(t *testing.T) {
+	// This test doesn't use packagestest because we are testing ad-hoc packages,
+	// which are outside of $GOPATH and outside of a module.
+	tmp, err := ioutil.TempDir("", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmp)
+
+	filename := filepath.Join(tmp, "a.go")
+	content := []byte(`package a
+const A = 1
+`)
+	config := &packages.Config{
+		Dir:  tmp,
+		Mode: packages.LoadAllSyntax,
+		Overlay: map[string][]byte{
+			filename: content,
+		},
+	}
+	initial, err := packages.Load(config, fmt.Sprintf("file=%s", filename))
+	if err != nil {
+		t.Error(err)
+	}
+	// Check value of a.A.
+	a := initial[0]
+	if a.Errors != nil {
+		t.Fatalf("a: got errors %+v, want no error", err)
+	}
+	aA := constant(a, "A")
+	if aA == nil {
+		t.Errorf("a.A: got nil")
+		return
+	}
+	got := aA.Val().String()
+	if want := "1"; got != want {
+		t.Errorf("a.A: got %s, want %s", got, want)
 	}
 }
 
