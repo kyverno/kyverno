@@ -2,13 +2,14 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	"github.com/golang/glog"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -21,7 +22,7 @@ func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Un
 			continue
 		}
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
-		err := applyRuleGenerator(client, ns, rule.Generation)
+		err := applyRuleGenerator(client, ns, rule.Generation, policy.GetCreationTimestamp())
 		if err != nil {
 			ri.Fail()
 			ri.Addf("Rule %s: Failed to apply rule generator, err %v.", rule.Name, err)
@@ -34,11 +35,15 @@ func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Un
 	return ris
 }
 
-func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation) error {
+func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation, policyCreationTime metav1.Time) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
-
+	// To manage existing resource , we compare the creation time for the default resource to be generate and policy creation time
+	processExisting := func() bool {
+		nsCreationTime := ns.GetCreationTimestamp()
+		return nsCreationTime.Before(&policyCreationTime)
+	}()
 	if gen.Data != nil {
 		// 1> Check if resource exists
 		obj, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
@@ -51,7 +56,7 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 				return err
 			}
 			if !ok {
-				return errors.New("rule configuration not present in resource")
+				return fmt.Errorf("rule configuration not present in resource %s/%s", ns.GetName(), gen.Name)
 			}
 			return nil
 		}
@@ -74,12 +79,15 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 		}
 		rdata = resource.UnstructuredContent()
 	}
+	if processExisting {
+		// for existing resources we generate an error which indirectly generates a policy violation
+		return fmt.Errorf("resource %s not found in existing namespace %s", gen.Name, ns.GetName())
+	}
 	resource.SetUnstructuredContent(rdata)
 	resource.SetName(gen.Name)
 	resource.SetNamespace(ns.GetName())
 	// Reset resource version
 	resource.SetResourceVersion("")
-
 	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
 		return err

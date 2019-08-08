@@ -99,6 +99,7 @@ const (
 	Mutation RuleType = iota
 	Validation
 	Generation
+	All
 )
 
 func (ri RuleType) String() string {
@@ -106,6 +107,7 @@ func (ri RuleType) String() string {
 		"Mutation",
 		"Validation",
 		"Generation",
+		"All",
 	}[ri]
 }
 

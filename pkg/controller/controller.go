@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
-
 	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -207,7 +205,6 @@ func (pc *PolicyController) syncHandler(obj interface{}) error {
 
 func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 	for _, pi := range policyInfos {
-		var patch []byte
 		//get resource
 		obj, err := pc.client.GetResource(pi.RKind, pi.RNamespace, pi.RName)
 		if err != nil {
@@ -216,61 +213,14 @@ func (pc *PolicyController) createAnnotations(policyInfos []*info.PolicyInfo) {
 		}
 		// add annotation for policy application
 		ann := obj.GetAnnotations()
-		// Mutation rules
-		ann, mpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Mutation)
-		if err != nil {
-			glog.Error(err)
-			continue
-		}
-		// Validation rules
-		ann, vpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Validation)
-		if err != nil {
-			glog.Error(err)
-		}
-
-		// Generation rules
-		ann, gpatch, err := annotations.AddPolicyJSONPatch(ann, pi, info.Generation)
-		if err != nil {
-			glog.Error(err)
-		}
-
-		if mpatch == nil && vpatch == nil && gpatch == nil {
-			//nothing to patch
-			continue
-		}
-		// merge the patches
-		if mpatch != nil && vpatch != nil {
-			patch, err = jsonpatch.MergePatch(mpatch, vpatch)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-		}
-
-		if mpatch == nil {
-			patch = vpatch
-		} else {
-			patch = mpatch
-		}
-
-		if gpatch != nil {
-			// generation
-			if patch != nil {
-				patch, err = jsonpatch.MergePatch(patch, gpatch)
-				if err != nil {
-					glog.Error(err)
-					continue
-				}
-			} else {
-				patch = gpatch
-			}
-		}
-
+		// if annotations are nil then create a map and patch
+		// else
+		// add the exact patch
+		patch, err := annotations.PatchAnnotations(ann, pi, info.All)
 		if patch == nil {
+			/// nothing to patch
 			return
 		}
-
-		//		add the anotation to the resource
 		_, err = pc.client.PatchResource(pi.RKind, pi.RNamespace, pi.RName, patch)
 		if err != nil {
 			glog.Error(err)
