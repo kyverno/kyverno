@@ -109,8 +109,8 @@ type PolicyList struct {
 type PolicyViolation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicyViolationSpec `json:"spec"`
-	Status            string              `json:"status"`
+	Spec              PolicyViolationSpec   `json:"spec"`
+	Status            PolicyViolationStatus `json:"status"`
 }
 
 // PolicyViolationSpec describes policy behavior by its rules
@@ -127,10 +127,19 @@ type ResourceSpec struct {
 	Name      string `json:"name"`
 }
 
+// ViolatedRule stores the information regarding the rule
 type ViolatedRule struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	Message string `json:"message"`
+}
+
+//PolicyViolationStatus provides information regarding policyviolation status
+// status:
+//		LastUpdateTime : the time the polivy violation was updated
+type PolicyViolationStatus struct {
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
+	//TODO: having user information regarding the owner of resource can be helpful
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

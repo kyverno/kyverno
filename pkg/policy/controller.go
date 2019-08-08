@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	// maxRetries is the number of times a Polict will be retried before it is dropped out of the queue.
+	// maxRetries is the number of times a Policy will be retried before it is dropped out of the queue.
 	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the times
 	// a deployment is going to be requeued:
 	//
@@ -44,12 +44,12 @@ var controllerKind = kyverno.SchemeGroupVersion.WithKind("Policy")
 // in the system with the corresponding policy violations
 type PolicyController struct {
 	client        *client.Client
-	kyvernoclient *kyvernoclient.Clientset
+	kyvernoClient *kyvernoclient.Clientset
 	eventRecorder record.EventRecorder
 	syncHandler   func(pKey string) error
 	enqueuePolicy func(policy *kyverno.Policy)
 
-	//pvControl is used for adoptin/releasing replica sets
+	//pvControl is used for adoptin/releasing policy violation
 	pvControl PVControlInterface
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
@@ -76,7 +76,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 
 	pc := PolicyController{
 		client:        client,
-		kyvernoclient: kyvernoClient,
+		kyvernoClient: kyvernoClient,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 	}
@@ -316,7 +316,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Starting policy controller")
 	defer glog.Info("Shutting down policy controller")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced) {
 		return
 	}
 	for i := 0; i < workers; i++ {
@@ -358,7 +358,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	}
 
 	utilruntime.HandleError(err)
-	glog.V(2).Infof("Dropping deployment %q out of the queue: %v", key, err)
+	glog.V(2).Infof("Dropping policy %q out of the queue: %v", key, err)
 	pc.queue.Forget(key)
 }
 
@@ -391,7 +391,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	return pc.syncStatusOnly(p, pvList)
 }
 
-//TODO
+//syncStatusOnly updates the policy status subresource
+// status:
+// 		- violations : (count of the resources that violate this policy )
 func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
 	newStatus := calculateStatus(pvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
@@ -401,7 +403,7 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	// update status
 	newPolicy := p
 	newPolicy.Status = newStatus
-	_, err := pc.kyvernoclient.KyvernoV1alpha1().Policies().UpdateStatus(newPolicy)
+	_, err := pc.kyvernoClient.KyvernoV1alpha1().Policies().UpdateStatus(newPolicy)
 	return err
 }
 
@@ -436,7 +438,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*
 	}
 
 	canAdoptFunc := RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := pc.kyvernoclient.KyvernoV1alpha1().Policies().Get(p.Name, metav1.GetOptions{})
+		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().Policies().Get(p.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
