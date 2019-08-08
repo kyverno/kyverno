@@ -388,18 +388,29 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	// // Add messages
-
-	if p.DeletionTimestamp != nil {
-		return pc.syncStatusOnly(p, pvList)
-	}
-	return nil
+	return pc.syncStatusOnly(p, pvList)
 }
 
 //TODO
 func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
-	// Sync Status based on Policy Violation
-	return nil
+	newStatus := calculateStatus(pvList)
+	if reflect.DeepEqual(newStatus, p.Status) {
+		// no update to status
+		return nil
+	}
+	// update status
+	newPolicy := p
+	newPolicy.Status = newStatus
+	_, err := pc.kyvernoclient.KyvernoV1alpha1().Policies().UpdateStatus(newPolicy)
+	return err
+}
+
+func calculateStatus(pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
+	violationCount := len(pvList)
+	status := kyverno.PolicyStatus{
+		Violations: violationCount,
+	}
+	return status
 }
 func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*kyverno.PolicyViolation, error) {
 	// List all PolicyViolation to find those we own but that no longer match our
@@ -725,17 +736,17 @@ func createLabelMapPatch(policy string) ([]byte, error) {
 // label is used here to lookup policyViolation and corresponding Policy
 func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.PolicyViolation) bool {
 	updateLabel := func() bool {
-		glog.V(4).Infof("adding label 'policy:%s' to PolicyViolation %s", pv.Spec.PolicyName, pv.Name)
+		glog.V(4).Infof("adding label 'policy:%s' to PolicyViolation %s", pv.Spec.Policy, pv.Name)
 		// add label based on the policy spec
 		labels := pv.GetLabels()
-		if pv.Spec.PolicyName == "" {
+		if pv.Spec.Policy == "" {
 			glog.Error("policy not defined for violation")
 			// should be cleaned up
 			return false
 		}
 		if labels == nil {
 			// create a patch to generate the labels map with policy label
-			patch, err := createLabelMapPatch(pv.Spec.PolicyName)
+			patch, err := createLabelMapPatch(pv.Spec.Policy)
 			if err != nil {
 				glog.Errorf("unable to init label map. %v", err)
 				return false
@@ -748,7 +759,7 @@ func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.Pol
 			return true
 		}
 		// JSON Patch to add exact label
-		labelPatch, err := createLabelPatch(pv.Spec.PolicyName)
+		labelPatch, err := createLabelPatch(pv.Spec.Policy)
 		if err != nil {
 			glog.Errorf("failed to generate patch to add label 'policy': %v", err)
 			return false
@@ -761,16 +772,16 @@ func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.Pol
 		return true
 	}
 
-	var policyName string
+	var policy string
 	var ok bool
 	// operate oncopy of resource
 	curLabels := pv.GetLabels()
-	if policyName, ok = curLabels["policy"]; !ok {
+	if policy, ok = curLabels["policy"]; !ok {
 		return updateLabel()
 	}
 	// TODO: would be benificial to add a check to verify if the policy in name and resource spec match
-	if policyName != pv.Spec.PolicyName {
-		glog.Errorf("label 'policy:%s' and spec.policyName %s dont match ", policyName, pv.Spec.PolicyName)
+	if policy != pv.Spec.Policy {
+		glog.Errorf("label 'policy:%s' and spec.policy %s dont match ", policy, pv.Spec.Policy)
 		//TODO handle this case
 		return updateLabel()
 	}
