@@ -26,13 +26,14 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server                http.Server
-	client                *client.Client
-	policyLister          v1alpha1.PolicyLister
-	eventController       event.Generator
-	violationBuilder      violation.Generator
-	annotationsController annotations.Controller
-	filterK8Resources     []utils.K8Resource
+	server                    http.Server
+	client                    *client.Client
+	policyLister              v1alpha1.PolicyLister
+	eventController           event.Generator
+	violationBuilder          violation.Generator
+	annotationsController     annotations.Controller
+	webhookRegistrationClient *WebhookRegistrationClient
+	filterK8Resources         []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -44,6 +45,7 @@ func NewWebhookServer(
 	eventController event.Generator,
 	violationBuilder violation.Generator,
 	annotationsController annotations.Controller,
+	webhookRegistrationClient *WebhookRegistrationClient,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -58,12 +60,13 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:                client,
-		policyLister:          shareInformer.GetLister(),
-		eventController:       eventController,
-		violationBuilder:      violationBuilder,
-		annotationsController: annotationsController,
-		filterK8Resources:     utils.ParseKinds(filterK8Resources),
+		client:                    client,
+		policyLister:              shareInformer.GetLister(),
+		eventController:           eventController,
+		violationBuilder:          violationBuilder,
+		annotationsController:     annotationsController,
+		webhookRegistrationClient: webhookRegistrationClient,
+		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)

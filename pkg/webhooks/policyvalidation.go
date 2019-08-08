@@ -13,15 +13,20 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	return ws.validateUniqueRuleName(request.Object.Raw)
+	var policy *policyv1.Policy
+	json.Unmarshal(request.Object.Raw, &policy)
+
+	admissionResp := ws.validateUniqueRuleName(policy)
+
+	if admissionResp.Allowed {
+		ws.registerWebhookConfigurations(*policy)
+	}
+	return admissionResp
 }
 
 // Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
-	var policy *policyv1.Policy
+func (ws *WebhookServer) validateUniqueRuleName(policy *policyv1.Policy) *v1beta1.AdmissionResponse {
 	var ruleNames []string
-
-	json.Unmarshal(rawPolicy, &policy)
 
 	for _, rule := range policy.Spec.Rules {
 		if utils.Contains(ruleNames, rule.Name) {
