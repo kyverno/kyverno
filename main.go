@@ -11,6 +11,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/violation"
@@ -51,6 +52,10 @@ func main() {
 	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
+	}
+	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
+	if err != nil {
+		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
 	//-------------------------------------
 	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
@@ -93,6 +98,7 @@ func main() {
 	//--------
 	pInformer.Start(stopCh)
 	go pc.Run(1, stopCh)
+	go pvc.Run(1, stopCh)
 	//TODO add WG for the go routine?
 	//--------
 	policyInformerFactory.Run(stopCh)
