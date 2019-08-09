@@ -210,3 +210,13 @@ func setKindForObject(bytes []byte, kind string) []byte {
 	}
 	return data
 }
+
+func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
+}

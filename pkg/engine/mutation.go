@@ -5,16 +5,19 @@ import (
 	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
+//TODO: check if gvk needs to be passed or can be set in resource
 func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, []*info.RuleInfo) {
-	//
-
-	var allPatches [][]byte
-	patchedDocument := rawResource
-	ris := []*info.RuleInfo{}
+	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
+	//TODO: pass unstructured instead of rawResource ?
+	resource, err := convertToUnstructured(rawResource)
+	if err != nil {
+		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
+	}
+	var patches [][]byte
+	var ruleInfos []*info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
 		if rule.Mutation == nil {
@@ -24,56 +27,57 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := ResourceMeetsDescription(rawResource, rule.MatchResources.ResourceDescription, rule.ExcludeResources.ResourceDescription, gvk)
+		ok := MatchesResourceDescription(resource, rule, gvk)
 		if !ok {
-			name := ParseNameFromObject(rawResource)
-			namespace := ParseNamespaceFromObject(rawResource)
-			glog.V(3).Infof("resource %s/%s does not satisfy the resource description for the rule ", namespace, name)
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
-		ri := info.NewRuleInfo(rule.Name, info.Mutation)
+
+		ruleInfo := info.NewRuleInfo(rule.Name, info.Mutation)
 
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
-			overlayPatches, err := processOverlay(rule, rawResource, gvk)
+			oPatches, err := processOverlay(resource, rule, rawResource)
 			if err == nil {
-				if len(overlayPatches) == 0 {
+				if len(oPatches) == 0 {
 					// if array elements dont match then we skip(nil patch, no error)
 					// or if acnohor is defined and doenst match
 					// policy is not applicable
+					glog.V(4).Info("overlay does not match, so skipping applying rule")
 					continue
 				}
-				glog.V(4).Infof("overlay applied succesfully on resource")
-				ri.Add("Overlay succesfully applied")
-				patch := JoinPatches(overlayPatches)
-				allPatches = append(allPatches, overlayPatches...)
+
+				glog.V(4).Infof("overlay applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+				ruleInfo.Add("Overlay succesfully applied")
+
 				// update rule information
 				// strip slashes from string
-				ri.Changes = string(patch)
+				patch := JoinPatches(oPatches)
+				ruleInfo.Changes = string(patch)
+				patches = append(patches, oPatches...)
 			} else {
 				glog.V(4).Infof("failed to apply overlay: %v", err)
-				ri.Fail()
-				ri.Addf("failed to apply overlay: %v", err)
+				ruleInfo.Fail()
+				ruleInfo.Addf("failed to apply overlay: %v", err)
 			}
 		}
 
 		// Process Patches
 		if len(rule.Mutation.Patches) != 0 {
-			rulePatches, errs := processPatches(rule, patchedDocument)
+			jsonPatches, errs := processPatches(rule, rawResource)
 			if len(errs) > 0 {
-				ri.Fail()
+				ruleInfo.Fail()
 				for _, err := range errs {
 					glog.V(4).Infof("failed to apply patches: %v", err)
-					ri.Addf("patches application has failed, err %v.", err)
+					ruleInfo.Addf("patches application has failed, err %v.", err)
 				}
 			} else {
-				glog.V(4).Infof("patches applied succesfully on resource")
-				ri.Addf("Patches succesfully applied.")
-				allPatches = append(allPatches, rulePatches...)
+				glog.V(4).Infof("patches applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+				ruleInfo.Addf("Patches succesfully applied.")
+				patches = append(patches, jsonPatches...)
 			}
 		}
-		ris = append(ris, ri)
+		ruleInfos = append(ruleInfos, ruleInfo)
 	}
-
-	return allPatches, ris
+	return patches, ruleInfos
 }

@@ -150,6 +150,66 @@ func excludeNamespaces(namespaces []string, excludeNs *string) []string {
 	return filteredNamespaces
 }
 
+//MatchesResourceDescription checks if the resource matches resource desription of the rule or not
+func MatchesResourceDescription(resource *unstructured.Unstructured, rule v1alpha1.Rule, gvk metav1.GroupVersionKind) bool {
+	matches := rule.MatchResources.ResourceDescription
+	exclude := rule.ExcludeResources.ResourceDescription
+
+	if !findKind(matches.Kinds, gvk.Kind) {
+		return false
+	}
+
+	// meta := parseMetadataFromObject(resourceRaw)
+	name := resource.GetName()
+	namespace := resource.GetNamespace()
+
+	if matches.Name != nil {
+		// Matches
+		if !wildcard.Match(*matches.Name, name) {
+			return false
+		}
+	}
+	// Exclude
+	// the resource name matches the exclude resource name then reject
+	if exclude.Name != nil {
+		if wildcard.Match(*exclude.Name, name) {
+			return false
+		}
+	}
+	// Matches
+	if matches.Namespace != nil && *matches.Namespace != namespace {
+		return false
+	}
+	// Exclude
+	if exclude.Namespace != nil && *exclude.Namespace == namespace {
+		return false
+	}
+	// Matches
+	if matches.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if !selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
+	}
+	// Exclude
+	if exclude.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+		// if the label selector is incorrect, should be fail or
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
+	}
+	return true
+}
+
 // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
 func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescription, exclude v1alpha1.ResourceDescription, gvk metav1.GroupVersionKind) bool {
 	if !findKind(matches.Kinds, gvk.Kind) {
@@ -457,4 +517,14 @@ func convertToFloat(value interface{}) (float64, error) {
 type resourceInfo struct {
 	Resource unstructured.Unstructured
 	Gvk      *metav1.GroupVersionKind
+}
+
+func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }
