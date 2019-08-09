@@ -13,13 +13,12 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	// var patches [][]byte
-	var policyInfos []*info.PolicyInfo
+	var policyInfos []info.PolicyInfo
 
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	policies, err := ws.policyLister.List(labels.NewSelector())
+	policies, err := ws.pLister.List(labels.NewSelector())
 	if err != nil {
 		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
@@ -62,6 +61,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			continue
 		}
 		policyInfo.AddRuleInfos(ruleInfos)
+		policyInfos = append(policyInfos, policyInfo)
 
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
@@ -74,10 +74,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		if len(ruleInfos) > 0 {
 			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 		}
-		policyInfos = append(policyInfos, policyInfo)
 	}
 
 	// ADD EVENTS
+
 	// ADD POLICY VIOLATIONS
 	ok, msg := isAdmSuccesful(policyInfos)
 	if !ok && toBlock(policyInfos) {

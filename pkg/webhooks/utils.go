@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,7 +15,7 @@ import (
 
 const policyKind = "Policy"
 
-func isAdmSuccesful(policyInfos []*info.PolicyInfo) (bool, string) {
+func isAdmSuccesful(policyInfos []info.PolicyInfo) (bool, string) {
 	var admSuccess = true
 	var errMsgs []string
 	for _, pi := range policyInfos {
@@ -73,7 +73,7 @@ func (i *ArrayFlags) Set(value string) error {
 }
 
 // extract the kinds that the policy rules apply to
-func getApplicableKindsForPolicy(p *v1alpha1.Policy) []string {
+func getApplicableKindsForPolicy(p *kyverno.Policy) []string {
 	kindsMap := map[string]interface{}{}
 	kinds := []string{}
 	// iterate over the rules an identify all kinds
@@ -106,7 +106,7 @@ const (
 
 // returns true -> if there is even one policy that blocks resource requst
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlock(pis []*info.PolicyInfo) bool {
+func toBlock(pis []info.PolicyInfo) bool {
 	for _, pi := range pis {
 		if pi.ValidationFailureAction != ReportViolation {
 			return true

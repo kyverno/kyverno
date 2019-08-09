@@ -13,11 +13,11 @@ import (
 // HandleMutation handles mutating webhook admission request
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var patches [][]byte
-	var policyInfos []*info.PolicyInfo
+	var policyInfos []info.PolicyInfo
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	policies, err := ws.policyLister.List(labels.NewSelector())
+	policies, err := ws.pLister.List(labels.NewSelector())
 	if err != nil {
 		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
@@ -53,8 +53,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		policyInfo.AddRuleInfos(ruleInfos)
 		policyInfos = append(policyInfos, policyInfo)
-
-		if !policyInfo.IsSuccessful() {
+			if !policyInfo.IsSuccessful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
 			glog.V(4).Info("Failed rule details")
 			for _, r := range ruleInfos {

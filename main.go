@@ -4,7 +4,6 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
 	clientNew "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -12,8 +11,6 @@ import (
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"github.com/nirmata/kyverno/pkg/sharedinformer"
-	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
 )
@@ -27,58 +24,61 @@ var (
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
+
+	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
+	// DYNAMIC CLIENT
+	// - client for all registered resources
 	client, err := client.NewClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
 
-	// check if the k8 server version is supported ?
-	// if !version.Supportedk8Server(client) {
-	// 	glog.Fatalf("the k8 server version is not supported. refer to https://github.com/nirmata/kyverno/blob/master/documentation/installation.md for more details")
-	// }
-	//-------------------------------------
-	// create policy client
+	// KYVENO CRD CLIENT
+	// access CRD resources
+	//		- Policy
+	//		- PolicyViolation
 	pclient, err := clientNew.NewForConfig(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
+
+	// KYVERNO CRD INFORMER
+	// watches CRD resources:
+	//		- Policy
+	//		- PolicyVolation
+	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10)
+
+	// POLICY CONTROLLER
+	// - reconciliation policy and policy violation
+	// - status: violation count
 	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
+
+	// POLICY VIOLATION CONTROLLER
+	// status: lastUpdatTime
 	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
-	//-------------------------------------
-	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
-	if err != nil {
-		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
-	}
-	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
-	egen := event.NewEventGenerator(client, policyInformerFactory)
-	// violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
-	annotationsController := annotations.NewAnnotationControler(client)
-	// policyController := controller.NewPolicyController(
-	// 	client,
-	// 	policyInformerFactory,
-	// 	violationBuilder,
-	// 	eventController,
-	// 	annotationsController,
-	// 	filterK8Resources)
 
-	// genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces(), annotationsController)
+	// EVENT GENERATOR
+	// - generate event with retry
+	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
+
+	// TODO : Process Existing
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, egen, nil, annotationsController, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), egen, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -99,23 +99,21 @@ func main() {
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
-	//TODO add WG for the go routine?
+
+	//TODO add WG for the go routines?
 	//--------
-	policyInformerFactory.Run(stopCh)
-	kubeInformer.Start(stopCh)
 	// eventController.Run(stopCh)
 	// genControler.Run(stopCh)
-	annotationsController.Run(stopCh)
+	// annotationsController.Run(stopCh)
 	// if err = policyController.Run(stopCh); err != nil {
 	// 	glog.Fatalf("Error running PolicyController: %v\n", err)
 	// }
-
 	server.RunAsync()
 	<-stopCh
 	server.Stop()
 	// genControler.Stop()
 	// eventController.Stop()
-	annotationsController.Stop()
+	// annotationsController.Stop()
 	// policyController.Stop()
 }
 

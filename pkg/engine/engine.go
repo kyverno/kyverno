@@ -3,7 +3,7 @@ package engine
 import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -11,11 +11,11 @@ import (
 )
 
 // ProcessExisting checks for mutation and validation violations of existing resources
-func ProcessExisting(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) []*info.PolicyInfo {
+func ProcessExisting(client *client.Client, policy *kyverno.Policy, filterK8Resources []utils.K8Resource) []info.PolicyInfo {
 	glog.Infof("Applying policy %s on existing resources", policy.Name)
 	// key uid
 	resourceMap := ListResourcesThatApplyToPolicy(client, policy, filterK8Resources)
-	policyInfos := []*info.PolicyInfo{}
+	policyInfos := []info.PolicyInfo{}
 	// for the filtered resource apply policy
 	for _, v := range resourceMap {
 
@@ -31,25 +31,28 @@ func ProcessExisting(client *client.Client, policy *types.Policy, filterK8Resour
 	return policyInfos
 }
 
-func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) (*info.PolicyInfo, error) {
-	policyInfo := info.NewPolicyInfo(policy.Name, res.Gvk.Kind, res.Resource.GetName(), res.Resource.GetNamespace(), policy.Spec.ValidationFailureAction)
+func applyPolicy(client *client.Client, policy *kyverno.Policy, res resourceInfo) (info.PolicyInfo, error) {
+	var policyInfo info.PolicyInfo
 	glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 	rawResource, err := res.Resource.MarshalJSON()
 	if err != nil {
-		return nil, err
+		return policyInfo, err
 	}
 	// Mutate
 	mruleInfos, err := mutation(policy, rawResource, res.Gvk)
 	policyInfo.AddRuleInfos(mruleInfos)
 	if err != nil {
-		return nil, err
+		return policyInfo, err
 	}
 	// Validation
+	//TODO check by value or pointer
 	vruleInfos, err := Validate(*policy, rawResource, *res.Gvk)
-	policyInfo.AddRuleInfos(vruleInfos)
 	if err != nil {
-		return nil, err
+		return policyInfo, err
 	}
+	policyInfo.AddRuleInfos(vruleInfos)
+	policyInfo = info.NewPolicyInfo(policy.Name, res.Gvk.Kind, res.Resource.GetName(), res.Resource.GetNamespace(), policy.Spec.ValidationFailureAction)
+
 	if res.Gvk.Kind == "Namespace" {
 
 		// Generation
@@ -60,7 +63,7 @@ func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) 
 	return policyInfo, nil
 }
 
-func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
+func mutation(p *kyverno.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
 	patches, ruleInfos := Mutate(*p, rawResource, *gvk)
 	if len(ruleInfos) == 0 {
 		// no rules were processed

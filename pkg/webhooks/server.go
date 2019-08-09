@@ -11,28 +11,24 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
-	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
+	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/violation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server                http.Server
-	client                *client.Client
-	policyLister          v1alpha1.PolicyLister
-	eventGen              event.Interface
-	violationBuilder      violation.Generator
-	annotationsController annotations.Controller
-	filterK8Resources     []utils.K8Resource
+	server            http.Server
+	client            *client.Client
+	pLister           lister.PolicyLister
+	eventGen          event.Interface
+	filterK8Resources []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -40,10 +36,8 @@ type WebhookServer struct {
 func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	shareInformer sharedinformer.PolicyInformer,
+	pInformer informer.PolicyInformer,
 	eventGen event.Interface,
-	violationBuilder violation.Generator,
-	annotationsController annotations.Controller,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -58,12 +52,10 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:                client,
-		policyLister:          shareInformer.GetLister(),
-		eventGen:              eventGen,
-		violationBuilder:      violationBuilder,
-		annotationsController: annotationsController,
-		filterK8Resources:     utils.ParseKinds(filterK8Resources),
+		client:            client,
+		pLister:           pInformer.Lister(),
+		eventGen:          eventGen,
+		filterK8Resources: utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)

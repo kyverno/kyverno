@@ -6,9 +6,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
+	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -20,10 +20,10 @@ import (
 
 //Generator generate events
 type Generator struct {
-	client       *client.Client
-	policyLister v1alpha1.PolicyLister
-	queue        workqueue.RateLimitingInterface
-	recorder     record.EventRecorder
+	client   *client.Client
+	pLister  lister.PolicyLister
+	queue    workqueue.RateLimitingInterface
+	recorder record.EventRecorder
 }
 
 //Interface to generate event
@@ -33,13 +33,13 @@ type Interface interface {
 
 //NewEventGenerator to generate a new event controller
 func NewEventGenerator(client *client.Client,
-	shareInformer sharedinformer.PolicyInformer) *Generator {
+	pInformer informer.PolicyInformer) *Generator {
 
 	gen := Generator{
-		client:       client,
-		policyLister: shareInformer.GetLister(),
-		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
-		recorder:     initRecorder(client),
+		client:   client,
+		pLister:  pInformer.Lister(),
+		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		recorder: initRecorder(client),
 	}
 
 	return &gen
@@ -145,7 +145,7 @@ func (gen *Generator) syncHandler(key Info) error {
 	switch key.Kind {
 	case "Policy":
 		//TODO: policy is clustered resource so wont need namespace
-		robj, err = gen.policyLister.Get(key.Name)
+		robj, err = gen.pLister.Get(key.Name)
 		if err != nil {
 			glog.Errorf("Error creating event: unable to get policy %s, will retry ", key.Name)
 			return err

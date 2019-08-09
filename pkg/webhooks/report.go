@@ -12,7 +12,7 @@ import (
 )
 
 //TODO: change validation from bool -> enum(validation, mutation)
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool, ruleType info.RuleType) ([]*event.Info, []*violation.Info) {
+func newEventInfoFromPolicyInfo(policyInfoList []info.PolicyInfo, onUpdate bool, ruleType info.RuleType) ([]*event.Info, []*violation.Info) {
 	var eventsInfo []*event.Info
 	var violations []*violation.Info
 	ok, msg := isAdmSuccesful(policyInfoList)

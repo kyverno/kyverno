@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/golang/glog"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -14,10 +14,10 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Unstructured) []*info.RuleInfo {
+func Generate(client *client.Client, policy *kyverno.Policy, ns unstructured.Unstructured) []*info.RuleInfo {
 	ris := []*info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
-		if rule.Generation == nil {
+		if rule.Generation == (kyverno.Generation{}) {
 			continue
 		}
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
@@ -34,7 +34,7 @@ func Generate(client *client.Client, policy *v1alpha1.Policy, ns unstructured.Un
 	return ris
 }
 
-func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen *v1alpha1.Generation) error {
+func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen kyverno.Generation) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
@@ -61,7 +61,7 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 			return err
 		}
 	}
-	if gen.Clone != nil {
+	if gen.Clone != (kyverno.CloneFrom{}) {
 		// 1> Check if resource exists
 		_, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
 		if err == nil {

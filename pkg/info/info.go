@@ -25,8 +25,8 @@ type PolicyInfo struct {
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) *PolicyInfo {
-	return &PolicyInfo{
+func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) PolicyInfo {
+	pi := PolicyInfo{
 		Name:                    policyName,
 		RKind:                   rKind,
 		RName:                   rName,
@@ -34,6 +34,7 @@ func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction
 		success:                 true, // fail to be set explicity
 		ValidationFailureAction: validationFailureAction,
 	}
+	return pi
 }
 
 //IsSuccessful checks if policy is succesful

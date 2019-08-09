@@ -10,14 +10,14 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
+func Validate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
 	//TODO: pass unstructured instead of rawResource ?
 	resourceUnstr, err := convertToUnstructured(rawResource)
@@ -38,7 +38,7 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 	var ruleInfos []*info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
-		if rule.Validation == nil {
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			continue
 		}
 
