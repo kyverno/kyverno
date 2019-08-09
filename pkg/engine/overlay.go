@@ -17,7 +17,7 @@ import (
 
 // ProcessOverlay handles validating admission request
 // Checks the target resources for rules defined in the policy
-func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, error) {
+func processOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, error) {
 
 	var resource interface{}
 	if err := json.Unmarshal(rawResource, &resource); err != nil {

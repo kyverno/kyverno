@@ -14,7 +14,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/sharedinformer"
 	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/violation"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
 )
@@ -64,7 +63,7 @@ func main() {
 	}
 	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
 	eventController := event.NewEventController(client, policyInformerFactory)
-	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
+	// violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
 	annotationsController := annotations.NewAnnotationControler(client)
 	// policyController := controller.NewPolicyController(
 	// 	client,
@@ -79,7 +78,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, nil, annotationsController, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
