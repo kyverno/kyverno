@@ -62,7 +62,7 @@ func main() {
 		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
 	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
-	eventController := event.NewEventController(client, policyInformerFactory)
+	egen := event.NewEventGenerator(client, policyInformerFactory)
 	// violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
 	annotationsController := annotations.NewAnnotationControler(client)
 	// policyController := controller.NewPolicyController(
@@ -78,7 +78,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, nil, annotationsController, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, egen, nil, annotationsController, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
@@ -98,11 +98,12 @@ func main() {
 	pInformer.Start(stopCh)
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
+	go egen.Run(1, stopCh)
 	//TODO add WG for the go routine?
 	//--------
 	policyInformerFactory.Run(stopCh)
 	kubeInformer.Start(stopCh)
-	eventController.Run(stopCh)
+	// eventController.Run(stopCh)
 	// genControler.Run(stopCh)
 	annotationsController.Run(stopCh)
 	// if err = policyController.Run(stopCh); err != nil {
@@ -113,7 +114,7 @@ func main() {
 	<-stopCh
 	server.Stop()
 	// genControler.Stop()
-	eventController.Stop()
+	// eventController.Stop()
 	annotationsController.Stop()
 	// policyController.Stop()
 }

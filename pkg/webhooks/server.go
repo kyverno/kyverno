@@ -29,7 +29,7 @@ type WebhookServer struct {
 	server                http.Server
 	client                *client.Client
 	policyLister          v1alpha1.PolicyLister
-	eventController       event.Generator
+	eventGen              event.Interface
 	violationBuilder      violation.Generator
 	annotationsController annotations.Controller
 	filterK8Resources     []utils.K8Resource
@@ -41,7 +41,7 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	shareInformer sharedinformer.PolicyInformer,
-	eventController event.Generator,
+	eventGen event.Interface,
 	violationBuilder violation.Generator,
 	annotationsController annotations.Controller,
 	filterK8Resources string) (*WebhookServer, error) {
@@ -60,7 +60,7 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:                client,
 		policyLister:          shareInformer.GetLister(),
-		eventController:       eventController,
+		eventGen:              eventGen,
 		violationBuilder:      violationBuilder,
 		annotationsController: annotationsController,
 		filterK8Resources:     utils.ParseKinds(filterK8Resources),

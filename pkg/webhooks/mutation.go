@@ -43,11 +43,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			resource.GetKind(),
-			resource.GetName(),
-			resource.GetNamespace(),
-			policy.Spec.ValidationFailureAction)
+		policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 
 		glog.V(4).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
@@ -72,6 +68,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	// ADD ANNOTATIONS
 	// ADD EVENTS
+	// ADD POLICY VIOLATIONS
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {

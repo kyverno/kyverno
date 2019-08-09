@@ -7,18 +7,21 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	// var patches [][]byte
+	var policyInfos []*info.PolicyInfo
 
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	policyInfos := []*info.PolicyInfo{}
 	policies, err := ws.policyLister.List(labels.NewSelector())
 	if err != nil {
+		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
 		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
 		glog.Warning(err)
@@ -27,36 +30,29 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	rname := engine.ParseNameFromObject(request.Object.Raw)
-	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
-	rkind := request.Kind.Kind
-	if rkind == "" {
-		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
+	resource, err := convertToUnstructured(request.Object.Raw)
+	if err != nil {
+		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
 	}
+	//TODO: check if resource gvk is available in raw resource,
+	// if not then set it from the api request
+	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	//TODO: check if the name and namespace is also passed right in the resource?
+	// all the patches to be applied on the resource
 
 	for _, policy := range policies {
 
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
-		//TODO: HACK Check if an update of annotations
-		if checkIfOnlyAnnotationsUpdate(request) {
-			// allow the update of resource to add annotations
-			return &v1beta1.AdmissionResponse{
-				Allowed: true,
-			}
-		}
 
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			rkind,
-			rname,
-			rns,
-			policy.Spec.ValidationFailureAction)
+		policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 
-		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, rns, rname, request.UID, request.Operation)
+		glog.V(4).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		glog.V(4).Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
 		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
 		if err != nil {
 			// This is not policy error
@@ -68,42 +64,22 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		policyInfo.AddRuleInfos(ruleInfos)
 
 		if !policyInfo.IsSuccessful() {
-			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
+			glog.V(4).Info("Failed rule details")
 			for _, r := range ruleInfos {
-				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
+				glog.V(4).Infof("%s: %s\n", r.Name, r.Msgs)
 			}
-		} else {
-			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
-			if err != nil {
-				glog.Info(err)
-			}
-
-			if len(ruleInfos) > 0 {
-				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
-			}
+			continue
+		}
+		if len(ruleInfos) > 0 {
+			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 		}
 		policyInfos = append(policyInfos, policyInfo)
-		// annotations
-		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
-		if annPatch != nil {
-			ws.annotationsController.Add(rkind, rns, rname, annPatch)
-		}
 	}
 
-	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo, violations := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
-		// If the validationFailureAction flag is set "audit",
-		// then we dont block the request and report the violations
-		ws.violationBuilder.Add(violations...)
-		ws.eventController.Add(eventsInfo...)
-	}
-	// If Validation fails then reject the request
+	// ADD EVENTS
+	// ADD POLICY VIOLATIONS
 	ok, msg := isAdmSuccesful(policyInfos)
-	// violations are created if "audit" flag is set
-	// and if there are any then we dont bock the resource creation
-	// Even if one the policy being applied
-
 	if !ok && toBlock(policyInfos) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
