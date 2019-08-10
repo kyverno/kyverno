@@ -45,6 +45,16 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
 	}
+
+	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
+	if err != nil {
+		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
+	}
+
+	if err = webhookRegistrationClient.Register(); err != nil {
+		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+	}
+
 	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
 	eventController := event.NewEventController(client, policyInformerFactory)
 	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
@@ -54,7 +64,6 @@ func main() {
 		policyInformerFactory,
 		violationBuilder,
 		eventController,
-		annotationsController,
 		filterK8Resources)
 
 	genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces(), annotationsController)
@@ -62,21 +71,13 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, filterK8Resources)
+
+	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, webhookRegistrationClient, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
-	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
-	if err != nil {
-		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
-	}
-
 	stopCh := signals.SetupSignalHandler()
-
-	if err = webhookRegistrationClient.Register(); err != nil {
-		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
-	}
 
 	policyInformerFactory.Run(stopCh)
 	kubeInformer.Start(stopCh)

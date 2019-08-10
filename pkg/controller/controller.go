@@ -28,14 +28,13 @@ import (
 
 //PolicyController to manage Policy CRD
 type PolicyController struct {
-	client                *client.Client
-	policyLister          lister.PolicyLister
-	policySynced          cache.InformerSynced
-	violationBuilder      violation.Generator
-	eventController       event.Generator
-	annotationsController annotations.Controller
-	queue                 workqueue.RateLimitingInterface
-	filterK8Resources     []utils.K8Resource
+	client            *client.Client
+	policyLister      lister.PolicyLister
+	policySynced      cache.InformerSynced
+	violationBuilder  violation.Generator
+	eventController   event.Generator
+	queue             workqueue.RateLimitingInterface
+	filterK8Resources []utils.K8Resource
 }
 
 // NewPolicyController from cmd args
@@ -43,18 +42,16 @@ func NewPolicyController(client *client.Client,
 	policyInformer sharedinformer.PolicyInformer,
 	violationBuilder violation.Generator,
 	eventController event.Generator,
-	annotationsController annotations.Controller,
 	filterK8Resources string) *PolicyController {
 
 	controller := &PolicyController{
-		client:                client,
-		policyLister:          policyInformer.GetLister(),
-		policySynced:          policyInformer.GetInfomer().HasSynced,
-		violationBuilder:      violationBuilder,
-		eventController:       eventController,
-		annotationsController: annotationsController,
-		filterK8Resources:     utils.ParseKinds(filterK8Resources),
-		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
+		client:            client,
+		policyLister:      policyInformer.GetLister(),
+		policySynced:      policyInformer.GetInfomer().HasSynced,
+		violationBuilder:  violationBuilder,
+		eventController:   eventController,
+		filterK8Resources: utils.ParseKinds(filterK8Resources),
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), policyWorkQueueName),
 	}
 
 	policyInformer.GetInfomer().AddEventHandler(cache.ResourceEventHandlerFuncs{

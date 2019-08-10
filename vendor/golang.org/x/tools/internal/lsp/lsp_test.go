@@ -52,10 +52,13 @@ func testLSP(t *testing.T, exporter packagestest.Exporter) {
 		server: &Server{
 			session:     session,
 			undelivered: make(map[span.URI][]source.Diagnostic),
-			supportedCodeActions: map[protocol.CodeActionKind]bool{
-				protocol.SourceOrganizeImports: true,
-				protocol.QuickFix:              true,
-			},
+			supportedCodeActions: map[source.FileKind]map[protocol.CodeActionKind]bool{
+				source.Go: {
+					protocol.SourceOrganizeImports: true,
+					protocol.QuickFix:              true,
+				},
+				source.Mod: {},
+				source.Sum: {}},
 			hoverKind: source.SynopsisDocumentation,
 		},
 		data: data,
@@ -81,6 +84,13 @@ func (r *runner) Diagnostics(t *testing.T, data tests.Diagnostics) {
 			t.Fatal(err)
 		}
 		got := results[uri]
+		// A special case to test that there are no diagnostics for a file.
+		if len(want) == 1 && want[0].Source == "no_diagnostics" {
+			if len(got) != 0 {
+				t.Errorf("expected no diagnostics for %s, got %v", uri, got)
+			}
+			continue
+		}
 		if diff := diffDiagnostics(uri, want, got); diff != "" {
 			t.Error(diff)
 		}

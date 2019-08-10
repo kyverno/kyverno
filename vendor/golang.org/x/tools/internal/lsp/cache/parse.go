@@ -6,19 +6,20 @@ package cache
 
 import (
 	"context"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/scanner"
 	"go/token"
 
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/lsp/telemetry"
 	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/memoize"
+	errors "golang.org/x/xerrors"
 )
 
-// Limits the number of parallel parser calls per process.
-var parseLimit = make(chan bool, 20)
+// Limits the number of parallel file reads per process.
+var ioLimit = make(chan struct{}, 20)
 
 // parseKey uniquely identifies a parsed Go file.
 type parseKey struct {
@@ -74,17 +75,19 @@ func (h *parseGoHandle) Parse(ctx context.Context) (*ast.File, error) {
 }
 
 func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.ParseMode) (*ast.File, error) {
-	ctx, done := trace.StartSpan(ctx, "cache.parseGo")
+	ctx, done := trace.StartSpan(ctx, "cache.parseGo", telemetry.File.Of(fh.Identity().URI.Filename()))
 	defer done()
+
+	ioLimit <- struct{}{}
 	buf, _, err := fh.Read(ctx)
+	<-ioLimit // Make sure to release the token, even when an error is returned.
 	if err != nil {
 		return nil, err
 	}
-	parseLimit <- true
-	defer func() { <-parseLimit }()
+
 	parserMode := parser.AllErrors | parser.ParseComments
 	if mode == source.ParseHeader {
-		parserMode = parser.ImportsOnly
+		parserMode = parser.ImportsOnly | parser.ParseComments
 	}
 	ast, err := parser.ParseFile(c.fset, fh.Identity().URI.Filename(), buf, parserMode)
 	if ast != nil {
@@ -140,8 +143,8 @@ func isEllipsisArray(n ast.Expr) bool {
 	return ok
 }
 
-// fix inspects and potentially modifies any *ast.BadStmts or *ast.BadExprs in the AST.
-// We attempt to modify the AST such that we can type-check it more effectively.
+// fix inspects the AST and potentially modifies any *ast.BadStmts so that it can be
+// type-checked more effectively.
 func fix(ctx context.Context, file *ast.File, tok *token.File, src []byte) error {
 	var parent ast.Node
 	var err error
@@ -153,7 +156,7 @@ func fix(ctx context.Context, file *ast.File, tok *token.File, src []byte) error
 		case *ast.BadStmt:
 			err = parseDeferOrGoStmt(n, parent, tok, src) // don't shadow err
 			if err != nil {
-				err = fmt.Errorf("unable to parse defer or go from *ast.BadStmt: %v", err)
+				err = errors.Errorf("unable to parse defer or go from *ast.BadStmt: %v", err)
 			}
 			return false
 		default:
@@ -181,7 +184,7 @@ func parseDeferOrGoStmt(bad *ast.BadStmt, parent ast.Node, tok *token.File, src 
 	var lit string
 	for {
 		if tkn == token.EOF {
-			return fmt.Errorf("reached the end of the file")
+			return errors.Errorf("reached the end of the file")
 		}
 		if pos >= bad.From {
 			break
@@ -199,7 +202,7 @@ func parseDeferOrGoStmt(bad *ast.BadStmt, parent ast.Node, tok *token.File, src 
 			Go: pos,
 		}
 	default:
-		return fmt.Errorf("no defer or go statement found")
+		return errors.Errorf("no defer or go statement found")
 	}
 
 	// The expression after the "defer" or "go" starts at this position.
@@ -207,7 +210,7 @@ func parseDeferOrGoStmt(bad *ast.BadStmt, parent ast.Node, tok *token.File, src 
 	var to, curr token.Pos
 FindTo:
 	for {
-		curr, tkn, lit = s.Scan()
+		curr, tkn, _ = s.Scan()
 		// TODO(rstambler): This still needs more handling to work correctly.
 		// We encounter a specific issue with code that looks like this:
 		//
@@ -224,15 +227,15 @@ FindTo:
 		to = curr
 	}
 	if !from.IsValid() || tok.Offset(from) >= len(src) {
-		return fmt.Errorf("invalid from position")
+		return errors.Errorf("invalid from position")
 	}
 	if !to.IsValid() || tok.Offset(to)+1 >= len(src) {
-		return fmt.Errorf("invalid to position")
+		return errors.Errorf("invalid to position")
 	}
 	exprstr := string(src[tok.Offset(from) : tok.Offset(to)+1])
 	expr, err := parser.ParseExpr(exprstr)
 	if expr == nil {
-		return fmt.Errorf("no expr in %s: %v", exprstr, err)
+		return errors.Errorf("no expr in %s: %v", exprstr, err)
 	}
 	// parser.ParseExpr returns undefined positions.
 	// Adjust them for the current file.

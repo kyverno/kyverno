@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -86,6 +87,23 @@ func goListDriver(cfg *Config, patterns ...string) (*driverResponse, error) {
 		}()
 	}
 
+	// start fetching rootDirs
+	var rootDirs map[string]string
+	var rootDirsReady = make(chan struct{})
+	go func() {
+		rootDirs = determineRootDirs(cfg)
+		close(rootDirsReady)
+	}()
+	getRootDirs := func() map[string]string {
+		<-rootDirsReady
+		return rootDirs
+	}
+
+	// always pass getRootDirs to golistDriver
+	golistDriver := func(cfg *Config, patterns ...string) (*driverResponse, error) {
+		return golistDriver(cfg, getRootDirs, patterns...)
+	}
+
 	// Determine files requested in contains patterns
 	var containFiles []string
 	var packagesNamed []string
@@ -147,7 +165,7 @@ extractQueries:
 	var containsCandidates []string
 
 	if len(containFiles) != 0 {
-		if err := runContainsQueries(cfg, golistDriver, response, containFiles); err != nil {
+		if err := runContainsQueries(cfg, golistDriver, response, containFiles, getRootDirs); err != nil {
 			return nil, err
 		}
 	}
@@ -158,7 +176,7 @@ extractQueries:
 		}
 	}
 
-	modifiedPkgs, needPkgs, err := processGolistOverlay(cfg, response)
+	modifiedPkgs, needPkgs, err := processGolistOverlay(cfg, response, getRootDirs)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +184,7 @@ extractQueries:
 		containsCandidates = append(containsCandidates, modifiedPkgs...)
 		containsCandidates = append(containsCandidates, needPkgs...)
 	}
-	if err := addNeededOverlayPackages(cfg, golistDriver, response, needPkgs); err != nil {
+	if err := addNeededOverlayPackages(cfg, golistDriver, response, needPkgs, getRootDirs); err != nil {
 		return nil, err
 	}
 	// Check candidate packages for containFiles.
@@ -198,7 +216,7 @@ extractQueries:
 	return response.dr, nil
 }
 
-func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDeduper, pkgs []string) error {
+func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDeduper, pkgs []string, getRootDirs func() map[string]string) error {
 	if len(pkgs) == 0 {
 		return nil
 	}
@@ -209,17 +227,17 @@ func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDedu
 	for _, pkg := range dr.Packages {
 		response.addPackage(pkg)
 	}
-	_, needPkgs, err := processGolistOverlay(cfg, response)
+	_, needPkgs, err := processGolistOverlay(cfg, response, getRootDirs)
 	if err != nil {
 		return err
 	}
-	if err := addNeededOverlayPackages(cfg, driver, response, needPkgs); err != nil {
+	if err := addNeededOverlayPackages(cfg, driver, response, needPkgs, getRootDirs); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, queries []string) error {
+func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, queries []string, rootDirs func() map[string]string) error {
 	for _, query := range queries {
 		// TODO(matloob): Do only one query per directory.
 		fdir := filepath.Dir(query)
@@ -239,6 +257,21 @@ func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, q
 			if queryErr != nil {
 				// Return the original error if the attempt to fall back failed.
 				return err
+			}
+			// Special case to handle issue #33482:
+			// If this is a file= query for ad-hoc packages where the file only exists on an overlay,
+			// and exists outside of a module, add the file in for the package.
+			if len(dirResponse.Packages) == 1 && len(dirResponse.Packages) == 1 &&
+				dirResponse.Packages[0].ID == "command-line-arguments" && len(dirResponse.Packages[0].GoFiles) == 0 {
+				filename := filepath.Join(pattern, filepath.Base(query)) // avoid recomputing abspath
+				// TODO(matloob): check if the file is outside of a root dir?
+				for path := range cfg.Overlay {
+					if path == filename {
+						dirResponse.Packages[0].Errors = nil
+						dirResponse.Packages[0].GoFiles = []string{path}
+						dirResponse.Packages[0].CompiledGoFiles = []string{path}
+					}
+				}
 			}
 		}
 		isRoot := make(map[string]bool, len(dirResponse.Roots))
@@ -567,7 +600,7 @@ func otherFiles(p *jsonPackage) [][]string {
 // golistDriver uses the "go list" command to expand the pattern
 // words and return metadata for the specified packages. dir may be
 // "" and env may be nil, as per os/exec.Command.
-func golistDriver(cfg *Config, words ...string) (*driverResponse, error) {
+func golistDriver(cfg *Config, rootsDirs func() map[string]string, words ...string) (*driverResponse, error) {
 	// go list uses the following identifiers in ImportPath and Imports:
 	//
 	// 	"p"			-- importable package or main (command)
@@ -606,6 +639,20 @@ func golistDriver(cfg *Config, words ...string) (*driverResponse, error) {
 				}
 			}
 			return nil, fmt.Errorf("package missing import path: %+v", p)
+		}
+
+		// Work around https://golang.org/issue/33157:
+		// go list -e, when given an absolute path, will find the package contained at
+		// that directory. But when no package exists there, it will return a fake package
+		// with an error and the ImportPath set to the absolute path provided to go list.
+		// Try toto convert that absolute path to what its package path would be if it's
+		// contained in a known module or GOPATH entry. This will allow the package to be
+		// properly "reclaimed" when overlays are processed.
+		if filepath.IsAbs(p.ImportPath) && p.Error != nil {
+			pkgPath, ok := getPkgPath(p.ImportPath, rootsDirs)
+			if ok {
+				p.ImportPath = pkgPath
+			}
 		}
 
 		if old, found := seen[p.ImportPath]; found {
@@ -711,6 +758,27 @@ func golistDriver(cfg *Config, words ...string) (*driverResponse, error) {
 	return &response, nil
 }
 
+// getPkgPath finds the package path of a directory if it's relative to a root directory.
+func getPkgPath(dir string, rootDirs func() map[string]string) (string, bool) {
+	for rdir, rpath := range rootDirs() {
+		// TODO(matloob): This doesn't properly handle symlinks.
+		r, err := filepath.Rel(rdir, dir)
+		if err != nil {
+			continue
+		}
+		if rpath != "" {
+			// We choose only ore root even though the directory even it can belong in multiple modules
+			// or GOPATH entries. This is okay because we only need to work with absolute dirs when a
+			// file is missing from disk, for instance when gopls calls go/packages in an overlay.
+			// Once the file is saved, gopls, or the next invocation of the tool will get the correct
+			// result straight from golist.
+			// TODO(matloob): Implement module tiebreaking?
+			return path.Join(rpath, filepath.ToSlash(r)), true
+		}
+	}
+	return "", false
+}
+
 // absJoin absolutizes and flattens the lists of files.
 func absJoin(dir string, fileses ...[]string) (res []string) {
 	for _, files := range fileses {
@@ -788,7 +856,20 @@ func invokeGo(cfg *Config, args ...string) (*bytes.Buffer, error) {
 			return bytes.NewBufferString(output), nil
 		}
 
+		// Backwards compatibility for Go 1.11 because 1.12 and 1.13 put the directory in the ImportPath.
+		// If the package doesn't exist, put the absolute path of the directory into the error message,
+		// as Go 1.13 list does.
+		const noSuchDirectory = "no such directory"
+		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), noSuchDirectory) {
+			errstr := stderr.String()
+			abspath := strings.TrimSpace(errstr[strings.Index(errstr, noSuchDirectory)+len(noSuchDirectory):])
+			output := fmt.Sprintf(`{"ImportPath": %q,"Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				abspath, strings.Trim(stderr.String(), "\n"))
+			return bytes.NewBufferString(output), nil
+		}
+
 		// Workaround for #29280: go list -e has incorrect behavior when an ad-hoc package doesn't exist.
+		// Note that the error message we look for in this case is different that the one looked for above.
 		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "no such file or directory") {
 			output := fmt.Sprintf(`{"ImportPath": "command-line-arguments","Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
 				strings.Trim(stderr.String(), "\n"))

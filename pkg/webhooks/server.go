@@ -26,13 +26,14 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server                http.Server
-	client                *client.Client
-	policyLister          v1alpha1.PolicyLister
-	eventController       event.Generator
-	violationBuilder      violation.Generator
-	annotationsController annotations.Controller
-	filterK8Resources     []utils.K8Resource
+	server                    http.Server
+	client                    *client.Client
+	policyLister              v1alpha1.PolicyLister
+	eventController           event.Generator
+	violationBuilder          violation.Generator
+	annotationsController     annotations.Controller
+	webhookRegistrationClient *WebhookRegistrationClient
+	filterK8Resources         []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -44,6 +45,7 @@ func NewWebhookServer(
 	eventController event.Generator,
 	violationBuilder violation.Generator,
 	annotationsController annotations.Controller,
+	webhookRegistrationClient *WebhookRegistrationClient,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -58,12 +60,13 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:                client,
-		policyLister:          shareInformer.GetLister(),
-		eventController:       eventController,
-		violationBuilder:      violationBuilder,
-		annotationsController: annotationsController,
-		filterK8Resources:     utils.ParseKinds(filterK8Resources),
+		client:                    client,
+		policyLister:              shareInformer.GetLister(),
+		eventController:           eventController,
+		violationBuilder:          violationBuilder,
+		annotationsController:     annotationsController,
+		webhookRegistrationClient: webhookRegistrationClient,
+		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -96,7 +99,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if !utils.SkipFilteredResourcesReq(admissionReview.Request, ws.filterK8Resources) {
 		// if the resource is being deleted we need to clear any existing Policy Violations
 		// TODO: can report to the user that we clear the violation corresponding to this resource
-		if admissionReview.Request.Operation == v1beta1.Delete {
+		if admissionReview.Request.Operation == v1beta1.Delete && admissionReview.Request.Kind.Kind != policyKind {
 			// Resource DELETE
 			err := ws.removePolicyViolation(admissionReview.Request)
 			if err != nil {

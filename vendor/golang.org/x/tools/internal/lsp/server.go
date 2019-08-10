@@ -60,12 +60,21 @@ func (s *Server) Run(ctx context.Context) error {
 	return s.Conn.Run(ctx)
 }
 
+type serverState int
+
+const (
+	serverCreated      = serverState(iota)
+	serverInitializing // set once the server has received "initialize" request
+	serverInitialized  // set once the server has received "initialized" request
+	serverShutDown
+)
+
 type Server struct {
 	Conn   *jsonrpc2.Conn
 	client protocol.Client
 
-	initializedMu sync.Mutex
-	isInitialized bool // set once the server has received "initialize" request
+	stateMu sync.Mutex
+	state   serverState
 
 	// Configurations.
 	// TODO(rstambler): Separate these into their own struct?
@@ -80,7 +89,7 @@ type Server struct {
 	disabledAnalyses              map[string]struct{}
 	wantSuggestedFixes            bool
 
-	supportedCodeActions map[protocol.CodeActionKind]bool
+	supportedCodeActions map[source.FileKind]map[protocol.CodeActionKind]bool
 
 	textDocumentSyncKind protocol.TextDocumentSyncKind
 
