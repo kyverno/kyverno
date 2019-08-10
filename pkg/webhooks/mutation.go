@@ -53,7 +53,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
 		policyInfo.AddRuleInfos(ruleInfos)
 		policyInfos = append(policyInfos, policyInfo)
-			if !policyInfo.IsSuccessful() {
+		if !policyInfo.IsSuccessful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
 			glog.V(4).Info("Failed rule details")
 			for _, r := range ruleInfos {
@@ -66,7 +66,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	// ADD ANNOTATIONS
+	// TODO: merge the annotation patch with the patch response
 	// ADD EVENTS
+	if len(patches) > 0 {
+		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
+		ws.eventGen.Add(eventsInfo...)
+	}
 	// ADD POLICY VIOLATIONS
 
 	ok, msg := isAdmSuccesful(policyInfos)
