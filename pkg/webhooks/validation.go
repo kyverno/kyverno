@@ -95,7 +95,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	// ADD POLICY VIOLATIONS
-	generatePolicyViolations(ws.kyvernoClient, policyInfos)
+	generatePolicyViolations(ws.pvLister, ws.kyvernoClient, policyInfos)
 
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,

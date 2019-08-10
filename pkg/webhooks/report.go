@@ -1,13 +1,16 @@
 package webhooks
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/nirmata/kyverno/pkg/annotations"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
+	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/violation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -122,7 +125,7 @@ func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation
 }
 
 //generatePolicyViolations generate policyViolation resources for the rules that failed
-func generatePolicyViolations(client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
+func generatePolicyViolations(pvLister lister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
 	var pvs []kyverno.PolicyViolation
 	for _, policyInfo := range policyInfos {
 		if !policyInfo.IsSuccessful() {
@@ -138,15 +141,65 @@ func generatePolicyViolations(client *kyvernoclient.Clientset, policyInfos []inf
 			glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
 
 			// check if there was a previous violation for policy & resource combination
-			//TODO: check for existing ov using label selectors on resource and policy
-			// curPv, err:= client.KyvernoV1alpha1().PolicyViolations().
-
-			// _, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
-			// // _, err := client.CreateResource("PolicyViolation", "", &pv, false)
-			// if err != nil {
-			// 	glog.Error(err)
-			// 	continue
-			// }
+			curPv, err := getExistingPolicyViolationIfAny(pvLister, newPv)
+			if err != nil {
+				continue
+			}
+			if curPv == nil {
+				// no existing policy violation, create a new one
+				_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
+				if err != nil {
+					glog.Error(err)
+				}
+				continue
+			}
+			// compare the policyviolation spec for existing resource if present else
+			if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
+				// if they are equal there has been no change so dont update the polivy violation
+				glog.Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+				continue
+			}
+			// spec changed so update the policyviolation
+			//TODO: wont work, as name is not defined yet
+			_, err = client.KyvernoV1alpha1().PolicyViolations().Update(&newPv)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
 		}
 	}
+}
+
+//TODO: change the name
+func getExistingPolicyViolationIfAny(pvLister lister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
+	// TODO: check for existing ov using label selectors on resource and policy
+	labelMap := map[string]string{"policy": newPv.Spec.Name, "resource": newPv.Spec.ResourceSpec.ToKey()}
+	ls := &metav1.LabelSelector{}
+	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
+	if err != nil {
+		glog.Errorf("failed to generate label sector of Policy name %s: %v", newPv.Spec.Policy, err)
+		return nil, err
+	}
+	policyViolationSelector, err := metav1.LabelSelectorAsSelector(ls)
+	if err != nil {
+		glog.Errorf("invalid label selector: %v", err)
+		return nil, err
+	}
+
+	pvs, err := pvLister.List(policyViolationSelector)
+	if err != nil {
+		glog.Errorf("unable to list policy violations with label selector %v: %v", policyViolationSelector, err)
+		return nil, err
+	}
+	//TODO: ideally there should be only one policy violation returned
+	if len(pvs) > 1 {
+		glog.Errorf("more than one policy violation exists  with labels %v", labelMap)
+		return nil, fmt.Errorf("more than one policy violation exists  with labels %v", labelMap)
+	}
+
+	if len(pvs) == 0 {
+		glog.Infof("policy violation does not exist with labels %v", labelMap)
+		return nil, nil
+	}
+	return pvs[0], nil
 }

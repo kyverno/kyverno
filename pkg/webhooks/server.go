@@ -29,6 +29,7 @@ type WebhookServer struct {
 	client            *client.Client
 	kyvernoClient     *kyvernoclient.Clientset
 	pLister           lister.PolicyLister
+	pvLister          lister.PolicyViolationLister
 	eventGen          event.Interface
 	filterK8Resources []utils.K8Resource
 }
@@ -40,6 +41,7 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer informer.PolicyInformer,
+	pvInormer informer.PolicyViolationInformer,
 	eventGen event.Interface,
 	filterK8Resources string) (*WebhookServer, error) {
 
@@ -58,6 +60,7 @@ func NewWebhookServer(
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		pLister:           pInformer.Lister(),
+		pvLister:          pvInormer.Lister(),
 		eventGen:          eventGen,
 		filterK8Resources: utils.ParseKinds(filterK8Resources),
 	}

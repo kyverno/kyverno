@@ -716,7 +716,7 @@ type patchLabelMapValue struct {
 	Value map[string]string `json:"value"`
 }
 
-func createLabelPatch(policy string) ([]byte, error) {
+func createPolicyLabelPatch(policy string) ([]byte, error) {
 	payload := []patchLabelValue{{
 		Op:    "add",
 		Path:  "/metadata/labels/policy",
@@ -725,11 +725,20 @@ func createLabelPatch(policy string) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func createLabelMapPatch(policy string) ([]byte, error) {
+func createResourceLabelPatch(resource string) ([]byte, error) {
+	payload := []patchLabelValue{{
+		Op:    "add",
+		Path:  "/metadata/labels/resource",
+		Value: resource,
+	}}
+	return json.Marshal(payload)
+}
+
+func createLabelMapPatch(policy string, resource string) ([]byte, error) {
 	payload := []patchLabelMapValue{{
 		Op:    "add",
 		Path:  "/metadata/labels",
-		Value: map[string]string{"policy": policy},
+		Value: map[string]string{"policy": policy, "resource": resource},
 	}}
 	return json.Marshal(payload)
 }
@@ -739,6 +748,7 @@ func createLabelMapPatch(policy string) ([]byte, error) {
 func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.PolicyViolation) bool {
 	updateLabel := func() bool {
 		glog.V(4).Infof("adding label 'policy:%s' to PolicyViolation %s", pv.Spec.Policy, pv.Name)
+		glog.V(4).Infof("adding label 'resource:%s' to PolicyViolation %s", pv.Spec.ResourceSpec.ToKey(), pv.Name)
 		// add label based on the policy spec
 		labels := pv.GetLabels()
 		if pv.Spec.Policy == "" {
@@ -748,7 +758,7 @@ func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.Pol
 		}
 		if labels == nil {
 			// create a patch to generate the labels map with policy label
-			patch, err := createLabelMapPatch(pv.Spec.Policy)
+			patch, err := createLabelMapPatch(pv.Spec.Policy, pv.Spec.ResourceSpec.ToKey())
 			if err != nil {
 				glog.Errorf("unable to init label map. %v", err)
 				return false
@@ -761,11 +771,23 @@ func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.Pol
 			return true
 		}
 		// JSON Patch to add exact label
-		labelPatch, err := createLabelPatch(pv.Spec.Policy)
+		policyLabelPatch, err := createPolicyLabelPatch(pv.Spec.Policy)
 		if err != nil {
 			glog.Errorf("failed to generate patch to add label 'policy': %v", err)
 			return false
 		}
+		resourceLabelPatch, err := createResourceLabelPatch(pv.Spec.ResourceSpec.ToKey())
+		if err != nil {
+			glog.Errorf("failed to generate patch to add label 'resource': %v", err)
+			return false
+		}
+		//join patches
+		labelPatch := joinPatches(policyLabelPatch, resourceLabelPatch)
+		if labelPatch == nil {
+			glog.Errorf("failed to join patches : %v", err)
+			return false
+		}
+		glog.V(4).Infof("patching policy violation %s with patch %s", pv.Name, string(labelPatch))
 		if err := pvControl.PatchPolicyViolation(pv.Name, labelPatch); err != nil {
 			glog.Errorf("Unable to add 'policy' label to PolicyViolation %s: %v", pv.Name, err)
 			return false
@@ -788,4 +810,21 @@ func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.Pol
 		return updateLabel()
 	}
 	return false
+}
+
+func joinPatches(patches ...[]byte) []byte {
+	var result []byte
+	if patches == nil {
+		//nothing tot join
+		return result
+	}
+	result = append(result, []byte("[\n")...)
+	for index, patch := range patches {
+		result = append(result, patch...)
+		if index != len(patches)-1 {
+			result = append(result, []byte(",\n")...)
+		}
+	}
+	result = append(result, []byte("\n]")...)
+	return result
 }

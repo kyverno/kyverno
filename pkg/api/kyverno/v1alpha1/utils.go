@@ -101,3 +101,11 @@ func (gen *Generation) DeepCopyInto(out *Generation) {
 		*out = *gen
 	}
 }
+
+//ToKey generates the key string used for adding label to polivy violation
+func (rs ResourceSpec) ToKey() string {
+	if rs.Namespace == "" {
+		return rs.Kind + "." + rs.Name
+	}
+	return rs.Kind + "." + rs.Namespace + "." + rs.Name
+}
