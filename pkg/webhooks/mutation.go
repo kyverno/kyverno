@@ -14,6 +14,8 @@ import (
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var patches [][]byte
 	var policyInfos []info.PolicyInfo
+	// map to store the mutation changes on the resource
+	// mAnn := map[string]string{}
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -61,6 +63,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			}
 			continue
 		}
+		// build annotations per policy being applied to show the mutation changes
 		patches = append(patches, policyPatches...)
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 	}

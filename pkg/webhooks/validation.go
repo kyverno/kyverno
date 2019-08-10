@@ -84,8 +84,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		ws.eventGen.Add(eventsInfo...)
 	}
 
-	// ADD POLICY VIOLATIONS
-
 	ok, msg := isAdmSuccesful(policyInfos)
 	if !ok && toBlock(policyInfos) {
 		return &v1beta1.AdmissionResponse{
@@ -95,6 +93,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
+
+	// ADD POLICY VIOLATIONS
+	generatePolicyViolations(ws.kyvernoClient, policyInfos)
 
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,

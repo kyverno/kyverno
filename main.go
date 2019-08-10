@@ -31,18 +31,17 @@ func main() {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := client.NewClient(clientConfig)
-	if err != nil {
-		glog.Fatalf("Error creating client: %v\n", err)
-	}
-
 	// KYVENO CRD CLIENT
 	// access CRD resources
 	//		- Policy
 	//		- PolicyViolation
 	pclient, err := clientNew.NewForConfig(clientConfig)
+	if err != nil {
+		glog.Fatalf("Error creating client: %v\n", err)
+	}
+	// DYNAMIC CLIENT
+	// - client for all registered resources
+	client, err := client.NewClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
@@ -78,7 +77,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), egen, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), egen, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}

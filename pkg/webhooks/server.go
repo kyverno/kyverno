@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
 	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -26,6 +27,7 @@ import (
 type WebhookServer struct {
 	server            http.Server
 	client            *client.Client
+	kyvernoClient     *kyvernoclient.Clientset
 	pLister           lister.PolicyLister
 	eventGen          event.Interface
 	filterK8Resources []utils.K8Resource
@@ -34,6 +36,7 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer informer.PolicyInformer,
@@ -53,6 +56,7 @@ func NewWebhookServer(
 
 	ws := &WebhookServer{
 		client:            client,
+		kyvernoClient:     kyvernoClient,
 		pLister:           pInformer.Lister(),
 		eventGen:          eventGen,
 		filterK8Resources: utils.ParseKinds(filterK8Resources),

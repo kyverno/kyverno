@@ -13,5 +13,7 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 			ViolatedRules: fRules,
 		},
 	}
+	//TODO: check if this can be removed or use unstructured?
+	// pv.Kind = "PolicyViolation"
 	return pv
 }

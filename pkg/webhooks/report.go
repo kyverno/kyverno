@@ -1,14 +1,18 @@
 package webhooks
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/nirmata/kyverno/pkg/annotations"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/violation"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
 //TODO: change validation from bool -> enum(validation, mutation)
@@ -74,4 +78,75 @@ func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType 
 		return nil
 	}
 	return patch
+}
+
+//buildAnnotation we add annotations for the successful application of JSON patches
+//TODO
+func buildAnnotation(mAnn map[string]string, pi *info.PolicyInfo) {
+	if len(pi.Rules) == 0 {
+		return
+	}
+	var mchanges []string
+
+	for _, r := range pi.Rules {
+		if r.Changes != "" {
+			// the rule generate a patch
+			// key policy name will be updated to right format during creation of annotations
+			mchanges = append(mchanges)
+		}
+	}
+}
+
+// buildPolicyViolationsForAPolicy returns a policy violation object if there are any rules that fail
+func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation {
+	var fRules []kyverno.ViolatedRule
+	var pv kyverno.PolicyViolation
+	for _, r := range pi.Rules {
+		if !r.IsSuccessful() {
+			fRules = append(fRules, kyverno.ViolatedRule{Name: r.Name, Message: r.GetErrorString(), Type: r.RuleType.String()})
+		}
+	}
+	if len(fRules) > 0 {
+		glog.V(4).Infof("building policy violation for policy %s on resource %s/%s/%s", pi.Name, pi.RKind, pi.RNamespace, pi.RName)
+		// there is an error
+		pv = policyviolation.BuildPolicyViolation(pi.Name, kyverno.ResourceSpec{
+			Kind:      pi.RKind,
+			Namespace: pi.RNamespace,
+			Name:      pi.RName,
+		},
+			fRules,
+		)
+
+	}
+	return pv
+}
+
+//generatePolicyViolations generate policyViolation resources for the rules that failed
+func generatePolicyViolations(client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
+	var pvs []kyverno.PolicyViolation
+	for _, policyInfo := range policyInfos {
+		if !policyInfo.IsSuccessful() {
+			if pv := buildPolicyViolationsForAPolicy(policyInfo); !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
+				pvs = append(pvs, pv)
+			}
+		}
+	}
+
+	if len(pvs) > 0 {
+		for _, newPv := range pvs {
+			// generate PolicyViolation objects
+			glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
+
+			// check if there was a previous violation for policy & resource combination
+			//TODO: check for existing ov using label selectors on resource and policy
+			// curPv, err:= client.KyvernoV1alpha1().PolicyViolations().
+
+			// _, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
+			// // _, err := client.CreateResource("PolicyViolation", "", &pv, false)
+			// if err != nil {
+			// 	glog.Error(err)
+			// 	continue
+			// }
+		}
+	}
 }
