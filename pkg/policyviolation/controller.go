@@ -35,7 +35,11 @@ const (
 
 var controllerKind = kyverno.SchemeGroupVersion.WithKind("PolicyViolation")
 
+// PolicyViolationController manages the policy violation resource
+// - sync the lastupdate time
+// - check if the resource is active
 type PolicyViolationController struct {
+	client                 *client.Client
 	kyvernoClient          *kyvernoclient.Clientset
 	eventRecorder          record.EventRecorder
 	syncHandler            func(pKey string) error
@@ -67,7 +71,7 @@ func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoc
 
 	pvc := PolicyViolationController{
 		kyvernoClient: kyvernoClient,
-
+		client:        client,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policyviolation_controller"}),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policyviolation"),
 	}
@@ -207,8 +211,38 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	// TODO: Deep-copy only when needed.
 	pv := policyViolation.DeepCopy()
 	// TODO: Update Status to update ObserverdGeneration
+	// TODO: check if the policy violation refers to a resource thats active ?
+	// TODO: additional check on deleted webhook for a resource, to delete a policy violation it has a policy violation
+	// list the resource with label selectors, but this can be expensive for each delete request of a resource
+	if err := pvc.syncActiveResource(pv); err != nil {
+		glog.V(4).Infof("not syncing policy violation status")
+		return err
+	}
 
 	return pvc.syncStatusOnly(pv)
+}
+
+func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.PolicyViolation) error {
+	// check if the resource is active or not ?
+	rspec := curPv.Spec.ResourceSpec
+	// get resource
+	_, err := pvc.client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+	if errors.IsNotFound(err) {
+		// TODO: does it help to retry?
+		// resource is not found
+		// remove the violation
+
+		if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
+			glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
+			return err
+		}
+		glog.V(4).Infof("removing policy violation %s as the corresponding resource %s/%s/%s does not exist anymore", curPv.Name, rspec.Kind, rspec.Namespace, rspec.Name)
+	}
+	if err != nil {
+		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
+		return err
+	}
+	return nil
 }
 
 //syncStatusOnly updates the policyviolation status subresource
@@ -257,5 +291,5 @@ func (r RealPVControl) UpdateStatusPolicyViolation(newPv *kyverno.PolicyViolatio
 
 //RemovePolicyViolation removes the policy violation
 func (r RealPVControl) RemovePolicyViolation(name string) error {
-	return nil
+	return r.Client.KyvernoV1alpha1().PolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }
