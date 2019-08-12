@@ -50,8 +50,8 @@ func main() {
 	// watches CRD resources:
 	//		- Policy
 	//		- PolicyVolation
-	// - cache resync time: 10 seconds
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10)
+	// - cache resync time: 30 seconds
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 30)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
