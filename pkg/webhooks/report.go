@@ -16,6 +16,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"k8s.io/client-go/tools/cache"
 )
 
 //TODO: change validation from bool -> enum(validation, mutation)
@@ -125,7 +126,7 @@ func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation
 }
 
 //generatePolicyViolations generate policyViolation resources for the rules that failed
-func generatePolicyViolations(pvLister lister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
+func generatePolicyViolations(pvListerSynced cache.InformerSynced, pvLister lister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
 	var pvs []kyverno.PolicyViolation
 	for _, policyInfo := range policyInfos {
 		if !policyInfo.IsSuccessful() {
@@ -141,7 +142,7 @@ func generatePolicyViolations(pvLister lister.PolicyViolationLister, client *kyv
 			glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
 
 			// check if there was a previous violation for policy & resource combination
-			curPv, err := getExistingPolicyViolationIfAny(pvLister, newPv)
+			curPv, err := getExistingPolicyViolationIfAny(pvListerSynced, pvLister, newPv)
 			if err != nil {
 				continue
 			}
@@ -171,9 +172,9 @@ func generatePolicyViolations(pvLister lister.PolicyViolationLister, client *kyv
 }
 
 //TODO: change the name
-func getExistingPolicyViolationIfAny(pvLister lister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
+func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister lister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
 	// TODO: check for existing ov using label selectors on resource and policy
-	labelMap := map[string]string{"policy": newPv.Spec.Name, "resource": newPv.Spec.ResourceSpec.ToKey()}
+	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
 	ls := &metav1.LabelSelector{}
 	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
 	if err != nil {
@@ -185,6 +186,14 @@ func getExistingPolicyViolationIfAny(pvLister lister.PolicyViolationLister, newP
 		glog.Errorf("invalid label selector: %v", err)
 		return nil, err
 	}
+
+	//TODO: sync the cache before reading from it ?
+	// check is this is needed ?
+	// stopCh := make(chan struct{}, 0)
+	// if !cache.WaitForCacheSync(stopCh, pvListerSynced) {
+	// 	//TODO: can this be handled or avoided ?
+	// 	glog.Info("unable to sync policy violation shared informer cache, might be out of sync")
+	// }
 
 	pvs, err := pvLister.List(policyViolationSelector)
 	if err != nil {

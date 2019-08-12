@@ -20,6 +20,7 @@ import (
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -30,6 +31,8 @@ type WebhookServer struct {
 	kyvernoClient     *kyvernoclient.Clientset
 	pLister           lister.PolicyLister
 	pvLister          lister.PolicyViolationLister
+	pListerSynced     cache.InformerSynced
+	pvListerSynced    cache.InformerSynced
 	eventGen          event.Interface
 	filterK8Resources []utils.K8Resource
 }
@@ -61,6 +64,8 @@ func NewWebhookServer(
 		kyvernoClient:     kyvernoClient,
 		pLister:           pInformer.Lister(),
 		pvLister:          pvInormer.Lister(),
+		pListerSynced:     pInformer.Informer().HasSynced,
+		pvListerSynced:    pInformer.Informer().HasSynced,
 		eventGen:          eventGen,
 		filterK8Resources: utils.ParseKinds(filterK8Resources),
 	}

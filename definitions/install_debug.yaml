@@ -218,6 +218,5 @@ spec:
                 required:
                   - name
                   - type
-                  - status
                   - message
 ---

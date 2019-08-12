@@ -84,7 +84,7 @@ func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoc
 	pvc.pLister = pInformer.Lister()
 	pvc.pvLister = pvInformer.Lister()
 	pvc.pListerSynced = pInformer.Informer().HasSynced
-	pvc.pvListerSynced = pInformer.Informer().HasSynced
+	pvc.pvListerSynced = pvInformer.Informer().HasSynced
 
 	return &pvc, nil
 }
