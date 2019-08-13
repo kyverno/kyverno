@@ -12,30 +12,30 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
+func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
 	//TODO: pass unstructured instead of rawResource ?
-	resourceUnstr, err := convertToUnstructured(rawResource)
-	if err != nil {
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-	}
-	resourceRaw, err := resourceUnstr.MarshalJSON()
+	// resourceUnstr, err := convertToUnstructured(rawResource)
+	// if err != nil {
+	// 	glog.Errorf("unable to convert raw resource to unstructured: %v", err)
+	// }
+	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource : %v", err)
 		return nil, err
 	}
-	var resource interface{}
-	if err := json.Unmarshal(resourceRaw, &resource); err != nil {
+	var resourceInt interface{}
+	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
 		glog.V(4).Infof("unable to unmarshal resource : %v", err)
 		return nil, err
 	}
 
-	var ruleInfos []*info.RuleInfo
+	var ruleInfos []info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
 		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
@@ -45,21 +45,21 @@ func Validate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersion
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resourceUnstr, rule, gvk)
+		ok := MatchesResourceDescription(resource, rule)
 		if !ok {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
 
 		ruleInfo := info.NewRuleInfo(rule.Name, info.Validation)
 
-		err := validateResourceWithPattern(resource, rule.Validation.Pattern)
+		err := validateResourceWithPattern(resourceInt, rule.Validation.Pattern)
 		if err != nil {
 			ruleInfo.Fail()
 			ruleInfo.Addf("Failed to apply pattern:  %v.", err)
 		} else {
 			ruleInfo.Add("Pattern succesfully validated")
-			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 		}
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}

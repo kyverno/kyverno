@@ -48,7 +48,7 @@ func (p *Policy) getOverAllStatus() string {
 	return "Success"
 }
 
-func getRules(rules []*pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule {
+func getRules(rules []pinfo.RuleInfo, ruleType pinfo.RuleType) map[string]Rule {
 	if len(rules) == 0 {
 		return nil
 	}

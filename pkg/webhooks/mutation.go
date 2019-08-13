@@ -51,8 +51,17 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		glog.V(4).Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
+		// resource, err := utils.ConvertToUnstructured(request.Object.Raw)
+		// if err != nil {
+		// 	glog.Errorf("unable to process policy %s resource %v: %v", policy.GetName(), request.Resource, err)
+		// 	continue
+		// }
+		//TODO: check if the GVK information is present in the request of we set it explicity here ?
+		glog.V(4).Infof("GVK is %v", resource.GroupVersionKind())
+		// resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
 		//TODO: passing policy value as we dont wont to modify the policy
-		policyPatches, ruleInfos := engine.Mutate(*policy, request.Object.Raw, request.Kind)
+
+		policyPatches, ruleInfos := engine.Mutate(*policy, *resource)
 		policyInfo.AddRuleInfos(ruleInfos)
 		policyInfos = append(policyInfos, policyInfo)
 		if !policyInfo.IsSuccessful() {

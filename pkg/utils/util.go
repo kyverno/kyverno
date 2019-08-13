@@ -4,8 +4,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/glog"
+
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func Contains(list []string, element string) bool {
@@ -73,4 +76,15 @@ func ParseKinds(list string) []K8Resource {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+//ConvertToUnstructured coverts a raw resource into unstructured struct
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }

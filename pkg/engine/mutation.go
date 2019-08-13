@@ -6,20 +6,15 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
 //TODO: check if gvk needs to be passed or can be set in resource
-func Mutate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, []*info.RuleInfo) {
+func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte, []info.RuleInfo) {
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
-	//TODO: pass unstructured instead of rawResource ?
-	resource, err := convertToUnstructured(rawResource)
-	if err != nil {
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-	}
 	var patches [][]byte
-	var ruleInfos []*info.RuleInfo
+	var ruleInfos []info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
 		if reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
@@ -29,7 +24,7 @@ func Mutate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKi
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule, gvk)
+		ok := MatchesResourceDescription(resource, rule)
 		if !ok {
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
@@ -39,7 +34,7 @@ func Mutate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKi
 
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
-			oPatches, err := processOverlay(resource, rule, rawResource)
+			oPatches, err := processOverlay(resource, rule)
 			if err == nil {
 				if len(oPatches) == 0 {
 					// if array elements dont match then we skip(nil patch, no error)
@@ -66,7 +61,7 @@ func Mutate(policy kyverno.Policy, rawResource []byte, gvk metav1.GroupVersionKi
 
 		// Process Patches
 		if len(rule.Mutation.Patches) != 0 {
-			jsonPatches, errs := processPatches(rule, rawResource)
+			jsonPatches, errs := processPatches(resource, rule)
 			if len(errs) > 0 {
 				ruleInfo.Fail()
 				for _, err := range errs {

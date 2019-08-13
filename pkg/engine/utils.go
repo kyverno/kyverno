@@ -150,11 +150,11 @@ func excludeNamespaces(namespaces []string, excludeNs string) []string {
 }
 
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
-func MatchesResourceDescription(resource *unstructured.Unstructured, rule kyverno.Rule, gvk metav1.GroupVersionKind) bool {
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule) bool {
 	matches := rule.MatchResources.ResourceDescription
 	exclude := rule.ExcludeResources.ResourceDescription
 
-	if !findKind(matches.Kinds, gvk.Kind) {
+	if !findKind(matches.Kinds, resource.GetKind()) {
 		return false
 	}
 

@@ -52,7 +52,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 		glog.V(4).Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
+		ruleInfos, err := engine.Validate(*policy, *resource)
 		if err != nil {
 			// This is not policy error
 			// but if unable to parse request raw resource

@@ -17,7 +17,7 @@ import (
 
 // ProcessOverlay handles validating admission request
 // Checks the target resources for rules defined in the policy
-func processOverlay(resourceUnstr *unstructured.Unstructured, rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
+func processOverlay(resourceUnstr unstructured.Unstructured, rule kyverno.Rule) ([][]byte, error) {
 
 	//TODO check if there is better solution
 	resourceRaw, err := resourceUnstr.MarshalJSON()

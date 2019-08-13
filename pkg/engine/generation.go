@@ -14,8 +14,8 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy *kyverno.Policy, ns unstructured.Unstructured) []*info.RuleInfo {
-	ris := []*info.RuleInfo{}
+func Generate(client *client.Client, policy *kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
+	ris := []info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == (kyverno.Generation{}) {
 			continue

@@ -8,12 +8,13 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy *kyverno.Policy) {
+func (pc *PolicyController) processExistingResources(policy kyverno.Policy) {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
@@ -23,17 +24,27 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.Policy) {
 	for _, resource := range resourceMap {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
-			glog.V(4).Infof("policy %s with resource versio %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
+			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 			continue
 		}
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
+		applyPolicyOnResource(policy, resource)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 	}
 }
 
-func listResources(client *client.Client, policy *kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
+func applyPolicyOnResource(policy kyverno.Policy, resource unstructured.Unstructured) *info.PolicyInfo {
+	policyInfo, err := applyPolicy(policy, resource)
+	if err != nil {
+		glog.V(4).Infof("failed to process policy %s on resource %s/%s/%s: %v", policy.GetName(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+		return nil
+	}
+	return &policyInfo
+}
+
+func listResources(client *client.Client, policy kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 

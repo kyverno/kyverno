@@ -397,7 +397,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 	// process policies on existing resources
-	pc.processExistingResources(p)
+	pc.processExistingResources(*p)
 
 	return pc.syncStatusOnly(p, pvList)
 }

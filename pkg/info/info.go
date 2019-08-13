@@ -20,7 +20,7 @@ type PolicyInfo struct {
 	RNamespace string
 	//TODO: add check/enum for types
 	ValidationFailureAction string // BlockChanges, ReportViolation
-	Rules                   []*RuleInfo
+	Rules                   []RuleInfo
 	success                 bool
 }
 
@@ -135,8 +135,8 @@ func (ri *RuleInfo) GetErrorString() string {
 }
 
 //NewRuleInfo creates a new RuleInfo
-func NewRuleInfo(ruleName string, ruleType RuleType) *RuleInfo {
-	return &RuleInfo{
+func NewRuleInfo(ruleName string, ruleType RuleType) RuleInfo {
+	return RuleInfo{
 		Name:     ruleName,
 		Msgs:     []string{},
 		RuleType: ruleType,
@@ -165,7 +165,7 @@ func (ri *RuleInfo) Addf(msg string, args ...interface{}) {
 }
 
 //RulesSuccesfuly check if the any rule has failed or not
-func RulesSuccesfuly(rules []*RuleInfo) bool {
+func RulesSuccesfuly(rules []RuleInfo) bool {
 	for _, r := range rules {
 		if !r.success {
 			return false
@@ -175,7 +175,7 @@ func RulesSuccesfuly(rules []*RuleInfo) bool {
 }
 
 //AddRuleInfos sets the rule information
-func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
+func (pi *PolicyInfo) AddRuleInfos(rules []RuleInfo) {
 	if rules == nil {
 		return
 	}
