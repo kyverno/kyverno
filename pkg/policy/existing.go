@@ -23,6 +23,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.Policy) {
 	for _, resource := range resourceMap {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
+			glog.V(4).Infof("policy %s with resource versio %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 			continue
 		}
 		// apply the policy on each
@@ -203,10 +204,15 @@ type resourceManager interface {
 //Drop drop the cache after every rebuild interval mins
 //TODO: or drop based on the size
 func (rm *ResourceManager) Drop() {
-	if time.Since(rm.time) > time.Duration(rm.rebuildTime)*time.Nanosecond {
+	timeSince := time.Since(rm.time)
+	glog.V(4).Infof("time since last cache reset time %v is %v", rm.time, timeSince)
+	glog.V(4).Infof("cache rebuild time %v", time.Duration(rm.rebuildTime)*time.Second)
+	if timeSince > time.Duration(rm.rebuildTime)*time.Second {
 		rm.mux.Lock()
 		defer rm.mux.Unlock()
 		rm.data = map[string]interface{}{}
+		rm.time = time.Now()
+		glog.V(4).Infof("dropping cache at time %v", rm.time)
 	}
 }
 
