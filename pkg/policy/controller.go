@@ -14,6 +14,7 @@ import (
 	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +47,7 @@ var controllerKind = kyverno.SchemeGroupVersion.WithKind("Policy")
 type PolicyController struct {
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
+	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 	syncHandler   func(pKey string) error
 	enqueuePolicy func(policy *kyverno.Policy)
@@ -69,7 +71,7 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer informer.PolicyInformer, pvInformer informer.PolicyViolationInformer) (*PolicyController, error) {
+func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer informer.PolicyInformer, pvInformer informer.PolicyViolationInformer, eventGen event.Interface) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -82,6 +84,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc := PolicyController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 	}
@@ -397,8 +400,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 	// process policies on existing resources
-	pc.processExistingResources(*p)
-
+	policyInfos := pc.processExistingResources(*p)
+	// report errors
+	pc.report(policyInfos)
 	return pc.syncStatusOnly(p, pvList)
 }
 

@@ -52,11 +52,14 @@ func main() {
 	//		- PolicyVolation
 	// - cache resync time: 30 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 30)
+	// EVENT GENERATOR
+	// - generate event with retry
+	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - status: violation count
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -67,10 +70,6 @@ func main() {
 	if err != nil {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
-
-	// EVENT GENERATOR
-	// - generate event with retry
-	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
 
 	// TODO : Process Existing
 	tlsPair, err := initTLSPemPair(clientConfig, client)

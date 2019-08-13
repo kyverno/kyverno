@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -95,7 +96,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	// ADD POLICY VIOLATIONS
-	generatePolicyViolations(ws.pvListerSynced, ws.pvLister, ws.kyvernoClient, policyInfos)
+	policyviolation.GeneratePolicyViolations(ws.pvListerSynced, ws.pvLister, ws.kyvernoClient, policyInfos)
 
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,

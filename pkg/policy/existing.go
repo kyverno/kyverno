@@ -14,11 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.Policy) {
+func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []info.PolicyInfo {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
-
+	var policyInfos []info.PolicyInfo
 	// get resource that are satisfy the resource description defined in the rules
 	resourceMap := listResources(pc.client, policy, pc.filterK8Resources)
 	for _, resource := range resourceMap {
@@ -29,10 +29,12 @@ func (pc *PolicyController) processExistingResources(policy kyverno.Policy) {
 		}
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-		applyPolicyOnResource(policy, resource)
+		policyInfo := applyPolicyOnResource(policy, resource)
+		policyInfos = append(policyInfos, *policyInfo)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 	}
+	return policyInfos
 }
 
 func applyPolicyOnResource(policy kyverno.Policy, resource unstructured.Unstructured) *info.PolicyInfo {
