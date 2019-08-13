@@ -14,6 +14,7 @@ import (
 	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,6 +62,10 @@ type PolicyController struct {
 	pListerSynced cache.InformerSynced
 	// pvListerSynced retrns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
+	// Resource manager, manages the mapping for already processed resource
+	rm resourceManager
+	// filter the resources defined in the list
+	filterK8Resources []utils.K8Resource
 }
 
 // NewPolicyController create a new PolicyController
@@ -102,6 +107,10 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.pvLister = pvInformer.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.pvListerSynced = pInformer.Informer().HasSynced
+
+	// resource manager
+	// rebuild after 300 seconds/ 5 mins
+	pc.rm = NewResourceManager(300)
 
 	return &pc, nil
 }
