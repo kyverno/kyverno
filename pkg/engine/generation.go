@@ -14,22 +14,24 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy *kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
+func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
 	ris := []info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == (kyverno.Generation{}) {
 			continue
 		}
+		glog.V(4).Infof("applying policy %s generate rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
 		err := applyRuleGenerator(client, ns, rule.Generation)
 		if err != nil {
 			ri.Fail()
-			ri.Addf("Rule %s: Failed to apply rule generator, err %v.", rule.Name, err)
+			ri.Addf("Failed to apply rule generator, err %v.", rule.Name, err)
+			glog.Infof("failed to apply policy %s rule %s on resource %s/%s/%s: %v", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName(), err)
 		} else {
-			ri.Addf("Rule %s: Generation succesfully.", rule.Name)
+			ri.Addf("Generation succesfully.", rule.Name)
+			glog.Infof("succesfully applied  policy %s rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 		}
 		ris = append(ris, ri)
-
 	}
 	return ris
 }
@@ -40,19 +42,24 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 	var rdata map[string]interface{}
 
 	if gen.Data != nil {
+		glog.V(4).Info("generate rule: creates new resource")
 		// 1> Check if resource exists
 		obj, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
 		if err == nil {
+			glog.V(4).Infof("generate rule: resource %s/%s/%s already present. checking if it contains the required configuration", gen.Kind, ns.GetName(), gen.Name)
 			// 2> If already exsists, then verify the content is contained
 			// found the resource
 			// check if the rule is create, if yes, then verify if the specified configuration is present in the resource
 			ok, err := checkResource(gen.Data, obj)
 			if err != nil {
+				glog.V(4).Infof("generate rule:: unable to check if configuration %v, is present in resource %s/%s/%s", gen.Data, gen.Kind, ns.GetName(), gen.Name)
 				return err
 			}
 			if !ok {
+				glog.V(4).Infof("generate rule:: configuration %v not present in resource %s/%s/%s", gen.Data, gen.Kind, ns.GetName(), gen.Name)
 				return errors.New("rule configuration not present in resource")
 			}
+			glog.V(4).Infof("generate rule: required configuration %v is present in resource %s/%s/%s", gen.Data, gen.Kind, ns.GetName(), gen.Name)
 			return nil
 		}
 		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&gen.Data)
@@ -62,16 +69,20 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 		}
 	}
 	if gen.Clone != (kyverno.CloneFrom{}) {
+		glog.V(4).Info("generate rule: clone resource")
 		// 1> Check if resource exists
 		_, err := client.GetResource(gen.Kind, ns.GetName(), gen.Name)
 		if err == nil {
+			glog.V(4).Infof("generate rule: resource %s/%s/%s already present", gen.Kind, ns.GetName(), gen.Name)
 			return nil
 		}
-		// 2> If already exists return
+		// 2> If clone already exists return
 		resource, err = client.GetResource(gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		if err != nil {
+			glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  not present: %v", gen.Kind, gen.Kind, gen.Clone.Namespace, gen.Clone.Name, err)
 			return err
 		}
+		glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  present", gen.Kind, gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		rdata = resource.UnstructuredContent()
 	}
 	resource.SetUnstructuredContent(rdata)
@@ -82,11 +93,14 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 
 	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
+		glog.V(4).Infof("generate rule: unable to create resource %s/%s/%s: %v", gen.Kind, ns.GetKind(), ns.GetNamespace(), ns.GetName(), err)
 		return err
 	}
+	glog.V(4).Infof("generate rule: created resource %s/%s/%s", gen.Kind, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 	return nil
 }
 
+//checkResource checks if the config is present in th eresource
 func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
 	var err error
 

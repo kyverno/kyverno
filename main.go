@@ -9,9 +9,12 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhooks"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -73,6 +76,19 @@ func main() {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
 
+	// NAMESPACE INFORMER
+	// watches namespace resource
+	// - cache resync time: 30 seconds
+	kubeClient, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		glog.Fatalf("Error creating kubernetes client: %v\n", err)
+	}
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 30)
+
+	// GENERATE CONTROLLER
+	// - watches for Namespace resource and generates resource based on the policy generate rule
+	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
+
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
@@ -94,9 +110,11 @@ func main() {
 	}
 
 	pInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
+	go nsc.Run(1, stopCh)
 
 	//TODO add WG for the go routines?
 	server.RunAsync()

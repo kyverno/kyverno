@@ -393,7 +393,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	// Deep-copy otherwise we are mutating our cache.
 	// TODO: Deep-copy only when needed.
 	p := policy.DeepCopy()
-	// TODO: Update Status to update ObserverdGeneration
 
 	pvList, err := pc.getPolicyViolationsForPolicy(p)
 	if err != nil {
