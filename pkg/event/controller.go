@@ -4,8 +4,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	policyscheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
+
+	"github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned/scheme"
+	policyscheme "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned/scheme"
 	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
 	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"

@@ -211,7 +211,7 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	// TODO: Deep-copy only when needed.
 	pv := policyViolation.DeepCopy()
 	// TODO: Update Status to update ObserverdGeneration
-	// TODO: check if the policy violation refers to a resource thats active ?
+	// TODO: check if the policy violation refers to a resource thats active ? // done by policy controller
 	// TODO: additional check on deleted webhook for a resource, to delete a policy violation it has a policy violation
 	// list the resource with label selectors, but this can be expensive for each delete request of a resource
 	if err := pvc.syncActiveResource(pv); err != nil {

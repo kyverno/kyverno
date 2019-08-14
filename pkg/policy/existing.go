@@ -186,6 +186,7 @@ func getAllNamespaces(client *client.Client) []string {
 	return namespaces
 }
 
+//NewResourceManager returns a new ResourceManager
 func NewResourceManager(rebuildTime int64) *ResourceManager {
 	rm := ResourceManager{
 		data:        make(map[string]interface{}),
@@ -196,7 +197,7 @@ func NewResourceManager(rebuildTime int64) *ResourceManager {
 	return &rm
 }
 
-// ResourceManager
+// ResourceManager stores the details on already processed resources for caching
 type ResourceManager struct {
 	// we drop and re-build the cache
 	// based on the memory consumer of by the map

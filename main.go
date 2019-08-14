@@ -58,7 +58,9 @@ func main() {
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
+	// - process policy on existing resources
 	// - status: violation count
+
 	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
@@ -71,7 +73,6 @@ func main() {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
 
-	// TODO : Process Existing
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
@@ -92,27 +93,15 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
-	//--------
 	pInformer.Start(stopCh)
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
 
 	//TODO add WG for the go routines?
-	//--------
-	// eventController.Run(stopCh)
-	// genControler.Run(stopCh)
-	// annotationsController.Run(stopCh)
-	// if err = policyController.Run(stopCh); err != nil {
-	// 	glog.Fatalf("Error running PolicyController: %v\n", err)
-	// }
 	server.RunAsync()
 	<-stopCh
 	server.Stop()
-	// genControler.Stop()
-	// eventController.Stop()
-	// annotationsController.Stop()
-	// policyController.Stop()
 }
 
 func init() {

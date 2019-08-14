@@ -20,10 +20,7 @@ import (
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
 	//TODO: pass unstructured instead of rawResource ?
-	// resourceUnstr, err := convertToUnstructured(rawResource)
-	// if err != nil {
-	// 	glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-	// }
+
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource : %v", err)

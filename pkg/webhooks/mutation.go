@@ -81,7 +81,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 	// TODO: merge the annotation patch with the patch response
 	// ADD EVENTS
 	if len(patches) > 0 {
-		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
+		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
 		ws.eventGen.Add(eventsInfo...)
 	}
 	// ADD POLICY VIOLATIONS

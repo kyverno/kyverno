@@ -7,12 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
-	policyLister "github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	policySharedInformer "github.com/nirmata/kyverno/pkg/sharedinformer"
-	"github.com/nirmata/kyverno/pkg/violation"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1Informer "k8s.io/client-go/informers/core/v1"

@@ -79,7 +79,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 
 	// ADD EVENTS
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo, _ := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
+		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
 		// If the validationFailureAction flag is set "audit",
 		// then we dont block the request and report the violations
 		ws.eventGen.Add(eventsInfo...)

@@ -588,12 +588,14 @@ func (m *PolicyViolationControllerRefManager) releasePolicyViolation(pv *kyverno
 	return err
 }
 
+//PolicyViolationControllerRefManager manages adoption of policy violation by a policy
 type PolicyViolationControllerRefManager struct {
 	BaseControllerRefManager
 	controllerKind schema.GroupVersionKind
 	pvControl      PVControlInterface
 }
 
+//NewPolicyViolationControllerRefManager returns new PolicyViolationControllerRefManager
 func NewPolicyViolationControllerRefManager(
 	pvControl PVControlInterface,
 	controller metav1.Object,
@@ -614,6 +616,7 @@ func NewPolicyViolationControllerRefManager(
 	return &m
 }
 
+//BaseControllerRefManager ...
 type BaseControllerRefManager struct {
 	Controller   metav1.Object
 	Selector     labels.Selector
@@ -622,6 +625,7 @@ type BaseControllerRefManager struct {
 	CanAdoptFunc func() error
 }
 
+//CanAdopt ...
 func (m *BaseControllerRefManager) CanAdopt() error {
 	m.canAdoptOnce.Do(func() {
 		if m.CanAdoptFunc != nil {
@@ -631,6 +635,7 @@ func (m *BaseControllerRefManager) CanAdopt() error {
 	return m.canAdoptErr
 }
 
+//ClaimObject ...
 func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(metav1.Object) bool, adopt, release func(metav1.Object) error) (bool, error) {
 	controllerRef := metav1.GetControllerOf(obj)
 	if controllerRef != nil {
@@ -687,6 +692,7 @@ func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(met
 
 }
 
+//PVControlInterface provides interface to  operate on policy violation resource
 type PVControlInterface interface {
 	PatchPolicyViolation(name string, data []byte) error
 }
@@ -697,6 +703,7 @@ type RealPVControl struct {
 	Recorder record.EventRecorder
 }
 
+//PatchPolicyViolation patches the policy violation with the provided JSON Patch
 func (r RealPVControl) PatchPolicyViolation(name string, data []byte) error {
 	_, err := r.Client.KyvernoV1alpha1().PolicyViolations().Patch(name, types.JSONPatchType, data)
 	return err

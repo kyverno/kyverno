@@ -3,8 +3,6 @@ package info
 import (
 	"fmt"
 	"strings"
-
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 //PolicyInfo defines policy information
@@ -67,17 +65,6 @@ func (pi *PolicyInfo) FailedRules() []string {
 	for _, r := range pi.Rules {
 		if !r.IsSuccessful() {
 			rules = append(rules, r.Name)
-		}
-	}
-	return rules
-}
-
-//GetFailedRules returns the failed rules with rule type
-func (pi *PolicyInfo) GetFailedRules() []v1alpha1.FailedRule {
-	var rules []v1alpha1.FailedRule
-	for _, r := range pi.Rules {
-		if !r.IsSuccessful() {
-			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String(), Error: r.GetErrorString()})
 		}
 	}
 	return rules
@@ -165,7 +152,7 @@ func (ri *RuleInfo) Addf(msg string, args ...interface{}) {
 }
 
 //RulesSuccesfuly check if the any rule has failed or not
-func RulesSuccesfuly(rules []RuleInfo) bool {
+func rulesSuccesfuly(rules []RuleInfo) bool {
 	for _, r := range rules {
 		if !r.success {
 			return false
@@ -179,7 +166,7 @@ func (pi *PolicyInfo) AddRuleInfos(rules []RuleInfo) {
 	if rules == nil {
 		return
 	}
-	if !RulesSuccesfuly(rules) {
+	if !rulesSuccesfuly(rules) {
 		pi.success = false
 	}
 
@@ -202,14 +189,4 @@ func (pi *PolicyInfo) GetRuleNames(onSuccess bool) string {
 	}
 
 	return strings.Join(ruleNames, ",")
-}
-
-//ContainsRuleType checks if a policy info contains a rule type
-func (pi *PolicyInfo) ContainsRuleType(ruleType RuleType) bool {
-	for _, r := range pi.Rules {
-		if r.RuleType == ruleType {
-			return true
-		}
-	}
-	return false
 }

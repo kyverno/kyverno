@@ -4,13 +4,17 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang/glog"
-
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type K8Resource struct {
+	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
+	Namespace string
+	Name      string
+}
+
+//Contains Check if strint is contained in a list of string
 func Contains(list []string, element string) bool {
 	for _, e := range list {
 		if e == element {
@@ -18,12 +22,6 @@ func Contains(list []string, element string) bool {
 		}
 	}
 	return false
-}
-
-type K8Resource struct {
-	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
-	Namespace string
-	Name      string
 }
 
 //SkipFilteredResourcesReq checks if request is to be skipped based on filtered kinds
@@ -76,15 +74,4 @@ func ParseKinds(list string) []K8Resource {
 		resources = append(resources, resource)
 	}
 	return resources
-}
-
-//ConvertToUnstructured coverts a raw resource into unstructured struct
-func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
-	if err != nil {
-		glog.V(4).Infof("failed to unmarshall resource: %v", err)
-		return nil, err
-	}
-	return resource, nil
 }
