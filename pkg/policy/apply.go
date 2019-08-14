@@ -21,7 +21,8 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (inf
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
 	// glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-	var policyInfo info.PolicyInfo
+	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
+
 	//MUTATION
 	mruleInfos, err := mutation(policy, resource)
 	policyInfo.AddRuleInfos(mruleInfos)

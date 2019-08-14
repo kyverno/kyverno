@@ -11,7 +11,6 @@ import (
 func (pc *PolicyController) report(policyInfos []info.PolicyInfo) {
 	// generate events
 	// generate policy violations
-
 	for _, policyInfo := range policyInfos {
 		// events
 		// success - policy applied on resource
