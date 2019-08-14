@@ -69,6 +69,20 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 	return ok == false
 }
 
+//Drop drop the cache after every rebuild interval mins
+//TODO: or drop based on the size
+func (rm *ResourceManager) Drop() {
+	timeSince := time.Since(rm.time)
+	glog.V(4).Infof("time since last cache reset time %v is %v", rm.time, timeSince)
+	glog.V(4).Infof("cache rebuild time %v", time.Duration(rm.rebuildTime)*time.Second)
+	if timeSince > time.Duration(rm.rebuildTime)*time.Second {
+		rm.mux.Lock()
+		defer rm.mux.Unlock()
+		rm.data = map[string]interface{}{}
+		rm.time = time.Now()
+		glog.V(4).Infof("dropping cache at time %v", rm.time)
+	}
+}
 func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
@@ -124,6 +138,8 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []i
 		glog.Infof("unable to convert to unstructured, not processing any policies: %v", err)
 		return policyInfos
 	}
+	nsc.rm.Drop()
+
 	ns := unstructured.Unstructured{Object: unstr}
 
 	// get all the policies that have a generate rule and apply on the namespace
@@ -131,8 +147,15 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []i
 
 	policies := listpolicies(ns, nsc.pLister)
 	for _, policy := range policies {
+		// pre-processing, check if the policy and resource version has been processed before
+		if !nsc.rm.ProcessResource(policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion()) {
+			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
+			continue
+		}
 		policyInfo := applyPolicy(nsc.client, ns, *policy)
 		policyInfos = append(policyInfos, policyInfo)
+		// post-processing, register the resource as processed
+		nsc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
 	}
 	return policyInfos
 }

@@ -83,6 +83,10 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.pvListerSynced = pInformer.Informer().HasSynced
 	nsc.pvLister = pvInformer.Lister()
 
+	// resource manager
+	// rebuild after 300 seconds/ 5 mins
+	nsc.rm = NewResourceManager(300)
+
 	return nsc
 }
 func (nsc *NamespaceController) addNamespace(obj interface{}) {
