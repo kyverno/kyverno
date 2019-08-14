@@ -57,19 +57,16 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, raw
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 
 		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		ruleInfos, err := engine.Validate(*policy, rawResource, request.Kind)
-		if err != nil {
-			// This is not policy error
-			// but if unable to parse request raw resource
-			// TODO : create event ? dont think so
-			glog.Error(err)
+		engineResponse := engine.Validate(*policy, rawResource, request.Kind)
+		if engineResponse == nil {
+			glog.Errorln("Failed to process validate rule, error parsing rawResource")
 			continue
 		}
-		policyInfo.AddRuleInfos(ruleInfos)
+		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
+			for _, r := range engineResponse.RuleInfos {
 				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
 		} else {
@@ -79,7 +76,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, raw
 				glog.Info(err)
 			}
 
-			if len(ruleInfos) > 0 {
+			if len(engineResponse.RuleInfos) > 0 {
 				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
 			}
 		}

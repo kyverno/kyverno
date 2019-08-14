@@ -17,13 +17,13 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
+func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) *EngineResponse {
 	var resource interface{}
 	ris := []*info.RuleInfo{}
 
-	err := json.Unmarshal(rawResource, &resource)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(rawResource, &resource); err != nil {
+		glog.Errorf("Failed to parse rawResource err: %v\n", err)
+		return nil
 	}
 
 	for _, rule := range policy.Spec.Rules {
@@ -49,7 +49,9 @@ func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVers
 		ris = append(ris, ri)
 	}
 
-	return ris, nil
+	return &EngineResponse{
+		RuleInfos: ris,
+	}
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

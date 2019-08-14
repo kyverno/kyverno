@@ -9,14 +9,13 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool, [][]byte, []byte) {
-	var allPatches, policyPatches [][]byte
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool, *engine.EngineResponse) {
+	var allPatches [][]byte
 	policyInfos := []*info.PolicyInfo{}
-	var ruleInfos []*info.RuleInfo
-	patchedDocument := request.Object.Raw
+	engineResponse := &engine.EngineResponse{PatchedDocument: request.Object.Raw}
 
 	if request.Operation == v1beta1.Delete {
-		return true, nil, patchedDocument
+		return true, engineResponse
 	}
 
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
@@ -27,7 +26,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		// Unable to connect to policy Lister to access policies
 		glog.Errorln("Unable to connect to policy controller to access policies. Mutation Rules are NOT being applied")
 		glog.Warning(err)
-		return true, nil, patchedDocument
+		return true, engineResponse
 	}
 
 	rname := engine.ParseNameFromObject(request.Object.Raw)
@@ -59,13 +58,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 
 		glog.Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		policyPatches, patchedDocument, ruleInfos = engine.Mutate(*policy, patchedDocument, request.Kind)
-
-		policyInfo.AddRuleInfos(ruleInfos)
+		engineResponse = engine.Mutate(*policy, engineResponse.PatchedDocument, request.Kind)
+		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
+			for _, r := range engineResponse.RuleInfos {
 				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
 		} else {
@@ -74,7 +72,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 			if err != nil {
 				glog.Info(err)
 			}
-			allPatches = append(allPatches, policyPatches...)
+			allPatches = append(allPatches, engineResponse.Patches...)
 			glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rns, rname)
 		}
 		policyInfos = append(policyInfos, policyInfo)
@@ -93,9 +91,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 
 	ok, msg := isAdmSuccesful(policyInfos)
 	if ok {
-		return true, allPatches, patchedDocument
+		engineResponse.Patches = allPatches
+		return true, engineResponse
 	}
 
 	glog.Errorf("Failed to mutate the resource: %s\n", msg)
-	return false, nil, patchedDocument
+	return false, engineResponse
 }

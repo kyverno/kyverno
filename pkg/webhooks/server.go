@@ -140,7 +140,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var response *v1beta1.AdmissionResponse
 
-	allowed, allPatches, patchedDocument := ws.HandleMutation(request)
+	allowed, engineResponse := ws.HandleMutation(request)
 	if !allowed {
 		// TODO: add failure message to response
 		return &v1beta1.AdmissionResponse{
@@ -148,10 +148,10 @@ func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionReques
 		}
 	}
 
-	response = ws.HandleValidation(request, patchedDocument)
-	if response.Allowed && len(allPatches) > 0 {
+	response = ws.HandleValidation(request, engineResponse.PatchedDocument)
+	if response.Allowed && len(engineResponse.Patches) > 0 {
 		patchType := v1beta1.PatchTypeJSONPatch
-		response.Patch = engine.JoinPatches(allPatches)
+		response.Patch = engine.JoinPatches(engineResponse.Patches)
 		response.PatchType = &patchType
 	}
 

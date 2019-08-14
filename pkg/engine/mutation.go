@@ -8,7 +8,7 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, []byte, []*info.RuleInfo) {
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) *EngineResponse {
 	var allPatches, rulePatches [][]byte
 	var err error
 	var errs []error
@@ -69,5 +69,9 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		ris = append(ris, ri)
 	}
 
-	return allPatches, patchedDocument, ris
+	return &EngineResponse{
+		Patches:         allPatches,
+		PatchedDocument: patchedDocument,
+		RuleInfos:       ris,
+	}
 }

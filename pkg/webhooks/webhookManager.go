@@ -26,14 +26,13 @@ func (ws *WebhookServer) manageWebhookConfigurations(policy v1alpha1.Policy, op 
 }
 
 func (ws *WebhookServer) registerWebhookConfigurations(policy v1alpha1.Policy) error {
-	for _, rule := range policy.Spec.Rules {
-		if rule.Mutation != nil && !ws.webhookRegistrationClient.MutationRegistered.IsSet() {
-			if err := ws.webhookRegistrationClient.RegisterMutatingWebhook(); err != nil {
-				return err
-			}
-			glog.Infof("Mutating webhook registered")
+	if !ws.webhookRegistrationClient.MutationRegistered.IsSet() {
+		if err := ws.webhookRegistrationClient.RegisterMutatingWebhook(); err != nil {
+			return err
 		}
+		glog.Infof("Mutating webhook registered")
 	}
+
 	return nil
 }
 

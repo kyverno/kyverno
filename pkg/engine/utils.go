@@ -12,6 +12,7 @@ import (
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+type EngineResponse struct {
+	Patches         [][]byte
+	PatchedDocument []byte
+	RuleInfos       []*info.RuleInfo
+}
 
 //ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
 func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {

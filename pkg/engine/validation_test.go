@@ -1573,8 +1573,8 @@ func TestValidate_ServiceTest(t *testing.T) {
 	gvk := metav1.GroupVersionKind{
 		Kind: "Service",
 	}
-	_, err := Validate(policy, rawResource, gvk)
-	assert.Assert(t, err == nil)
+	res := Validate(policy, rawResource, gvk)
+	assert.Assert(t, res != nil)
 }
 
 func TestValidate_MapHasFloats(t *testing.T) {
@@ -1672,6 +1672,6 @@ func TestValidate_MapHasFloats(t *testing.T) {
 		Kind: "Deployment",
 	}
 
-	_, err := Validate(policy, rawResource, gvk)
-	assert.NilError(t, err)
+	res := Validate(policy, rawResource, gvk)
+	assert.Assert(t, res != nil)
 }

@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"errors"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
@@ -45,11 +47,13 @@ func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) 
 		return nil, err
 	}
 	// Validation
-	vruleInfos, err := Validate(*policy, rawResource, *res.Gvk)
-	policyInfo.AddRuleInfos(vruleInfos)
-	if err != nil {
-		return nil, err
+	response := Validate(*policy, rawResource, *res.Gvk)
+	if response != nil {
+		policyInfo.AddRuleInfos(response.RuleInfos)
+	} else {
+		return nil, errors.New("Failed to process validate rule, error parsing rawResource")
 	}
+
 	if res.Gvk.Kind == "Namespace" {
 
 		// Generation
@@ -61,7 +65,10 @@ func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) 
 }
 
 func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
-	patches, _, ruleInfos := Mutate(*p, rawResource, *gvk)
+	response := Mutate(*p, rawResource, *gvk)
+	patches := response.Patches
+	ruleInfos := response.RuleInfos
+
 	if len(ruleInfos) == 0 {
 		// no rules were processed
 		return nil, nil
