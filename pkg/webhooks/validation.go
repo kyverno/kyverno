@@ -11,7 +11,7 @@ import (
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, rawResource []byte) *v1beta1.AdmissionResponse {
 
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
@@ -27,8 +27,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	rname := engine.ParseNameFromObject(request.Object.Raw)
-	rns := engine.ParseNamespaceFromObject(request.Object.Raw)
+	rname := engine.ParseNameFromObject(rawResource)
+	rns := engine.ParseNamespaceFromObject(rawResource)
 	rkind := request.Kind.Kind
 	if rkind == "" {
 		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
@@ -40,12 +40,12 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			continue
 		}
 		//TODO: HACK Check if an update of annotations
-		if checkIfOnlyAnnotationsUpdate(request) {
-			// allow the update of resource to add annotations
-			return &v1beta1.AdmissionResponse{
-				Allowed: true,
-			}
-		}
+		// if checkIfOnlyAnnotationsUpdate(request) {
+		// 	// allow the update of resource to add annotations
+		// 	return &v1beta1.AdmissionResponse{
+		// 		Allowed: true,
+		// 	}
+		// }
 
 		policyInfo := info.NewPolicyInfo(policy.Name,
 			rkind,
@@ -57,7 +57,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			request.Kind.Kind, rns, rname, request.UID, request.Operation)
 
 		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		ruleInfos, err := engine.Validate(*policy, request.Object.Raw, request.Kind)
+		ruleInfos, err := engine.Validate(*policy, rawResource, request.Kind)
 		if err != nil {
 			// This is not policy error
 			// but if unable to parse request raw resource
@@ -84,11 +84,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 			}
 		}
 		policyInfos = append(policyInfos, policyInfo)
-		// annotations
-		annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
-		if annPatch != nil {
-			ws.annotationsController.Add(rkind, rns, rname, annPatch)
-		}
+		// // annotations
+		// annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
+		// if annPatch != nil {
+		// 	ws.annotationsController.Add(rkind, rns, rname, annPatch)
+		// }
 	}
 
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {

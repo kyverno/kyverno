@@ -11,6 +11,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/tevino/abool"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admregclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
@@ -112,12 +113,12 @@ func (wrc *WebhookRegistrationClient) DeregisterAll() {
 
 	if wrc.serverIP != "" {
 		err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationDebug, &v1.DeleteOptions{})
-		if err != nil {
+		if err != nil && !errorsapi.IsNotFound(err) {
 			glog.Error(err)
 		}
 	}
 	err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.PolicyValidatingWebhookConfigurationName, &v1.DeleteOptions{})
-	if err != nil {
+	if err != nil && !errorsapi.IsNotFound(err) {
 		glog.Error(err)
 	}
 }
@@ -130,7 +131,7 @@ func (wrc *WebhookRegistrationClient) deregister() {
 func (wrc *WebhookRegistrationClient) deregisterMutatingWebhook() {
 	if wrc.serverIP != "" {
 		err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &v1.DeleteOptions{})
-		if err != nil {
+		if err != nil && !errorsapi.IsNotFound(err) {
 			glog.Error(err)
 		} else {
 			wrc.MutationRegistered.UnSet()
@@ -139,7 +140,7 @@ func (wrc *WebhookRegistrationClient) deregisterMutatingWebhook() {
 	}
 
 	err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationName, &v1.DeleteOptions{})
-	if err != nil {
+	if err != nil && !errorsapi.IsNotFound(err) {
 		glog.Error(err)
 	} else {
 		wrc.MutationRegistered.UnSet()
@@ -149,7 +150,7 @@ func (wrc *WebhookRegistrationClient) deregisterMutatingWebhook() {
 func (wrc *WebhookRegistrationClient) deregisterValidatingWebhook() {
 	if wrc.serverIP != "" {
 		err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationDebug, &v1.DeleteOptions{})
-		if err != nil {
+		if err != nil && !errorsapi.IsNotFound(err) {
 			glog.Error(err)
 		}
 		wrc.ValidationRegistered.UnSet()
@@ -157,7 +158,7 @@ func (wrc *WebhookRegistrationClient) deregisterValidatingWebhook() {
 	}
 
 	err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(config.ValidatingWebhookConfigurationName, &v1.DeleteOptions{})
-	if err != nil {
+	if err != nil && !errorsapi.IsNotFound(err) {
 		glog.Error(err)
 	}
 	wrc.ValidationRegistered.UnSet()

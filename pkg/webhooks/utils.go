@@ -109,9 +109,11 @@ const (
 func toBlock(pis []*info.PolicyInfo) bool {
 	for _, pi := range pis {
 		if pi.ValidationFailureAction != ReportViolation {
+			glog.V(3).Infoln("ValidationFailureAction set to enforce, blocking resource ceation")
 			return true
 		}
 	}
+	glog.V(3).Infoln("ValidationFailureAction set to audit, allowing resource creation, reporting with violation")
 	return false
 }
 

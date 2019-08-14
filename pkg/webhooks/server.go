@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/engine"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/annotations"
 	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
@@ -114,13 +116,10 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 			// Resource UPDATE
 			switch r.URL.Path {
 			case config.MutatingWebhookServicePath:
-				admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-			case config.ValidatingWebhookServicePath:
-				admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+				admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
 			case config.PolicyValidatingWebhookServicePath:
 				admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 			}
-
 		}
 	}
 
@@ -136,6 +135,27 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(responseJSON); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	var response *v1beta1.AdmissionResponse
+
+	allowed, allPatches, patchedDocument := ws.HandleMutation(request)
+	if !allowed {
+		// TODO: add failure message to response
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+		}
+	}
+
+	response = ws.HandleValidation(request, patchedDocument)
+	if response.Allowed && len(allPatches) > 0 {
+		patchType := v1beta1.PatchTypeJSONPatch
+		response.Patch = engine.JoinPatches(allPatches)
+		response.PatchType = &patchType
+	}
+
+	return response
 }
 
 // RunAsync TLS server in separate thread and returns control immediately

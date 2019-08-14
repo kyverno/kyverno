@@ -8,8 +8,10 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, []*info.RuleInfo) {
-	var allPatches [][]byte
+func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, []byte, []*info.RuleInfo) {
+	var allPatches, rulePatches [][]byte
+	var err error
+	var errs []error
 	patchedDocument := rawResource
 	ris := []*info.RuleInfo{}
 
@@ -26,9 +28,9 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 		}
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
-			overlayPatches, err := ProcessOverlay(rule, rawResource, gvk)
+			rulePatches, err = ProcessOverlay(rule, patchedDocument, gvk)
 			if err == nil {
-				if len(overlayPatches) == 0 {
+				if len(rulePatches) == 0 {
 					// if array elements dont match then we skip(nil patch, no error)
 					// or if acnohor is defined and doenst match
 					// policy is not applicable
@@ -36,10 +38,10 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				}
 				ri.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
 				// merge the json patches
-				patch := JoinPatches(overlayPatches)
+				patch := JoinPatches(rulePatches)
 				// strip slashes from string
 				ri.Changes = string(patch)
-				allPatches = append(allPatches, overlayPatches...)
+				allPatches = append(allPatches, rulePatches...)
 			} else {
 				ri.Fail()
 				ri.Addf("overlay application has failed, err %v.", err)
@@ -48,7 +50,7 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 
 		// Process Patches
 		if len(rule.Mutation.Patches) != 0 {
-			rulePatches, errs := ProcessPatches(rule, patchedDocument)
+			rulePatches, errs = ProcessPatches(rule, patchedDocument)
 			if len(errs) > 0 {
 				ri.Fail()
 				for _, err := range errs {
@@ -59,8 +61,13 @@ func Mutate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersio
 				allPatches = append(allPatches, rulePatches...)
 			}
 		}
+
+		patchedDocument, err = ApplyPatches(rawResource, rulePatches)
+		if err != nil {
+			glog.Errorf("Failed to apply patches on ruleName=%s, err%v\n:", rule.Name, err)
+		}
 		ris = append(ris, ri)
 	}
 
-	return allPatches, ris
+	return allPatches, patchedDocument, ris
 }

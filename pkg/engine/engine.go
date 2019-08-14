@@ -61,7 +61,7 @@ func applyPolicy(client *client.Client, policy *types.Policy, res resourceInfo) 
 }
 
 func mutation(p *types.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
-	patches, ruleInfos := Mutate(*p, rawResource, *gvk)
+	patches, _, ruleInfos := Mutate(*p, rawResource, *gvk)
 	if len(ruleInfos) == 0 {
 		// no rules were processed
 		return nil, nil
