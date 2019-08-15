@@ -4,21 +4,25 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, rawResource []byte) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured) *v1beta1.AdmissionResponse {
+	var policyInfos []info.PolicyInfo
 
-	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+	glog.V(5).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	policyInfos := []*info.PolicyInfo{}
-	policies, err := ws.policyLister.List(labels.NewSelector())
+	policies, err := ws.pLister.List(labels.NewSelector())
 	if err != nil {
+		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
 		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
 		glog.Warning(err)
@@ -27,80 +31,61 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, raw
 		}
 	}
 
-	rname := engine.ParseNameFromObject(rawResource)
-	rns := engine.ParseNamespaceFromObject(rawResource)
-	rkind := request.Kind.Kind
-	if rkind == "" {
-		glog.Errorf("failed to parse KIND from request: Namespace=%s Name=%s UID=%s patchOperation=%s\n", request.Namespace, request.Name, request.UID, request.Operation)
-	}
+	//TODO: check if resource gvk is available in raw resource,
+	// if not then set it from the api request
+	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	//TODO: check if the name and namespace is also passed right in the resource?
+	// all the patches to be applied on the resource
 
 	for _, policy := range policies {
 
 		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
 			continue
 		}
-		//TODO: HACK Check if an update of annotations
-		// if checkIfOnlyAnnotationsUpdate(request) {
-		// 	// allow the update of resource to add annotations
-		// 	return &v1beta1.AdmissionResponse{
-		// 		Allowed: true,
-		// 	}
-		// }
 
-		policyInfo := info.NewPolicyInfo(policy.Name,
-			rkind,
-			rname,
-			rns,
-			policy.Spec.ValidationFailureAction)
+		policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 
-		glog.V(3).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			request.Kind.Kind, rns, rname, request.UID, request.Operation)
+		glog.V(4).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		glog.Infof("Validating resource %s/%s/%s with policy %s with %d rules", rkind, rns, rname, policy.ObjectMeta.Name, len(policy.Spec.Rules))
-		engineResponse := engine.Validate(*policy, rawResource, request.Kind)
-		if engineResponse == nil {
+		glog.V(4).Infof("Validating resource %s/%s/%s with policy %s with %d rules\n", resource.GetKind(), resource.GetNamespace(), resource.GetName(), policy.ObjectMeta.Name, len(policy.Spec.Rules))
+
+		engineResponse := engine.Validate(*policy, resource)
+		if len(engineResponse.RuleInfos) == 0 {
 			glog.Errorln("Failed to process validate rule, error parsing rawResource")
 			continue
 		}
+
+		if len(engineResponse.RuleInfos) > 0 {
+			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
+		}
+
 		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 
 		if !policyInfo.IsSuccessful() {
-			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
 			for _, r := range engineResponse.RuleInfos {
 				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
-		} else {
-			// CleanUp Violations if exists
-			err := ws.violationBuilder.RemoveInactiveViolation(policy.Name, request.Kind.Kind, rns, rname, info.Validation)
-			if err != nil {
-				glog.Info(err)
-			}
-
-			if len(engineResponse.RuleInfos) > 0 {
-				glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, rname, rns)
-			}
 		}
+
 		policyInfos = append(policyInfos, policyInfo)
-		// // annotations
-		// annPatch := addAnnotationsToResource(request.Object.Raw, policyInfo, info.Validation)
-		// if annPatch != nil {
-		// 	ws.annotationsController.Add(rkind, rns, rname, annPatch)
-		// }
+
 	}
 
+	// ADD EVENTS
 	if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-		eventsInfo, violations := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
+		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
 		// If the validationFailureAction flag is set "audit",
 		// then we dont block the request and report the violations
-		ws.violationBuilder.Add(violations...)
-		ws.eventController.Add(eventsInfo...)
+		ws.eventGen.Add(eventsInfo...)
 	}
+
 	// If Validation fails then reject the request
-	ok, msg := isAdmSuccesful(policyInfos)
 	// violations are created if "audit" flag is set
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
-
+	ok, msg := isAdmSuccesful(policyInfos)
 	if !ok && toBlock(policyInfos) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
@@ -110,8 +95,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, raw
 		}
 	}
 
+	// ADD POLICY VIOLATIONS
+	policyviolation.GeneratePolicyViolations(ws.pvListerSynced, ws.pvLister, ws.kyvernoClient, policyInfos)
+
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	// Generation rules applied via generation controller
 }

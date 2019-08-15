@@ -4,15 +4,13 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
+	clientNew "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
-	controller "github.com/nirmata/kyverno/pkg/controller"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
-	gencontroller "github.com/nirmata/kyverno/pkg/gencontroller"
-	"github.com/nirmata/kyverno/pkg/sharedinformer"
-	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/violation"
+	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	"k8s.io/sample-controller/pkg/signals"
 )
@@ -31,21 +29,62 @@ func main() {
 	printVersionInfo()
 	prof = enableProfiling(cpu, memory)
 
+	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
 
+	// KYVENO CRD CLIENT
+	// access CRD resources
+	//		- Policy
+	//		- PolicyViolation
+	pclient, err := clientNew.NewForConfig(clientConfig)
+	if err != nil {
+		glog.Fatalf("Error creating client: %v\n", err)
+	}
+	// DYNAMIC CLIENT
+	// - client for all registered resources
 	client, err := client.NewClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
 
-	policyInformerFactory, err := sharedinformer.NewSharedInformerFactory(clientConfig)
+	// KYVERNO CRD INFORMER
+	// watches CRD resources:
+	//		- Policy
+	//		- PolicyVolation
+	// - cache resync time: 30 seconds
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 30)
+	// EVENT GENERATOR
+	// - generate event with retry
+	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
+
+	// POLICY CONTROLLER
+	// - reconciliation policy and policy violation
+	// - process policy on existing resources
+	// - status: violation count
+
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
 	if err != nil {
-		glog.Fatalf("Error creating policy sharedinformer: %v\n", err)
+		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
 
+	// POLICY VIOLATION CONTROLLER
+	// status: lastUpdatTime
+	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
+	if err != nil {
+		glog.Fatalf("error creating policy violation controller: %v\n", err)
+	}
+
+	tlsPair, err := initTLSPemPair(clientConfig, client)
+	if err != nil {
+		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
+	}
+
+	// WEBHOOK REGISTRATION
+	// -- validationwebhookconfiguration (Policy)
+	// -- mutatingwebhookconfiguration (All resources)
 	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
@@ -54,47 +93,26 @@ func main() {
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
-
-	kubeInformer := utils.NewKubeInformerFactory(clientConfig)
-	eventController := event.NewEventController(client, policyInformerFactory)
-	violationBuilder := violation.NewPolicyViolationBuilder(client, policyInformerFactory, eventController)
-	annotationsController := annotations.NewAnnotationControler(client)
-	policyController := controller.NewPolicyController(
-		client,
-		policyInformerFactory,
-		violationBuilder,
-		eventController,
-		filterK8Resources)
-
-	genControler := gencontroller.NewGenController(client, eventController, policyInformerFactory, violationBuilder, kubeInformer.Core().V1().Namespaces(), annotationsController)
-	tlsPair, err := initTLSPemPair(clientConfig, client)
-	if err != nil {
-		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
-	}
-
-	server, err := webhooks.NewWebhookServer(client, tlsPair, policyInformerFactory, eventController, violationBuilder, annotationsController, webhookRegistrationClient, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, webhookRegistrationClient, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
 	stopCh := signals.SetupSignalHandler()
 
-	policyInformerFactory.Run(stopCh)
-	kubeInformer.Start(stopCh)
-	eventController.Run(stopCh)
-	genControler.Run(stopCh)
-	annotationsController.Run(stopCh)
-	if err = policyController.Run(stopCh); err != nil {
-		glog.Fatalf("Error running PolicyController: %v\n", err)
+	if err = webhookRegistrationClient.Register(); err != nil {
+		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
+	pInformer.Start(stopCh)
+	go pc.Run(1, stopCh)
+	go pvc.Run(1, stopCh)
+	go egen.Run(1, stopCh)
+
+	//TODO add WG for the go routines?
 	server.RunAsync()
 
 	<-stopCh
-	genControler.Stop()
-	eventController.Stop()
-	annotationsController.Stop()
-	policyController.Stop()
 	disableProfiling(prof)
 	server.Stop()
 }

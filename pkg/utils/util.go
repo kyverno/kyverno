@@ -8,6 +8,13 @@ import (
 	"k8s.io/api/admission/v1beta1"
 )
 
+type K8Resource struct {
+	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
+	Namespace string
+	Name      string
+}
+
+//Contains Check if strint is contained in a list of string
 func Contains(list []string, element string) bool {
 	for _, e := range list {
 		if e == element {
@@ -15,12 +22,6 @@ func Contains(list []string, element string) bool {
 		}
 	}
 	return false
-}
-
-type K8Resource struct {
-	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
-	Namespace string
-	Name      string
 }
 
 //SkipFilteredResourcesReq checks if request is to be skipped based on filtered kinds

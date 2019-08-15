@@ -3,8 +3,6 @@ package info
 import (
 	"fmt"
 	"strings"
-
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 )
 
 //PolicyInfo defines policy information
@@ -20,13 +18,13 @@ type PolicyInfo struct {
 	RNamespace string
 	//TODO: add check/enum for types
 	ValidationFailureAction string // BlockChanges, ReportViolation
-	Rules                   []*RuleInfo
+	Rules                   []RuleInfo
 	success                 bool
 }
 
 //NewPolicyInfo returns a new policy info
-func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) *PolicyInfo {
-	return &PolicyInfo{
+func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction string) PolicyInfo {
+	pi := PolicyInfo{
 		Name:                    policyName,
 		RKind:                   rKind,
 		RName:                   rName,
@@ -34,6 +32,7 @@ func NewPolicyInfo(policyName, rKind, rName, rNamespace, validationFailureAction
 		success:                 true, // fail to be set explicity
 		ValidationFailureAction: validationFailureAction,
 	}
+	return pi
 }
 
 //IsSuccessful checks if policy is succesful
@@ -71,17 +70,6 @@ func (pi *PolicyInfo) FailedRules() []string {
 	return rules
 }
 
-//GetFailedRules returns the failed rules with rule type
-func (pi *PolicyInfo) GetFailedRules() []v1alpha1.FailedRule {
-	var rules []v1alpha1.FailedRule
-	for _, r := range pi.Rules {
-		if !r.IsSuccessful() {
-			rules = append(rules, v1alpha1.FailedRule{Name: r.Name, Type: r.RuleType.String(), Error: r.GetErrorString()})
-		}
-	}
-	return rules
-}
-
 //ErrorRules returns error msgs from all rule
 func (pi *PolicyInfo) ErrorRules() string {
 	errorMsgs := []string{}
@@ -114,9 +102,9 @@ func (ri RuleType) String() string {
 //RuleInfo defines rule struct
 type RuleInfo struct {
 	Name     string
+	RuleType RuleType
 	Msgs     []string
 	Changes  string // this will store the mutation patch being applied by the rule
-	RuleType RuleType
 	success  bool
 }
 
@@ -134,8 +122,8 @@ func (ri *RuleInfo) GetErrorString() string {
 }
 
 //NewRuleInfo creates a new RuleInfo
-func NewRuleInfo(ruleName string, ruleType RuleType) *RuleInfo {
-	return &RuleInfo{
+func NewRuleInfo(ruleName string, ruleType RuleType) RuleInfo {
+	return RuleInfo{
 		Name:     ruleName,
 		Msgs:     []string{},
 		RuleType: ruleType,
@@ -164,7 +152,7 @@ func (ri *RuleInfo) Addf(msg string, args ...interface{}) {
 }
 
 //RulesSuccesfuly check if the any rule has failed or not
-func RulesSuccesfuly(rules []*RuleInfo) bool {
+func rulesSuccesfuly(rules []RuleInfo) bool {
 	for _, r := range rules {
 		if !r.success {
 			return false
@@ -174,11 +162,11 @@ func RulesSuccesfuly(rules []*RuleInfo) bool {
 }
 
 //AddRuleInfos sets the rule information
-func (pi *PolicyInfo) AddRuleInfos(rules []*RuleInfo) {
+func (pi *PolicyInfo) AddRuleInfos(rules []RuleInfo) {
 	if rules == nil {
 		return
 	}
-	if !RulesSuccesfuly(rules) {
+	if !rulesSuccesfuly(rules) {
 		pi.success = false
 	}
 
@@ -201,14 +189,4 @@ func (pi *PolicyInfo) GetRuleNames(onSuccess bool) string {
 	}
 
 	return strings.Join(ruleNames, ",")
-}
-
-//ContainsRuleType checks if a policy info contains a rule type
-func (pi *PolicyInfo) ContainsRuleType(ruleType RuleType) bool {
-	for _, r := range pi.Rules {
-		if r.RuleType == ruleType {
-			return true
-		}
-	}
-	return false
 }

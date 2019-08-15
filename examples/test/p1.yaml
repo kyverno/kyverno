@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-resources
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: check-pod-resources
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "CPU and memory resource requests and limits are required"
+      pattern:
+        spec:
+          containers:
+          # 'name: *' selects all containers in the pod
+          - name: "*"
+            resources:
+              requests:
+                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
+                # Using them together e.g. '?*' requires at least one character.               
+                memory: "?*"
+                cpu: "?*"
+              limits:
+                memory: "?*"
+                cpu: "?*"

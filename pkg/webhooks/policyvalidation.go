@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	policyv1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +13,7 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	var policy *policyv1.Policy
+	var policy *kyverno.Policy
 	admissionResp := &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -39,7 +39,11 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 }
 
 // Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(policy *policyv1.Policy) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+	// =======
+	// func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
+	// 	var policy *kyverno.Policy
+	// >>>>>>> policyViolation
 	var ruleNames []string
 
 	for _, rule := range policy.Spec.Rules {

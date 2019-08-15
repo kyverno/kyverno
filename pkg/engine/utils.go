@@ -9,8 +9,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -23,12 +22,12 @@ import (
 
 type EngineResponse struct {
 	Patches         [][]byte
-	PatchedDocument []byte
-	RuleInfos       []*info.RuleInfo
+	PatchedResource unstructured.Unstructured
+	RuleInfos       []info.RuleInfo
 }
 
 //ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
-func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
+func ListResourcesThatApplyToPolicy(client *client.Client, policy *kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
 	// key uid
 	resourceMap := map[string]resourceInfo{}
 	for _, rule := range policy.Spec.Rules {
@@ -38,9 +37,9 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy,
 			if k == "Namespace" {
 				namespaces = []string{""}
 			} else {
-				if rule.MatchResources.Namespace != nil {
+				if rule.MatchResources.Namespace != "" {
 					// if namespace is specified then we add the namespace
-					namespaces = append(namespaces, *rule.MatchResources.Namespace)
+					namespaces = append(namespaces, rule.MatchResources.Namespace)
 				} else {
 					// no namespace specified, refer to all namespaces
 					namespaces = getAllNamespaces(client)
@@ -61,7 +60,7 @@ func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy,
 	return resourceMap
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule types.Rule, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
+func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
 	resourceMap := map[string]resourceInfo{}
 	// List resources
 	list, err := client.ListResource(kind, namespace, rule.MatchResources.Selector)
@@ -86,14 +85,14 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 				continue
 			}
 		}
-		var name *string
+		var name string
 		// match
 		// name
 		// wild card matching
 		name = rule.MatchResources.Name
-		if name != nil {
+		if name != "" {
 			// if does not match then we skip
-			if !wildcard.Match(*name, res.GetName()) {
+			if !wildcard.Match(name, res.GetName()) {
 				continue
 			}
 		}
@@ -101,9 +100,9 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		// name
 		// wild card matching
 		name = rule.ExcludeResources.Name
-		if name != nil {
+		if name != "nil" {
 			// if matches then we skip
-			if wildcard.Match(*name, res.GetName()) {
+			if wildcard.Match(name, res.GetName()) {
 				continue
 			}
 		}
@@ -143,13 +142,13 @@ func getAllNamespaces(client *client.Client) []string {
 	return namespaces
 }
 
-func excludeNamespaces(namespaces []string, excludeNs *string) []string {
-	if excludeNs == nil {
+func excludeNamespaces(namespaces []string, excludeNs string) []string {
+	if excludeNs == "" {
 		return namespaces
 	}
 	filteredNamespaces := []string{}
 	for _, n := range namespaces {
-		if n == *excludeNs {
+		if n == excludeNs {
 			continue
 		}
 		filteredNamespaces = append(filteredNamespaces, n)
@@ -157,8 +156,68 @@ func excludeNamespaces(namespaces []string, excludeNs *string) []string {
 	return filteredNamespaces
 }
 
+//MatchesResourceDescription checks if the resource matches resource desription of the rule or not
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule) bool {
+	matches := rule.MatchResources.ResourceDescription
+	exclude := rule.ExcludeResources.ResourceDescription
+
+	if !findKind(matches.Kinds, resource.GetKind()) {
+		return false
+	}
+
+	// meta := parseMetadataFromObject(resourceRaw)
+	name := resource.GetName()
+	namespace := resource.GetNamespace()
+
+	if matches.Name != "" {
+		// Matches
+		if !wildcard.Match(matches.Name, name) {
+			return false
+		}
+	}
+	// Exclude
+	// the resource name matches the exclude resource name then reject
+	if exclude.Name != "" {
+		if wildcard.Match(exclude.Name, name) {
+			return false
+		}
+	}
+	// Matches
+	if matches.Namespace != "" && matches.Namespace != namespace {
+		return false
+	}
+	// Exclude
+	if exclude.Namespace != "" && exclude.Namespace == namespace {
+		return false
+	}
+	// Matches
+	if matches.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if !selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
+	}
+	// Exclude
+	if exclude.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+		// if the label selector is incorrect, should be fail or
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
+	}
+	return true
+}
+
 // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
-func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescription, exclude v1alpha1.ResourceDescription, gvk metav1.GroupVersionKind) bool {
+func ResourceMeetsDescription(resourceRaw []byte, matches kyverno.ResourceDescription, exclude kyverno.ResourceDescription, gvk metav1.GroupVersionKind) bool {
 	if !findKind(matches.Kinds, gvk.Kind) {
 		return false
 	}
@@ -168,25 +227,25 @@ func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescr
 		name := ParseNameFromObject(resourceRaw)
 		namespace := ParseNamespaceFromObject(resourceRaw)
 
-		if matches.Name != nil {
+		if matches.Name != "" {
 			// Matches
-			if !wildcard.Match(*matches.Name, name) {
+			if !wildcard.Match(matches.Name, name) {
 				return false
 			}
 		}
 		// Exclude
 		// the resource name matches the exclude resource name then reject
-		if exclude.Name != nil {
-			if wildcard.Match(*exclude.Name, name) {
+		if exclude.Name != "" {
+			if wildcard.Match(exclude.Name, name) {
 				return false
 			}
 		}
 		// Matches
-		if matches.Namespace != nil && *matches.Namespace != namespace {
+		if matches.Namespace != "" && matches.Namespace != namespace {
 			return false
 		}
 		// Exclude
-		if exclude.Namespace != nil && *exclude.Namespace == namespace {
+		if exclude.Namespace != "" && exclude.Namespace == namespace {
 			return false
 		}
 		// Matches
@@ -464,4 +523,14 @@ func convertToFloat(value interface{}) (float64, error) {
 type resourceInfo struct {
 	Resource unstructured.Unstructured
 	Gvk      *metav1.GroupVersionKind
+}
+
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }

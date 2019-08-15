@@ -9,12 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
-	violation "github.com/nirmata/kyverno/pkg/violation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -106,7 +103,7 @@ func (c *Controller) processPolicy(ns *corev1.Namespace, p *v1alpha1.Policy) {
 		if onViolation {
 			glog.Infof("Adding violation for generation rule of policy %s\n", policyInfo.Name)
 			// Policy Violation
-			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), policyInfo.GetFailedRules())
+			v := violation.BuldNewViolation(policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName, event.PolicyViolation.String(), policyInfo.FailedRules())
 			c.violationBuilder.Add(v)
 		} else {
 			// Event

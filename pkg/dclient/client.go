@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -184,7 +184,7 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 }
 
 // GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
-func (c *Client) GenerateResource(generator types.Generation, namespace string, processExistingResources bool) error {
+func (c *Client) GenerateResource(generator kyverno.Generation, namespace string, processExistingResources bool) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 
@@ -198,7 +198,7 @@ func (c *Client) GenerateResource(generator types.Generation, namespace string, 
 		}
 	}
 	// clone -> copy from existing resource
-	if generator.Clone != nil {
+	if generator.Clone != (kyverno.CloneFrom{}) {
 		resource, err = c.GetResource(generator.Kind, generator.Clone.Namespace, generator.Clone.Name)
 		if err != nil {
 			return err

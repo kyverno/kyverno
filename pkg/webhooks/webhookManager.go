@@ -2,7 +2,7 @@ package webhooks
 
 import (
 	"github.com/golang/glog"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -16,7 +16,7 @@ const (
 	all
 )
 
-func (ws *WebhookServer) manageWebhookConfigurations(policy v1alpha1.Policy, op v1beta1.Operation) {
+func (ws *WebhookServer) manageWebhookConfigurations(policy kyverno.Policy, op v1beta1.Operation) {
 	switch op {
 	case v1beta1.Create:
 		ws.registerWebhookConfigurations(policy)
@@ -25,7 +25,7 @@ func (ws *WebhookServer) manageWebhookConfigurations(policy v1alpha1.Policy, op 
 	}
 }
 
-func (ws *WebhookServer) registerWebhookConfigurations(policy v1alpha1.Policy) error {
+func (ws *WebhookServer) registerWebhookConfigurations(policy kyverno.Policy) error {
 	if !ws.webhookRegistrationClient.MutationRegistered.IsSet() {
 		if err := ws.webhookRegistrationClient.RegisterMutatingWebhook(); err != nil {
 			return err
@@ -36,8 +36,8 @@ func (ws *WebhookServer) registerWebhookConfigurations(policy v1alpha1.Policy) e
 	return nil
 }
 
-func (ws *WebhookServer) deregisterWebhookConfigurations(policy v1alpha1.Policy) error {
-	policies, _ := ws.policyLister.List(labels.NewSelector())
+func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.Policy) error {
+	policies, _ := ws.pLister.List(labels.NewSelector())
 
 	// deregister webhook if no policy found in cluster
 	if len(policies) == 1 {

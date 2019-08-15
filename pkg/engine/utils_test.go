@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -12,7 +12,7 @@ func TestResourceMeetsDescription_Kind(t *testing.T) {
 	resourceName := "test-config-map"
 	resourceDescription := types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,

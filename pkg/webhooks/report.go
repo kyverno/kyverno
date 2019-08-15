@@ -3,18 +3,14 @@ package webhooks
 import (
 	"strings"
 
-	"github.com/nirmata/kyverno/pkg/annotations"
-	"github.com/nirmata/kyverno/pkg/violation"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/info"
 )
 
 //TODO: change validation from bool -> enum(validation, mutation)
-func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool, ruleType info.RuleType) ([]*event.Info, []*violation.Info) {
+func newEventInfoFromPolicyInfo(policyInfoList []info.PolicyInfo, onUpdate bool, ruleType info.RuleType) []*event.Info {
 	var eventsInfo []*event.Info
-	var violations []*violation.Info
 	ok, msg := isAdmSuccesful(policyInfoList)
 	// Some policies failed to apply succesfully
 	if !ok {
@@ -38,12 +34,6 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RNamespace+"/"+pi.RName, ruleNames))
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
-			// if report flag is set
-			if pi.ValidationFailureAction == ReportViolation && ruleType == info.Validation {
-				// Create Violations
-				v := violation.BuldNewViolation(pi.Name, pi.RKind, pi.RNamespace, pi.RName, event.PolicyViolation.String(), pi.GetFailedRules())
-				violations = append(violations, v)
-			}
 		}
 	} else {
 		if !onUpdate {
@@ -59,19 +49,5 @@ func newEventInfoFromPolicyInfo(policyInfoList []*info.PolicyInfo, onUpdate bool
 			}
 		}
 	}
-	return eventsInfo, violations
-}
-
-func addAnnotationsToResource(rawResource []byte, pi *info.PolicyInfo, ruleType info.RuleType) []byte {
-	if len(pi.Rules) == 0 {
-		return nil
-	}
-	// get annotations
-	ann := annotations.ParseAnnotationsFromObject(rawResource)
-	patch, err := annotations.PatchAnnotations(ann, pi, ruleType)
-	if err != nil {
-		glog.Error(err)
-		return nil
-	}
-	return patch
+	return eventsInfo
 }
