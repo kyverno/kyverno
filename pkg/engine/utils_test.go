@@ -45,7 +45,7 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 	resourceName := "test-config-map"
 	resourceDescription := types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,
@@ -68,7 +68,7 @@ func TestResourceMeetsDescription_Name(t *testing.T) {
 	}`)
 
 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-	resourceName = "test-config-map-new"
+	resourceDescription.Name = "test-config-map-new"
 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
 
 	rawResource = []byte(`{
@@ -102,7 +102,7 @@ func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
 	resourceName := "test-config-map"
 	resourceDescription := types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -173,7 +173,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 	resourceName := "test-config-map"
 	resourceDescription := types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label1": "test1",
@@ -213,7 +213,7 @@ func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label3": "test1",
@@ -230,7 +230,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 	resourceName := "test-config-map"
 	resourceDescription := types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label1": "test1",
@@ -265,7 +265,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label1": "test1",
@@ -297,7 +297,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label1": "test1",
@@ -318,7 +318,7 @@ func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
 
 	resourceDescription = types.ResourceDescription{
 		Kinds: []string{"ConfigMap"},
-		Name:  &resourceName,
+		Name:  resourceName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"label1": "test1",

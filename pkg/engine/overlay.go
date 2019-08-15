@@ -16,6 +16,7 @@ import (
 
 // rawResource handles validating admission request
 // Checks the target resources for rules defined in the policy
+// TODO: pass in the unstructured object in stead of raw byte?
 func processOverlay(rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
 	var resource interface{}
 	if err := json.Unmarshal(rawResource, &resource); err != nil {

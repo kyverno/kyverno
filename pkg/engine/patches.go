@@ -13,6 +13,7 @@ import (
 
 // ProcessPatches Returns array from separate patches that can be applied to the document
 // Returns error ONLY in case when creation of resource should be denied.
+// TODO: pass in the unstructured object in stead of raw byte?
 func processPatches(rule kyverno.Rule, resource []byte) (allPatches [][]byte, errs []error) {
 	if len(resource) == 0 {
 		errs = append(errs, errors.New("Source document for patching is empty"))

@@ -6,7 +6,6 @@ import (
 
 	kubepolicy "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"gotest.tools/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestValidateString_AsteriskTest(t *testing.T) {
@@ -1570,11 +1569,10 @@ func TestValidate_ServiceTest(t *testing.T) {
 	var policy kubepolicy.Policy
 	json.Unmarshal(rawPolicy, &policy)
 
-	gvk := metav1.GroupVersionKind{
-		Kind: "Service",
-	}
-	res := Validate(policy, rawResource, gvk)
-	assert.Assert(t, res != nil)
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	res := Validate(policy, *resourceUnstructured)
+	assert.Assert(t, len(res.RuleInfos) == 0)
 }
 
 func TestValidate_MapHasFloats(t *testing.T) {
@@ -1668,10 +1666,8 @@ func TestValidate_MapHasFloats(t *testing.T) {
 	var policy kubepolicy.Policy
 	json.Unmarshal(rawPolicy, &policy)
 
-	gvk := metav1.GroupVersionKind{
-		Kind: "Deployment",
-	}
-
-	res := Validate(policy, rawResource, gvk)
-	assert.Assert(t, res != nil)
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	res := Validate(policy, *resourceUnstructured)
+	assert.Assert(t, len(res.RuleInfos) == 0)
 }
