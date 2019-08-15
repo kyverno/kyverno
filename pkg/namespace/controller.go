@@ -16,7 +16,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	v1Informer "k8s.io/client-go/informers/core/v1"
-	v1CoreLister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -33,8 +32,10 @@ type NamespaceController struct {
 	syncHandler   func(nsKey string) error
 	enqueueNs     func(ns *v1.Namespace)
 
+	//nsLister provides expansion to the namespace lister to inject GVK for the resource
+	nsLister NamespaceListerExpansion
 	// nLsister can list/get namespaces from the shared informer's store
-	nsLister v1CoreLister.NamespaceLister
+	// nsLister v1CoreLister.NamespaceLister
 	// nsListerSynced returns true if the Namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
@@ -77,14 +78,19 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.enqueueNs = nsc.enqueue
 	nsc.syncHandler = nsc.syncNamespace
 
-	nsc.nsLister = nsInformer.Lister()
+	nsc.nsLister = NewNamespaceLister(nsInformer.Lister())
 	nsc.nsListerSynced = nsInformer.Informer().HasSynced
 	nsc.pLister = pInformer.Lister()
 	nsc.pvListerSynced = pInformer.Informer().HasSynced
 	nsc.pvLister = pvInformer.Lister()
 
+	// resource manager
+	// rebuild after 300 seconds/ 5 mins
+	nsc.rm = NewResourceManager(300)
+
 	return nsc
 }
+
 func (nsc *NamespaceController) addNamespace(obj interface{}) {
 	ns := obj.(*v1.Namespace)
 	glog.V(4).Infof("Adding Namespace %s", ns.Name)
@@ -163,7 +169,7 @@ func (nsc *NamespaceController) handleErr(err error, key interface{}) {
 	}
 
 	if nsc.queue.NumRequeues(key) < maxRetries {
-		glog.V(2).Infof("Error syncing Namespace %v: %v", key, err)
+		glog.V(2).Infof("Error syncing namespace %v: %v", key, err)
 		nsc.queue.AddRateLimited(key)
 		return
 	}
@@ -179,9 +185,9 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 	defer func() {
 		glog.V(4).Infof("Finished syncing namespace %q (%v)", key, time.Since(startTime))
 	}()
-	namespace, err := nsc.nsLister.Get(key)
+	namespace, err := nsc.nsLister.GetResource(key)
 	if errors.IsNotFound(err) {
-		glog.V(2).Infof("Namespace %v has been deleted", key)
+		glog.V(2).Infof("namespace %v has been deleted", key)
 		return nil
 	}
 	if err != nil {

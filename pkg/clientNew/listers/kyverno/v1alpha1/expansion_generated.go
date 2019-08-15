@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -30,11 +31,36 @@ import (
 // PolicyLister.
 type PolicyListerExpansion interface {
 	GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.Policy, error)
+	ListResources(selector labels.Selector) (ret []*v1alpha1.Policy, err error)
 }
 
 // PolicyViolationListerExpansion allows custom methods to be added to
 // PolicyViolationLister.
-type PolicyViolationListerExpansion interface{}
+type PolicyViolationListerExpansion interface {
+	// List lists all PolicyViolations in the indexer with GVK.
+	// List lists all PolicyViolations in the indexer with GVK.
+	ListResources(selector labels.Selector) (ret []*v1alpha1.PolicyViolation, err error)
+}
+
+//ListResources is a wrapper to List and adds the resource kind information
+// as the lister is specific to a gvk we can harcode the values here
+func (pvl *policyViolationLister) ListResources(selector labels.Selector) (ret []*v1alpha1.PolicyViolation, err error) {
+	policyviolations, err := pvl.List(selector)
+	for index := range policyviolations {
+		policyviolations[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("PolicyViolation"))
+	}
+	return policyviolations, nil
+}
+
+//ListResources is a wrapper to List and adds the resource kind information
+// as the lister is specific to a gvk we can harcode the values here
+func (pl *policyLister) ListResources(selector labels.Selector) (ret []*v1alpha1.Policy, err error) {
+	policies, err := pl.List(selector)
+	for index := range policies {
+		policies[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("Policy"))
+	}
+	return policies, err
+}
 
 func (pl *policyLister) GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.Policy, error) {
 	if len(pv.Labels) == 0 {
