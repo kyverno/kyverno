@@ -285,11 +285,11 @@ func constructWebhook(name, servicePath string, caData []byte, validation bool) 
 		admregapi.Create,
 		admregapi.Update,
 	}
-	// Add operation DELETE for validation
-	if validation {
-		operationtypes = append(operationtypes, admregapi.Delete)
+	// // Add operation DELETE for validation
+	// if validation {
+	// 	operationtypes = append(operationtypes, admregapi.Delete)
 
-	}
+	// }
 
 	return admregapi.Webhook{
 		Name: name,
@@ -334,10 +334,10 @@ func constructDebugWebhook(name, url string, caData []byte, validation bool) adm
 		admregapi.Create,
 		admregapi.Update,
 	}
-	// Add operation DELETE for validation
-	if validation {
-		operationtypes = append(operationtypes, admregapi.Delete)
-	}
+	// // Add operation DELETE for validation
+	// if validation {
+	// 	operationtypes = append(operationtypes, admregapi.Delete)
+	// }
 
 	return admregapi.Webhook{
 		Name: name,

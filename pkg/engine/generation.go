@@ -93,10 +93,10 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 
 	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
-		glog.V(4).Infof("generate rule: unable to create resource %s/%s/%s: %v", gen.Kind, ns.GetKind(), ns.GetNamespace(), ns.GetName(), err)
+		glog.V(4).Infof("generate rule: unable to create resource %s/%s/%s: %v", gen.Kind, resource.GetNamespace(), resource.GetName(), err)
 		return err
 	}
-	glog.V(4).Infof("generate rule: created resource %s/%s/%s", gen.Kind, ns.GetKind(), ns.GetNamespace(), ns.GetName())
+	glog.V(4).Infof("generate rule: created resource %s/%s/%s", gen.Kind, resource.GetNamespace(), resource.GetName())
 	return nil
 }
 
@@ -125,7 +125,6 @@ func checkResource(config interface{}, resource *unstructured.Unstructured) (boo
 	if err != nil {
 		// unable to unmarshall
 		return false, err
-
 	}
 
 	var objData interface{}

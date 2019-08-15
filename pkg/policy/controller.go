@@ -113,7 +113,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
-	pc.rm = NewResourceManager(300)
+	//TODO: pass the time in seconds instead of converting it internally
+	pc.rm = NewResourceManager(30)
 
 	return &pc, nil
 }

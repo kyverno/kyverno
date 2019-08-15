@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"time"
 
 	"github.com/golang/glog"
 	clientNew "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
@@ -53,8 +54,8 @@ func main() {
 	// watches CRD resources:
 	//		- Policy
 	//		- PolicyVolation
-	// - cache resync time: 30 seconds
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 30)
+	// - cache resync time: 10 seconds
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10*time.Second)
 	// EVENT GENERATOR
 	// - generate event with retry
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
@@ -78,12 +79,12 @@ func main() {
 
 	// NAMESPACE INFORMER
 	// watches namespace resource
-	// - cache resync time: 30 seconds
+	// - cache resync time: 10 seconds
 	kubeClient, err := utils.NewKubeClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 30)
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule

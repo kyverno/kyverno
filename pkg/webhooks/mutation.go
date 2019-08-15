@@ -57,7 +57,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) *v1be
 		// 	continue
 		// }
 		//TODO: check if the GVK information is present in the request of we set it explicity here ?
-		glog.V(4).Infof("GVK is %v", resource.GroupVersionKind())
 		// resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
 		//TODO: passing policy value as we dont wont to modify the policy
 
