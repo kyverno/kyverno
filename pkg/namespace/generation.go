@@ -11,7 +11,7 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -116,7 +116,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []i
 	return policyInfos
 }
 
-func listpolicies(ns unstructured.Unstructured, pLister lister.PolicyLister) []*kyverno.Policy {
+func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyLister) []*kyverno.Policy {
 	var filteredpolicies []*kyverno.Policy
 	glog.V(4).Infof("listing policies for namespace %s", ns.GetName())
 	policies, err := pLister.List(labels.NewSelector())

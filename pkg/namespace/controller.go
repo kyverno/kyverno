@@ -10,9 +10,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	v1Informer "k8s.io/client-go/informers/core/v1"
@@ -39,11 +39,11 @@ type NamespaceController struct {
 	// nsListerSynced returns true if the Namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
-	pLister lister.PolicyLister
+	pLister kyvernolister.PolicyLister
 	// pvListerSynced retrns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
-	pvLister lister.PolicyViolationLister
+	pvLister kyvernolister.PolicyViolationLister
 
 	// eventGen provides interface to generate evenets
 	eventGen event.Interface
@@ -57,8 +57,8 @@ type NamespaceController struct {
 func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	nsInformer v1Informer.NamespaceInformer,
-	pInformer informer.PolicyInformer,
-	pvInformer informer.PolicyViolationInformer,
+	pInformer kyvernoinformer.PolicyInformer,
+	pvInformer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface) *NamespaceController {
 	//TODO: do we need to event recorder for this controller?
 	// create the controller
