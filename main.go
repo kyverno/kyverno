@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	clientNew "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
@@ -39,7 +39,7 @@ func main() {
 	// access CRD resources
 	//		- Policy
 	//		- PolicyViolation
-	pclient, err := clientNew.NewForConfig(clientConfig)
+	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
