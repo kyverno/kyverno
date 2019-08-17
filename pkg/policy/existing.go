@@ -64,16 +64,15 @@ func listResources(client *client.Client, policy kyverno.Policy, filterK8Resourc
 				glog.V(4).Infof("skipping processing policy %s rule %s for kind Namespace", policy.Name, rule.Name)
 				continue
 			}
-			//TODO: if namespace is not define can we default to *
-			if rule.MatchResources.Namespace != "" {
-				namespaces = append(namespaces, rule.MatchResources.Namespace)
+			if len(rule.MatchResources.Namespaces) > 0 {
+				namespaces = append(namespaces, rule.MatchResources.Namespaces...)
 			} else {
 				glog.V(4).Infof("processing policy %s rule %s, namespace not defined, getting all namespaces ", policy.Name, rule.Name)
 				// get all namespaces
 				namespaces = getAllNamespaces(client)
 			}
 			// check if exclude namespace is not clashing
-			namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespace)
+			namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespaces)
 
 			// get resources in the namespaces
 			for _, ns := range namespaces {
@@ -158,13 +157,13 @@ func kindIsExcluded(kind string, list []string) bool {
 	return false
 }
 
-func excludeNamespaces(namespaces []string, excludeNs string) []string {
-	if excludeNs == "" {
+func excludeNamespaces(namespaces, excludeNs []string) []string {
+	if len(excludeNs) == 0 {
 		return namespaces
 	}
 	filteredNamespaces := []string{}
 	for _, n := range namespaces {
-		if n == excludeNs {
+		if utils.Contains(excludeNs, n) {
 			continue
 		}
 		filteredNamespaces = append(filteredNamespaces, n)

@@ -45,10 +45,10 @@ type ExcludeResources struct {
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.
 type ResourceDescription struct {
-	Kinds     []string              `json:"kinds"`
-	Name      string                `json:"name"`
-	Namespace string                `json:"namespace,omitempty"`
-	Selector  *metav1.LabelSelector `json:"selector"`
+	Kinds      []string              `json:"kinds"`
+	Name       string                `json:"name"`
+	Namespaces []string              `json:"namespace,omitempty"`
+	Selector   *metav1.LabelSelector `json:"selector"`
 }
 
 // Mutation describes the way how Mutating Webhook will react on resource creation
