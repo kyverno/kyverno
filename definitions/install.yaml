@@ -54,8 +54,10 @@ spec:
                               type: string
                           name:
                             type: string
-                          namespace:
-                            type: string
+                          namespaces:
+                            type: array
+                            items:
+                              type: string
                           selector:
                             properties:
                               matchLabels:
