@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -54,7 +54,7 @@ func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation
 
 //generatePolicyViolations generate policyViolation resources for the rules that failed
 //TODO: check if pvListerSynced is needed
-func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister lister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
+func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
 	var pvs []kyverno.PolicyViolation
 	for _, policyInfo := range policyInfos {
 		if !policyInfo.IsSuccessful() {
@@ -100,7 +100,7 @@ func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister list
 }
 
 //TODO: change the name
-func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister lister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
+func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
 	// TODO: check for existing ov using label selectors on resource and policy
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
 	ls := &metav1.LabelSelector{}

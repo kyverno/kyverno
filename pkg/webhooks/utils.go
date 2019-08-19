@@ -26,16 +26,6 @@ func isAdmSuccesful(policyInfos []info.PolicyInfo) (bool, string) {
 	return admSuccess, strings.Join(errMsgs, ";")
 }
 
-//StringInSlice checks if string is present in slice of strings
-func StringInSlice(kind string, list []string) bool {
-	for _, b := range list {
-		if b == kind {
-			return true
-		}
-	}
-	return false
-}
-
 //ArrayFlags to store filterkinds
 type ArrayFlags []string
 

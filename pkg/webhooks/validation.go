@@ -5,6 +5,7 @@ import (
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,7 +40,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 
 	for _, policy := range policies {
 
-		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
+		if !utils.Contains(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
 			continue
 		}
 

@@ -6,6 +6,8 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type K8Resource struct {
@@ -74,4 +76,13 @@ func ParseKinds(list string) []K8Resource {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+//NewKubeClient returns a new kubernetes client
+func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
+	kclient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kclient, nil
 }

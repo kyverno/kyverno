@@ -13,7 +13,7 @@ func patchOverlay(rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
 	if err := json.Unmarshal(rawResource, &resource); err != nil {
 		return nil, err
 	}
-
+	//TODO: evaluate, Unmarshall called thrice
 	resourceInfo := ParseResourceInfoFromObject(rawResource)
 	patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {

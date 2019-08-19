@@ -280,6 +280,11 @@ func (in *ResourceDescription) DeepCopyInto(out *ResourceDescription) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Namespaces != nil {
+		in, out := &in.Namespaces, &out.Namespaces
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Selector != nil {
 		in, out := &in.Selector, &out.Selector
 		*out = new(v1.LabelSelector)

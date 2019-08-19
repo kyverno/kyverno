@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,7 +42,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 	for _, policy := range policies {
 
 		// check if policy has a rule for the admission request kind
-		if !StringInSlice(request.Kind.Kind, getApplicableKindsForPolicy(policy)) {
+		if !utils.Contains(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
 			continue
 		}
 

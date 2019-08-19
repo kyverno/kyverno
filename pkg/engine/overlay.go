@@ -29,7 +29,10 @@ func processOverlay(rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
 		// glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
 		glog.Infof("Resource does not meet conditions in overlay pattern, resource=%s, rule=%s\n", resourceInfo, rule.Name)
-		return nil, nil
+		// patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
+		// if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
+		// 	glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+		// 	return nil, nil
 	}
 
 	return patches, err
