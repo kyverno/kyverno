@@ -104,7 +104,7 @@ type RuleInfo struct {
 	Name     string
 	RuleType RuleType
 	Msgs     []string
-	Changes  string // this will store the mutation patch being applied by the rule
+	Patches  [][]byte // this will store the mutation patch being applied by the rule
 	success  bool
 }
 

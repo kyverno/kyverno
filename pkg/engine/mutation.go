@@ -56,11 +56,8 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 
 				ruleInfo.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
 
-				// merge the json patches
-				patch := JoinPatches(rulePatches)
-
 				// strip slashes from string
-				ruleInfo.Changes = string(patch)
+				ruleInfo.Patches = rulePatches
 				allPatches = append(allPatches, rulePatches...)
 
 				glog.V(4).Infof("overlay applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
@@ -83,6 +80,8 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 			} else {
 				glog.V(4).Infof("patches applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 				ruleInfo.Addf("Patches succesfully applied.")
+
+				ruleInfo.Patches = rulePatches
 				allPatches = append(allPatches, rulePatches...)
 			}
 		}
@@ -96,6 +95,11 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 	}
 
 	patchedResource, err := ConvertToUnstructured(patchedDocument)
+	if err != nil {
+		glog.Errorf("Failed to convert patched resource to unstructuredtype, err%v\n:", err)
+		return EngineResponse{PatchedResource: resource}
+	}
+
 	return EngineResponse{
 		Patches:         allPatches,
 		PatchedResource: *patchedResource,

@@ -52,7 +52,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 
 		engineResponse := engine.Validate(*policy, resource)
 		if len(engineResponse.RuleInfos) == 0 {
-			glog.Errorln("Failed to process validate rule, error parsing rawResource")
 			continue
 		}
 

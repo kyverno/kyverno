@@ -62,18 +62,20 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 			}
 			continue
 		}
-		// build annotations per policy being applied to show the mutation changes
-		patches = append(patches, engineResponse.Patches...)
-		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 
+		patches = append(patches, engineResponse.Patches...)
+		policyInfos = append(policyInfos, policyInfo)
+		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 	}
 
 	// ADD ANNOTATIONS
-	// TODO: merge the annotation patch with the patch response
 	// ADD EVENTS
 	if len(patches) > 0 {
 		eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
 		ws.eventGen.Add(eventsInfo...)
+
+		annotation := prepareAnnotationPatches(resource, policyInfos)
+		patches = append(patches, annotation)
 	}
 
 	ok, msg := isAdmSuccesful(policyInfos)

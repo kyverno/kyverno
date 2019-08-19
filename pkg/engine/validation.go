@@ -20,7 +20,7 @@ import (
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		glog.V(4).Infof("unable to marshal resource : %v\n", err)
+		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
 		return EngineResponse{PatchedResource: resource}
 	}
 
