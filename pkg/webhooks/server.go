@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -29,8 +29,8 @@ type WebhookServer struct {
 	server            http.Server
 	client            *client.Client
 	kyvernoClient     *kyvernoclient.Clientset
-	pLister           lister.PolicyLister
-	pvLister          lister.PolicyViolationLister
+	pLister           kyvernolister.PolicyLister
+	pvLister          kyvernolister.PolicyViolationLister
 	pListerSynced     cache.InformerSynced
 	pvListerSynced    cache.InformerSynced
 	eventGen          event.Interface
@@ -43,8 +43,8 @@ func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	pInformer informer.PolicyInformer,
-	pvInormer informer.PolicyViolationInformer,
+	pInformer kyvernoinformer.PolicyInformer,
+	pvInormer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface,
 	filterK8Resources string) (*WebhookServer, error) {
 

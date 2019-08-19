@@ -7,10 +7,10 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	"github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned/scheme"
-	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,9 +47,9 @@ type PolicyViolationController struct {
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
 	// pvLister can list/get policy violation from the shared informer's store
-	pvLister lister.PolicyViolationLister
+	pvLister kyvernolister.PolicyViolationLister
 	// pLister can list/get policy from the shared informer's store
-	pLister lister.PolicyLister
+	pLister kyvernolister.PolicyLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 	// pvListerSynced retrns true if the Policy store has been synced at least once
@@ -59,7 +59,7 @@ type PolicyViolationController struct {
 }
 
 //NewPolicyViolationController creates a new NewPolicyViolationController
-func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer informer.PolicyInformer, pvInformer informer.PolicyViolationInformer) (*PolicyViolationController, error) {
+func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer) (*PolicyViolationController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
