@@ -47,7 +47,7 @@ type ExcludeResources struct {
 type ResourceDescription struct {
 	Kinds      []string              `json:"kinds"`
 	Name       string                `json:"name"`
-	Namespaces []string              `json:"namespace,omitempty"`
+	Namespaces []string              `json:"namespaces,omitempty"`
 	Selector   *metav1.LabelSelector `json:"selector"`
 }
 

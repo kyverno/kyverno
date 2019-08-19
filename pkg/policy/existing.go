@@ -66,6 +66,7 @@ func listResources(client *client.Client, policy kyverno.Policy, filterK8Resourc
 			}
 			if len(rule.MatchResources.Namespaces) > 0 {
 				namespaces = append(namespaces, rule.MatchResources.Namespaces...)
+				glog.V(4).Infof("namespaces specified for inclusion: %v", rule.MatchResources.Namespaces)
 			} else {
 				glog.V(4).Infof("processing policy %s rule %s, namespace not defined, getting all namespaces ", policy.Name, rule.Name)
 				// get all namespaces

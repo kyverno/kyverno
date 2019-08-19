@@ -212,6 +212,7 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	pv := policyViolation.DeepCopy()
 	// TODO: Update Status to update ObserverdGeneration
 	// TODO: check if the policy violation refers to a resource thats active ? // done by policy controller
+	// TODO: remove the PV, if the corresponding policy is not present
 	// TODO: additional check on deleted webhook for a resource, to delete a policy violation it has a policy violation
 	// list the resource with label selectors, but this can be expensive for each delete request of a resource
 	if err := pvc.syncActiveResource(pv); err != nil {
@@ -242,6 +243,8 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.PolicyVi
 		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
 		return err
 	}
+	//TODO- if the policy is not present, remove the policy violation
+
 	return nil
 }
 
