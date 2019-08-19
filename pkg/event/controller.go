@@ -5,10 +5,9 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned/scheme"
-	policyscheme "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned/scheme"
-	informer "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno/v1alpha1"
-	lister "github.com/nirmata/kyverno/pkg/clientNew/listers/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +21,7 @@ import (
 //Generator generate events
 type Generator struct {
 	client   *client.Client
-	pLister  lister.PolicyLister
+	pLister  kyvernolister.PolicyLister
 	queue    workqueue.RateLimitingInterface
 	recorder record.EventRecorder
 }
@@ -34,7 +33,7 @@ type Interface interface {
 
 //NewEventGenerator to generate a new event controller
 func NewEventGenerator(client *client.Client,
-	pInformer informer.PolicyInformer) *Generator {
+	pInformer kyvernoinformer.PolicyInformer) *Generator {
 
 	gen := Generator{
 		client:   client,
@@ -48,7 +47,7 @@ func NewEventGenerator(client *client.Client,
 
 func initRecorder(client *client.Client) record.EventRecorder {
 	// Initliaze Event Broadcaster
-	err := policyscheme.AddToScheme(scheme.Scheme)
+	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
 		glog.Error(err)
 		return nil

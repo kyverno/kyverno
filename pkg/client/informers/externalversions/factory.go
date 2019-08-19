@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/nirmata/kyverno/pkg/clientNew/clientset/versioned"
-	internalinterfaces "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/internalinterfaces"
-	kyverno "github.com/nirmata/kyverno/pkg/clientNew/informers/externalversions/kyverno"
+	versioned "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/nirmata/kyverno/pkg/client/informers/externalversions/internalinterfaces"
+	kyverno "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
