@@ -23,5 +23,5 @@ NIRMATA_PKG=${NIRMATA_ROOT#"${GOPATH}/src/"}
 ${CODEGEN_PKG}/generate-groups.sh \
     "deepcopy,client,informer,lister" \
     ${NIRMATA_PKG}/pkg/client \
-    ${NIRMATA_PKG}/pkg/apis \
-    policy:v1alpha1
+    ${NIRMATA_PKG}/pkg/api \
+    kyverno:v1alpha1
