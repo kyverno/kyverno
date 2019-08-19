@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -15,6 +16,20 @@ import (
 
 //Generate apply generation rules on a resource
 func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
+	var executionTime time.Duration
+	var rulesAppliedCount int
+	startTime := time.Now()
+	glog.V(4).Infof("started applying generation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		executionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying generation rules policy %q (%v)", policy.Name, executionTime)
+		glog.V(4).Infof("Generation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+	}()
+	succesfulRuleCount := func() {
+		// rules applied succesfully count
+		rulesAppliedCount++
+	}
+
 	ris := []info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == (kyverno.Generation{}) {
@@ -30,6 +45,7 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 		} else {
 			ri.Addf("Generation succesfully.", rule.Name)
 			glog.Infof("succesfully applied  policy %s rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
+			succesfulRuleCount()
 		}
 		ris = append(ris, ri)
 	}

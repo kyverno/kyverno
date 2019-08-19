@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -18,6 +19,20 @@ import (
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
+	var executionTime time.Duration
+	var rulesAppliedCount int
+	startTime := time.Now()
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		executionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying validation rules policy %q (%v)", policy.Name, executionTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+	}()
+	succesfulRuleCount := func() {
+		// rules applied succesfully count
+		rulesAppliedCount++
+	}
+
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
 	//TODO: pass unstructured instead of rawResource ?
 
@@ -57,6 +72,7 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info
 		} else {
 			ruleInfo.Add("Pattern succesfully validated")
 			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+			succesfulRuleCount()
 		}
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}

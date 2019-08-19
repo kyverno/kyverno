@@ -2,6 +2,7 @@ package engine
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -12,6 +13,20 @@ import (
 // Mutate performs mutation. Overlay first and then mutation patches
 //TODO: check if gvk needs to be passed or can be set in resource
 func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte, []info.RuleInfo) {
+	var executionTime time.Duration
+	var rulesAppliedCount int
+	startTime := time.Now()
+	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		executionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying mutation rules policy %q (%v)", policy.Name, executionTime)
+		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+	}()
+	succesfulRuleCount := func() {
+		// rules applied succesfully count
+		rulesAppliedCount++
+	}
+
 	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
 	var patches [][]byte
 	var ruleInfos []info.RuleInfo
@@ -46,12 +61,12 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 
 				glog.V(4).Infof("overlay applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 				ruleInfo.Add("Overlay succesfully applied")
-
 				// update rule information
 				// strip slashes from string
 				patch := JoinPatches(oPatches)
 				ruleInfo.Changes = string(patch)
 				patches = append(patches, oPatches...)
+				succesfulRuleCount()
 			} else {
 				glog.V(4).Infof("failed to apply overlay: %v", err)
 				ruleInfo.Fail()
@@ -72,6 +87,7 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 				glog.V(4).Infof("patches applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 				ruleInfo.Addf("Patches succesfully applied.")
 				patches = append(patches, jsonPatches...)
+				succesfulRuleCount()
 			}
 		}
 		ruleInfos = append(ruleInfos, ruleInfo)
