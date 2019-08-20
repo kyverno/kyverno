@@ -2,11 +2,13 @@ package policy
 
 import (
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -29,14 +31,20 @@ type PolicyStatusAggregator struct {
 	ch chan PolicyStat
 	// update polict status
 	psControl PStatusControlInterface
+	// pLister can list/get policy from the shared informer's store
+	pLister kyvernolister.PolicyLister
+	// UpdateViolationCount and SendStat can update same policy status
+	// we need to sync the updates using policyName
+	policyUpdateData sync.Map
 }
 
 //NewPolicyStatAggregator returns a new policy status
-func NewPolicyStatAggregator(client *kyvernoclient.Clientset) *PolicyStatusAggregator {
+func NewPolicyStatAggregator(client *kyvernoclient.Clientset, pLister kyvernolister.PolicyLister) *PolicyStatusAggregator {
 	psa := PolicyStatusAggregator{
 		startTime: time.Now(),
 		ch:        make(chan PolicyStat),
 	}
+	psa.pLister = pLister
 	psa.psControl = PSControl{Client: client}
 	//TODO: add WaitGroup
 	return &psa
@@ -53,14 +61,46 @@ func (psa *PolicyStatusAggregator) Run(workers int, stopCh <-chan struct{}) {
 	}
 }
 func (psa *PolicyStatusAggregator) aggregate() {
+	// As mutation and validation are handled seperately
+	// ideally we need to combine the exection time from both for a policy
+	// but its tricky to detect here the type of rules policy contains
+	// so we dont combine the results, but instead compute the execution time for
+	// mutation & validation rules seperately
 	for r := range psa.ch {
 		glog.V(4).Infof("recieved policy stats %v", r)
+		if err := psa.updateStats(r); err != nil {
+			glog.Info("Failed to update stats for policy %s: %v", r.PolicyName, err)
+		}
 	}
+
+}
+
+func (psa *PolicyStatusAggregator) updateStats(stats PolicyStat) error {
+	func() {
+		glog.V(4).Infof("lock updates for policy name %s", stats.PolicyName)
+		// Lock the update for policy
+		psa.policyUpdateData.Store(stats.PolicyName, struct{}{})
+	}()
+	defer func() {
+		glog.V(4).Infof("Unlock updates for policy name %s", stats.PolicyName)
+		psa.policyUpdateData.Delete(stats.PolicyName)
+	}()
+	// get policy
+	policy, err := psa.pLister.Get(stats.PolicyName)
+	if err != nil {
+		glog.V(4).Infof("failed to get policy %s. Unable to update violation count: %v", stats.PolicyName, err)
+		return err
+	}
+	glog.V(4).Infof("updating stats for policy %s", policy.Name)
+	// update the statistics
+	// policy.Status
+
+	return nil
 }
 
 type PolicyStatusInterface interface {
 	SendStat(stat PolicyStat)
-	UpdateViolationCount(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error
+	UpdateViolationCount(policyName string, pvList []*kyverno.PolicyViolation) error
 }
 
 type PolicyStat struct {
@@ -79,14 +119,30 @@ func (psa *PolicyStatusAggregator) SendStat(stat PolicyStat) {
 }
 
 //UpdateViolationCount updates the active violation count
-func (psa *PolicyStatusAggregator) UpdateViolationCount(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
+func (psa *PolicyStatusAggregator) UpdateViolationCount(policyName string, pvList []*kyverno.PolicyViolation) error {
+	func() {
+		glog.V(4).Infof("lock updates for policy name %s", policyName)
+		// Lock the update for policy
+		psa.policyUpdateData.Store(policyName, struct{}{})
+	}()
+	defer func() {
+		glog.V(4).Infof("Unlock updates for policy name %s", policyName)
+		psa.policyUpdateData.Delete(policyName)
+	}()
+	// get policy
+	policy, err := psa.pLister.Get(policyName)
+	if err != nil {
+		glog.V(4).Infof("failed to get policy %s. Unable to update violation count: %v", policyName, err)
+		return err
+	}
+
 	newStatus := calculateStatus(pvList)
-	if reflect.DeepEqual(newStatus, p.Status) {
+	if reflect.DeepEqual(newStatus, policy.Status) {
 		// no update to status
 		return nil
 	}
 	// update status
-	newPolicy := p
+	newPolicy := policy
 	newPolicy.Status = newStatus
 
 	return psa.psControl.UpdatePolicyStatus(newPolicy)

@@ -119,7 +119,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.rm = NewResourceManager(30)
 
 	// aggregator
-	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer.Lister())
 
 	return &pc, nil
 }
@@ -411,7 +411,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policyInfos := pc.processExistingResources(*p)
 	// report errors
 	pc.report(policyInfos)
-	return pc.statusAggregator.UpdateViolationCount(p, pvList)
+	// fetch the policy again via the aggreagator to remain consistent
+	return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
 	//	return pc.syncStatusOnly(p, pvList)
 }
 
