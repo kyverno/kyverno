@@ -32,7 +32,7 @@ func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, 
 	kclient := kubernetesfake.NewSimpleClientset(objects...)
 	return &Client{
 		client:  client,
-		kclient: kclient,
+		Kclient: kclient,
 	}, nil
 
 }

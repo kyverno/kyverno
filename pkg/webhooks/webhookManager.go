@@ -41,7 +41,7 @@ func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.Policy) 
 
 	// deregister webhook if no policy found in cluster
 	if len(policies) == 1 {
-		ws.webhookRegistrationClient.deregisterMutatingWebhook()
+		ws.webhookRegistrationClient.DeregisterMutatingWebhook()
 		glog.Infoln("Mutating webhook deregistered")
 	}
 

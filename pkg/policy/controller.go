@@ -13,9 +13,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +28,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v1beta1 "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -62,8 +65,12 @@ type PolicyController struct {
 	pvLister kyvernolister.PolicyViolationLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
-	// pvListerSynced retrns true if the Policy store has been synced at least once
+	// pvListerSynced returns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
+	// mutationwebhookInformer can list/get mutatingwebhookconfigurations
+	mutationwebhookInformer v1beta1.MutatingWebhookConfigurationLister
+	// WebhookRegistrationClient
+	webhookRegistrationClient *webhooks.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 	// filter the resources defined in the list
@@ -71,7 +78,8 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer, eventGen event.Interface) (*PolicyController, error) {
+func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer,
+	eventGen event.Interface, mutationwebhookInformer v1beta1.MutatingWebhookConfigurationLister, webhookRegistrationClient *webhooks.WebhookRegistrationClient) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -82,11 +90,13 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		client:                    client,
+		kyvernoClient:             kyvernoClient,
+		eventGen:                  eventGen,
+		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		mutationwebhookInformer:   mutationwebhookInformer,
+		webhookRegistrationClient: webhookRegistrationClient,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
@@ -384,11 +394,16 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
-		return nil
+		err = pc.handleWebhookRegistration(true)
+		return err
 	}
 
 	if err != nil {
 		return err
+	}
+
+	if err := pc.handleWebhookRegistration(false); err != nil {
+		glog.Errorln(err)
 	}
 
 	// Deep-copy otherwise we are mutating our cache.
@@ -404,6 +419,33 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	// report errors
 	pc.report(policyInfos)
 	return pc.syncStatusOnly(p, pvList)
+}
+
+func (pc *PolicyController) handleWebhookRegistration(emptyPolicy bool) error {
+	selector := &metav1.LabelSelector{MatchLabels: config.KubePolicyAppLabels}
+	webhookSelector, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %v", err)
+	}
+
+	list, err := pc.mutationwebhookInformer.List(webhookSelector)
+	if err != nil {
+		return fmt.Errorf("failed to list mutatingwebhookconfigurations, err %v", err)
+	}
+
+	if emptyPolicy {
+		// deregister webhookconfigurations it it exists
+		if list != nil {
+			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+		}
+		return nil
+	}
+
+	if list == nil {
+		pc.webhookRegistrationClient.RegisterMutatingWebhook()
+	}
+
+	return nil
 }
 
 //syncStatusOnly updates the policy status subresource

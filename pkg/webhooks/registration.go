@@ -108,7 +108,7 @@ func (wrc *WebhookRegistrationClient) RegisterPolicyValidatingWebhook() error {
 // This function does not fail on error:
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) DeregisterAll() {
-	wrc.deregisterMutatingWebhook()
+	wrc.DeregisterMutatingWebhook()
 	wrc.deregisterValidatingWebhook()
 
 	if wrc.serverIP != "" {
@@ -124,11 +124,11 @@ func (wrc *WebhookRegistrationClient) DeregisterAll() {
 }
 
 func (wrc *WebhookRegistrationClient) deregister() {
-	wrc.deregisterMutatingWebhook()
+	wrc.DeregisterMutatingWebhook()
 	wrc.deregisterValidatingWebhook()
 }
 
-func (wrc *WebhookRegistrationClient) deregisterMutatingWebhook() {
+func (wrc *WebhookRegistrationClient) DeregisterMutatingWebhook() {
 	if wrc.serverIP != "" {
 		err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(config.MutatingWebhookConfigurationDebug, &v1.DeleteOptions{})
 		if err != nil && !errorsapi.IsNotFound(err) {
