@@ -119,7 +119,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.rm = NewResourceManager(30)
 
 	// aggregator
-	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
+	// pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
 
 	return &pc, nil
 }
@@ -392,6 +393,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
+		// remove the recorded stats for the policy
+		pc.statusAggregator.RemovePolicyStats(key)
 		return nil
 	}
 
@@ -412,15 +415,15 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	// report errors
 	pc.report(policyInfos)
 	// fetch the policy again via the aggreagator to remain consistent
-	return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
-	//	return pc.syncStatusOnly(p, pvList)
+	// return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
+	return pc.syncStatusOnly(p, pvList)
 }
 
 //syncStatusOnly updates the policy status subresource
 // status:
 // 		- violations : (count of the resources that violate this policy )
 func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
-	newStatus := calculateStatus(pvList)
+	newStatus := pc.calculateStatus(p.Name, pvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
 		// no update to status
 		return nil
@@ -432,6 +435,21 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	return err
 }
 
+func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
+	violationCount := len(pvList)
+	status := kyverno.PolicyStatus{
+		ViolationCount: violationCount,
+	}
+	// get stats
+	stats := pc.statusAggregator.GetPolicyStats(policyName)
+	if stats != (PolicyStatInfo{}) {
+		status.RulesAppliedCount = stats.RulesAppliedCount
+		status.ResourcesBlockedCount = stats.ResourceBlocked
+		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
+		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
+	}
+	return status
+}
 func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*kyverno.PolicyViolation, error) {
 	// List all PolicyViolation to find those we own but that no longer match our
 	// selector. They will be orphaned by ClaimPolicyViolation().

@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -97,9 +95,9 @@ type PolicyStatus struct {
 	// Count of resources for whom update/create api requests were blocked as the resoruce did not satisfy the policy rules
 	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
 	// average time required to process the policy Mutation rules on a resource
-	AvgExecutionTimeMutation time.Duration `json:"averageMutationExecutionTime"`
+	AvgExecutionTimeMutation string `json:"averageMutationExecutionTime"`
 	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeValidation time.Duration `json:"averageValidationExecutionTime"`
+	AvgExecutionTimeValidation string `json:"averageValidationExecutionTime"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

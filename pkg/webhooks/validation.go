@@ -23,14 +23,14 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 	gatherStat := func(policyName string, er engine.EngineResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
-		ps.ValidationExecutionTime = er.ExecutionTime
-		ps.RulesAppliedCount = er.RulesAppliedCount
+		ps.Stats.ValidationExecutionTime = er.ExecutionTime
+		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
 		policyStats = append(policyStats, ps)
 	}
 	// send stats for aggregation
 	sendStat := func(blocked bool) {
 		for _, stat := range policyStats {
-			stat.ResourceBlocked = blocked
+			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
 			//SEND
 			ws.policyStatus.SendStat(stat)
 		}
