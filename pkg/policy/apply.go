@@ -31,10 +31,9 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (inf
 	}
 
 	//VALIDATION
-	vruleInfos, err := engine.Validate(policy, resource)
-	policyInfo.AddRuleInfos(vruleInfos)
-	if err != nil {
-		return policyInfo, err
+	engineResponse := engine.Validate(policy, resource)
+	if len(engineResponse.RuleInfos) != 0 {
+		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	}
 
 	//TODO: GENERATION
@@ -42,7 +41,9 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (inf
 }
 
 func mutation(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
-	patches, ruleInfos := engine.Mutate(policy, resource)
+	engineResponse := engine.Mutate(policy, resource)
+	patches := engineResponse.Patches
+	ruleInfos := engineResponse.RuleInfos
 	if len(ruleInfos) == 0 {
 		//no rules processed
 		return nil, nil

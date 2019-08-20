@@ -395,10 +395,6 @@ func (l *gcsGateway) CleanupGCSMinioSysTmp(ctx context.Context) {
 		for {
 			attrs, err := it.Next()
 			if err != nil {
-				if err != iterator.Done {
-					ctx := logger.SetReqInfo(context.Background(), &logger.ReqInfo{})
-					logger.LogIf(ctx, err)
-				}
 				break
 			}
 			l.CleanupGCSMinioSysTmpBucket(ctx, attrs.Name)
@@ -461,7 +457,6 @@ func (l *gcsGateway) ListBuckets(ctx context.Context) (buckets []minio.BucketInf
 		}
 
 		if ierr != nil {
-			logger.LogIf(ctx, ierr)
 			return buckets, gcsToObjectError(ierr)
 		}
 
@@ -477,7 +472,7 @@ func (l *gcsGateway) ListBuckets(ctx context.Context) (buckets []minio.BucketInf
 // DeleteBucket delete a bucket on GCS.
 func (l *gcsGateway) DeleteBucket(ctx context.Context, bucket string) error {
 	itObject := l.client.Bucket(bucket).Objects(ctx, &storage.Query{
-		Delimiter: "/",
+		Delimiter: minio.SlashSeparator,
 		Versions:  false,
 	})
 	// We list the bucket and if we find any objects we return BucketNotEmpty error. If we
@@ -1045,7 +1040,7 @@ func (l *gcsGateway) ListMultipartUploads(ctx context.Context, bucket string, pr
 		if prefix == mpMeta.Object {
 			// Extract uploadId
 			// E.g minio.sys.tmp/multipart/v1/d063ad89-fdc4-4ea3-a99e-22dba98151f5/gcs.json
-			components := strings.SplitN(attrs.Name, "/", 5)
+			components := strings.SplitN(attrs.Name, minio.SlashSeparator, 5)
 			if len(components) != 5 {
 				compErr := errors.New("Invalid multipart upload format")
 				logger.LogIf(ctx, compErr)
@@ -1119,7 +1114,7 @@ func (l *gcsGateway) PutObjectPart(ctx context.Context, bucket string, key strin
 
 // gcsGetPartInfo returns PartInfo of a given object part
 func gcsGetPartInfo(ctx context.Context, attrs *storage.ObjectAttrs) (minio.PartInfo, error) {
-	components := strings.SplitN(attrs.Name, "/", 5)
+	components := strings.SplitN(attrs.Name, minio.SlashSeparator, 5)
 	if len(components) != 5 {
 		logger.LogIf(ctx, errors.New("Invalid multipart upload format"))
 		return minio.PartInfo{}, errors.New("Invalid multipart upload format")

@@ -63,11 +63,11 @@ func listDirFactory(ctx context.Context, disks ...StorageAPI) ListDirFunc {
 func (xl xlObjects) listObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (loi ListObjectsInfo, e error) {
 	// Default is recursive, if delimiter is set then list non recursive.
 	recursive := true
-	if delimiter == slashSeparator {
+	if delimiter == SlashSeparator {
 		recursive = false
 	}
 
-	walkResultCh, endWalkCh := xl.listPool.Release(listParams{bucket, recursive, marker, prefix})
+	walkResultCh, endWalkCh := xl.listPool.Release(listParams{bucket, recursive, marker, prefix, false})
 	if walkResultCh == nil {
 		endWalkCh = make(chan struct{})
 		listDir := listDirFactory(ctx, xl.getLoadBalancedDisks()...)
@@ -87,7 +87,7 @@ func (xl xlObjects) listObjects(ctx context.Context, bucket, prefix, marker, del
 		}
 		entry := walkResult.entry
 		var objInfo ObjectInfo
-		if hasSuffix(entry, slashSeparator) {
+		if hasSuffix(entry, SlashSeparator) {
 			// Object name needs to be full path.
 			objInfo.Bucket = bucket
 			objInfo.Name = entry
@@ -118,14 +118,14 @@ func (xl xlObjects) listObjects(ctx context.Context, bucket, prefix, marker, del
 		}
 	}
 
-	params := listParams{bucket, recursive, nextMarker, prefix}
+	params := listParams{bucket, recursive, nextMarker, prefix, false}
 	if !eof {
 		xl.listPool.Set(params, walkResultCh, endWalkCh)
 	}
 
 	result := ListObjectsInfo{}
 	for _, objInfo := range objInfos {
-		if objInfo.IsDir && delimiter == slashSeparator {
+		if objInfo.IsDir && delimiter == SlashSeparator {
 			result.Prefixes = append(result.Prefixes, objInfo.Name)
 			continue
 		}
@@ -165,7 +165,7 @@ func (xl xlObjects) ListObjects(ctx context.Context, bucket, prefix, marker, del
 	// since according to s3 spec we stop at the 'delimiter' along
 	// with the prefix. On a flat namespace with 'prefix' as '/'
 	// we don't have any entries, since all the keys are of form 'keyName/...'
-	if delimiter == slashSeparator && prefix == slashSeparator {
+	if delimiter == SlashSeparator && prefix == SlashSeparator {
 		return loi, nil
 	}
 

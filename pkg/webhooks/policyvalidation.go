@@ -13,15 +13,38 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	return ws.validateUniqueRuleName(request.Object.Raw)
+	var policy *kyverno.Policy
+	admissionResp := &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
+
+	raw := request.Object.Raw
+	if request.Operation == v1beta1.Delete {
+		raw = request.OldObject.Raw
+	}
+	if err := json.Unmarshal(raw, &policy); err != nil {
+		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
+		return &v1beta1.AdmissionResponse{Allowed: false}
+	}
+
+	if request.Operation != v1beta1.Delete {
+		admissionResp = ws.validateUniqueRuleName(policy)
+	}
+
+	if admissionResp.Allowed {
+		ws.manageWebhookConfigurations(*policy, request.Operation)
+	}
+
+	return admissionResp
 }
 
 // Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
-	var policy *kyverno.Policy
+func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+	// =======
+	// func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
+	// 	var policy *kyverno.Policy
+	// >>>>>>> policyViolation
 	var ruleNames []string
-
-	json.Unmarshal(rawPolicy, &policy)
 
 	for _, rule := range policy.Spec.Rules {
 		if utils.Contains(ruleNames, rule.Name) {

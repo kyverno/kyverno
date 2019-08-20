@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"sort"
@@ -34,6 +35,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/cpu"
 	"github.com/minio/minio/pkg/disk"
@@ -43,6 +45,7 @@ import (
 	"github.com/minio/minio/pkg/mem"
 	xnet "github.com/minio/minio/pkg/net"
 	"github.com/minio/minio/pkg/quick"
+	trace "github.com/minio/minio/pkg/trace"
 )
 
 const (
@@ -240,17 +243,11 @@ func (a adminAPIHandlers) ServerInfoHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	thisAddr, err := xnet.ParseHost(GetLocalPeer(globalEndpoints))
-	if err != nil {
-		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-		return
-	}
-
 	serverInfo := globalNotificationSys.ServerInfo(ctx)
 	// Once we have received all the ServerInfo from peers
 	// add the local peer server info as well.
 	serverInfo = append(serverInfo, ServerInfo{
-		Addr: thisAddr.String(),
+		Addr: getHostName(r),
 		Data: &ServerInfoData{
 			StorageInfo: objectAPI.StorageInfo(ctx),
 			ConnStats:   globalConnStats.toServerConnStats(),
@@ -328,7 +325,7 @@ func (a adminAPIHandlers) PerfInfoHandler(w http.ResponseWriter, r *http.Request
 			return
 		}
 		// Get drive performance details from local server's drive(s)
-		dp := localEndpointsDrivePerf(globalEndpoints)
+		dp := localEndpointsDrivePerf(globalEndpoints, r)
 
 		// Notify all other MinIO peers to report drive performance numbers
 		dps := globalNotificationSys.DrivePerfInfo()
@@ -346,7 +343,7 @@ func (a adminAPIHandlers) PerfInfoHandler(w http.ResponseWriter, r *http.Request
 		writeSuccessResponseJSON(w, jsonBytes)
 	case "cpu":
 		// Get CPU load details from local server's cpu(s)
-		cpu := localEndpointsCPULoad(globalEndpoints)
+		cpu := localEndpointsCPULoad(globalEndpoints, r)
 		// Notify all other MinIO peers to report cpu load numbers
 		cpus := globalNotificationSys.CPULoadInfo()
 		cpus = append(cpus, cpu)
@@ -363,7 +360,7 @@ func (a adminAPIHandlers) PerfInfoHandler(w http.ResponseWriter, r *http.Request
 		writeSuccessResponseJSON(w, jsonBytes)
 	case "mem":
 		// Get mem usage details from local server(s)
-		m := localEndpointsMemUsage(globalEndpoints)
+		m := localEndpointsMemUsage(globalEndpoints, r)
 		// Notify all other MinIO peers to report mem usage numbers
 		mems := globalNotificationSys.MemUsageInfo()
 		mems = append(mems, m)
@@ -442,18 +439,12 @@ func (a adminAPIHandlers) TopLocksHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	thisAddr, err := xnet.ParseHost(GetLocalPeer(globalEndpoints))
-	if err != nil {
-		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-		return
-	}
-
 	peerLocks := globalNotificationSys.GetLocks(ctx)
 	// Once we have received all the locks currently used from peers
 	// add the local peer locks list as well.
 	localLocks := globalLockServer.ll.DupLockMap()
 	peerLocks = append(peerLocks, &PeerLocks{
-		Addr:  thisAddr.String(),
+		Addr:  getHostName(r),
 		Locks: localLocks,
 	})
 
@@ -681,12 +672,12 @@ func (a adminAPIHandlers) HealHandler(w http.ResponseWriter, r *http.Request) {
 					// Start writing response to client
 					started = true
 					setCommonHeaders(w)
-					w.Header().Set("Content-Type", string(mimeJSON))
+					w.Header().Set(xhttp.ContentType, "text/event-stream")
 					// Set 200 OK status
 					w.WriteHeader(200)
 				}
 				// Send whitespace and keep connection open
-				w.Write([]byte("\n\r"))
+				w.Write([]byte(" "))
 				w.(http.Flusher).Flush()
 			case hr := <-respCh:
 				switch hr.apiErr {
@@ -701,20 +692,20 @@ func (a adminAPIHandlers) HealHandler(w http.ResponseWriter, r *http.Request) {
 					var errorRespJSON []byte
 					if hr.errBody == "" {
 						errorRespJSON = encodeResponseJSON(getAPIErrorResponse(ctx, hr.apiErr,
-							r.URL.Path, w.Header().Get(responseRequestIDKey),
-							w.Header().Get(responseDeploymentIDKey)))
+							r.URL.Path, w.Header().Get(xhttp.AmzRequestID),
+							globalDeploymentID))
 					} else {
 						errorRespJSON = encodeResponseJSON(APIErrorResponse{
 							Code:      hr.apiErr.Code,
 							Message:   hr.errBody,
 							Resource:  r.URL.Path,
-							RequestID: w.Header().Get(responseRequestIDKey),
-							HostID:    w.Header().Get(responseDeploymentIDKey),
+							RequestID: w.Header().Get(xhttp.AmzRequestID),
+							HostID:    globalDeploymentID,
 						})
 					}
 					if !started {
 						setCommonHeaders(w)
-						w.Header().Set("Content-Type", string(mimeJSON))
+						w.Header().Set(xhttp.ContentType, string(mimeJSON))
 						w.WriteHeader(hr.apiErr.HTTPStatusCode)
 					}
 					w.Write(errorRespJSON)
@@ -783,6 +774,49 @@ func (a adminAPIHandlers) HealHandler(w http.ResponseWriter, r *http.Request) {
 	// call above can take a long time - to keep the
 	// connection alive, we start sending whitespace
 	keepConnLive(w, respCh)
+}
+
+func (a adminAPIHandlers) BackgroundHealStatusHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "HealBackgroundStatus")
+
+	objectAPI := validateAdminReq(ctx, w, r)
+	if objectAPI == nil {
+		return
+	}
+
+	// Check if this setup has an erasure coded backend.
+	if !globalIsXL {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrHealNotImplemented), r.URL)
+		return
+	}
+
+	var bgHealStates []madmin.BgHealState
+
+	// Get local heal status first
+	bgHealStates = append(bgHealStates, getLocalBackgroundHealStatus())
+
+	if globalIsDistXL {
+		// Get heal status from other peers
+		peersHealStates := globalNotificationSys.BackgroundHealStatus()
+		bgHealStates = append(bgHealStates, peersHealStates...)
+	}
+
+	// Aggregate healing result
+	var aggregatedHealStateResult = madmin.BgHealState{}
+	for _, state := range bgHealStates {
+		aggregatedHealStateResult.ScannedItemsCount += state.ScannedItemsCount
+		if aggregatedHealStateResult.LastHealActivity.Before(state.LastHealActivity) {
+			aggregatedHealStateResult.LastHealActivity = state.LastHealActivity
+		}
+
+	}
+
+	if err := json.NewEncoder(w).Encode(aggregatedHealStateResult); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	w.(http.Flusher).Flush()
 }
 
 // GetConfigHandler - GET /minio/admin/v1/config
@@ -940,8 +974,18 @@ func (a adminAPIHandlers) RemoveUser(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	accessKey := vars["accessKey"]
+
 	if err := globalIAMSys.DeleteUser(accessKey); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	// Notify all other MinIO peers to delete user.
+	for _, nerr := range globalNotificationSys.DeleteUser(accessKey) {
+		if nerr.Err != nil {
+			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
+			logger.LogIf(ctx, nerr.Err)
+		}
 	}
 }
 
@@ -976,6 +1020,130 @@ func (a adminAPIHandlers) ListUsers(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponseJSON(w, econfigData)
 }
 
+// UpdateGroupMembers - PUT /minio/admin/v1/update-group-members
+func (a adminAPIHandlers) UpdateGroupMembers(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "UpdateGroupMembers")
+
+	objectAPI := validateAdminReq(ctx, w, r)
+	if objectAPI == nil {
+		return
+	}
+
+	defer r.Body.Close()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrInvalidRequest), r.URL)
+		return
+	}
+
+	var updReq madmin.GroupAddRemove
+	err = json.Unmarshal(data, &updReq)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrInvalidRequest), r.URL)
+		return
+	}
+
+	if updReq.IsRemove {
+		err = globalIAMSys.RemoveUsersFromGroup(updReq.Group, updReq.Members)
+	} else {
+		err = globalIAMSys.AddUsersToGroup(updReq.Group, updReq.Members)
+	}
+
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	// Notify all other MinIO peers to load group.
+	for _, nerr := range globalNotificationSys.LoadGroup(updReq.Group) {
+		if nerr.Err != nil {
+			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
+			logger.LogIf(ctx, nerr.Err)
+		}
+	}
+}
+
+// GetGroup - /minio/admin/v1/group?group=mygroup1
+func (a adminAPIHandlers) GetGroup(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "GetGroup")
+
+	objectAPI := validateAdminReq(ctx, w, r)
+	if objectAPI == nil {
+		return
+	}
+
+	vars := mux.Vars(r)
+	group := vars["group"]
+
+	gdesc, err := globalIAMSys.GetGroupDescription(group)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	body, err := json.Marshal(gdesc)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	writeSuccessResponseJSON(w, body)
+}
+
+// ListGroups - GET /minio/admin/v1/groups
+func (a adminAPIHandlers) ListGroups(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "ListGroups")
+
+	objectAPI := validateAdminReq(ctx, w, r)
+	if objectAPI == nil {
+		return
+	}
+
+	groups := globalIAMSys.ListGroups()
+	body, err := json.Marshal(groups)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	writeSuccessResponseJSON(w, body)
+}
+
+// SetGroupStatus - PUT /minio/admin/v1/set-group-status?group=mygroup1&status=enabled
+func (a adminAPIHandlers) SetGroupStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "SetGroupStatus")
+
+	objectAPI := validateAdminReq(ctx, w, r)
+	if objectAPI == nil {
+		return
+	}
+
+	vars := mux.Vars(r)
+	group := vars["group"]
+	status := vars["status"]
+
+	var err error
+	if status == statusEnabled {
+		err = globalIAMSys.SetGroupStatus(group, true)
+	} else if status == statusDisabled {
+		err = globalIAMSys.SetGroupStatus(group, false)
+	} else {
+		err = errInvalidArgument
+	}
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	// Notify all other MinIO peers to reload user.
+	for _, nerr := range globalNotificationSys.LoadGroup(group) {
+		if nerr.Err != nil {
+			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
+			logger.LogIf(ctx, nerr.Err)
+		}
+	}
+}
+
 // SetUserStatus - PUT /minio/admin/v1/set-user-status?accessKey=<access_key>&status=[enabled|disabled]
 func (a adminAPIHandlers) SetUserStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "SetUserStatus")
@@ -1006,8 +1174,8 @@ func (a adminAPIHandlers) SetUserStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Notify all other MinIO peers to reload users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	// Notify all other MinIO peers to reload user.
+	for _, nerr := range globalNotificationSys.LoadUser(accessKey, false) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -1065,8 +1233,8 @@ func (a adminAPIHandlers) AddUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Notify all other MinIO peers to reload users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	// Notify all other Minio peers to reload user
+	for _, nerr := range globalNotificationSys.LoadUser(accessKey, false) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -1083,7 +1251,7 @@ func (a adminAPIHandlers) ListCannedPolicies(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	policies, err := globalIAMSys.ListCannedPolicies()
+	policies, err := globalIAMSys.ListPolicies()
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
@@ -1115,13 +1283,13 @@ func (a adminAPIHandlers) RemoveCannedPolicy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := globalIAMSys.DeleteCannedPolicy(policyName); err != nil {
+	if err := globalIAMSys.DeletePolicy(policyName); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	// Notify all other MinIO peers to reload users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	// Notify all other MinIO peers to delete policy
+	for _, nerr := range globalNotificationSys.DeletePolicy(policyName) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -1171,13 +1339,13 @@ func (a adminAPIHandlers) AddCannedPolicy(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err = globalIAMSys.SetCannedPolicy(policyName, *iamPolicy); err != nil {
+	if err = globalIAMSys.SetPolicy(policyName, *iamPolicy); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	// Notify all other MinIO peers to reload users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	// Notify all other MinIO peers to reload policy
+	for _, nerr := range globalNotificationSys.LoadPolicy(policyName) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -1210,12 +1378,12 @@ func (a adminAPIHandlers) SetUserPolicy(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := globalIAMSys.SetUserPolicy(accessKey, policyName); err != nil {
+	if err := globalIAMSys.PolicyDBSet(accessKey, policyName, false); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 	}
 
-	// Notify all other MinIO peers to reload users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	// Notify all other Minio peers to reload user
+	for _, nerr := range globalNotificationSys.LoadUser(accessKey, false) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -1414,4 +1582,80 @@ func (a adminAPIHandlers) SetConfigKeysHandler(w http.ResponseWriter, r *http.Re
 
 	// Send success response
 	writeSuccessResponseHeadersOnly(w)
+}
+
+// Returns true if the trace.Info should be traced,
+// false if certain conditions are not met.
+// - input entry is not of the type *trace.Info*
+// - errOnly entries are to be traced, not status code 2xx, 3xx.
+// - all entries to be traced, if not trace only S3 API requests.
+func mustTrace(entry interface{}, trcAll, errOnly bool) bool {
+	trcInfo, ok := entry.(trace.Info)
+	if !ok {
+		return false
+	}
+	trace := trcAll || !hasPrefix(trcInfo.ReqInfo.Path, minioReservedBucketPath+SlashSeparator)
+	if errOnly {
+		return trace && trcInfo.RespInfo.StatusCode >= http.StatusBadRequest
+	}
+	return trace
+}
+
+// TraceHandler - POST /minio/admin/v1/trace
+// ----------
+// The handler sends http trace to the connected HTTP client.
+func (a adminAPIHandlers) TraceHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "HTTPTrace")
+	trcAll := r.URL.Query().Get("all") == "true"
+	trcErr := r.URL.Query().Get("err") == "true"
+
+	// Validate request signature.
+	adminAPIErr := checkAdminRequestAuthType(ctx, r, "")
+	if adminAPIErr != ErrNone {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(adminAPIErr), r.URL)
+		return
+	}
+
+	w.Header().Set(xhttp.ContentType, "text/event-stream")
+
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	// Trace Publisher and peer-trace-client uses nonblocking send and hence does not wait for slow receivers.
+	// Use buffered channel to take care of burst sends or slow w.Write()
+	traceCh := make(chan interface{}, 4000)
+
+	peers, err := getRestClients(getRemoteHosts(globalEndpoints))
+	if err != nil {
+		return
+	}
+
+	globalHTTPTrace.Subscribe(traceCh, doneCh, func(entry interface{}) bool {
+		return mustTrace(entry, trcAll, trcErr)
+	})
+
+	for _, peer := range peers {
+		peer.Trace(traceCh, doneCh, trcAll, trcErr)
+	}
+
+	keepAliveTicker := time.NewTicker(500 * time.Millisecond)
+	defer keepAliveTicker.Stop()
+
+	enc := json.NewEncoder(w)
+	for {
+		select {
+		case entry := <-traceCh:
+			if err := enc.Encode(entry); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+		case <-keepAliveTicker.C:
+			if _, err := w.Write([]byte(" ")); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+		case <-GlobalServiceDoneCh:
+			return
+		}
+	}
 }

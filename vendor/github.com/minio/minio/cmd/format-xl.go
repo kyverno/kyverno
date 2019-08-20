@@ -491,7 +491,7 @@ func formatXLGetDeploymentID(refFormat *formatXLV3, formats []*formatXLV3) (stri
 func formatXLFixDeploymentID(ctx context.Context, endpoints EndpointList, storageDisks []StorageAPI, refFormat *formatXLV3) (err error) {
 	// Acquire lock on format.json
 	mutex := newNSLock(globalIsDistXL)
-	formatLock := mutex.NewNSLock(minioMetaBucket, formatConfigFile)
+	formatLock := mutex.NewNSLock(ctx, minioMetaBucket, formatConfigFile)
 	if err = formatLock.GetLock(globalHealingTimeout); err != nil {
 		return err
 	}
@@ -696,6 +696,22 @@ func initStorageDisks(endpoints EndpointList) ([]StorageAPI, error) {
 		storageDisks[index] = storage
 	}
 	return storageDisks, nil
+}
+
+// Runs through the faulty disks and record their errors.
+func initDisksWithErrors(endpoints EndpointList) ([]StorageAPI, []error) {
+	storageDisks := make([]StorageAPI, len(endpoints))
+	var dErrs = make([]error, len(storageDisks))
+	for index, endpoint := range endpoints {
+		storage, err := newStorageAPI(endpoint)
+		if err != nil {
+			logger.LogIf(context.Background(), err)
+			dErrs[index] = err
+			continue
+		}
+		storageDisks[index] = storage
+	}
+	return storageDisks, dErrs
 }
 
 // formatXLV3ThisEmpty - find out if '.This' field is empty

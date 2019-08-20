@@ -74,7 +74,7 @@ func checkListObjsArgs(ctx context.Context, bucket, prefix, marker, delimiter st
 		}
 	}
 	// Verify if delimiter is anything other than '/', which we do not support.
-	if delimiter != "" && delimiter != slashSeparator {
+	if delimiter != "" && delimiter != SlashSeparator {
 		logger.LogIf(ctx, UnsupportedDelimiter{
 			Delimiter: delimiter,
 		})
@@ -102,7 +102,7 @@ func checkListMultipartArgs(ctx context.Context, bucket, prefix, keyMarker, uplo
 		return err
 	}
 	if uploadIDMarker != "" {
-		if hasSuffix(keyMarker, slashSeparator) {
+		if hasSuffix(keyMarker, SlashSeparator) {
 
 			logger.LogIf(ctx, InvalidUploadIDKeyCombination{
 				UploadIDMarker: uploadIDMarker,
@@ -166,18 +166,18 @@ func checkObjectArgs(ctx context.Context, bucket, object string, obj ObjectLayer
 	if err := checkBucketExist(ctx, bucket, obj); err != nil {
 		return err
 	}
+
+	if err := checkObjectNameForLengthAndSlash(bucket, object); err != nil {
+		return err
+	}
 	// Validates object name validity after bucket exists.
 	if !IsValidObjectName(object) {
-		logger.LogIf(ctx, ObjectNameInvalid{
-			Bucket: bucket,
-			Object: object,
-		})
-
 		return ObjectNameInvalid{
 			Bucket: bucket,
 			Object: object,
 		}
 	}
+
 	return nil
 }
 
@@ -192,9 +192,11 @@ func checkPutObjectArgs(ctx context.Context, bucket, object string, obj ObjectLa
 		return err
 	}
 
+	if err := checkObjectNameForLengthAndSlash(bucket, object); err != nil {
+		return err
+	}
 	if len(object) == 0 ||
-		hasPrefix(object, slashSeparator) ||
-		(hasSuffix(object, slashSeparator) && size != 0) ||
+		(hasSuffix(object, SlashSeparator) && size != 0) ||
 		!IsValidObjectPrefix(object) {
 		return ObjectNameInvalid{
 			Bucket: bucket,

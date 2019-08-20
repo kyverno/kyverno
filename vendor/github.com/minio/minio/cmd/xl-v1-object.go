@@ -125,7 +125,7 @@ func (xl xlObjects) GetObjectNInfo(ctx context.Context, bucket, object string, r
 
 	// Acquire lock
 	if lockType != noLock {
-		lock := xl.nsMutex.NewNSLock(bucket, object)
+		lock := xl.nsMutex.NewNSLock(ctx, bucket, object)
 		switch lockType {
 		case writeLock:
 			if err = lock.GetLock(globalObjectTimeout); err != nil {
@@ -147,7 +147,7 @@ func (xl xlObjects) GetObjectNInfo(ctx context.Context, bucket, object string, r
 
 	// Handler directory request by returning a reader that
 	// returns no bytes.
-	if hasSuffix(object, slashSeparator) {
+	if hasSuffix(object, SlashSeparator) {
 		var objInfo ObjectInfo
 		if objInfo, err = xl.getObjectInfoDir(ctx, bucket, object); err != nil {
 			nsUnlocker()
@@ -188,7 +188,7 @@ func (xl xlObjects) GetObjectNInfo(ctx context.Context, bucket, object string, r
 // length indicates the total length of the object.
 func (xl xlObjects) GetObject(ctx context.Context, bucket, object string, startOffset int64, length int64, writer io.Writer, etag string, opts ObjectOptions) error {
 	// Lock the object before reading.
-	objectLock := xl.nsMutex.NewNSLock(bucket, object)
+	objectLock := xl.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (xl xlObjects) getObject(ctx context.Context, bucket, object string, startO
 	}
 
 	// If its a directory request, we return an empty body.
-	if hasSuffix(object, slashSeparator) {
+	if hasSuffix(object, SlashSeparator) {
 		_, err := writer.Write([]byte(""))
 		logger.LogIf(ctx, err)
 		return toObjectErr(err, bucket, object)
@@ -369,7 +369,7 @@ func (xl xlObjects) getObjectInfoDir(ctx context.Context, bucket, object string)
 // GetObjectInfo - reads object metadata and replies back ObjectInfo.
 func (xl xlObjects) GetObjectInfo(ctx context.Context, bucket, object string, opts ObjectOptions) (oi ObjectInfo, e error) {
 	// Lock the object before reading.
-	objectLock := xl.nsMutex.NewNSLock(bucket, object)
+	objectLock := xl.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		return oi, err
 	}
@@ -379,7 +379,7 @@ func (xl xlObjects) GetObjectInfo(ctx context.Context, bucket, object string, op
 		return oi, err
 	}
 
-	if hasSuffix(object, slashSeparator) {
+	if hasSuffix(object, SlashSeparator) {
 		info, err := xl.getObjectInfoDir(ctx, bucket, object)
 		if err != nil {
 			return oi, toObjectErr(err, bucket, object)
@@ -504,7 +504,7 @@ func (xl xlObjects) PutObject(ctx context.Context, bucket string, object string,
 	}
 
 	// Lock the object.
-	objectLock := xl.nsMutex.NewNSLock(bucket, object)
+	objectLock := xl.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetLock(globalObjectTimeout); err != nil {
 		return objInfo, err
 	}
@@ -857,7 +857,7 @@ func (xl xlObjects) deleteObjects(ctx context.Context, bucket string, objects []
 			continue
 		}
 		// Acquire a write lock before deleting the object.
-		objectLocks[i] = xl.nsMutex.NewNSLock(bucket, object)
+		objectLocks[i] = xl.nsMutex.NewNSLock(ctx, bucket, object)
 		if errs[i] = objectLocks[i].GetLock(globalOperationTimeout); errs[i] != nil {
 			continue
 		}
@@ -865,7 +865,7 @@ func (xl xlObjects) deleteObjects(ctx context.Context, bucket string, objects []
 	}
 
 	for i, object := range objects {
-		isObjectDirs[i] = hasSuffix(object, slashSeparator)
+		isObjectDirs[i] = hasSuffix(object, SlashSeparator)
 	}
 
 	for i, object := range objects {
@@ -961,7 +961,7 @@ func (xl xlObjects) DeleteObjects(ctx context.Context, bucket string, objects []
 // response to the client request.
 func (xl xlObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	// Acquire a write lock before deleting the object.
-	objectLock := xl.nsMutex.NewNSLock(bucket, object)
+	objectLock := xl.nsMutex.NewNSLock(ctx, bucket, object)
 	if perr := objectLock.GetLock(globalOperationTimeout); perr != nil {
 		return perr
 	}
@@ -972,7 +972,7 @@ func (xl xlObjects) DeleteObject(ctx context.Context, bucket, object string) (er
 	}
 
 	var writeQuorum int
-	var isObjectDir = hasSuffix(object, slashSeparator)
+	var isObjectDir = hasSuffix(object, SlashSeparator)
 
 	if isObjectDir {
 		_, err = xl.getObjectInfoDir(ctx, bucket, object)

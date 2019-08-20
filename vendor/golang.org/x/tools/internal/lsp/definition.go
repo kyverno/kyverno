@@ -27,11 +27,11 @@ func (s *Server) definition(ctx context.Context, params *protocol.TextDocumentPo
 	if err != nil {
 		return nil, err
 	}
-	ident, err := source.Identifier(ctx, view, f, rng.Start)
+	ident, err := source.Identifier(ctx, f, rng.Start)
 	if err != nil {
 		return nil, err
 	}
-	decSpan, err := ident.Declaration.Range.Span()
+	decSpan, err := ident.DeclarationRange().Span()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *Server) typeDefinition(ctx context.Context, params *protocol.TextDocume
 	if err != nil {
 		return nil, err
 	}
-	ident, err := source.Identifier(ctx, view, f, rng.Start)
+	ident, err := source.Identifier(ctx, f, rng.Start)
 	if err != nil {
 		return nil, err
 	}

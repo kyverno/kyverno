@@ -24,60 +24,12 @@ import (
 	stdLog "log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
-
-// Test that no duplicated logs are written to logfile.
-func TestDedupLogsInSingleLogFileMode(t *testing.T) {
-	setFlags()
-
-	tmpLogFile := "tmp-klog"
-	errMsg := "Test. This is an error"
-	tmpFile, err := ioutil.TempFile("", tmpLogFile)
-	defer deleteFile(tmpFile.Name())
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	logging.logFile = tmpFile.Name()
-	logging.toStderr = false
-	logging.alsoToStderr = false
-	logging.skipLogHeaders = true
-	Error(errMsg)
-	logging.flushAll()
-
-	f, err := os.Open(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("error %v", err)
-	}
-	content := make([]byte, 1000)
-	f.Read(content)
-	tmpFile.Close()
-
-	// the log message is of format (w/ header): Lmmdd hh:mm:ss.uuuuuu threadid file:line] %v
-	expectedRegx := fmt.Sprintf(
-		`E[0-9]{4}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}\s+[0-9]+\s+klog_test.go:[0-9]+]\s+%v`, errMsg)
-	re := regexp.MustCompile(expectedRegx)
-	actual := string(content)
-	// Verify the logFile doesn't have duplicated log items. If log-file not specified, Error log will also show
-	// up in Warning and Info log.
-	if !re.MatchString(actual) {
-		t.Fatalf("Was expecting Error and Fatal logs both show up and show up only once, result equals\n  %v",
-			actual)
-	}
-}
-
-func deleteFile(path string) {
-	var err = os.Remove(path)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-}
 
 // TODO: This test package should be refactored so that tests cannot
 // interfere with each-other.
@@ -137,18 +89,7 @@ func contains(s severity, str string, t *testing.T) bool {
 // setFlags configures the logging flags how the test expects them.
 func setFlags() {
 	logging.toStderr = false
-	logging.logFile = ""
-	logging.alsoToStderr = false
-	logging.skipLogHeaders = false
-
-	for s := fatalLog; s >= infoLog; s-- {
-		if logging.file[s] != nil {
-			os.Remove(logging.file[s].(*syncBuffer).file.Name())
-			logging.file[s] = nil
-		}
-	}
-	logging.singleModeFile = nil
-
+	logging.addDirHeader = false
 }
 
 // Test that Info works as advertised.
@@ -259,6 +200,30 @@ func TestHeader(t *testing.T) {
 	}
 }
 
+func TestHeaderWithDir(t *testing.T) {
+	setFlags()
+	logging.addDirHeader = true
+	defer logging.swap(logging.newBuffers())
+	defer func(previous func() time.Time) { timeNow = previous }(timeNow)
+	timeNow = func() time.Time {
+		return time.Date(2006, 1, 2, 15, 4, 5, .067890e9, time.Local)
+	}
+	pid = 1234
+	Info("test")
+	var line int
+	format := "I0102 15:04:05.067890    1234 klog/klog_test.go:%d] test\n"
+	n, err := fmt.Sscanf(contents(infoLog), format, &line)
+	if n != 1 || err != nil {
+		t.Errorf("log format error: %d elements, error %s:\n%s", n, err, contents(infoLog))
+	}
+	// Scanf treats multiple spaces as equivalent to a single space,
+	// so check for correct space-padding also.
+	want := fmt.Sprintf(format, line)
+	if contents(infoLog) != want {
+		t.Errorf("log format error: got:\n\t%q\nwant:\t%q", contents(infoLog), want)
+	}
+}
+
 // Test that an Error log goes to Warning and Info.
 // Even in the Info log, the source character will be E, so the data should
 // all be identical.
@@ -353,6 +318,36 @@ func TestVmoduleOff(t *testing.T) {
 	V(2).Info("test")
 	if contents(infoLog) != "" {
 		t.Error("V logged incorrectly")
+	}
+}
+
+func TestSetOutputDataRace(t *testing.T) {
+	setFlags()
+	defer logging.swap(logging.newBuffers())
+	for i := 1; i <= 50; i++ {
+		go func() {
+			logging.flushDaemon()
+		}()
+	}
+	for i := 1; i <= 50; i++ {
+		go func() {
+			SetOutput(ioutil.Discard)
+		}()
+	}
+	for i := 1; i <= 50; i++ {
+		go func() {
+			logging.flushDaemon()
+		}()
+	}
+	for i := 1; i <= 50; i++ {
+		go func() {
+			SetOutputBySeverity("INFO", ioutil.Discard)
+		}()
+	}
+	for i := 1; i <= 50; i++ {
+		go func() {
+			logging.flushDaemon()
+		}()
 	}
 }
 
@@ -462,7 +457,7 @@ func TestOpenAppendOnStart(t *testing.T) {
 
 	// Logging creates the file
 	Info(x)
-	_, ok := logging.singleModeFile.(*syncBuffer)
+	_, ok := logging.file[infoLog].(*syncBuffer)
 	if !ok {
 		t.Fatal("info wasn't created")
 	}
@@ -472,7 +467,6 @@ func TestOpenAppendOnStart(t *testing.T) {
 	// ensure we wrote what we expected
 	logging.flushAll()
 	b, err := ioutil.ReadFile(logging.logFile)
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -535,7 +529,7 @@ func TestLogBacktraceAt(t *testing.T) {
 		// Need 2 appearances, one in the log header and one in the trace:
 		//   log_test.go:281: I0511 16:36:06.952398 02238 log_test.go:280] we want a stack trace here
 		//   ...
-		//   github.com/glog/glog_test.go:280 (0x41ba91)
+		//   k8s.io/klog/klog_test.go:280 (0x41ba91)
 		//   ...
 		// We could be more precise but that would require knowing the details
 		// of the traceback format, which may not be dependable.
@@ -548,6 +542,39 @@ func BenchmarkHeader(b *testing.B) {
 		buf, _, _ := logging.header(infoLog, 0)
 		logging.putBuffer(buf)
 	}
+}
+
+func BenchmarkHeaderWithDir(b *testing.B) {
+	logging.addDirHeader = true
+	for i := 0; i < b.N; i++ {
+		buf, _, _ := logging.header(infoLog, 0)
+		logging.putBuffer(buf)
+	}
+}
+
+func BenchmarkLogs(b *testing.B) {
+	setFlags()
+	defer logging.swap(logging.newBuffers())
+
+	testFile, err := ioutil.TempFile("", "test.log")
+	if err != nil {
+		b.Error("unable to create temporary file")
+	}
+	defer os.Remove(testFile.Name())
+
+	logging.verbosity.Set("0")
+	logging.toStderr = false
+	logging.alsoToStderr = false
+	logging.stderrThreshold = fatalLog
+	logging.logFile = testFile.Name()
+	logging.swap([numSeverity]flushSyncWriter{nil, nil, nil, nil})
+
+	for i := 0; i < b.N; i++ {
+		Error("error")
+		Warning("warning")
+		Info("info")
+	}
+	logging.flushAll()
 }
 
 // Test the logic on checking log size limitation.

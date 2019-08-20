@@ -5,11 +5,14 @@ import (
 	"errors"
 	"time"
 
+	"fmt"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -37,7 +40,7 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 		}
 		glog.V(4).Infof("applying policy %s generate rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 		ri := info.NewRuleInfo(rule.Name, info.Generation)
-		err := applyRuleGenerator(client, ns, rule.Generation)
+		err := applyRuleGenerator(client, ns, rule.Generation, policy.GetCreationTimestamp())
 		if err != nil {
 			ri.Fail()
 			ri.Addf("Failed to apply rule generator, err %v.", rule.Name, err)
@@ -52,11 +55,15 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 	return ris
 }
 
-func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen kyverno.Generation) error {
+func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen kyverno.Generation, policyCreationTime metav1.Time) error {
 	var err error
 	resource := &unstructured.Unstructured{}
 	var rdata map[string]interface{}
-
+	// To manage existing resource , we compare the creation time for the default resource to be generate and policy creation time
+	processExisting := func() bool {
+		nsCreationTime := ns.GetCreationTimestamp()
+		return nsCreationTime.Before(&policyCreationTime)
+	}()
 	if gen.Data != nil {
 		glog.V(4).Info("generate rule: creates new resource")
 		// 1> Check if resource exists
@@ -101,12 +108,15 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 		glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  present", gen.Kind, gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		rdata = resource.UnstructuredContent()
 	}
+	if processExisting {
+		// for existing resources we generate an error which indirectly generates a policy violation
+		return fmt.Errorf("resource %s not found in existing namespace %s", gen.Name, ns.GetName())
+	}
 	resource.SetUnstructuredContent(rdata)
 	resource.SetName(gen.Name)
 	resource.SetNamespace(ns.GetName())
 	// Reset resource version
 	resource.SetResourceVersion("")
-
 	_, err = client.CreateResource(gen.Kind, ns.GetName(), resource, false)
 	if err != nil {
 		glog.V(4).Infof("generate rule: unable to create resource %s/%s/%s: %v", gen.Kind, resource.GetNamespace(), resource.GetName(), err)

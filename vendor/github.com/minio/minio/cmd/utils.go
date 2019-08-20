@@ -29,13 +29,13 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
 
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/handlers"
 
@@ -59,16 +59,6 @@ func IsErr(err error, errs ...error) bool {
 	return false
 }
 
-// Close Http tracing file.
-func stopHTTPTrace() {
-	if globalHTTPTraceFile != nil {
-		reqInfo := (&logger.ReqInfo{}).AppendTags("traceFile", globalHTTPTraceFile.Name())
-		ctx := logger.SetReqInfo(context.Background(), reqInfo)
-		logger.LogIf(ctx, globalHTTPTraceFile.Close())
-		globalHTTPTraceFile = nil
-	}
-}
-
 // make a copy of http.Header
 func cloneHeader(h http.Header) http.Header {
 	h2 := make(http.Header, len(h))
@@ -81,14 +71,26 @@ func cloneHeader(h http.Header) http.Header {
 	return h2
 }
 
+func request2BucketObjectName(r *http.Request) (bucketName, objectName string) {
+	path, err := getResource(r.URL.Path, r.Host, globalDomainNames)
+	if err != nil {
+		logger.CriticalIf(context.Background(), err)
+	}
+	return urlPath2BucketObjectName(path)
+}
+
 // Convert url path into bucket and object name.
 func urlPath2BucketObjectName(path string) (bucketName, objectName string) {
+	if path == "" || path == SlashSeparator {
+		return "", ""
+	}
+
 	// Trim any preceding slash separator.
-	urlPath := strings.TrimPrefix(path, slashSeparator)
+	urlPath := strings.TrimPrefix(path, SlashSeparator)
 
 	// Split urlpath using slash separator into a given number of
 	// expected tokens.
-	tokens := strings.SplitN(urlPath, slashSeparator, 2)
+	tokens := strings.SplitN(urlPath, SlashSeparator, 2)
 	bucketName = tokens[0]
 	if len(tokens) == 2 {
 		objectName = tokens[1]
@@ -423,15 +425,16 @@ func newContext(r *http.Request, w http.ResponseWriter, api string) context.Cont
 		object = prefix
 	}
 	reqInfo := &logger.ReqInfo{
-		DeploymentID: w.Header().Get(responseDeploymentIDKey),
-		RequestID:    w.Header().Get(responseRequestIDKey),
+		DeploymentID: globalDeploymentID,
+		RequestID:    w.Header().Get(xhttp.AmzRequestID),
 		RemoteHost:   handlers.GetSourceIP(r),
+		Host:         getHostName(r),
 		UserAgent:    r.UserAgent(),
 		API:          api,
 		BucketName:   bucket,
 		ObjectName:   object,
 	}
-	return logger.SetReqInfo(context.Background(), reqInfo)
+	return logger.SetReqInfo(r.Context(), reqInfo)
 }
 
 // isNetworkOrHostDown - if there was a network error or if the host is down.
@@ -439,30 +442,21 @@ func isNetworkOrHostDown(err error) bool {
 	if err == nil {
 		return false
 	}
-	switch err.(type) {
-	case *net.DNSError, *net.OpError, net.UnknownNetworkError:
-		return true
-	case *url.Error:
-		// For a URL error, where it replies back "connection closed"
-		if strings.Contains(err.Error(), "Connection closed by foreign host") {
-			return true
-		}
-		return true
-	default:
-		if strings.Contains(err.Error(), "net/http: TLS handshake timeout") {
-			// If error is - tlsHandshakeTimeoutError,.
-			return true
-		} else if strings.Contains(err.Error(), "i/o timeout") {
-			// If error is - tcp timeoutError.
-			return true
-		} else if strings.Contains(err.Error(), "connection timed out") {
-			// If err is a net.Dial timeout.
-			return true
-		} else if strings.Contains(err.Error(), "net/http: HTTP/1.x transport connection broken") {
-			return true
-		}
+	// We need to figure if the error either a timeout
+	// or a non-temporary error.
+	e, ok := err.(net.Error)
+	if ok {
+		return e.Timeout()
 	}
-	return false
+	// Fallback to other mechanisms.
+	if strings.Contains(err.Error(), "i/o timeout") {
+		// If error is - tcp timeoutError.
+		ok = true
+	} else if strings.Contains(err.Error(), "connection timed out") {
+		// If err is a net.Dial timeout.
+		ok = true
+	}
+	return ok
 }
 
 // Used for registering with rest handlers (have a look at registerStorageRESTHandlers for usage example)

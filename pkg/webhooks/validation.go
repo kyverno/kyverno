@@ -8,16 +8,17 @@ import (
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured) *v1beta1.AdmissionResponse {
 	var policyInfos []info.PolicyInfo
 
-	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+	glog.V(5).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	policies, err := ws.pLister.List(labels.NewSelector())
@@ -31,10 +32,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	resource, err := convertToUnstructured(request.Object.Raw)
-	if err != nil {
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-	}
 	//TODO: check if resource gvk is available in raw resource,
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
@@ -52,30 +49,28 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		glog.V(4).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		glog.V(4).Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
+		glog.V(4).Infof("Validating resource %s/%s/%s with policy %s with %d rules\n", resource.GetKind(), resource.GetNamespace(), resource.GetName(), policy.ObjectMeta.Name, len(policy.Spec.Rules))
 
-		ruleInfos, err := engine.Validate(*policy, *resource)
-		if err != nil {
-			// This is not policy error
-			// but if unable to parse request raw resource
-			// TODO : create event ? dont think so
-			glog.Error(err)
+		engineResponse := engine.Validate(*policy, resource)
+		if len(engineResponse.RuleInfos) == 0 {
 			continue
 		}
-		policyInfo.AddRuleInfos(ruleInfos)
-		policyInfos = append(policyInfos, policyInfo)
+
+		if len(engineResponse.RuleInfos) > 0 {
+			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
+		}
+
+		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, resource.GetNamespace(), resource.GetName())
-			glog.V(4).Info("Failed rule details")
-			for _, r := range ruleInfos {
-				glog.V(4).Infof("%s: %s\n", r.Name, r.Msgs)
+			for _, r := range engineResponse.RuleInfos {
+				glog.Warningf("%s: %s\n", r.Name, r.Msgs)
 			}
-			continue
 		}
-		if len(ruleInfos) > 0 {
-			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
-		}
+
+		policyInfos = append(policyInfos, policyInfo)
+
 	}
 
 	// ADD EVENTS
@@ -86,6 +81,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 		ws.eventGen.Add(eventsInfo...)
 	}
 
+	// If Validation fails then reject the request
+	// violations are created if "audit" flag is set
+	// and if there are any then we dont block the resource creation
+	// Even if one the policy being applied
 	ok, msg := isAdmSuccesful(policyInfos)
 	if !ok && toBlock(policyInfos) {
 		return &v1beta1.AdmissionResponse{
@@ -102,5 +101,4 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest) *v1
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	// Generation rules applied via generation controller
 }

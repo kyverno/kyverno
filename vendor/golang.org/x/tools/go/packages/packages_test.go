@@ -986,7 +986,11 @@ func testNewPackagesInOverlay(t *testing.T, exporter packagestest.Exporter) {
 	} {
 		exported.Config.Overlay = test.overlay
 		exported.Config.Mode = packages.LoadAllSyntax
-		initial, err := packages.Load(exported.Config, "golang.org/fake/e")
+		exported.Config.Logf = t.Logf
+
+		// With an overlay, we don't know the expected import path,
+		// so load with the absolute path of the directory.
+		initial, err := packages.Load(exported.Config, filepath.Join(dir, "e"))
 		if err != nil {
 			t.Error(err)
 			continue
@@ -1003,6 +1007,46 @@ func testNewPackagesInOverlay(t *testing.T, exporter packagestest.Exporter) {
 		if got != test.want {
 			t.Errorf("%d. e.E: got %s, want %s", i, got, test.want)
 		}
+	}
+}
+
+func TestAdHocOverlays(t *testing.T) {
+	// This test doesn't use packagestest because we are testing ad-hoc packages,
+	// which are outside of $GOPATH and outside of a module.
+	tmp, err := ioutil.TempDir("", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmp)
+
+	filename := filepath.Join(tmp, "a.go")
+	content := []byte(`package a
+const A = 1
+`)
+	config := &packages.Config{
+		Dir:  tmp,
+		Mode: packages.LoadAllSyntax,
+		Overlay: map[string][]byte{
+			filename: content,
+		},
+	}
+	initial, err := packages.Load(config, fmt.Sprintf("file=%s", filename))
+	if err != nil {
+		t.Error(err)
+	}
+	// Check value of a.A.
+	a := initial[0]
+	if a.Errors != nil {
+		t.Fatalf("a: got errors %+v, want no error", err)
+	}
+	aA := constant(a, "A")
+	if aA == nil {
+		t.Errorf("a.A: got nil")
+		return
+	}
+	got := aA.Val().String()
+	if want := "1"; got != want {
+		t.Errorf("a.A: got %s, want %s", got, want)
 	}
 }
 
@@ -1223,6 +1267,38 @@ func testContainsOverlay(t *testing.T, exporter packagestest.Exporter) {
 	if graph != wantGraph {
 		t.Errorf("wrong import graph: got <<%s>>, want <<%s>>", graph, wantGraph)
 	}
+}
+
+func TestContainsOverlayXTest(t *testing.T) { packagestest.TestAll(t, testContainsOverlayXTest) }
+func testContainsOverlayXTest(t *testing.T, exporter packagestest.Exporter) {
+	exported := packagestest.Export(t, exporter, []packagestest.Module{{
+		Name: "golang.org/fake",
+		Files: map[string]interface{}{
+			"a/a.go": `package a; import "golang.org/fake/b"`,
+			"b/b.go": `package b; import "golang.org/fake/c"`,
+			"c/c.go": `package c`,
+		}}})
+	defer exported.Cleanup()
+	bOverlayXTestFile := filepath.Join(filepath.Dir(exported.File("golang.org/fake", "b/b.go")), "b_overlay_x_test.go")
+	exported.Config.Mode = packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps
+	exported.Config.Overlay = map[string][]byte{bOverlayXTestFile: []byte(`package b_test; import "golang.org/fake/b"`)}
+	initial, err := packages.Load(exported.Config, "file="+bOverlayXTestFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	graph, _ := importGraph(initial)
+	wantGraph := `
+  golang.org/fake/b
+* golang.org/fake/b_test
+  golang.org/fake/c
+  golang.org/fake/b -> golang.org/fake/c
+  golang.org/fake/b_test -> golang.org/fake/b
+`[1:]
+	if graph != wantGraph {
+		t.Errorf("wrong import graph: got <<%s>>, want <<%s>>", graph, wantGraph)
+	}
+
 }
 
 // This test ensures that the effective GOARCH variable in the
@@ -1851,6 +1927,48 @@ func testMissingDependency(t *testing.T, exporter packagestest.Exporter) {
 	}
 	if len(pkgs[0].Errors) == 0 {
 		t.Errorf("result of Load: want package with errors, got none: %+v", pkgs[0])
+	}
+}
+
+func TestAdHocContains(t *testing.T) { packagestest.TestAll(t, testAdHocContains) }
+func testAdHocContains(t *testing.T, exporter packagestest.Exporter) {
+	exported := packagestest.Export(t, exporter, []packagestest.Module{{
+		Name: "golang.org/fake",
+		Files: map[string]interface{}{
+			"a/a.go": `package a;`,
+		}}})
+	defer exported.Cleanup()
+
+	tmpfile, err := ioutil.TempFile("", "adhoc*.go")
+	filename := tmpfile.Name()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Fprint(tmpfile, `package main; import "fmt"; func main() { fmt.Println("time for coffee") }`)
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		if err := os.Remove(filename); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	exported.Config.Mode = packages.NeedImports | packages.NeedFiles
+	pkgs, err := packages.Load(exported.Config, "file="+filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 && pkgs[0].PkgPath != "command-line-arguments" {
+		t.Fatalf("packages.Load: want [command-line-arguments], got %v", pkgs)
+	}
+	pkg := pkgs[0]
+	if _, ok := pkg.Imports["fmt"]; !ok || len(pkg.Imports) != 1 {
+		t.Fatalf("Imports of loaded package: want [fmt], got %v", pkg.Imports)
+	}
+	if len(pkg.GoFiles) != 1 || pkg.GoFiles[0] != filename {
+		t.Fatalf("GoFiles of loaded packge: want [%s], got %v", filename, pkg.GoFiles)
 	}
 }
 

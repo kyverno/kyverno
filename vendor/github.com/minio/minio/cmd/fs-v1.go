@@ -32,6 +32,7 @@ import (
 
 	"github.com/minio/minio-go/v6/pkg/s3utils"
 	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/lifecycle"
 	"github.com/minio/minio/pkg/lock"
 	"github.com/minio/minio/pkg/madmin"
 	"github.com/minio/minio/pkg/mimedb"
@@ -286,7 +287,7 @@ func (fs *FSObjects) statBucketDir(ctx context.Context, bucket string) (os.FileI
 // MakeBucketWithLocation - create a new bucket, returns if it
 // already exists.
 func (fs *FSObjects) MakeBucketWithLocation(ctx context.Context, bucket, location string) error {
-	bucketLock := fs.nsMutex.NewNSLock(bucket, "")
+	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
 	if err := bucketLock.GetLock(globalObjectTimeout); err != nil {
 		return err
 	}
@@ -309,7 +310,7 @@ func (fs *FSObjects) MakeBucketWithLocation(ctx context.Context, bucket, locatio
 
 // GetBucketInfo - fetch bucket metadata info.
 func (fs *FSObjects) GetBucketInfo(ctx context.Context, bucket string) (bi BucketInfo, e error) {
-	bucketLock := fs.nsMutex.NewNSLock(bucket, "")
+	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
 	if e := bucketLock.GetRLock(globalObjectTimeout); e != nil {
 		return bi, e
 	}
@@ -372,7 +373,7 @@ func (fs *FSObjects) ListBuckets(ctx context.Context) ([]BucketInfo, error) {
 // DeleteBucket - delete a bucket and all the metadata associated
 // with the bucket including pending multipart, object metadata.
 func (fs *FSObjects) DeleteBucket(ctx context.Context, bucket string) error {
-	bucketLock := fs.nsMutex.NewNSLock(bucket, "")
+	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
 	if err := bucketLock.GetLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return err
@@ -408,7 +409,7 @@ func (fs *FSObjects) DeleteBucket(ctx context.Context, bucket string) error {
 func (fs *FSObjects) CopyObject(ctx context.Context, srcBucket, srcObject, dstBucket, dstObject string, srcInfo ObjectInfo, srcOpts, dstOpts ObjectOptions) (oi ObjectInfo, e error) {
 	cpSrcDstSame := isStringEqual(pathJoin(srcBucket, srcObject), pathJoin(dstBucket, dstObject))
 	if !cpSrcDstSame {
-		objectDWLock := fs.nsMutex.NewNSLock(dstBucket, dstObject)
+		objectDWLock := fs.nsMutex.NewNSLock(ctx, dstBucket, dstObject)
 		if err := objectDWLock.GetLock(globalObjectTimeout); err != nil {
 			return oi, err
 		}
@@ -431,8 +432,9 @@ func (fs *FSObjects) CopyObject(ctx context.Context, srcBucket, srcObject, dstBu
 
 		// Save objects' metadata in `fs.json`.
 		fsMeta := newFSMetaV1()
-		if _, err = fsMeta.ReadFrom(ctx, wlk); err != nil && err != io.EOF {
-			return oi, toObjectErr(err, srcBucket, srcObject)
+		if _, err = fsMeta.ReadFrom(ctx, wlk); err != nil {
+			// For any error to read fsMeta, set default ETag and proceed.
+			fsMeta = fs.defaultFsJSON(srcObject)
 		}
 
 		fsMeta.Meta = srcInfo.UserDefined
@@ -479,7 +481,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 
 	if lockType != noLock {
 		// Lock the object before reading.
-		lock := fs.nsMutex.NewNSLock(bucket, object)
+		lock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 		switch lockType {
 		case writeLock:
 			if err = lock.GetLock(globalObjectTimeout); err != nil {
@@ -503,7 +505,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 		return nil, toObjectErr(err, bucket, object)
 	}
 	// For a directory, we need to send an reader that returns no bytes.
-	if hasSuffix(object, slashSeparator) {
+	if hasSuffix(object, SlashSeparator) {
 		// The lock taken above is released when
 		// objReader.Close() is called by the caller.
 		return NewGetObjectReaderFromReader(bytes.NewBuffer(nil), objInfo, opts.CheckCopyPrecondFn, nsUnlocker)
@@ -566,7 +568,7 @@ func (fs *FSObjects) GetObject(ctx context.Context, bucket, object string, offse
 	}
 
 	// Lock the object before reading.
-	objectLock := fs.nsMutex.NewNSLock(bucket, object)
+	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return err
@@ -594,7 +596,7 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 	}
 
 	// If its a directory request, we return an empty body.
-	if hasSuffix(object, slashSeparator) {
+	if hasSuffix(object, SlashSeparator) {
 		_, err = writer.Write([]byte(""))
 		logger.LogIf(ctx, err)
 		return toObjectErr(err, bucket, object)
@@ -688,11 +690,7 @@ func (fs *FSObjects) defaultFsJSON(object string) fsMetaV1 {
 // getObjectInfo - wrapper for reading object metadata and constructs ObjectInfo.
 func (fs *FSObjects) getObjectInfo(ctx context.Context, bucket, object string) (oi ObjectInfo, e error) {
 	fsMeta := fsMetaV1{}
-	if hasSuffix(object, slashSeparator) {
-		// Since we support PUT of a "directory" object, we allow HEAD.
-		if !fsIsDir(ctx, pathJoin(fs.fsPath, bucket, object)) {
-			return oi, errFileNotFound
-		}
+	if hasSuffix(object, SlashSeparator) {
 		fi, err := fsStatDir(ctx, pathJoin(fs.fsPath, bucket, object))
 		if err != nil {
 			return oi, err
@@ -710,10 +708,7 @@ func (fs *FSObjects) getObjectInfo(ctx context.Context, bucket, object string) (
 		_, rerr := fsMeta.ReadFrom(ctx, rlk.LockedFile)
 		fs.rwPool.Close(fsMetaPath)
 		if rerr != nil {
-			if rerr != io.EOF {
-				return oi, rerr
-			}
-			// Set Default ETag, if fs.json is empty
+			// For any error to read fsMeta, set default ETag and proceed.
 			fsMeta = fs.defaultFsJSON(object)
 		}
 	}
@@ -741,7 +736,7 @@ func (fs *FSObjects) getObjectInfo(ctx context.Context, bucket, object string) (
 // getObjectInfoWithLock - reads object metadata and replies back ObjectInfo.
 func (fs *FSObjects) getObjectInfoWithLock(ctx context.Context, bucket, object string) (oi ObjectInfo, e error) {
 	// Lock the object before reading.
-	objectLock := fs.nsMutex.NewNSLock(bucket, object)
+	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		return oi, err
 	}
@@ -755,7 +750,7 @@ func (fs *FSObjects) getObjectInfoWithLock(ctx context.Context, bucket, object s
 		return oi, err
 	}
 
-	if strings.HasSuffix(object, slashSeparator) && !fs.isObjectDir(bucket, object) {
+	if strings.HasSuffix(object, SlashSeparator) && !fs.isObjectDir(bucket, object) {
 		return oi, errFileNotFound
 	}
 
@@ -766,7 +761,7 @@ func (fs *FSObjects) getObjectInfoWithLock(ctx context.Context, bucket, object s
 func (fs *FSObjects) GetObjectInfo(ctx context.Context, bucket, object string, opts ObjectOptions) (oi ObjectInfo, e error) {
 	oi, err := fs.getObjectInfoWithLock(ctx, bucket, object)
 	if err == errCorruptedFormat || err == io.EOF {
-		objectLock := fs.nsMutex.NewNSLock(bucket, object)
+		objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 		if err = objectLock.GetLock(globalObjectTimeout); err != nil {
 			return oi, toObjectErr(err, bucket, object)
 		}
@@ -789,7 +784,7 @@ func (fs *FSObjects) GetObjectInfo(ctx context.Context, bucket, object string, o
 func (fs *FSObjects) parentDirIsObject(ctx context.Context, bucket, parent string) bool {
 	var isParentDirObject func(string) bool
 	isParentDirObject = func(p string) bool {
-		if p == "." || p == "/" {
+		if p == "." || p == SlashSeparator {
 			return false
 		}
 		if fsIsFile(ctx, pathJoin(fs.fsPath, bucket, p)) {
@@ -812,7 +807,7 @@ func (fs *FSObjects) PutObject(ctx context.Context, bucket string, object string
 		return ObjectInfo{}, err
 	}
 	// Lock the object.
-	objectLock := fs.nsMutex.NewNSLock(bucket, object)
+	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return objInfo, err
@@ -967,7 +962,7 @@ func (fs *FSObjects) DeleteObjects(ctx context.Context, bucket string, objects [
 // and there are no rollbacks supported.
 func (fs *FSObjects) DeleteObject(ctx context.Context, bucket, object string) error {
 	// Acquire a write lock before deleting the object.
-	objectLock := fs.nsMutex.NewNSLock(bucket, object)
+	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetLock(globalOperationTimeout); err != nil {
 		return err
 	}
@@ -1151,6 +1146,12 @@ func (fs *FSObjects) ListBucketsHeal(ctx context.Context) ([]BucketInfo, error) 
 	return []BucketInfo{}, NotImplemented{}
 }
 
+// ListObjectsHeal - list all objects to be healed. Valid only for XL
+func (fs *FSObjects) ListObjectsHeal(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result ListObjectsInfo, err error) {
+	logger.LogIf(ctx, NotImplemented{})
+	return ListObjectsInfo{}, NotImplemented{}
+}
+
 // SetBucketPolicy sets policy on bucket
 func (fs *FSObjects) SetBucketPolicy(ctx context.Context, bucket string, policy *policy.Policy) error {
 	return savePolicyConfig(ctx, fs, bucket, policy)
@@ -1164,6 +1165,21 @@ func (fs *FSObjects) GetBucketPolicy(ctx context.Context, bucket string) (*polic
 // DeleteBucketPolicy deletes all policies on bucket
 func (fs *FSObjects) DeleteBucketPolicy(ctx context.Context, bucket string) error {
 	return removePolicyConfig(ctx, fs, bucket)
+}
+
+// SetBucketLifecycle sets lifecycle on bucket
+func (fs *FSObjects) SetBucketLifecycle(ctx context.Context, bucket string, lifecycle *lifecycle.Lifecycle) error {
+	return saveLifecycleConfig(ctx, fs, bucket, lifecycle)
+}
+
+// GetBucketLifecycle will get lifecycle on bucket
+func (fs *FSObjects) GetBucketLifecycle(ctx context.Context, bucket string) (*lifecycle.Lifecycle, error) {
+	return getLifecycleConfig(fs, bucket)
+}
+
+// DeleteBucketLifecycle deletes all lifecycle on bucket
+func (fs *FSObjects) DeleteBucketLifecycle(ctx context.Context, bucket string) error {
+	return removeLifecycleConfig(ctx, fs, bucket)
 }
 
 // ListObjectsV2 lists all blobs in bucket filtered by prefix

@@ -85,7 +85,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
 	}
 	<-stopCh
-
 }
 
 func (gen *Generator) runWorker() {

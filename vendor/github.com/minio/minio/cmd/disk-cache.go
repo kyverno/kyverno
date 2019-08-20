@@ -395,7 +395,7 @@ func listDirCacheFactory(isLeaf func(string, string) bool, disks []*cacheFSObjec
 
 			for i := range entries {
 				if isLeaf(bucket, entries[i]) {
-					entries[i] = strings.TrimSuffix(entries[i], slashSeparator)
+					entries[i] = strings.TrimSuffix(entries[i], SlashSeparator)
 				}
 			}
 
@@ -432,10 +432,10 @@ func (c cacheObjects) listCacheObjects(ctx context.Context, bucket, prefix, mark
 	var nextMarker string
 
 	recursive := true
-	if delimiter == slashSeparator {
+	if delimiter == SlashSeparator {
 		recursive = false
 	}
-	walkResultCh, endWalkCh := c.listPool.Release(listParams{bucket, recursive, marker, prefix})
+	walkResultCh, endWalkCh := c.listPool.Release(listParams{bucket, recursive, marker, prefix, false})
 	if walkResultCh == nil {
 		endWalkCh = make(chan struct{})
 
@@ -460,7 +460,7 @@ func (c cacheObjects) listCacheObjects(ctx context.Context, bucket, prefix, mark
 
 		entry := walkResult.entry
 		var objInfo ObjectInfo
-		if hasSuffix(entry, slashSeparator) {
+		if hasSuffix(entry, SlashSeparator) {
 			// Object name needs to be full path.
 			objInfo.Bucket = bucket
 			objInfo.Name = entry
@@ -494,7 +494,7 @@ func (c cacheObjects) listCacheObjects(ctx context.Context, bucket, prefix, mark
 		}
 	}
 
-	params := listParams{bucket, recursive, nextMarker, prefix}
+	params := listParams{bucket, recursive, nextMarker, prefix, false}
 	if !eof {
 		c.listPool.Set(params, walkResultCh, endWalkCh)
 	}
@@ -502,7 +502,7 @@ func (c cacheObjects) listCacheObjects(ctx context.Context, bucket, prefix, mark
 	result = ListObjectsInfo{IsTruncated: !eof}
 	for _, objInfo := range objInfos {
 		result.NextMarker = objInfo.Name
-		if objInfo.IsDir && delimiter == slashSeparator {
+		if objInfo.IsDir && delimiter == SlashSeparator {
 			result.Prefixes = append(result.Prefixes, objInfo.Name)
 			continue
 		}
@@ -945,7 +945,10 @@ func checkAtimeSupport(dir string) (err error) {
 	if err != nil {
 		return
 	}
-	if _, err = io.Copy(ioutil.Discard, file); err != io.EOF {
+	// add a sleep to ensure atime change is detected
+	time.Sleep(10 * time.Millisecond)
+
+	if _, err = io.Copy(ioutil.Discard, file); err != nil {
 		return
 	}
 

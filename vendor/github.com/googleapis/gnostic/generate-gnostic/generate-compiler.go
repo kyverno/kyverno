@@ -798,14 +798,17 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 		code.Print("return nil")
 	} else {
 		code.Print("info := yaml.MapSlice{}")
+		code.Print("if m == nil {return info}")
 		for _, propertyModel := range typeModel.Properties {
+			isRequired := typeModel.IsRequired(propertyModel.Name)
 			switch propertyModel.Type {
 			case "string":
 				propertyName := propertyModel.Name
 				if !propertyModel.Repeated {
-					code.Print("if m.%s != \"\" {", propertyModel.FieldName())
+					code.PrintIf(isRequired, "// always include this required field.")
+					code.PrintIf(!isRequired, "if m.%s != \"\" {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
-					code.Print("}")
+					code.PrintIf(!isRequired, "}")
 				} else {
 					code.Print("if len(m.%s) != 0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
@@ -814,9 +817,10 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 			case "bool":
 				propertyName := propertyModel.Name
 				if !propertyModel.Repeated {
-					code.Print("if m.%s != false {", propertyModel.FieldName())
+					code.PrintIf(isRequired, "// always include this required field.")
+					code.PrintIf(!isRequired, "if m.%s != false {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
-					code.Print("}")
+					code.PrintIf(!isRequired, "}")
 				} else {
 					code.Print("if len(m.%s) != 0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
@@ -825,9 +829,10 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 			case "int":
 				propertyName := propertyModel.Name
 				if !propertyModel.Repeated {
-					code.Print("if m.%s != 0 {", propertyModel.FieldName())
+					code.PrintIf(isRequired, "// always include this required field.")
+					code.PrintIf(!isRequired, "if m.%s != 0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
-					code.Print("}")
+					code.PrintIf(!isRequired, "}")
 				} else {
 					code.Print("if len(m.%s) != 0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
@@ -836,9 +841,10 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 			case "float":
 				propertyName := propertyModel.Name
 				if !propertyModel.Repeated {
-					code.Print("if m.%s != 0.0 {", propertyModel.FieldName())
+					code.PrintIf(isRequired, "// always include this required field.")
+					code.PrintIf(!isRequired, "if m.%s != 0.0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
-					code.Print("}")
+					code.PrintIf(!isRequired, "}")
 				} else {
 					code.Print("if len(m.%s) != 0 {", propertyModel.FieldName())
 					code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s})", propertyName, propertyModel.FieldName())
@@ -849,7 +855,8 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 				if propertyName == "value" {
 					code.Print("// %+v", propertyModel)
 				} else if !propertyModel.Repeated {
-					code.Print("if m.%s != nil {", propertyModel.FieldName())
+					code.PrintIf(isRequired, "// always include this required field.")
+					code.PrintIf(!isRequired, "if m.%s != nil {", propertyModel.FieldName())
 					if propertyModel.Type == "TypeItem" {
 						code.Print("if len(m.Type.Value) == 1 {")
 						code.Print("info = append(info, yaml.MapItem{Key:\"type\", Value:m.Type.Value[0]})")
@@ -870,7 +877,7 @@ func (domain *Domain) generateToRawInfoMethodForType(code *printer.Code, typeNam
 						code.Print("info = append(info, yaml.MapItem{Key:\"%s\", Value:m.%s.ToRawInfo()})",
 							propertyName, propertyModel.FieldName())
 					}
-					code.Print("}")
+					code.PrintIf(!isRequired, "}")
 					code.Print("// %+v", propertyModel)
 				} else if propertyModel.MapType == "string" {
 					code.Print("// %+v", propertyModel)

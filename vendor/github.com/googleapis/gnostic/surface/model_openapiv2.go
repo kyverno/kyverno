@@ -58,19 +58,21 @@ func (b *OpenAPI2Builder) build(document *openapiv2.Document) (err error) {
 		}
 	}
 	// Collect service method descriptions from Paths section.
-	for _, pair := range document.Paths.Path {
-		v := pair.Value
-		if v.Get != nil {
-			b.buildMethodFromOperation(v.Get, "GET", pair.Name)
-		}
-		if v.Post != nil {
-			b.buildMethodFromOperation(v.Post, "POST", pair.Name)
-		}
-		if v.Put != nil {
-			b.buildMethodFromOperation(v.Put, "PUT", pair.Name)
-		}
-		if v.Delete != nil {
-			b.buildMethodFromOperation(v.Delete, "DELETE", pair.Name)
+	if document.Paths != nil {
+		for _, pair := range document.Paths.Path {
+			v := pair.Value
+			if v.Get != nil {
+				b.buildMethodFromOperation(v.Get, "GET", pair.Name)
+			}
+			if v.Post != nil {
+				b.buildMethodFromOperation(v.Post, "POST", pair.Name)
+			}
+			if v.Put != nil {
+				b.buildMethodFromOperation(v.Put, "PUT", pair.Name)
+			}
+			if v.Delete != nil {
+				b.buildMethodFromOperation(v.Delete, "DELETE", pair.Name)
+			}
 		}
 	}
 	return err
@@ -228,6 +230,9 @@ func (b *OpenAPI2Builder) typeForSchema(schema *openapiv2.Schema) (kind FieldKin
 		}
 		if len(types) == 1 && types[0] == "number" {
 			return FieldKind_SCALAR, "number", format
+		}
+		if len(types) == 1 && types[0] == "boolean" {
+			return FieldKind_SCALAR, "boolean", format
 		}
 		if len(types) == 1 && types[0] == "array" && schema.Items != nil {
 			// we have an array.., but of what?

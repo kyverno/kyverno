@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,23 +20,26 @@ const fileScheme = "file"
 // URI represents the full URI for a file.
 type URI string
 
-// Filename returns the file path for the given URI. It will return an error if
-// the URI is invalid, or if the URI does not have the file scheme.
-func (uri URI) Filename() (string, error) {
+// Filename returns the file path for the given URI.
+// It is an error to call this on a URI that is not a valid filename.
+func (uri URI) Filename() string {
 	filename, err := filename(uri)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
-	return filepath.FromSlash(filename), nil
+	return filepath.FromSlash(filename)
 }
 
 func filename(uri URI) (string, error) {
+	if uri == "" {
+		return "", nil
+	}
 	u, err := url.ParseRequestURI(string(uri))
 	if err != nil {
 		return "", err
 	}
 	if u.Scheme != fileScheme {
-		return "", fmt.Errorf("only file URIs are supported, got %v", u.Scheme)
+		return "", fmt.Errorf("only file URIs are supported, got %q from %q", u.Scheme, uri)
 	}
 	if isWindowsDriveURI(u.Path) {
 		u.Path = u.Path[1:]
@@ -56,31 +60,49 @@ func NewURI(s string) URI {
 }
 
 func CompareURI(a, b URI) int {
-	if a == b {
+	if equalURI(a, b) {
 		return 0
 	}
-	// If we have the same URI basename, we may still have the same file URIs.
-	if fa, err := a.Filename(); err == nil {
-		if fb, err := b.Filename(); err == nil {
-			if strings.EqualFold(filepath.Base(fa), filepath.Base(fb)) {
-				// Stat the files to check if they are equal.
-				if infoa, err := os.Stat(fa); err == nil {
-					if infob, err := os.Stat(fb); err == nil {
-						if os.SameFile(infoa, infob) {
-							return 0
-						}
-					}
-				}
-			}
-			return strings.Compare(fa, fb)
-		}
+	if a < b {
+		return -1
 	}
-	return strings.Compare(string(a), string(b))
+	return 1
+}
+
+func equalURI(a, b URI) bool {
+	if a == b {
+		return true
+	}
+	// If we have the same URI basename, we may still have the same file URIs.
+	if !strings.EqualFold(path.Base(string(a)), path.Base(string(b))) {
+		return false
+	}
+	fa, err := filename(a)
+	if err != nil {
+		return false
+	}
+	fb, err := filename(b)
+	if err != nil {
+		return false
+	}
+	// Stat the files to check if they are equal.
+	infoa, err := os.Stat(filepath.FromSlash(fa))
+	if err != nil {
+		return false
+	}
+	infob, err := os.Stat(filepath.FromSlash(fb))
+	if err != nil {
+		return false
+	}
+	return os.SameFile(infoa, infob)
 }
 
 // FileURI returns a span URI for the supplied file path.
 // It will always have the file scheme.
 func FileURI(path string) URI {
+	if path == "" {
+		return ""
+	}
 	// Handle standard library paths that contain the literal "$GOROOT".
 	// TODO(rstambler): The go/packages API should allow one to determine a user's $GOROOT.
 	const prefix = "$GOROOT"

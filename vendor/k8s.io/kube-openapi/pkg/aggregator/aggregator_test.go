@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-openapi/spec"
-	"github.com/json-iterator/go"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
-
 	"k8s.io/kube-openapi/pkg/handler"
 )
 
@@ -1991,4 +1991,140 @@ func cloneSpec(source *spec.Swagger) (*spec.Swagger, error) {
 		return nil, err
 	}
 	return &ret, nil
+}
+
+func TestMergedGVKs(t *testing.T) {
+	gvk1 := map[string]interface{}{"group": "group1", "version": "v1", "kind": "Foo"}
+	gvk2 := map[string]interface{}{"group": "group2", "version": "v1", "kind": "Bar"}
+	gvk3 := map[string]interface{}{"group": "group3", "version": "v1", "kind": "Abc"}
+
+	tests := []struct {
+		name        string
+		gvks1       interface{}
+		gvks2       interface{}
+		want        interface{}
+		wantChanged bool
+		wantErr     bool
+	}{
+		{"nil", nil, nil, nil, false, false},
+		{"first only", []interface{}{gvk1, gvk2}, nil, []interface{}{gvk1, gvk2}, false, false},
+		{"second only", nil, []interface{}{gvk1, gvk2}, []interface{}{gvk1, gvk2}, true, false},
+		{"both", []interface{}{gvk1, gvk2}, []interface{}{gvk3}, []interface{}{gvk1, gvk2, gvk3}, true, false},
+		{"equal, different order", []interface{}{gvk1, gvk2, gvk3}, []interface{}{gvk3, gvk2, gvk1}, []interface{}{gvk1, gvk2, gvk3}, false, false},
+		{"empty", []interface{}{}, []interface{}{}, []interface{}{}, false, false},
+		{"overlapping", []interface{}{gvk1, gvk2}, []interface{}{gvk2, gvk3}, []interface{}{gvk1, gvk2, gvk3}, true, false},
+		{"first no slice", 42, []interface{}{gvk1}, nil, false, true},
+		{"second no slice", []interface{}{gvk1}, 42, nil, false, true},
+		{"no map in slice", []interface{}{42}, []interface{}{gvk1}, nil, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ext1, ext2 map[string]interface{}
+			if tt.gvks1 != nil {
+				ext1 = map[string]interface{}{"x-kubernetes-group-version-kind": tt.gvks1}
+			}
+			if tt.gvks2 != nil {
+				ext2 = map[string]interface{}{"x-kubernetes-group-version-kind": tt.gvks2}
+			}
+
+			got, gotChanged, gotErr := mergedGVKs(
+				&spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: ext1}},
+				&spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: ext2}},
+			)
+			if (gotErr != nil) != tt.wantErr {
+				t.Errorf("mergedGVKs() error = %v, wantErr %v", gotErr, tt.wantErr)
+				return
+			}
+			if gotChanged != tt.wantChanged {
+				t.Errorf("mergedGVKs() changed = %v, want %v", gotChanged, tt.wantChanged)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("mergedGVKs() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeepEqualDefinitionsModuloGVKs(t *testing.T) {
+	tests := []struct {
+		name  string
+		s1    *spec.Schema
+		s2    *spec.Schema
+		equal bool
+	}{
+		{name: "nil", equal: true},
+		{name: "nil, non-nil", s1: nil, s2: &spec.Schema{}},
+		{name: "equal", s1: &spec.Schema{}, s2: &spec.Schema{}, equal: true},
+		{name: "different", s1: &spec.Schema{SchemaProps: spec.SchemaProps{ID: "abc"}}, s2: &spec.Schema{}},
+		{name: "equal modulo: nil, empty",
+			s1:    &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: nil}},
+			s2:    &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{}}},
+			equal: true,
+		},
+		{name: "equal modulo: nil, gvk",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: nil}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+			}}},
+			equal: true,
+		},
+		{name: "equal modulo: empty, gvk",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{}}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+			}}},
+			equal: true,
+		},
+		{name: "equal modulo: non-empty, gvk",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{"foo": "bar"}}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+				"foo":  "bar",
+			}}},
+			equal: true,
+		},
+		{name: "equal modulo: gvk, gvk",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: false,
+				"foo":  "bar",
+			}}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+				"foo":  "bar",
+			}}},
+			equal: true,
+		},
+		{name: "different values",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: false,
+				"foo":  "bar",
+			}}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+				"foo":  "abc",
+			}}},
+		},
+		{name: "different sizes",
+			s1: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: false,
+				"foo":  "bar",
+				"xyz":  "123",
+			}}},
+			s2: &spec.Schema{VendorExtensible: spec.VendorExtensible{Extensions: spec.Extensions{
+				gvkKey: true,
+				"foo":  "abc",
+			}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := deepEqualDefinitionsModuloGVKs(tt.s1, tt.s2); got != tt.equal {
+				t.Errorf("deepEqualDefinitionsModuloGVKs(s1, v2) = %v, want %v", got, tt.equal)
+			}
+
+			if got := deepEqualDefinitionsModuloGVKs(tt.s2, tt.s1); got != tt.equal {
+				t.Errorf("deepEqualDefinitionsModuloGVKs(s2, s1) = %v, want %v", got, tt.equal)
+			}
+		})
+	}
 }

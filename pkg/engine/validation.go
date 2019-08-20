@@ -18,7 +18,7 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
+func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
 	var executionTime time.Duration
 	var rulesAppliedCount int
 	startTime := time.Now()
@@ -32,19 +32,16 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info
 		// rules applied succesfully count
 		rulesAppliedCount++
 	}
-
-	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
-	//TODO: pass unstructured instead of rawResource ?
-
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		glog.V(4).Infof("unable to marshal resource : %v", err)
-		return nil, err
+		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
+		return EngineResponse{PatchedResource: resource}
 	}
+
 	var resourceInt interface{}
 	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
-		glog.V(4).Infof("unable to unmarshal resource : %v", err)
-		return nil, err
+		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
+		return EngineResponse{PatchedResource: resource}
 	}
 
 	var ruleInfos []info.RuleInfo
@@ -55,7 +52,7 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info
 		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
-		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
+		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		ok := MatchesResourceDescription(resource, rule)
 		if !ok {
@@ -77,7 +74,7 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) ([]info
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
 
-	return ruleInfos, nil
+	return EngineResponse{RuleInfos: ruleInfos}
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

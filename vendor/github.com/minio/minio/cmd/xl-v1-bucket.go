@@ -23,6 +23,7 @@ import (
 
 	"github.com/minio/minio-go/v6/pkg/s3utils"
 	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/lifecycle"
 	"github.com/minio/minio/pkg/policy"
 )
 
@@ -151,7 +152,7 @@ func (xl xlObjects) getBucketInfo(ctx context.Context, bucketName string) (bucke
 
 // GetBucketInfo - returns BucketInfo for a bucket.
 func (xl xlObjects) GetBucketInfo(ctx context.Context, bucket string) (bi BucketInfo, e error) {
-	bucketLock := xl.nsMutex.NewNSLock(bucket, "")
+	bucketLock := xl.nsMutex.NewNSLock(ctx, bucket, "")
 	if e := bucketLock.GetRLock(globalObjectTimeout); e != nil {
 		return bi, e
 	}
@@ -237,7 +238,7 @@ func deleteDanglingBucket(ctx context.Context, storageDisks []StorageAPI, dErrs 
 
 // DeleteBucket - deletes a bucket.
 func (xl xlObjects) DeleteBucket(ctx context.Context, bucket string) error {
-	bucketLock := xl.nsMutex.NewNSLock(bucket, "")
+	bucketLock := xl.nsMutex.NewNSLock(ctx, bucket, "")
 	if err := bucketLock.GetLock(globalObjectTimeout); err != nil {
 		return err
 	}
@@ -306,6 +307,21 @@ func (xl xlObjects) GetBucketPolicy(ctx context.Context, bucket string) (*policy
 // DeleteBucketPolicy deletes all policies on bucket
 func (xl xlObjects) DeleteBucketPolicy(ctx context.Context, bucket string) error {
 	return removePolicyConfig(ctx, xl, bucket)
+}
+
+// SetBucketLifecycle sets lifecycle on bucket
+func (xl xlObjects) SetBucketLifecycle(ctx context.Context, bucket string, lifecycle *lifecycle.Lifecycle) error {
+	return saveLifecycleConfig(ctx, xl, bucket, lifecycle)
+}
+
+// GetBucketLifecycle will get lifecycle on bucket
+func (xl xlObjects) GetBucketLifecycle(ctx context.Context, bucket string) (*lifecycle.Lifecycle, error) {
+	return getLifecycleConfig(xl, bucket)
+}
+
+// DeleteBucketLifecycle deletes all lifecycle on bucket
+func (xl xlObjects) DeleteBucketLifecycle(ctx context.Context, bucket string) error {
+	return removeLifecycleConfig(ctx, xl, bucket)
 }
 
 // IsNotificationSupported returns whether bucket notification is applicable for this layer.

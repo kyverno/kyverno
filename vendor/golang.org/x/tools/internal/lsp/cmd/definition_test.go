@@ -5,7 +5,6 @@
 package cmd_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +37,8 @@ var godefModes = []godefMode{
 }
 
 func TestDefinitionHelpExample(t *testing.T) {
+	// TODO: https://golang.org/issue/32794.
+	t.Skip()
 	if runtime.GOOS == "android" {
 		t.Skip("not all source files are available on android")
 	}
@@ -54,7 +55,7 @@ func TestDefinitionHelpExample(t *testing.T) {
 		fmt.Sprintf("%v:#%v", thisFile, cmd.ExampleOffset)} {
 		args := append(baseArgs, query)
 		got := captureStdOut(t, func() {
-			tool.Main(context.Background(), cmd.New("", nil), args)
+			tool.Main(tests.Context(t), cmd.New("gopls-test", "", nil), args)
 		})
 		if !expect.MatchString(got) {
 			t.Errorf("test with %v\nexpected:\n%s\ngot:\n%s", args, expect, got)
@@ -63,6 +64,8 @@ func TestDefinitionHelpExample(t *testing.T) {
 }
 
 func (r *runner) Definition(t *testing.T, data tests.Definitions) {
+	// TODO: https://golang.org/issue/32794.
+	t.Skip()
 	for _, d := range data {
 		if d.IsType || d.OnlyHover {
 			// TODO: support type definition, hover queries
@@ -78,19 +81,15 @@ func (r *runner) Definition(t *testing.T, data tests.Definitions) {
 			}
 			args = append(args, "definition")
 			uri := d.Src.URI()
-			filename, err := uri.Filename()
-			if err != nil {
-				t.Fatal(err)
-			}
 			args = append(args, fmt.Sprint(d.Src))
 			got := captureStdOut(t, func() {
-				tool.Main(context.Background(), r.app, args)
+				tool.Main(r.ctx, r.app, args)
 			})
 			got = normalizePaths(r.data, got)
 			if mode&jsonGoDef != 0 && runtime.GOOS == "windows" {
 				got = strings.Replace(got, "file:///", "file://", -1)
 			}
-			expect := strings.TrimSpace(string(r.data.Golden(tag, filename, func() ([]byte, error) {
+			expect := strings.TrimSpace(string(r.data.Golden(tag, uri.Filename(), func() ([]byte, error) {
 				return []byte(got), nil
 			})))
 			if expect != "" && !strings.HasPrefix(got, expect) {

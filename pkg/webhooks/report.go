@@ -23,7 +23,7 @@ func newEventInfoFromPolicyInfo(policyInfoList []info.PolicyInfo, onUpdate bool,
 			if !onUpdate {
 				// CREATE
 				eventsInfo = append(eventsInfo,
-					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RName, ruleNames))
+					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyApplyBlockCreate, pi.RNamespace+"/"+pi.RName, ruleNames))
 
 				glog.V(3).Infof("Rule(s) %s of policy %s blocked resource creation, error: %s\n", ruleNames, pi.Name, msg)
 			} else {
@@ -31,7 +31,7 @@ func newEventInfoFromPolicyInfo(policyInfoList []info.PolicyInfo, onUpdate bool,
 				eventsInfo = append(eventsInfo,
 					event.NewEvent(pi.RKind, pi.RNamespace, pi.RName, event.RequestBlocked, event.FPolicyApplyBlockUpdate, ruleNames, pi.Name))
 				eventsInfo = append(eventsInfo,
-					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RName, ruleNames))
+					event.NewEvent(policyKind, "", pi.Name, event.RequestBlocked, event.FPolicyBlockResourceUpdate, pi.RNamespace+"/"+pi.RName, ruleNames))
 				glog.V(3).Infof("Request blocked events info has prepared for %s/%s and %s/%s\n", policyKind, pi.Name, pi.RKind, pi.RName)
 			}
 		}

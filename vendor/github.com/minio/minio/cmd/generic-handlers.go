@@ -28,6 +28,7 @@ import (
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/minio/minio/cmd/crypto"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/handlers"
@@ -152,7 +153,7 @@ func containsReservedMetadata(header http.Header) bool {
 // Reserved bucket.
 const (
 	minioReservedBucket     = "minio"
-	minioReservedBucketPath = "/" + minioReservedBucket
+	minioReservedBucketPath = SlashSeparator + minioReservedBucket
 )
 
 // Adds redirect rules for incoming requests.
@@ -171,10 +172,10 @@ func setBrowserRedirectHandler(h http.Handler) http.Handler {
 // browser requests.
 func getRedirectLocation(urlPath string) (rLocation string) {
 	if urlPath == minioReservedBucketPath {
-		rLocation = minioReservedBucketPath + "/"
+		rLocation = minioReservedBucketPath + SlashSeparator
 	}
 	if contains([]string{
-		"/",
+		SlashSeparator,
 		"/webrpc",
 		"/login",
 		"/favicon.ico",
@@ -228,7 +229,7 @@ func guessIsRPCReq(req *http.Request) bool {
 		return false
 	}
 	return req.Method == http.MethodPost &&
-		strings.HasPrefix(req.URL.Path, minioReservedBucketPath+"/")
+		strings.HasPrefix(req.URL.Path, minioReservedBucketPath+SlashSeparator)
 }
 
 func (h redirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -257,14 +258,14 @@ func setBrowserCacheControlHandler(h http.Handler) http.Handler {
 func (h cacheControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && guessIsBrowserReq(r) {
 		// For all browser requests set appropriate Cache-Control policies
-		if hasPrefix(r.URL.Path, minioReservedBucketPath+"/") {
+		if hasPrefix(r.URL.Path, minioReservedBucketPath+SlashSeparator) {
 			if hasSuffix(r.URL.Path, ".js") || r.URL.Path == minioReservedBucketPath+"/favicon.ico" {
 				// For assets set cache expiry of one year. For each release, the name
 				// of the asset name will change and hence it can not be served from cache.
-				w.Header().Set("Cache-Control", "max-age=31536000")
+				w.Header().Set(xhttp.CacheControl, "max-age=31536000")
 			} else {
 				// For non asset requests we serve index.html which will never be cached.
-				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set(xhttp.CacheControl, "no-store")
 			}
 		}
 	}
@@ -275,7 +276,7 @@ func (h cacheControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Check to allow access to the reserved "bucket" `/minio` for Admin
 // API requests.
 func isAdminReq(r *http.Request) bool {
-	return strings.HasPrefix(r.URL.Path, adminAPIPathPrefix+"/")
+	return strings.HasPrefix(r.URL.Path, adminAPIPathPrefix+SlashSeparator)
 }
 
 // Adds verification for incoming paths.
@@ -294,7 +295,7 @@ func (h minioReservedBucketHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	default:
 		// For all other requests reject access to reserved
 		// buckets
-		bucketName, _ := urlPath2BucketObjectName(r.URL.Path)
+		bucketName, _ := request2BucketObjectName(r)
 		if isMinioReservedBucket(bucketName) || isMinioMetaBucket(bucketName) {
 			writeErrorResponse(context.Background(), w, errorCodes.ToAPIErr(ErrAllAccessDisabled), r.URL, guessIsBrowserReq(r))
 			return
@@ -380,15 +381,15 @@ type resourceHandler struct {
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
 func setCorsHandler(h http.Handler) http.Handler {
 	commonS3Headers := []string{
-		"Date",
-		"ETag",
-		"Server",
-		"Connection",
-		"Accept-Ranges",
-		"Content-Range",
-		"Content-Encoding",
-		"Content-Length",
-		"Content-Type",
+		xhttp.Date,
+		xhttp.ETag,
+		xhttp.ServerInfo,
+		xhttp.Connection,
+		xhttp.AcceptRanges,
+		xhttp.ContentRange,
+		xhttp.ContentEncoding,
+		xhttp.ContentLength,
+		xhttp.ContentType,
 		"X-Amz*",
 		"x-amz*",
 		"*",
@@ -472,7 +473,6 @@ var notimplementedBucketResourceNames = map[string]bool{
 	"acl":            true,
 	"cors":           true,
 	"inventory":      true,
-	"lifecycle":      true,
 	"logging":        true,
 	"metrics":        true,
 	"replication":    true,
@@ -494,7 +494,7 @@ var notimplementedObjectResourceNames = map[string]bool{
 
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	bucketName, objectName := urlPath2BucketObjectName(r.URL.Path)
+	bucketName, objectName := request2BucketObjectName(r)
 
 	// If bucketName is present and not objectName check for bucket level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -596,7 +596,7 @@ const (
 // such as ".." and "."
 func hasBadPathComponent(path string) bool {
 	path = strings.TrimSpace(path)
-	for _, p := range strings.Split(path, slashSeparator) {
+	for _, p := range strings.Split(path, SlashSeparator) {
 		switch strings.TrimSpace(p) {
 		case dotdotComponent:
 			return true
@@ -696,7 +696,8 @@ func (f bucketForwardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	bucket, object := urlPath2BucketObjectName(r.URL.Path)
+	bucket, object := request2BucketObjectName(r)
+
 	// ListBucket requests should be handled at current endpoint as
 	// all buckets data can be fetched from here.
 	if r.Method == http.MethodGet && bucket == "" && object == "" {
@@ -745,11 +746,14 @@ func setBucketForwardingHandler(h http.Handler) http.Handler {
 	fwd := handlers.NewForwarder(&handlers.Forwarder{
 		PassHost:     true,
 		RoundTripper: NewCustomHTTPTransport(),
+		Logger: func(err error) {
+			logger.LogIf(context.Background(), err)
+		},
 	})
 	return bucketForwardingHandler{fwd, h}
 }
 
-// customHeaderHandler sets x-amz-request-id, x-minio-deployment-id header.
+// customHeaderHandler sets x-amz-request-id header.
 // Previously, this value was set right before a response was sent to
 // the client. So, logger and Error response XML were not using this
 // value. This is set here so that this header can be logged as
@@ -763,12 +767,8 @@ func addCustomHeaders(h http.Handler) http.Handler {
 }
 
 func (s customHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Set custom headers such as x-amz-request-id and x-minio-deployment-id
-	// for each request.
-	w.Header().Set(responseRequestIDKey, mustGetRequestID(UTCNow()))
-	if globalDeploymentID != "" {
-		w.Header().Set(responseDeploymentIDKey, globalDeploymentID)
-	}
+	// Set custom headers such as x-amz-request-id for each request.
+	w.Header().Set(xhttp.AmzRequestID, mustGetRequestID(UTCNow()))
 	s.handler.ServeHTTP(logger.NewResponseWriter(w), r)
 }
 

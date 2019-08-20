@@ -403,6 +403,79 @@ func (_ Blah) OpenAPIDefinition() openapi.OpenAPIDefinition {
 	assert.Equal(``, funcBuffer.String())
 }
 
+func TestCustomDefV3(t *testing.T) {
+	callErr, funcErr, assert, callBuffer, funcBuffer := testOpenAPITypeWriter(t, `
+package foo
+
+import openapi "k8s.io/kube-openapi/pkg/common"
+
+type Blah struct {
+}
+
+func (_ Blah) OpenAPIV3Definition() openapi.OpenAPIDefinition {
+	return openapi.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type:   []string{"string"},
+				Format: "date-time",
+			},
+		},
+	}
+}
+`)
+	if callErr != nil {
+		t.Fatal(callErr)
+	}
+	if funcErr != nil {
+		t.Fatal(funcErr)
+	}
+	assert.Equal(`"base/foo.Blah": foo.Blah{}.OpenAPIV3Definition(),
+`, callBuffer.String())
+	assert.Equal(``, funcBuffer.String())
+}
+
+func TestCustomDefV2AndV3(t *testing.T) {
+	callErr, funcErr, assert, callBuffer, funcBuffer := testOpenAPITypeWriter(t, `
+package foo
+
+import openapi "k8s.io/kube-openapi/pkg/common"
+
+type Blah struct {
+}
+
+func (_ Blah) OpenAPIV3Definition() openapi.OpenAPIDefinition {
+	return openapi.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type:   []string{"string"},
+				Format: "date-time",
+			},
+		},
+	}
+}
+
+func (_ Blah) OpenAPIDefinition() openapi.OpenAPIDefinition {
+	return openapi.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type:   []string{"string"},
+				Format: "date-time",
+			},
+		},
+	}
+}
+`)
+	if callErr != nil {
+		t.Fatal(callErr)
+	}
+	if funcErr != nil {
+		t.Fatal(funcErr)
+	}
+	assert.Equal(`"base/foo.Blah": common.EmbedOpenAPIDefinitionIntoV2Extension(foo.Blah{}.OpenAPIV3Definition(), foo.Blah{}.OpenAPIDefinition()),
+`, callBuffer.String())
+	assert.Equal(``, funcBuffer.String())
+}
+
 func TestCustomDefs(t *testing.T) {
 	callErr, funcErr, assert, callBuffer, funcBuffer := testOpenAPITypeWriter(t, `
 package foo
@@ -432,6 +505,53 @@ Format:foo.Blah{}.OpenAPISchemaFormat(),
 },
 },
 }
+}
+
+`, funcBuffer.String())
+}
+
+func TestCustomDefsV3(t *testing.T) {
+	callErr, funcErr, assert, callBuffer, funcBuffer := testOpenAPITypeWriter(t, `
+package foo
+
+import openapi "k8s.io/kube-openapi/pkg/common"
+
+// Blah is a custom type
+type Blah struct {
+}
+
+func (_ Blah) OpenAPIV3Definition() openapi.OpenAPIDefinition {
+	return openapi.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type:   []string{"string"},
+				Format: "date-time",
+			},
+		},
+	}
+}
+
+func (_ Blah) OpenAPISchemaType() []string { return []string{"string"} }
+func (_ Blah) OpenAPISchemaFormat() string { return "date-time" }
+`)
+	if callErr != nil {
+		t.Fatal(callErr)
+	}
+	if funcErr != nil {
+		t.Fatal(funcErr)
+	}
+	assert.Equal(`"base/foo.Blah": schema_base_foo_Blah(ref),
+`, callBuffer.String())
+	assert.Equal(`func schema_base_foo_Blah(ref common.ReferenceCallback) common.OpenAPIDefinition {
+return common.EmbedOpenAPIDefinitionIntoV2Extension(foo.Blah{}.OpenAPIV3Definition(), common.OpenAPIDefinition{
+Schema: spec.Schema{
+SchemaProps: spec.SchemaProps{
+Description: "Blah is a custom type",
+Type:foo.Blah{}.OpenAPISchemaType(),
+Format:foo.Blah{}.OpenAPISchemaFormat(),
+},
+},
+})
 }
 
 `, funcBuffer.String())
