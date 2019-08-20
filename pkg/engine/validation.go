@@ -19,29 +19,32 @@ import (
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
+	var response EngineResponse
 	var executionTime time.Duration
-	var rulesAppliedCount int
 	startTime := time.Now()
 	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
 	defer func() {
 		executionTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying validation rules policy %q (%v)", policy.Name, executionTime)
-		glog.V(4).Infof("Validation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying mutation rules policy %q (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", response.RulesAppliedCount, policy.Name)
 	}()
 	succesfulRuleCount := func() {
 		// rules applied succesfully count
-		rulesAppliedCount++
+		response.RulesAppliedCount++
 	}
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	var resourceInt interface{}
 	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
 		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	var ruleInfos []info.RuleInfo
@@ -73,8 +76,8 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineR
 		}
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
-
-	return EngineResponse{RuleInfos: ruleInfos}
+	response.RuleInfos = ruleInfos
+	return response
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

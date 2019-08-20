@@ -148,8 +148,8 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, poli
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
 	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
-	ruleInfos := engine.Generate(client, policy, resource)
-	policyInfo.AddRuleInfos(ruleInfos)
+	engineResponse := engine.Generate(client, policy, resource)
+	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 
 	return policyInfo
 }

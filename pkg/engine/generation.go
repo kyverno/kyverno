@@ -18,19 +18,20 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
+func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) EngineResponse {
+	var response EngineResponse
 	var executionTime time.Duration
-	var rulesAppliedCount int
 	startTime := time.Now()
 	glog.V(4).Infof("started applying generation rules of policy %q (%v)", policy.Name, startTime)
 	defer func() {
 		executionTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying generation rules policy %q (%v)", policy.Name, executionTime)
-		glog.V(4).Infof("Generation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying generation rules policy %q (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", response.RulesAppliedCount, policy.Name)
 	}()
 	succesfulRuleCount := func() {
 		// rules applied succesfully count
-		rulesAppliedCount++
+		response.RulesAppliedCount++
 	}
 
 	ris := []info.RuleInfo{}
@@ -52,7 +53,8 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 		}
 		ris = append(ris, ri)
 	}
-	return ris
+	response.RuleInfos = ris
+	return response
 }
 
 func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen kyverno.Generation, policyCreationTime metav1.Time) error {

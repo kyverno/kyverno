@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -18,10 +19,20 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+//EngineResponse provides the response to the application of a policy rule set on a resource
 type EngineResponse struct {
 	Patches         [][]byte
 	PatchedResource unstructured.Unstructured
 	RuleInfos       []info.RuleInfo
+	EngineStats
+}
+
+//EngineStats stores in the statistics for a single application of resource
+type EngineStats struct {
+	// average time required to process the policy rules on a resource
+	ExecutionTime time.Duration
+	// Count of rules that were applied succesfully
+	RulesAppliedCount int
 }
 
 // //ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules

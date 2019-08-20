@@ -13,22 +13,23 @@ import (
 // Mutate performs mutation. Overlay first and then mutation patches
 
 func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
+	var response EngineResponse
 	var allPatches, rulePatches [][]byte
 	var err error
 	var errs []error
 	ris := []info.RuleInfo{}
 	var executionTime time.Duration
-	var rulesAppliedCount int
 	startTime := time.Now()
 	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
 	defer func() {
 		executionTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying mutation rules policy %q (%v)", policy.Name, executionTime)
-		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", rulesAppliedCount, policy.Name)
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying mutation rules policy %q (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", response.RulesAppliedCount, policy.Name)
 	}()
 	succesfulRuleCount := func() {
 		// rules applied succesfully count
-		rulesAppliedCount++
+		response.RulesAppliedCount++
 	}
 
 	patchedDocument, err := resource.MarshalJSON()
@@ -38,7 +39,8 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource : %v", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	for _, rule := range policy.Spec.Rules {
@@ -114,12 +116,12 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 	patchedResource, err := ConvertToUnstructured(patchedDocument)
 	if err != nil {
 		glog.Errorf("Failed to convert patched resource to unstructuredtype, err%v\n:", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
-	return EngineResponse{
-		Patches:         allPatches,
-		PatchedResource: *patchedResource,
-		RuleInfos:       ris,
-	}
+	response.Patches = allPatches
+	response.PatchedResource = *patchedResource
+	response.RuleInfos = ris
+	return response
 }
