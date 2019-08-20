@@ -15,7 +15,7 @@ import (
 	"github.com/golang/glog"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	lister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -31,8 +31,8 @@ type WebhookServer struct {
 	server                    http.Server
 	client                    *client.Client
 	kyvernoClient             *kyvernoclient.Clientset
-	pLister                   lister.PolicyLister
-	pvLister                  lister.PolicyViolationLister
+	pLister                   kyvernolister.PolicyLister
+	pvLister                  kyvernolister.PolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
 	eventGen                  event.Interface
