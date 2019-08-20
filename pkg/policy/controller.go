@@ -68,6 +68,8 @@ type PolicyController struct {
 	rm resourceManager
 	// filter the resources defined in the list
 	filterK8Resources []utils.K8Resource
+	// recieves stats and aggregates details
+	statusAggregator *PolicyStatusAggregator
 }
 
 // NewPolicyController create a new PolicyController
@@ -115,6 +117,9 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
+
+	// aggregator
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
 
 	return &pc, nil
 }
@@ -335,6 +340,9 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+	// policy status aggregator
+	//TODO: workers required for aggergation
+	pc.statusAggregator.Run(1, stopCh)
 	<-stopCh
 }
 
@@ -403,7 +411,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policyInfos := pc.processExistingResources(*p)
 	// report errors
 	pc.report(policyInfos)
-	return pc.syncStatusOnly(p, pvList)
+	return pc.statusAggregator.UpdateViolationCount(p, pvList)
+	//	return pc.syncStatusOnly(p, pvList)
 }
 
 //syncStatusOnly updates the policy status subresource
@@ -422,13 +431,6 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	return err
 }
 
-func calculateStatus(pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
-	violationCount := len(pvList)
-	status := kyverno.PolicyStatus{
-		Violations: violationCount,
-	}
-	return status
-}
 func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*kyverno.PolicyViolation, error) {
 	// List all PolicyViolation to find those we own but that no longer match our
 	// selector. They will be orphaned by ClaimPolicyViolation().

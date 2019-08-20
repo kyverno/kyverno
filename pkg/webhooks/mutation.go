@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
+	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,6 +15,23 @@ import (
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool, engine.EngineResponse) {
 	var patches [][]byte
 	var policyInfos []info.PolicyInfo
+	var policyStats []policyctr.PolicyStat
+	// gather stats from the engine response
+	gatherStat := func(policyName string, er engine.EngineResponse) {
+		ps := policyctr.PolicyStat{}
+		ps.PolicyName = policyName
+		ps.MutationExecutionTime = er.ExecutionTime
+		ps.RulesAppliedCount = er.RulesAppliedCount
+		policyStats = append(policyStats, ps)
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		for _, stat := range policyStats {
+			stat.ResourceBlocked = blocked
+			//SEND
+			ws.policyStatus.SendStat(stat)
+		}
+	}
 
 	glog.V(5).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
@@ -54,6 +72,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 
 		engineResponse = engine.Mutate(*policy, *resource)
 		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
+		// Gather policy application statistics
+		gatherStat(policy.Name, engineResponse)
+
+		// ps := policyctr.NewPolicyStat(policy.Name, engineResponse.ExecutionTime, nil, engineResponse.RulesAppliedCount)
 
 		if !policyInfo.IsSuccessful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
@@ -67,6 +89,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		patches = append(patches, engineResponse.Patches...)
 		policyInfos = append(policyInfos, policyInfo)
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
+
 	}
 
 	// ADD ANNOTATIONS
@@ -80,11 +103,14 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 	}
 
 	ok, msg := isAdmSuccesful(policyInfos)
+	// Send policy engine Stats
 	if ok {
+		sendStat(false)
 		engineResponse.Patches = patches
 		return true, engineResponse
 	}
 
+	sendStat(true)
 	glog.Errorf("Failed to mutate the resource: %s\n", msg)
 	return false, engineResponse
 }

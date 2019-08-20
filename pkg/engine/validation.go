@@ -18,18 +18,16 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
-	var response EngineResponse
-	var executionTime time.Duration
+func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
+	// var response EngineResponse
 	startTime := time.Now()
 	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
 	defer func() {
-		executionTime = time.Since(startTime)
 		response.ExecutionTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying mutation rules policy %q (%v)", policy.Name, response.ExecutionTime)
-		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", response.RulesAppliedCount, policy.Name)
+		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.RulesAppliedCount, policy.Name)
 	}()
-	succesfulRuleCount := func() {
+	incrementAppliedRuleCount := func() {
 		// rules applied succesfully count
 		response.RulesAppliedCount++
 	}
@@ -72,8 +70,8 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineR
 		} else {
 			ruleInfo.Add("Pattern succesfully validated")
 			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
-			succesfulRuleCount()
 		}
+		incrementAppliedRuleCount()
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
 	response.RuleInfos = ruleInfos

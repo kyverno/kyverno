@@ -110,7 +110,7 @@ func main() {
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, webhookRegistrationClient, filterK8Resources)
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
