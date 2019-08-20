@@ -119,7 +119,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.rm = NewResourceManager(30)
 
 	// aggregator
-	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer.Lister())
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
 
 	return &pc, nil
 }
