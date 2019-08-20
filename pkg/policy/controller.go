@@ -436,12 +436,14 @@ func (pc *PolicyController) handleWebhookRegistration(emptyPolicy bool) error {
 	if emptyPolicy {
 		// deregister webhookconfigurations it it exists
 		if list != nil {
+			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
 			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
 		}
 		return nil
 	}
 
 	if list == nil {
+		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
 		pc.webhookRegistrationClient.RegisterMutatingWebhook()
 	}
 
