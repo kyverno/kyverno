@@ -8,9 +8,5 @@ build:
 	cd apps/petstore-builder; go get; go install
 	cd plugins/gnostic-summary; go get; go install
 	cd plugins/gnostic-analyze; go get; go install
-	cd plugins/gnostic-go-generator; go get; go install
-	rm -f $(GOPATH)/bin/gnostic-go-client $(GOPATH)/bin/gnostic-go-server
-	ln -s $(GOPATH)/bin/gnostic-go-generator $(GOPATH)/bin/gnostic-go-client
-	ln -s $(GOPATH)/bin/gnostic-go-generator $(GOPATH)/bin/gnostic-go-server
 	cd extensions/sample; make
 

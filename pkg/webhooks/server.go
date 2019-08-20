@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/engine"
+
 	"github.com/golang/glog"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	lister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -26,15 +28,16 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server            http.Server
-	client            *client.Client
-	kyvernoClient     *kyvernoclient.Clientset
-	pLister           kyvernolister.PolicyLister
-	pvLister          kyvernolister.PolicyViolationLister
-	pListerSynced     cache.InformerSynced
-	pvListerSynced    cache.InformerSynced
-	eventGen          event.Interface
-	filterK8Resources []utils.K8Resource
+	server                    http.Server
+	client                    *client.Client
+	kyvernoClient             *kyvernoclient.Clientset
+	pLister                   lister.PolicyLister
+	pvLister                  lister.PolicyViolationLister
+	pListerSynced             cache.InformerSynced
+	pvListerSynced            cache.InformerSynced
+	eventGen                  event.Interface
+	webhookRegistrationClient *WebhookRegistrationClient
+	filterK8Resources         []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -46,6 +49,7 @@ func NewWebhookServer(
 	pInformer kyvernoinformer.PolicyInformer,
 	pvInormer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface,
+	webhookRegistrationClient *WebhookRegistrationClient,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -60,14 +64,16 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		pLister:           pInformer.Lister(),
-		pvLister:          pvInormer.Lister(),
-		pListerSynced:     pInformer.Informer().HasSynced,
-		pvListerSynced:    pInformer.Informer().HasSynced,
-		eventGen:          eventGen,
-		filterK8Resources: utils.ParseKinds(filterK8Resources),
+
+		client:                    client,
+		kyvernoClient:             kyvernoClient,
+		pLister:                   pInformer.Lister(),
+		pvLister:                  pvInormer.Lister(),
+		pListerSynced:             pInformer.Informer().HasSynced,
+		pvListerSynced:            pInformer.Informer().HasSynced,
+		eventGen:                  eventGen,
+		webhookRegistrationClient: webhookRegistrationClient,
+		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -102,9 +108,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		// Resource UPDATE
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-		case config.ValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandleValidation(admissionReview.Request)
+			admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
 		case config.PolicyValidatingWebhookServicePath:
 			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 		}
@@ -122,6 +126,27 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(responseJSON); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	var response *v1beta1.AdmissionResponse
+
+	allowed, engineResponse := ws.HandleMutation(request)
+	if !allowed {
+		// TODO: add failure message to response
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+		}
+	}
+
+	response = ws.HandleValidation(request, engineResponse.PatchedResource)
+	if response.Allowed && len(engineResponse.Patches) > 0 {
+		patchType := v1beta1.PatchTypeJSONPatch
+		response.Patch = engine.JoinPatches(engineResponse.Patches)
+		response.PatchType = &patchType
+	}
+
+	return response
 }
 
 // RunAsync TLS server in separate thread and returns control immediately

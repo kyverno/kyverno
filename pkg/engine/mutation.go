@@ -10,11 +10,21 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-//TODO: check if gvk needs to be passed or can be set in resource
-func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte, []info.RuleInfo) {
-	//TODO: convert rawResource to unstructured to avoid unmarhalling all the time for get some resource information
-	var patches [][]byte
-	var ruleInfos []info.RuleInfo
+func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
+	var allPatches, rulePatches [][]byte
+	var err error
+	var errs []error
+	ris := []info.RuleInfo{}
+
+	patchedDocument, err := resource.MarshalJSON()
+	if err != nil {
+		glog.Errorf("unable to marshal resource : %v\n", err)
+	}
+
+	if err != nil {
+		glog.V(4).Infof("unable to marshal resource : %v", err)
+		return EngineResponse{PatchedResource: resource}
+	}
 
 	for _, rule := range policy.Spec.Rules {
 		if reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
@@ -34,9 +44,9 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
-			oPatches, err := processOverlay(resource, rule)
+			rulePatches, err = processOverlay(rule, patchedDocument)
 			if err == nil {
-				if len(oPatches) == 0 {
+				if len(rulePatches) == 0 {
 					// if array elements dont match then we skip(nil patch, no error)
 					// or if acnohor is defined and doenst match
 					// policy is not applicable
@@ -44,14 +54,13 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 					continue
 				}
 
-				glog.V(4).Infof("overlay applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
-				ruleInfo.Add("Overlay succesfully applied")
+				ruleInfo.Addf("Rule %s: Overlay succesfully applied.", rule.Name)
 
-				// update rule information
 				// strip slashes from string
-				patch := JoinPatches(oPatches)
-				ruleInfo.Changes = string(patch)
-				patches = append(patches, oPatches...)
+				ruleInfo.Patches = rulePatches
+				allPatches = append(allPatches, rulePatches...)
+
+				glog.V(4).Infof("overlay applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 			} else {
 				glog.V(4).Infof("failed to apply overlay: %v", err)
 				ruleInfo.Fail()
@@ -61,7 +70,7 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 
 		// Process Patches
 		if len(rule.Mutation.Patches) != 0 {
-			jsonPatches, errs := processPatches(resource, rule)
+			rulePatches, errs = processPatches(rule, patchedDocument)
 			if len(errs) > 0 {
 				ruleInfo.Fail()
 				for _, err := range errs {
@@ -71,10 +80,29 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) ([][]byte
 			} else {
 				glog.V(4).Infof("patches applied succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 				ruleInfo.Addf("Patches succesfully applied.")
-				patches = append(patches, jsonPatches...)
+
+				ruleInfo.Patches = rulePatches
+				allPatches = append(allPatches, rulePatches...)
 			}
 		}
-		ruleInfos = append(ruleInfos, ruleInfo)
+
+		patchedDocument, err = ApplyPatches(patchedDocument, rulePatches)
+		if err != nil {
+			glog.Errorf("Failed to apply patches on ruleName=%s, err%v\n:", rule.Name, err)
+		}
+
+		ris = append(ris, ruleInfo)
 	}
-	return patches, ruleInfos
+
+	patchedResource, err := ConvertToUnstructured(patchedDocument)
+	if err != nil {
+		glog.Errorf("Failed to convert patched resource to unstructuredtype, err%v\n:", err)
+		return EngineResponse{PatchedResource: resource}
+	}
+
+	return EngineResponse{
+		Patches:         allPatches,
+		PatchedResource: *patchedResource,
+		RuleInfos:       ris,
+	}
 }

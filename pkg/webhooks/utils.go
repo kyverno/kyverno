@@ -7,7 +7,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const policyKind = "Policy"
@@ -81,18 +80,10 @@ const (
 func toBlock(pis []info.PolicyInfo) bool {
 	for _, pi := range pis {
 		if pi.ValidationFailureAction != ReportViolation {
+			glog.V(3).Infoln("ValidationFailureAction set to enforce, blocking resource ceation")
 			return true
 		}
 	}
+	glog.V(3).Infoln("ValidationFailureAction set to audit, allowing resource creation, reporting with violation")
 	return false
-}
-
-func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
-	if err != nil {
-		glog.V(4).Infof("failed to unmarshall resource: %v", err)
-		return nil, err
-	}
-	return resource, nil
 }

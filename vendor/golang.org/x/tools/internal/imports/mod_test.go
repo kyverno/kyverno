@@ -118,6 +118,25 @@ import _ "example.com"
 	mt.assertFound("example.com", "x")
 }
 
+// Tests that scanning the module cache > 1 time is able to find the same module.
+func TestModMultipleScans(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module x
+
+require example.com v1.0.0
+
+-- x.go --
+package x
+import _ "example.com"
+`, "")
+	defer mt.cleanup()
+
+	mt.assertScanFinds("example.com", "x")
+	mt.assertScanFinds("example.com", "x")
+
+}
+
 // Tests that -mod=vendor sort of works. Adapted from mod_getmode_vendor.txt.
 func TestModeGetmodeVendor(t *testing.T) {
 	mt := setup(t, `
@@ -140,7 +159,7 @@ import _ "rsc.io/quote"
 
 	mt.env.GOFLAGS = ""
 	// Clear out the resolver's cache, since we've changed the environment.
-	mt.resolver = &moduleResolver{env: mt.env}
+	mt.resolver = &ModuleResolver{env: mt.env}
 	mt.assertModuleFoundInDir("rsc.io/quote", "quote", `pkg.*mod.*/quote@.*$`)
 }
 
@@ -486,7 +505,7 @@ var proxyDir string
 type modTest struct {
 	*testing.T
 	env      *ProcessEnv
-	resolver *moduleResolver
+	resolver *ModuleResolver
 	cleanup  func()
 }
 
@@ -524,16 +543,21 @@ func setup(t *testing.T, main, wd string) *modTest {
 		WorkingDir:  filepath.Join(mainDir, wd),
 	}
 
-	// go mod tidy instead of download because tidy will notice dependencies
-	// in code, not just in go.mod files.
-	if _, err := env.invokeGo("mod", "download"); err != nil {
-		t.Fatal(err)
+	// go mod download gets mad if we don't have a go.mod, so make sure we do.
+	_, err = os.Stat(filepath.Join(mainDir, "go.mod"))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("checking if go.mod exists: %v", err)
+	}
+	if err == nil {
+		if _, err := env.invokeGo("mod", "download"); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	return &modTest{
 		T:        t,
 		env:      env,
-		resolver: &moduleResolver{env: env},
+		resolver: &ModuleResolver{env: env},
 		cleanup: func() {
 			_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {

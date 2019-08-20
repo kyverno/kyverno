@@ -12,29 +12,27 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// ProcessOverlay handles validating admission request
+// rawResource handles validating admission request
 // Checks the target resources for rules defined in the policy
-func processOverlay(resourceUnstr unstructured.Unstructured, rule kyverno.Rule) ([][]byte, error) {
-
-	//TODO check if there is better solution
-	resourceRaw, err := resourceUnstr.MarshalJSON()
-	if err != nil {
-		glog.V(4).Infof("unable to marshal resource : %v", err)
-		return nil, err
-	}
+// TODO: pass in the unstructured object in stead of raw byte?
+func processOverlay(rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
 	var resource interface{}
-	if err := json.Unmarshal(resourceRaw, &resource); err != nil {
+	if err := json.Unmarshal(rawResource, &resource); err != nil {
 		glog.V(4).Infof("unable to unmarshal resource : %v", err)
 		return nil, err
 	}
 
+	resourceInfo := ParseResourceInfoFromObject(rawResource)
 	patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
-		glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
-		return nil, nil
+		// glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+		glog.Infof("Resource does not meet conditions in overlay pattern, resource=%s, rule=%s\n", resourceInfo, rule.Name)
+		// patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
+		// if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
+		// 	glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+		// 	return nil, nil
 	}
 
 	return patches, err

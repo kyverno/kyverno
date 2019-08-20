@@ -10,19 +10,28 @@ The temporary security credentials returned by this API consists of an access ke
 #### DurationSeconds
 The duration, in seconds. The value can range from 900 seconds (15 minutes) up to 12 hours. If value is higher than this setting, then operation fails. By default, the value is set to 3600 seconds.
 
-| Params | Value |
-| :-- | :-- |
-| *Type* | *Integer* |
+| Params        | Value                                           |
+| :--           | :--                                             |
+| *Type*        | *Integer*                                       |
 | *Valid Range* | *Minimum value of 900. Maximum value of 43200.* |
-| *Required* | *No* |
+| *Required*    | *No*                                            |
+
+#### Policy
+An IAM policy in JSON format that you want to use as an inline session policy. This parameter is optional. Passing policies to this operation returns new temporary credentials. The resulting session's permissions are the intersection of the canned policy name and the policy set here. You cannot use this policy to grant more permissions than those allowed by the canned policy name being assumed.
+
+| Params        | Value                                          |
+| :--           | :--                                            |
+| *Type*        | *String*                                       |
+| *Valid Range* | *Minimum length of 1. Maximum length of 2048.* |
+| *Required*    | *No*                                           |
 
 #### Version
 Indicates STS API version information, the only supported value is '2011-06-15'. This value is borrowed from AWS STS API documentation for compatibility reasons.
 
-| Params | Value |
-| :-- | :-- |
-| *Type* | *String* |
-| *Required* | *Yes* |
+| Params     | Value    |
+| :--        | :--      |
+| *Type*     | *String* |
+| *Required* | *Yes*    |
 
 #### AUTHPARAMS
 Indicates STS API Authorization information. If you are familiar with AWS Signature V4 Authorization header, this STS API supports signature V4 authorization as mentioned [here](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html)
@@ -35,7 +44,7 @@ XML error response for this API is similar to [AWS STS AssumeRole](https://docs.
 
 #### Sample Request
 ```
-http://minio:9000/?Action=AssumeRole&DurationSeconds=3600&Version=2011-06-15&AUTHPARAMS
+http://minio:9000/?Action=AssumeRole&DurationSeconds=3600&Version=2011-06-15&Policy={"Version":"2012-10-17","Statement":[{"Sid":"Stmt1","Effect":"Allow","Action":"s3:*","Resource":"arn:aws:s3:::*"}]}&AUTHPARAMS
 ```
 
 #### Sample Response
@@ -50,7 +59,7 @@ http://minio:9000/?Action=AssumeRole&DurationSeconds=3600&Version=2011-06-15&AUT
     <Credentials>
       <AccessKeyId>Y4RJU1RNFGK48LGO9I2S</AccessKeyId>
       <SecretAccessKey>sYLRKS1Z7hSjluf6gEbb9066hnx315wHTiACPAjg</SecretAccessKey>
-      <Expiration>2018-11-09T16:51:11-08:00</Expiration>
+      <Expiration>2019-08-08T20:26:12Z</Expiration>
       <SessionToken>eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJZNFJKVTFSTkZHSzQ4TEdPOUkyUyIsImF1ZCI6IlBvRWdYUDZ1Vk80NUlzRU5SbmdEWGo1QXU1WWEiLCJhenAiOiJQb0VnWFA2dVZPNDVJc0VOUm5nRFhqNUF1NVlhIiwiZXhwIjoxNTQxODExMDcxLCJpYXQiOjE1NDE4MDc0NzEsImlzcyI6Imh0dHBzOi8vbG9jYWxob3N0Ojk0NDMvb2F1dGgyL3Rva2VuIiwianRpIjoiYTBiMjc2MjktZWUxYS00M2JmLTg3MzktZjMzNzRhNGNkYmMwIn0.ewHqKVFTaP-j_kgZrcOEKroNUjk10GEp8bqQjxBbYVovV0nHO985VnRESFbcT6XMDDKHZiWqN2vi_ETX_u3Q-w</SessionToken>
     </Credentials>
   </AssumeRoleResult>
@@ -82,7 +91,7 @@ aws_secret_access_key = foo12345
 > NOTE: In the following commands `--role-arn` and `--role-session-name` are not meaningful for MinIO and can be set to any value satisfying the command line requirements.
 
 ```
-$ aws --profile foobar --endpoint-url http://localhost:9000 sts assume-role --role-arn arn:xxx:xxx:xxx:xxx --role-session-name anything
+$ aws --profile foobar --endpoint-url http://localhost:9000 sts assume-role --policy '{"Version":"2012-10-17","Statement":[{"Sid":"Stmt1","Effect":"Allow","Action":"s3:*","Resource":"arn:aws:s3:::*"}]}' --role-arn arn:xxx:xxx:xxx:xxxx --role-session-name anything
 {
     "AssumedRoleUser": {
         "Arn": ""

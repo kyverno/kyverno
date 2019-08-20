@@ -51,6 +51,7 @@ type APIErrorResponse struct {
 	Key        string `xml:"Key,omitempty" json:"Key,omitempty"`
 	BucketName string `xml:"BucketName,omitempty" json:"BucketName,omitempty"`
 	Resource   string
+	Region     string `xml:"Region,omitempty" json:"Region,omitempty"`
 	RequestID  string `xml:"RequestId" json:"RequestId"`
 	HostID     string `xml:"HostId" json:"HostId"`
 }
@@ -91,6 +92,7 @@ const (
 	ErrMissingRequestBodyError
 	ErrNoSuchBucket
 	ErrNoSuchBucketPolicy
+	ErrNoSuchBucketLifecycle
 	ErrNoSuchKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
@@ -138,6 +140,7 @@ const (
 	ErrSlowDown
 	ErrInvalidPrefixMarker
 	ErrBadRequest
+	ErrKeyTooLongError
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -186,6 +189,7 @@ const (
 	ErrRequestBodyParse
 	ErrObjectExistsAsDirectory
 	ErrInvalidObjectName
+	ErrInvalidObjectNamePrefixSlash
 	ErrInvalidResourceName
 	ErrServerNotInitialized
 	ErrOperationTimedOut
@@ -199,6 +203,8 @@ const (
 
 	ErrMalformedJSON
 	ErrAdminNoSuchUser
+	ErrAdminNoSuchGroup
+	ErrAdminGroupNotEmpty
 	ErrAdminNoSuchPolicy
 	ErrAdminInvalidArgument
 	ErrAdminInvalidAccessKey
@@ -464,6 +470,11 @@ var errorCodes = errorCodeMap{
 		Description:    "The bucket policy does not exist",
 		HTTPStatusCode: http.StatusNotFound,
 	},
+	ErrNoSuchBucketLifecycle: {
+		Code:           "NoSuchBucketLifecycle",
+		Description:    "The bucket lifecycle configuration does not exist",
+		HTTPStatusCode: http.StatusNotFound,
+	},
 	ErrNoSuchKey: {
 		Code:           "NoSuchKey",
 		Description:    "The specified key does not exist.",
@@ -681,6 +692,11 @@ var errorCodes = errorCodeMap{
 		Description:    "400 BadRequest",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
+	ErrKeyTooLongError: {
+		Code:           "KeyTooLongError",
+		Description:    "Your key is too long",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
 
 	// FIXME: Actual XML error response also contains the header which missed in list of signed header parameters.
 	ErrUnsignedHeaders: {
@@ -884,6 +900,11 @@ var errorCodes = errorCodeMap{
 		Description:    "Object name contains unsupported characters.",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidObjectNamePrefixSlash: {
+		Code:           "XMinioInvalidObjectName",
+		Description:    "Object name contains a leading slash.",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
 	ErrInvalidResourceName: {
 		Code:           "XMinioInvalidResourceName",
 		Description:    "Resource name contains bad components such as \"..\" or \".\".",
@@ -903,6 +924,16 @@ var errorCodes = errorCodeMap{
 		Code:           "XMinioAdminNoSuchUser",
 		Description:    "The specified user does not exist.",
 		HTTPStatusCode: http.StatusNotFound,
+	},
+	ErrAdminNoSuchGroup: {
+		Code:           "XMinioAdminNoSuchGroup",
+		Description:    "The specified group does not exist.",
+		HTTPStatusCode: http.StatusNotFound,
+	},
+	ErrAdminGroupNotEmpty: {
+		Code:           "XMinioAdminGroupNotEmpty",
+		Description:    "The specified group is not empty - cannot remove it.",
+		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrAdminNoSuchPolicy: {
 		Code:           "XMinioAdminNoSuchPolicy",
@@ -1481,6 +1512,10 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 		apiErr = ErrAdminInvalidArgument
 	case errNoSuchUser:
 		apiErr = ErrAdminNoSuchUser
+	case errNoSuchGroup:
+		apiErr = ErrAdminNoSuchGroup
+	case errGroupNotEmpty:
+		apiErr = ErrAdminGroupNotEmpty
 	case errNoSuchPolicy:
 		apiErr = ErrAdminNoSuchPolicy
 	case errSignatureMismatch:
@@ -1578,6 +1613,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 		apiErr = ErrMethodNotAllowed
 	case ObjectNameInvalid:
 		apiErr = ErrInvalidObjectName
+	case ObjectNamePrefixAsSlash:
+		apiErr = ErrInvalidObjectNamePrefixSlash
 	case InvalidUploadID:
 		apiErr = ErrNoSuchUpload
 	case InvalidPart:
@@ -1612,6 +1649,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 		apiErr = ErrUnsupportedMetadata
 	case BucketPolicyNotFound:
 		apiErr = ErrNoSuchBucketPolicy
+	case BucketLifecycleNotFound:
+		apiErr = ErrNoSuchBucketLifecycle
 	case *event.ErrInvalidEventName:
 		apiErr = ErrEventNotification
 	case *event.ErrInvalidARN:
@@ -1638,6 +1677,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 		apiErr = ErrBackendDown
 	case crypto.Error:
 		apiErr = ErrObjectTampered
+	case ObjectNameTooLong:
+		apiErr = ErrKeyTooLongError
 	default:
 		var ie, iw int
 		// This work-around is to handle the issue golang/go#30648
@@ -1735,6 +1776,7 @@ func getAPIErrorResponse(ctx context.Context, err APIError, resource, requestID,
 		BucketName: reqInfo.BucketName,
 		Key:        reqInfo.ObjectName,
 		Resource:   resource,
+		Region:     globalServerConfig.GetRegion(),
 		RequestID:  requestID,
 		HostID:     hostID,
 	}

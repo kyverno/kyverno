@@ -38,6 +38,25 @@ import (
 	xnet "github.com/minio/minio/pkg/net"
 )
 
+func verifyObjectLayerFeatures(name string, objAPI ObjectLayer) {
+	if (globalAutoEncryption || GlobalKMS != nil) && !objAPI.IsEncryptionSupported() {
+		logger.Fatal(errInvalidArgument,
+			"Encryption support is requested but '%s' does not support encryption", name)
+	}
+
+	if strings.HasPrefix(name, "gateway") {
+		if GlobalGatewaySSE.IsSet() && GlobalKMS == nil {
+			uiErr := uiErrInvalidGWSSEEnvValue(nil).Msg("MINIO_GATEWAY_SSE set but KMS is not configured")
+			logger.Fatal(uiErr, "Unable to start gateway with SSE")
+		}
+	}
+
+	if globalIsCompressionEnabled && !objAPI.IsCompressionSupported() {
+		logger.Fatal(errInvalidArgument,
+			"Compression support is requested but '%s' does not support compression", name)
+	}
+}
+
 // Check for updates and print a notification message
 func checkUpdate(mode string) {
 	// Its OK to ignore any errors during doUpdate() here.
@@ -209,13 +228,6 @@ func handleCommonEnvVars() {
 		// if browser is turned off or on.
 		globalIsEnvBrowser = true
 		globalIsBrowserEnabled = bool(browserFlag)
-	}
-
-	traceFile := os.Getenv("MINIO_HTTP_TRACE")
-	if traceFile != "" {
-		var err error
-		globalHTTPTraceFile, err = os.OpenFile(traceFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
-		logger.FatalIf(err, "error opening file %s", traceFile)
 	}
 
 	etcdEndpointsEnv, ok := os.LookupEnv("MINIO_ETCD_ENDPOINTS")

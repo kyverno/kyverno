@@ -16,7 +16,7 @@
 
 package cmd
 
-const peerRESTVersion = "v1"
+const peerRESTVersion = "v2"
 const peerRESTPath = minioReservedBucketPath + "/peer/" + peerRESTVersion
 
 const (
@@ -26,9 +26,15 @@ const (
 	peerRESTMethodDrivePerfInfo            = "driveperfinfo"
 	peerRESTMethodDeleteBucket             = "deletebucket"
 	peerRESTMethodSignalService            = "signalservice"
+	peerRESTMethodBackgroundHealStatus     = "backgroundhealstatus"
 	peerRESTMethodGetLocks                 = "getlocks"
 	peerRESTMethodBucketPolicyRemove       = "removebucketpolicy"
+	peerRESTMethodLoadUser                 = "loaduser"
+	peerRESTMethodDeleteUser               = "deleteuser"
+	peerRESTMethodLoadPolicy               = "loadpolicy"
+	peerRESTMethodDeletePolicy             = "deletepolicy"
 	peerRESTMethodLoadUsers                = "loadusers"
+	peerRESTMethodLoadGroup                = "loadgroup"
 	peerRESTMethodStartProfiling           = "startprofiling"
 	peerRESTMethodDownloadProfilingData    = "downloadprofilingdata"
 	peerRESTMethodBucketPolicySet          = "setbucketpolicy"
@@ -37,11 +43,20 @@ const (
 	peerRESTMethodReloadFormat             = "reloadformat"
 	peerRESTMethodTargetExists             = "targetexists"
 	peerRESTMethodSendEvent                = "sendevent"
+	peerRESTMethodTrace                    = "trace"
+	peerRESTMethodBucketLifecycleSet       = "setbucketlifecycle"
+	peerRESTMethodBucketLifecycleRemove    = "removebucketlifecycle"
 )
 
 const (
 	peerRESTBucket   = "bucket"
+	peerRESTUser     = "user"
+	peerRESTGroup    = "group"
+	peerRESTUserTemp = "user-temp"
+	peerRESTPolicy   = "policy"
 	peerRESTSignal   = "signal"
 	peerRESTProfiler = "profiler"
 	peerRESTDryRun   = "dry-run"
+	peerRESTTraceAll = "all"
+	peerRESTTraceErr = "err"
 )

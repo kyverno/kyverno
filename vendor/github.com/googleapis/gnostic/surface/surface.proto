@@ -23,6 +23,7 @@ enum FieldKind {
     MAP = 1;
     ARRAY = 2;
     REFERENCE = 3;
+    ANY = 4;
 }
 
 enum TypeKind {

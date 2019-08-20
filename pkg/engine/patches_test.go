@@ -5,7 +5,7 @@ import (
 
 	"gotest.tools/assert"
 
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 )
 
 const endpointsDocument string = `{
@@ -58,7 +58,7 @@ func makeRuleWithPatches(patches []types.Patch) types.Rule {
 		Patches: patches,
 	}
 	return types.Rule{
-		Mutation: &mutation,
+		Mutation: mutation,
 	}
 }
 

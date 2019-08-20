@@ -93,12 +93,9 @@ Protocol Buffer description. This is mainly for use in testing and debugging.
         go install github.com/googleapis/gnostic/apps/report
         report petstore.pb
 
-8. **gnostic** supports plugins. This builds and runs a sample plugin
-that reports some basic information about an API. The "-" causes the plugin to 
-write its output to stdout.
-
-        go install github.com/googleapis/gnostic/plugins/gnostic-go-sample
-        gnostic examples/v2.0/json/petstore.json --go-sample-out=-
+8. **gnostic** supports plugins. Some are already implemented in the `plugins` directory.
+Others, like [gnostic-go-generator](https://github.com/googleapis/gnostic-go-generator),
+are separated into their own repositories.
 
 ## Copyright
 

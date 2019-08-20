@@ -38,6 +38,20 @@ func (c *Code) Print(args ...interface{}) {
 	c.text += "\n"
 }
 
+// PrintIf adds a line of code using the current indentation if a condition is true. Accepts printf-style format strings and arguments.
+func (c *Code) PrintIf(condition bool, args ...interface{}) {
+	if !condition {
+		return
+	}
+	if len(args) > 0 {
+		for i := 0; i < c.indent; i++ {
+			c.text += indentation
+		}
+		c.text += fmt.Sprintf(args[0].(string), args[1:]...)
+	}
+	c.text += "\n"
+}
+
 // String returns the accumulated code as a string.
 func (c *Code) String() string {
 	return c.text

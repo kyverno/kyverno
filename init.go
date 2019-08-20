@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
+
+	"github.com/pkg/profile"
 
 	"github.com/golang/glog"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -50,4 +54,49 @@ func initTLSPemPair(configuration *rest.Config, client *client.Client) (*tls.Tls
 
 	glog.Infoln("Using existing TLS key/certificate pair")
 	return tlsPair, nil
+}
+
+var prof interface {
+	Stop()
+}
+
+func enableProfiling(cpu, memory bool) interface {
+	Stop()
+} {
+
+	file := "/opt/nirmata/kyverno/" + randomString(6)
+	if cpu {
+		glog.Infof("Enable cpu profiling ...")
+		prof = profile.Start(profile.CPUProfile, profile.ProfilePath(file))
+	} else if memory {
+		glog.Infof("Enable memory profiling ...")
+		prof = profile.Start(profile.MemProfile, profile.ProfilePath(file))
+	}
+
+	return prof
+}
+
+func disableProfiling(p interface{ Stop() }) {
+	if p != nil {
+		p.Stop()
+	}
+}
+
+// generate random string
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand *rand.Rand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+func stringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func randomString(length int) string {
+	return stringWithCharset(length, charset)
 }

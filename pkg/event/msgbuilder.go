@@ -21,8 +21,8 @@ const (
 
 func (k MsgKey) String() string {
 	return [...]string{
-		"Failed to satisfy policy on resource '%s'.The following rule(s) '%s' failed to apply. Created Policy Violation",
-		"Failed to process rule '%s' of policy '%s'. Created Policy Violation",
+		"Policy violation on resource '%s'. The rule(s) '%s' failed to apply",
+		"Failed to process rule '%s' of policy '%s'.",
 		"Policy applied successfully on the resource '%s'",
 		"Rule(s) '%s' of Policy '%s' applied successfully",
 		"Resource %s creation blocked by rule(s) %s",

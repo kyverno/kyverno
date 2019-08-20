@@ -471,10 +471,6 @@ func testListObjects(obj ObjectLayer, instanceType string, t1 TestErrHandler) {
 		{"volatile-bucket-1", "", "", "", 0, ListObjectsInfo{}, BucketNotFound{Bucket: "volatile-bucket-1"}, false},
 		{"volatile-bucket-2", "", "", "", 0, ListObjectsInfo{}, BucketNotFound{Bucket: "volatile-bucket-2"}, false},
 		{"volatile-bucket-3", "", "", "", 0, ListObjectsInfo{}, BucketNotFound{Bucket: "volatile-bucket-3"}, false},
-		// Valid, existing bucket, but sending invalid delimeter values (9-10).
-		// Empty string < "" > and forward slash < / > are the ony two valid arguments for delimeter.
-		{"test-bucket-list-object", "", "", "*", 0, ListObjectsInfo{}, fmt.Errorf("delimiter '%s' is not supported", "*"), false},
-		{"test-bucket-list-object", "", "", "-", 0, ListObjectsInfo{}, fmt.Errorf("delimiter '%s' is not supported", "-"), false},
 		// Testing for failure cases with both perfix and marker (11).
 		// The prefix and marker combination to be valid it should satisfy strings.HasPrefix(marker, prefix).
 		{"test-bucket-list-object", "asia", "europe-object", "", 0, ListObjectsInfo{}, fmt.Errorf("Invalid combination of marker '%s' and prefix '%s'", "europe-object", "asia"), false},
@@ -547,20 +543,20 @@ func testListObjects(obj ObjectLayer, instanceType string, t1 TestErrHandler) {
 		{"test-bucket-list-object", "Asia", "", "", 10, resultCases[24], nil, true},
 		// Tests with prefix and delimiter (55-57).
 		// With delimeter the code should not recurse into the sub-directories of prefix Dir.
-		{"test-bucket-list-object", "Asia", "", "/", 10, resultCases[25], nil, true},
-		{"test-bucket-list-object", "new", "", "/", 10, resultCases[26], nil, true},
-		{"test-bucket-list-object", "Asia/India/", "", "/", 10, resultCases[27], nil, true},
+		{"test-bucket-list-object", "Asia", "", SlashSeparator, 10, resultCases[25], nil, true},
+		{"test-bucket-list-object", "new", "", SlashSeparator, 10, resultCases[26], nil, true},
+		{"test-bucket-list-object", "Asia/India/", "", SlashSeparator, 10, resultCases[27], nil, true},
 		// Test with marker set as hierarhical value and with delimiter. (58-59)
-		{"test-bucket-list-object", "", "Asia/India/India-summer-photos-1", "/", 10, resultCases[28], nil, true},
-		{"test-bucket-list-object", "", "Asia/India/Karnataka/Bangalore/Koramangala/pics", "/", 10, resultCases[29], nil, true},
+		{"test-bucket-list-object", "", "Asia/India/India-summer-photos-1", SlashSeparator, 10, resultCases[28], nil, true},
+		{"test-bucket-list-object", "", "Asia/India/Karnataka/Bangalore/Koramangala/pics", SlashSeparator, 10, resultCases[29], nil, true},
 		// Test with prefix and delimiter set to '/'. (60)
-		{"test-bucket-list-object", "/", "", "/", 10, resultCases[30], nil, true},
+		{"test-bucket-list-object", SlashSeparator, "", SlashSeparator, 10, resultCases[30], nil, true},
 		// Test with invalid prefix (61)
-		{"test-bucket-list-object", "\\", "", "/", 10, ListObjectsInfo{}, ObjectNameInvalid{Bucket: "test-bucket-list-object", Object: "\\"}, false},
+		{"test-bucket-list-object", "\\", "", SlashSeparator, 10, ListObjectsInfo{}, ObjectNameInvalid{Bucket: "test-bucket-list-object", Object: "\\"}, false},
 		// Test listing an empty directory in recursive mode (62)
 		{"test-bucket-empty-dir", "", "", "", 10, resultCases[31], nil, true},
 		// Test listing an empty directory in a non recursive mode (63)
-		{"test-bucket-empty-dir", "", "", "/", 10, resultCases[32], nil, true},
+		{"test-bucket-empty-dir", "", "", SlashSeparator, 10, resultCases[32], nil, true},
 		// Test listing a directory which contains an empty directory (64)
 		{"test-bucket-empty-dir", "", "temporary/", "", 10, resultCases[33], nil, true},
 	}
@@ -599,7 +595,7 @@ func testListObjects(obj ObjectLayer, instanceType string, t1 TestErrHandler) {
 						t.Errorf("Test %d: %s: Expected object name to be \"%s\", but found \"%s\" instead", i+1, instanceType, testCase.result.Objects[j].Name, result.Objects[j].Name)
 					}
 					// FIXME: we should always check for ETag
-					if result.Objects[j].ETag == "" && !strings.HasSuffix(result.Objects[j].Name, slashSeparator) {
+					if result.Objects[j].ETag == "" && !strings.HasSuffix(result.Objects[j].Name, SlashSeparator) {
 						t.Errorf("Test %d: %s: Expected ETag to be not empty, but found empty instead (%v)", i+1, instanceType, result.Objects[j].Name)
 					}
 

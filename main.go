@@ -23,11 +23,15 @@ var (
 	kubeconfig        string
 	serverIP          string
 	filterK8Resources string
+	cpu               bool
+	memory            bool
+	webhookTimeout    int
 )
 
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
+	prof = enableProfiling(cpu, memory)
 
 	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
@@ -94,14 +98,21 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, filterK8Resources)
-	if err != nil {
-		glog.Fatalf("Unable to create webhook server: %v\n", err)
-	}
 
-	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP)
+	// WEBHOOK REGISTRATION
+	// -- validationwebhookconfiguration (Policy)
+	// -- mutatingwebhookconfiguration (All resources)
+	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
+	}
+
+	if err = webhookRegistrationClient.Register(); err != nil {
+		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+	}
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, webhookRegistrationClient, filterK8Resources)
+	if err != nil {
+		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
 	stopCh := signals.SetupSignalHandler()
@@ -119,11 +130,21 @@ func main() {
 
 	//TODO add WG for the go routines?
 	server.RunAsync()
+
 	<-stopCh
+	disableProfiling(prof)
 	server.Stop()
 }
 
 func init() {
+	// profiling feature gate
+	// cpu and memory profiling cannot be enabled at same time
+	// if both cpu and memory are enabled
+	// by default is to profile cpu
+	flag.BoolVar(&cpu, "cpu", false, "cpu profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
+	flag.BoolVar(&memory, "memory", false, "memory profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
+
+	flag.IntVar(&webhookTimeout, "webhooktimeout", 2, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")

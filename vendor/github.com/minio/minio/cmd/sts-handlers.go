@@ -17,13 +17,17 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
+	iampolicy "github.com/minio/minio/pkg/iam/policy"
 	"github.com/minio/minio/pkg/iam/validator"
 	"github.com/minio/minio/pkg/wildcard"
 )
@@ -36,6 +40,8 @@ const (
 	clientGrants = "AssumeRoleWithClientGrants"
 	webIdentity  = "AssumeRoleWithWebIdentity"
 	assumeRole   = "AssumeRole"
+
+	stsRequestBodyLimit = 10 * (1 << 20) // 10 MiB
 )
 
 // stsAPIHandlers implements and provides http handlers for AWS STS API.
@@ -47,19 +53,19 @@ func registerSTSRouter(router *mux.Router) {
 	sts := &stsAPIHandlers{}
 
 	// STS Router
-	stsRouter := router.NewRoute().PathPrefix("/").Subrouter()
+	stsRouter := router.NewRoute().PathPrefix(SlashSeparator).Subrouter()
 
 	// Assume roles with no JWT, handles AssumeRole.
-	stsRouter.Methods("POST").MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
-		ctypeOk := wildcard.MatchSimple("application/x-www-form-urlencoded*", r.Header.Get("Content-Type"))
-		authOk := wildcard.MatchSimple("AWS4-HMAC-SHA256*", r.Header.Get("Authorization"))
+	stsRouter.Methods(http.MethodPost).MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
+		ctypeOk := wildcard.MatchSimple("application/x-www-form-urlencoded*", r.Header.Get(xhttp.ContentType))
+		authOk := wildcard.MatchSimple(signV4Algorithm+"*", r.Header.Get(xhttp.Authorization))
 		noQueries := len(r.URL.Query()) == 0
 		return ctypeOk && authOk && noQueries
 	}).HandlerFunc(httpTraceAll(sts.AssumeRole))
 
 	// Assume roles with JWT handler, handles both ClientGrants and WebIdentity.
 	stsRouter.Methods("POST").MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
-		ctypeOk := wildcard.MatchSimple("application/x-www-form-urlencoded*", r.Header.Get("Content-Type"))
+		ctypeOk := wildcard.MatchSimple("application/x-www-form-urlencoded*", r.Header.Get(xhttp.ContentType))
 		noQueries := len(r.URL.Query()) == 0
 		return ctypeOk && noQueries
 	}).HandlerFunc(httpTraceAll(sts.AssumeRoleWithJWT))
@@ -124,11 +130,6 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Form.Get("Policy") != "" {
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
-		return
-	}
-
 	if r.Form.Get("Version") != stsAPIVersion {
 		logger.LogIf(ctx, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
 		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSMissingParameter))
@@ -147,6 +148,29 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 	ctx = newContext(r, w, action)
 	defer logger.AuditLog(w, r, action, nil)
 
+	sessionPolicyStr := r.Form.Get("Policy")
+	// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+	// The plain text that you use for both inline and managed session
+	// policies shouldn't exceed 2048 characters.
+	if len(sessionPolicyStr) > 2048 {
+		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		return
+	}
+
+	if len(sessionPolicyStr) > 0 {
+		sessionPolicy, err := iampolicy.ParseConfig(bytes.NewReader([]byte(sessionPolicyStr)))
+		if err != nil {
+			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			return
+		}
+
+		// Version in policy must not be empty
+		if sessionPolicy.Version == "" {
+			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			return
+		}
+	}
+
 	var err error
 	m := make(map[string]interface{})
 	m["exp"], err = validator.GetDefaultExpiration(r.Form.Get("DurationSeconds"))
@@ -161,17 +185,26 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	policyName, err := globalIAMSys.GetUserPolicy(user.AccessKey)
+	policies, err := globalIAMSys.PolicyDBGet(user.AccessKey, false)
 	if err != nil {
 		logger.LogIf(ctx, err)
 		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
 		return
 	}
 
+	policyName := ""
+	if len(policies) > 0 {
+		policyName = policies[0]
+	}
+
 	// This policy is the policy associated with the user
 	// requesting for temporary credentials. The temporary
 	// credentials will inherit the same policy requirements.
-	m["policy"] = policyName
+	m[iampolicy.PolicyName] = policyName
+
+	if len(sessionPolicyStr) > 0 {
+		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
+	}
 
 	secret := globalServerConfig.GetCredential().SecretKey
 	cred, err := auth.GetNewCredentialsWithMetadata(m, secret)
@@ -189,7 +222,7 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Notify all other MinIO peers to reload temp users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	for _, nerr := range globalNotificationSys.LoadUser(cred.AccessKey, true) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -202,7 +235,7 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	assumeRoleResponse.ResponseMetadata.RequestID = w.Header().Get(responseRequestIDKey)
+	assumeRoleResponse.ResponseMetadata.RequestID = w.Header().Get(xhttp.AmzRequestID)
 	writeSuccessResponseXML(w, encodeResponse(assumeRoleResponse))
 }
 
@@ -212,11 +245,6 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	// Parse the incoming form data.
 	if err := r.ParseForm(); err != nil {
 		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
-		return
-	}
-
-	if r.Form.Get("Policy") != "" {
 		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
 		return
 	}
@@ -276,6 +304,29 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	sessionPolicyStr := r.Form.Get("Policy")
+	// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html
+	// The plain text that you use for both inline and managed session
+	// policies shouldn't exceed 2048 characters.
+	if len(sessionPolicyStr) > 2048 {
+		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		return
+	}
+
+	if len(sessionPolicyStr) > 0 {
+		sessionPolicy, err := iampolicy.ParseConfig(bytes.NewReader([]byte(sessionPolicyStr)))
+		if err != nil {
+			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			return
+		}
+
+		// Version in policy must not be empty
+		if sessionPolicy.Version == "" {
+			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			return
+		}
+	}
+
 	secret := globalServerConfig.GetCredential().SecretKey
 	cred, err := auth.GetNewCredentialsWithMetadata(m, secret)
 	if err != nil {
@@ -289,13 +340,17 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	// be set and configured on your identity provider as part of
 	// JWT custom claims.
 	var policyName string
-	if v, ok := m["policy"]; ok {
+	if v, ok := m[iampolicy.PolicyName]; ok {
 		policyName, _ = v.(string)
 	}
 
 	var subFromToken string
 	if v, ok := m["sub"]; ok {
 		subFromToken, _ = v.(string)
+	}
+
+	if len(sessionPolicyStr) > 0 {
+		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
 	}
 
 	// Set the newly generated credentials.
@@ -306,7 +361,7 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Notify all other MinIO peers to reload temp users
-	for _, nerr := range globalNotificationSys.LoadUsers() {
+	for _, nerr := range globalNotificationSys.LoadUser(cred.AccessKey, true) {
 		if nerr.Err != nil {
 			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
 			logger.LogIf(ctx, nerr.Err)
@@ -322,7 +377,7 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 				SubjectFromToken: subFromToken,
 			},
 		}
-		clientGrantsResponse.ResponseMetadata.RequestID = w.Header().Get(responseRequestIDKey)
+		clientGrantsResponse.ResponseMetadata.RequestID = w.Header().Get(xhttp.AmzRequestID)
 		encodedSuccessResponse = encodeResponse(clientGrantsResponse)
 	case webIdentity:
 		webIdentityResponse := &AssumeRoleWithWebIdentityResponse{
@@ -331,7 +386,7 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 				SubjectFromWebIdentityToken: subFromToken,
 			},
 		}
-		webIdentityResponse.ResponseMetadata.RequestID = w.Header().Get(responseRequestIDKey)
+		webIdentityResponse.ResponseMetadata.RequestID = w.Header().Get(xhttp.AmzRequestID)
 		encodedSuccessResponse = encodeResponse(webIdentityResponse)
 	}
 

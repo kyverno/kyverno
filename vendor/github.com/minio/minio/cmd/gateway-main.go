@@ -41,14 +41,14 @@ var (
 	gatewayCmd = cli.Command{
 		Name:            "gateway",
 		Usage:           "start object storage gateway",
-		Flags:           append(serverFlags, globalFlags...),
+		Flags:           append(ServerFlags, GlobalFlags...),
 		HideHelpCommand: true,
 	}
 )
 
 // RegisterGatewayCommand registers a new command for gateway.
 func RegisterGatewayCommand(cmd cli.Command) error {
-	cmd.Flags = append(append(cmd.Flags, append(cmd.Flags, serverFlags...)...), globalFlags...)
+	cmd.Flags = append(append(cmd.Flags, ServerFlags...), GlobalFlags...)
 	gatewayCmd.Subcommands = append(gatewayCmd.Subcommands, cmd)
 	return nil
 }
@@ -121,7 +121,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// to IPv6 address ie minio will start listening on IPv6 address whereas another
 	// (non-)minio process is listening on IPv4 of given port.
 	// To avoid this error situation we check for port availability.
-	logger.FatalIf(checkPortAvailability(globalMinioPort), "Unable to start the gateway")
+	logger.FatalIf(checkPortAvailability(globalMinioHost, globalMinioPort), "Unable to start the gateway")
 
 	// Check and load TLS certificates.
 	var err error
@@ -148,6 +148,9 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 	initNSLock(false) // Enable local namespace lock.
 
+	// Set when gateway is enabled
+	globalIsGateway = true
+
 	router := mux.NewRouter().SkipClean(true)
 
 	if globalEtcdClient != nil {
@@ -155,7 +158,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		registerSTSRouter(router)
 	}
 
-	enableConfigOps := globalEtcdClient != nil && gatewayName == "nas"
+	enableConfigOps := gatewayName == "nas"
 	enableIAMOps := globalEtcdClient != nil
 
 	// Enable IAM admin APIs if etcd is enabled, if not just enable basic
@@ -175,9 +178,10 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 	// Currently only NAS and S3 gateway support encryption headers.
 	encryptionEnabled := gatewayName == "s3" || gatewayName == "nas"
+	allowSSEKMS := gatewayName == "s3" // Only S3 can support SSE-KMS (as pass-through)
 
 	// Add API router.
-	registerAPIRouter(router, encryptionEnabled)
+	registerAPIRouter(router, encryptionEnabled, allowSSEKMS)
 
 	var getCert certs.GetCertificateFunc
 	if globalTLSCerts != nil {
@@ -232,6 +236,10 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 		// Load globalServerConfig from etcd
 		logger.LogIf(context.Background(), globalConfigSys.Init(newObject))
+
+		// Start watching disk for reloading config, this
+		// is only enabled for "NAS" gateway.
+		globalConfigSys.WatchConfigNASDisk(newObject)
 	}
 
 	// Load logger subsystem
@@ -239,6 +247,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 	// This is only to uniquely identify each gateway deployments.
 	globalDeploymentID = os.Getenv("MINIO_GATEWAY_DEPLOYMENT_ID")
+	logger.SetDeploymentID(globalDeploymentID)
 
 	var cacheConfig = globalServerConfig.GetCacheConfig()
 	if len(cacheConfig.Drives) > 0 {
@@ -264,25 +273,19 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// Initialize policy system.
 	go globalPolicySys.Init(newObject)
 
+	// Create new lifecycle system
+	globalLifecycleSys = NewLifecycleSys()
+
 	// Create new notification system.
 	globalNotificationSys = NewNotificationSys(globalServerConfig, globalEndpoints)
-	if globalEtcdClient != nil && newObject.IsNotificationSupported() {
+	if enableConfigOps && newObject.IsNotificationSupported() {
 		logger.LogIf(context.Background(), globalNotificationSys.Init(newObject))
 	}
 
-	// Encryption support checks in gateway mode.
-	{
-
-		if (globalAutoEncryption || GlobalKMS != nil) && !newObject.IsEncryptionSupported() {
-			logger.Fatal(errInvalidArgument,
-				"Encryption support is requested but (%s) gateway does not support encryption", gw.Name())
-		}
-
-		if GlobalGatewaySSE.IsSet() && GlobalKMS == nil {
-			logger.Fatal(uiErrInvalidGWSSEEnvValue(nil).Msg("MINIO_GATEWAY_SSE set but KMS is not configured"),
-				"Unable to start gateway with SSE")
-		}
-	}
+	// Verify if object layer supports
+	// - encryption
+	// - compression
+	verifyObjectLayerFeatures("gateway "+gatewayName, newObject)
 
 	// Once endpoints are finalized, initialize the new object api.
 	globalObjLayerMutex.Lock()
@@ -303,9 +306,6 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		// Print gateway startup message.
 		printGatewayStartupMessage(getAPIEndpoints(), gatewayName)
 	}
-
-	// Set when gateway is enabled
-	globalIsGateway = true
 
 	// Set uptime time after object layer has initialized.
 	globalBootTime = UTCNow()

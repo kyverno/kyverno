@@ -1,0 +1,246 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: policies.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+  scope: Cluster
+  names:
+    kind: Policy
+    plural: policies
+    singular: policy
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - rules
+          properties:
+          # default values to be handled by user
+            validationFailureAction:
+              type: string
+              enum: 
+              - enforce # blocks the resorce api-reques if a rule fails. Default behavior
+              - audit # allows resource creationg and reports the failed validation rules as violations
+            rules:
+              type: array
+              items:
+                type: object
+                required:
+                - name
+                - match
+                properties:
+                  name:
+                    type: string
+                  match:
+                    type: object
+                    required:
+                    - resources
+                    properties:
+                      resources:
+                        type: object
+                        required:
+                        - kinds
+                        properties:
+                          kinds:
+                            type: array
+                            items:
+                              type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          selector:
+                            properties:
+                              matchLabels:
+                                type: object
+                                additionalProperties:
+                                  type: string
+                              matchExpressions:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                  - key
+                                  - operator
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      type: array
+                                      items:
+                                        type: string
+                  exclude:
+                    type: object
+                    required:
+                    - resources
+                    properties:
+                      resources:
+                        type: object
+                        properties:
+                          kinds:
+                            type: array
+                            items:
+                              type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          selector:
+                            properties:
+                              matchLabels:
+                                type: object
+                                additionalProperties:
+                                  type: string
+                              matchExpressions:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                  - key
+                                  - operator
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      type: array
+                                      items:
+                                        type: string
+                  mutate:
+                    type: object
+                    properties:
+                      overlay:
+                        AnyValue: {}
+                      patches:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - path
+                          - op
+                          properties:
+                            path:
+                              type: string
+                            op:
+                              type: string
+                              enum:
+                              - add
+                              - replace
+                              - remove
+                            value:
+                              AnyValue: {}
+                  validate:
+                    type: object
+                    required:
+                    - pattern
+                    properties:
+                      message:
+                        type: string
+                      pattern:
+                        AnyValue: {}
+                  generate:
+                    type: object
+                    required:
+                    - kind
+                    - name
+                    properties:
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      clone: 
+                        type: object
+                        required:
+                        - namespace
+                        - name
+                        properties:
+                          namespace:
+                            type: string
+                          name:
+                            type: string
+                      data:
+                        AnyValue: {}
+---
+kind: Namespace
+apiVersion: v1
+metadata: 
+    name: "kyverno"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kyverno
+  name: kyverno-svc
+  labels:
+    app: kyverno
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    app: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-service-account
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: kyverno
+  name: kyverno
+  labels:
+    app: kyverno
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kyverno
+    spec:
+      serviceAccountName: kyverno-service-account
+      containers:
+        - name: kyverno
+          image: nirmata/kyverno:latest
+          args: 
+          - "--webhooktimeout=4"
+          # open one of the profiling flag here
+          - "--cpu=true"
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*]Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+          ports:
+          - containerPort: 443
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - mountPath: /opt/nirmata
+            name: profiling-volume
+      volumes:
+      - name: profiling-volume
+        hostPath:
+          path: /opt/nirmata
+          type: Directory

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,7 +57,12 @@ func (c *coreDNS) List() ([]SrvRecord, error) {
 		if err != nil {
 			return nil, err
 		}
-		srvRecords = append(srvRecords, records...)
+		for _, record := range records {
+			if record.Key == "" {
+				continue
+			}
+			srvRecords = append(srvRecords, record)
+		}
 	}
 	return srvRecords, nil
 }
@@ -79,7 +85,7 @@ func (c *coreDNS) Get(bucket string) ([]SrvRecord, error) {
 			if record.Key != "" {
 				continue
 			}
-			srvRecords = append(srvRecords, records...)
+			srvRecords = append(srvRecords, record)
 		}
 	}
 	if len(srvRecords) == 0 {
@@ -130,7 +136,7 @@ func (c *coreDNS) list(key string) ([]SrvRecord, error) {
 		// /skydns/net/miniocloud/10.0.0.1 that may exist as
 		// dns entry for the server (rather than the bucket
 		// itself).
-		if srvRecord.Key == "" || srvRecord.Key == etcdPathSeparator {
+		if srvRecord.Key == "" {
 			continue
 		}
 
@@ -210,9 +216,20 @@ func NewCoreDNS(domainNames []string, domainIPs set.StringSet, domainPort string
 		return nil, err
 	}
 
+	// strip ports off of domainIPs
+	domainIPsWithoutPorts := domainIPs.ApplyFunc(func(ip string) string {
+		host, _, err := net.SplitHostPort(ip)
+		if err != nil {
+			if strings.Contains(err.Error(), "missing port in address") {
+				host = ip
+			}
+		}
+		return host
+	})
+
 	return &coreDNS{
 		domainNames: domainNames,
-		domainIPs:   domainIPs,
+		domainIPs:   domainIPsWithoutPorts,
 		domainPort:  port,
 		etcdClient:  etcdClient,
 	}, nil

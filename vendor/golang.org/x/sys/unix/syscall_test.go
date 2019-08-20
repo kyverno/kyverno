@@ -62,13 +62,10 @@ func TestUname(t *testing.T) {
 // Test that this compiles. (Issue #31735)
 func TestStatFieldNames(t *testing.T) {
 	var st unix.Stat_t
-	var ts *unix.Timespec
-	ts = &st.Atim
-	ts = &st.Mtim
-	ts = &st.Ctim
-	_ = ts
-	secs := int64(st.Mtim.Sec)
-	nsecs := int64(st.Mtim.Nsec)
-	_ = secs
-	_ = nsecs
+	var _ *unix.Timespec
+	_ = &st.Atim
+	_ = &st.Mtim
+	_ = &st.Ctim
+	_ = int64(st.Mtim.Sec)
+	_ = int64(st.Mtim.Nsec)
 }
