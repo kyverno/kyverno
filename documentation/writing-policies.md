@@ -14,26 +14,44 @@ spec :
   rules:
     # Rules must have a unique name
     - name: "check-pod-controller-labels"      
-      # Each rule matches specific resource described by "resource" field.
-      resource:
-        kinds:
-        - Deployment
-        - StatefulSet
-        - DaemonSet
-        # A resource name is optional. Name supports wildcards * and ?
-        name: "*"
-        # A resoucre selector is optional. Selector values support wildcards * and ?
-        selector:
-            matchLabels:
-                app: mongodb
-            matchExpressions:
-                - {key: tier, operator: In, values: [database]}
-
+      # Each rule matches specific resource described by "match" field.
+      match:
+        resources:
+          kinds:
+          - Deployment
+          - StatefulSet
+          - DaemonSet
+          # A resource name is optional. Name supports wildcards * and ?
+          name: "*"
+          # A resoucre selector is optional. Selector values support wildcards * and ?
+          selector:
+              matchLabels:
+                  app: mongodb
+              matchExpressions:
+                  - {key: tier, operator: In, values: [database]}
+      # Resources that need to be excluded
+      # exclude:
+      #   resources:
+      #     kinds:
+      #     - Deployment
+      #     # A resource name is optional. Name supports wildcards * and ?
+      #     name: "*"
+      #     # A resoucre selector is optional. Selector values support wildcards * and ?
+      #     selector:
+      #         matchLabels:
+      #             app: mongodb
+      #         matchExpressions:
+      #             - {key: tier, operator: In, values: [database]}
      # Each rule can contain a single validate, mutate, or generate directive
      ...
 ````
 
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
+
+**Resource description:**
+* ```match``` is a required key that defines the parameters which identify the resources that need to matched
+
+* ```exclude``` is an option key to exclude resources from the application of the rule
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
