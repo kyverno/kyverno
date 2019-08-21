@@ -29,7 +29,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []in
 		}
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-		policyInfo := applyPolicyOnResource(policy, resource)
+		policyInfo := applyPolicyOnResource(policy, resource, pc.statusAggregator)
 		policyInfos = append(policyInfos, *policyInfo)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
@@ -37,8 +37,8 @@ func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []in
 	return policyInfos
 }
 
-func applyPolicyOnResource(policy kyverno.Policy, resource unstructured.Unstructured) *info.PolicyInfo {
-	policyInfo, err := applyPolicy(policy, resource)
+func applyPolicyOnResource(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) *info.PolicyInfo {
+	policyInfo, err := applyPolicy(policy, resource, policyStatus)
 	if err != nil {
 		glog.V(4).Infof("failed to process policy %s on resource %s/%s/%s: %v", policy.GetName(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
 		return nil

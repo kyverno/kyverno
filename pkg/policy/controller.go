@@ -17,7 +17,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/webhooks"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,16 +71,18 @@ type PolicyController struct {
 	// mutationwebhookLister can list/get mutatingwebhookconfigurations
 	mutationwebhookLister webhooklister.MutatingWebhookConfigurationLister
 	// WebhookRegistrationClient
-	webhookRegistrationClient *webhooks.WebhookRegistrationClient
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 	// filter the resources defined in the list
 	filterK8Resources []utils.K8Resource
+	// recieves stats and aggregates details
+	statusAggregator *PolicyStatusAggregator
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer,
-	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhooks.WebhookRegistrationClient) (*PolicyController, error) {
+	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -127,6 +129,10 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
+
+	// aggregator
+	// pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
 
 	return &pc, nil
 }
@@ -347,6 +353,9 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+	// policy status aggregator
+	//TODO: workers required for aggergation
+	pc.statusAggregator.Run(1, stopCh)
 	<-stopCh
 }
 
@@ -396,10 +405,14 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
+
+		// remove the recorded stats for the policy
+		pc.statusAggregator.RemovePolicyStats(key)
+		// remove webhook configurations if there are not policies
 		if err := pc.handleWebhookRegistration(true, nil); err != nil {
 			glog.Errorln(err)
 		}
-		return err
+		return nil
 	}
 
 	if err != nil {
@@ -422,6 +435,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policyInfos := pc.processExistingResources(*p)
 	// report errors
 	pc.report(policyInfos)
+	// fetch the policy again via the aggreagator to remain consistent
+	// return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
 	return pc.syncStatusOnly(p, pvList)
 }
 
@@ -451,14 +466,14 @@ func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyver
 		if policies == nil {
 			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
 			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
-		} else if !webhooks.HasMutateOrValidatePolicies(policies) {
+		} else if !HasMutateOrValidatePolicies(policies) {
 			glog.V(3).Infoln("No muatate/validate policy found in the cluster, deregistering webhook")
 			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
 		}
 		return nil
 	}
 
-	if webhookList == nil && webhooks.HasMutateOrValidate(*policy) {
+	if webhookList == nil && HasMutateOrValidate(*policy) {
 		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
 		pc.webhookRegistrationClient.RegisterMutatingWebhook()
 	}
@@ -470,7 +485,7 @@ func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyver
 // status:
 // 		- violations : (count of the resources that violate this policy )
 func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
-	newStatus := calculateStatus(pvList)
+	newStatus := pc.calculateStatus(p.Name, pvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
 		// no update to status
 		return nil
@@ -482,10 +497,19 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	return err
 }
 
-func calculateStatus(pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
+func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
 	violationCount := len(pvList)
 	status := kyverno.PolicyStatus{
-		Violations: violationCount,
+		ViolationCount: violationCount,
+	}
+	// get stats
+	stats := pc.statusAggregator.GetPolicyStats(policyName)
+	if stats != (PolicyStatInfo{}) {
+		status.RulesAppliedCount = stats.RulesAppliedCount
+		status.ResourcesBlockedCount = stats.ResourceBlocked
+		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
+		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
+		status.AvgExecutionTimeGeneration = stats.GenerationExecutionTime.String()
 	}
 	return status
 }
@@ -909,4 +933,23 @@ func joinPatches(patches ...[]byte) []byte {
 	}
 	result = append(result, []byte("\n]")...)
 	return result
+}
+
+func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
+	for _, policy := range policies {
+		if HasMutateOrValidate(*policy) {
+			return true
+		}
+	}
+	return false
+}
+
+func HasMutateOrValidate(policy kyverno.Policy) bool {
+	for _, rule := range policy.Spec.Rules {
+		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			glog.Infoln(rule.Name)
+			return true
+		}
+	}
+	return false
 }

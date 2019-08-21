@@ -7,7 +7,7 @@ import (
 	ospath "path"
 
 	"github.com/golang/glog"
-	pt "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	yaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -117,8 +117,8 @@ func (tc *testCase) loadTriggerResource(ap string) (*resourceInfo, error) {
 }
 
 // Loads a single policy
-func (tc *testCase) loadPolicy(file string) (*pt.Policy, error) {
-	p := &pt.Policy{}
+func (tc *testCase) loadPolicy(file string) (*kyverno.Policy, error) {
+	p := &kyverno.Policy{}
 	data, err := LoadFile(file)
 	if err != nil {
 		return nil, err

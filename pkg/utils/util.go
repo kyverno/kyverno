@@ -86,3 +86,11 @@ func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 	}
 	return kclient, nil
 }
+
+//Btoi converts boolean to int
+func Btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

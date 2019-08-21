@@ -19,8 +19,10 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policy"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -36,8 +38,10 @@ type WebhookServer struct {
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
 	eventGen                  event.Interface
-	webhookRegistrationClient *WebhookRegistrationClient
-	filterK8Resources         []utils.K8Resource
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+	// API to send policy stats for aggregation
+	policyStatus      policy.PolicyStatusInterface
+	filterK8Resources []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -49,7 +53,8 @@ func NewWebhookServer(
 	pInformer kyvernoinformer.PolicyInformer,
 	pvInormer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface,
-	webhookRegistrationClient *WebhookRegistrationClient,
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	policyStatus policy.PolicyStatusInterface,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -73,6 +78,7 @@ func NewWebhookServer(
 		pvListerSynced:            pInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
+		policyStatus:              policyStatus,
 		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()

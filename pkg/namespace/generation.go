@@ -4,15 +4,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-
-	"github.com/golang/glog"
-
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/policy"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -108,7 +106,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []i
 			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
 			continue
 		}
-		policyInfo := applyPolicy(nsc.client, ns, *policy)
+		policyInfo := applyPolicy(nsc.client, ns, *policy, nsc.policyStatus)
 		policyInfos = append(policyInfos, policyInfo)
 		// post-processing, register the resource as processed
 		nsc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
@@ -141,15 +139,31 @@ func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyList
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, policy kyverno.Policy) info.PolicyInfo {
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.Policy, policyStatus policy.PolicyStatusInterface) info.PolicyInfo {
+	var ps policy.PolicyStat
+	gatherStat := func(policyName string, er engine.EngineResponse) {
+		ps.PolicyName = policyName
+		ps.Stats.GenerationExecutionTime = er.ExecutionTime
+		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		//SEND
+		policyStatus.SendStat(ps)
+	}
+
 	startTime := time.Now()
-	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
+	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
-		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
+		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
-	ruleInfos := engine.Generate(client, policy, resource)
-	policyInfo.AddRuleInfos(ruleInfos)
+	policyInfo := info.NewPolicyInfo(p.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), p.Spec.ValidationFailureAction)
+	engineResponse := engine.Generate(client, p, resource)
+	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
+	// gather stats
+	gatherStat(p.Name, engineResponse)
+	//send stats
+	sendStat(false)
 
 	return policyInfo
 }

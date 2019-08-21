@@ -238,13 +238,13 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.PolicyVi
 			return err
 		}
 		glog.V(4).Infof("removing policy violation %s as the corresponding resource %s/%s/%s does not exist anymore", curPv.Name, rspec.Kind, rspec.Namespace, rspec.Name)
+		return nil
 	}
 	if err != nil {
 		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
 		return err
 	}
 	//TODO- if the policy is not present, remove the policy violation
-
 	return nil
 }
 
