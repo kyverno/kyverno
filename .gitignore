@@ -1,7 +1,6 @@
 certs
 Gopkg.lock
 .vscode
-kyverno
 gh-pages/public
 _output
 coverage.txt

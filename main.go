@@ -15,7 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	kubeinformers "k8s.io/client-go/informers"
+	kubeinformer "k8s.io/client-go/informers"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -27,6 +27,9 @@ var (
 	memory            bool
 	webhookTimeout    int
 )
+
+// TODO: tune resync time differently for each informer
+const defaultReSyncTime = 10 * time.Second
 
 func main() {
 	defer glog.Flush()
@@ -69,6 +72,11 @@ func main() {
 	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10*time.Second)
 
+  // KUBERNETES RESOURCES INFORMER
+	// watches namespace resource
+	// - cache resync time: 10 seconds
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
+
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
@@ -78,7 +86,7 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -90,11 +98,6 @@ func main() {
 	if err != nil {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
-
-	// KUBERNETES RESOURCES INFORMER
-	// watches namespace resource
-	// - cache resync time: 10 seconds
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
@@ -111,6 +114,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
+  
 	// WEBHOOK REGISTRATION
 	// - validationwebhookconfiguration (Policy)
 	// - mutatingwebhookconfiguration (All resources)
