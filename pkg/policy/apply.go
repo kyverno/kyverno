@@ -14,7 +14,20 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (info.PolicyInfo, error) {
+func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (info.PolicyInfo, error) {
+	var ps PolicyStat
+	gatherStat := func(policyName string, er engine.EngineResponse) {
+		// ps := policyctr.PolicyStat{}
+		ps.PolicyName = policyName
+		ps.Stats.ValidationExecutionTime = er.ExecutionTime
+		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		//SEND
+		policyStatus.SendStat(ps)
+	}
+
 	startTime := time.Now()
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
@@ -24,7 +37,7 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (inf
 	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 
 	//MUTATION
-	mruleInfos, err := mutation(policy, resource)
+	mruleInfos, err := mutation(policy, resource, policyStatus)
 	policyInfo.AddRuleInfos(mruleInfos)
 	if err != nil {
 		return policyInfo, err
@@ -35,13 +48,36 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured) (inf
 	if len(engineResponse.RuleInfos) != 0 {
 		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	}
+	// gather stats
+	gatherStat(policy.Name, engineResponse)
+	//send stats
+	sendStat(false)
 
 	//TODO: GENERATION
 	return policyInfo, nil
 }
 
-func mutation(policy kyverno.Policy, resource unstructured.Unstructured) ([]info.RuleInfo, error) {
+func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) ([]info.RuleInfo, error) {
+	var ps PolicyStat
+	// gather stats from the engine response
+	gatherStat := func(policyName string, er engine.EngineResponse) {
+		// ps := policyctr.PolicyStat{}
+		ps.PolicyName = policyName
+		ps.Stats.MutationExecutionTime = er.ExecutionTime
+		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		//SEND
+		policyStatus.SendStat(ps)
+	}
+
 	engineResponse := engine.Mutate(policy, resource)
+	// gather stats
+	gatherStat(policy.Name, engineResponse)
+	//send stats
+	sendStat(false)
+
 	patches := engineResponse.Patches
 	ruleInfos := engineResponse.RuleInfos
 	if len(ruleInfos) == 0 {

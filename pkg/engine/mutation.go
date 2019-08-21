@@ -2,6 +2,7 @@ package engine
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -10,11 +11,24 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
+
+func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
+	// var response EngineResponse
 	var allPatches, rulePatches [][]byte
 	var err error
 	var errs []error
 	ris := []info.RuleInfo{}
+	startTime := time.Now()
+	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("finished applying mutation rules policy %v (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Mutation Rules appplied succesfully count %v for policy %q", response.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.RulesAppliedCount++
+	}
 
 	patchedDocument, err := resource.MarshalJSON()
 	if err != nil {
@@ -23,7 +37,8 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource : %v", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	for _, rule := range policy.Spec.Rules {
@@ -66,6 +81,7 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 				ruleInfo.Fail()
 				ruleInfo.Addf("failed to apply overlay: %v", err)
 			}
+			incrementAppliedRuleCount()
 		}
 
 		// Process Patches
@@ -84,6 +100,7 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 				ruleInfo.Patches = rulePatches
 				allPatches = append(allPatches, rulePatches...)
 			}
+			incrementAppliedRuleCount()
 		}
 
 		patchedDocument, err = ApplyPatches(patchedDocument, rulePatches)
@@ -97,12 +114,12 @@ func Mutate(policy kyverno.Policy, resource unstructured.Unstructured) EngineRes
 	patchedResource, err := ConvertToUnstructured(patchedDocument)
 	if err != nil {
 		glog.Errorf("Failed to convert patched resource to unstructuredtype, err%v\n:", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
-	return EngineResponse{
-		Patches:         allPatches,
-		PatchedResource: *patchedResource,
-		RuleInfos:       ris,
-	}
+	response.Patches = allPatches
+	response.PatchedResource = *patchedResource
+	response.RuleInfos = ris
+	return response
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
+	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -17,6 +18,23 @@ import (
 // If there are no errors in validating rule we apply generation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured) *v1beta1.AdmissionResponse {
 	var policyInfos []info.PolicyInfo
+	var policyStats []policyctr.PolicyStat
+	// gather stats from the engine response
+	gatherStat := func(policyName string, er engine.EngineResponse) {
+		ps := policyctr.PolicyStat{}
+		ps.PolicyName = policyName
+		ps.Stats.ValidationExecutionTime = er.ExecutionTime
+		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+		policyStats = append(policyStats, ps)
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		for _, stat := range policyStats {
+			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
+			//SEND
+			ws.policyStatus.SendStat(stat)
+		}
+	}
 
 	glog.V(5).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
@@ -55,6 +73,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 		if len(engineResponse.RuleInfos) == 0 {
 			continue
 		}
+		gatherStat(policy.Name, engineResponse)
 
 		if len(engineResponse.RuleInfos) > 0 {
 			glog.V(4).Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
@@ -87,6 +106,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 	// Even if one the policy being applied
 	ok, msg := isAdmSuccesful(policyInfos)
 	if !ok && toBlock(policyInfos) {
+		sendStat(true)
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -98,6 +118,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, res
 	// ADD POLICY VIOLATIONS
 	policyviolation.GeneratePolicyViolations(ws.pvListerSynced, ws.pvLister, ws.kyvernoClient, policyInfos)
 
+	sendStat(false)
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -17,17 +18,31 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
+func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
+	// var response EngineResponse
+	startTime := time.Now()
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.RulesAppliedCount++
+	}
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	var resourceInt interface{}
 	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
 		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
+		response.PatchedResource = resource
+		return response
 	}
 
 	var ruleInfos []info.RuleInfo
@@ -56,10 +71,11 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineR
 			ruleInfo.Add("Pattern succesfully validated")
 			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 		}
+		incrementAppliedRuleCount()
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
-
-	return EngineResponse{RuleInfos: ruleInfos}
+	response.RuleInfos = ruleInfos
+	return response
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

@@ -76,6 +76,8 @@ type PolicyController struct {
 	rm resourceManager
 	// filter the resources defined in the list
 	filterK8Resources []utils.K8Resource
+	// recieves stats and aggregates details
+	statusAggregator *PolicyStatusAggregator
 }
 
 // NewPolicyController create a new PolicyController
@@ -127,6 +129,10 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
+
+	// aggregator
+	// pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
+	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
 
 	return &pc, nil
 }
@@ -347,6 +353,9 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+	// policy status aggregator
+	//TODO: workers required for aggergation
+	pc.statusAggregator.Run(1, stopCh)
 	<-stopCh
 }
 
@@ -396,10 +405,14 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
-		if err := pc.handleWebhookRegistration(true, nil); err != nil {
+		
+    // remove the recorded stats for the policy
+		pc.statusAggregator.RemovePolicyStats(key)
+    // remove webhook configurations if there are not policies
+    if err := pc.handleWebhookRegistration(true, nil); err != nil {
 			glog.Errorln(err)
 		}
-		return err
+		return nil
 	}
 
 	if err != nil {
@@ -422,6 +435,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policyInfos := pc.processExistingResources(*p)
 	// report errors
 	pc.report(policyInfos)
+	// fetch the policy again via the aggreagator to remain consistent
+	// return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
 	return pc.syncStatusOnly(p, pvList)
 }
 
@@ -470,7 +485,7 @@ func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyver
 // status:
 // 		- violations : (count of the resources that violate this policy )
 func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
-	newStatus := calculateStatus(pvList)
+	newStatus := pc.calculateStatus(p.Name, pvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
 		// no update to status
 		return nil
@@ -482,10 +497,19 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	return err
 }
 
-func calculateStatus(pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
+func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
 	violationCount := len(pvList)
 	status := kyverno.PolicyStatus{
-		Violations: violationCount,
+		ViolationCount: violationCount,
+	}
+	// get stats
+	stats := pc.statusAggregator.GetPolicyStats(policyName)
+	if stats != (PolicyStatInfo{}) {
+		status.RulesAppliedCount = stats.RulesAppliedCount
+		status.ResourcesBlockedCount = stats.ResourceBlocked
+		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
+		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
+		status.AvgExecutionTimeGeneration = stats.GenerationExecutionTime.String()
 	}
 	return status
 }

@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"errors"
+	"time"
+
 	"fmt"
 
 	"github.com/golang/glog"
@@ -16,7 +18,19 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) []info.RuleInfo {
+func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) (response EngineResponse) {
+	startTime := time.Now()
+	glog.V(4).Infof("started applying generation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying generation rules policy %q (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Generation Rules appplied  count %q for policy %q", response.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.RulesAppliedCount++
+	}
+
 	ris := []info.RuleInfo{}
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation == (kyverno.Generation{}) {
@@ -34,8 +48,10 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 			glog.Infof("succesfully applied  policy %s rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 		}
 		ris = append(ris, ri)
+		incrementAppliedRuleCount()
 	}
-	return ris
+	response.RuleInfos = ris
+	return response
 }
 
 func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen kyverno.Generation, policyCreationTime metav1.Time) error {
