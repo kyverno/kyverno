@@ -31,6 +31,7 @@ var (
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
+	// profile cpu and memory consuption
 	prof = enableProfiling(cpu, memory)
 
 	// CLIENT CONFIG
@@ -47,6 +48,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
+
 	// DYNAMIC CLIENT
 	// - client for all registered resources
 	client, err := client.NewClient(clientConfig)
@@ -60,15 +62,16 @@ func main() {
 	//		- PolicyVolation
 	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10*time.Second)
+
 	// EVENT GENERATOR
-	// - generate event with retry
+	// - generate event with retry mechanism
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
-	//					  : updates the policy status
+	//					    & updates the policy status
 
 	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
 	if err != nil {
@@ -76,6 +79,7 @@ func main() {
 	}
 
 	// POLICY VIOLATION CONTROLLER
+	// policy violation cleanup if the corresponding resource is deleted
 	// status: lastUpdatTime
 	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations())
 	if err != nil {
@@ -100,17 +104,25 @@ func main() {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	// WEBHOOK REGISTRATION
-	// -- validationwebhookconfiguration (Policy)
-	// -- mutatingwebhookconfiguration (All resources)
 	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
-
+	// WEBHOOK REGISTRATION
+	// - validationwebhookconfiguration (Policy)
+	// - mutatingwebhookconfiguration (All resources)
+	// webhook confgiuration is also generated dynamically in the policy controller
+	// based on the policy resources created
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
+
+	// WEBHOOOK
+	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
+	// - reports the results based on the response from the policy engine:
+	// -- annotations on resources with update details on mutation JSON patches
+	// -- generate policy violation resource
+	// -- generate events on policy and resource
 	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), filterK8Resources)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
@@ -118,10 +130,7 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	if err = webhookRegistrationClient.Register(); err != nil {
-		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
-	}
-
+	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	go pc.Run(1, stopCh)
