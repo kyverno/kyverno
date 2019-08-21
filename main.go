@@ -13,8 +13,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	"k8s.io/client-go/informers"
+	kubeinformer "k8s.io/client-go/informers"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -27,6 +28,7 @@ var (
 	webhookTimeout    int
 )
 
+// TODO: tune resync time differently for each informer
 const defaultReSyncTime = 10 * time.Second
 
 func main() {
@@ -48,6 +50,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
+
 	// DYNAMIC CLIENT
 	// - client for all registered resources
 	client, err := client.NewClient(clientConfig)
@@ -65,9 +68,16 @@ func main() {
 	// - generate event with retry
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().Policies())
 
-	// mutatingWebhookConfiguration Informer
-	kubeInformer := informers.NewSharedInformerFactory(client.Kclient, defaultReSyncTime)
-	mutatingWebhookConfigurationLister := kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations().Lister()
+	kubeClient, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		glog.Fatalf("Error creating kubernetes client: %v\n", err)
+	}
+
+	// - cache resync time: 10 seconds
+	kubeInformer := kubeinformer.NewSharedInformerFactoryWithOptions(kubeClient, defaultReSyncTime)
+
+	// MutatingWebhookConfiguration Informer
+	mutatingWebhookConfigurationInformer := kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations()
 
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
@@ -91,7 +101,7 @@ func main() {
 	// - process policy on existing resources
 	// - status: violation count
 
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, mutatingWebhookConfigurationLister, webhookRegistrationClient)
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen, mutatingWebhookConfigurationInformer, webhookRegistrationClient)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}

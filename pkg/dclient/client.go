@@ -31,7 +31,7 @@ type Client struct {
 	client          dynamic.Interface
 	cachedClient    discovery.CachedDiscoveryInterface
 	clientConfig    *rest.Config
-	Kclient         kubernetes.Interface
+	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery
 }
 
@@ -48,7 +48,7 @@ func NewClient(config *rest.Config) (*Client, error) {
 	client := Client{
 		client:       dclient,
 		clientConfig: config,
-		Kclient:      kclient,
+		kclient:      kclient,
 	}
 	// Set discovery client
 	//
@@ -75,12 +75,12 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 //TODO: can we use dynamic client to fetch the typed interface
 // or generate a kube client value to access the interface
 func (c *Client) GetEventsInterface() (event.EventInterface, error) {
-	return c.Kclient.CoreV1().Events(""), nil
+	return c.kclient.CoreV1().Events(""), nil
 }
 
 //GetCSRInterface provides type interface for CSR
 func (c *Client) GetCSRInterface() (csrtype.CertificateSigningRequestInterface, error) {
-	return c.Kclient.CertificatesV1beta1().CertificateSigningRequests(), nil
+	return c.kclient.CertificatesV1beta1().CertificateSigningRequests(), nil
 }
 
 func (c *Client) getInterface(resource string) dynamic.NamespaceableResourceInterface {

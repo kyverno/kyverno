@@ -27,8 +27,9 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	webhookinformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1beta1 "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	webhooklister "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -67,8 +68,8 @@ type PolicyController struct {
 	pListerSynced cache.InformerSynced
 	// pvListerSynced returns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
-	// mutationwebhookInformer can list/get mutatingwebhookconfigurations
-	mutationwebhookInformer v1beta1.MutatingWebhookConfigurationLister
+	// mutationwebhookLister can list/get mutatingwebhookconfigurations
+	mutationwebhookLister webhooklister.MutatingWebhookConfigurationLister
 	// WebhookRegistrationClient
 	webhookRegistrationClient *webhooks.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
@@ -79,7 +80,7 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer,
-	eventGen event.Interface, mutationwebhookInformer v1beta1.MutatingWebhookConfigurationLister, webhookRegistrationClient *webhooks.WebhookRegistrationClient) (*PolicyController, error) {
+	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhooks.WebhookRegistrationClient) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -95,7 +96,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		eventGen:                  eventGen,
 		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		mutationwebhookInformer:   mutationwebhookInformer,
 		webhookRegistrationClient: webhookRegistrationClient,
 	}
 
@@ -120,6 +120,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.pvLister = pvInformer.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.pvListerSynced = pInformer.Informer().HasSynced
+
+	pc.mutationwebhookLister = webhookInformer.Lister()
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -394,7 +396,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
-		err = pc.handleWebhookRegistration(true)
+		if err := pc.handleWebhookRegistration(true, nil); err != nil {
+			glog.Errorln(err)
+		}
 		return err
 	}
 
@@ -402,7 +406,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	if err := pc.handleWebhookRegistration(false); err != nil {
+	if err := pc.handleWebhookRegistration(false, policy); err != nil {
 		glog.Errorln(err)
 	}
 
@@ -421,28 +425,40 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	return pc.syncStatusOnly(p, pvList)
 }
 
-func (pc *PolicyController) handleWebhookRegistration(emptyPolicy bool) error {
+// TODO: here checks mutatingwebhook only
+// as 'kubectl scale' is not funtional with validatingwebhook
+// refer to https://github.com/nirmata/kyverno/issues/250
+func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyverno.Policy) error {
+	policies, _ := pc.pLister.List(labels.NewSelector())
 	selector := &metav1.LabelSelector{MatchLabels: config.KubePolicyAppLabels}
 	webhookSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return fmt.Errorf("invalid label selector: %v", err)
 	}
 
-	list, err := pc.mutationwebhookInformer.List(webhookSelector)
+	webhookList, err := pc.mutationwebhookLister.List(webhookSelector)
 	if err != nil {
 		return fmt.Errorf("failed to list mutatingwebhookconfigurations, err %v", err)
 	}
 
-	if emptyPolicy {
-		// deregister webhookconfigurations it it exists
-		if list != nil {
+	if delete {
+		if webhookList == nil {
+			return nil
+		}
+
+		// webhook exist, deregister webhookconfigurations on condition
+		// check empty policy first, then rule type in terms of O(time)
+		if policies == nil {
 			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
+			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+		} else if !webhooks.HasMutateOrValidatePolicies(policies) {
+			glog.V(3).Infoln("No muatate/validate policy found in the cluster, deregistering webhook")
 			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
 		}
 		return nil
 	}
 
-	if list == nil {
+	if webhookList == nil && webhooks.HasMutateOrValidate(*policy) {
 		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
 		pc.webhookRegistrationClient.RegisterMutatingWebhook()
 	}
