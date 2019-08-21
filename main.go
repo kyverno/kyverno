@@ -56,6 +56,12 @@ func main() {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
 
+	// KUBERNETES CLIENT
+	kubeClient, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		glog.Fatalf("Error creating kubernetes client: %v\n", err)
+	}
+
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
@@ -72,7 +78,6 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-
 	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), egen)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
@@ -86,24 +91,22 @@ func main() {
 		glog.Fatalf("error creating policy violation controller: %v\n", err)
 	}
 
-	// NAMESPACE INFORMER
+	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
 	// - cache resync time: 10 seconds
-	kubeClient, err := utils.NewKubeClient(clientConfig)
-	if err != nil {
-		glog.Fatalf("Error creating kubernetes client: %v\n", err)
-	}
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
 	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().Policies(), pInformer.Kyverno().V1alpha1().PolicyViolations(), pc.GetPolicyStatusAggregator(), egen)
 
+	// CONFIGURE CERTIFICATES
 	tlsPair, err := initTLSPemPair(clientConfig, client)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
+	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
