@@ -145,12 +145,12 @@ spec:
                               AnyValue: {}
                   validate:
                     type: object
-                    required:
-                    - pattern
                     properties:
                       message:
                         type: string
                       pattern:
+                        AnyValue: {}
+                      anyPattern:
                         AnyValue: {}
                   generate:
                     type: object

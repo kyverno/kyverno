@@ -3,6 +3,7 @@ package webhooks
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -28,7 +29,7 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 	}
 
 	if request.Operation != v1beta1.Delete {
-		admissionResp = ws.validateUniqueRuleName(policy)
+		admissionResp = ws.validatePolicy(policy)
 	}
 
 	if admissionResp.Allowed {
@@ -36,6 +37,32 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 	}
 
 	return admissionResp
+}
+
+func (ws *WebhookServer) validatePolicy(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+	admissionResp := ws.validateUniqueRuleName(policy)
+	if !admissionResp.Allowed {
+		return admissionResp
+	}
+
+	return ws.validateOverlayPattern(policy)
+}
+
+func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+	for _, rule := range policy.Spec.Rules {
+		if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			if rule.Validation.Pattern == nil && rule.Validation.AnyPattern == nil {
+				return &v1beta1.AdmissionResponse{
+					Allowed: false,
+					Result: &metav1.Status{
+						Message: "Invalid policy, either pattern or anyPattern found in policy spec",
+					},
+				}
+			}
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{Allowed: true}
 }
 
 // Verify if the Rule names are unique within a policy
