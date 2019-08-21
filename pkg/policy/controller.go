@@ -13,9 +13,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +27,9 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	webhookinformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	webhooklister "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -62,8 +66,12 @@ type PolicyController struct {
 	pvLister kyvernolister.PolicyViolationLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
-	// pvListerSynced retrns true if the Policy store has been synced at least once
+	// pvListerSynced returns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
+	// mutationwebhookLister can list/get mutatingwebhookconfigurations
+	mutationwebhookLister webhooklister.MutatingWebhookConfigurationLister
+	// WebhookRegistrationClient
+	webhookRegistrationClient *webhooks.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 	// filter the resources defined in the list
@@ -71,7 +79,8 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer, eventGen event.Interface) (*PolicyController, error) {
+func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer,
+	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhooks.WebhookRegistrationClient) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -82,11 +91,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		client:                    client,
+		kyvernoClient:             kyvernoClient,
+		eventGen:                  eventGen,
+		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		webhookRegistrationClient: webhookRegistrationClient,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
@@ -110,6 +120,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.pvLister = pvInformer.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.pvListerSynced = pInformer.Informer().HasSynced
+
+	pc.mutationwebhookLister = webhookInformer.Lister()
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -384,11 +396,18 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
-		return nil
+		if err := pc.handleWebhookRegistration(true, nil); err != nil {
+			glog.Errorln(err)
+		}
+		return err
 	}
 
 	if err != nil {
 		return err
+	}
+
+	if err := pc.handleWebhookRegistration(false, policy); err != nil {
+		glog.Errorln(err)
 	}
 
 	// Deep-copy otherwise we are mutating our cache.
@@ -404,6 +423,47 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	// report errors
 	pc.report(policyInfos)
 	return pc.syncStatusOnly(p, pvList)
+}
+
+// TODO: here checks mutatingwebhook only
+// as 'kubectl scale' is not funtional with validatingwebhook
+// refer to https://github.com/nirmata/kyverno/issues/250
+func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyverno.Policy) error {
+	policies, _ := pc.pLister.List(labels.NewSelector())
+	selector := &metav1.LabelSelector{MatchLabels: config.KubePolicyAppLabels}
+	webhookSelector, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %v", err)
+	}
+
+	webhookList, err := pc.mutationwebhookLister.List(webhookSelector)
+	if err != nil {
+		return fmt.Errorf("failed to list mutatingwebhookconfigurations, err %v", err)
+	}
+
+	if delete {
+		if webhookList == nil {
+			return nil
+		}
+
+		// webhook exist, deregister webhookconfigurations on condition
+		// check empty policy first, then rule type in terms of O(time)
+		if policies == nil {
+			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
+			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+		} else if !webhooks.HasMutateOrValidatePolicies(policies) {
+			glog.V(3).Infoln("No muatate/validate policy found in the cluster, deregistering webhook")
+			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+		}
+		return nil
+	}
+
+	if webhookList == nil && webhooks.HasMutateOrValidate(*policy) {
+		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
+		pc.webhookRegistrationClient.RegisterMutatingWebhook()
+	}
+
+	return nil
 }
 
 //syncStatusOnly updates the policy status subresource
