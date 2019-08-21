@@ -65,6 +65,15 @@ func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1
 				},
 			}
 		}
+
+		if rule.Validation.Pattern != nil && len(rule.Validation.AnyPattern) != 0 {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: fmt.Sprintf("Invalid policy, either pattern or anyPattern is allowed in validate rule %s", rule.Name),
+				},
+			}
+		}
 	}
 
 	return &v1beta1.AdmissionResponse{Allowed: true}
