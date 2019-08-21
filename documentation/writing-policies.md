@@ -17,31 +17,32 @@ spec :
       # Each rule matches specific resource described by "match" field.
       match:
         resources:
-          kinds:
+          kinds: # Required, list of kinds
           - Deployment
           - StatefulSet
-          - DaemonSet
-          # A resource name is optional. Name supports wildcards * and ?
-          name: "*"
-          # A resoucre selector is optional. Selector values support wildcards * and ?
-          selector:
+          name: "mongo*" # Optional, a resource name is optional. Name supports wildcards * and ?
+          namespaces: # Optional, list of namespaces
+          - devtest2
+          - devtest1
+          selector: # Optional, a resource selector is optional. Selector values support wildcards * and ?
               matchLabels:
                   app: mongodb
               matchExpressions:
                   - {key: tier, operator: In, values: [database]}
       # Resources that need to be excluded
-      # exclude:
-      #   resources:
-      #     kinds:
-      #     - Deployment
-      #     # A resource name is optional. Name supports wildcards * and ?
-      #     name: "*"
-      #     # A resoucre selector is optional. Selector values support wildcards * and ?
-      #     selector:
-      #         matchLabels:
-      #             app: mongodb
-      #         matchExpressions:
-      #             - {key: tier, operator: In, values: [database]}
+      exclude: # Optional, resources to be excluded from evaulation
+        resources:
+          kinds:
+          - Daemonsets
+          name: "*"
+          namespaces:
+          - devtest2
+          selector:
+              matchLabels:
+                  app: mongodb
+              matchExpressions:
+                  - {key: tier, operator: In, values: [database]}
+    
      # Each rule can contain a single validate, mutate, or generate directive
      ...
 ````
