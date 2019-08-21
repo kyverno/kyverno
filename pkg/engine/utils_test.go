@@ -3,105 +3,232 @@ package engine
 import (
 	"testing"
 
-	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestResourceMeetsDescription_Kind(t *testing.T) {
-	resourceName := "test-config-map"
-	resourceDescription := types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
+// Match multiple kinds
+func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx"
+		   }
+		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+
+	}
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment", "Pods"},
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,
 		},
 	}
-	excludeResourcesResourceDesc := types.ResourceDescription{}
-	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription}}
 
-	rawResource := []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-	resourceDescription.Kinds[0] = "Deployment"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-	resourceDescription.Kinds[0] = "ConfigMap"
-	groupVersionKind.Kind = "Deployment"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule))
 }
 
-func TestResourceMeetsDescription_Name(t *testing.T) {
-	resourceName := "test-config-map"
-	resourceDescription := types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
+// Match resource name
+func TestResourceDescriptionMatch_Name(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx"
+		   }
+		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+
+	}
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment"},
+		Name:  "nginx-deployment",
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,
 		},
 	}
-	excludeResourcesResourceDesc := types.ResourceDescription{}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription}}
 
-	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-
-	rawResource := []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-	resourceDescription.Name = "test-config-map-new"
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	rawResource = []byte(`{
-		"metadata":{
-			"name":"test-config-map-new",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	rawResource = []byte(`{
-		"metadata":{
-			"name":"",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule))
 }
 
-func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
-	resourceName := "test-config-map"
-	resourceDescription := types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
+// Match resource regex
+func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx"
+		   }
+		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+
+	}
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment"},
+		Name:  "nginx-*",
+		Selector: &metav1.LabelSelector{
+			MatchLabels:      nil,
+			MatchExpressions: nil,
+		},
+	}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription}}
+
+	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+}
+
+// Match expressions for labels to not match
+func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx"
+		   }
+		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+
+	}
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment"},
+		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -112,561 +239,158 @@ func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
 						"sometest1",
 					},
 				},
-				metav1.LabelSelectorRequirement{
-					Key:      "label1",
-					Operator: "In",
-					Values: []string{
-						"test1",
-						"test8",
-						"test201",
-					},
-				},
-				metav1.LabelSelectorRequirement{
-					Key:      "label3",
-					Operator: "DoesNotExist",
-					Values:   nil,
-				},
-				metav1.LabelSelectorRequirement{
-					Key:      "label2",
-					Operator: "In",
-					Values: []string{
-						"test2",
-					},
-				},
 			},
 		},
 	}
-	excludeResourcesResourceDesc := types.ResourceDescription{}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription}}
 
-	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-	rawResource := []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	rawResource = []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1234567890",
-				"label2":"test2"
-			}
-		}
-	}`)
-
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule))
 }
 
-func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
-	resourceName := "test-config-map"
-	resourceDescription := types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label1": "test1",
-				"label2": "test2",
-			},
-			MatchExpressions: nil,
-		},
-	}
-	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-	excludeResourcesResourceDesc := types.ResourceDescription{}
-
+// Match label expression in matching set
+func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	rawResource := []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	rawResource = []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label3":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	resourceDescription = types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label3": "test1",
-				"label2": "test2",
-			},
-			MatchExpressions: nil,
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx"
+		   }
 		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+
 	}
-
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-}
-
-func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
-	resourceName := "test-config-map"
-	resourceDescription := types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment"},
+		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label1": "test1",
-			},
+			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				metav1.LabelSelectorRequirement{
-					Key:      "label2",
-					Operator: "In",
-					Values: []string{
-						"test2",
-					},
-				},
-			},
-		},
-	}
-	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-	excludeResourcesResourceDesc := types.ResourceDescription{}
-
-	rawResource := []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	resourceDescription = types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label1": "test1",
-			},
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
-					Key:      "label2",
+					Key:      "app",
 					Operator: "NotIn",
 					Values: []string{
-						"sometest1",
+						"nginx1",
+						"nginx2",
 					},
 				},
 			},
 		},
 	}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription}}
 
-	rawResource = []byte(`{
-		"metadata":{
-			"name":"test-config-map",
-			"namespace":"default",
-			"creationTimestamp":null,
-			"labels":{
-				"label1":"test1",
-				"label2":"test2"
-			}
-		}
-	}`)
-	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	resourceDescription = types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label1": "test1",
-			},
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
-					Key:      "label2",
-					Operator: "In",
-					Values: []string{
-						"sometest1",
-					},
-				},
-			},
-		},
-	}
-
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-	resourceDescription = types.ResourceDescription{
-		Kinds: []string{"ConfigMap"},
-		Name:  resourceName,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"label1": "test1",
-				"label3": "test3",
-			},
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
-					Key:      "label2",
-					Operator: "In",
-					Values: []string{
-						"test2",
-					},
-				},
-			},
-		},
-	}
-
-	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule))
 }
-// func TestResourceMeetsDescription_Kind(t *testing.T) {
-// 	resourceName := "test-config-map"
-// 	resourceDescription := types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels:      nil,
-// 			MatchExpressions: nil,
-// 		},
-// 	}
-// 	excludeResourcesResourceDesc := types.ResourceDescription{}
-// 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
 
-// 	rawResource := []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
+// check for exclude conditions
+func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		   "name": "nginx-deployment",
+		   "labels": {
+			  "app": "nginx",
+			  "block": "true"
+		   }
+		},
+		"spec": {
+		   "replicas": 3,
+		   "selector": {
+			  "matchLabels": {
+				 "app": "nginx"
+			  }
+		   },
+		   "template": {
+			  "metadata": {
+				 "labels": {
+					"app": "nginx"
+				 }
+			  },
+			  "spec": {
+				 "containers": [
+					{
+					   "name": "nginx",
+					   "image": "nginx:1.7.9",
+					   "ports": [
+						  {
+							 "containerPort": 80
+						  }
+					   ]
+					}
+				 ]
+			  }
+		   }
+		}
+	 }`)
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
 
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// 	resourceDescription.Kinds[0] = "Deployment"
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// 	resourceDescription.Kinds[0] = "ConfigMap"
-// 	groupVersionKind.Kind = "Deployment"
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// }
+	}
+	resourceDescription := kyverno.ResourceDescription{
+		Kinds: []string{"Deployment"},
+		Name:  "nginx-*",
+		Selector: &metav1.LabelSelector{
+			MatchLabels: nil,
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				metav1.LabelSelectorRequirement{
+					Key:      "app",
+					Operator: "NotIn",
+					Values: []string{
+						"nginx1",
+						"nginx2",
+					},
+				},
+			},
+		},
+	}
 
-// func TestResourceMeetsDescription_Name(t *testing.T) {
-// 	resourceName := "test-config-map"
-// 	resourceDescription := types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels:      nil,
-// 			MatchExpressions: nil,
-// 		},
-// 	}
-// 	excludeResourcesResourceDesc := types.ResourceDescription{}
+	resourceDescriptionExclude := kyverno.ResourceDescription{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"block": "true",
+			},
+		},
+	}
 
-// 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
+	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{resourceDescription},
+		ExcludeResources: kyverno.ExcludeResources{resourceDescriptionExclude}}
 
-// 	rawResource := []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// 	resourceName = "test-config-map-new"
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	rawResource = []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map-new",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	rawResource = []byte(`{
-// 		"metadata":{
-// 			"name":"",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// }
-
-// func TestResourceMeetsDescription_MatchExpressions(t *testing.T) {
-// 	resourceName := "test-config-map"
-// 	resourceDescription := types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: nil,
-// 			MatchExpressions: []metav1.LabelSelectorRequirement{
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "NotIn",
-// 					Values: []string{
-// 						"sometest1",
-// 					},
-// 				},
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label1",
-// 					Operator: "In",
-// 					Values: []string{
-// 						"test1",
-// 						"test8",
-// 						"test201",
-// 					},
-// 				},
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label3",
-// 					Operator: "DoesNotExist",
-// 					Values:   nil,
-// 				},
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "In",
-// 					Values: []string{
-// 						"test2",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	excludeResourcesResourceDesc := types.ResourceDescription{}
-
-// 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-// 	rawResource := []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	rawResource = []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1234567890",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// }
-
-// func TestResourceMeetsDescription_MatchLabels(t *testing.T) {
-// 	resourceName := "test-config-map"
-// 	resourceDescription := types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label1": "test1",
-// 				"label2": "test2",
-// 			},
-// 			MatchExpressions: nil,
-// 		},
-// 	}
-// 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-// 	excludeResourcesResourceDesc := types.ResourceDescription{}
-
-// 	rawResource := []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	rawResource = []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label3":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	resourceDescription = types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label3": "test1",
-// 				"label2": "test2",
-// 			},
-// 			MatchExpressions: nil,
-// 		},
-// 	}
-
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// }
-
-// func TestResourceMeetsDescription_MatchLabelsAndMatchExpressions(t *testing.T) {
-// 	resourceName := "test-config-map"
-// 	resourceDescription := types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label1": "test1",
-// 			},
-// 			MatchExpressions: []metav1.LabelSelectorRequirement{
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "In",
-// 					Values: []string{
-// 						"test2",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	groupVersionKind := metav1.GroupVersionKind{Kind: "ConfigMap"}
-// 	excludeResourcesResourceDesc := types.ResourceDescription{}
-
-// 	rawResource := []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	resourceDescription = types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label1": "test1",
-// 			},
-// 			MatchExpressions: []metav1.LabelSelectorRequirement{
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "NotIn",
-// 					Values: []string{
-// 						"sometest1",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	rawResource = []byte(`{
-// 		"metadata":{
-// 			"name":"test-config-map",
-// 			"namespace":"default",
-// 			"creationTimestamp":null,
-// 			"labels":{
-// 				"label1":"test1",
-// 				"label2":"test2"
-// 			}
-// 		}
-// 	}`)
-// 	assert.Assert(t, ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	resourceDescription = types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label1": "test1",
-// 			},
-// 			MatchExpressions: []metav1.LabelSelectorRequirement{
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "In",
-// 					Values: []string{
-// 						"sometest1",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-
-// 	resourceDescription = types.ResourceDescription{
-// 		Kinds: []string{"ConfigMap"},
-// 		Name:  &resourceName,
-// 		Selector: &metav1.LabelSelector{
-// 			MatchLabels: map[string]string{
-// 				"label1": "test1",
-// 				"label3": "test3",
-// 			},
-// 			MatchExpressions: []metav1.LabelSelectorRequirement{
-// 				metav1.LabelSelectorRequirement{
-// 					Key:      "label2",
-// 					Operator: "In",
-// 					Values: []string{
-// 						"test2",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	assert.Assert(t, false == ResourceMeetsDescription(rawResource, resourceDescription, excludeResourcesResourceDesc, groupVersionKind))
-// }
+	assert.Assert(t, !MatchesResourceDescription(*resource, rule))
+}
 
 func TestWrappedWithParentheses_StringIsWrappedWithParentheses(t *testing.T) {
 	str := "(something)"

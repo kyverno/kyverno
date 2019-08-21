@@ -2,15 +2,14 @@ package testrunner
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"testing"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	ospath "path"
 
 	"github.com/golang/glog"
-	pt "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
@@ -22,7 +21,7 @@ type test struct {
 	t        *testing.T
 	testCase *testCase
 	// input
-	policy        *pt.Policy
+	policy        *kyverno.Policy
 	tResource     *resourceInfo
 	loadResources []*resourceInfo
 	// expected
@@ -64,7 +63,7 @@ func (t *test) run() {
 	t.checkGenerationResult(client, policyInfo)
 }
 
-func (t *test) checkMutationResult(pr *resourceInfo, policyInfo *info.PolicyInfo) {
+func (t *test) checkMutationResult(pr *resourceInfo, policyInfo info.PolicyInfo) {
 	if t.testCase.Expected.Mutation == nil {
 		glog.Info("No Mutation check defined")
 		return
@@ -91,12 +90,12 @@ func (t *test) overAllPass(result bool, expected string) {
 	}
 }
 
-func (t *test) compareRules(ruleInfos []*info.RuleInfo, rules []tRules) {
+func (t *test) compareRules(ruleInfos []info.RuleInfo, rules []tRules) {
 	// Compare the rules specified in the expected against the actual rule info returned by the apply policy
 	for _, eRule := range rules {
 		// Look-up the rule from the policy info
 		rule := lookUpRule(eRule.Name, ruleInfos)
-		if rule == nil {
+		if reflect.DeepEqual(rule, info.RuleInfo{}) {
 			t.t.Errorf("Rule with name %s not found", eRule.Name)
 			continue
 		}
@@ -118,16 +117,17 @@ func (t *test) compareRules(ruleInfos []*info.RuleInfo, rules []tRules) {
 	}
 }
 
-func lookUpRule(name string, ruleInfos []*info.RuleInfo) *info.RuleInfo {
+func lookUpRule(name string, ruleInfos []info.RuleInfo) info.RuleInfo {
+
 	for _, r := range ruleInfos {
 		if r.Name == name {
 			return r
 		}
 	}
-	return nil
+	return info.RuleInfo{}
 }
 
-func (t *test) checkValidationResult(policyInfo *info.PolicyInfo) {
+func (t *test) checkValidationResult(policyInfo info.PolicyInfo) {
 	if t.testCase.Expected.Validation == nil {
 		glog.Info("No Validation check defined")
 		return
@@ -137,7 +137,7 @@ func (t *test) checkValidationResult(policyInfo *info.PolicyInfo) {
 	t.compareRules(policyInfo.Rules, t.testCase.Expected.Validation.Rules)
 }
 
-func (t *test) checkGenerationResult(client *client.Client, policyInfo *info.PolicyInfo) {
+func (t *test) checkGenerationResult(client *client.Client, policyInfo info.PolicyInfo) {
 	if t.testCase.Expected.Generation == nil {
 		glog.Info("No Generate check defined")
 		return
@@ -162,11 +162,12 @@ func (t *test) checkGenerationResult(client *client.Client, policyInfo *info.Pol
 	}
 }
 
-func (t *test) applyPolicy(policy *pt.Policy,
+func (t *test) applyPolicy(policy *kyverno.Policy,
 	tresource *resourceInfo,
-	client *client.Client) (*resourceInfo, *info.PolicyInfo, error) {
+	client *client.Client) (*resourceInfo, info.PolicyInfo, error) {
 	// apply policy on the trigger resource
 	// Mutate
+	var zeroPolicyInfo info.PolicyInfo
 	var err error
 	rawResource := tresource.rawResource
 	rname := engine.ParseNameFromObject(rawResource)
@@ -177,42 +178,43 @@ func (t *test) applyPolicy(policy *pt.Policy,
 		rname,
 		rns,
 		policy.Spec.ValidationFailureAction)
+
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		return nil, zeroPolicyInfo, err
+	}
+
 	// Apply Mutation Rules
-	patches, ruleInfos := engine.Mutate(*policy, rawResource, *tresource.gvk)
-	policyInfo.AddRuleInfos(ruleInfos)
+	engineResponse := engine.Mutate(*policy, *resource)
+	// patches, ruleInfos := engine.Mutate(*policy, rawResource, *tresource.gvk)
+	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	// TODO: only validate if there are no errors in mutate, why?
 	if policyInfo.IsSuccessful() {
-		if len(patches) != 0 {
-			rawResource, err = engine.ApplyPatches(rawResource, patches)
+		if len(engineResponse.Patches) != 0 {
+			rawResource, err = engine.ApplyPatches(rawResource, engineResponse.Patches)
 			if err != nil {
-				return nil, nil, err
+				return nil, zeroPolicyInfo, err
 			}
 		}
 	}
 	// Validate
-	ruleInfos, err = engine.Validate(*policy, rawResource, *tresource.gvk)
-	policyInfo.AddRuleInfos(ruleInfos)
+	engineResponse = engine.Validate(*policy, *resource)
+	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	if err != nil {
-		return nil, nil, err
+		return nil, zeroPolicyInfo, err
 	}
 
 	if rkind == "Namespace" {
 		if client != nil {
-			// convert []byte to unstructured
-			unstr := unstructured.Unstructured{}
-			err := unstr.UnmarshalJSON(rawResource)
-			if err != nil {
-				glog.Error(err)
-			}
-			ruleInfos := engine.Generate(client, policy, unstr)
-			policyInfo.AddRuleInfos(ruleInfos)
+			engineResponse := engine.Generate(client, *policy, *resource)
+			policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 		}
 	}
 	// Generate
 	// transform the patched Resource into resource Info
 	ri, err := extractResourceRaw(rawResource)
 	if err != nil {
-		return nil, nil, err
+		return nil, zeroPolicyInfo, err
 	}
 	// return the results
 	return ri, policyInfo, nil

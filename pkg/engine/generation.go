@@ -41,10 +41,10 @@ func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unst
 		err := applyRuleGenerator(client, ns, rule.Generation, policy.GetCreationTimestamp())
 		if err != nil {
 			ri.Fail()
-			ri.Addf("Failed to apply rule generator, err %v.", rule.Name, err)
+			ri.Addf("Failed to apply rule %s generator, err %v.", rule.Name, err)
 			glog.Infof("failed to apply policy %s rule %s on resource %s/%s/%s: %v", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName(), err)
 		} else {
-			ri.Addf("Generation succesfully.", rule.Name)
+			ri.Addf("Generation succesfully for rule %s", rule.Name)
 			glog.Infof("succesfully applied  policy %s rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
 		}
 		ris = append(ris, ri)
@@ -101,10 +101,10 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, gen
 		// 2> If clone already exists return
 		resource, err = client.GetResource(gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		if err != nil {
-			glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  not present: %v", gen.Kind, gen.Kind, gen.Clone.Namespace, gen.Clone.Name, err)
+			glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  not present: %v", gen.Kind, gen.Clone.Namespace, gen.Clone.Name, err)
 			return err
 		}
-		glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  present", gen.Kind, gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
+		glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  present", gen.Kind, gen.Clone.Namespace, gen.Clone.Name)
 		rdata = resource.UnstructuredContent()
 	}
 	if processExisting {
