@@ -95,9 +95,11 @@ type PolicyStatus struct {
 	// Count of resources for whom update/create api requests were blocked as the resoruce did not satisfy the policy rules
 	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
 	// average time required to process the policy Mutation rules on a resource
-	AvgExecutionTimeMutation string `json:"averageMutationExecutionTime"`
+	AvgExecutionTimeMutation string `json:"averageMutationRulesExecutionTime"`
 	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeValidation string `json:"averageValidationExecutionTime"`
+	AvgExecutionTimeValidation string `json:"averageValidationRulesExecutionTime"`
+	// average time required to process the policy Validation rules on a resource
+	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

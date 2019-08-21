@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policy"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -44,7 +45,8 @@ type NamespaceController struct {
 	pvListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
 	pvLister kyvernolister.PolicyViolationLister
-
+	// API to send policy stats for aggregation
+	policyStatus policy.PolicyStatusInterface
 	// eventGen provides interface to generate evenets
 	eventGen event.Interface
 	// Namespaces that need to be synced
@@ -59,6 +61,7 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsInformer v1Informer.NamespaceInformer,
 	pInformer kyvernoinformer.PolicyInformer,
 	pvInformer kyvernoinformer.PolicyViolationInformer,
+	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface) *NamespaceController {
 	//TODO: do we need to event recorder for this controller?
 	// create the controller
@@ -83,6 +86,7 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.pLister = pInformer.Lister()
 	nsc.pvListerSynced = pInformer.Informer().HasSynced
 	nsc.pvLister = pvInformer.Lister()
+	nsc.policyStatus = policyStatus
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins

@@ -447,6 +447,7 @@ func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno
 		status.ResourcesBlockedCount = stats.ResourceBlocked
 		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
 		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
+		status.AvgExecutionTimeGeneration = stats.GenerationExecutionTime.String()
 	}
 	return status
 }

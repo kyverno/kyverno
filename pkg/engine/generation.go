@@ -18,14 +18,13 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) EngineResponse {
-	var response EngineResponse
+func Generate(client *client.Client, policy kyverno.Policy, ns unstructured.Unstructured) (response EngineResponse) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying generation rules of policy %q (%v)", policy.Name, startTime)
 	defer func() {
 		response.ExecutionTime = time.Since(startTime)
 		glog.V(4).Infof("Finished applying generation rules policy %q (%v)", policy.Name, response.ExecutionTime)
-		glog.V(4).Infof("Mutation Rules appplied succesfully count %q for policy %q", response.RulesAppliedCount, policy.Name)
+		glog.V(4).Infof("Generation Rules appplied  count %q for policy %q", response.RulesAppliedCount, policy.Name)
 	}()
 	incrementAppliedRuleCount := func() {
 		// rules applied succesfully count

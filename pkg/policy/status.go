@@ -56,9 +56,6 @@ func (psa *PolicyStatusAggregator) process() {
 	// mutation & validation rules seperately
 	for r := range psa.ch {
 		glog.V(4).Infof("recieved policy stats %v", r)
-		// if err := psa.updateStats(r); err != nil {
-		// 	glog.Infof("Failed to update stats for policy %s: %v", r.PolicyName, err)
-		// }
 		psa.aggregate(r)
 	}
 }
@@ -95,6 +92,12 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 		glog.V(4).Infof("updated avg validation time %v", info.ValidationExecutionTime)
 	} else {
 		info.ValidationExecutionTime = ps.Stats.ValidationExecutionTime
+	}
+	if info.GenerationExecutionTime != zeroDuration {
+		info.GenerationExecutionTime = (info.GenerationExecutionTime + ps.Stats.GenerationExecutionTime) / 2
+		glog.V(4).Infof("updated avg generation time %v", info.GenerationExecutionTime)
+	} else {
+		info.GenerationExecutionTime = ps.Stats.GenerationExecutionTime
 	}
 	// update
 	psa.policyData[ps.PolicyName] = info
@@ -144,6 +147,7 @@ type PolicyStat struct {
 type PolicyStatInfo struct {
 	MutationExecutionTime   time.Duration
 	ValidationExecutionTime time.Duration
+	GenerationExecutionTime time.Duration
 	RulesAppliedCount       int
 	ResourceBlocked         int
 }
