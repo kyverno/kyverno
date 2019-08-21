@@ -1,21 +1,10 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-  name: psp-demo-unprivileged
-  labels:
-    test: psp
+  name: sec-ctx-unprivileged
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      test: psp
-  template:
-    metadata:
-      labels:
-        test: psp
-    spec:
-      securityContext:
-        runAsNonRoot: true
-      containers:
-      - name: sec-ctx-unprivileged
-        image: nginxinc/nginx-unprivileged
+  # securityContext:
+  #   runAsNonRoot: true
+  containers:
+  - name: imagen-with-hostpath
+    image: nginxinc/nginx-unprivileged

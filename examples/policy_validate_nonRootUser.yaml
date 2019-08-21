@@ -1,22 +1,27 @@
-apiVersion : kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
-  name: policy-security-context
+  name: check-container-security-context
 spec:
+  # validationFailureAction: "audit"
   rules:
-  - name: validate-runAsNonRoot
+  - name: check-root-user
+    exclude:
+      resources:
+        namespaces: 
+        - kube-system
     match:
       resources:
         kinds:
-        - Deployment
-        selector :
-          matchLabels:
-            test: psp
+        - Pod
     validate:
-      message: "security context 'runAsNonRoot' shoud be set to true"
-      pattern:
-        spec:
-          template:
-            spec:
+      message: "Root user is not allowed. Set runAsNonRoot to true."
+      anyPattern:
+        - spec:
+            securityContext:
+              runAsNonRoot: true
+        - spec:
+            containers:
+            - name: "*"
               securityContext:
                 runAsNonRoot: true

@@ -25,7 +25,10 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 	}
 	if err := json.Unmarshal(raw, &policy); err != nil {
 		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
-		return &v1beta1.AdmissionResponse{Allowed: false}
+		return &v1beta1.AdmissionResponse{Allowed: false,
+			Result: &metav1.Status{
+				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
+			}}
 	}
 
 	if request.Operation != v1beta1.Delete {
@@ -50,14 +53,16 @@ func (ws *WebhookServer) validatePolicy(policy *kyverno.Policy) *v1beta1.Admissi
 
 func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
 	for _, rule := range policy.Spec.Rules {
-		if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			if rule.Validation.Pattern == nil && rule.Validation.AnyPattern == nil {
-				return &v1beta1.AdmissionResponse{
-					Allowed: false,
-					Result: &metav1.Status{
-						Message: "Invalid policy, either pattern or anyPattern found in policy spec",
-					},
-				}
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			continue
+		}
+
+		if rule.Validation.Pattern == nil && len(rule.Validation.AnyPattern) == 0 {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: fmt.Sprintf("Invalid policy, neither pattern nor anyPattern found in validate rule %s", rule.Name),
+				},
 			}
 		}
 	}

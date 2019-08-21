@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -18,18 +17,6 @@ import (
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
-	resourceRaw, err := resource.MarshalJSON()
-	if err != nil {
-		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
-	}
-
-	var resourceInt interface{}
-	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
-		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
-		return EngineResponse{PatchedResource: resource}
-	}
-
 	var ruleInfos []info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
@@ -46,20 +33,52 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineR
 			continue
 		}
 
-		ruleInfo := info.NewRuleInfo(rule.Name, info.Validation)
-
-		err := validateResourceWithPattern(resourceInt, rule.Validation.Pattern)
-		if err != nil {
-			ruleInfo.Fail()
-			ruleInfo.Addf("Failed to apply pattern:  %v.", err)
-		} else {
-			ruleInfo.Add("Pattern succesfully validated")
-			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
-		}
+		ruleInfo := validatePatterns(resource, rule.Validation, rule.Name)
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
 
 	return EngineResponse{RuleInfos: ruleInfos}
+}
+
+// validatePatterns validate pattern and anyPattern
+func validatePatterns(resource unstructured.Unstructured, validation kyverno.Validation, ruleName string) info.RuleInfo {
+	var errs []error
+	ruleInfo := info.NewRuleInfo(ruleName, info.Validation)
+
+	if validation.Pattern != nil {
+		err := validateResourceWithPattern(resource.Object, validation.Pattern)
+		if err != nil {
+			ruleInfo.Fail()
+			ruleInfo.Addf("Failed to apply pattern: %v", err)
+		} else {
+			ruleInfo.Add("Pattern succesfully validated")
+			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+		}
+		return ruleInfo
+	}
+
+	if validation.AnyPattern != nil {
+		for _, pattern := range validation.AnyPattern {
+			if err := validateResourceWithPattern(resource.Object, pattern); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		failedPattern := len(errs)
+		patterns := len(validation.AnyPattern)
+
+		// all pattern fail
+		if failedPattern == patterns {
+			ruleInfo.Fail()
+			ruleInfo.Addf("None of anyPattern succeed: %v", errs)
+		} else {
+			ruleInfo.Addf("%d/%d patterns succesfully validated", patterns-failedPattern, patterns)
+			glog.V(4).Infof("%d/%d patterns validated succesfully on resource %s/%s", patterns-failedPattern, patterns, resource.GetNamespace(), resource.GetName())
+		}
+		return ruleInfo
+	}
+
+	return info.RuleInfo{}
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process
