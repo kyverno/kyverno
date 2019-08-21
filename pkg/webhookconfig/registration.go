@@ -1,4 +1,4 @@
-package webhooks
+package webhookconfig
 
 import (
 	"errors"

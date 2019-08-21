@@ -22,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -37,7 +38,7 @@ type WebhookServer struct {
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
 	eventGen                  event.Interface
-	webhookRegistrationClient *WebhookRegistrationClient
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
 	policyStatus      policy.PolicyStatusInterface
 	filterK8Resources []utils.K8Resource
@@ -52,7 +53,7 @@ func NewWebhookServer(
 	pInformer kyvernoinformer.PolicyInformer,
 	pvInormer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface,
-	webhookRegistrationClient *WebhookRegistrationClient,
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
 	filterK8Resources string) (*WebhookServer, error) {
 

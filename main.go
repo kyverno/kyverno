@@ -14,8 +14,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	kubeinformer "k8s.io/client-go/informers"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -65,6 +66,12 @@ func main() {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
 
+	// WERBHOOK REGISTRATION CLIENT
+	webhookRegistrationClient, err := webhookconfig.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
+	if err != nil {
+		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
+	}
+
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
@@ -72,7 +79,7 @@ func main() {
 	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10*time.Second)
 
-  // KUBERNETES RESOURCES INFORMER
+	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
 	// - cache resync time: 10 seconds
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
@@ -109,12 +116,6 @@ func main() {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
 
-	// WERBHOOK REGISTRATION CLIENT
-	webhookRegistrationClient, err := webhooks.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
-	if err != nil {
-		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
-	}
-  
 	// WEBHOOK REGISTRATION
 	// - validationwebhookconfiguration (Policy)
 	// - mutatingwebhookconfiguration (All resources)

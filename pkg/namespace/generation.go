@@ -4,19 +4,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/policy"
-
-	"github.com/golang/glog"
-
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
-	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policy"
 	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -144,10 +139,9 @@ func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyList
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, policy kyverno.Policy, policyStatus policy.PolicyStatusInterface) info.PolicyInfo {
-	var ps policyctr.PolicyStat
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.Policy, policyStatus policy.PolicyStatusInterface) info.PolicyInfo {
+	var ps policy.PolicyStat
 	gatherStat := func(policyName string, er engine.EngineResponse) {
-		// ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.GenerationExecutionTime = er.ExecutionTime
 		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
@@ -159,15 +153,15 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, poli
 	}
 
 	startTime := time.Now()
-	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
+	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
-		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
+		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
-	engineResponse := engine.Generate(client, policy, resource)
+	policyInfo := info.NewPolicyInfo(p.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), p.Spec.ValidationFailureAction)
+	engineResponse := engine.Generate(client, p, resource)
 	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	// gather stats
-	gatherStat(policy.Name, engineResponse)
+	gatherStat(p.Name, engineResponse)
 	//send stats
 	sendStat(false)
 
