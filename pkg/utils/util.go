@@ -1,11 +1,16 @@
 package utils
 
 import (
+	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/golang/glog"
+
 	"github.com/minio/minio/pkg/wildcard"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -93,4 +98,21 @@ func Btoi(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+//CRDInstalled to check if the CRD is installed or not
+func CRDInstalled(discovery client.IDiscovery) bool {
+	check := func(kind string) bool {
+		gvr := discovery.GetGVRFromKind(kind)
+		if reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
+			glog.Errorf("%s CRD not installed", kind)
+			return false
+		}
+		glog.Infof("CRD %s found ", kind)
+		return true
+	}
+	if !check("Policy") || !check("PolicyViolation") {
+		return false
+	}
+	return true
 }
