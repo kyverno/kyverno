@@ -61,21 +61,53 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (respon
 			continue
 		}
 
-		ruleInfo := info.NewRuleInfo(rule.Name, info.Validation)
-
-		err := validateResourceWithPattern(resourceInt, rule.Validation.Pattern)
-		if err != nil {
-			ruleInfo.Fail()
-			ruleInfo.Addf("Failed to apply pattern:  %v.", err)
-		} else {
-			ruleInfo.Add("Pattern succesfully validated")
-			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
-		}
+		ruleInfo := validatePatterns(resource, rule.Validation, rule.Name)
 		incrementAppliedRuleCount()
 		ruleInfos = append(ruleInfos, ruleInfo)
 	}
 	response.RuleInfos = ruleInfos
 	return response
+}
+
+// validatePatterns validate pattern and anyPattern
+func validatePatterns(resource unstructured.Unstructured, validation kyverno.Validation, ruleName string) info.RuleInfo {
+	var errs []error
+	ruleInfo := info.NewRuleInfo(ruleName, info.Validation)
+
+	if validation.Pattern != nil {
+		err := validateResourceWithPattern(resource.Object, validation.Pattern)
+		if err != nil {
+			ruleInfo.Fail()
+			ruleInfo.Addf("Failed to apply pattern: %v", err)
+		} else {
+			ruleInfo.Add("Pattern succesfully validated")
+			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+		}
+		return ruleInfo
+	}
+
+	if validation.AnyPattern != nil {
+		for _, pattern := range validation.AnyPattern {
+			if err := validateResourceWithPattern(resource.Object, pattern); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		failedPattern := len(errs)
+		patterns := len(validation.AnyPattern)
+
+		// all pattern fail
+		if failedPattern == patterns {
+			ruleInfo.Fail()
+			ruleInfo.Addf("None of anyPattern succeed: %v", errs)
+		} else {
+			ruleInfo.Addf("%d/%d patterns succesfully validated", patterns-failedPattern, patterns)
+			glog.V(4).Infof("%d/%d patterns validated succesfully on resource %s/%s", patterns-failedPattern, patterns, resource.GetNamespace(), resource.GetName())
+		}
+		return ruleInfo
+	}
+
+	return info.RuleInfo{}
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

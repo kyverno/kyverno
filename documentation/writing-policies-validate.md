@@ -101,6 +101,42 @@ spec :
                     mem)ory: "2048Mi"
 ````
 
+### Allow OR across overlay pattern
+In some cases one content can be defined at a different level. For example, a security context can be defined at the Pod or Container level. The validation rule should pass if one of the conditions is met. 
+`anyPattern` can be used to check on at least one of condition, it is the array of pattern, and the rule will be passed if at least one pattern is true.
+
+<small>*Note: either `pattern` or `anyPattern` is allowed in each rule, they can't be decalred in the same rule.*</small>
+
+````yaml
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-container-security-context
+spec:
+  rules:
+  - name: check-root-user
+    exclude:
+      resources:
+        namespaces: 
+        - kube-system
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Root user is not allowed. Set runAsNonRoot to true."
+      anyPattern:
+        - spec:
+            securityContext:
+              runAsNonRoot: true
+        - spec:
+            containers:
+            - name: "*"
+              securityContext:
+                runAsNonRoot: true
+````
+
+
 Additional examples are available in [examples](/examples/)
 
 

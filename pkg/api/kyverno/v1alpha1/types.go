@@ -68,8 +68,9 @@ type Patch struct {
 
 // Validation describes the way how Validating Webhook will check the resource on creation
 type Validation struct {
-	Message string      `json:"message"`
-	Pattern interface{} `json:"pattern"`
+	Message    string        `json:"message"`
+	Pattern    interface{}   `json:"pattern"`
+	AnyPattern []interface{} `json:"anyPattern"`
 }
 
 // Generation describes which resources will be created when other resource is created
