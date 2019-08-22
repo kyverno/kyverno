@@ -206,8 +206,8 @@ spec:
             resource:
               type: object
               required:
-                - kind
-                - name
+              - kind
+              - name
               properties:
                 kind:
                   type: string
@@ -215,14 +215,14 @@ spec:
                   type: string
                 namespace:
                   type: string
-            rules:
-              type: array
-              items:
-                type: object
-                required:
-                  - name
-                  - type
-                  - message
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - type
+                    - message
 ---
 kind: Namespace
 apiVersion: v1
