@@ -10,17 +10,21 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/engine"
+
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/annotations"
-	"github.com/nirmata/kyverno/pkg/client/listers/policy/v1alpha1"
+	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/sharedinformer"
+	"github.com/nirmata/kyverno/pkg/policy"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/violation"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -28,24 +32,29 @@ import (
 type WebhookServer struct {
 	server                    http.Server
 	client                    *client.Client
-	policyLister              v1alpha1.PolicyLister
-	eventController           event.Generator
-	violationBuilder          violation.Generator
-	annotationsController     annotations.Controller
-	webhookRegistrationClient *WebhookRegistrationClient
-	filterK8Resources         []utils.K8Resource
+	kyvernoClient             *kyvernoclient.Clientset
+	pLister                   kyvernolister.PolicyLister
+	pvLister                  kyvernolister.PolicyViolationLister
+	pListerSynced             cache.InformerSynced
+	pvListerSynced            cache.InformerSynced
+	eventGen                  event.Interface
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+	// API to send policy stats for aggregation
+	policyStatus      policy.PolicyStatusInterface
+	filterK8Resources []utils.K8Resource
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	shareInformer sharedinformer.PolicyInformer,
-	eventController event.Generator,
-	violationBuilder violation.Generator,
-	annotationsController annotations.Controller,
-	webhookRegistrationClient *WebhookRegistrationClient,
+	pInformer kyvernoinformer.PolicyInformer,
+	pvInormer kyvernoinformer.PolicyViolationInformer,
+	eventGen event.Interface,
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	policyStatus policy.PolicyStatusInterface,
 	filterK8Resources string) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -60,12 +69,16 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
+
 		client:                    client,
-		policyLister:              shareInformer.GetLister(),
-		eventController:           eventController,
-		violationBuilder:          violationBuilder,
-		annotationsController:     annotationsController,
+		kyvernoClient:             kyvernoClient,
+		pLister:                   pInformer.Lister(),
+		pvLister:                  pvInormer.Lister(),
+		pListerSynced:             pInformer.Informer().HasSynced,
+		pvListerSynced:            pInformer.Informer().HasSynced,
+		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
+		policyStatus:              policyStatus,
 		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 	mux := http.NewServeMux()
@@ -97,30 +110,13 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	if !utils.SkipFilteredResourcesReq(admissionReview.Request, ws.filterK8Resources) {
-		// if the resource is being deleted we need to clear any existing Policy Violations
-		// TODO: can report to the user that we clear the violation corresponding to this resource
-		if admissionReview.Request.Operation == v1beta1.Delete && admissionReview.Request.Kind.Kind != policyKind {
-			// Resource DELETE
-			err := ws.removePolicyViolation(admissionReview.Request)
-			if err != nil {
-				glog.Info(err)
-			}
-			admissionReview.Response = &v1beta1.AdmissionResponse{
-				Allowed: true,
-			}
-			admissionReview.Response.UID = admissionReview.Request.UID
-		} else {
-			// Resource CREATE
-			// Resource UPDATE
-			switch r.URL.Path {
-			case config.MutatingWebhookServicePath:
-				admissionReview.Response = ws.HandleMutation(admissionReview.Request)
-			case config.ValidatingWebhookServicePath:
-				admissionReview.Response = ws.HandleValidation(admissionReview.Request)
-			case config.PolicyValidatingWebhookServicePath:
-				admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
-			}
-
+		// Resource CREATE
+		// Resource UPDATE
+		switch r.URL.Path {
+		case config.MutatingWebhookServicePath:
+			admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
+		case config.PolicyValidatingWebhookServicePath:
+			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
 		}
 	}
 
@@ -136,6 +132,27 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(responseJSON); err != nil {
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	var response *v1beta1.AdmissionResponse
+
+	allowed, engineResponse := ws.HandleMutation(request)
+	if !allowed {
+		// TODO: add failure message to response
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+		}
+	}
+
+	response = ws.HandleValidation(request, engineResponse.PatchedResource)
+	if response.Allowed && len(engineResponse.Patches) > 0 {
+		patchType := v1beta1.PatchTypeJSONPatch
+		response.Patch = engine.JoinPatches(engineResponse.Patches)
+		response.PatchType = &patchType
+	}
+
+	return response
 }
 
 // RunAsync TLS server in separate thread and returns control immediately

@@ -8,48 +8,74 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/info"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-func Validate(policy kubepolicy.Policy, rawResource []byte, gvk metav1.GroupVersionKind) ([]*info.RuleInfo, error) {
-	var resource interface{}
-	ris := []*info.RuleInfo{}
-
-	err := json.Unmarshal(rawResource, &resource)
-	if err != nil {
-		return nil, err
+func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
+	// var response EngineResponse
+	startTime := time.Now()
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.ExecutionTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.ExecutionTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.RulesAppliedCount++
 	}
+	resourceRaw, err := resource.MarshalJSON()
+	if err != nil {
+		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
+		response.PatchedResource = resource
+		return response
+	}
+
+	var resourceInt interface{}
+	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
+		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
+		response.PatchedResource = resource
+		return response
+	}
+
+	var ruleInfos []info.RuleInfo
 
 	for _, rule := range policy.Spec.Rules {
-		if rule.Validation == nil {
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			continue
 		}
-		ri := info.NewRuleInfo(rule.Name, info.Validation)
 
-		ok := ResourceMeetsDescription(rawResource, rule.MatchResources.ResourceDescription, rule.ExcludeResources.ResourceDescription, gvk)
+		// check if the resource satisfies the filter conditions defined in the rule
+		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
+		// dont statisfy a policy rule resource description
+		ok := MatchesResourceDescription(resource, rule)
 		if !ok {
-			glog.V(3).Infof("Not applicable on specified resource kind%s", gvk.Kind)
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
 
-		err := validateResourceWithPattern(resource, rule.Validation.Pattern)
+		ruleInfo := info.NewRuleInfo(rule.Name, info.Validation)
+
+		err := validateResourceWithPattern(resourceInt, rule.Validation.Pattern)
 		if err != nil {
-			ri.Fail()
-			ri.Addf("validation has failed, err %v.", err)
+			ruleInfo.Fail()
+			ruleInfo.Addf("Failed to apply pattern:  %v.", err)
 		} else {
-			ri.Addf("Rule %s: Validation succesfully.", rule.Name)
-
+			ruleInfo.Add("Pattern succesfully validated")
+			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
 		}
-		ris = append(ris, ri)
+		incrementAppliedRuleCount()
+		ruleInfos = append(ruleInfos, ruleInfo)
 	}
-
-	return ris, nil
+	response.RuleInfos = ruleInfos
+	return response
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process

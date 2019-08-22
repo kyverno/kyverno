@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=kyverno.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().Policies().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("policyviolations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().PolicyViolations().Informer()}, nil
 
 	}
 

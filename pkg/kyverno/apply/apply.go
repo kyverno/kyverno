@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/spf13/cobra"
@@ -51,7 +51,7 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 	return cmd
 }
 
-func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resourceInfo) {
+func complete(kubeconfig string, args []string) (*kyverno.Policy, []*resourceInfo) {
 	policyDir, resourceDir, err := validateDir(args)
 	if err != nil {
 		glog.Errorf("Failed to parse file path, err: %v\n", err)
@@ -75,7 +75,7 @@ func complete(kubeconfig string, args []string) (*kubepolicy.Policy, []*resource
 	return policy, resources
 }
 
-func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output string) {
+func applyPolicy(policy *kyverno.Policy, resources []*resourceInfo) (output string) {
 	for _, resource := range resources {
 		patchedDocument, err := applyPolicyOnRaw(policy, resource.rawResource, resource.gvk)
 		if err != nil {
@@ -94,7 +94,7 @@ func applyPolicy(policy *kubepolicy.Policy, resources []*resourceInfo) (output s
 	return
 }
 
-func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
+func applyPolicyOnRaw(policy *kyverno.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
 	patchedResource := rawResource
 	var err error
 
@@ -106,45 +106,44 @@ func applyPolicyOnRaw(policy *kubepolicy.Policy, rawResource []byte, gvk *metav1
 		rns,
 		policy.Spec.ValidationFailureAction)
 
+	resource, err := ConvertToUnstructured(rawResource)
+	if err != nil {
+		return nil, err
+	}
+	//TODO check if the kind information is present resource
 	// Process Mutation
-	patches, ruleInfos := engine.Mutate(*policy, rawResource, *gvk)
-	policyInfo.AddRuleInfos(ruleInfos)
+	engineResponse := engine.Mutate(*policy, *resource)
+	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	if !policyInfo.IsSuccessful() {
 		glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-		for _, r := range ruleInfos {
+		for _, r := range engineResponse.RuleInfos {
 			glog.Warning(r.Msgs)
 		}
-	} else if len(patches) > 0 {
+	} else if len(engineResponse.Patches) > 0 {
 		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
-		patchedResource, err = engine.ApplyPatches(rawResource, patches)
+		patchedResource, err = engine.ApplyPatches(rawResource, engineResponse.Patches)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)
 		}
 		// Process Validation
-		ruleInfos, err := engine.Validate(*policy, patchedResource, *gvk)
-		if err != nil {
-			// This is not policy error
-			// but if unable to parse request raw resource
-			// TODO : create event ? dont think so
-			glog.Error(err)
-			return patchedResource, err
-		}
-		policyInfo.AddRuleInfos(ruleInfos)
+		engineResponse := engine.Validate(*policy, *resource)
+
+		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 		if !policyInfo.IsSuccessful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range ruleInfos {
+			for _, r := range engineResponse.RuleInfos {
 				glog.Warning(r.Msgs)
 			}
 			return patchedResource, fmt.Errorf("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-		} else if len(ruleInfos) > 0 {
+		} else if len(engineResponse.RuleInfos) > 0 {
 			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 		}
 	}
 	return patchedResource, nil
 }
 
-func extractPolicy(fileDir string) (*kubepolicy.Policy, error) {
-	policy := &kubepolicy.Policy{}
+func extractPolicy(fileDir string) (*kyverno.Policy, error) {
+	policy := &kyverno.Policy{}
 
 	file, err := loadFile(fileDir)
 	if err != nil {

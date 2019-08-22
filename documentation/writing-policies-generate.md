@@ -14,12 +14,13 @@ metadata:
 spec:
   rules:
     - name: "Basic config generator for all namespaces"
-      resource:
-        kinds: 
-        - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+      match:
+        resources:
+          kinds: 
+          - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
       generate:
         kind: ConfigMap
         name: default-config
@@ -27,12 +28,13 @@ spec:
           namespace: default
           name: config-template
     - name: "Basic config generator for all namespaces"
-      resource:
-        kinds: 
-        - Namespace
-      selector:
-        matchLabels:
-          LabelForSelector : "namespace2"
+      match:
+        resources:
+          kinds: 
+          - Namespace
+        selector:
+          matchLabels:
+            LabelForSelector : "namespace2"
       generate:
         kind: Secret
         name: mongo-creds
@@ -59,10 +61,11 @@ metadata:
 spec:
   rules:
   - name: "deny-all-traffic"
-    resource: 
-      kinds:
-       - Namespace
-      name: "*"
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "*"
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic

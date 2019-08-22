@@ -54,8 +54,10 @@ spec:
                               type: string
                           name:
                             type: string
-                          namespace:
-                            type: string
+                          namespaces:
+                            type: array
+                            items:
+                              type: string
                           selector:
                             properties:
                               matchLabels:
@@ -92,8 +94,10 @@ spec:
                               type: string
                           name:
                             type: string
-                          namespace:
-                            type: string
+                          namespaces:
+                            type: array
+                            items:
+                              type: string
                           selector:
                             properties:
                               matchLabels:
@@ -170,3 +174,53 @@ spec:
                             type: string
                       data:
                         AnyValue: {}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: policyviolations.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+  scope: Cluster
+  names:
+    kind: PolicyViolation
+    plural: policyviolations
+    singular: policyviolation
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - policy
+          - resource
+          - rules
+          properties:
+            policy:
+              type: string
+            resource:
+              type: object
+              required:
+                - kind
+                - name
+              properties:
+                kind:
+                  type: string
+                name:
+                  type: string
+                namespace:
+                  type: string
+            rules:
+              type: array
+              items:
+                type: object
+                required:
+                  - name
+                  - type
+                  - message
+---

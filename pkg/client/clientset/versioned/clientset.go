@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policy/v1alpha1"
+	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

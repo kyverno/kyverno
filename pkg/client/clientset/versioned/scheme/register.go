@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

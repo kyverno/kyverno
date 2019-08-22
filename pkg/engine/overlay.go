@@ -11,24 +11,28 @@ import (
 	"github.com/golang/glog"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 )
 
-// ProcessOverlay handles validating admission request
+// rawResource handles validating admission request
 // Checks the target resources for rules defined in the policy
-func ProcessOverlay(rule kubepolicy.Rule, rawResource []byte, gvk metav1.GroupVersionKind) ([][]byte, error) {
-
+// TODO: pass in the unstructured object in stead of raw byte?
+func processOverlay(rule kyverno.Rule, rawResource []byte) ([][]byte, error) {
 	var resource interface{}
 	if err := json.Unmarshal(rawResource, &resource); err != nil {
+		glog.V(4).Infof("unable to unmarshal resource : %v", err)
 		return nil, err
 	}
 
 	resourceInfo := ParseResourceInfoFromObject(rawResource)
-	patches, err := processOverlayPatches(resource, *rule.Mutation.Overlay)
+	patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
+		// glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
 		glog.Infof("Resource does not meet conditions in overlay pattern, resource=%s, rule=%s\n", resourceInfo, rule.Name)
-		return nil, nil
+		// patches, err := processOverlayPatches(resource, rule.Mutation.Overlay)
+		// if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
+		// 	glog.V(4).Infof("overlay pattern %s does not match resource %s/%s", rule.Mutation.Overlay, resourceUnstr.GetNamespace(), resourceUnstr.GetName())
+		// 	return nil, nil
 	}
 
 	return patches, err

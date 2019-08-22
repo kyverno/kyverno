@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	policytypes "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	policytypes "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,7 +130,7 @@ func TestGenerateResource(t *testing.T) {
 	}
 	gen := policytypes.Generation{Kind: "TheKind",
 		Name:  "gen-kind",
-		Clone: &policytypes.CloneFrom{Namespace: "ns-foo", Name: "name-foo"}}
+		Clone: policytypes.CloneFrom{Namespace: "ns-foo", Name: "name-foo"}}
 	err = f.client.GenerateResource(gen, ns.GetName(), false)
 	if err != nil {
 		t.Errorf("GenerateResource not working: %s", err)

@@ -5,227 +5,298 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
-	types "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	v1alpha1 "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
-	v1helper "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
-func ListResourcesThatApplyToPolicy(client *client.Client, policy *types.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
-	// key uid
-	resourceMap := map[string]resourceInfo{}
-	for _, rule := range policy.Spec.Rules {
-		// Match
-		for _, k := range rule.MatchResources.Kinds {
-			namespaces := []string{}
-			if k == "Namespace" {
-				namespaces = []string{""}
-			} else {
-				if rule.MatchResources.Namespace != nil {
-					// if namespace is specified then we add the namespace
-					namespaces = append(namespaces, *rule.MatchResources.Namespace)
-				} else {
-					// no namespace specified, refer to all namespaces
-					namespaces = getAllNamespaces(client)
-				}
-
-				// Check if exclude namespace is not clashing
-				namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespace)
-			}
-
-			// If kind is namespace then namespace is "", override
-			// Get resources in the namespace
-			for _, ns := range namespaces {
-				rMap := getResourcesPerNamespace(k, client, ns, rule, filterK8Resources)
-				mergeresources(resourceMap, rMap)
-			}
-		}
-	}
-	return resourceMap
+//EngineResponse provides the response to the application of a policy rule set on a resource
+type EngineResponse struct {
+	Patches         [][]byte
+	PatchedResource unstructured.Unstructured
+	RuleInfos       []info.RuleInfo
+	EngineStats
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule types.Rule, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
-	resourceMap := map[string]resourceInfo{}
-	// List resources
-	list, err := client.ListResource(kind, namespace, rule.MatchResources.Selector)
-	if err != nil {
-		glog.Errorf("unable to list resource for %s with label selector %s", kind, rule.MatchResources.Selector.String())
-		return nil
-	}
-	var selector labels.Selector
-	// exclude label selector
-	if rule.ExcludeResources.Selector != nil {
-		selector, err = v1helper.LabelSelectorAsSelector(rule.ExcludeResources.Selector)
-		if err != nil {
-			glog.Error(err)
-		}
-	}
-	for _, res := range list.Items {
-		// exclude label selectors
-		if selector != nil {
-			set := labels.Set(res.GetLabels())
-			if selector.Matches(set) {
-				// if matches
-				continue
-			}
-		}
-		var name *string
-		// match
-		// name
-		// wild card matching
-		name = rule.MatchResources.Name
-		if name != nil {
-			// if does not match then we skip
-			if !wildcard.Match(*name, res.GetName()) {
-				continue
-			}
-		}
-		// exclude
-		// name
-		// wild card matching
-		name = rule.ExcludeResources.Name
-		if name != nil {
-			// if matches then we skip
-			if wildcard.Match(*name, res.GetName()) {
-				continue
-			}
-		}
-		gvk := res.GroupVersionKind()
-
-		ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
-			Version: gvk.Version,
-			Kind:    gvk.Kind}}
-		// Skip the filtered resources
-		if utils.SkipFilteredResources(gvk.Kind, res.GetNamespace(), res.GetName(), filterK8Resources) {
-			continue
-		}
-
-		resourceMap[string(res.GetUID())] = ri
-	}
-	return resourceMap
+//EngineStats stores in the statistics for a single application of resource
+type EngineStats struct {
+	// average time required to process the policy rules on a resource
+	ExecutionTime time.Duration
+	// Count of rules that were applied succesfully
+	RulesAppliedCount int
 }
 
-// merge b into a map
-func mergeresources(a, b map[string]resourceInfo) {
-	for k, v := range b {
-		a[k] = v
-	}
-}
+// //ListResourcesThatApplyToPolicy returns list of resources that are filtered by policy rules
+// func ListResourcesThatApplyToPolicy(client *client.Client, policy *kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
+// 	// key uid
+// 	resourceMap := map[string]resourceInfo{}
+// 	for _, rule := range policy.Spec.Rules {
+// 		// Match
+// 		for _, k := range rule.MatchResources.Kinds {
+// 			namespaces := []string{}
+// 			if k == "Namespace" {
+// 				namespaces = []string{""}
+// 			} else {
+// 				if rule.MatchResources.Namespace != "" {
+// 					// if namespace is specified then we add the namespace
+// 					namespaces = append(namespaces, rule.MatchResources.Namespace)
+// 				} else {
+// 					// no namespace specified, refer to all namespaces
+// 					namespaces = getAllNamespaces(client)
+// 				}
 
-func getAllNamespaces(client *client.Client) []string {
-	namespaces := []string{}
-	// get all namespaces
-	nsList, err := client.ListResource("Namespace", "", nil)
-	if err != nil {
-		glog.Error(err)
-		return namespaces
-	}
-	for _, ns := range nsList.Items {
-		namespaces = append(namespaces, ns.GetName())
-	}
-	return namespaces
-}
+// 				// Check if exclude namespace is not clashing
+// 				namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespace)
+// 			}
 
-func excludeNamespaces(namespaces []string, excludeNs *string) []string {
-	if excludeNs == nil {
-		return namespaces
-	}
-	filteredNamespaces := []string{}
-	for _, n := range namespaces {
-		if n == *excludeNs {
-			continue
-		}
-		filteredNamespaces = append(filteredNamespaces, n)
-	}
-	return filteredNamespaces
-}
+// 			// If kind is namespace then namespace is "", override
+// 			// Get resources in the namespace
+// 			for _, ns := range namespaces {
+// 				rMap := getResourcesPerNamespace(k, client, ns, rule, filterK8Resources)
+// 				mergeresources(resourceMap, rMap)
+// 			}
+// 		}
+// 	}
+// 	return resourceMap
+// }
 
-// ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
-func ResourceMeetsDescription(resourceRaw []byte, matches v1alpha1.ResourceDescription, exclude v1alpha1.ResourceDescription, gvk metav1.GroupVersionKind) bool {
-	if !findKind(matches.Kinds, gvk.Kind) {
+// func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, filterK8Resources []utils.K8Resource) map[string]resourceInfo {
+// 	resourceMap := map[string]resourceInfo{}
+// 	// List resources
+// 	list, err := client.ListResource(kind, namespace, rule.MatchResources.Selector)
+// 	if err != nil {
+// 		glog.Errorf("unable to list resource for %s with label selector %s", kind, rule.MatchResources.Selector.String())
+// 		return nil
+// 	}
+// 	var selector labels.Selector
+// 	// exclude label selector
+// 	if rule.ExcludeResources.Selector != nil {
+// 		selector, err = v1helper.LabelSelectorAsSelector(rule.ExcludeResources.Selector)
+// 		if err != nil {
+// 			glog.Error(err)
+// 		}
+// 	}
+// 	for _, res := range list.Items {
+// 		// exclude label selectors
+// 		if selector != nil {
+// 			set := labels.Set(res.GetLabels())
+// 			if selector.Matches(set) {
+// 				// if matches
+// 				continue
+// 			}
+// 		}
+// 		var name string
+// 		// match
+// 		// name
+// 		// wild card matching
+// 		name = rule.MatchResources.Name
+// 		if name != "" {
+// 			// if does not match then we skip
+// 			if !wildcard.Match(name, res.GetName()) {
+// 				continue
+// 			}
+// 		}
+// 		// exclude
+// 		// name
+// 		// wild card matching
+// 		name = rule.ExcludeResources.Name
+// 		if name != "nil" {
+// 			// if matches then we skip
+// 			if wildcard.Match(name, res.GetName()) {
+// 				continue
+// 			}
+// 		}
+// 		gvk := res.GroupVersionKind()
+
+// 		ri := resourceInfo{Resource: res, Gvk: &metav1.GroupVersionKind{Group: gvk.Group,
+// 			Version: gvk.Version,
+// 			Kind:    gvk.Kind}}
+// 		// Skip the filtered resources
+// 		if utils.SkipFilteredResources(gvk.Kind, res.GetNamespace(), res.GetName(), filterK8Resources) {
+// 			continue
+// 		}
+
+// 		resourceMap[string(res.GetUID())] = ri
+// 	}
+// 	return resourceMap
+// }
+
+// // merge b into a map
+// func mergeresources(a, b map[string]resourceInfo) {
+// 	for k, v := range b {
+// 		a[k] = v
+// 	}
+// }
+
+// func getAllNamespaces(client *client.Client) []string {
+// 	namespaces := []string{}
+// 	// get all namespaces
+// 	nsList, err := client.ListResource("Namespace", "", nil)
+// 	if err != nil {
+// 		glog.Error(err)
+// 		return namespaces
+// 	}
+// 	for _, ns := range nsList.Items {
+// 		namespaces = append(namespaces, ns.GetName())
+// 	}
+// 	return namespaces
+// }
+
+// func excludeNamespaces(namespaces []string, excludeNs string) []string {
+// 	if excludeNs == "" {
+// 		return namespaces
+// 	}
+// 	filteredNamespaces := []string{}
+// 	for _, n := range namespaces {
+// 		if n == excludeNs {
+// 			continue
+// 		}
+// 		filteredNamespaces = append(filteredNamespaces, n)
+// 	}
+// 	return filteredNamespaces
+// }
+
+//MatchesResourceDescription checks if the resource matches resource desription of the rule or not
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule) bool {
+	matches := rule.MatchResources.ResourceDescription
+	exclude := rule.ExcludeResources.ResourceDescription
+
+	if !findKind(matches.Kinds, resource.GetKind()) {
 		return false
 	}
 
-	if resourceRaw != nil {
-		meta := parseMetadataFromObject(resourceRaw)
-		name := ParseNameFromObject(resourceRaw)
-		namespace := ParseNamespaceFromObject(resourceRaw)
+	name := resource.GetName()
 
-		if matches.Name != nil {
-			// Matches
-			if !wildcard.Match(*matches.Name, name) {
-				return false
-			}
-		}
-		// Exclude
-		// the resource name matches the exclude resource name then reject
-		if exclude.Name != nil {
-			if wildcard.Match(*exclude.Name, name) {
-				return false
-			}
-		}
+	namespace := resource.GetNamespace()
+
+	if matches.Name != "" {
 		// Matches
-		if matches.Namespace != nil && *matches.Namespace != namespace {
+		if !wildcard.Match(matches.Name, name) {
 			return false
 		}
-		// Exclude
-		if exclude.Namespace != nil && *exclude.Namespace == namespace {
+	}
+	// Exclude
+	// the resource name matches the exclude resource name then reject
+	if exclude.Name != "" {
+		if wildcard.Match(exclude.Name, name) {
 			return false
 		}
-		// Matches
-		if matches.Selector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
-			if err != nil {
-				glog.Error(err)
-				return false
-			}
-			if meta != nil {
-				labelMap := parseLabelsFromMetadata(meta)
-				if !selector.Matches(labelMap) {
-					return false
-				}
-			}
-		}
-		// Exclude
-		if exclude.Selector != nil {
-			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
-			// if the label selector is incorrect, should be fail or
-			if err != nil {
-				glog.Error(err)
-				return false
-			}
+	}
 
-			if meta != nil {
-				labelMap := parseLabelsFromMetadata(meta)
-				if selector.Matches(labelMap) {
-					return false
-				}
-			}
-		}
+	// Matches
+	// check if the resource namespace is defined in the list of namespaces for inclusion
+	if len(matches.Namespaces) > 0 && !utils.Contains(matches.Namespaces, namespace) {
+		return false
+	}
+	// Exclude
+	// check if the resource namespace is defined in the list of namespace for exclusion
+	if len(exclude.Namespaces) > 0 && utils.Contains(exclude.Namespaces, namespace) {
+		return false
+	}
 
+	// Matches
+	if matches.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if !selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
+	}
+	// Exclude
+	if exclude.Selector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+		// if the label selector is incorrect, should be fail or
+		if err != nil {
+			glog.Error(err)
+			return false
+		}
+		if selector.Matches(labels.Set(resource.GetLabels())) {
+			return false
+		}
 	}
 	return true
 }
 
-func parseMetadataFromObject(bytes []byte) map[string]interface{} {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	return meta
-}
+// // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
+// func ResourceMeetsDescription(resourceRaw []byte, matches kyverno.ResourceDescription, exclude kyverno.ResourceDescription, gvk metav1.GroupVersionKind) bool {
+// 	if !findKind(matches.Kinds, gvk.Kind) {
+// 		return false
+// 	}
+
+// 	if resourceRaw != nil {
+// 		meta := parseMetadataFromObject(resourceRaw)
+// 		name := ParseNameFromObject(resourceRaw)
+// 		namespace := ParseNamespaceFromObject(resourceRaw)
+
+// 		if matches.Name != "" {
+// 			// Matches
+// 			if !wildcard.Match(matches.Name, name) {
+// 				return false
+// 			}
+// 		}
+// 		// Exclude
+// 		// the resource name matches the exclude resource name then reject
+// 		if exclude.Name != "" {
+// 			if wildcard.Match(exclude.Name, name) {
+// 				return false
+// 			}
+// 		}
+// 		// Matches
+// 		// check if the resource namespace is defined in the list of namespaces for inclusion
+// 		if len(matches.Namespaces) > 0 && !utils.Contains(matches.Namespaces, namespace) {
+// 			return false
+// 		}
+// 		// Exclude
+// 		// check if the resource namespace is defined in the list of namespace for exclusion
+// 		if len(exclude.Namespaces) > 0 && utils.Contains(exclude.Namespaces, namespace) {
+// 			return false
+// 		}
+// 		// Matches
+// 		if matches.Selector != nil {
+// 			selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
+// 			if err != nil {
+// 				glog.Error(err)
+// 				return false
+// 			}
+// 			if meta != nil {
+// 				labelMap := parseLabelsFromMetadata(meta)
+// 				if !selector.Matches(labelMap) {
+// 					return false
+// 				}
+// 			}
+// 		}
+// 		// Exclude
+// 		if exclude.Selector != nil {
+// 			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+// 			// if the label selector is incorrect, should be fail or
+// 			if err != nil {
+// 				glog.Error(err)
+// 				return false
+// 			}
+
+// 			if meta != nil {
+// 				labelMap := parseLabelsFromMetadata(meta)
+// 				if selector.Matches(labelMap) {
+// 					return false
+// 				}
+// 			}
+// 		}
+
+// 	}
+// 	return true
+// }
 
 // ParseResourceInfoFromObject get kind/namepace/name from resource
 func ParseResourceInfoFromObject(rawResource []byte) string {
@@ -242,18 +313,6 @@ func ParseKindFromObject(bytes []byte) string {
 	json.Unmarshal(bytes, &objectJSON)
 
 	return objectJSON["kind"].(string)
-}
-
-func parseLabelsFromMetadata(meta map[string]interface{}) labels.Set {
-	if interfaceMap, ok := meta["labels"].(map[string]interface{}); ok {
-		labelMap := make(labels.Set, len(interfaceMap))
-
-		for key, value := range interfaceMap {
-			labelMap[key] = value.(string)
-		}
-		return labelMap
-	}
-	return nil
 }
 
 //ParseNameFromObject extracts resource name from JSON obj
@@ -293,15 +352,6 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	}
 
 	return ""
-}
-
-// ParseRegexPolicyResourceName returns true if policyResourceName is a regexp
-func ParseRegexPolicyResourceName(policyResourceName string) (string, bool) {
-	regex := strings.Split(policyResourceName, "regex:")
-	if len(regex) == 1 {
-		return regex[0], false
-	}
-	return strings.Trim(regex[1], " "), true
 }
 
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
@@ -457,4 +507,14 @@ func convertToFloat(value interface{}) (float64, error) {
 type resourceInfo struct {
 	Resource unstructured.Unstructured
 	Gvk      *metav1.GroupVersionKind
+}
+
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }

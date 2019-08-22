@@ -6,8 +6,17 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
+type K8Resource struct {
+	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
+	Namespace string
+	Name      string
+}
+
+//Contains Check if strint is contained in a list of string
 func Contains(list []string, element string) bool {
 	for _, e := range list {
 		if e == element {
@@ -15,12 +24,6 @@ func Contains(list []string, element string) bool {
 		}
 	}
 	return false
-}
-
-type K8Resource struct {
-	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
-	Namespace string
-	Name      string
 }
 
 //SkipFilteredResourcesReq checks if request is to be skipped based on filtered kinds
@@ -73,4 +76,21 @@ func ParseKinds(list string) []K8Resource {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+//NewKubeClient returns a new kubernetes client
+func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
+	kclient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kclient, nil
+}
+
+//Btoi converts boolean to int
+func Btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
