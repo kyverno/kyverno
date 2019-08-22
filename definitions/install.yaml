@@ -215,14 +215,21 @@ spec:
                   type: string
                 namespace:
                   type: string
-                rules:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - type
-                    - message
+            rules:
+              type: array
+              items:
+                type: object
+                required:
+                - name
+                - type
+                - message
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  message:
+                    type: string
 ---
 kind: Namespace
 apiVersion: v1
