@@ -601,10 +601,6 @@ func (m *PolicyViolationControllerRefManager) adoptPolicyViolation(pv *kyverno.P
 		glog.Errorf("failed to add owner reference %v for PolicyViolation %s: %v", pOwnerRef, pv.Name, err)
 		return err
 	}
-	// addControllerPatch := fmt.Sprintf(
-	// 	`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
-	// 	m.controllerKind.GroupVersion(), m.controllerKind.Kind,
-	// 	m.Controller.GetName(), m.Controller.GetUID(), pv.UID)
 
 	return m.pvControl.PatchPolicyViolation(pv.Name, addControllerPatch)
 }

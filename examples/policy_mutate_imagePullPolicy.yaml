@@ -12,6 +12,10 @@ spec:
         selector:
           matchLabels:
             app : nginxlatest
+    exclude:
+      resources:
+        kinds:
+        - DaemonSet
     mutate:
       overlay:
         spec:

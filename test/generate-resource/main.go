@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	kubepolicy "github.com/nirmata/kyverno/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	yaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -21,7 +21,7 @@ func main() {
 }
 
 func generatePolicies() error {
-	var policy *kubepolicy.Policy
+	var policy *kyverno.Policy
 
 	file, err := ioutil.ReadFile(policyPath)
 	if err != nil {

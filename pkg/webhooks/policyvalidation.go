@@ -18,11 +18,12 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 	admissionResp := &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
+	// nothing to do on DELETE
+	if request.Operation == v1beta1.Delete {
+		return admissionResp
+	}
 
 	raw := request.Object.Raw
-	if request.Operation == v1beta1.Delete {
-		raw = request.OldObject.Raw
-	}
 	if err := json.Unmarshal(raw, &policy); err != nil {
 		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
 		return &v1beta1.AdmissionResponse{Allowed: false,
@@ -30,10 +31,8 @@ func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-
-	if request.Operation != v1beta1.Delete {
-		admissionResp = ws.validatePolicy(policy)
-	}
+	// check for uniqueness of rule names while CREATE/DELET
+	admissionResp = ws.validateUniqueRuleName(policy)
 
 	if admissionResp.Allowed {
 		ws.manageWebhookConfigurations(*policy, request.Operation)

@@ -18,9 +18,10 @@ metadata :
 spec :
   rules:
     - name: "add-init-secrets"
-      resource:
-        kinds:
-        - Deployment
+      match:
+        resources:
+          kinds:
+          - Deployment
       mutate:
         patches:
         - path: "/spec/template/spec/initContainers/0/"
@@ -46,9 +47,10 @@ metadata :
 spec :
   rules:
     - name: "Remove unwanted label"
-      resource:
-        kinds:
-          - Secret
+      match:
+        resources:
+          kinds:
+            - Secret
       mutate:
         patches:
         - path: "/metadata/labels/purpose"
@@ -71,12 +73,13 @@ metadata :
 spec :
   rules:
     - name: "Set hard memory limit to 2Gi"
-      resource:
-        kinds:
-          - Pod
-        selector:
-          matchLabels:
-            memory: high
+      match:
+        resources:
+          kinds:
+            - Pod
+          selector:
+            matchLabels:
+              memory: high
       mutate:
         overlay:
           spec:
@@ -103,9 +106,10 @@ metadata:
 spec:
   rules:
   - name: "Add IP to subsets"
-    resource:
-      kinds :
-        - Endpoints
+    match:
+      resources:
+        kinds :
+          - Endpoints
     mutate:
       overlay:
         subsets:
@@ -128,9 +132,10 @@ metadata :
 spec :
   rules:
   - name: "Set port"
-    resource:
-      kinds :
-        - Endpoints
+    match:
+      resources:
+        kinds :
+          - Endpoints
     mutate:
       overlay:
         subsets:
@@ -158,9 +163,10 @@ metadata :
 spec :
   rules:
   - name: "Set port"
-    resource:
-      kinds :
-        - Endpoints
+    match:
+      resources:
+        kinds :
+          - Endpoints
     mutate:
       overlay:
         subsets:

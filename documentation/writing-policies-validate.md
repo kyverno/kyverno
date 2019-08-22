@@ -44,16 +44,17 @@ metadata :
 spec :
   rules:
     - name: check-label
-      resource:
-        # Kind specifies one or more resource types to match
-        kinds:
-          - Deployment
-          - StatefuleSet
-          - DaemonSet
-        # Name is optional and can use wildcards
-        name: "*"
-        # Selector is optional
-        selector:
+      match:
+        resources:
+          # Kind specifies one or more resource types to match
+          kinds:
+            - Deployment
+            - StatefuleSet
+            - DaemonSet
+          # Name is optional and can use wildcards
+          name: "*"
+          # Selector is optional
+          selector:
       validate:
         # Message is optional
         message: "The label app is required"    
@@ -79,14 +80,15 @@ metadata :
 spec :
   rules:
     - name: check-memory_requests_link_in_yaml_relative
-      resource:
-        # Kind specifies one or more resource types to match
-        kinds:
-          - Deployment
-        # Name is optional and can use wildcards
-        name: "*"
-        # Selector is optional
-        selector:
+      match:
+        resources:
+          # Kind specifies one or more resource types to match
+          kinds:
+            - Deployment
+          # Name is optional and can use wildcards
+          name: "*"
+          # Selector is optional
+          selector:
       validate:
         pattern:
           spec:

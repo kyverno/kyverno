@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/glog"
 	yamlv2 "gopkg.in/yaml.v2"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -92,4 +93,13 @@ func scanDir(dir string) ([]string, error) {
 	}
 
 	return res[1:], nil
+}
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }
