@@ -60,6 +60,11 @@ func main() {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
 
+	// CRD CHECK
+	// - verify if the CRD for Policy & PolicyViolation are avialalbe
+	if !utils.CRDInstalled(client.DiscoveryClient) {
+		glog.Fatalf("Required CRDs unavailable")
+	}
 	// KUBERNETES CLIENT
 	kubeClient, err := utils.NewKubeClient(clientConfig)
 	if err != nil {
