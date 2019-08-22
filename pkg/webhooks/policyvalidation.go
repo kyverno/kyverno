@@ -80,10 +80,6 @@ func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1
 
 // Verify if the Rule names are unique within a policy
 func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
-	// =======
-	// func (ws *WebhookServer) validateUniqueRuleName(rawPolicy []byte) *v1beta1.AdmissionResponse {
-	// 	var policy *kyverno.Policy
-	// >>>>>>> policyViolation
 	var ruleNames []string
 
 	for _, rule := range policy.Spec.Rules {
@@ -101,7 +97,7 @@ func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.Policy) *v1beta1
 		ruleNames = append(ruleNames, rule.Name)
 	}
 
-	glog.V(3).Infof("Policy validation passed")
+	glog.V(4).Infof("Policy validation passed")
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
