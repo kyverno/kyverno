@@ -230,7 +230,7 @@ spec:
       serviceAccountName: kyverno-service-account
       containers:
         - name: kyverno
-          image: nirmata/kyverno:latest
+          image: nirmata/kyverno:v0.8.0
           args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
           ports:
           - containerPort: 443
