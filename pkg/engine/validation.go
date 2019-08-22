@@ -18,7 +18,6 @@ import (
 
 // Validate handles validating admission request
 // Checks the target resources for rules defined in the policy
-// func Validate(policy kyverno.Policy, resource unstructured.Unstructured) EngineResponse {
 func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
 	// var response EngineResponse
 	startTime := time.Now()
