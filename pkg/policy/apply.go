@@ -103,7 +103,7 @@ func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyS
 	// resources matches
 	if reflect.DeepEqual(resource, engineResponse.PatchedResource) {
 		ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
-		ruleInfo.Add("resource satisfys the mutation rule")
+		ruleInfo.Add("resource satisfies the mutation rule")
 		return append(ruleInfos, ruleInfo), nil
 	}
 
