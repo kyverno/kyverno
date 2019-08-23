@@ -1,6 +1,9 @@
 package policy
 
 import (
+	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -78,7 +81,7 @@ func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyS
 	//send stats
 	sendStat(false)
 
-	patches := engineResponse.Patches
+	patches := extractPatches(engineResponse)
 	ruleInfos := engineResponse.RuleInfos
 	if len(ruleInfos) == 0 {
 		//no rules processed
@@ -97,35 +100,92 @@ func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyS
 		return ruleInfos, nil
 	}
 
-	// (original resource + patch) == (original resource)
-	mergePatches := utils.JoinPatches(patches)
-	patch, err := jsonpatch.DecodePatch(mergePatches)
-	if err != nil {
-		return nil, err
-	}
-	rawResource, err := resource.MarshalJSON()
-	if err != nil {
-		glog.V(4).Infof("unable to marshal resource : %v", err)
-		return nil, err
+	// resources matches
+	if reflect.DeepEqual(resource, engineResponse.PatchedResource) {
+		ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
+		ruleInfo.Add("resource satisfys the mutation rule")
+		return append(ruleInfos, ruleInfo), nil
 	}
 
-	// apply the patches returned by mutate to the original resource
-	patchedResource, err := patch.Apply(rawResource)
+	// return getFailedOverallRuleInfo(resource, ruleInfos)
+	ruleInfos, err := getFailedOverallRuleInfo(resource, ruleInfos)
 	if err != nil {
-		return nil, err
+		glog.Infoln("======err========", err)
 	}
-	//TODO: this will be removed after the support for patching for each rule
+	glog.Infoln("======ruleInfo========", ruleInfos[len(ruleInfos)-1:])
+	return ruleInfos, nil
+}
+
+// getFailedOverallRuleInfo gets detailed info for over-all mutation failure
+func getFailedOverallRuleInfo(resource unstructured.Unstructured, ruleInfos []info.RuleInfo) ([]info.RuleInfo, error) {
 	ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
 
-	if !jsonpatch.Equal(patchedResource, rawResource) {
-		//resource does not match so there was a mutation rule violated
-		// TODO : check the rule name "mutation rules"
-		ruleInfo.Fail()
-		ruleInfo.Add("resource does not satisfy mutation rules")
-	} else {
-		ruleInfo.Add("resource satisfys the mutation rule")
+	rawResource, err := resource.MarshalJSON()
+	if err != nil {
+		glog.V(4).Infof("unable to marshal resource: %v\n", err)
+		return ruleInfos, err
 	}
 
-	ruleInfos = append(ruleInfos, ruleInfo)
-	return ruleInfos, nil
+	var msg string
+	var patches [][]byte
+
+	// resource does not match so there was a mutation rule violated
+	for i, ri := range ruleInfos {
+		if len(ri.Patches) == 0 {
+			continue
+		}
+
+		patches = append(patches, ri.Patches...)
+		mergePatches := utils.JoinPatches(patches)
+		patch, err := jsonpatch.DecodePatch(mergePatches)
+		if err != nil {
+			return ruleInfos, err
+		}
+
+		// apply the patches returned by mutate to the original resource
+		patchedResource, err := patch.Apply(rawResource)
+		if err != nil {
+			return ruleInfos, err
+		}
+
+		if jsonpatch.Equal(patchedResource, rawResource) {
+			if i != len(ruleInfos)-1 {
+				ruleInfo.Fail()
+				ruleInfo.Addf("failed to apply the rules %s", getRuleName(ruleInfos, i+1))
+				return append(ruleInfos, ruleInfo), nil
+			}
+
+			// end states matches
+			ruleInfo.Add("resource satisfys the mutation rule")
+			return append(ruleInfos, ruleInfo), nil
+		} else {
+			msg = fmt.Sprintf("rule %s might have failed", ri.Name)
+		}
+	}
+
+	ruleInfo.Fail()
+	ruleInfo.Add(msg)
+	return append(ruleInfos, ruleInfo), nil
+}
+
+// TODO: remove this once methods for engineResponse are implemented
+func extractPatches(engineResponse engine.EngineResponse) [][]byte {
+	var patches [][]byte
+	for _, info := range engineResponse.RuleInfos {
+		if len(info.Patches) != 0 {
+			patches = append(patches, info.Patches...)
+		}
+	}
+	return patches
+}
+
+// getRuleName gets the rule names from the index
+func getRuleName(ruleInfos []info.RuleInfo, index int) string {
+	var ruleNames []string
+
+	for i := index; i < len(ruleInfos); i++ {
+		ruleNames = append(ruleNames, ruleInfos[i].Name)
+	}
+
+	return strings.Join(ruleNames, ",")
 }

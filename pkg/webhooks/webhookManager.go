@@ -66,7 +66,7 @@ func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
 func HasMutateOrValidate(policy kyverno.Policy) bool {
 	for _, rule := range policy.Spec.Rules {
 		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			glog.Infoln(rule.Name)
+			glog.V(4).Infoln(rule.Name)
 			return true
 		}
 	}
