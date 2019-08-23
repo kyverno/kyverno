@@ -107,13 +107,7 @@ func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyS
 		return append(ruleInfos, ruleInfo), nil
 	}
 
-	// return getFailedOverallRuleInfo(resource, ruleInfos)
-	ruleInfos, err := getFailedOverallRuleInfo(resource, ruleInfos)
-	if err != nil {
-		glog.Infoln("======err========", err)
-	}
-	glog.Infoln("======ruleInfo========", ruleInfos[len(ruleInfos)-1:])
-	return ruleInfos, nil
+	return getFailedOverallRuleInfo(resource, ruleInfos)
 }
 
 // getFailedOverallRuleInfo gets detailed info for over-all mutation failure
@@ -126,18 +120,15 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, ruleInfos []in
 		return ruleInfos, err
 	}
 
-	var msg string
-	var patches [][]byte
+	var failedRules []string
 
 	// resource does not match so there was a mutation rule violated
-	for i, ri := range ruleInfos {
+	for _, ri := range ruleInfos {
 		if len(ri.Patches) == 0 {
 			continue
 		}
 
-		patches = append(patches, ri.Patches...)
-		mergePatches := utils.JoinPatches(patches)
-		patch, err := jsonpatch.DecodePatch(mergePatches)
+		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(ri.Patches))
 		if err != nil {
 			return ruleInfos, err
 		}
@@ -148,23 +139,13 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, ruleInfos []in
 			return ruleInfos, err
 		}
 
-		if jsonpatch.Equal(patchedResource, rawResource) {
-			if i != len(ruleInfos)-1 {
-				ruleInfo.Fail()
-				ruleInfo.Addf("failed to apply the rules %s", getRuleName(ruleInfos, i+1))
-				return append(ruleInfos, ruleInfo), nil
-			}
-
-			// end states matches
-			ruleInfo.Add("resource satisfys the mutation rule")
-			return append(ruleInfos, ruleInfo), nil
-		} else {
-			msg = fmt.Sprintf("rule %s might have failed", ri.Name)
+		if !jsonpatch.Equal(patchedResource, rawResource) {
+			failedRules = append(failedRules, ri.Name)
 		}
 	}
 
 	ruleInfo.Fail()
-	ruleInfo.Add(msg)
+	ruleInfo.Add(fmt.Sprintf("rule %s might have failed", strings.Join(failedRules, ",")))
 	return append(ruleInfos, ruleInfo), nil
 }
 
