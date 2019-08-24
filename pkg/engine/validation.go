@@ -61,53 +61,67 @@ func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (respon
 			continue
 		}
 
-		ruleInfo := validatePatterns(resource, rule.Validation, rule.Name)
+		// ruleInfo := validatePatterns(resource, rule)
 		incrementAppliedRuleCount()
-		ruleInfos = append(ruleInfos, ruleInfo)
+		// ruleInfos = append(ruleInfos, ruleInfo)
 	}
 	response.RuleInfos = ruleInfos
 	return response
 }
 
 // validatePatterns validate pattern and anyPattern
-func validatePatterns(resource unstructured.Unstructured, validation kyverno.Validation, ruleName string) info.RuleInfo {
-	var errs []error
-	ruleInfo := info.NewRuleInfo(ruleName, info.Validation)
+func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (response RuleResponse) {
+	startTime := time.Now()
+	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
+	response.Name = rule.Name
+	response.Type = Validation.String()
+	defer func() {
+		response.RuleStats.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("finished applying validation rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
+	}()
 
-	if validation.Pattern != nil {
-		err := validateResourceWithPattern(resource.Object, validation.Pattern)
+	// either pattern or anyPattern can be specified in Validation rule
+	if rule.Validation.Pattern != nil {
+		err := validateResourceWithPattern(resource.Object, rule.Validation.Pattern)
 		if err != nil {
-			ruleInfo.Fail()
-			ruleInfo.Addf("Failed to apply pattern: %v", err)
-		} else {
-			ruleInfo.Add("Pattern succesfully validated")
-			glog.V(4).Infof("pattern validated succesfully on resource %s/%s", resource.GetNamespace(), resource.GetName())
+			// rule application failed
+			glog.V(4).Infof("failed to apply validation for rule %s on resource %s/%s/%s, pattern %v ", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Pattern)
+			response.Success = false
+			response.Message = fmt.Sprintf("failed to apply pattern: %v", err)
+			return response
 		}
-		return ruleInfo
+		// rule application succesful
+		glog.V(4).Infof("rule %s pattern validated succesfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		response.Success = true
+		response.Message = fmt.Sprintf("validation pattern succesfully validated")
+		return response
 	}
 
-	if validation.AnyPattern != nil {
-		for _, pattern := range validation.AnyPattern {
+	//TODO: add comments to explain the flow
+	if rule.Validation.AnyPattern != nil {
+		var errs []error
+		for _, pattern := range rule.Validation.AnyPattern {
 			if err := validateResourceWithPattern(resource.Object, pattern); err != nil {
 				errs = append(errs, err)
 			}
-		}
-
-		failedPattern := len(errs)
-		patterns := len(validation.AnyPattern)
-
-		// all pattern fail
-		if failedPattern == patterns {
-			ruleInfo.Fail()
-			ruleInfo.Addf("None of anyPattern succeed: %v", errs)
-		} else {
-			ruleInfo.Addf("%d/%d patterns succesfully validated", patterns-failedPattern, patterns)
+			failedPattern := len(errs)
+			patterns := len(rule.Validation.AnyPattern)
+			// all patterns fail
+			if failedPattern == patterns {
+				// any Pattern application failed
+				glog.V(4).Infof("none of anyPattern were processed: %v", errs)
+				response.Success = false
+				response.Message = fmt.Sprintf("None of anyPattern succeed: %v", errs)
+				return response
+			}
+			// any Pattern application succesful
 			glog.V(4).Infof("%d/%d patterns validated succesfully on resource %s/%s", patterns-failedPattern, patterns, resource.GetNamespace(), resource.GetName())
+			response.Success = true
+			response.Message = fmt.Sprintf("%d/%d patterns succesfully validated", patterns-failedPattern, patterns)
+			return response
 		}
-		return ruleInfo
 	}
-
-	return info.RuleInfo{}
+	return RuleResponse{}
 }
 
 // validateResourceWithPattern is a start of element-by-element validation process
@@ -327,4 +341,52 @@ func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]i
 
 	handler := CreateAnchorHandler(anchor, pattern, path)
 	return handler.Handle(resourceMapArray, patternMap, originPattern)
+}
+
+//ValidateNew ...
+func ValidateNew(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponseNew) {
+	startTime := time.Now()
+	// policy information
+	func() {
+		// set policy information
+		response.PolicyResponse.Policy = policy.Name
+		// resource details
+		response.PolicyResponse.Resource.Name = resource.GetName()
+		response.PolicyResponse.Resource.Namespace = resource.GetNamespace()
+		response.PolicyResponse.Resource.Kind = resource.GetKind()
+		response.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
+		response.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+	}()
+
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.PolicyResponse.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.PolicyResponse.RulesAppliedCount++
+	}
+
+	for _, rule := range policy.Spec.Rules {
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			continue
+		}
+
+		// check if the resource satisfies the filter conditions defined in the rule
+		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
+		// dont statisfy a policy rule resource description
+		ok := MatchesResourceDescription(resource, rule)
+		if !ok {
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
+			continue
+		}
+		if rule.Validation.Pattern != nil {
+			ruleResponse := validatePatterns(resource, rule)
+			incrementAppliedRuleCount()
+			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
+		}
+	}
+	return response
 }

@@ -21,11 +21,33 @@ import (
 
 //EngineResponse provides the response to the application of a policy rule set on a resource
 type EngineResponse struct {
-	Patches         [][]byte
+	// JSON patches for mutation rules
+	Patches [][]byte
+	// Resource patched with the policy changes
 	PatchedResource unstructured.Unstructured
-	RuleInfos       []info.RuleInfo
+	// Rule details
+	RuleInfos []info.RuleInfo
+	// PolicyS
 	EngineStats
 }
+
+// type EngineResponseNew struct {
+// 	// error while processing engine action
+// 	Err error
+// 	// Resource patched with the engine action changes
+// 	PatchedResource unstructured.Unstructured
+// 	// Policy Response
+// 	PolicyRespone PolicyResponse
+// }
+
+// type PolicyResponse struct {
+// 	// policy name
+// 	Policy string
+// 	// resource details
+// 	Resource kyverno.ResourceSpec
+// }
+
+// type PolicyStatus
 
 //EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
@@ -517,4 +539,22 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return resource, nil
+}
+
+type RuleType int
+
+const (
+	Mutation RuleType = iota
+	Validation
+	Generation
+	All
+)
+
+func (ri RuleType) String() string {
+	return [...]string{
+		"Mutation",
+		"Validation",
+		"Generation",
+		"All",
+	}[ri]
 }

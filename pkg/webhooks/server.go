@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/engine"
-
 	"github.com/golang/glog"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
@@ -24,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -135,24 +134,43 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	var response *v1beta1.AdmissionResponse
-
-	allowed, engineResponse := ws.HandleMutation(request)
-	if !allowed {
-		// TODO: add failure message to response
+	// MUTATION
+	ok, patches, msg := ws.HandleMutation(request)
+	if !ok {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
 		}
 	}
 
-	response = ws.HandleValidation(request, engineResponse.PatchedResource)
-	if response.Allowed && len(engineResponse.Patches) > 0 {
-		patchType := v1beta1.PatchTypeJSONPatch
-		response.Patch = engine.JoinPatches(engineResponse.Patches)
-		response.PatchType = &patchType
+	// patch the resource with patches before handling validation rules
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
+
+	// VALIDATION
+	ok, msg = ws.HandleValidation(request, patchedResource)
+	if !ok {
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
+		}
 	}
 
-	return response
+	// Succesfful processing of mutation & validation rules in policy
+	patchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+		Result: &metav1.Status{
+			Status: "Success",
+		},
+		Patch:     patches,
+		PatchType: &patchType,
+	}
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
