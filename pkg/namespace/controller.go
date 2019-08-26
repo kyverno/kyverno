@@ -202,8 +202,8 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 	n := namespace.DeepCopy()
 
 	// process generate rules
-	policyInfos := nsc.processNamespace(*n)
+	engineResponses := nsc.processNamespace(*n)
 	// report errors
-	nsc.report(policyInfos)
+	nsc.report(engineResponses)
 	return nil
 }

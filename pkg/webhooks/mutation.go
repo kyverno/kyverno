@@ -62,11 +62,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		if !utils.Contains(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
 			continue
 		}
-		// policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
 
 		glog.V(4).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
-		// glog.V(4).Infof("Applying policy %s with %d rules\n", policy.ObjectMeta.Name, len(policy.Spec.Rules))
 		// TODO: this can be
 		engineResponse := engine.MutateNew(*policy, *resource)
 		engineResponses = append(engineResponses, engineResponse)
@@ -86,13 +84,11 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		//TODO: check if there is an order to policy application on resource
 		// resource = &engineResponse.PatchedResource
 	}
-	// combine rule patches & annotations
 
 	// ADD EVENTS
-	// if len(patches) > 0 {
-	// 	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Mutation)
-	// 	ws.eventGen.Add(eventsInfo...)
-	// }
+	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
+	ws.eventGen.Add(events...)
+
 	if isResponseSuccesful(engineResponses) {
 		sendStat(false)
 		patch := engine.JoinPatches(patches)

@@ -3,7 +3,6 @@ package webhooks
 import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/info"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -19,7 +18,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	var policyInfos []info.PolicyInfo
 	var policyStats []policyctr.PolicyStat
 
 	// gather stats from the engine response
@@ -87,14 +85,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 			continue
 		}
 	}
-
 	// ADD EVENTS
-	// if len(policyInfos) > 0 && len(policyInfos[0].Rules) != 0 {
-	// 	eventsInfo := newEventInfoFromPolicyInfo(policyInfos, (request.Operation == v1beta1.Update), info.Validation)
-	// 	// If the validationFailureAction flag is set "audit",
-	// 	// then we dont block the request and report the violations
-	// 	ws.eventGen.Add(eventsInfo...)
-	// }
+	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
+	ws.eventGen.Add(events...)
 
 	// If Validation fails then reject the request
 	// violations are created if "audit" flag is set
@@ -106,7 +99,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	}
 
 	// ADD POLICY VIOLATIONS
-	policyviolation.GeneratePolicyViolations(ws.pvListerSynced, ws.pvLister, ws.kyvernoClient, policyInfos)
+	policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, engineResponses)
 
 	sendStat(false)
 	return true, ""

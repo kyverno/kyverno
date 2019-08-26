@@ -8,6 +8,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -52,7 +53,80 @@ func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation
 	return pv
 }
 
-//generatePolicyViolations generate policyViolation resources for the rules that failed
+func buildPVForPolicy(er engine.EngineResponseNew) kyverno.PolicyViolation {
+	var violatedRules []kyverno.ViolatedRule
+	glog.V(4).Infof("building policy violation for engine response %v", er)
+	for _, r := range er.PolicyResponse.Rules {
+		// filter failed/violated rules
+		if !r.Success {
+			vrule := kyverno.ViolatedRule{
+				Name:    r.Name,
+				Message: r.Message,
+				Type:    r.Type,
+			}
+			violatedRules = append(violatedRules, vrule)
+		}
+	}
+	pv := BuildPolicyViolation(er.PolicyResponse.Policy,
+		kyverno.ResourceSpec{
+			Kind:      er.PolicyResponse.Resource.Kind,
+			Namespace: er.PolicyResponse.Resource.Namespace,
+			Name:      er.PolicyResponse.Resource.Name,
+		},
+		violatedRules,
+	)
+	return pv
+}
+
+//CreatePV creates policy violation resource based on the engine responses
+func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponseNew) {
+	var pvs []kyverno.PolicyViolation
+	for _, er := range engineResponses {
+		if !er.IsSuccesful() {
+			if pv := buildPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
+				pvs = append(pvs, pv)
+			}
+		}
+	}
+	if len(pvs) == 0 {
+		return
+	}
+	for _, newPv := range pvs {
+		glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
+		// check if there was a previous policy voilation for policy & resource combination
+		curPv, err := getExistingPolicyViolationIfAny(nil, pvLister, newPv)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+		if curPv == nil {
+			glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.Kind, curPv.Spec.ResourceSpec.Namespace, curPv.Spec.ResourceSpec.Name)
+			// no existing policy violation, create a new one
+			_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
+			if err != nil {
+				glog.Error(err)
+			}
+			continue
+		}
+		// compare the policyviolation spec for existing resource if present else
+		if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
+			// if they are equal there has been no change so dont update the polivy violation
+			glog.Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+			continue
+		}
+		// spec changed so update the policyviolation
+		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.Kind, curPv.Spec.ResourceSpec.Namespace, curPv.Spec.ResourceSpec.Name)
+		//TODO: using a generic name, but would it be helpful to have naming convention for policy violations
+		// as we can only have one policy violation for each (policy + resource) combination
+		_, err = client.KyvernoV1alpha1().PolicyViolations().Update(&newPv)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+	}
+}
+
+//GeneratePolicyViolations generate policyViolation resources for the rules that failed
 //TODO: check if pvListerSynced is needed
 func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
 	var pvs []kyverno.PolicyViolation
@@ -102,6 +176,7 @@ func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister kyve
 //TODO: change the name
 func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
 	// TODO: check for existing ov using label selectors on resource and policy
+	// TODO: there can be duplicates, as the labels have not been assigned to the policy violation yet
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
 	ls := &metav1.LabelSelector{}
 	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)

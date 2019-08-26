@@ -8,17 +8,17 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/info"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []info.PolicyInfo {
+func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []engine.EngineResponseNew {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
-	var policyInfos []info.PolicyInfo
+	var engineResponses []engine.EngineResponseNew
 	// get resource that are satisfy the resource description defined in the rules
 	resourceMap := listResources(pc.client, policy, pc.filterK8Resources)
 	for _, resource := range resourceMap {
@@ -29,21 +29,13 @@ func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []in
 		}
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-		policyInfo := applyPolicyOnResource(policy, resource, pc.statusAggregator)
-		policyInfos = append(policyInfos, *policyInfo)
+		engineResponse := applyPolicy(policy, resource, pc.statusAggregator)
+		// get engine response for mutation & validation indipendently
+		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 	}
-	return policyInfos
-}
-
-func applyPolicyOnResource(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) *info.PolicyInfo {
-	policyInfo, err := applyPolicy(policy, resource, policyStatus)
-	if err != nil {
-		glog.V(4).Infof("failed to process policy %s on resource %s/%s/%s: %v", policy.GetName(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
-		return nil
-	}
-	return &policyInfo
+	return engineResponses
 }
 
 func listResources(client *client.Client, policy kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {

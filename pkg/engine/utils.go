@@ -11,7 +11,6 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -19,17 +18,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//EngineResponse provides the response to the application of a policy rule set on a resource
-type EngineResponse struct {
-	// JSON patches for mutation rules
-	Patches [][]byte
-	// Resource patched with the policy changes
-	PatchedResource unstructured.Unstructured
-	// Rule details
-	RuleInfos []info.RuleInfo
-	// PolicyS
-	EngineStats
-}
+// //EngineResponse provides the response to the application of a policy rule set on a resource
+// type EngineResponse struct {
+// 	// JSON patches for mutation rules
+// 	Patches [][]byte
+// 	// Resource patched with the policy changes
+// 	PatchedResource unstructured.Unstructured
+// 	// Rule details
+// 	RuleInfos []info.RuleInfo
+// 	// PolicyS
+// 	EngineStats
+// }
 
 // type EngineResponseNew struct {
 // 	// error while processing engine action

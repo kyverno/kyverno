@@ -94,3 +94,23 @@ func (er EngineResponseNew) GetPatches() []byte {
 	// join patches
 	return JoinPatches(patches)
 }
+
+//GetFailedRules returns failed rules
+func (er EngineResponseNew) GetFailedRules() []string {
+	return er.getRules(false)
+}
+
+//GetSuccessRules returns success rules
+func (er EngineResponseNew) GetSuccessRules() []string {
+	return er.getRules(true)
+}
+
+func (er EngineResponseNew) getRules(success bool) []string {
+	var rules []string
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Success == success {
+			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}

@@ -28,7 +28,7 @@ type Generator struct {
 
 //Interface to generate event
 type Interface interface {
-	Add(infoList ...*Info)
+	Add(infoList ...Info)
 }
 
 //NewEventGenerator to generate a new event controller
@@ -69,9 +69,9 @@ func initRecorder(client *client.Client) record.EventRecorder {
 }
 
 //Add queues an event for generation
-func (gen *Generator) Add(infos ...*Info) {
+func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
-		gen.queue.Add(*info)
+		gen.queue.Add(info)
 	}
 }
 
@@ -177,6 +177,27 @@ func NewEvent(rkind string, rnamespace string, rname string, reason Reason, mess
 		Name:      rname,
 		Namespace: rnamespace,
 		Reason:    reason.String(),
+		Message:   msgText,
+	}
+}
+
+func NewEventNew(
+	rkind,
+	rapiVersion,
+	rnamespace,
+	rname,
+	reason string,
+	message MsgKey,
+	args ...interface{}) Info {
+	msgText, err := getEventMsg(message, args...)
+	if err != nil {
+		glog.Error(err)
+	}
+	return Info{
+		Kind:      rkind,
+		Name:      rname,
+		Namespace: rnamespace,
+		Reason:    reason,
 		Message:   msgText,
 	}
 }
