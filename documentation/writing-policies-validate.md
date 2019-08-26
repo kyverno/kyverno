@@ -96,9 +96,9 @@ spec :
               - ^(name): "*"
                 resources:
                   requests:
-                    memory: "$(<=./../../lim(its/mem)ory)"
-                  lim(its:
-                    mem)ory: "2048Mi"
+                    memory: "$(<=./../../limits/memory)"
+                  limits:
+                    memory: "2048Mi"
 ````
 
 ### Allow OR across overlay pattern
