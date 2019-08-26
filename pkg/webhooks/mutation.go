@@ -75,7 +75,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 			continue
 		}
 		// gather patches
-		patches = append(patches, engineResponse.GetPatches())
+		patches = append(patches, engineResponse.GetPatches()...)
 		// generate annotations
 		if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponse.PolicyResponse); annPatches != nil {
 			patches = append(patches, annPatches)

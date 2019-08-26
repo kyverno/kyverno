@@ -84,7 +84,7 @@ func (er EngineResponseNew) IsSuccesful() bool {
 }
 
 //GetPatches returns all the patches joined
-func (er EngineResponseNew) GetPatches() []byte {
+func (er EngineResponseNew) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Patches != nil {
@@ -92,7 +92,7 @@ func (er EngineResponseNew) GetPatches() []byte {
 		}
 	}
 	// join patches
-	return JoinPatches(patches)
+	return patches
 }
 
 //GetFailedRules returns failed rules

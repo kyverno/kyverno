@@ -45,14 +45,14 @@ func generateAnnotationPatches(annotations map[string]string, policyResponse eng
 	if _, ok := annotations[policyAnnotation]; ok {
 		// create update patch string
 		patchResponse = response{
-			Op:    "replace",
 			Path:  "/metadata/annotations/" + policyAnnotation,
+			Op:    "replace",
 			Value: string(value),
 		}
 	} else {
 		patchResponse = response{
-			Op:    "add",
 			Path:  "/metadata/annotations",
+			Op:    "add",
 			Value: map[string]string{policyAnnotation: string(value)},
 		}
 	}

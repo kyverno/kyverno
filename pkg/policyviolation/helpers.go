@@ -99,7 +99,7 @@ func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclien
 			continue
 		}
 		if curPv == nil {
-			glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.Kind, curPv.Spec.ResourceSpec.Namespace, curPv.Spec.ResourceSpec.Name)
+			glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Namespace, newPv.Spec.ResourceSpec.Name)
 			// no existing policy violation, create a new one
 			_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
 			if err != nil {

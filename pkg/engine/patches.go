@@ -35,7 +35,7 @@ func processPatches(rule kyverno.Rule, resource []byte) (allPatches [][]byte, er
 			continue
 		}
 
-		patchedDocument, err = applyPatch(patchedDocument, patchRaw)
+		patchedDocument, err = ApplyPatchNew(patchedDocument, patchRaw)
 		// TODO: continue on error if one of the patches fails, will add the failure event in such case
 		if patch.Operation == "remove" {
 			glog.Info(err)
@@ -91,7 +91,9 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 
 //ApplyPatchNew ...
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
-	jsonpatch, err := jsonpatch.DecodePatch(patch)
+	patchesList := [][]byte{patch}
+	joinedPatches := JoinPatches(patchesList)
+	jsonpatch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +135,7 @@ func processPatchesNew(rule kyverno.Rule, resource unstructured.Unstructured) (r
 			errs = append(errs, err)
 			continue
 		}
-		patchResource, err := ApplyPatchNew(resourceRaw, patchRaw)
+		patchResource, err := applyPatch(resourceRaw, patchRaw)
 		// TODO: continue on error if one of the patches fails, will add the failure event in such case
 		if err != nil && patch.Operation == "remove" {
 			glog.Info(err)

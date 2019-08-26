@@ -89,7 +89,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 	// resource does not match so there was a mutation rule violated
 	for index, rule := range engineResponse.PolicyResponse.Rules {
-		glog.V(4).Info("veriying if policy %s rule %s was applied before to resource %s/%s/%s", engineResponse.PolicyResponse.Policy, rule.Name, engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
+		glog.V(4).Infof("veriying if policy %s rule %s was applied before to resource %s/%s/%s", engineResponse.PolicyResponse.Policy, rule.Name, engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
 		if len(rule.Patches) == 0 {
 			continue
 		}
@@ -110,7 +110,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			glog.V(4).Infof("policy %s rule %s condition not satisifed by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)
 			engineResponse.PolicyResponse.Rules[index].Success = false
-			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("rule not satisfied by existing resource. %s", rule.Message)
+			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("rule not satisfied by existing resource.")
 		}
 	}
 	return engineResponse, nil
