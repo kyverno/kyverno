@@ -9,7 +9,6 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/info"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -30,28 +29,28 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 }
 
 // buildPolicyViolationsForAPolicy returns a policy violation object if there are any rules that fail
-func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation {
-	var fRules []kyverno.ViolatedRule
-	var pv kyverno.PolicyViolation
-	for _, r := range pi.Rules {
-		if !r.IsSuccessful() {
-			fRules = append(fRules, kyverno.ViolatedRule{Name: r.Name, Message: r.GetErrorString(), Type: r.RuleType.String()})
-		}
-	}
-	if len(fRules) > 0 {
-		glog.V(4).Infof("building policy violation for policy %s on resource %s/%s/%s", pi.Name, pi.RKind, pi.RNamespace, pi.RName)
-		// there is an error
-		pv = BuildPolicyViolation(pi.Name, kyverno.ResourceSpec{
-			Kind:      pi.RKind,
-			Namespace: pi.RNamespace,
-			Name:      pi.RName,
-		},
-			fRules,
-		)
+// func buildPolicyViolationsForAPolicy(pi info.PolicyInfo) kyverno.PolicyViolation {
+// 	var fRules []kyverno.ViolatedRule
+// 	var pv kyverno.PolicyViolation
+// 	for _, r := range pi.Rules {
+// 		if !r.IsSuccessful() {
+// 			fRules = append(fRules, kyverno.ViolatedRule{Name: r.Name, Message: r.GetErrorString(), Type: r.RuleType.String()})
+// 		}
+// 	}
+// 	if len(fRules) > 0 {
+// 		glog.V(4).Infof("building policy violation for policy %s on resource %s/%s/%s", pi.Name, pi.RKind, pi.RNamespace, pi.RName)
+// 		// there is an error
+// 		pv = BuildPolicyViolation(pi.Name, kyverno.ResourceSpec{
+// 			Kind:      pi.RKind,
+// 			Namespace: pi.RNamespace,
+// 			Name:      pi.RName,
+// 		},
+// 			fRules,
+// 		)
 
-	}
-	return pv
-}
+// 	}
+// 	return pv
+// }
 
 func buildPVForPolicy(er engine.EngineResponseNew) kyverno.PolicyViolation {
 	var violatedRules []kyverno.ViolatedRule
@@ -126,52 +125,52 @@ func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclien
 	}
 }
 
-//GeneratePolicyViolations generate policyViolation resources for the rules that failed
-//TODO: check if pvListerSynced is needed
-func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
-	var pvs []kyverno.PolicyViolation
-	for _, policyInfo := range policyInfos {
-		if !policyInfo.IsSuccessful() {
-			if pv := buildPolicyViolationsForAPolicy(policyInfo); !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
-				pvs = append(pvs, pv)
-			}
-		}
-	}
+// //GeneratePolicyViolations generate policyViolation resources for the rules that failed
+// //TODO: check if pvListerSynced is needed
+// func GeneratePolicyViolations(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, policyInfos []info.PolicyInfo) {
+// 	var pvs []kyverno.PolicyViolation
+// 	for _, policyInfo := range policyInfos {
+// 		if !policyInfo.IsSuccessful() {
+// 			if pv := buildPolicyViolationsForAPolicy(policyInfo); !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
+// 				pvs = append(pvs, pv)
+// 			}
+// 		}
+// 	}
 
-	if len(pvs) > 0 {
-		for _, newPv := range pvs {
-			// generate PolicyViolation objects
-			glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
+// 	if len(pvs) > 0 {
+// 		for _, newPv := range pvs {
+// 			// generate PolicyViolation objects
+// 			glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
 
-			// check if there was a previous violation for policy & resource combination
-			curPv, err := getExistingPolicyViolationIfAny(pvListerSynced, pvLister, newPv)
-			if err != nil {
-				continue
-			}
-			if curPv == nil {
-				// no existing policy violation, create a new one
-				_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
-				if err != nil {
-					glog.Error(err)
-				}
-				continue
-			}
-			// compare the policyviolation spec for existing resource if present else
-			if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
-				// if they are equal there has been no change so dont update the polivy violation
-				glog.Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
-				continue
-			}
-			// spec changed so update the policyviolation
-			//TODO: wont work, as name is not defined yet
-			_, err = client.KyvernoV1alpha1().PolicyViolations().Update(&newPv)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-		}
-	}
-}
+// 			// check if there was a previous violation for policy & resource combination
+// 			curPv, err := getExistingPolicyViolationIfAny(pvListerSynced, pvLister, newPv)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			if curPv == nil {
+// 				// no existing policy violation, create a new one
+// 				_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
+// 				if err != nil {
+// 					glog.Error(err)
+// 				}
+// 				continue
+// 			}
+// 			// compare the policyviolation spec for existing resource if present else
+// 			if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
+// 				// if they are equal there has been no change so dont update the polivy violation
+// 				glog.Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+// 				continue
+// 			}
+// 			// spec changed so update the policyviolation
+// 			//TODO: wont work, as name is not defined yet
+// 			_, err = client.KyvernoV1alpha1().PolicyViolations().Update(&newPv)
+// 			if err != nil {
+// 				glog.Error(err)
+// 				continue
+// 			}
+// 		}
+// 	}
+// }
 
 //TODO: change the name
 func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
