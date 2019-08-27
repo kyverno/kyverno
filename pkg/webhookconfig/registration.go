@@ -205,7 +205,7 @@ func (wrc *WebhookRegistrationClient) removePolicyWebhookConfigurations() {
 	// Validating webhook configuration
 	var validatingConfig string
 	if wrc.serverIP != "" {
-		validatingConfig = config.PolicyValidatingWebhookConfigurationDebug
+		validatingConfig = config.PolicyValidatingWebhookConfigurationDebugName
 	} else {
 		validatingConfig = config.PolicyValidatingWebhookConfigurationName
 	}
@@ -229,6 +229,7 @@ func (wrc *WebhookRegistrationClient) removePolicyWebhookConfigurations() {
 	}
 }
 
+//RemoveResourceMutatingWebhookConfiguration removes mutating webhook configuration for all resources
 func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() {
 	var configName string
 	if wrc.serverIP != "" {
@@ -245,6 +246,7 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 	}
 }
 
+// removeResourceValidatingWebhookConfiguration removes validating webhook configuration on all resources
 func (wrc *WebhookRegistrationClient) removeResourceValidatingWebhookConfiguration() {
 	var configName string
 	if wrc.serverIP != "" {

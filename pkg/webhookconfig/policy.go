@@ -41,7 +41,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   config.PolicyValidatingWebhookConfigurationDebug,
+			Name:   config.PolicyValidatingWebhookConfigurationDebugName,
 			Labels: config.KubePolicyAppLabels,
 		},
 		Webhooks: []admregapi.Webhook{
