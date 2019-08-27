@@ -51,13 +51,26 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 		return validateValueWithStringPatterns(value, typedPattern)
 	case nil:
 		return validateValueWithNilPattern(value)
-	case map[string]interface{}, []interface{}:
-		glog.Warning("Maps and arrays as patterns are not supported")
+	case map[string]interface{}:
+		return validateValueWithMapPattern(value, typedPattern)
+	case []interface{}:
+		glog.Warning("Arrays as patterns are not supported")
 		return false
 	default:
 		glog.Warningf("Unknown type as pattern: %T\n", pattern)
 		return false
 	}
+}
+
+func validateValueWithMapPattern(value interface{}, typedPattern map[string]interface{}) bool {
+	// verify the type of the resource value is map[string]interface,
+	// we only check for existance of object, not the equality of content and value
+	_, ok := value.(map[string]interface{})
+	if !ok {
+		glog.Warningf("Expected map[string]interface{}, found %T\n", value)
+		return false
+	}
+	return true
 }
 
 // Handler for int values during validation process
