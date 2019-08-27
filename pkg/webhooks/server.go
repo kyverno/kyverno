@@ -42,6 +42,7 @@ type WebhookServer struct {
 	// API to send policy stats for aggregation
 	policyStatus      policy.PolicyStatusInterface
 	filterK8Resources []utils.K8Resource
+	cleanUp           chan<- struct{}
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -55,7 +56,8 @@ func NewWebhookServer(
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
-	filterK8Resources string) (*WebhookServer, error) {
+	filterK8Resources string,
+	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -80,11 +82,13 @@ func NewWebhookServer(
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		filterK8Resources:         utils.ParseKinds(filterK8Resources),
+		cleanUp:                   cleanUp,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -114,9 +118,11 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		// Resource UPDATE
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
+			admissionReview.Response = ws.handleAdmissionRequest(admissionReview.Request)
 		case config.PolicyValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
+			admissionReview.Response = ws.handlePolicyValidation(admissionReview.Request)
+		case config.PolicyMutatingWebhookServicePath:
+			admissionReview.Response = ws.handlePolicyMutation(admissionReview.Request)
 		}
 	}
 
@@ -134,10 +140,10 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var response *v1beta1.AdmissionResponse
 
-	allowed, engineResponse := ws.HandleMutation(request)
+	allowed, engineResponse := ws.handleMutation(request)
 	if !allowed {
 		// TODO: add failure message to response
 		return &v1beta1.AdmissionResponse{
@@ -145,7 +151,7 @@ func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionReques
 		}
 	}
 
-	response = ws.HandleValidation(request, engineResponse.PatchedResource)
+	response = ws.handleValidation(request, engineResponse.PatchedResource)
 	if response.Allowed && len(engineResponse.Patches) > 0 {
 		patchType := v1beta1.PatchTypeJSONPatch
 		response.Patch = engine.JoinPatches(engineResponse.Patches)
@@ -169,6 +175,9 @@ func (ws *WebhookServer) RunAsync() {
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop() {
+	// cleanUp
+	// remove the static webhookconfigurations for policy CRD
+	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {
 		// Error from closing listeners, or context timeout:

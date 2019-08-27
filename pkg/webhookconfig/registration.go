@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -69,6 +70,15 @@ func (wrc *WebhookRegistrationClient) Register() error {
 		return err
 	}
 	return nil
+}
+
+// RemovePolicyWebhookConfigurations removes webhook configurations for reosurces and policy
+// called during webhook server shutdown
+func (wrc *WebhookRegistrationClient) RemovePolicyWebhookConfigurations(cleanUp chan<- struct{}) {
+	//TODO: dupliate, but a placeholder to perform more error handlind during cleanup
+	wrc.removeWebhookConfigurations()
+	// close channel to notify cleanup is complete
+	close(cleanUp)
 }
 
 func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration() error {
@@ -191,6 +201,11 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 // This function does not fail on error:
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
+	startTime := time.Now()
+	glog.V(4).Infof("Started cleaning up webhookconfigurations")
+	defer func() {
+		glog.V(4).Infof("Finished cleaning up webhookcongfigurations (%v)", time.Since(startTime))
+	}()
 	// mutating and validating webhook configuration for Kubernetes resources
 	wrc.RemoveResourceMutatingWebhookConfiguration()
 	wrc.removeResourceValidatingWebhookConfiguration()

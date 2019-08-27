@@ -16,7 +16,7 @@ import (
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured) *v1beta1.AdmissionResponse {
 	var policyInfos []info.PolicyInfo
 	var policyStats []policyctr.PolicyStat
 	// gather stats from the engine response

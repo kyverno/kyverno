@@ -54,7 +54,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 				"policies/*",
 				"kyverno.io",
 				"v1alpha1",
-				[]admregapi.OperationType{admregapi.Create},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 			),
 		},
 	}
@@ -79,13 +79,13 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 				"policies/*",
 				"kyverno.io",
 				"v1alpha1",
-				[]admregapi.OperationType{admregapi.Create},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 			),
 		},
 	}
 }
 func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
-	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
+	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
 	glog.V(4).Infof("Debug PolicyMutatingWebhookConfig is registered with url %s\n", url)
 
 	return &admregapi.MutatingWebhookConfiguration{
@@ -103,7 +103,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(c
 				"policies/*",
 				"kyverno.io",
 				"v1alpha1",
-				[]admregapi.OperationType{admregapi.Create},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 			),
 		},
 	}
