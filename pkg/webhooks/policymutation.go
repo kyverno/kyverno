@@ -22,7 +22,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
-				Message: fmt.Sprintf("failed to default value, check kyverno controller logs for details", err),
+				Message: fmt.Sprintf("failed to default value, check kyverno controller logs for details: %v", err),
 			},
 		}
 	}
@@ -40,7 +40,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 			PatchType: &patchType,
 		}
 	}
-	glog.V(4).Info("nothing to default for policy %s", policy.Name)
+	glog.V(4).Infof("nothing to default for policy %s", policy.Name)
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -74,7 +74,7 @@ func defaultvalidationFailureAction(policy *kyverno.Policy) ([]byte, string) {
 		}
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			glog.Error("failed to set default 'ValidationFailureAction' to '%s' for policy %s", BlockChanges, policy.Name)
+			glog.Errorf("failed to set default 'ValidationFailureAction' to '%s' for policy %s", BlockChanges, policy.Name)
 			return nil, ""
 		}
 		glog.V(4).Infof("generate JSON Patch to set default 'ValidationFailureAction' to '%s' for policy %s", BlockChanges, policy.Name)
