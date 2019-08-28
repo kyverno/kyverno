@@ -81,6 +81,9 @@ func (wrc *WebhookRegistrationClient) RemovePolicyWebhookConfigurations(cleanUp 
 	close(cleanUp)
 }
 
+//CreateResourceMutatingWebhookConfiguration create a Mutatingwebhookconfiguration resource for all resource type
+// used to forward request to kyverno webhooks to apply policeis
+// Mutationg webhook is be used for Mutating & Validating purpose
 func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration() error {
 	var caData []byte
 	var config *admregapi.MutatingWebhookConfiguration
@@ -106,33 +109,6 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 	}
 
 	wrc.MutationRegistered.Set()
-	return nil
-}
-
-func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfiguration() error {
-	var caData []byte
-	var config *admregapi.ValidatingWebhookConfiguration
-
-	// read CA data from
-	// 1) secret(config)
-	// 2) kubeconfig
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
-	// if serverIP is specified we assume its debug mode
-	if wrc.serverIP != "" {
-		// debug mode
-		// clientConfig - URL
-		config = wrc.contructDebugValidatingWebhookConfig(caData)
-	} else {
-		// clientConfig - service
-		config = wrc.constructValidatingWebhookConfig(caData)
-	}
-	if _, err := wrc.registrationClient.ValidatingWebhookConfigurations().Create(config); err != nil {
-		return err
-	}
-
-	wrc.ValidationRegistered.Set()
 	return nil
 }
 
@@ -208,7 +184,6 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	}()
 	// mutating and validating webhook configuration for Kubernetes resources
 	wrc.RemoveResourceMutatingWebhookConfiguration()
-	wrc.removeResourceValidatingWebhookConfiguration()
 
 	// mutating and validating webhook configurtion for Policy CRD resource
 	wrc.removePolicyWebhookConfigurations()
@@ -259,20 +234,4 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 	} else {
 		wrc.MutationRegistered.UnSet()
 	}
-}
-
-// removeResourceValidatingWebhookConfiguration removes validating webhook configuration on all resources
-func (wrc *WebhookRegistrationClient) removeResourceValidatingWebhookConfiguration() {
-	var configName string
-	if wrc.serverIP != "" {
-		configName = config.ValidatingWebhookConfigurationDebug
-	} else {
-		configName = config.ValidatingWebhookConfigurationName
-	}
-
-	err := wrc.registrationClient.ValidatingWebhookConfigurations().Delete(configName, &v1.DeleteOptions{})
-	if err != nil && !errorsapi.IsNotFound(err) {
-		glog.Error(err)
-	}
-	wrc.ValidationRegistered.UnSet()
 }
