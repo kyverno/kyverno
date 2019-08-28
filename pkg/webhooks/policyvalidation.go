@@ -13,16 +13,13 @@ import (
 )
 
 //HandlePolicyValidation performs the validation check on policy resource
-func (ws *WebhookServer) HandlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	var policy *kyverno.Policy
 	admissionResp := &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
-	// nothing to do on DELETE
-	if request.Operation == v1beta1.Delete {
-		return admissionResp
-	}
 
+	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	raw := request.Object.Raw
 	if err := json.Unmarshal(raw, &policy); err != nil {
 		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)

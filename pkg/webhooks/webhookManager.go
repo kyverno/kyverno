@@ -33,7 +33,7 @@ func (ws *WebhookServer) registerWebhookConfigurations(policy kyverno.Policy) er
 	}
 
 	if !ws.webhookRegistrationClient.MutationRegistered.IsSet() {
-		if err := ws.webhookRegistrationClient.RegisterMutatingWebhook(); err != nil {
+		if err := ws.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
 			return err
 		}
 		glog.Infof("Mutating webhook registered")
@@ -47,7 +47,7 @@ func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.Policy) 
 
 	// deregister webhook if no mutate/validate policy found in cluster
 	if !HasMutateOrValidatePolicies(policies) {
-		ws.webhookRegistrationClient.DeregisterMutatingWebhook()
+		ws.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 		glog.Infoln("Mutating webhook deregistered")
 	}
 

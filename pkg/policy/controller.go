@@ -465,17 +465,17 @@ func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyver
 		// check empty policy first, then rule type in terms of O(time)
 		if policies == nil {
 			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
-			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+			pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 		} else if !HasMutateOrValidatePolicies(policies) {
 			glog.V(3).Infoln("No muatate/validate policy found in the cluster, deregistering webhook")
-			pc.webhookRegistrationClient.DeregisterMutatingWebhook()
+			pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 		}
 		return nil
 	}
 
 	if webhookList == nil && HasMutateOrValidate(*policy) {
 		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
-		pc.webhookRegistrationClient.RegisterMutatingWebhook()
+		pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration()
 	}
 
 	return nil

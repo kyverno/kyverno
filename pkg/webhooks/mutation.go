@@ -12,7 +12,7 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool, engine.EngineResponse) {
+func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool, engine.EngineResponse) {
 	var patches [][]byte
 	var policyInfos []info.PolicyInfo
 	var policyStats []policyctr.PolicyStat
