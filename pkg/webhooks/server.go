@@ -165,9 +165,8 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
-		err := ws.server.ListenAndServeTLS("", "")
-		if err != nil {
-			glog.Fatalf("error serving TLS: %v\n", err)
+		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+			glog.Infof("HTTP server error: %v", err)
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")
@@ -175,15 +174,16 @@ func (ws *WebhookServer) RunAsync() {
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop() {
-	// cleanUp
-	// remove the static webhookconfigurations for policy CRD
-	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
 	err := ws.server.Shutdown(context.Background())
 	if err != nil {
 		// Error from closing listeners, or context timeout:
 		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
+	// cleanUp
+	// remove the static webhookconfigurations for policy CRD
+	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
+
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body
