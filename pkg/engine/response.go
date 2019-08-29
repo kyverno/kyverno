@@ -18,13 +18,13 @@ type EngineResponseNew struct {
 //PolicyResponse policy application response
 type PolicyResponse struct {
 	// policy name
-	Policy string
+	Policy string `json:"policy"`
 	// resource details
-	Resource ResourceSpec
+	Resource ResourceSpec `json:"resource"`
 	// policy statistics
 	PolicyStats
 	// rule response
-	Rules []RuleResponse
+	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit,enforce(default)
 	ValidationFailureAction string
 }
@@ -32,32 +32,32 @@ type PolicyResponse struct {
 //ResourceSpec resource action applied on
 type ResourceSpec struct {
 	//TODO: support ApiVersion
-	Kind       string
-	APIVersion string
-	Namespace  string
-	Name       string
+	Kind       string `json:"kind"`
+	APIVersion string `json:"apiVersion"`
+	Namespace  string `json:"namespace"`
+	Name       string `json:"name"`
 }
 
 //PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
 	// time required to process the policy rules on a resource
-	ProcessingTime time.Duration
+	ProcessingTime time.Duration `json:"processingTime"`
 	// Count of rules that were applied succesfully
-	RulesAppliedCount int
+	RulesAppliedCount int `json:"rulesAppliedCount"`
 }
 
 //RuleResponse details for each rule applicatino
 type RuleResponse struct {
 	// rule name specified in policy
-	Name string
+	Name string `json:"name"`
 	// rule type (Mutation,Generation,Validation) for Kyverno Policy
-	Type string
+	Type string `json:"type"`
 	// message response from the rule application
-	Message string
+	Message string `json:"message"`
 	// JSON patches, for mutation rules
-	Patches [][]byte
+	Patches [][]byte `json:"patches,omitempty"`
 	// success/fail
-	Success bool
+	Success bool `json:"success"`
 	// statistics
 	RuleStats
 }
@@ -70,7 +70,7 @@ func (rr RuleResponse) ToString() string {
 //RuleStats stores the statisctis for the single rule application
 type RuleStats struct {
 	// time required to appliy the rule on the resource
-	ProcessingTime time.Duration
+	ProcessingTime time.Duration `json:"processingTime"`
 }
 
 //IsSuccesful checks if any rule has failed or not
