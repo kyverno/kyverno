@@ -7,10 +7,6 @@ import "testing"
 // 	runner(t, "/test/scenarios/cli")
 // }
 
-func Test_Devlop(t *testing.T) {
-	testScenario(t, "/test/scenarios/test/s1.yaml")
-}
-
 func Test_Mutate_EndPoint(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_mutate_endPpoint.yaml")
 }
