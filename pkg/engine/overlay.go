@@ -76,9 +76,14 @@ func processOverlayNew(rule kyverno.Rule, resource unstructured.Unstructured) (r
 		return response, resource
 	}
 
-	joinedPatches := JoinPatches(patches)
 	var patchResource []byte
-	patchResource, err = ApplyPatchNew(resourceRaw, joinedPatches)
+	patchResource, err = ApplyPatches(resourceRaw, patches)
+	if err != nil {
+		glog.Info("failed to apply patch")
+		response.Success = false
+		response.Message = fmt.Sprintf("failed to apply JSON patches: %v", err)
+		return response, resource
+	}
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)

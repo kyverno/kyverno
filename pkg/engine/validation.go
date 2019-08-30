@@ -380,7 +380,7 @@ func ValidateNew(policy kyverno.Policy, resource unstructured.Unstructured) (res
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
-		if rule.Validation.Pattern != nil {
+		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validatePatterns(resource, rule)
 			incrementAppliedRuleCount()
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)

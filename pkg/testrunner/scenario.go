@@ -132,40 +132,60 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 	// generate mock client if resources are to be loaded
 	// - create mock client
 	// - load resources
-	client := getClient(t, tc.Input.LoadResources)
-	t.Log(client)
+	// client := getClient(t, tc.Input.LoadResources)
+
 	// apply policy
 	// convert policy -> kyverno.Policy
 	policy := loadPolicy(t, tc.Input.Policy)
-	fmt.Println(policy)
 	// convert resource -> unstructured.Unstructured
 	resource := loadPolicyResource(t, tc.Input.Resource)
-	glog.Info(resource)
 
 	var er engine.EngineResponseNew
 	// Mutation
 	er = engine.MutateNew(*policy, *resource)
 	func() {
 		if data, err := json.Marshal(er.PolicyResponse); err == nil {
+			t.Log("-----engine response----")
 			t.Log(string(data))
-			fmt.Println(string(data))
-			for _, r := range er.PolicyResponse.Rules {
-				for _, p := range r.Patches {
-					fmt.Println(string(p))
-				}
-			}
+			// for _, r := range er.PolicyResponse.Rules {
+			// 	for _, p := range r.Patches {
+			// 		fmt.Println(string(p))
+			// 	}
+			// }
 		}
 	}()
-
+	// validate te response
+	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
 
+	// pass the patched resource from mutate to validate
+	if len(er.PolicyResponse.Rules) > 0 {
+		resource = &er.PatchedResource
+	}
+
 	// Validation
-	// only compare the parametes specified ?
+	er = engine.ValidateNew(*policy, *resource)
+	func() {
+		if data, err := json.Marshal(er.PolicyResponse); err == nil {
+			t.Log(string(data))
+			fmt.Println(string(data))
+		}
+	}()
+	// validate the response
+	t.Log("---Validation---")
+	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 	return true
 }
 
 func validateResource(t *testing.T, responseResource unstructured.Unstructured, expectedResourceFile string) {
+	resourcePrint := func(obj unstructured.Unstructured) {
+		t.Log("-----patched resource----")
+		if data, err := obj.MarshalJSON(); err == nil {
+			t.Log(string(data))
+		}
+	}
+	resourcePrint(responseResource)
 	if expectedResourceFile == "" {
 		t.Log("expected resource file not specified, wont compare resources")
 		return
@@ -176,13 +196,8 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 		t.Log("failed to get the expected resource")
 		return
 	}
-	resourcePrint := func(obj unstructured.Unstructured) {
-		if data, err := obj.MarshalJSON(); err == nil {
-			fmt.Println(string(data))
-		}
-	}
-	resourcePrint(responseResource)
-	resourcePrint(*expectedResource)
+
+	// resourcePrint(*expectedResource)
 	// compare the resources
 	if !reflect.DeepEqual(responseResource, *expectedResource) {
 		t.Log("failed: response resource returned does not match expected resource")
@@ -191,22 +206,24 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 }
 
 func validateResponse(t *testing.T, er engine.PolicyResponse, expected engine.PolicyResponse) {
+	if reflect.DeepEqual(expected, (engine.PolicyResponse{})) {
+		t.Log("no response expected")
+		return
+	}
 	// cant do deepEquals and the stats will be different, or we nil those fields and then do a comparison
 	// forcing only the fields that are specified to be comprared
 
 	// doing a field by fields comparsion will allow us to provied more details logs and granular error reporting
 	// check policy name is same :P
 	if er.Policy != expected.Policy {
-		t.Log("Policy: error")
+		t.Error("Policy: error")
 	}
 	// compare resource spec
-	if er.Resource != expected.Resource {
-		t.Log("Resource: error")
-	}
-	// stats
-	if er.RulesAppliedCount != expected.RulesAppliedCount {
-		t.Log("RulesAppliedCount: error")
-	}
+	compareResourceSpec(t, er.Resource, expected.Resource)
+	// // stats
+	// if er.RulesAppliedCount != expected.RulesAppliedCount {
+	// 	t.Log("RulesAppliedCount: error")
+	// }
 	// rules
 	if len(er.Rules) != len(er.Rules) {
 		t.Log("rule count: error")
@@ -225,10 +242,10 @@ func compareResourceSpec(t *testing.T, resource engine.ResourceSpec, expectedRes
 	if resource.Kind != expectedResource.Kind {
 		t.Error("error: kind")
 	}
-	// apiVersion
-	if resource.APIVersion != expectedResource.APIVersion {
-		t.Error("error: apiVersion")
-	}
+	// // apiVersion
+	// if resource.APIVersion != expectedResource.APIVersion {
+	// 	t.Error("error: apiVersion")
+	// }
 	// namespace
 	if resource.Namespace != expectedResource.Namespace {
 		t.Error("error: namespace")
@@ -242,17 +259,17 @@ func compareResourceSpec(t *testing.T, resource engine.ResourceSpec, expectedRes
 func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.RuleResponse) {
 	// name
 	if rule.Name != expectedRule.Name {
-		t.Logf("error rule %s: name", rule.Name)
+		t.Errorf("error rule %s: name", rule.Name)
 		// as the rule names dont match no need to compare the rest of the information
 		return
 	}
 	// type
 	if rule.Type != expectedRule.Type {
-		t.Log("error: typw")
+		t.Error("error: type")
 	}
 	// message
 	if rule.Message != expectedRule.Message {
-		t.Log("error: message")
+		t.Error("error: message")
 	}
 	// // patches
 	// if reflect.DeepEqual(rule.Patches, expectedRule.Patches) {
@@ -260,7 +277,7 @@ func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.Ru
 	// }
 	// success
 	if rule.Success != expectedRule.Success {
-		t.Log("error: success")
+		t.Error("error: success")
 	}
 	// statistics
 }
@@ -388,4 +405,14 @@ func loadPolicy(t *testing.T, path string) *kyverno.Policy {
 		t.Log("more than one policy defined, considering first for processing")
 	}
 	return policies[0]
+}
+
+func testScenario(t *testing.T, path string) {
+	//load scenario
+	scenario, err := loadScenario(t, path)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	runScenario(t, scenario)
 }

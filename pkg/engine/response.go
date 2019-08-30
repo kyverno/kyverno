@@ -22,7 +22,7 @@ type PolicyResponse struct {
 	// resource details
 	Resource ResourceSpec `json:"resource"`
 	// policy statistics
-	PolicyStats
+	PolicyStats `json:",inline"`
 	// rule response
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit,enforce(default)
@@ -59,7 +59,7 @@ type RuleResponse struct {
 	// success/fail
 	Success bool `json:"success"`
 	// statistics
-	RuleStats
+	RuleStats `json:",inline"`
 }
 
 //ToString ...
