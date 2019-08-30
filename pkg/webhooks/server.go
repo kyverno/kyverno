@@ -41,6 +41,7 @@ type WebhookServer struct {
 	// API to send policy stats for aggregation
 	policyStatus      policy.PolicyStatusInterface
 	filterK8Resources []utils.K8Resource
+	cleanUp           chan<- struct{}
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -54,7 +55,8 @@ func NewWebhookServer(
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
-	filterK8Resources string) (*WebhookServer, error) {
+	filterK8Resources string,
+	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -79,11 +81,13 @@ func NewWebhookServer(
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		filterK8Resources:         utils.ParseKinds(filterK8Resources),
+		cleanUp:                   cleanUp,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -113,9 +117,11 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		// Resource UPDATE
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
+			admissionReview.Response = ws.handleAdmissionRequest(admissionReview.Request)
 		case config.PolicyValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
+			admissionReview.Response = ws.handlePolicyValidation(admissionReview.Request)
+		case config.PolicyMutatingWebhookServicePath:
+			admissionReview.Response = ws.handlePolicyMutation(admissionReview.Request)
 		}
 	}
 
@@ -133,7 +139,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	// MUTATION
 	ok, patches, msg := ws.HandleMutation(request)
 	if !ok {
@@ -177,9 +183,8 @@ func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionReques
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
-		err := ws.server.ListenAndServeTLS("", "")
-		if err != nil {
-			glog.Fatalf("error serving TLS: %v\n", err)
+		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+			glog.Infof("HTTP server error: %v", err)
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")
@@ -193,6 +198,10 @@ func (ws *WebhookServer) Stop() {
 		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
+	// cleanUp
+	// remove the static webhookconfigurations for policy CRD
+	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
+
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

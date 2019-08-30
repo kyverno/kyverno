@@ -34,8 +34,8 @@ func processPatches(rule kyverno.Rule, resource []byte) (allPatches [][]byte, er
 			errs = append(errs, err)
 			continue
 		}
-
-		patchedDocument, err = ApplyPatchNew(patchedDocument, patchRaw)
+		patches := [][]byte{patchRaw}
+		patchedDocument, err = ApplyPatches(patchedDocument, patches)
 		// TODO: continue on error if one of the patches fails, will add the failure event in such case
 		if patch.Operation == "remove" {
 			glog.Info(err)
@@ -152,7 +152,7 @@ func processPatchesNew(rule kyverno.Rule, resource unstructured.Unstructured) (r
 	// error while processing JSON patches
 	if len(errs) > 0 {
 		response.Success = false
-		response.Message = fmt.Sprint("failed to process JSON patches: %v", func() string {
+		response.Message = fmt.Sprintf("failed to process JSON patches: %v", func() string {
 			var str []string
 			for _, err := range errs {
 				str = append(str, err.Error())
@@ -163,7 +163,7 @@ func processPatchesNew(rule kyverno.Rule, resource unstructured.Unstructured) (r
 	}
 	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
-		glog.Info("failed to unmarshall resource to undstructured: %v", err)
+		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
 		response.Success = false
 		response.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return response, resource

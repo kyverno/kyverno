@@ -47,7 +47,7 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, poli
 	engineResponse, err = mutation(policy, resource, policyStatus)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
-		glog.Error("unable to process mutation rules: %v", err)
+		glog.Errorf("unable to process mutation rules: %v", err)
 	}
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
 	//send stats

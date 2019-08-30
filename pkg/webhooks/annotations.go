@@ -139,7 +139,7 @@ func generateAnnotationsFromPolicyResponse(policyResponse engine.PolicyResponse)
 	}
 	patch, err := json.Marshal(rulePatches)
 	if err != nil {
-		glog.Info("failed to marshall: %v", err)
+		glog.Infof("failed to marshall: %v", err)
 		return nil
 	}
 	return patch

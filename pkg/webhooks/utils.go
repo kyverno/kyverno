@@ -52,7 +52,7 @@ func getErrorMsg(engineReponses []engine.EngineResponseNew) string {
 	var str []string
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
-			str = append(str, fmt.Sprintf("failed policy %s"), er.PolicyResponse.Policy)
+			str = append(str, fmt.Sprintf("failed policy %s", er.PolicyResponse.Policy))
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
 					str = append(str, rule.ToString())
