@@ -14,9 +14,9 @@ expected:
       rules:
         - name: check-readinessProbe-exists
           type: Validation
-          meesage: validation pattern succesfully validated
+          message: validation pattern succesfully validated
           success: true     
         - name: check-livenessProbe-exists
           type: Validation
-          meesage: validation pattern succesfully validated
+          message: validation pattern succesfully validated
           success: true     

@@ -1,20 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  creationTimestamp: 
   labels:
     app: nginxlatest
+  name: nginx-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: nginxlatest
+  strategy: {}
   template:
     metadata:
+      creationTimestamp: 
       labels:
         app: nginxlatest
     spec:
       containers:
-      - name: nginx
-        image: nginx:latest
+      - image: nginx:latest
         imagePullPolicy: IfNotPresent
+        name: nginx
+        resources: {}
+status: {}
