@@ -4,7 +4,7 @@ input:
   resource: examples/resource_mutate_imagePullPolicy.yaml
 expected:
   mutation:
-    patchedresource: test/output/output_mutate_endpoint.yaml
+    patchedresource: test/output/output_mutate_imagePullPolicy.yaml
     policyresponse:
       policy: image-pull-policy
       resource:
@@ -16,4 +16,4 @@ expected:
         - name: image-pull-policy
           type: Mutation
           success: true
-          message: succesfully process JSON patches
+          message: succesfully process overlay

@@ -14,5 +14,5 @@ expected:
       rules:
         - name: check-root-user
           type: Validation
-          meesage: 1/2 patterns succesfully validated
+          message: 1/2 patterns succesfully validated
           success: true

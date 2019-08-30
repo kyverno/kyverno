@@ -16,7 +16,7 @@ expected:
         - name: add-memory-limit
           type: Mutation
           success: true
-          message: succesfully process JSON patches
+          message: succesfully process overlay
   validation:
     policyresponse:
       policy: policy-qos
@@ -28,5 +28,5 @@ expected:
       rules:
         - name: check-cpu-memory-limits
           type: Validation
-          meesage: validation pattern succesfully validated
+          message: validation pattern succesfully validated
           success: true     
