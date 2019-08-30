@@ -1,0 +1,19 @@
+# file path relative to project root
+input:
+  policy: examples/policy_mutate_imagePullPolicy.yaml
+  resource: examples/resource_mutate_imagePullPolicy.yaml
+expected:
+  mutation:
+    patchedresource: test/output/output_mutate_endpoint.yaml
+    policyresponse:
+      policy: image-pull-policy
+      resource:
+        kind: Deployment
+        apiVersion: apps/v1
+        namespace: ''
+        name: nginx-deployment
+      rules:
+        - name: image-pull-policy
+          type: Mutation
+          success: true
+          message: succesfully process JSON patches

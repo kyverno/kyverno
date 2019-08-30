@@ -9,8 +9,8 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/info"
-	"github.com/nirmata/kyverno/pkg/policy"
+	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -85,13 +85,12 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []info.PolicyInfo {
-	var policyInfos []info.PolicyInfo
+func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []engine.EngineResponseNew {
 	//	convert to unstructured
 	unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&namespace)
 	if err != nil {
 		glog.Infof("unable to convert to unstructured, not processing any policies: %v", err)
-		return policyInfos
+		return nil
 	}
 	nsc.rm.Drop()
 
@@ -100,18 +99,20 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []i
 	// get all the policies that have a generate rule and resource description satifies the namespace
 	// apply policy on resource
 	policies := listpolicies(ns, nsc.pLister)
+	var engineResponses []engine.EngineResponseNew
 	for _, policy := range policies {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !nsc.rm.ProcessResource(policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion()) {
 			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
 			continue
 		}
-		policyInfo := applyPolicy(nsc.client, ns, *policy, nsc.policyStatus)
-		policyInfos = append(policyInfos, policyInfo)
+		engineResponse := applyPolicy(nsc.client, ns, *policy, nsc.policyStatus)
+		engineResponses = append(engineResponses, engineResponse)
+
 		// post-processing, register the resource as processed
 		nsc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
 	}
-	return policyInfos
+	return engineResponses
 }
 
 func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyLister) []*kyverno.Policy {
@@ -139,17 +140,23 @@ func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyList
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.Policy, policyStatus policy.PolicyStatusInterface) info.PolicyInfo {
-	var ps policy.PolicyStat
-	gatherStat := func(policyName string, er engine.EngineResponse) {
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.Policy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponseNew {
+	var policyStats []policyctr.PolicyStat
+	// gather stats from the engine response
+	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
-		ps.Stats.GenerationExecutionTime = er.ExecutionTime
-		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
+		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
+		policyStats = append(policyStats, ps)
 	}
 	// send stats for aggregation
 	sendStat := func(blocked bool) {
-		//SEND
-		policyStatus.SendStat(ps)
+		for _, stat := range policyStats {
+			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
+			//SEND
+			policyStatus.SendStat(stat)
+		}
 	}
 
 	startTime := time.Now()
@@ -157,13 +164,11 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 	defer func() {
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	policyInfo := info.NewPolicyInfo(p.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), p.Spec.ValidationFailureAction)
 	engineResponse := engine.Generate(client, p, resource)
-	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
 	// gather stats
-	gatherStat(p.Name, engineResponse)
+	gatherStat(p.Name, engineResponse.PolicyResponse)
 	//send stats
 	sendStat(false)
 
-	return policyInfo
+	return engineResponse
 }

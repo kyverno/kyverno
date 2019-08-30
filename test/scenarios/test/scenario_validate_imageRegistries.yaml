@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/policy_validate_imageRegistries.yaml
+  resource: examples/resource_validate_imageRegistries.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: check-registries
+      resource:
+        kind: Deployment
+        apiVersion: apps/v1
+        namespace: ''
+        name: nirmata-nginx
+      rules:
+        - name: check-registries
+          type: Validation
+          meesage: validation pattern succesfully validated
+          success: true
