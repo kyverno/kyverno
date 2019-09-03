@@ -8,7 +8,7 @@ import kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 // - Rule resource description changes
 // - Rule operation changes
 // - Rule name changed
-func reEvaulatePolicy(curP, oldP *kyverno.Policy) bool {
+func reEvaulatePolicy(curP, oldP *kyverno.ClusterPolicy) bool {
 	// count of rules changed
 	if len(curP.Spec.Rules) != len(curP.Spec.Rules) {
 

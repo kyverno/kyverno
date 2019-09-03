@@ -21,7 +21,7 @@ import (
 //Generator generate events
 type Generator struct {
 	client   *client.Client
-	pLister  kyvernolister.PolicyLister
+	pLister  kyvernolister.ClusterPolicyLister
 	queue    workqueue.RateLimitingInterface
 	recorder record.EventRecorder
 }
@@ -33,7 +33,7 @@ type Interface interface {
 
 //NewEventGenerator to generate a new event controller
 func NewEventGenerator(client *client.Client,
-	pInformer kyvernoinformer.PolicyInformer) *Generator {
+	pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
 
 	gen := Generator{
 		client:   client,

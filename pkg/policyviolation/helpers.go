@@ -14,8 +14,8 @@ import (
 )
 
 //BuildPolicyViolation returns an value of type PolicyViolation
-func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.PolicyViolation {
-	pv := kyverno.PolicyViolation{
+func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
+	pv := kyverno.ClusterPolicyViolation{
 		Spec: kyverno.PolicyViolationSpec{
 			Policy:        policy,
 			ResourceSpec:  resource,
@@ -52,7 +52,7 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 // 	return pv
 // }
 
-func buildPVForPolicy(er engine.EngineResponseNew) kyverno.PolicyViolation {
+func buildPVForPolicy(er engine.EngineResponseNew) kyverno.ClusterPolicyViolation {
 	var violatedRules []kyverno.ViolatedRule
 	glog.V(4).Infof("building policy violation for engine response %v", er)
 	for _, r := range er.PolicyResponse.Rules {
@@ -78,11 +78,11 @@ func buildPVForPolicy(er engine.EngineResponseNew) kyverno.PolicyViolation {
 }
 
 //CreatePV creates policy violation resource based on the engine responses
-func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponseNew) {
-	var pvs []kyverno.PolicyViolation
+func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponseNew) {
+	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
 		if !er.IsSuccesful() {
-			if pv := buildPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
+			if pv := buildPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.ClusterPolicyViolation{}) {
 				pvs = append(pvs, pv)
 			}
 		}
@@ -101,7 +101,7 @@ func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclien
 		if curPv == nil {
 			glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Namespace, newPv.Spec.ResourceSpec.Name)
 			// no existing policy violation, create a new one
-			_, err := client.KyvernoV1alpha1().PolicyViolations().Create(&newPv)
+			_, err := client.KyvernoV1alpha1().ClusterPolicyViolations().Create(&newPv)
 			if err != nil {
 				glog.Error(err)
 			}
@@ -117,7 +117,7 @@ func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclien
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.Kind, curPv.Spec.ResourceSpec.Namespace, curPv.Spec.ResourceSpec.Name)
 		//TODO: using a generic name, but would it be helpful to have naming convention for policy violations
 		// as we can only have one policy violation for each (policy + resource) combination
-		_, err = client.KyvernoV1alpha1().PolicyViolations().Update(&newPv)
+		_, err = client.KyvernoV1alpha1().ClusterPolicyViolations().Update(&newPv)
 		if err != nil {
 			glog.Error(err)
 			continue
@@ -173,7 +173,7 @@ func CreatePV(pvLister kyvernolister.PolicyViolationLister, client *kyvernoclien
 // }
 
 //TODO: change the name
-func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.PolicyViolationLister, newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
+func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.ClusterPolicyViolationLister, newPv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
 	// TODO: check for existing ov using label selectors on resource and policy
 	// TODO: there can be duplicates, as the labels have not been assigned to the policy violation yet
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}

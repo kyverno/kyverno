@@ -31,58 +31,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// PolicyViolationInformer provides access to a shared informer and lister for
-// PolicyViolations.
-type PolicyViolationInformer interface {
+// ClusterPolicyInformer provides access to a shared informer and lister for
+// ClusterPolicies.
+type ClusterPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PolicyViolationLister
+	Lister() v1alpha1.ClusterPolicyLister
 }
 
-type policyViolationInformer struct {
+type clusterPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewPolicyViolationInformer constructs a new informer for PolicyViolation type.
+// NewClusterPolicyInformer constructs a new informer for ClusterPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewPolicyViolationInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredPolicyViolationInformer(client, resyncPeriod, indexers, nil)
+func NewClusterPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterPolicyInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredPolicyViolationInformer constructs a new informer for PolicyViolation type.
+// NewFilteredClusterPolicyInformer constructs a new informer for ClusterPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredPolicyViolationInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().PolicyViolations().List(options)
+				return client.KyvernoV1alpha1().ClusterPolicies().List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().PolicyViolations().Watch(options)
+				return client.KyvernoV1alpha1().ClusterPolicies().Watch(options)
 			},
 		},
-		&kyvernov1alpha1.PolicyViolation{},
+		&kyvernov1alpha1.ClusterPolicy{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *policyViolationInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredPolicyViolationInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterPolicyInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *policyViolationInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1alpha1.PolicyViolation{}, f.defaultInformer)
+func (f *clusterPolicyInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kyvernov1alpha1.ClusterPolicy{}, f.defaultInformer)
 }
 
-func (f *policyViolationInformer) Lister() v1alpha1.PolicyViolationLister {
-	return v1alpha1.NewPolicyViolationLister(f.Informer().GetIndexer())
+func (f *clusterPolicyInformer) Lister() v1alpha1.ClusterPolicyLister {
+	return v1alpha1.NewClusterPolicyLister(f.Informer().GetIndexer())
 }

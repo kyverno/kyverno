@@ -44,7 +44,7 @@ const (
 	maxRetries = 15
 )
 
-var controllerKind = kyverno.SchemeGroupVersion.WithKind("Policy")
+var controllerKind = kyverno.SchemeGroupVersion.WithKind("ClusterPolicy")
 
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
@@ -54,16 +54,16 @@ type PolicyController struct {
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 	syncHandler   func(pKey string) error
-	enqueuePolicy func(policy *kyverno.Policy)
+	enqueuePolicy func(policy *kyverno.ClusterPolicy)
 
 	//pvControl is used for adoptin/releasing policy violation
 	pvControl PVControlInterface
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
 	// pLister can list/get policy from the shared informer's store
-	pLister kyvernolister.PolicyLister
+	pLister kyvernolister.ClusterPolicyLister
 	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.PolicyViolationLister
+	pvLister kyvernolister.ClusterPolicyViolationLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 	// pvListerSynced returns true if the Policy store has been synced at least once
@@ -81,7 +81,7 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer,
+func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -138,27 +138,27 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 }
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
-	p := obj.(*kyverno.Policy)
+	p := obj.(*kyverno.ClusterPolicy)
 	glog.V(4).Infof("Adding Policy %s", p.Name)
 	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
-	oldP := old.(*kyverno.Policy)
-	curP := cur.(*kyverno.Policy)
+	oldP := old.(*kyverno.ClusterPolicy)
+	curP := cur.(*kyverno.ClusterPolicy)
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
-	p, ok := obj.(*kyverno.Policy)
+	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		p, ok = tombstone.Obj.(*kyverno.Policy)
+		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
 			glog.Info(fmt.Errorf("Tombstone contained object that is not a Policy %#v", obj))
 			return
@@ -169,7 +169,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 }
 
 func (pc *PolicyController) addPolicyViolation(obj interface{}) {
-	pv := obj.(*kyverno.PolicyViolation)
+	pv := obj.(*kyverno.ClusterPolicyViolation)
 
 	if pv.DeletionTimestamp != nil {
 		// On a restart of the controller manager, it's possible for an object to
@@ -207,8 +207,8 @@ func (pc *PolicyController) addPolicyViolation(obj interface{}) {
 }
 
 func (pc *PolicyController) updatePolicyViolation(old, cur interface{}) {
-	curPV := cur.(*kyverno.PolicyViolation)
-	oldPV := old.(*kyverno.PolicyViolation)
+	curPV := cur.(*kyverno.ClusterPolicyViolation)
+	oldPV := old.(*kyverno.ClusterPolicyViolation)
 	if curPV.ResourceVersion == oldPV.ResourceVersion {
 		// Periodic resync will send update events for all known Policy Violation.
 		// Two different versions of the same replica set will always have different RVs.
@@ -256,11 +256,11 @@ func (pc *PolicyController) updatePolicyViolation(old, cur interface{}) {
 }
 
 // deletePolicyViolation enqueues the Policy that manages a PolicyViolation when
-// the PolicyViolation is deleted. obj could be an *kyverno.PolicyViolation, or
+// the PolicyViolation is deleted. obj could be an *kyverno.CusterPolicyViolation, or
 // a DeletionFinalStateUnknown marker item.
 
 func (pc *PolicyController) deletePolicyViolation(obj interface{}) {
-	pv, ok := obj.(*kyverno.PolicyViolation)
+	pv, ok := obj.(*kyverno.ClusterPolicyViolation)
 	// When a delete is dropped, the relist will notice a PolicyViolation in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
 	// the deleted key/value. Note that this value might be stale. If the PolicyViolation
@@ -271,7 +271,7 @@ func (pc *PolicyController) deletePolicyViolation(obj interface{}) {
 			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		pv, ok = tombstone.Obj.(*kyverno.PolicyViolation)
+		pv, ok = tombstone.Obj.(*kyverno.ClusterPolicyViolation)
 		if !ok {
 			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
@@ -293,7 +293,7 @@ func (pc *PolicyController) deletePolicyViolation(obj interface{}) {
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (pc *PolicyController) resolveControllerRef(controllerRef *metav1.OwnerReference) *kyverno.Policy {
+func (pc *PolicyController) resolveControllerRef(controllerRef *metav1.OwnerReference) *kyverno.ClusterPolicy {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != controllerRef.Kind {
@@ -311,7 +311,7 @@ func (pc *PolicyController) resolveControllerRef(controllerRef *metav1.OwnerRefe
 	return p
 }
 
-func (pc *PolicyController) getPolicyForPolicyViolation(pv *kyverno.PolicyViolation) []*kyverno.Policy {
+func (pc *PolicyController) getPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) []*kyverno.ClusterPolicy {
 	policies, err := pc.pLister.GetPolicyForPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
 		return nil
@@ -329,7 +329,7 @@ func (pc *PolicyController) getPolicyForPolicyViolation(pv *kyverno.PolicyViolat
 	return policies
 }
 
-func (pc *PolicyController) enqueue(policy *kyverno.Policy) {
+func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
 		glog.Error(err)
@@ -443,7 +443,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 // TODO: here checks mutatingwebhook only
 // as 'kubectl scale' is not funtional with validatingwebhook
 // refer to https://github.com/nirmata/kyverno/issues/250
-func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyverno.Policy) error {
+func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyverno.ClusterPolicy) error {
 	policies, _ := pc.pLister.List(labels.NewSelector())
 	selector := &metav1.LabelSelector{MatchLabels: config.KubePolicyAppLabels}
 	webhookSelector, err := metav1.LabelSelectorAsSelector(selector)
@@ -484,7 +484,7 @@ func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyver
 //syncStatusOnly updates the policy status subresource
 // status:
 // 		- violations : (count of the resources that violate this policy )
-func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.PolicyViolation) error {
+func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*kyverno.ClusterPolicyViolation) error {
 	newStatus := pc.calculateStatus(p.Name, pvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
 		// no update to status
@@ -493,11 +493,11 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.Policy, pvList []*kyverno.
 	// update status
 	newPolicy := p
 	newPolicy.Status = newStatus
-	_, err := pc.kyvernoClient.KyvernoV1alpha1().Policies().UpdateStatus(newPolicy)
+	_, err := pc.kyvernoClient.KyvernoV1alpha1().ClusterPolicies().UpdateStatus(newPolicy)
 	return err
 }
 
-func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
+func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.ClusterPolicyViolation) kyverno.PolicyStatus {
 	violationCount := len(pvList)
 	status := kyverno.PolicyStatus{
 		ViolationCount: violationCount,
@@ -513,7 +513,7 @@ func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno
 	}
 	return status
 }
-func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*kyverno.PolicyViolation, error) {
+func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolicy) ([]*kyverno.ClusterPolicyViolation, error) {
 	// List all PolicyViolation to find those we own but that no longer match our
 	// selector. They will be orphaned by ClaimPolicyViolation().
 	pvList, err := pc.pvLister.List(labels.Everything())
@@ -537,7 +537,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*
 	}
 
 	canAdoptFunc := RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().Policies().Get(p.Name, metav1.GetOptions{})
+		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().ClusterPolicies().Get(p.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -552,18 +552,18 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.Policy) ([]*
 	return cm.claimPolicyViolations(pvList)
 }
 
-func (m *PolicyViolationControllerRefManager) claimPolicyViolations(sets []*kyverno.PolicyViolation) ([]*kyverno.PolicyViolation, error) {
-	var claimed []*kyverno.PolicyViolation
+func (m *PolicyViolationControllerRefManager) claimPolicyViolations(sets []*kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicyViolation, error) {
+	var claimed []*kyverno.ClusterPolicyViolation
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
 		return m.Selector.Matches(labels.Set(obj.GetLabels()))
 	}
 	adopt := func(obj metav1.Object) error {
-		return m.adoptPolicyViolation(obj.(*kyverno.PolicyViolation))
+		return m.adoptPolicyViolation(obj.(*kyverno.ClusterPolicyViolation))
 	}
 	release := func(obj metav1.Object) error {
-		return m.releasePolicyViolation(obj.(*kyverno.PolicyViolation))
+		return m.releasePolicyViolation(obj.(*kyverno.ClusterPolicyViolation))
 	}
 
 	for _, pv := range sets {
@@ -579,7 +579,7 @@ func (m *PolicyViolationControllerRefManager) claimPolicyViolations(sets []*kyve
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-func (m *PolicyViolationControllerRefManager) adoptPolicyViolation(pv *kyverno.PolicyViolation) error {
+func (m *PolicyViolationControllerRefManager) adoptPolicyViolation(pv *kyverno.ClusterPolicyViolation) error {
 	if err := m.CanAdopt(); err != nil {
 		return fmt.Errorf("can't adopt PolicyViolation %v (%v): %v", pv.Name, pv.UID, err)
 	}
@@ -629,7 +629,7 @@ func removeOwnerReferencePatch(ownerRef metav1.OwnerReference) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func (m *PolicyViolationControllerRefManager) releasePolicyViolation(pv *kyverno.PolicyViolation) error {
+func (m *PolicyViolationControllerRefManager) releasePolicyViolation(pv *kyverno.ClusterPolicyViolation) error {
 	glog.V(2).Infof("patching PolicyViolation %s to remove its controllerRef to %s/%s:%s",
 		pv.Name, m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	//TODO JSON patch for owner reference for resources
@@ -785,7 +785,7 @@ type RealPVControl struct {
 
 //PatchPolicyViolation patches the policy violation with the provided JSON Patch
 func (r RealPVControl) PatchPolicyViolation(name string, data []byte) error {
-	_, err := r.Client.KyvernoV1alpha1().PolicyViolations().Patch(name, types.JSONPatchType, data)
+	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Patch(name, types.JSONPatchType, data)
 	return err
 }
 
@@ -847,7 +847,7 @@ func createLabelMapPatch(policy string, resource string) ([]byte, error) {
 
 //updatePolicyLabelIfNotDefined adds the label 'policy' to the PolicyViolation
 // label is used here to lookup policyViolation and corresponding Policy
-func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.PolicyViolation) bool {
+func updatePolicyLabelIfNotDefined(pvControl PVControlInterface, pv *kyverno.ClusterPolicyViolation) bool {
 	updateLabel := func() bool {
 		glog.V(4).Infof("adding label 'policy:%s' to PolicyViolation %s", pv.Spec.Policy, pv.Name)
 		glog.V(4).Infof("adding label 'resource:%s' to PolicyViolation %s", pv.Spec.ResourceSpec.ToKey(), pv.Name)
@@ -931,7 +931,7 @@ func joinPatches(patches ...[]byte) []byte {
 	return result
 }
 
-func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
+func HasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
 	for _, policy := range policies {
 		if HasMutateOrValidate(*policy) {
 			return true
@@ -940,7 +940,7 @@ func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
 	return false
 }
 
-func HasMutateOrValidate(policy kyverno.Policy) bool {
+func HasMutateOrValidate(policy kyverno.ClusterPolicy) bool {
 	for _, rule := range policy.Spec.Rules {
 		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			glog.Infoln(rule.Name)

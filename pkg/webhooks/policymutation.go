@@ -13,7 +13,7 @@ import (
 )
 
 func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	var policy *kyverno.Policy
+	var policy *kyverno.ClusterPolicy
 	raw := request.Object.Raw
 
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
@@ -46,7 +46,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 	}
 }
 
-func generateJSONPatchesForDefaults(policy *kyverno.Policy) ([]byte, []string) {
+func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
@@ -59,7 +59,7 @@ func generateJSONPatchesForDefaults(policy *kyverno.Policy) ([]byte, []string) {
 	return utils.JoinPatches(patches), updateMsgs
 }
 
-func defaultvalidationFailureAction(policy *kyverno.Policy) ([]byte, string) {
+func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, string) {
 	// default ValidationFailureAction to "enforce" if not specified
 	if policy.Spec.ValidationFailureAction == "" {
 		glog.V(4).Infof("defaulting policy %s 'ValidationFailureAction' to '%s'", policy.Name, BlockChanges)

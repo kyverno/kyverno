@@ -15,7 +15,7 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []engine.EngineResponseNew) {
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []engine.EngineResponseNew) {
 	startTime := time.Now()
 	var policyStats []PolicyStat
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
@@ -64,7 +64,7 @@ func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, poli
 	//TODO: GENERATION
 	return engineResponses
 }
-func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponseNew, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponseNew, error) {
 	engineResponse := engine.MutateNew(policy, resource)
 	if !engineResponse.IsSuccesful() {
 		glog.V(4).Infof("mutation had errors reporting them")

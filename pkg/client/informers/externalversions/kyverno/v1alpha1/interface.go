@@ -24,10 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// Policies returns a PolicyInformer.
-	Policies() PolicyInformer
-	// PolicyViolations returns a PolicyViolationInformer.
-	PolicyViolations() PolicyViolationInformer
+	// ClusterPolicies returns a ClusterPolicyInformer.
+	ClusterPolicies() ClusterPolicyInformer
+	// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
+	ClusterPolicyViolations() ClusterPolicyViolationInformer
 }
 
 type version struct {
@@ -41,12 +41,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Policies returns a PolicyInformer.
-func (v *version) Policies() PolicyInformer {
-	return &policyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterPolicies returns a ClusterPolicyInformer.
+func (v *version) ClusterPolicies() ClusterPolicyInformer {
+	return &clusterPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// PolicyViolations returns a PolicyViolationInformer.
-func (v *version) PolicyViolations() PolicyViolationInformer {
-	return &policyViolationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
+func (v *version) ClusterPolicyViolations() ClusterPolicyViolationInformer {
+	return &clusterPolicyViolationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

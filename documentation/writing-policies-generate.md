@@ -8,7 +8,7 @@
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: basic-policy
 spec:
@@ -55,7 +55,7 @@ In this example, when this policy is applied, any new namespace that satisfies t
 ## Example 2
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: "default"
 spec:

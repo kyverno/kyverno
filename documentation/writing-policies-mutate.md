@@ -12,7 +12,7 @@ This patch adds an init container to all deployments.
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : policy-v1
 spec :
@@ -41,7 +41,7 @@ With Kyverno, the add and replace have the same behavior i.e. both operations wi
 Here is the example of a patch that removes a label from the secret:
 ````yaml
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : policy-remove-label
 spec :
@@ -67,7 +67,7 @@ The following mutation overlay will add (or replace) the memory request and limi
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : policy-change-memory-limit
 spec :
@@ -100,7 +100,7 @@ Applying overlays to a list type is fairly straightforward: new items will be ad
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: policy-endpoints
 spec:
@@ -126,7 +126,7 @@ An **anchor** field, marked by parentheses, allows conditional processing of con
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : policy-set-port
 spec :
@@ -157,7 +157,7 @@ A variation of an anchor, is to add a field value if it is not already defined. 
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : policy-set-port
 spec :

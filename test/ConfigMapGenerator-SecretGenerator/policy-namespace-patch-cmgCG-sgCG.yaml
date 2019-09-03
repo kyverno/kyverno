@@ -4,7 +4,7 @@
 # and then create a namespace
 
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : "policy-ns-patch-cmg-sg"
 spec :

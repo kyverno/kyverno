@@ -33,7 +33,7 @@ const (
 	maxRetries = 15
 )
 
-var controllerKind = kyverno.SchemeGroupVersion.WithKind("PolicyViolation")
+var controllerKind = kyverno.SchemeGroupVersion.WithKind("ClusterPolicyViolation")
 
 // PolicyViolationController manages the policy violation resource
 // - sync the lastupdate time
@@ -43,13 +43,13 @@ type PolicyViolationController struct {
 	kyvernoClient          *kyvernoclient.Clientset
 	eventRecorder          record.EventRecorder
 	syncHandler            func(pKey string) error
-	enqueuePolicyViolation func(policy *kyverno.PolicyViolation)
+	enqueuePolicyViolation func(policy *kyverno.ClusterPolicyViolation)
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
 	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.PolicyViolationLister
+	pvLister kyvernolister.ClusterPolicyViolationLister
 	// pLister can list/get policy from the shared informer's store
-	pLister kyvernolister.PolicyLister
+	pLister kyvernolister.ClusterPolicyLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 	// pvListerSynced retrns true if the Policy store has been synced at least once
@@ -59,7 +59,7 @@ type PolicyViolationController struct {
 }
 
 //NewPolicyViolationController creates a new NewPolicyViolationController
-func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer kyvernoinformer.PolicyInformer, pvInformer kyvernoinformer.PolicyViolationInformer) (*PolicyViolationController, error) {
+func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer) (*PolicyViolationController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -94,14 +94,14 @@ func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoc
 }
 
 func (pvc *PolicyViolationController) addPolicyViolation(obj interface{}) {
-	pv := obj.(*kyverno.PolicyViolation)
+	pv := obj.(*kyverno.ClusterPolicyViolation)
 	glog.V(4).Infof("Adding PolicyViolation %s", pv.Name)
 	pvc.enqueuePolicyViolation(pv)
 }
 
 func (pvc *PolicyViolationController) updatePolicyViolation(old, cur interface{}) {
-	oldPv := old.(*kyverno.PolicyViolation)
-	curPv := cur.(*kyverno.PolicyViolation)
+	oldPv := old.(*kyverno.ClusterPolicyViolation)
+	curPv := cur.(*kyverno.ClusterPolicyViolation)
 	glog.V(4).Infof("Updating Policy Violation %s", oldPv.Name)
 	if err := pvc.syncLastUpdateTimeStatus(curPv, oldPv); err != nil {
 		glog.Errorf("Failed to update lastUpdateTime in PolicyViolation %s status: %v", curPv.Name, err)
@@ -110,14 +110,14 @@ func (pvc *PolicyViolationController) updatePolicyViolation(old, cur interface{}
 }
 
 func (pvc *PolicyViolationController) deletePolicyViolation(obj interface{}) {
-	pv, ok := obj.(*kyverno.PolicyViolation)
+	pv, ok := obj.(*kyverno.ClusterPolicyViolation)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		pv, ok = tombstone.Obj.(*kyverno.PolicyViolation)
+		pv, ok = tombstone.Obj.(*kyverno.ClusterPolicyViolation)
 		if !ok {
 			glog.Info(fmt.Errorf("Tombstone contained object that is not a PolicyViolation %#v", obj))
 			return
@@ -127,7 +127,7 @@ func (pvc *PolicyViolationController) deletePolicyViolation(obj interface{}) {
 	pvc.enqueuePolicyViolation(pv)
 }
 
-func (pvc *PolicyViolationController) enqueue(policyViolation *kyverno.PolicyViolation) {
+func (pvc *PolicyViolationController) enqueue(policyViolation *kyverno.ClusterPolicyViolation) {
 	key, err := cache.MetaNamespaceKeyFunc(policyViolation)
 	if err != nil {
 		glog.Error(err)
@@ -223,7 +223,7 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	return pvc.syncStatusOnly(pv)
 }
 
-func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.PolicyViolation) error {
+func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterPolicyViolation) error {
 	// check if the resource is active or not ?
 	rspec := curPv.Spec.ResourceSpec
 	// get resource
@@ -250,7 +250,7 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.PolicyVi
 
 //syncStatusOnly updates the policyviolation status subresource
 // status:
-func (pvc *PolicyViolationController) syncStatusOnly(curPv *kyverno.PolicyViolation) error {
+func (pvc *PolicyViolationController) syncStatusOnly(curPv *kyverno.ClusterPolicyViolation) error {
 	// newStatus := calculateStatus(pv)
 	return nil
 }
@@ -258,7 +258,7 @@ func (pvc *PolicyViolationController) syncStatusOnly(curPv *kyverno.PolicyViolat
 //TODO: think this through again
 //syncLastUpdateTimeStatus updates the policyviolation lastUpdateTime if anything in ViolationSpec changed
 // 		- lastUpdateTime : (time stamp when the policy violation changed)
-func (pvc *PolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.PolicyViolation, oldPv *kyverno.PolicyViolation) error {
+func (pvc *PolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.ClusterPolicyViolation, oldPv *kyverno.ClusterPolicyViolation) error {
 	// check if there is any change in policy violation information
 	if !updated(curPv, oldPv) {
 		return nil
@@ -270,13 +270,13 @@ func (pvc *PolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.Po
 	return pvc.pvControl.UpdateStatusPolicyViolation(newPolicyViolation)
 }
 
-func updated(curPv *kyverno.PolicyViolation, oldPv *kyverno.PolicyViolation) bool {
+func updated(curPv *kyverno.ClusterPolicyViolation, oldPv *kyverno.ClusterPolicyViolation) bool {
 	return !reflect.DeepEqual(curPv.Spec, oldPv.Spec)
 	//TODO check if owner reference changed, then should we update the lastUpdateTime as well ?
 }
 
 type PVControlInterface interface {
-	UpdateStatusPolicyViolation(newPv *kyverno.PolicyViolation) error
+	UpdateStatusPolicyViolation(newPv *kyverno.ClusterPolicyViolation) error
 	RemovePolicyViolation(name string) error
 }
 
@@ -287,12 +287,12 @@ type RealPVControl struct {
 }
 
 //UpdateStatusPolicyViolation updates the status for policy violation
-func (r RealPVControl) UpdateStatusPolicyViolation(newPv *kyverno.PolicyViolation) error {
-	_, err := r.Client.KyvernoV1alpha1().PolicyViolations().UpdateStatus(newPv)
+func (r RealPVControl) UpdateStatusPolicyViolation(newPv *kyverno.ClusterPolicyViolation) error {
+	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().UpdateStatus(newPv)
 	return err
 }
 
 //RemovePolicyViolation removes the policy violation
 func (r RealPVControl) RemovePolicyViolation(name string) error {
-	return r.Client.KyvernoV1alpha1().PolicyViolations().Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }

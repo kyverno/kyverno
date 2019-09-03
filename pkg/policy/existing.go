@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []engine.EngineResponseNew {
+func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []engine.EngineResponseNew {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
@@ -38,7 +38,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.Policy) []en
 	return engineResponses
 }
 
-func listResources(client *client.Client, policy kyverno.Policy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
+func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 

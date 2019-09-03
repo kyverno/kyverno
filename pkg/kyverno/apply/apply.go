@@ -50,7 +50,7 @@ func NewCmdApply(in io.Reader, out, errout io.Writer) *cobra.Command {
 	return cmd
 }
 
-func complete(kubeconfig string, args []string) (*kyverno.Policy, []*resourceInfo) {
+func complete(kubeconfig string, args []string) (*kyverno.ClusterPolicy, []*resourceInfo) {
 	policyDir, resourceDir, err := validateDir(args)
 	if err != nil {
 		glog.Errorf("Failed to parse file path, err: %v\n", err)
@@ -74,7 +74,7 @@ func complete(kubeconfig string, args []string) (*kyverno.Policy, []*resourceInf
 	return policy, resources
 }
 
-func applyPolicy(policy *kyverno.Policy, resources []*resourceInfo) (output string) {
+func applyPolicy(policy *kyverno.ClusterPolicy, resources []*resourceInfo) (output string) {
 	for _, resource := range resources {
 		patchedDocument, err := applyPolicyOnRaw(policy, resource.rawResource, resource.gvk)
 		if err != nil {
@@ -93,7 +93,7 @@ func applyPolicy(policy *kyverno.Policy, resources []*resourceInfo) (output stri
 	return
 }
 
-func applyPolicyOnRaw(policy *kyverno.Policy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
+func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *metav1.GroupVersionKind) ([]byte, error) {
 	patchedResource := rawResource
 	var err error
 
@@ -130,8 +130,8 @@ func applyPolicyOnRaw(policy *kyverno.Policy, rawResource []byte, gvk *metav1.Gr
 	return patchedResource, nil
 }
 
-func extractPolicy(fileDir string) (*kyverno.Policy, error) {
-	policy := &kyverno.Policy{}
+func extractPolicy(fileDir string) (*kyverno.ClusterPolicy, error) {
+	policy := &kyverno.ClusterPolicy{}
 
 	file, err := loadFile(fileDir)
 	if err != nil {

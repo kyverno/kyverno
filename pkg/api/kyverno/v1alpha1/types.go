@@ -8,6 +8,34 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// ClusterPolicy ...
+type ClusterPolicy Policy
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterPolicyList ...
+type ClusterPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []ClusterPolicy `json:"items"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterPolicyViolation ...
+type ClusterPolicyViolation PolicyViolation
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterPolicyViolationList ...
+type ClusterPolicyViolationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []ClusterPolicyViolation `json:"items"`
+}
+
 // Policy contains rules to be applied to created resources
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -103,18 +131,7 @@ type PolicyStatus struct {
 	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // PolicyList is a list of Policy resources
-type PolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []Policy `json:"items"`
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PolicyViolation stores the information regarinding the resources for which a policy failed to apply
 type PolicyViolation struct {
@@ -151,13 +168,4 @@ type ViolatedRule struct {
 type PolicyViolationStatus struct {
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 	//TODO: having user information regarding the owner of resource can be helpful
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// PolicyViolationList is a list of Policy Violation
-type PolicyViolationList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []PolicyViolation `json:"items"`
 }

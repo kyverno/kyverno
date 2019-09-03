@@ -24,10 +24,7 @@ type PolicyStatusAggregator struct {
 }
 
 //NewPolicyStatAggregator returns a new policy status
-func NewPolicyStatAggregator(client *kyvernoclient.Clientset,
-
-// pInformer kyvernoinformer.PolicyInformer
-) *PolicyStatusAggregator {
+func NewPolicyStatAggregator(client *kyvernoclient.Clientset) *PolicyStatusAggregator {
 	psa := PolicyStatusAggregator{
 		startTime:  time.Now(),
 		ch:         make(chan PolicyStat),
@@ -46,6 +43,7 @@ func (psa *PolicyStatusAggregator) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(psa.process, time.Second, stopCh)
 	}
+	<-stopCh
 }
 
 func (psa *PolicyStatusAggregator) process() {

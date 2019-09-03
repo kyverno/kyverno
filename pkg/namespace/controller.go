@@ -40,11 +40,11 @@ type NamespaceController struct {
 	// nsListerSynced returns true if the Namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
-	pLister kyvernolister.PolicyLister
+	pLister kyvernolister.ClusterPolicyLister
 	// pvListerSynced retrns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.PolicyViolationLister
+	pvLister kyvernolister.ClusterPolicyViolationLister
 	// API to send policy stats for aggregation
 	policyStatus policy.PolicyStatusInterface
 	// eventGen provides interface to generate evenets
@@ -59,8 +59,8 @@ type NamespaceController struct {
 func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	nsInformer v1Informer.NamespaceInformer,
-	pInformer kyvernoinformer.PolicyInformer,
-	pvInformer kyvernoinformer.PolicyViolationInformer,
+	pInformer kyvernoinformer.ClusterPolicyInformer,
+	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface) *NamespaceController {
 	//TODO: do we need to event recorder for this controller?

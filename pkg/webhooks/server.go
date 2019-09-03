@@ -32,8 +32,8 @@ type WebhookServer struct {
 	server                    http.Server
 	client                    *client.Client
 	kyvernoClient             *kyvernoclient.Clientset
-	pLister                   kyvernolister.PolicyLister
-	pvLister                  kyvernolister.PolicyViolationLister
+	pLister                   kyvernolister.ClusterPolicyLister
+	pvLister                  kyvernolister.ClusterPolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
 	eventGen                  event.Interface
@@ -50,8 +50,8 @@ func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
-	pInformer kyvernoinformer.PolicyInformer,
-	pvInformer kyvernoinformer.PolicyViolationInformer,
+	pInformer kyvernoinformer.ClusterPolicyInformer,
+	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,

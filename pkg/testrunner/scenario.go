@@ -182,7 +182,7 @@ func createNamespace(client *client.Client, ns *unstructured.Unstructured) error
 	_, err := client.CreateResource("Namespace", "", ns, false)
 	return err
 }
-func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.Policy, expected []kyverno.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, expected []kyverno.ResourceSpec) {
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
@@ -400,16 +400,16 @@ func loadObjects(t *testing.T, path string) []runtime.Object {
 
 }
 
-func loadPolicy(t *testing.T, path string) *kyverno.Policy {
+func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 	t.Logf("loading policy from %s", path)
 	data, err := loadFile(t, path)
 	if err != nil {
 		return nil
 	}
-	var policies []*kyverno.Policy
+	var policies []*kyverno.ClusterPolicy
 	pBytes := bytes.Split(data, []byte("---"))
 	for _, p := range pBytes {
-		policy := kyverno.Policy{}
+		policy := kyverno.ClusterPolicy{}
 		pBytes, err := apiyaml.ToJSON(p)
 		if err != nil {
 			glog.Error(err)

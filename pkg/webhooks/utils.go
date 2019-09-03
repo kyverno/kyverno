@@ -81,7 +81,7 @@ func (i *ArrayFlags) Set(value string) error {
 }
 
 // extract the kinds that the policy rules apply to
-func getApplicableKindsForPolicy(p *kyverno.Policy) []string {
+func getApplicableKindsForPolicy(p *kyverno.ClusterPolicy) []string {
 	kindsMap := map[string]interface{}{}
 	kinds := []string{}
 	// iterate over the rules an identify all kinds
