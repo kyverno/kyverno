@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: check-container-security-context
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: check-root-user
+    exclude:
+      namespace: kube-system
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Root user is not allowed. Set runAsNonRoot to true."
+      # See https://github.com/nirmata/kyverno/issues/285
+      # anyPattern:
+      #  - spec:
+      #      securityContext:            
+      #        runAsNonRoot: true
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              runAsNonRoot: true
+  - name: check-privilege
+    exclude:
+      namespace: kube-system
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Privileged mode is not allowed. Set allowPrivilegeEscalatin and privileged to false"
+      # See https://github.com/nirmata/kyverno/issues/285
+      # anyPattern:
+      #  - spec:
+      #    securityContext:            
+      #     allowPrivilegeEscalation: false
+      #     privileged: false   
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              allowPrivilegeEscalation: false
+              privileged: false
