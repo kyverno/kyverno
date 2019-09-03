@@ -3,170 +3,115 @@ package policy
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (info.PolicyInfo, error) {
-	var ps PolicyStat
-	gatherStat := func(policyName string, er engine.EngineResponse) {
-		// ps := policyctr.PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.ValidationExecutionTime = er.ExecutionTime
-		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
-	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		//SEND
-		policyStatus.SendStat(ps)
-	}
-
+func applyPolicy(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []engine.EngineResponseNew) {
 	startTime := time.Now()
+	var policyStats []PolicyStat
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	// glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-	policyInfo := info.NewPolicyInfo(policy.Name, resource.GetKind(), resource.GetName(), resource.GetNamespace(), policy.Spec.ValidationFailureAction)
+
+	// gather stats from the engine response
+	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+		ps := PolicyStat{}
+		ps.PolicyName = policyName
+		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
+		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
+		policyStats = append(policyStats, ps)
+	}
+	// send stats for aggregation
+	sendStat := func(blocked bool) {
+		for _, stat := range policyStats {
+			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
+			//SEND
+			policyStatus.SendStat(stat)
+		}
+	}
+	var engineResponses []engine.EngineResponseNew
+	var engineResponse engine.EngineResponseNew
+	var err error
 
 	//MUTATION
-	mruleInfos, err := mutation(policy, resource, policyStatus)
-	policyInfo.AddRuleInfos(mruleInfos)
+	engineResponse, err = mutation(policy, resource, policyStatus)
+	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
-		return policyInfo, err
+		glog.Errorf("unable to process mutation rules: %v", err)
 	}
+	gatherStat(policy.Name, engineResponse.PolicyResponse)
+	//send stats
+	sendStat(false)
 
 	//VALIDATION
-	engineResponse := engine.Validate(policy, resource)
-	if len(engineResponse.RuleInfos) != 0 {
-		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
-	}
+	engineResponse = engine.ValidateNew(policy, resource)
+	engineResponses = append(engineResponses, engineResponse)
 	// gather stats
-	gatherStat(policy.Name, engineResponse)
+	gatherStat(policy.Name, engineResponse.PolicyResponse)
 	//send stats
 	sendStat(false)
 
 	//TODO: GENERATION
-	return policyInfo, nil
+	return engineResponses
 }
-
-func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) ([]info.RuleInfo, error) {
-	var ps PolicyStat
-	// gather stats from the engine response
-	gatherStat := func(policyName string, er engine.EngineResponse) {
-		// ps := policyctr.PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.MutationExecutionTime = er.ExecutionTime
-		ps.Stats.RulesAppliedCount = er.RulesAppliedCount
+func mutation(policy kyverno.Policy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponseNew, error) {
+	engineResponse := engine.MutateNew(policy, resource)
+	if !engineResponse.IsSuccesful() {
+		glog.V(4).Infof("mutation had errors reporting them")
+		return engineResponse, nil
 	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		//SEND
-		policyStatus.SendStat(ps)
-	}
-
-	engineResponse := engine.Mutate(policy, resource)
-	// gather stats
-	gatherStat(policy.Name, engineResponse)
-	//send stats
-	sendStat(false)
-
-	patches := extractPatches(engineResponse)
-	ruleInfos := engineResponse.RuleInfos
-	if len(ruleInfos) == 0 {
-		//no rules processed
-		return nil, nil
-	}
-
-	for _, r := range ruleInfos {
-		if !r.IsSuccessful() {
-			// no failures while processing rule
-			return ruleInfos, nil
-		}
-	}
-	if len(patches) == 0 {
-		// no patches for the resources
-		// either there were failures or the overlay already was satisfied
-		return ruleInfos, nil
-	}
-
-	// resources matches
+	// Verify if the JSON pathes returned by the Mutate are already applied to the resource
 	if reflect.DeepEqual(resource, engineResponse.PatchedResource) {
-		ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
-		ruleInfo.Add("resource satisfies the mutation rule")
-		return append(ruleInfos, ruleInfo), nil
+		// resources matches
+		glog.V(4).Infof("resource %s/%s/%s satisfies policy %s", engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name, engineResponse.PolicyResponse.Policy)
+		return engineResponse, nil
 	}
-
-	return getFailedOverallRuleInfo(resource, ruleInfos)
+	return getFailedOverallRuleInfo(resource, engineResponse)
 }
 
 // getFailedOverallRuleInfo gets detailed info for over-all mutation failure
-func getFailedOverallRuleInfo(resource unstructured.Unstructured, ruleInfos []info.RuleInfo) ([]info.RuleInfo, error) {
-	ruleInfo := info.NewRuleInfo("over-all mutation", info.Mutation)
-
+func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse engine.EngineResponseNew) (engine.EngineResponseNew, error) {
 	rawResource, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource: %v\n", err)
-		return ruleInfos, err
+		return engine.EngineResponseNew{}, err
 	}
 
-	var failedRules []string
-
 	// resource does not match so there was a mutation rule violated
-	for _, ri := range ruleInfos {
-		if len(ri.Patches) == 0 {
+	for index, rule := range engineResponse.PolicyResponse.Rules {
+		glog.V(4).Infof("veriying if policy %s rule %s was applied before to resource %s/%s/%s", engineResponse.PolicyResponse.Policy, rule.Name, engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
+		if len(rule.Patches) == 0 {
 			continue
 		}
 
-		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(ri.Patches))
+		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(rule.Patches))
 		if err != nil {
-			return ruleInfos, err
+			glog.V(4).Infof("unable to decode patch %s: %v", rule.Patches, err)
+			return engine.EngineResponseNew{}, err
 		}
 
 		// apply the patches returned by mutate to the original resource
 		patchedResource, err := patch.Apply(rawResource)
 		if err != nil {
-			return ruleInfos, err
+			glog.V(4).Infof("unable to apply patch %s: %v", rule.Patches, err)
+			return engine.EngineResponseNew{}, err
 		}
 
 		if !jsonpatch.Equal(patchedResource, rawResource) {
-			failedRules = append(failedRules, ri.Name)
+			glog.V(4).Infof("policy %s rule %s condition not satisifed by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)
+			engineResponse.PolicyResponse.Rules[index].Success = false
+			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("rule not satisfied by existing resource.")
 		}
 	}
-
-	ruleInfo.Fail()
-	ruleInfo.Add(fmt.Sprintf("rule %s might have failed", strings.Join(failedRules, ",")))
-	return append(ruleInfos, ruleInfo), nil
-}
-
-// TODO: remove this once methods for engineResponse are implemented
-func extractPatches(engineResponse engine.EngineResponse) [][]byte {
-	var patches [][]byte
-	for _, info := range engineResponse.RuleInfos {
-		if len(info.Patches) != 0 {
-			patches = append(patches, info.Patches...)
-		}
-	}
-	return patches
-}
-
-// getRuleName gets the rule names from the index
-func getRuleName(ruleInfos []info.RuleInfo, index int) string {
-	var ruleNames []string
-
-	for i := index; i < len(ruleInfos); i++ {
-		ruleNames = append(ruleNames, ruleInfos[i].Name)
-	}
-
-	return strings.Join(ruleNames, ",")
+	return engineResponse, nil
 }

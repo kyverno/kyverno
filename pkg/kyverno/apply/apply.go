@@ -10,7 +10,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -100,42 +99,31 @@ func applyPolicyOnRaw(policy *kyverno.Policy, rawResource []byte, gvk *metav1.Gr
 
 	rname := engine.ParseNameFromObject(rawResource)
 	rns := engine.ParseNamespaceFromObject(rawResource)
-	policyInfo := info.NewPolicyInfo(policy.Name,
-		gvk.Kind,
-		rname,
-		rns,
-		policy.Spec.ValidationFailureAction)
-
 	resource, err := ConvertToUnstructured(rawResource)
 	if err != nil {
 		return nil, err
 	}
 	//TODO check if the kind information is present resource
 	// Process Mutation
-	engineResponse := engine.Mutate(*policy, *resource)
-	policyInfo.AddRuleInfos(engineResponse.RuleInfos)
-	if !policyInfo.IsSuccessful() {
+	engineResponse := engine.MutateNew(*policy, *resource)
+	if !engineResponse.IsSuccesful() {
 		glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-		for _, r := range engineResponse.RuleInfos {
-			glog.Warning(r.Msgs)
+		for _, r := range engineResponse.PolicyResponse.Rules {
+			glog.Warning(r.Message)
 		}
-	} else if len(engineResponse.Patches) > 0 {
+	} else if len(engineResponse.PolicyResponse.Rules) > 0 {
 		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
-		patchedResource, err = engine.ApplyPatches(rawResource, engineResponse.Patches)
-		if err != nil {
-			return nil, fmt.Errorf("Unable to apply mutation patches:\n%v", err)
-		}
-		// Process Validation
-		engineResponse := engine.Validate(*policy, *resource)
 
-		policyInfo.AddRuleInfos(engineResponse.RuleInfos)
-		if !policyInfo.IsSuccessful() {
+		// Process Validation
+		engineResponse := engine.ValidateNew(*policy, *resource)
+
+		if !engineResponse.IsSuccesful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-			for _, r := range engineResponse.RuleInfos {
-				glog.Warning(r.Msgs)
+			for _, r := range engineResponse.PolicyResponse.Rules {
+				glog.Warning(r.Message)
 			}
 			return patchedResource, fmt.Errorf("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
-		} else if len(engineResponse.RuleInfos) > 0 {
+		} else if len(engineResponse.PolicyResponse.Rules) > 0 {
 			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 		}
 	}

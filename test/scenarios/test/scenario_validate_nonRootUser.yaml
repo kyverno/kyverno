@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/policy_validate_nonRootUser.yaml
+  resource: examples/resource_validate_nonRootUser.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: check-container-security-context
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: sec-ctx-unprivileged
+      rules:
+        - name: check-root-user
+          type: Validation
+          message: 1/2 patterns succesfully validated
+          success: true

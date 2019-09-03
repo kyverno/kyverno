@@ -1,0 +1,21 @@
+# file path relative to project root
+input:
+  policy: examples/cli/policy_deployment.yaml
+  resource: examples/cli/nginx.yaml
+expected:
+  mutation:
+    patchedresource: test/output/nginx.yaml
+    policyresponse:
+      policy: policy-deployment
+      resource:
+        kind: Deployment
+        apiVersion: 'apps/v1'
+        namespace: ''
+        name: nginx-deployment
+      rules:
+        - name: add-label
+          type: Mutation
+          success: true
+          message: succesfully process JSON patches
+          # patches: `[{"path":"/metadata/labels/isMutated","op":"add","value":"true"},
+          #           {"path":"/metadata/labels/app","op":"replace","value":"nginx_is_mutated"}]`

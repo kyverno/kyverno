@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/policy_validate_containerSecurityContext.yaml
+  resource: examples/resource_validate_containerSecurityContext.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: container-security-context
+      resource:
+        kind: Deployment
+        apiVersion: apps/v1
+        namespace: ''
+        name: csc-demo-unprivileged
+      rules:
+        - name: validate-user-privilege
+          type: Validation
+          message: validation pattern succesfully validated
+          success: true     

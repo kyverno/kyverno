@@ -13,7 +13,7 @@ spec:
     - -c
     - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
     readinessProbe:
-      # successThreshold: 3
+      successThreshold: 3
       exec:
         command:
         - cat
@@ -26,6 +26,7 @@ spec:
       httpGet:
         path: /healthz
         port: 8080
+        scheme: HTTP
         httpHeaders:
         - name: Custom-Header
           value: Awesome

@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/info"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (pc *PolicyController) report(policyInfos []info.PolicyInfo) {
+func (pc *PolicyController) report(engineResponses []engine.EngineResponseNew) {
 	// generate events
 	// generate policy violations
-	for _, policyInfo := range policyInfos {
+	for _, policyInfo := range engineResponses {
 		// events
 		// success - policy applied on resource
 		// failure - policy/rule failed to apply on the resource
@@ -22,37 +22,39 @@ func (pc *PolicyController) report(policyInfos []info.PolicyInfo) {
 	}
 
 	// generate policy violation
-	policyviolation.GeneratePolicyViolations(pc.pvListerSynced, pc.pvLister, pc.kyvernoClient, policyInfos)
+	policyviolation.CreatePV(pc.pvLister, pc.kyvernoClient, engineResponses)
 }
 
 //reportEvents generates events for the failed resources
-func reportEvents(policyInfo info.PolicyInfo, eventGen event.Interface) {
-
-	if policyInfo.IsSuccessful() {
+func reportEvents(engineResponse engine.EngineResponseNew, eventGen event.Interface) {
+	if engineResponse.IsSuccesful() {
 		return
 	}
-	glog.V(4).Infof("reporting results for policy %s application on resource %s/%s/%s", policyInfo.Name, policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName)
-	for _, rule := range policyInfo.Rules {
-		if rule.IsSuccessful() {
-			continue
+	glog.V(4).Infof("reporting results for policy %s application on resource %s/%s/%s", engineResponse.PolicyResponse.Policy, engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
+	for _, rule := range engineResponse.PolicyResponse.Rules {
+		if rule.Success {
+			return
 		}
 
 		// generate event on resource for each failed rule
-		e := &event.Info{}
-		e.Kind = policyInfo.RKind
-		e.Namespace = policyInfo.RNamespace
-		e.Name = policyInfo.RName
+		glog.V(4).Infof("generation event on resource %s/%s/%s for policy %s", engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name, engineResponse.PolicyResponse.Policy)
+		e := event.Info{}
+		e.Kind = engineResponse.PolicyResponse.Resource.Kind
+		e.Namespace = engineResponse.PolicyResponse.Resource.Namespace
+		e.Name = engineResponse.PolicyResponse.Policy
 		e.Reason = "Failure"
-		e.Message = fmt.Sprintf("policy %s (%s) rule %s failed to apply. %v", policyInfo.Name, rule.RuleType.String(), rule.Name, rule.GetErrorString())
+		e.Message = fmt.Sprintf("policy %s (%s) rule %s failed to apply. %v", engineResponse.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
 		eventGen.Add(e)
 
 	}
 	// generate a event on policy for all failed rules
-	e := &event.Info{}
+	glog.V(4).Infof("generation event on policy %s", engineResponse.PolicyResponse.Policy)
+	e := event.Info{}
 	e.Kind = "Policy"
 	e.Namespace = ""
-	e.Name = policyInfo.Name
+	e.Name = engineResponse.PolicyResponse.Policy
 	e.Reason = "Failure"
-	e.Message = fmt.Sprintf("failed to apply rules %s on resource %s/%s/%s", policyInfo.FailedRules(), policyInfo.RKind, policyInfo.RNamespace, policyInfo.RName)
+	e.Message = fmt.Sprintf("failed to apply rules %v on resource %s/%s/%s", engineResponse.GetFailedRules(), engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
 	eventGen.Add(e)
+
 }

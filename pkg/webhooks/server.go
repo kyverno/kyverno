@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/engine"
-
 	"github.com/golang/glog"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
@@ -24,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -42,6 +41,7 @@ type WebhookServer struct {
 	// API to send policy stats for aggregation
 	policyStatus      policy.PolicyStatusInterface
 	filterK8Resources []utils.K8Resource
+	cleanUp           chan<- struct{}
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -51,11 +51,12 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.PolicyInformer,
-	pvInormer kyvernoinformer.PolicyViolationInformer,
+	pvInformer kyvernoinformer.PolicyViolationInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
-	filterK8Resources string) (*WebhookServer, error) {
+	filterK8Resources string,
+	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -73,18 +74,20 @@ func NewWebhookServer(
 		client:                    client,
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
-		pvLister:                  pvInormer.Lister(),
-		pListerSynced:             pInformer.Informer().HasSynced,
+		pvLister:                  pvInformer.Lister(),
+		pListerSynced:             pvInformer.Informer().HasSynced,
 		pvListerSynced:            pInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		filterK8Resources:         utils.ParseKinds(filterK8Resources),
+		cleanUp:                   cleanUp,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -114,9 +117,11 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		// Resource UPDATE
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.HandleAdmissionRequest(admissionReview.Request)
+			admissionReview.Response = ws.handleAdmissionRequest(admissionReview.Request)
 		case config.PolicyValidatingWebhookServicePath:
-			admissionReview.Response = ws.HandlePolicyValidation(admissionReview.Request)
+			admissionReview.Response = ws.handlePolicyValidation(admissionReview.Request)
+		case config.PolicyMutatingWebhookServicePath:
+			admissionReview.Response = ws.handlePolicyMutation(admissionReview.Request)
 		}
 	}
 
@@ -134,34 +139,52 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ws *WebhookServer) HandleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	var response *v1beta1.AdmissionResponse
-
-	allowed, engineResponse := ws.HandleMutation(request)
-	if !allowed {
-		// TODO: add failure message to response
+func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	// MUTATION
+	ok, patches, msg := ws.HandleMutation(request)
+	if !ok {
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
 		}
 	}
 
-	response = ws.HandleValidation(request, engineResponse.PatchedResource)
-	if response.Allowed && len(engineResponse.Patches) > 0 {
-		patchType := v1beta1.PatchTypeJSONPatch
-		response.Patch = engine.JoinPatches(engineResponse.Patches)
-		response.PatchType = &patchType
+	// patch the resource with patches before handling validation rules
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
+
+	// VALIDATION
+	ok, msg = ws.HandleValidation(request, patchedResource)
+	if !ok {
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
+		}
 	}
 
-	return response
+	// Succesfful processing of mutation & validation rules in policy
+	patchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+		Result: &metav1.Status{
+			Status: "Success",
+		},
+		Patch:     patches,
+		PatchType: &patchType,
+	}
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync() {
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
-		err := ws.server.ListenAndServeTLS("", "")
-		if err != nil {
-			glog.Fatalf("error serving TLS: %v\n", err)
+		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+			glog.Infof("HTTP server error: %v", err)
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")
@@ -175,6 +198,10 @@ func (ws *WebhookServer) Stop() {
 		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
+	// cleanUp
+	// remove the static webhookconfigurations for policy CRD
+	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
+
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

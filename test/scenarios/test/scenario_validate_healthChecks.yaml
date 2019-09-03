@@ -1,0 +1,22 @@
+# file path relative to project root
+input:
+  policy: examples/policy_validate_healthChecks.yaml
+  resource: examples/resource_validate_healthChecks.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: check-probe-exists
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: probe
+      rules:
+        - name: check-readinessProbe-exists
+          type: Validation
+          message: validation pattern succesfully validated
+          success: true     
+        - name: check-livenessProbe-exists
+          type: Validation
+          message: validation pattern succesfully validated
+          success: true     
