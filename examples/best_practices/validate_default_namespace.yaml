@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: validate-namespace
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: check-default-namespace
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "A namespace is required"
+      anyPattern:
+        - metadata:
+            namespace: "?*"
+        - metadata:
+            namespace: "!default"
