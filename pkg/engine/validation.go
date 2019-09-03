@@ -14,58 +14,53 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// // Validate handles validating admission request
-// // Checks the target resources for rules defined in the policy
-// func Validate(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponse) {
-// 	// var response EngineResponse
-// 	startTime := time.Now()
-// 	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
-// 	defer func() {
-// 		response.ExecutionTime = time.Since(startTime)
-// 		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.ExecutionTime)
-// 		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.RulesAppliedCount, policy.Name)
-// 	}()
-// 	incrementAppliedRuleCount := func() {
-// 		// rules applied succesfully count
-// 		response.RulesAppliedCount++
-// 	}
-// 	resourceRaw, err := resource.MarshalJSON()
-// 	if err != nil {
-// 		glog.V(4).Infof("Skip processing validating rule, unable to marshal resource : %v\n", err)
-// 		response.PatchedResource = resource
-// 		return response
-// 	}
+//Validate applies validation rules from policy on the resource
+func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
+	startTime := time.Now()
+	// policy information
+	func() {
+		// set policy information
+		response.PolicyResponse.Policy = policy.Name
+		// resource details
+		response.PolicyResponse.Resource.Name = resource.GetName()
+		response.PolicyResponse.Resource.Namespace = resource.GetNamespace()
+		response.PolicyResponse.Resource.Kind = resource.GetKind()
+		response.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
+		response.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+	}()
 
-// 	var resourceInt interface{}
-// 	if err := json.Unmarshal(resourceRaw, &resourceInt); err != nil {
-// 		glog.V(4).Infof("unable to unmarshal resource : %v\n", err)
-// 		response.PatchedResource = resource
-// 		return response
-// 	}
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.PolicyResponse.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
+		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.PolicyResponse.RulesAppliedCount++
+	}
 
-// 	var ruleInfos []info.RuleInfo
+	for _, rule := range policy.Spec.Rules {
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			continue
+		}
 
-// 	for _, rule := range policy.Spec.Rules {
-// 		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-// 			continue
-// 		}
-
-// 		// check if the resource satisfies the filter conditions defined in the rule
-// 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-// 		// dont statisfy a policy rule resource description
-// 		ok := MatchesResourceDescription(resource, rule)
-// 		if !ok {
-// 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
-// 			continue
-// 		}
-
-// 		// ruleInfo := validatePatterns(resource, rule)
-// 		incrementAppliedRuleCount()
-// 		// ruleInfos = append(ruleInfos, ruleInfo)
-// 	}
-// 	response.RuleInfos = ruleInfos
-// 	return response
-// }
+		// check if the resource satisfies the filter conditions defined in the rule
+		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
+		// dont statisfy a policy rule resource description
+		ok := MatchesResourceDescription(resource, rule)
+		if !ok {
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
+			continue
+		}
+		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
+			ruleResponse := validatePatterns(resource, rule)
+			incrementAppliedRuleCount()
+			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
+		}
+	}
+	return response
+}
 
 // validatePatterns validate pattern and anyPattern
 func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (response RuleResponse) {
@@ -339,52 +334,4 @@ func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]i
 
 	handler := CreateAnchorHandler(anchor, pattern, path)
 	return handler.Handle(resourceMapArray, patternMap, originPattern)
-}
-
-//ValidateNew ...
-func ValidateNew(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
-	startTime := time.Now()
-	// policy information
-	func() {
-		// set policy information
-		response.PolicyResponse.Policy = policy.Name
-		// resource details
-		response.PolicyResponse.Resource.Name = resource.GetName()
-		response.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-		response.PolicyResponse.Resource.Kind = resource.GetKind()
-		response.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-		response.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
-	}()
-
-	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
-	defer func() {
-		response.PolicyResponse.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
-		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
-	}()
-	incrementAppliedRuleCount := func() {
-		// rules applied succesfully count
-		response.PolicyResponse.RulesAppliedCount++
-	}
-
-	for _, rule := range policy.Spec.Rules {
-		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			continue
-		}
-
-		// check if the resource satisfies the filter conditions defined in the rule
-		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule)
-		if !ok {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
-			continue
-		}
-		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validatePatterns(resource, rule)
-			incrementAppliedRuleCount()
-			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
-		}
-	}
-	return response
 }
