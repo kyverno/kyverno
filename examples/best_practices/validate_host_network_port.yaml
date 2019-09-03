@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1alpha1
+kind: Policy
+metadata:
+  name: validate-host-network-port
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: validate-host-network-port
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Host network and port are not allowed"
+      pattern:
+        spec:
+          hostNetwork: false
+          containers:          
+          - name: "*" # is name necessary??
+            ports:
+              hostPort: null
+
