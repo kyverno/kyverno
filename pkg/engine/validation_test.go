@@ -1571,7 +1571,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := ValidateNew(policy, *resourceUnstructured)
+	er := Validate(policy, *resourceUnstructured)
 	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
 }
 
@@ -1668,6 +1668,6 @@ func TestValidate_MapHasFloats(t *testing.T) {
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := ValidateNew(policy, *resourceUnstructured)
+	er := Validate(policy, *resourceUnstructured)
 	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
 }
