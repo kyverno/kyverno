@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kubepolicy "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"gotest.tools/assert"
 )
 
@@ -1566,7 +1566,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 	}
 	`)
 
-	var policy kubepolicy.Policy
+	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
@@ -1663,7 +1663,7 @@ func TestValidate_MapHasFloats(t *testing.T) {
 	}
 	`)
 
-	var policy kubepolicy.Policy
+	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
