@@ -38,7 +38,7 @@ The next rule prevents the creation of Deployment, StatefuleSet and DaemonSet re
 ````yaml
 
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : validation-example
 spec :
@@ -74,7 +74,7 @@ For example, this pattern will check the existance of "name" field in the list:
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
-kind : Policy
+kind : ClusterPolicy
 metadata :
   name : validation-example2
 spec :
@@ -109,7 +109,7 @@ In some cases one content can be defined at a different level. For example, a se
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: check-container-security-context
 spec:

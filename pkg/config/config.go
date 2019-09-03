@@ -13,7 +13,7 @@ const (
 
 	ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
 	ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
-	ValidatingWebhookName               = "nirmata.kyverno.validating-webhook"
+	ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
 
 	PolicyValidatingWebhookConfigurationName      = "kyverno-policy-validating-webhook-cfg"
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"

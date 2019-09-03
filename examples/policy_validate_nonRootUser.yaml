@@ -1,5 +1,5 @@
 apiVersion: kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: check-container-security-context
 spec:

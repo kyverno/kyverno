@@ -21,7 +21,7 @@ func main() {
 }
 
 func generatePolicies() error {
-	var policy *kyverno.Policy
+	var policy *kyverno.ClusterPolicy
 
 	file, err := ioutil.ReadFile(policyPath)
 	if err != nil {

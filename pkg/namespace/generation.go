@@ -115,8 +115,8 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []e
 	return engineResponses
 }
 
-func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyLister) []*kyverno.Policy {
-	var filteredpolicies []*kyverno.Policy
+func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.ClusterPolicyLister) []*kyverno.ClusterPolicy {
+	var filteredpolicies []*kyverno.ClusterPolicy
 	glog.V(4).Infof("listing policies for namespace %s", ns.GetName())
 	policies, err := pLister.List(labels.NewSelector())
 	if err != nil {
@@ -140,7 +140,7 @@ func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.PolicyList
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.Policy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponseNew {
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponseNew {
 	var policyStats []policyctr.PolicyStat
 	// gather stats from the engine response
 	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {

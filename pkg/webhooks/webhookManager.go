@@ -18,7 +18,7 @@ const (
 	all
 )
 
-func (ws *WebhookServer) manageWebhookConfigurations(policy kyverno.Policy, op v1beta1.Operation) {
+func (ws *WebhookServer) manageWebhookConfigurations(policy kyverno.ClusterPolicy, op v1beta1.Operation) {
 	switch op {
 	case v1beta1.Create:
 		ws.registerWebhookConfigurations(policy)
@@ -27,7 +27,7 @@ func (ws *WebhookServer) manageWebhookConfigurations(policy kyverno.Policy, op v
 	}
 }
 
-func (ws *WebhookServer) registerWebhookConfigurations(policy kyverno.Policy) error {
+func (ws *WebhookServer) registerWebhookConfigurations(policy kyverno.ClusterPolicy) error {
 	if !HasMutateOrValidate(policy) {
 		return nil
 	}
@@ -42,7 +42,7 @@ func (ws *WebhookServer) registerWebhookConfigurations(policy kyverno.Policy) er
 	return nil
 }
 
-func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.Policy) error {
+func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.ClusterPolicy) error {
 	policies, _ := ws.pLister.List(labels.NewSelector())
 
 	// deregister webhook if no mutate/validate policy found in cluster
@@ -54,7 +54,7 @@ func (ws *WebhookServer) deregisterWebhookConfigurations(policy kyverno.Policy) 
 	return nil
 }
 
-func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
+func HasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
 	for _, policy := range policies {
 		if HasMutateOrValidate(*policy) {
 			return true
@@ -63,7 +63,7 @@ func HasMutateOrValidatePolicies(policies []*kyverno.Policy) bool {
 	return false
 }
 
-func HasMutateOrValidate(policy kyverno.Policy) bool {
+func HasMutateOrValidate(policy kyverno.ClusterPolicy) bool {
 	for _, rule := range policy.Spec.Rules {
 		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			glog.V(4).Infoln(rule.Name)

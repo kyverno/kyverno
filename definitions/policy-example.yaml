@@ -1,5 +1,5 @@
 apiVersion : policy.nirmata.io/v1alpha1
-kind : Policy
+kind : clusterPolicy
 metadata :
   name : examples
 spec :

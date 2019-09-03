@@ -29,40 +29,48 @@ import (
 
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.
-type PolicyListerExpansion interface {
-	GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.Policy, error)
-	ListResources(selector labels.Selector) (ret []*v1alpha1.Policy, err error)
+type PolicyListerExpansion interface{}
+
+// PolicyViolationListerExpansion allows custom methods to be added to
+// PolicyViolationLister.
+type PolicyViolationListerExpansion interface{}
+
+// PolicyListerExpansion allows custom methods to be added to
+// PolicyLister.
+type ClusterPolicyListerExpansion interface {
+	GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error)
+	ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error)
 }
 
 // PolicyViolationListerExpansion allows custom methods to be added to
 // PolicyViolationLister.
-type PolicyViolationListerExpansion interface {
+type ClusterPolicyViolationListerExpansion interface {
 	// List lists all PolicyViolations in the indexer with GVK.
 	// List lists all PolicyViolations in the indexer with GVK.
-	ListResources(selector labels.Selector) (ret []*v1alpha1.PolicyViolation, err error)
+	ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicyViolation, err error)
 }
 
 //ListResources is a wrapper to List and adds the resource kind information
 // as the lister is specific to a gvk we can harcode the values here
-func (pvl *policyViolationLister) ListResources(selector labels.Selector) (ret []*v1alpha1.PolicyViolation, err error) {
+func (pvl *clusterPolicyViolationLister) ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicyViolation, err error) {
 	policyviolations, err := pvl.List(selector)
 	for index := range policyviolations {
-		policyviolations[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("PolicyViolation"))
+		policyviolations[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("ClusterPolicyViolation"))
 	}
 	return policyviolations, nil
 }
 
 //ListResources is a wrapper to List and adds the resource kind information
 // as the lister is specific to a gvk we can harcode the values here
-func (pl *policyLister) ListResources(selector labels.Selector) (ret []*v1alpha1.Policy, err error) {
+func (pl *clusterPolicyLister) ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error) {
 	policies, err := pl.List(selector)
 	for index := range policies {
-		policies[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("Policy"))
+		policies[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("ClusterPolicy"))
 	}
 	return policies, err
 }
 
-func (pl *policyLister) GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.Policy, error) {
+func (pl *clusterPolicyLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	if len(pv.Labels) == 0 {
 		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
 	}
@@ -72,7 +80,7 @@ func (pl *policyLister) GetPolicyForPolicyViolation(pv *kyverno.PolicyViolation)
 		return nil, err
 	}
 
-	var policies []*kyverno.Policy
+	var policies []*kyverno.ClusterPolicy
 	for _, p := range pList {
 		policyLabelmap := map[string]string{"policy": p.Name}
 

@@ -125,7 +125,7 @@ import (
 // }
 
 //MutateNew ...
-func MutateNew(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponseNew) {
+func MutateNew(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
 	startTime := time.Now()
 	// policy information
 	func() {

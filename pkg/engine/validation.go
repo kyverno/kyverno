@@ -342,7 +342,7 @@ func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]i
 }
 
 //ValidateNew ...
-func ValidateNew(policy kyverno.Policy, resource unstructured.Unstructured) (response EngineResponseNew) {
+func ValidateNew(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
 	startTime := time.Now()
 	// policy information
 	func() {

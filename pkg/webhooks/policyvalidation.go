@@ -14,7 +14,7 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	var policy *kyverno.Policy
+	var policy *kyverno.ClusterPolicy
 	admissionResp := &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -38,7 +38,7 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	return admissionResp
 }
 
-func (ws *WebhookServer) validatePolicy(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) validatePolicy(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
 	admissionResp := ws.validateUniqueRuleName(policy)
 	if !admissionResp.Allowed {
 		return admissionResp
@@ -47,7 +47,7 @@ func (ws *WebhookServer) validatePolicy(policy *kyverno.Policy) *v1beta1.Admissi
 	return ws.validateOverlayPattern(policy)
 }
 
-func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
 	for _, rule := range policy.Spec.Rules {
 		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			continue
@@ -76,7 +76,7 @@ func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.Policy) *v1beta1
 }
 
 // Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.Policy) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
 	var ruleNames []string
 
 	for _, rule := range policy.Spec.Rules {

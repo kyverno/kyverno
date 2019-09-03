@@ -28,12 +28,12 @@ type FakeKyvernoV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV1alpha1) Policies() v1alpha1.PolicyInterface {
-	return &FakePolicies{c}
+func (c *FakeKyvernoV1alpha1) ClusterPolicies() v1alpha1.ClusterPolicyInterface {
+	return &FakeClusterPolicies{c}
 }
 
-func (c *FakeKyvernoV1alpha1) PolicyViolations() v1alpha1.PolicyViolationInterface {
-	return &FakePolicyViolations{c}
+func (c *FakeKyvernoV1alpha1) ClusterPolicyViolations() v1alpha1.ClusterPolicyViolationInterface {
+	return &FakeClusterPolicyViolations{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
