@@ -36,9 +36,6 @@ var (
 	ValidatingWebhookServicePath       = "/validate"
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	PolicyMutatingWebhookServicePath   = "/policymutate"
-	// KubePolicyAppLabels                = map[string]string{
-	// 	"app": "kyverno",
-	// }
 
 	SupportedKinds = []string{
 		"ConfigMap",

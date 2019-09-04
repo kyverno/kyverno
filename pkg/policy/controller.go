@@ -410,7 +410,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		// remove webhook configurations if there are not policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			// do not fail, if unable to delete resource webhook config
-			glog.V(4).Info("failed to remove resource webhook configuration: %v", err)
+			glog.V(4).Infof("failed to remove resource webhook configuration: %v", err)
 			glog.Errorln(err)
 		}
 		return nil
@@ -911,4 +911,3 @@ func convertRules(rules []RuleStatinfo) []kyverno.RuleStats {
 	}
 	return stats
 }
-
