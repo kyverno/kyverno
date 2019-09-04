@@ -13,7 +13,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -409,17 +408,21 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		// remove the recorded stats for the policy
 		pc.statusAggregator.RemovePolicyStats(key)
 		// remove webhook configurations if there are not policies
-		if err := pc.handleWebhookRegistration(true, nil); err != nil {
+		if err := pc.removeResourceWebhookConfiguration(); err != nil {
+			// do not fail, if unable to delete resource webhook config
+			glog.V(4).Info("failed to remove resource webhook configuration: %v", err)
 			glog.Errorln(err)
 		}
 		return nil
 	}
 
 	if err != nil {
+		glog.V(4).Info(err)
 		return err
 	}
 
-	if err := pc.handleWebhookRegistration(false, policy); err != nil {
+	if err := pc.createResourceMutatingWebhookConfigurationIfRequired(*policy); err != nil {
+		glog.V(4).Infof("failed to create resource mutating webhook configurations, policies wont be applied on resources: %v", err)
 		glog.Errorln(err)
 	}
 
@@ -438,47 +441,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	// fetch the policy again via the aggreagator to remain consistent
 	// return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
 	return pc.syncStatusOnly(p, pvList)
-}
-
-// TODO: here checks mutatingwebhook only
-// as 'kubectl scale' is not funtional with validatingwebhook
-// refer to https://github.com/nirmata/kyverno/issues/250
-func (pc *PolicyController) handleWebhookRegistration(delete bool, policy *kyverno.ClusterPolicy) error {
-	policies, _ := pc.pLister.List(labels.NewSelector())
-	selector := &metav1.LabelSelector{MatchLabels: config.KubePolicyAppLabels}
-	webhookSelector, err := metav1.LabelSelectorAsSelector(selector)
-	if err != nil {
-		return fmt.Errorf("invalid label selector: %v", err)
-	}
-
-	webhookList, err := pc.mutationwebhookLister.List(webhookSelector)
-	if err != nil {
-		return fmt.Errorf("failed to list mutatingwebhookconfigurations, err %v", err)
-	}
-
-	if delete {
-		if webhookList == nil {
-			return nil
-		}
-
-		// webhook exist, deregister webhookconfigurations on condition
-		// check empty policy first, then rule type in terms of O(time)
-		if policies == nil {
-			glog.V(3).Infoln("No policy found in the cluster, deregistering webhook")
-			pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
-		} else if !HasMutateOrValidatePolicies(policies) {
-			glog.V(3).Infoln("No muatate/validate policy found in the cluster, deregistering webhook")
-			pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
-		}
-		return nil
-	}
-
-	if webhookList == nil && HasMutateOrValidate(*policy) {
-		glog.V(3).Infoln("Found policy without mutatingwebhook, registering webhook")
-		pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration()
-	}
-
-	return nil
 }
 
 //syncStatusOnly updates the policy status subresource
@@ -929,23 +891,4 @@ func joinPatches(patches ...[]byte) []byte {
 	}
 	result = append(result, []byte("\n]")...)
 	return result
-}
-
-func HasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
-	for _, policy := range policies {
-		if HasMutateOrValidate(*policy) {
-			return true
-		}
-	}
-	return false
-}
-
-func HasMutateOrValidate(policy kyverno.ClusterPolicy) bool {
-	for _, rule := range policy.Spec.Rules {
-		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			glog.Infoln(rule.Name)
-			return true
-		}
-	}
-	return false
 }

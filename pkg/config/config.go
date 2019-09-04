@@ -7,13 +7,13 @@ const (
 	KubePolicyNamespace = "kyverno"
 	WebhookServiceName  = "kyverno-svc"
 
-	MutatingWebhookConfigurationName  = "kyverno-mutating-webhook-cfg"
-	MutatingWebhookConfigurationDebug = "kyverno-mutating-webhook-cfg-debug"
-	MutatingWebhookName               = "nirmata.kyverno.mutating-webhook"
+	MutatingWebhookConfigurationName      = "kyverno-resource-mutating-webhook-cfg"
+	MutatingWebhookConfigurationDebugName = "kyverno-resource-mutating-webhook-cfg-debug"
+	MutatingWebhookName                   = "nirmata.kyverno.resource.mutating-webhook"
 
-	ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
-	ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
-	ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
+	// ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
+	// ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
+	// ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
 
 	PolicyValidatingWebhookConfigurationName      = "kyverno-policy-validating-webhook-cfg"
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
@@ -36,9 +36,9 @@ var (
 	ValidatingWebhookServicePath       = "/validate"
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	PolicyMutatingWebhookServicePath   = "/policymutate"
-	KubePolicyAppLabels                = map[string]string{
-		"app": "kyverno",
-	}
+	// KubePolicyAppLabels                = map[string]string{
+	// 	"app": "kyverno",
+	// }
 
 	SupportedKinds = []string{
 		"ConfigMap",
