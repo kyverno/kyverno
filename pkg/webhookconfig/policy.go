@@ -13,8 +13,7 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   config.PolicyValidatingWebhookConfigurationName,
-			Labels: config.KubePolicyAppLabels,
+			Name: config.PolicyValidatingWebhookConfigurationName,
 			OwnerReferences: []v1.OwnerReference{
 				wrc.constructOwner(),
 			},
@@ -41,8 +40,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   config.PolicyValidatingWebhookConfigurationDebugName,
-			Labels: config.KubePolicyAppLabels,
+			Name: config.PolicyValidatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.Webhook{
 			generateDebugWebhook(
@@ -63,8 +61,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   config.PolicyMutatingWebhookConfigurationName,
-			Labels: config.KubePolicyAppLabels,
+			Name: config.PolicyMutatingWebhookConfigurationName,
 			OwnerReferences: []v1.OwnerReference{
 				wrc.constructOwner(),
 			},
@@ -90,8 +87,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(c
 
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   config.PolicyMutatingWebhookConfigurationDebugName,
-			Labels: config.KubePolicyAppLabels,
+			Name: config.PolicyMutatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.Webhook{
 			generateDebugWebhook(

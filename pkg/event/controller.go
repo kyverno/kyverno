@@ -71,6 +71,12 @@ func initRecorder(client *client.Client) record.EventRecorder {
 //Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
+		if info.Name == "" {
+			// dont create event for resources with generateName
+			// as the name is not generated yet
+			glog.V(4).Infof("recieved info %v, not creating an event as the resource has not been assigned a name yet", info)
+			continue
+		}
 		gen.queue.Add(info)
 	}
 }
@@ -140,7 +146,6 @@ func (gen *Generator) processNextWorkItem() bool {
 func (gen *Generator) syncHandler(key Info) error {
 	var robj runtime.Object
 	var err error
-
 	switch key.Kind {
 	case "Policy":
 		//TODO: policy is clustered resource so wont need namespace
