@@ -31,10 +31,24 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	// check for uniqueness of rule names while CREATE/DELET
 	admissionResp = ws.validateUniqueRuleName(policy)
 
-	if admissionResp.Allowed {
-		ws.manageWebhookConfigurations(*policy, request.Operation)
+	// helper function to evaluate if policy has validtion or mutation rules defined
+	hasMutateOrValidate := func() bool {
+		for _, rule := range policy.Spec.Rules {
+			if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+				return true
+			}
+		}
+		return false
 	}
 
+	if admissionResp.Allowed {
+		if hasMutateOrValidate() {
+			// create mutating resource mutatingwebhookconfiguration if not present
+			if err := ws.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
+				glog.Error("failed to created resource mutating webhook configuration, policies wont be applied on the resource")
+			}
+		}
+	}
 	return admissionResp
 }
 
