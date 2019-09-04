@@ -136,13 +136,15 @@ type PolicyStatus struct {
 //RuleStats provides status per rule
 type RuleStats struct {
 	// Rule name
-	RuleName string `json:"ruleName"`
+	Name string `json:"ruleName"`
 	// average time require to process the rule
 	ExecutionTime string `json:"averageExecutionTime"`
 	// Count of rules that were applied
-	RulesAppliedCount int `json:"rulesAppliedCount"`
-	// Could of rules that failed
-	RulesFailedCount int `json:"rulesFailedCount"`
+	AppliedCount int `json:"appliedCount"`
+	// Count of rules that failed
+	ViolationCount int `json:"violationCount"`
+	// Count of mutations
+	MutationCount int `json:"mutationsCount"`
 }
 
 // PolicyList is a list of Policy resources

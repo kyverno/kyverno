@@ -34,6 +34,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 			} else {
 				rs.RulesFailedCount++
 			}
+			if rule.Patches != nil {
+				rs.MutationCount++
+			}
 			ps.Stats.Rules = append(ps.Stats.Rules, rs)
 		}
 		policyStats = append(policyStats, ps)

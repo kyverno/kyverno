@@ -39,6 +39,9 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			} else {
 				rs.RulesFailedCount++
 			}
+			if rule.Patches != nil {
+				rs.MutationCount++
+			}
 			ps.Stats.Rules = append(ps.Stats.Rules, rs)
 		}
 		policyStats = append(policyStats, ps)

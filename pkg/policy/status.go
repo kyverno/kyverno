@@ -129,6 +129,7 @@ func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
 				rule.ExecutionTime = (rule.ExecutionTime + updateR.ExecutionTime) / 2
 				rule.RuleAppliedCount = rule.RuleAppliedCount + updateR.RuleAppliedCount
 				rule.RulesFailedCount = rule.RulesFailedCount + updateR.RulesFailedCount
+				rule.MutationCount = rule.MutationCount + updateR.MutationCount
 				newRules = append(newRules, *rule)
 			} else {
 				newRules = append(newRules, updateR)
@@ -192,6 +193,7 @@ type RuleStatinfo struct {
 	ExecutionTime    time.Duration
 	RuleAppliedCount int
 	RulesFailedCount int
+	MutationCount    int
 }
 
 //SendStat sends the stat information for aggregation

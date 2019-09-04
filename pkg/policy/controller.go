@@ -958,10 +958,11 @@ func convertRules(rules []RuleStatinfo) []kyverno.RuleStats {
 	var stats []kyverno.RuleStats
 	for _, r := range rules {
 		stat := kyverno.RuleStats{
-			RuleName:          r.RuleName,
-			ExecutionTime:     r.ExecutionTime.String(),
-			RulesAppliedCount: r.RuleAppliedCount,
-			RulesFailedCount:  r.RulesFailedCount,
+			Name:           r.RuleName,
+			ExecutionTime:  r.ExecutionTime.String(),
+			AppliedCount:   r.RuleAppliedCount,
+			ViolationCount: r.RulesFailedCount,
+			MutationCount:  r.MutationCount,
 		}
 		stats = append(stats, stat)
 	}
