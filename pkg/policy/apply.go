@@ -29,6 +29,18 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		ps.PolicyName = policyName
 		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
 		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
+		// capture rule level stats
+		for _, rule := range policyResponse.Rules {
+			rs := RuleStatinfo{}
+			rs.RuleName = rule.Name
+			rs.ExecutionTime = rule.RuleStats.ProcessingTime
+			if rule.Success {
+				rs.RuleAppliedCount++
+			} else {
+				rs.RulesFailedCount++
+			}
+			ps.Stats.Rules = append(ps.Stats.Rules, rs)
+		}
 		policyStats = append(policyStats, ps)
 	}
 	// send stats for aggregation

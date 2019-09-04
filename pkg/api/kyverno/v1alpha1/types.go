@@ -129,6 +129,20 @@ type PolicyStatus struct {
 	AvgExecutionTimeValidation string `json:"averageValidationRulesExecutionTime"`
 	// average time required to process the policy Validation rules on a resource
 	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
+	// statistics per rule
+	Rules []RuleStats `json:"ruleStatus`
+}
+
+//RuleStats provides status per rule
+type RuleStats struct {
+	// Rule name
+	RuleName string `json:"ruleName"`
+	// average time require to process the rule
+	ExecutionTime string `json:"averageExecutionTime"`
+	// Count of rules that were applied
+	RulesAppliedCount int `json:"rulesAppliedCount"`
+	// Could of rules that failed
+	RulesFailedCount int `json:"rulesFailedCount"`
 }
 
 // PolicyList is a list of Policy resources

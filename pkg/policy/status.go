@@ -73,7 +73,7 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 		glog.V(4).Infof("added stats for policy %s", ps.PolicyName)
 		return
 	}
-	// aggregate
+	// aggregate policy information
 	info.RulesAppliedCount = info.RulesAppliedCount + ps.Stats.RulesAppliedCount
 	if ps.Stats.ResourceBlocked == 1 {
 		info.ResourceBlocked++
@@ -97,9 +97,38 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 	} else {
 		info.GenerationExecutionTime = ps.Stats.GenerationExecutionTime
 	}
+	// aggregate rule details
+	info.Rules = aggregateRules(info.Rules, ps.Stats.Rules)
 	// update
 	psa.policyData[ps.PolicyName] = info
 	glog.V(4).Infof("updated stats for policy %s", ps.PolicyName)
+}
+
+func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
+	var zeroDuration time.Duration
+	searchRule := func(list []RuleStatinfo, key string) *RuleStatinfo {
+		for _, v := range list {
+			if v.RuleName == key {
+				return &v
+			}
+		}
+		return nil
+	}
+	newRules := []RuleStatinfo{}
+	// search for new rules in old rules and update it
+	for _, updateR := range update {
+		if updateR.ExecutionTime != zeroDuration {
+			if rule := searchRule(old, updateR.RuleName); rule != nil {
+				rule.ExecutionTime = (rule.ExecutionTime + updateR.ExecutionTime) / 2
+				rule.RuleAppliedCount = rule.RuleAppliedCount + updateR.RuleAppliedCount
+				rule.RulesFailedCount = rule.RulesFailedCount + updateR.RulesFailedCount
+				newRules = append(newRules, *rule)
+			} else {
+				newRules = append(newRules, updateR)
+			}
+		}
+	}
+	return newRules
 }
 
 //GetPolicyStats returns the policy stats
@@ -148,6 +177,14 @@ type PolicyStatInfo struct {
 	GenerationExecutionTime time.Duration
 	RulesAppliedCount       int
 	ResourceBlocked         int
+	Rules                   []RuleStatinfo
+}
+
+type RuleStatinfo struct {
+	RuleName         string
+	ExecutionTime    time.Duration
+	RuleAppliedCount int
+	RulesFailedCount int
 }
 
 //SendStat sends the stat information for aggregation
