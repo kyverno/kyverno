@@ -1,5 +1,5 @@
 apiVersion : kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   annotations:
     kyverno.io/category: images

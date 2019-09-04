@@ -1,5 +1,5 @@
 # apiVersion : kyverno.io/v1alpha1
-# kind: Policy
+# kind: ClusterPolicy
 # metadata:
 #   name: validate-host-dirs
 # spec:
@@ -19,7 +19,7 @@
 #               path: ""
 
 apiVersion : kyverno.io/v1alpha1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: validate-host-path
 spec:
