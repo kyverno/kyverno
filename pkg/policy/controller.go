@@ -466,15 +466,18 @@ func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno
 	}
 	// get stats
 	stats := pc.statusAggregator.GetPolicyStats(policyName)
-	if stats != (PolicyStatInfo{}) {
+	if !reflect.DeepEqual(stats, (PolicyStatInfo{})) {
 		status.RulesAppliedCount = stats.RulesAppliedCount
 		status.ResourcesBlockedCount = stats.ResourceBlocked
 		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
 		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
 		status.AvgExecutionTimeGeneration = stats.GenerationExecutionTime.String()
+		// update rule stats
+		status.Rules = convertRules(stats.Rules)
 	}
 	return status
 }
+
 func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolicy) ([]*kyverno.ClusterPolicyViolation, error) {
 	// List all PolicyViolation to find those we own but that no longer match our
 	// selector. They will be orphaned by ClaimPolicyViolation().
@@ -892,3 +895,20 @@ func joinPatches(patches ...[]byte) []byte {
 	result = append(result, []byte("\n]")...)
 	return result
 }
+
+// convertRules converts the internal rule stats to one used in policy.stats struct
+func convertRules(rules []RuleStatinfo) []kyverno.RuleStats {
+	var stats []kyverno.RuleStats
+	for _, r := range rules {
+		stat := kyverno.RuleStats{
+			Name:           r.RuleName,
+			ExecutionTime:  r.ExecutionTime.String(),
+			AppliedCount:   r.RuleAppliedCount,
+			ViolationCount: r.RulesFailedCount,
+			MutationCount:  r.MutationCount,
+		}
+		stats = append(stats, stat)
+	}
+	return stats
+}
+
