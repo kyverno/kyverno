@@ -67,6 +67,12 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 		glog.V(4).Infof("write Unlock update policy %s", ps.PolicyName)
 		psa.mux.Unlock()
 	}()
+
+	if len(ps.Stats.Rules) == 0 {
+		glog.V(4).Infof("ignoring stats, as no rule was applied")
+		return
+	}
+
 	info, ok := psa.policyData[ps.PolicyName]
 	if !ok {
 		psa.policyData[ps.PolicyName] = ps.Stats
@@ -105,6 +111,7 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 }
 
 func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
+	glog.V(4).Info(update)
 	var zeroDuration time.Duration
 	searchRule := func(list []RuleStatinfo, key string) *RuleStatinfo {
 		for _, v := range list {
