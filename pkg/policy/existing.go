@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []engine.EngineResponseNew {
@@ -45,10 +47,10 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 	for _, rule := range policy.Spec.Rules {
 		// resources that match
 		for _, k := range rule.MatchResources.Kinds {
-			if kindIsExcluded(k, rule.ExcludeResources.Kinds) {
-				glog.V(4).Infof("processing policy %s rule %s: kind %s is exluded", policy.Name, rule.Name, k)
-				continue
-			}
+			// if kindIsExcluded(k, rule.ExcludeResources.Kinds) {
+			// 	glog.V(4).Infof("processing policy %s rule %s: kind %s is exluded", policy.Name, rule.Name, k)
+			// 	continue
+			// }
 			var namespaces []string
 			if k == "Namespace" {
 				// TODO
@@ -65,7 +67,7 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 				namespaces = getAllNamespaces(client)
 			}
 			// check if exclude namespace is not clashing
-			namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespaces)
+			// namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespaces)
 
 			// get resources in the namespaces
 			for _, ns := range namespaces {
@@ -81,7 +83,8 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	// merge include and exclude label selector values
-	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
+	ls := rule.MatchResources.Selector
+	//	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
 	// list resources
 	glog.V(4).Infof("get resources for kind %s, namespace %s, selector %v", kind, namespace, rule.MatchResources.Selector)
 	list, err := client.ListResource(kind, namespace, ls)
@@ -98,13 +101,13 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 				continue
 			}
 		}
-		// exclude name
-		if rule.ExcludeResources.Name != "" {
-			if wildcard.Match(rule.ExcludeResources.Name, r.GetName()) {
-				glog.V(4).Infof("skipping resource %s/%s due to exclude condition name=%s mistatch", r.GetNamespace(), r.GetName(), rule.MatchResources.Name)
-				continue
-			}
-		}
+		// // exclude name
+		// if rule.ExcludeResources.Name != "" {
+		// 	if wildcard.Match(rule.ExcludeResources.Name, r.GetName()) {
+		// 		glog.V(4).Infof("skipping resource %s/%s due to exclude condition name=%s mistatch", r.GetNamespace(), r.GetName(), rule.MatchResources.Name)
+		// 		continue
+		// 	}
+		// }
 		// Skip the filtered resources
 		if utils.SkipFilteredResources(r.GetKind(), r.GetNamespace(), r.GetName(), filterK8Resources) {
 			continue
@@ -113,8 +116,115 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		//TODO check if the group version kind is present or not
 		resourceMap[string(r.GetUID())] = r
 	}
+
+	// All the included resource
+	// Need to exclude
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription)
 	return resourceMap
 }
+
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription) {
+	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
+		return
+	}
+	excludeName := func(name string) Condition {
+		if exclude.Name == "" {
+			return NotEvaluate
+		}
+		if wildcard.Match(exclude.Name, name) {
+			return Skip
+		}
+		return Process
+	}
+
+	excludeNamespace := func(namespace string) Condition {
+		if len(exclude.Namespaces) == 0 {
+			return NotEvaluate
+		}
+		if utils.Contains(exclude.Namespaces, namespace) {
+			return Skip
+		}
+		return Process
+	}
+
+	excludeSelector := func(labelsMap map[string]string) Condition {
+		if exclude.Selector == nil {
+			return NotEvaluate
+		}
+		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+		// if the label selector is incorrect, should be fail or
+		if err != nil {
+			glog.Error(err)
+			return Skip
+		}
+		if selector.Matches(labels.Set(labelsMap)) {
+			return Skip
+		}
+		return Process
+	}
+
+	findKind := func(kind string, kinds []string) bool {
+		for _, k := range kinds {
+			if k == kind {
+				return true
+			}
+		}
+		return false
+	}
+
+	excludeKind := func(kind string) Condition {
+		if len(exclude.Kinds) == 0 {
+			return NotEvaluate
+		}
+
+		if findKind(kind, exclude.Kinds) {
+			return Skip
+		}
+
+		return Process
+	}
+
+	// check exclude condition for each resource
+	for uid, resource := range included {
+		// 0 -> dont check
+		// 1 -> is not to be exclude
+		// 2 -> to be exclude
+		excludeEval := []Condition{}
+
+		if ret := excludeName(resource.GetName()); ret != NotEvaluate {
+			excludeEval = append(excludeEval, ret)
+		}
+		if ret := excludeNamespace(resource.GetNamespace()); ret != NotEvaluate {
+			excludeEval = append(excludeEval, ret)
+		}
+		if ret := excludeSelector(resource.GetLabels()); ret != NotEvaluate {
+			excludeEval = append(excludeEval, ret)
+		}
+		if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
+			excludeEval = append(excludeEval, ret)
+		}
+
+		func() bool {
+			for _, ret := range excludeEval {
+				if ret == Process {
+					// Process the resources
+					continue
+				}
+			}
+			// Skip the resource from processing
+			delete(included, uid)
+			return false
+		}()
+	}
+}
+
+type Condition int
+
+const (
+	NotEvaluate Condition = 0
+	Process     Condition = 1
+	Skip        Condition = 2
+)
 
 // merge b into a map
 func mergeresources(a, b map[string]unstructured.Unstructured) {
