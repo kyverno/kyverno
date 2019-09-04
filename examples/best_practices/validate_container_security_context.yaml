@@ -8,7 +8,8 @@ spec:
   - name: check-root-user
     exclude:
       resources:
-        namespace: kube-system
+        namespaces: 
+        - kube-system
     match:
       resources:
         kinds:
@@ -28,7 +29,8 @@ spec:
   - name: check-privilege
     exclude:
       resources:
-        namespace: kube-system
+        namespaces: 
+        - kube-system
     match:
       resources:
         kinds:
