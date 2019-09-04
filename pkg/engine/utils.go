@@ -205,22 +205,10 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 			return false
 		}
 	}
-	// Exclude
-	// the resource name matches the exclude resource name then reject
-	if exclude.Name != "" {
-		if wildcard.Match(exclude.Name, name) {
-			return false
-		}
-	}
 
 	// Matches
 	// check if the resource namespace is defined in the list of namespaces for inclusion
 	if len(matches.Namespaces) > 0 && !utils.Contains(matches.Namespaces, namespace) {
-		return false
-	}
-	// Exclude
-	// check if the resource namespace is defined in the list of namespace for exclusion
-	if len(exclude.Namespaces) > 0 && utils.Contains(exclude.Namespaces, namespace) {
 		return false
 	}
 
@@ -235,89 +223,92 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 			return false
 		}
 	}
-	// Exclude
-	if exclude.Selector != nil {
+
+	excludeName := func(name string) Condition {
+		if exclude.Name == "" {
+			return NotEvaluate
+		}
+		if wildcard.Match(exclude.Name, name) {
+			return Skip
+		}
+		return Process
+	}
+
+	excludeNamespace := func(namespace string) Condition {
+		if len(exclude.Namespaces) == 0 {
+			return NotEvaluate
+		}
+		if utils.Contains(exclude.Namespaces, namespace) {
+			return Skip
+		}
+		return Process
+	}
+
+	excludeSelector := func(labelsMap map[string]string) Condition {
+		if exclude.Selector == nil {
+			return NotEvaluate
+		}
 		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
 		// if the label selector is incorrect, should be fail or
 		if err != nil {
 			glog.Error(err)
-			return false
+			return Skip
 		}
-		if selector.Matches(labels.Set(resource.GetLabels())) {
-			return false
+		if selector.Matches(labels.Set(labelsMap)) {
+			return Skip
 		}
+		return Process
 	}
+
+	excludeKind := func(kind string) Condition {
+		if len(exclude.Kinds) == 0 {
+			return NotEvaluate
+		}
+
+		if findKind(exclude.Kinds, kind) {
+			return Skip
+		}
+
+		return Process
+	}
+
+	// 0 -> dont check
+	// 1 -> is not to be exclude
+	// 2 -> to be exclude
+	excludeEval := []Condition{}
+
+	if ret := excludeName(resource.GetName()); ret != NotEvaluate {
+		excludeEval = append(excludeEval, ret)
+	}
+	if ret := excludeNamespace(resource.GetNamespace()); ret != NotEvaluate {
+		excludeEval = append(excludeEval, ret)
+	}
+	if ret := excludeSelector(resource.GetLabels()); ret != NotEvaluate {
+		excludeEval = append(excludeEval, ret)
+	}
+	if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
+		excludeEval = append(excludeEval, ret)
+	}
+	// Filtered NotEvaluate
+
+	func() bool {
+		for _, ret := range excludeEval {
+			if ret == Process {
+				return true
+			}
+		}
+		return false
+	}()
 	return true
 }
 
-// // ResourceMeetsDescription checks requests kind, name and labels to fit the policy rule
-// func ResourceMeetsDescription(resourceRaw []byte, matches kyverno.ResourceDescription, exclude kyverno.ResourceDescription, gvk metav1.GroupVersionKind) bool {
-// 	if !findKind(matches.Kinds, gvk.Kind) {
-// 		return false
-// 	}
+type Condition int
 
-// 	if resourceRaw != nil {
-// 		meta := parseMetadataFromObject(resourceRaw)
-// 		name := ParseNameFromObject(resourceRaw)
-// 		namespace := ParseNamespaceFromObject(resourceRaw)
-
-// 		if matches.Name != "" {
-// 			// Matches
-// 			if !wildcard.Match(matches.Name, name) {
-// 				return false
-// 			}
-// 		}
-// 		// Exclude
-// 		// the resource name matches the exclude resource name then reject
-// 		if exclude.Name != "" {
-// 			if wildcard.Match(exclude.Name, name) {
-// 				return false
-// 			}
-// 		}
-// 		// Matches
-// 		// check if the resource namespace is defined in the list of namespaces for inclusion
-// 		if len(matches.Namespaces) > 0 && !utils.Contains(matches.Namespaces, namespace) {
-// 			return false
-// 		}
-// 		// Exclude
-// 		// check if the resource namespace is defined in the list of namespace for exclusion
-// 		if len(exclude.Namespaces) > 0 && utils.Contains(exclude.Namespaces, namespace) {
-// 			return false
-// 		}
-// 		// Matches
-// 		if matches.Selector != nil {
-// 			selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
-// 			if err != nil {
-// 				glog.Error(err)
-// 				return false
-// 			}
-// 			if meta != nil {
-// 				labelMap := parseLabelsFromMetadata(meta)
-// 				if !selector.Matches(labelMap) {
-// 					return false
-// 				}
-// 			}
-// 		}
-// 		// Exclude
-// 		if exclude.Selector != nil {
-// 			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
-// 			// if the label selector is incorrect, should be fail or
-// 			if err != nil {
-// 				glog.Error(err)
-// 				return false
-// 			}
-
-// 			if meta != nil {
-// 				labelMap := parseLabelsFromMetadata(meta)
-// 				if selector.Matches(labelMap) {
-// 					return false
-// 				}
-// 			}
-// 		}
-
-// 	}
-// 	return true
-// }
+const (
+	NotEvaluate Condition = 0
+	Process     Condition = 1
+	Skip        Condition = 2
+)
 
 // ParseResourceInfoFromObject get kind/namepace/name from resource
 func ParseResourceInfoFromObject(rawResource []byte) string {
