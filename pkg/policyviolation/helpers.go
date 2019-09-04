@@ -81,6 +81,11 @@ func buildPVForPolicy(er engine.EngineResponseNew) kyverno.ClusterPolicyViolatio
 func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponseNew) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
+		// ignore creation of PV for resoruces that are yet to be assigned a name
+		if er.PolicyResponse.Resource.Name == "" {
+			glog.V(4).Infof("resource %v, has not been assigned a name. not creating a policy violation for it", er.PolicyResponse.Resource)
+			continue
+		}
 		if !er.IsSuccesful() {
 			if pv := buildPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.ClusterPolicyViolation{}) {
 				pvs = append(pvs, pv)
