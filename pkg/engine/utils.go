@@ -291,7 +291,11 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	}
 	// Filtered NotEvaluate
 
-	func() bool {
+	if len(excludeEval) == 0 {
+		// nothing to exclude
+		return true
+	}
+	return func() bool {
 		for _, ret := range excludeEval {
 			if ret == Process {
 				return true
@@ -299,7 +303,6 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 		}
 		return false
 	}()
-	return true
 }
 
 type Condition int
