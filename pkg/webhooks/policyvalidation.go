@@ -35,7 +35,6 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	hasMutateOrValidate := func() bool {
 		for _, rule := range policy.Spec.Rules {
 			if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-				glog.Infoln(rule.Name)
 				return true
 			}
 		}
