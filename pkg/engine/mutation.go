@@ -51,7 +51,7 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse RuleResponse
-			ruleResponse, patchedResource = processOverlayNew(rule, resource)
+			ruleResponse, patchedResource = processOverlay(rule, resource)
 			if reflect.DeepEqual(ruleResponse, (RuleResponse{})) {
 				// overlay pattern does not match the resource conditions
 				continue
@@ -63,7 +63,7 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		// Process Patches
 		if rule.Mutation.Patches != nil {
 			var ruleResponse RuleResponse
-			ruleResponse, patchedResource = processPatchesNew(rule, resource)
+			ruleResponse, patchedResource = processPatches(rule, resource)
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
