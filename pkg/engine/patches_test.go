@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 )
@@ -35,9 +36,13 @@ const endpointsDocument string = `{
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
 	var emptyRule = types.Rule{}
-	patches, err := processPatches(emptyRule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 1)
-	assert.Assert(t, len(patches) == 0)
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(emptyRule, *resourceUnstructured)
+	assert.Check(t, rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func makeAddIsMutatedLabelPatch() types.Patch {
@@ -64,42 +69,54 @@ func makeRuleWithPatches(patches []types.Patch) types.Rule {
 
 func TestProcessPatches_EmptyDocument(t *testing.T) {
 	rule := makeRuleWithPatch(makeAddIsMutatedLabelPatch())
-	patchesBytes, err := processPatches(rule, nil)
-	assert.Assert(t, err != nil)
-	assert.Assert(t, len(patchesBytes) == 0)
+	rr, _ := processPatches(rule, unstructured.Unstructured{})
+	assert.Assert(t, !rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_AllEmpty(t *testing.T) {
 	emptyRule := types.Rule{}
-	patchesBytes, err := processPatches(emptyRule, nil)
-	assert.Check(t, len(err) == 1)
-	assert.Assert(t, len(patchesBytes) == 0)
+	rr, _ := processPatches(emptyRule, unstructured.Unstructured{})
+	assert.Check(t, !rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	patch := makeAddIsMutatedLabelPatch()
 	patch.Path = "/metadata/additional/is-mutated"
 	rule := makeRuleWithPatch(patch)
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 1)
-	assert.Assert(t, len(patchesBytes) == 0)
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, !rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	patch := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(patch)
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 0)
-	assert.Assert(t, len(patchesBytes) == 0)
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
 	patch1 := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := types.Patch{Path: "/spec/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches([]types.Patch{patch1, patch2})
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 1)
-	assert.Assert(t, len(patchesBytes) == 0)
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, !rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResult(t *testing.T) {
@@ -107,28 +124,40 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 	patch2 := types.Patch{Path: "/spec/labels/label2", Operation: "remove", Value: "label2Value"}
 	patch3 := types.Patch{Path: "/metadata/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches([]types.Patch{patch1, patch2, patch3})
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 0)
-	assert.Assert(t, len(patchesBytes) != 0)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, patchesBytes[0])
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, rr.Success)
+	assert.Assert(t, len(rr.Patches) != 0)
+	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, rr.Patches[0])
 }
 
 func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 	patch := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(patch)
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 0)
-	assert.Assert(t, len(patchesBytes) == 0)
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, rr.Success)
+	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	patch1 := types.Patch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := types.Patch{Path: "/metadata/labels/label2", Operation: "add", Value: "label2Value"}
 	rule := makeRuleWithPatches([]types.Patch{patch1, patch2})
-	patchesBytes, err := processPatches(rule, []byte(endpointsDocument))
-	assert.Check(t, len(err) == 0)
-	assert.Assert(t, len(patchesBytes) == 1)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, patchesBytes[0])
+	resourceUnstructured, err := ConvertToUnstructured([]byte(endpointsDocument))
+	if err != nil {
+		t.Error(err)
+	}
+	rr, _ := processPatches(rule, *resourceUnstructured)
+	assert.Check(t, rr.Success)
+	assert.Assert(t, len(rr.Patches) == 1)
+	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches[0])
 }
 
 func assertEqDataImpl(t *testing.T, expected, actual []byte, formatModifier string) {
