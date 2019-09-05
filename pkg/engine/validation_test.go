@@ -288,7 +288,8 @@ func TestValidateMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -383,7 +384,8 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	t.Log(path)
 	assert.NilError(t, err)
 }
 
@@ -475,7 +477,8 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -562,7 +565,8 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -652,7 +656,8 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/template/spec/containers/0/")
 	assert.Assert(t, err != nil)
 }
 
@@ -742,7 +747,8 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -831,7 +837,8 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateMap(resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -872,7 +879,8 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -904,7 +912,8 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -957,7 +966,8 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -1010,7 +1020,8 @@ func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1063,7 +1074,8 @@ func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1116,7 +1128,8 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1169,7 +1182,8 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
 
@@ -1222,7 +1236,8 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1275,7 +1290,8 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
 
@@ -1325,7 +1341,8 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
 
@@ -1378,7 +1395,8 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1479,7 +1497,8 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	json.Unmarshal(rawPattern, &pattern)
 	json.Unmarshal(rawMap, &resource)
 
-	err := validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/0/object/0/key2/")
 	assert.Assert(t, err != nil)
 }
 
@@ -1670,4 +1689,174 @@ func TestValidate_MapHasFloats(t *testing.T) {
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
 	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
+}
+
+func TestValidate_image_tag(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-image"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "validate-tag",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "An image tag is required",
+					"pattern": {
+					   "spec": {
+						  "containers": [
+							 {
+								"image": "*:*"
+							 }
+						  ]
+					   }
+					}
+				 }
+			  },
+			  {
+				 "name": "validate-latest",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "imagePullPolicy 'Always' required with tag 'latest'",
+					"pattern": {
+					   "spec": {
+						  "containers": [
+							 {
+								"(image)": "*latest",
+								"imagePullPolicy": "Always"
+							 }
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "myapp"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	msgs := []string{
+		"Validation rule 'validate-tag' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. An image tag is required",
+		"Validation rule 'validate-latest' succesfully validated",
+	}
+	er := Validate(policy, *resourceUnstructured)
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_Fail_anyPattern(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-namespace"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "check-default-namespace",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "A namespace is required",
+					"anyPattern": [
+					   {
+						  "metadata": {
+							 "namespace": "?*"
+						  }
+					   },
+					   {
+						  "metadata": {
+							 "namespace": "!default"
+						  }
+					   }
+					]
+				 }
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "myapp"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'check-default-namespace' failed to validate patterns defined in anyPattern. A namespace is required; anyPattern[0] failed at path /metadata/namespace/; anyPattern[1] failed at path /metadata/namespace/"}
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
 }

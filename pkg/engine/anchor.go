@@ -3,6 +3,8 @@ package engine
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/golang/glog"
 )
 
 // CreateAnchorHandler is a factory that create anchor handlers
@@ -22,7 +24,7 @@ func CreateAnchorHandler(anchor string, pattern interface{}, path string) Valida
 // resourcePart must be an array of dictionaries
 // patternPart must be a dictionary with anchors
 type ValidationAnchorHandler interface {
-	Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) error
+	Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error)
 }
 
 // NoAnchorValidationHandler just calls validateMap
@@ -40,23 +42,23 @@ func NewNoAnchorValidationHandler(path string) ValidationAnchorHandler {
 }
 
 // Handle performs validation in context of NoAnchorValidationHandler
-func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) error {
+func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
 
 	for i, resourceElement := range resourcePart {
 		currentPath := navh.path + strconv.Itoa(i) + "/"
 
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
+			return currentPath, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
 		}
 
-		err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
+		path, err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
 		if err != nil {
-			return err
+			return path, err
 		}
 	}
 
-	return nil
+	return "", nil
 }
 
 // ConditionAnchorValidationHandler performs
@@ -80,10 +82,10 @@ func NewConditionAnchorValidationHandler(anchor string, pattern interface{}, pat
 }
 
 // Handle performs validation in context of ConditionAnchorValidationHandler
-func (cavh *ConditionAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) error {
-	_, handlingResult := handleConditionCases(resourcePart, patternPart, cavh.anchor, cavh.pattern, cavh.path, originPattern)
+func (cavh *ConditionAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
+	_, path, handlingResult := handleConditionCases(resourcePart, patternPart, cavh.anchor, cavh.pattern, cavh.path, originPattern)
 
-	return handlingResult
+	return path, handlingResult
 }
 
 // ExistanceAnchorValidationHandler performs
@@ -109,16 +111,16 @@ func NewExistanceAnchorValidationHandler(anchor string, pattern interface{}, pat
 }
 
 // Handle performs validation in context of ExistanceAnchorValidationHandler
-func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) error {
-	anchoredEntries, err := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path, originPattern)
+func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
+	anchoredEntries, path, err := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path, originPattern)
 	if err != nil {
-		return err
+		return path, err
 	}
 	if 0 == anchoredEntries {
-		return fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eavh.anchor)
+		return path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eavh.anchor)
 	}
 
-	return nil
+	return "", nil
 }
 
 // check if array element fits the anchor
@@ -135,7 +137,7 @@ func checkForAnchorCondition(anchor string, pattern interface{}, resourceMap map
 // both () and ^() are checking conditions and have a lot of similar logic
 // the only difference is that ^() requires existace of one element
 // anchoredEntries var counts this occurences.
-func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string, originPattern interface{}) (int, error) {
+func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string, originPattern interface{}) (int, string, error) {
 	anchoredEntries := 0
 
 	for i, resourceElement := range resourcePart {
@@ -143,7 +145,8 @@ func handleConditionCases(resourcePart []interface{}, patternPart map[string]int
 
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
 		if !ok {
-			return 0, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
+			glog.V(4).Infof("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
+			return 0, currentPath, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
 		}
 
 		if !checkForAnchorCondition(anchor, pattern, typedResourceElement) {
@@ -151,11 +154,11 @@ func handleConditionCases(resourcePart []interface{}, patternPart map[string]int
 		}
 
 		anchoredEntries++
-		err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
+		path, err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
 		if err != nil {
-			return 0, err
+			return 0, path, err
 		}
 	}
 
-	return anchoredEntries, nil
+	return anchoredEntries, "", nil
 }

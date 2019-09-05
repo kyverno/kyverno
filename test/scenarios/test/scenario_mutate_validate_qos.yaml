@@ -28,5 +28,5 @@ expected:
       rules:
         - name: check-cpu-memory-limits
           type: Validation
-          message: validation pattern succesfully validated
+          message: Validation rule 'check-cpu-memory-limits' succesfully validated
           success: true     
