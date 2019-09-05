@@ -14,5 +14,5 @@ expected:
       rules:
         - name: check-root-user
           type: Validation
-          message: 1/2 patterns succesfully validated
-          success: true
+          message: Validation rule 'check-root-user' failed to validate patterns defined in anyPattern. Root user is not allowed. Set runAsNonRoot to true.; anyPattern[0] failed at path /spec/securityContext/; anyPattern[1] failed at path /spec/containers/0/securityContext/
+          success: false

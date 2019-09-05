@@ -56,7 +56,7 @@ spec :
           # Selector is optional
           selector:
       validate:
-        # Message is optional
+        # Message is optional, used to report custom message if the rule condition fails
         message: "The label app is required"    
         pattern:
           spec:
