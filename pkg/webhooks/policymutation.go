@@ -60,9 +60,9 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []st
 }
 
 func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, string) {
-	// default ValidationFailureAction to "enforce" if not specified
+	// default ValidationFailureAction to "audit" if not specified
 	if policy.Spec.ValidationFailureAction == "" {
-		glog.V(4).Infof("defaulting policy %s 'ValidationFailureAction' to '%s'", policy.Name, BlockChanges)
+		glog.V(4).Infof("defaulting policy %s 'ValidationFailureAction' to '%s'", policy.Name, Audit)
 		jsonPatch := struct {
 			Path  string `json:"path"`
 			Op    string `json:"op"`
@@ -70,15 +70,15 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, stri
 		}{
 			"/spec/validationFailureAction",
 			"add",
-			BlockChanges, //enforce
+			Audit, //audit
 		}
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			glog.Errorf("failed to set default 'ValidationFailureAction' to '%s' for policy %s", BlockChanges, policy.Name)
+			glog.Errorf("failed to set default 'ValidationFailureAction' to '%s' for policy %s", Audit, policy.Name)
 			return nil, ""
 		}
-		glog.V(4).Infof("generate JSON Patch to set default 'ValidationFailureAction' to '%s' for policy %s", BlockChanges, policy.Name)
-		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", BlockChanges)
+		glog.V(4).Infof("generate JSON Patch to set default 'ValidationFailureAction' to '%s' for policy %s", Audit, policy.Name)
+		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
 	}
 	return nil, ""
 }
