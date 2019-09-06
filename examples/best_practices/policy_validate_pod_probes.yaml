@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-probes
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: check-probes
+    match:
+      resources:
+        kinds:
+        - Pod
+    # exclude:
+    #   namespaces:
+    #     - kube-system
+    validate:
+      message: "Liveness and readiness probes are required"
+      pattern:
+        spec:
+          containers:
+            livenessProbe:
+              periodSeconds: ">0"      
+            readinessProbe:
+              periodSeconds: ">0"
+
