@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: examples/policy_validate_healthChecks.yaml
-  resource: examples/resource_validate_healthChecks.yaml
+  resource: examples/resources/resource_validate_healthChecks.yaml
 expected:
   validation:
     policyresponse:

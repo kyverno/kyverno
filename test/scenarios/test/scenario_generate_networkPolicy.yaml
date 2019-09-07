@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: examples/policy_generate_networkPolicy.yaml
-  resource: examples/resource_generate_networkPolicy.yaml
+  resource: examples/resources/resource_generate_networkPolicy.yaml
 expected:
   generation:
     generatedResources:
