@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-user-privilege
           type: Validation
-          message: validation pattern succesfully validated
+          message: Validation rule 'validate-user-privilege' succesfully validated
           success: true     

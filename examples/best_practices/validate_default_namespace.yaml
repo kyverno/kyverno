@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-namespace
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: check-default-namespace
     match:

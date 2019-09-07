@@ -10,6 +10,9 @@ kind : ClusterPolicy
 metadata :
   name : policy
 spec :
+  # 'enforce' to block resource request if any rules fail
+  # 'audit' to allow resource request on failure of rules, but create policy violations to report them
+  validationFailureAction: enforce
   # Each policy has a list of rules applied in declaration order
   rules:
     # Rules must have a unique name

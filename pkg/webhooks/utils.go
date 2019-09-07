@@ -18,16 +18,16 @@ func isResponseSuccesful(engineReponses []engine.EngineResponseNew) bool {
 	return true
 }
 
-// returns true -> if there is even one policy that blocks resource requst
+// returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []engine.EngineResponseNew) bool {
 	for _, er := range engineReponses {
-		if er.PolicyResponse.ValidationFailureAction != ReportViolation {
-			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource ceation", er.PolicyResponse.Policy)
+		if er.PolicyResponse.ValidationFailureAction == Enforce {
+			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
 			return true
 		}
 	}
-	glog.V(4).Infoln("ValidationFailureAction set to audit, allowing resource creation, reporting with violation")
+	glog.V(4).Infoln("ValidationFailureAction set to audit, allowing resource request, reporting with policy violation")
 	return false
 }
 
@@ -78,8 +78,8 @@ func getApplicableKindsForPolicy(p *kyverno.ClusterPolicy) []string {
 
 // Policy Reporting Modes
 const (
-	BlockChanges    = "enforce"
-	ReportViolation = "audit"
+	Enforce = "enforce" // blocks the request on failure
+	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
 )
 
 func processResourceWithPatches(patch []byte, resource []byte) []byte {

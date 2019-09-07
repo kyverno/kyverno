@@ -2,9 +2,7 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -14,41 +12,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 )
-
-// ProcessPatches Returns array from separate patches that can be applied to the document
-// Returns error ONLY in case when creation of resource should be denied.
-// TODO: pass in the unstructured object in stead of raw byte?
-func processPatches(rule kyverno.Rule, resource []byte) (allPatches [][]byte, errs []error) {
-	if len(resource) == 0 {
-		errs = append(errs, errors.New("Source document for patching is empty"))
-		return nil, errs
-	}
-	if reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
-		errs = append(errs, errors.New("No Mutation rules defined"))
-		return nil, errs
-	}
-	patchedDocument := resource
-	for _, patch := range rule.Mutation.Patches {
-		patchRaw, err := json.Marshal(patch)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		patches := [][]byte{patchRaw}
-		patchedDocument, err = ApplyPatches(patchedDocument, patches)
-		// TODO: continue on error if one of the patches fails, will add the failure event in such case
-		if patch.Operation == "remove" {
-			glog.Info(err)
-			continue
-		}
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		allPatches = append(allPatches, patchRaw)
-	}
-	return allPatches, errs
-}
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
 func JoinPatches(patches [][]byte) []byte {
@@ -104,7 +67,7 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 
 }
 
-func processPatchesNew(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
+func processPatches(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started JSON patch rule %q (%v)", rule.Name, startTime)
 	response.Name = rule.Name

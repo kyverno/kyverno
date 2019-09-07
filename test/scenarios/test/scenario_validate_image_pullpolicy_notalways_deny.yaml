@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_image_pullpolicy_notalways_deny.yaml
+  resource: examples/best_practices/resource_validate_image_pullpolicy_notalways_deny.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-image-pullpolicy-notalways
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: image-pullpolicy-notalways
+          type: Validation
+          message: "Validation rule 'image-pullpolicy-notalways' failed at '/spec/containers/0/imagePullPolicy/' for resource Pod//myapp-pod. image pull policy 'Always' forbidden"
+          success: false    

@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_image_tag_latest_deny.yaml
+  resource: examples/best_practices/resource_validate_image_tag_latest_pass.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-image-tag-notlatest
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: image-tag-notlatest
+          type: Validation
+          message: "Validation rule 'image-tag-notlatest' succesfully validated"
+          success: true

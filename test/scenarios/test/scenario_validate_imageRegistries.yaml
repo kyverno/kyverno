@@ -14,5 +14,5 @@ expected:
       rules:
         - name: check-registries
           type: Validation
-          message: validation pattern succesfully validated
+          message: Validation rule 'check-registries' succesfully validated
           success: true
