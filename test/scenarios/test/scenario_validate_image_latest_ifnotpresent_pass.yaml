@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: examples/best_practices/policy_validate_image_latest_ifnotpresent_deny.yaml
-  resource: examples/best_practices/resource_validate_image_latest_ifnotpresent_pass.yaml
+  resource: examples/best_practices/resources/resource_validate_image_latest_ifnotpresent_pass.yaml
 expected:
   validation:
     policyresponse:

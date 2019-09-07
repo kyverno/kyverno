@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: examples/policy_validate_nonRootUser.yaml
-  resource: examples/resource_validate_nonRootUser.yaml
+  resource: examples/resources/resource_validate_nonRootUser.yaml
 expected:
   validation:
     policyresponse:
