@@ -1,0 +1,17 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-pullpolicy-notalways
+spec:
+  rules:
+  - name: image-pullpolicy-notalways
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "image pull policy 'Always' forbidden"  
+      pattern:
+        spec:
+          containers:
+          - imagePullPolicy: "!Always"

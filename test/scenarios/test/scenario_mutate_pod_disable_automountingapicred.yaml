@@ -1,0 +1,19 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_mutate_pod_disable_automountingapicred.yaml
+  resource: examples/best_practices/resource_mutate_pod_disable_automountingapicred.yaml
+expected:
+  mutation:
+    patchedresource: test/output/output_mutate_pod_disable_automoutingapicred.yaml
+    policyresponse:
+      policy: mutate-pod-disable-automoutingapicred
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: pod-disable-automoutingapicred
+          type: Mutation
+          message: "succesfully process overlay"
+          success: true
