@@ -1,0 +1,22 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_container_security_context.yaml
+  resource: examples/best_practices/resources/resource_validate_container_security_context.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: check-container-security-context
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: check-container-security-context
+      rules:
+        - name: check-root-user
+          type: Validation
+          message: "Validation rule 'check-root-user' anyPattern[0] succesfully validated"
+          success: true
+        - name: check-privilege
+          type: Validation
+          message: "Validation rule 'check-privilege' failed at '/spec/containers/0/securityContext/allowPrivilegeEscalation/' for resource Pod//check-container-security-context. Privileged mode is not allowed. Set allowPrivilegeEscalatin and privileged to false"
+          success: false

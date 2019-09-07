@@ -18,6 +18,10 @@ func Test_validate_containerSecurityContext(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_containerSecurityContext.yaml")
 }
 
+func Test_validate_checkContainerSecurityContext(t *testing.T) {
+	testScenario(t, "/test/scenarios/test/scenario_validate_container_security_context.yaml")
+}
+
 func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_healthChecks.yaml")
 }
