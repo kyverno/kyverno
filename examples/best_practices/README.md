@@ -1,21 +1,19 @@
 # Best Practice Policies
 
-This folder contains recommended policies
-
 | Best practice                                  | Policy
 |------------------------------------------------|-----------------------------------------------------------------------|
-| Run as non-root user                           |                                                                       |
-| Disallow privileged and privilege escalation   |                                                                       |
-| Disallow use of host networking and ports      |                                                                       |
-| Disallow use of host filesystem                |                                                                       |
+| Run as non-root user                           | [policy_validate_deny_runasrootuser.yaml](policy_validate_deny_runasrootuser.yaml)                                                                           |
+| Disallow privileged and privilege escalation   | [policy_validate_container_disallow_priviledgedprivelegesecalation.yaml](policy_validate_container_disallow_priviledgedprivelegesecalation.yaml)             |
+| Disallow use of host networking and ports      |  [policy_validate_host_network_port.yaml](policy_validate_host_network_port.yaml)                                                                            |
+| Disallow use of host filesystem                |  [policy_validate_host_path.yaml](policy_validate_host_path.yaml)                                                                                            |
 | Disallow hostPOD and hostIPC                   |                                                                       |
 | Require read only root filesystem              |                                                                       |
-| Disallow node ports                            |                                                                       |
-| Allow trusted registries                       |                                                                       |
-| Require resource requests and limits           | [container_resources.yaml](container_resources.yaml)                  |
-| Require pod liveness and readiness probes      |                                                                       |
-| Require an image tag                           |                                                                       |
-| Disallow latest tag and pull IfNotPresent      |                                                                       |
+| Disallow node ports                            |                                                                                                                  |
+| Allow trusted registries                       | [policy_validate_image_registries.yaml](policy_validate_image_registries.yaml)                                                                               |
+| Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                                                                     |
+| Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                                                                           |
+| Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |
+| Disallow latest tag and pull IfNotPresent      | [policy_validate_image_latest_ifnotpresent_deny.yaml](policy_validate_image_latest_ifnotpresent_deny.yaml)                                                   |
 | Require a namespace (disallow default)         |                                                                       |
 | Disallow use of kube-system namespace          |                                                                       |
 | Prevent mounting of service account secret     |                                                                       |

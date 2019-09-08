@@ -1,18 +1,18 @@
 # file path relative to project root
 input:
-  policy: examples/policy_validate_nonRootUser.yaml
-  resource: examples/resource_validate_nonRootUser.yaml
+  policy: examples/best_practices/policy_validate_deny_runasrootuser.yaml
+  resource: examples/best_practices/resources/resource_validate_nonRootUser.yaml
 expected:
   validation:
     policyresponse:
-      policy: check-container-security-context
+      policy: validate-deny-runasrootuser
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: sec-ctx-unprivileged
       rules:
-        - name: check-root-user
+        - name: deny-runasrootuser
           type: Validation
-          message: Validation rule 'check-root-user' failed to validate patterns defined in anyPattern. Root user is not allowed. Set runAsNonRoot to true.; anyPattern[0] failed at path /spec/securityContext/; anyPattern[1] failed at path /spec/containers/0/securityContext/
+          message: Validation rule 'deny-runasrootuser' failed to validate patterns defined in anyPattern. Root user is not allowed. Set runAsNonRoot to true.; anyPattern[0] failed at path /spec/securityContext/
           success: false

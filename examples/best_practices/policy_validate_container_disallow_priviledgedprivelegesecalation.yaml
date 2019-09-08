@@ -1,32 +1,11 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: check-container-security-context
+  name: validate-deny-privileged-disallowpriviligedescalation
 spec:
   validationFailureAction: "audit"
   rules:
-  - name: check-root-user
-    exclude:
-      resources:
-        namespaces: 
-        - kube-system
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: "Root user is not allowed. Set runAsNonRoot to true."
-      anyPattern:
-      - spec:
-          securityContext:
-            runAsNonRoot: true
-      # pattern:
-      #   spec:
-      #     containers:
-      #     - name: "*"
-      #       securityContext:
-      #         runAsNonRoot: true
-  - name: check-privilege
+  - name: deny-privileged-disallowpriviligedescalation
     exclude:
       resources:
         namespaces: 
@@ -48,4 +27,4 @@ spec:
       #     - name: "*"
       #       securityContext:
       #         allowPrivilegeEscalation: false
-      #         privileged: false
+      #         privileged: false    
