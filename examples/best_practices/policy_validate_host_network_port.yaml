@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-host-network-port
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: validate-host-network-port
     match:
@@ -15,8 +14,7 @@ spec:
       pattern:
         spec:
           hostNetwork: false
-          containers:          
-          - name: "*" # is name necessary??
+          containers:
+          - name: "*"
             ports:
-              hostPort: null
-
+            - hostPort: null

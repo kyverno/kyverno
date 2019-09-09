@@ -1860,3 +1860,85 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	}
 	assert.Assert(t, !er.IsSuccesful())
 }
+
+func TestValidate_host_network_port(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-host-network-port"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "validate-host-network-port",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "Host network and port are not allowed",
+					"pattern": {
+					   "spec": {
+						  "hostNetwork": false,
+						  "containers": [
+							 {
+								"name": "*",
+								"ports": [
+								   {
+									  "hostPort": null
+								   }
+								]
+							 }
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-host-network"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx-host-network",
+				 "image": "nginx",
+				 "ports": [
+					{
+					   "containerPort": 80,
+					   "hostPort": 80
+					}
+				 ]
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'validate-host-network-port' failed at '/spec/containers/0/ports/0/hostPort/' for resource Pod//nginx-host-network. Host network and port are not allowed"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
