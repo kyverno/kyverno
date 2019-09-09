@@ -14,7 +14,7 @@
 | Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                                                                           |
 | Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |
 | Disallow latest tag and pull IfNotPresent      | [policy_validate_image_latest_ifnotpresent_deny.yaml](policy_validate_image_latest_ifnotpresent_deny.yaml)                                                   |
-| Require a namespace (disallow default)         |                                                                       |
+| Require a namespace (disallow default)         | [policy_validate_default_namespace.yaml](policy_validate_default_namespace.yaml)                                                                     |
 | Disallow use of kube-system namespace          |                                                                       |
 | Prevent mounting of service account secret     |                                                                       |
 | Require a default network policy               |                                                                       |
