@@ -1,0 +1,19 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_container_disallow_priviledgedprivelegesecalation.yaml
+  resource: examples/best_practices/resources/resource_validate_container_disallow_priviledgedprivelegesecalation.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-deny-privileged-disallowpriviligedescalation
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: check-privileged-cfg
+      rules:
+        - name: deny-privileged-disallowpriviligedescalation
+          type: Validation
+          message: "Validation rule 'deny-privileged-disallowpriviligedescalation' failed at '/spec/containers/0/securityContext/allowPrivilegeEscalation/' for resource Pod//check-privileged-cfg. Privileged mode is not allowed. Set allowPrivilegeEscalatin and privileged to false"
+          success: false
+

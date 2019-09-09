@@ -8,6 +8,3 @@ spec:
   containers:
   - name: check-root-user
     image: nginxinc/nginx-unprivileged
-    # securityContext:
-    #   allowPrivilegeEscalation: true
-    #   privileged: false

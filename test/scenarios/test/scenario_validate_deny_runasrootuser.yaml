@@ -16,3 +16,4 @@ expected:
           type: Validation
           message: "Validation rule 'deny-runasrootuser' anyPattern[0] succesfully validated"
           success: true
+

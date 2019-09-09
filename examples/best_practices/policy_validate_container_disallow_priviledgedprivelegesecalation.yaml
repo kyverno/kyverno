@@ -16,15 +16,15 @@ spec:
         - Pod
     validate:
       message: "Privileged mode is not allowed. Set allowPrivilegeEscalatin and privileged to false"
-      anyPattern:
-      - spec:
-        securityContext:
-          allowPrivilegeEscalation: false
-          privileged: false
-      # pattern:
-      #   spec:
-      #     containers:
-      #     - name: "*"
-      #       securityContext:
-      #         allowPrivilegeEscalation: false
-      #         privileged: false    
+      # anyPattern:
+      # - spec:
+      #   securityContext:
+      #     allowPrivilegeEscalation: false
+      #     privileged: false
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            securityContext:
+              allowPrivilegeEscalation: false
+              privileged: false    
