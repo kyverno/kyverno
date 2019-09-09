@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sec-ctx-unprivileged
+spec:
+  # securityContext:
+  #   runAsNonRoot: true
+  containers:
+  - name: imagen-with-hostpath
+    image: nginxinc/nginx-unprivileged
