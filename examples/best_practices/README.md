@@ -17,5 +17,5 @@
 | Require a namespace (disallow default)         | [policy_validate_default_namespace.yaml](policy_validate_default_namespace.yaml)                                                                     |
 | Disallow use of kube-system namespace          |                                                                       |
 | Prevent mounting of service account secret     |                                                                       |
-| Require a default network policy               |                                                                       |
-| Require namespace quotas and limit ranges      |                                                                       |
+| Require a default network policy               | [policy_validate_default_network_policy.yaml](policy_validate_default_network_policy.yaml)                                                                      |
+| Require namespace quotas and limit ranges      | [policy_validate_namespace_quota.yaml](policy_validate_namespace_quota.yaml)                                                                      |
