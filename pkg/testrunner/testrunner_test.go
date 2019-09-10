@@ -91,3 +91,7 @@ func Test_validate_host_path(t *testing.T) {
 func Test_validate_host_network_port(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_host_network_port.yaml")
 }
+
+func Test_validate_hostPID_hostIPC(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_hostpid_hostipc.yaml")
+}
