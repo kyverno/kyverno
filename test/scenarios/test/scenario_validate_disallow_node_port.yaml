@@ -1,0 +1,19 @@
+
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_disallow_node_port.yaml
+  resource: examples/best_practices/resources/resource_validate_disallow_node_port.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-node-port
+      resource:
+        kind: Service
+        apiVersion: v1
+        namespace: ''
+        name: "my-service"
+      rules:
+        - name: disallow-node-port
+          type: Validation
+          message: Validation rule 'disallow-node-port' failed at '/spec/type/' for resource Service//my-service. Disallow service of type NodePort
+          success: false
