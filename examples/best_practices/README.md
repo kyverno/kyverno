@@ -7,7 +7,7 @@
 | Disallow use of host networking and ports      |  [policy_validate_host_network_port.yaml](policy_validate_host_network_port.yaml)                                                                            |
 | Disallow use of host filesystem                |  [policy_validate_host_path.yaml](policy_validate_host_path.yaml)                                                                                            |
 | Disallow hostPID and hostIPC                   |  [policy_validate_hostPID_hosIPC.yaml](policy_validate_hostPID_hosIPC.yaml)                                                                     |
-| Require read only root filesystem              |                                                                       |
+| Require read only root filesystem              | [policy_validate_not_readonly_rootfilesystem.yaml](policy_validate_not_readonly_rootfilesystem.yaml)                                                                      |
 | Disallow node ports                            |                                                                                                                  |
 | Allow trusted registries                       | [policy_validate_image_registries.yaml](policy_validate_image_registries.yaml)                                                                               |
 | Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                                                                     |
