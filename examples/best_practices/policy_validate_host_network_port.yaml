@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-host-network-port
+spec:
+  rules:
+  - name: validate-host-network-port
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Host network and port are not allowed"
+      pattern:
+        spec:
+          hostNetwork: false
+          containers:
+          - name: "*"
+            ports:
+            - hostPort: null

@@ -52,11 +52,9 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 	return patchedDocument, err
 }
 
-//ApplyPatchNew ...
+//ApplyPatchNew patches given resource with given joined patches
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
-	patchesList := [][]byte{patch}
-	joinedPatches := JoinPatches(patchesList)
-	jsonpatch, err := jsonpatch.DecodePatch(joinedPatches)
+	jsonpatch, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
 		return nil, err
 	}

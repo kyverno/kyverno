@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: check-root-user
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: check-root-user
+    image: nginxinc/nginx-unprivileged

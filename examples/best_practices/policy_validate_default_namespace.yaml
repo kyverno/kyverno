@@ -10,9 +10,17 @@ spec:
         kinds:
         - Pod
     validate:
+      message: "A none 'default' namespace is required"
+      anyPattern:
+        - metadata:
+            namespace: "!default"
+  - name: check-namespace-exist
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
       message: "A namespace is required"
       anyPattern:
         - metadata:
             namespace: "?*"
-        - metadata:
-            namespace: "!default"

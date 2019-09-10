@@ -1,0 +1,25 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_default_namespace.yaml
+  resource: examples/best_practices/resources/resource_default_namespace.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-namespace
+      resource:
+        kind: Pod
+        apiVersion: v1
+        # this is set to pass resource NS check
+        # actual valiation is defined through rule success=false
+        namespace: 'default'
+        name: myapp-pod
+      rules:
+        - name: check-default-namespace
+          type: Validation
+          message: "Validation rule 'check-default-namespace' failed to validate patterns defined in anyPattern. A none 'default' namespace is required; anyPattern[0] failed at path /metadata/namespace/"
+          success: false
+        - name: check-namespace-exist
+          type: Validation
+          message: "Validation rule 'check-namespace-exist' anyPattern[0] succesfully validated"
+          success: true
+

@@ -1,0 +1,19 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-registry
+spec:
+  rules:
+  - name: validate-image-registry
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Image registry is not allowed"
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            # Check allowed registries
+            image: "*nirmata* | https://private.registry.io/*"

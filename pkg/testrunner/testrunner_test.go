@@ -18,6 +18,14 @@ func Test_validate_containerSecurityContext(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_containerSecurityContext.yaml")
 }
 
+func Test_validate_deny_runasrootuser(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_deny_runasrootuser.yaml")
+}
+
+func Test_validate_disallow_priviledgedprivelegesecalation(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_container_disallow_priviledgedprivelegesecalation.yaml")
+}
+
 func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_healthChecks.yaml")
 }
@@ -70,4 +78,32 @@ func Test_validate_image_tag_latest_pass(t *testing.T) {
 
 func Test_mutate_pod_disable_automoutingapicred_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_mutate_pod_disable_automountingapicred.yaml")
+}
+
+func Test_validate_default_namespace(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_default_namespace.yaml")
+}
+
+func Test_validate_host_path(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_host_path.yaml")
+}
+
+func Test_validate_host_network_port(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_host_network_port.yaml")
+}
+
+func Test_validate_hostPID_hostIPC(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_hostpid_hostipc.yaml")
+}
+
+func Test_validate_not_readonly_rootfilesystem(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_not_readonly_rootfilesystem.yaml")
+}
+
+func Test_validate_namespace_quota(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_namespace_quota.yaml")
+}
+
+func Test_validate_disallow_node_port(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_node_port.yaml")
 }

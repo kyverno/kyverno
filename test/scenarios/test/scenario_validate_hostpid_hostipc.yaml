@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_hostpid_hosipc.yaml
+  resource: examples/best_practices/resources/resource_validate_hostpid_hostipc.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-hostpid-hostipc
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "nginx-with-hostpid"
+      rules:
+        - name: validate-hostpid-hostipc
+          type: Validation
+          message: Validation rule 'validate-hostpid-hostipc' failed to validate patterns defined in anyPattern. Disallow use of host's pid namespace and host's ipc namespace; anyPattern[0] failed at path /spec/hostIPC/
+          success: false   

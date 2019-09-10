@@ -1,0 +1,19 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-host-path
+spec:
+  rules:
+  - name: validate-host-path
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Host path '/var/lib/' is not allowed"
+      pattern:
+        spec:
+          volumes:
+          - name: "*"
+            (hostPath):
+              path: "!/var/lib"

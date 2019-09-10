@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-hostpid-hostipc
+spec:
+  rules:
+  - name: validate-hostpid-hostipc
+    exclude:
+      resources:
+        namespaces: 
+        - kube-system
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Disallow use of host's pid namespace and host's ipc namespace"
+      anyPattern:
+      - spec:
+          hostPID: false
+          hostIPC: false
