@@ -6,7 +6,7 @@
 | Disallow privileged and privilege escalation   | [policy_validate_container_disallow_priviledgedprivelegesecalation.yaml](policy_validate_container_disallow_priviledgedprivelegesecalation.yaml)             |
 | Disallow use of host networking and ports      |  [policy_validate_host_network_port.yaml](policy_validate_host_network_port.yaml)                                                                            |
 | Disallow use of host filesystem                |  [policy_validate_host_path.yaml](policy_validate_host_path.yaml)                                                                                            |
-| Disallow hostPID and hostIPC                   |  [policy_validate_hostPID_hosIPC.yaml](policy_validate_hostPID_hosIPC.yaml)                                                                     |
+| Disallow hostPID and hostIPC                   |  [policy_validate_hostpid_hosipc.yaml](policy_validate_hostpid_hosipc.yaml)                                                                     |
 | Require read only root filesystem              | [policy_validate_not_readonly_rootfilesystem.yaml](policy_validate_not_readonly_rootfilesystem.yaml)                                                                      |
 | Disallow node ports                            |                                                                                                                  |
 | Allow trusted registries                       | [policy_validate_image_registries.yaml](policy_validate_image_registries.yaml)                                                                               |
