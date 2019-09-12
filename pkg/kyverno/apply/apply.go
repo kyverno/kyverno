@@ -147,7 +147,7 @@ func extractPolicy(fileDir string) (*kyverno.ClusterPolicy, error) {
 		return nil, fmt.Errorf("failed to decode policy %s, err: %v", policy.Name, err)
 	}
 
-	if policy.TypeMeta.Kind != "Policy" {
+	if policy.TypeMeta.Kind != "ClusterPolicy" {
 		return nil, fmt.Errorf("failed to parse policy")
 	}
 

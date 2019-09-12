@@ -81,7 +81,7 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient) (*PolicyController, error) {
+	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient, filterK8Resources string) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -98,6 +98,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		webhookRegistrationClient: webhookRegistrationClient,
+		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

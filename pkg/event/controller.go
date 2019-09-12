@@ -147,7 +147,7 @@ func (gen *Generator) syncHandler(key Info) error {
 	var robj runtime.Object
 	var err error
 	switch key.Kind {
-	case "Policy":
+	case "ClusterPolicy":
 		//TODO: policy is clustered resource so wont need namespace
 		robj, err = gen.pLister.Get(key.Name)
 		if err != nil {

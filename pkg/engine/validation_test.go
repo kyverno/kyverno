@@ -1505,7 +1505,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 func TestValidate_ServiceTest(t *testing.T) {
 	rawPolicy := []byte(`{
 		"apiVersion":"kyverno.nirmata.io/v1alpha1",
-		"kind":"Policy",
+		"kind":"ClusterPolicy",
 		"metadata":{
 			"name":"policy-service"
 		},
@@ -1597,7 +1597,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 func TestValidate_MapHasFloats(t *testing.T) {
 	rawPolicy := []byte(`{
 		"apiVersion":"kyverno.nirmata.io/v1alpha1",
-		"kind":"Policy",
+		"kind":"ClusterPolicy",
 		"metadata":{
 			"name":"policy-deployment-changed"
 		},
