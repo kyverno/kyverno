@@ -22,13 +22,31 @@ type K8Resource struct {
 }
 
 //Contains Check if strint is contained in a list of string
-func Contains(list []string, element string) bool {
+func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
-		if e == element {
+		if fn(e, element) {
 			return true
 		}
 	}
 	return false
+}
+
+//ContainsNamepace check if namespace satisfies any list of pattern(regex)
+func ContainsNamepace(patterns []string, ns string) bool {
+	return contains(patterns, ns, compareNamespaces)
+}
+
+//ContainsString check if the string is contains in a list
+func ContainsString(list []string, element string) bool {
+	return contains(list, element, compareString)
+}
+
+func compareNamespaces(pattern, ns string) bool {
+	return wildcard.Match(pattern, ns)
+}
+
+func compareString(str, name string) bool {
+	return str == name
 }
 
 //SkipFilteredResourcesReq checks if request is to be skipped based on filtered kinds

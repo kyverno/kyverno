@@ -94,7 +94,7 @@ func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.ClusterPolicy) *
 	var ruleNames []string
 
 	for _, rule := range policy.Spec.Rules {
-		if utils.Contains(ruleNames, rule.Name) {
+		if utils.ContainsString(ruleNames, rule.Name) {
 			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
 			glog.Errorln(msg)
 
