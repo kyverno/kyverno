@@ -133,7 +133,7 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		if len(exclude.Namespaces) == 0 {
 			return NotEvaluate
 		}
-		if utils.Contains(exclude.Namespaces, namespace) {
+		if utils.ContainsNamepace(exclude.Namespaces, namespace) {
 			return Skip
 		}
 		return Process
@@ -265,7 +265,7 @@ func excludeNamespaces(namespaces, excludeNs []string) []string {
 	}
 	filteredNamespaces := []string{}
 	for _, n := range namespaces {
-		if utils.Contains(excludeNs, n) {
+		if utils.ContainsNamepace(excludeNs, n) {
 			continue
 		}
 		filteredNamespaces = append(filteredNamespaces, n)

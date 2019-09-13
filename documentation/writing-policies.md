@@ -24,9 +24,9 @@ spec :
           - Deployment
           - StatefulSet
           name: "mongo*" # Optional, a resource name is optional. Name supports wildcards * and ?
-          namespaces: # Optional, list of namespaces
-          - devtest2
-          - devtest1
+          namespaces: # Optional, list of namespaces. Supports wilcards * and ?
+          - "dev*"
+          - test
           selector: # Optional, a resource selector is optional. Selector values support wildcards * and ?
               matchLabels:
                   app: mongodb
@@ -39,7 +39,8 @@ spec :
           - Daemonsets
           name: "*"
           namespaces:
-          - devtest2
+          - prod
+          - "kube*"
           selector:
               matchLabels:
                   app: mongodb

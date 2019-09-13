@@ -74,7 +74,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 	for _, policy := range policies {
 
 		// check if policy has a rule for the admission request kind
-		if !utils.Contains(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
+		if !utils.ContainsString(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
 			continue
 		}
 

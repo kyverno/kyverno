@@ -91,7 +91,7 @@ func subsetMap(a, b map[string]interface{}) bool {
 	return true
 }
 
-func contains(a interface{}, b []interface{}) bool {
+func containsInt(a interface{}, b []interface{}) bool {
 	switch typed := a.(type) {
 	case bool:
 		for _, bv := range b {
@@ -181,7 +181,7 @@ func subsetSlice(a, b []interface{}) bool {
 	}
 
 	for _, av := range a {
-		if !contains(av, b) {
+		if !containsInt(av, b) {
 			return false
 		}
 	}
