@@ -40,7 +40,7 @@ func generateEvents(engineResponses []engine.EngineResponseNew, onUpdate bool) [
 
 				// event on policy
 				e = event.NewEventNew(
-					"Policy",
+					"ClusterPolicy",
 					kyverno.SchemeGroupVersion.String(),
 					"",
 					er.PolicyResponse.Policy,
@@ -56,7 +56,7 @@ func generateEvents(engineResponses []engine.EngineResponseNew, onUpdate bool) [
 				// CREATE
 				// event on policy
 				e := event.NewEventNew(
-					"Policy",
+					"ClusterPolicy",
 					kyverno.SchemeGroupVersion.String(),
 					"",
 					er.PolicyResponse.Policy,

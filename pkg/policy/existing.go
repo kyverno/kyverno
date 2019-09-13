@@ -66,8 +66,6 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 				// get all namespaces
 				namespaces = getAllNamespaces(client)
 			}
-			// check if exclude namespace is not clashing
-			// namespaces = excludeNamespaces(namespaces, rule.ExcludeResources.Namespaces)
 
 			// get resources in the namespaces
 			for _, ns := range namespaces {
@@ -101,13 +99,6 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 				continue
 			}
 		}
-		// // exclude name
-		// if rule.ExcludeResources.Name != "" {
-		// 	if wildcard.Match(rule.ExcludeResources.Name, r.GetName()) {
-		// 		glog.V(4).Infof("skipping resource %s/%s due to exclude condition name=%s mistatch", r.GetNamespace(), r.GetName(), rule.MatchResources.Name)
-		// 		continue
-		// 	}
-		// }
 		// Skip the filtered resources
 		if utils.SkipFilteredResources(r.GetKind(), r.GetNamespace(), r.GetName(), filterK8Resources) {
 			continue
@@ -117,13 +108,14 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		resourceMap[string(r.GetUID())] = r
 	}
 
-	// All the included resource
-	// Need to exclude
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription)
+	// exclude the resources
+	// skip resources to be filtered
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, filterK8Resources)
+	//	glog.V(4).Infof("resource map: %v", resourceMap)
 	return resourceMap
 }
 
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, filterK8Resources []utils.K8Resource) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return
 	}
@@ -202,6 +194,13 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		}
 		if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
 			excludeEval = append(excludeEval, ret)
+		}
+		// exclude the filtered resources
+		if utils.SkipFilteredResources(resource.GetKind(), resource.GetNamespace(), resource.GetName(), filterK8Resources) {
+			//TODO: improve the text
+			glog.V(4).Infof("excluding resource %s/%s/%s as its satisfies the filtered resources", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+			delete(included, uid)
+			continue
 		}
 
 		func() bool {

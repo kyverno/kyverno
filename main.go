@@ -99,7 +99,7 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient)
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, filterK8Resources)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -114,7 +114,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen)
+	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, filterK8Resources)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := initTLSPemPair(clientConfig, client)

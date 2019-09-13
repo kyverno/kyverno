@@ -78,19 +78,19 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rul
 			// check if the rule is create, if yes, then verify if the specified configuration is present in the resource
 			ok, err := checkResource(rule.Generation.Data, obj)
 			if err != nil {
-				glog.V(4).Infof("generate rule:: unable to check if configuration %v, is present in resource %s/%s/%s", rule.Generation.Data, rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+				glog.V(4).Infof("generate rule: unable to check if configuration %v, is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 				response.Success = false
-				response.Message = fmt.Sprintf("unable to check if configuration %v, is present in resource %s/%s/%s", rule.Generation.Data, rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+				response.Message = fmt.Sprintf("unable to check if configuration %v, is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 				return response
 			}
 			if !ok {
-				glog.V(4).Infof("generate rule:: configuration %v not present in resource %s/%s/%s", rule.Generation.Data, rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+				glog.V(4).Infof("generate rule: configuration %v not present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 				response.Success = false
-				response.Message = fmt.Sprintf("configuration %v not present in resource %s/%s/%s", rule.Generation.Data, rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+				response.Message = fmt.Sprintf("configuration %v not present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 				return response
 			}
 			response.Success = true
-			response.Message = fmt.Sprintf("required configuration %v is present in resource %s/%s/%s", rule.Generation.Data, rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+			response.Message = fmt.Sprintf("required configuration %v is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 			return response
 		}
 		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&rule.Generation.Data)
@@ -106,26 +106,26 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rul
 		// 1> Check if resource exists
 		_, err := client.GetResource(rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
 		if err == nil {
-			glog.V(4).Infof("generate rule: resource %s/%s/%s already present", rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+			glog.V(4).Infof("generate rule: resource '%s/%s' already present in namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 			response.Success = true
-			response.Message = fmt.Sprintf("resource %s/%s/%s already present", rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+			response.Message = fmt.Sprintf("resource '%s/%s' already present in namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 			return response
 		}
 		// 2> If clone already exists return
 		resource, err = client.GetResource(rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 		if err != nil {
-			glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  not present: %v", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name, err)
+			glog.V(4).Infof("generate rule: clone reference resource '%s/%s' not present in namespace '%s': %v", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace, err)
 			response.Success = false
-			response.Message = fmt.Sprintf("clone reference resource %s/%s/%s  not present: %v", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name, err)
+			response.Message = fmt.Sprintf("clone reference resource '%s/%s' not present in namespace '%s': %v", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace, err)
 			return response
 		}
-		glog.V(4).Infof("generate rule: clone reference resource %s/%s/%s  present", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+		glog.V(4).Infof("generate rule: clone reference resource '%s/%s'  present in namespace '%s'", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace)
 		rdata = resource.UnstructuredContent()
 	}
 	if processExisting {
-		glog.V(4).Infof("resource %s not found in existing namespace %s", rule.Generation.Name, ns.GetName())
+		glog.V(4).Infof("resource '%s/%s' not found in existing namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 		response.Success = false
-		response.Message = fmt.Sprintf("resource %s not found in existing namespace %s", rule.Generation.Name, ns.GetName())
+		response.Message = fmt.Sprintf("resource '%s/%s' not found in existing namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
 		// for existing resources we generate an error which indirectly generates a policy violation
 		return response
 	}
