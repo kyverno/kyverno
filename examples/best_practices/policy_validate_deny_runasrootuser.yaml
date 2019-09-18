@@ -20,9 +20,8 @@ spec:
       - spec:
           securityContext:
             runAsNonRoot: true
-      # pattern:
-      #   spec:
-      #     containers:
-      #     - name: "*"
-      #       securityContext:
-      #         runAsNonRoot: true
+      - spec:
+          containers:
+          - name: "*"
+            securityContext:
+              runAsNonRoot: true
