@@ -184,20 +184,22 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+	// check if there is anchor in pattern
+	// anchor, pattern := getAnchorFromMap(patternMap)
 
 	for key, patternElement := range patternMap {
-		key = removeAnchor(key)
-
-		// The '*' pattern means that key exists and has value
-		if patternElement == "*" && resourceMap[key] != nil {
-			continue
-		} else if patternElement == "*" && resourceMap[key] == nil {
-			return path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", path, key)
-		} else {
-			path, err := validateResourceElement(resourceMap[key], patternElement, origPattern, path+key+"/")
-			if err != nil {
-				return path, err
-			}
+		// get handler for each pattern in the pattern
+		// - Anchor
+		// - Existance
+		// - No Anchor(Default)
+		handler := CreateElementHandler(key, patternElement, path)
+		handlerPath, skip, err := handler.Handle(resourceMap, origPattern)
+		if err != nil {
+			return handlerPath, err
+		}
+		if skip {
+			// for existance anchor, if not present, then dont process the node in the tree further
+			return "", nil
 		}
 	}
 
@@ -346,8 +348,18 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
 func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
-	anchor, pattern := getAnchorFromMap(patternMap)
-
-	handler := CreateAnchorHandler(anchor, pattern, path)
-	return handler.Handle(resourceMapArray, patternMap, originPattern)
+	for i, resourceElement := range resourceMapArray {
+		// check the types of resource element
+		// expect it to be map, but can be anything ?:(
+		currentPath := path + strconv.Itoa(i) + "/"
+		//TODO: converting map to interface ???
+		returnpath, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
+		if err != nil {
+			return returnpath, err
+		}
+	}
+	return "", nil
+	// anchor, pattern := getAnchorFromMap(patternMap)
+	// handler := CreateAnchorHandler(anchor, pattern, path)
+	// return handler.Handle(resourceMapArray, patternMap, originPattern)
 }

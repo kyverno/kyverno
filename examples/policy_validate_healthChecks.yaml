@@ -14,7 +14,7 @@ spec:
       pattern:
         spec:
           containers:
-          - (name): "check-readiness"
+          - ^(name): "check-readiness"
             readinessProbe:
               successThreshold: ">1"
   - name: check-livenessProbe-exists
@@ -27,7 +27,7 @@ spec:
       pattern:
         spec:
           containers:
-          - (name): "check-liveness"
+          - ^(name): "check-liveness"
             livenessProbe:
               httpGet:
                 path: "?*"
