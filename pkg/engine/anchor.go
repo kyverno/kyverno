@@ -151,7 +151,12 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 			// if the key exists then validate
 			// not handled for arrays
 			// maps we only check if key exists
-			return ValidateValueWithPattern(value, eh.pattern)
+			_, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
+			if err == nil {
+				// if the anchor value is the satisfied then we evaluate the next
+				return true
+			}
+			// return ValidateValueWithPattern(value, eh.pattern)
 		}
 		return false
 	}()
@@ -163,10 +168,10 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 	}
 	// anchoredEntries++
 
-	path, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
-	if err != nil {
-		return path, false, err
-	}
+	// path, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
+	// if err != nil {
+	// 	return path, false, err
+	// }
 	// if anchoredEntries == 0 {
 	// 	return eh.path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eh.anchor)
 	// }

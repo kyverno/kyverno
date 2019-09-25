@@ -52,8 +52,10 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case nil:
 		return validateValueWithNilPattern(value)
 	case map[string]interface{}:
+		// TODO: check if this is ever called?
 		return validateValueWithMapPattern(value, typedPattern)
 	case []interface{}:
+		// TODO: check if this is ever called?
 		glog.Warning("Arrays as patterns are not supported")
 		return false
 	default:
@@ -65,6 +67,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 func validateValueWithMapPattern(value interface{}, typedPattern map[string]interface{}) bool {
 	// verify the type of the resource value is map[string]interface,
 	// we only check for existance of object, not the equality of content and value
+	//TODO: check if adding
 	_, ok := value.(map[string]interface{})
 	if !ok {
 		glog.Warningf("Expected map[string]interface{}, found %T\n", value)
