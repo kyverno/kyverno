@@ -186,23 +186,30 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	// check if there is anchor in pattern
 	// anchor, pattern := getAnchorFromMap(patternMap)
+	// Phase 1 : Evaluate all the anchors
+	// Phase 2 : Evaluate non-anchors
+	anchors, resources := getAnchorsResourcesFromMap(patternMap)
 
-	for key, patternElement := range patternMap {
+	// Evaluate anchors
+	for key, patternElement := range anchors {
 		// get handler for each pattern in the pattern
 		// - Anchor
 		// - Existance
-		// - No Anchor(Default)
 		handler := CreateElementHandler(key, patternElement, path)
-		handlerPath, skip, err := handler.Handle(resourceMap, origPattern)
+		handlerPath, err := handler.Handle(resourceMap, origPattern)
 		if err != nil {
 			return handlerPath, err
 		}
-		if skip {
-			// for existance anchor, if not present, then dont process the node in the tree further
-			return "", nil
+	}
+	// Evaluate resources
+	for key, resourceElement := range resources {
+		// get handler for resources in the pattern
+		handler := CreateElementHandler(key, resourceElement, path)
+		handlerPath, err := handler.Handle(resourceMap, origPattern)
+		if err != nil {
+			return handlerPath, err
 		}
 	}
-
 	return "", nil
 }
 

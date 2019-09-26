@@ -2469,3 +2469,302 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	}
 	assert.Assert(t, !er.IsSuccesful())
 }
+
+func TestValidate_AnchorList_pass(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "nginx"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+
+	for _, r := range er.PolicyResponse.Rules {
+		t.Error(r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_AnchorList_fail(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+
+	for _, r := range er.PolicyResponse.Rules {
+		t.Error(r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_existenceAnchor_fail(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"^(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "busy1"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+
+	for _, r := range er.PolicyResponse.Rules {
+		t.Error(r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_existenceAnchor_pass(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"^(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+
+	for _, r := range er.PolicyResponse.Rules {
+		t.Error(r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}

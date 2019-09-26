@@ -7,8 +7,22 @@ import (
 	"github.com/golang/glog"
 )
 
+func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	anchors := map[string]interface{}{}
+	resources := map[string]interface{}{}
+	for key, value := range patternMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			anchors[key] = value
+			continue
+		}
+		resources[key] = value
+	}
+
+	return anchors, resources
+}
+
 type ValidationHandler interface {
-	Handle(resourceMap map[string]interface{}, originPattenr interface{}) (string, bool, error)
+	Handle(resourceMap map[string]interface{}, originPattenr interface{}) (string, error)
 }
 
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
@@ -48,21 +62,19 @@ type DefaultHandler struct {
 	path    string
 }
 
-func (dh DefaultHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, bool, error) {
-	// skip is used by existance anchor to not process further if condition is not satisfied
-	skip := false
+func (dh DefaultHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	currentPath := dh.path + dh.element + "/"
 	if dh.pattern == "*" && resourceMap[dh.element] != nil {
-		return "", skip, nil
+		return "", nil
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
-		return dh.path, skip, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
+		return dh.path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
 	} else {
 		path, err := validateResourceElement(resourceMap[dh.element], dh.pattern, originPattern, currentPath)
 		if err != nil {
-			return path, skip, err
+			return path, err
 		}
 	}
-	return "", skip, nil
+	return "", nil
 }
 
 func NewConditionAnchorHandler(anchor string, pattern interface{}, path string) ValidationHandler {
@@ -79,33 +91,50 @@ type ConditionAnchorHandler struct {
 	path    string
 }
 
-func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, bool, error) {
-	// skip is used by existance anchor to not process further if condition is not satisfied
-	skip := false
-	var value interface{}
-	var currentPath string
-	var ok bool
-	// check for anchor condition
-	anchorSatisfied := func() bool {
-		anchorKey := removeAnchor(ch.anchor)
-		currentPath = ch.path + anchorKey + "/"
-		// check if anchor is present in resource
-		if value, ok = resourceMap[anchorKey]; ok {
-			// if the key exists then we process its values
-			return true
-			// return ValidateValueWithPattern(value, ch.pattern)
+func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+	anchorKey := removeAnchor(ch.anchor)
+	currentPath := ch.path + anchorKey + "/"
+	// check if anchor is present in resource
+	if value, ok := resourceMap[anchorKey]; ok {
+		// validate the values of the pattern
+		returnPath, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
+		if err != nil {
+			return returnPath, err
 		}
-		return false
-	}()
+		return "", nil
 
-	if !anchorSatisfied {
-		return "", skip, nil
 	}
+	return "", nil
 
-	path, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
-	if err != nil {
-		return path, skip, err
-	}
+	// return false
+
+	// var value interface{}
+	// var currentPath string
+	// var ok bool
+	// // check for anchor condition
+	// anchorSatisfied := func() bool {
+	// 	anchorKey := removeAnchor(ch.anchor)
+	// 	currentPath = ch.path + anchorKey + "/"
+	// 	// check if anchor is present in resource
+	// 	if value, ok = resourceMap[anchorKey]; ok {
+	// 		// validate the values of the pattern
+	// 		_, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
+	// 		if err == nil {
+	// 			return true
+	// 		}
+	// 		// return ValidateValueWithPattern(value, ch.pattern)
+	// 	}
+	// 	return false
+	// }()
+
+	// if !anchorSatisfied {
+	// 	return "", nil
+	// }
+
+	// path, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
+	// if err != nil {
+	// 	return path, err
+	// }
 	// evauluate the anchor and resource values
 	// for key, element := range resourceMap {
 	// 	currentPath := ch.path + key + "/"
@@ -118,7 +147,7 @@ func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, orig
 	// 		return path, err
 	// 	}
 	// }
-	return "", skip, nil
+	return "", nil
 }
 
 func NewExistanceHandler(anchor string, pattern interface{}, path string) ValidationHandler {
@@ -135,36 +164,36 @@ type ExistanceHandler struct {
 	path    string
 }
 
-func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, bool, error) {
+func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	// skip is used by existance anchor to not process further if condition is not satisfied
-	var value interface{}
-	var currentPath string
-	var ok bool
-	// anchoredEntries := 0
-
-	// check for anchor condition
-	anchorSatisfied := func() bool {
-		anchorKey := removeAnchor(eh.anchor)
-		currentPath = eh.path + anchorKey + "/"
-		// check if anchor is present in resource
-		if value, ok = resourceMap[anchorKey]; ok {
-			// if the key exists then validate
-			// not handled for arrays
-			// maps we only check if key exists
-			_, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
-			if err == nil {
-				// if the anchor value is the satisfied then we evaluate the next
-				return true
+	anchorKey := removeAnchor(eh.anchor)
+	currentPath := eh.path + anchorKey + "/"
+	// check if anchor is present in resource
+	if value, ok := resourceMap[anchorKey]; ok {
+		// Existance anchor can only exist on resource value type of list
+		switch typedResource := value.(type) {
+		case []interface{}:
+			typedPattern, ok := eh.pattern.([]interface{})
+			if !ok {
+				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of lis to compare against resource", eh.pattern)
 			}
-			// return ValidateValueWithPattern(value, eh.pattern)
+			// get the first item in the pattern array
+			patternMap := typedPattern[0]
+			typedPatternMap, ok := patternMap.(map[string]interface{})
+			if !ok {
+				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
+			}
+			return validateExistenceListResource(typedResource, typedPatternMap, originPattern, currentPath)
+		default:
+			glog.Error("Invalid type: Existance ^ () anchor can be used only on list/array type resource")
+			return currentPath, fmt.Errorf("Invalid resource type %T: Existance ^ () anchor can be used only on list/array type resource", value)
 		}
-		return false
-	}()
-
-	if !anchorSatisfied {
-		// if the existance anchor is not satisfied then we dont process that node further
-		// so we skip processing further
-		return "", true, nil
+		_, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
+		if err == nil {
+			// if the anchor value is the satisfied then we evaluate the next
+			return "", nil
+		}
+		// return ValidateValueWithPattern(value, eh.pattern)
 	}
 	// anchoredEntries++
 
@@ -175,7 +204,7 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 	// if anchoredEntries == 0 {
 	// 	return eh.path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eh.anchor)
 	// }
-	return "", false, nil
+	return "", nil
 
 	// anchoredEntries := 0
 	// for key, element := range resourceMap {
@@ -195,6 +224,22 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 	// 	return eh.path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eh.anchor)
 	// }
 	// return "", nil
+}
+
+func validateExistenceListResource(resourceList []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+	// the idea is atleast on the elements in the array should satisfy the pattern
+	// if non satisfy then throw an error
+	for i, resourceElement := range resourceList {
+		currentPath := path + strconv.Itoa(i) + "/"
+		_, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
+		if err == nil {
+			// condition is satisfied, dont check further
+			glog.V(4).Infof("Existence check satisfied at path %s, for pattern %v", currentPath, patternMap)
+			return "", nil
+		}
+	}
+	// none of the existance checks worked, so thats a failure sceanario
+	return path, fmt.Errorf("Existence anchor validation failed at path %s", path)
 }
 
 // ValidationAnchorHandler is an interface that represents
