@@ -843,37 +843,41 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 }
 
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
-	rawPattern := []byte(`[
-		{
-			"(name)":"nirmata-*",
-			"object":[
-				{
-					"^(key1)":"value*",
-					"key2":"value*"
-				}
+	rawPattern := []byte(`{
+		"^(list)": [
+		  {
+			"(name)": "nirmata-*",
+			"object": [
+			  {
+				"(key1)": "value*",
+				"key2": "value*"
+			  }
 			]
-		}
-	]`)
-	rawMap := []byte(`[
-		{
-			"name":"nirmata-1",
-			"object":[
-				{
-					"key1":"value1",
-					"key2":"value2"
-				}
+		  }
+		]
+	  }`)
+	rawMap := []byte(`{
+		"list": [
+		  {
+			"name": "nirmata-1",
+			"object": [
+			  {
+				"key1": "value1",
+				"key2": "value2"
+			  }
 			]
-		},
-		{
-			"name":"nirmata-1",
-			"object":[
-				{
-					"key1":"not_value",
-					"key2":"not_value"
-				}
+		  },
+		  {
+			"name": "nirmata-1",
+			"object": [
+			  {
+				"key1": "not_value",
+				"key2": "not_value"
+			  }
 			]
-		}
-	]`)
+		  }
+		]
+	  }`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(rawPattern, &pattern)
@@ -1772,7 +1776,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 					   "spec": {
 						  "containers": [
 							 {
-								"^(image)": "*latest",
+								"(image)": "*latest",
 								"imagePullPolicy": "NotPresent"
 							 }
 						  ]
@@ -1817,10 +1821,10 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	// 	"Validation rule 'validate-latest' succesfully validated",
 	// }
 	er := Validate(policy, *resourceUnstructured)
-	for _, r := range er.PolicyResponse.Rules {
-		t.Log(r.Message)
-		//		assert.Equal(t, r.Message, msgs[index])
-	}
+	// for _, r := range er.PolicyResponse.Rules {
+	// 	t.Log(r.Message)
+	// 	//		assert.Equal(t, r.Message, msgs[index])
+	// }
 	assert.Assert(t, !er.IsSuccesful())
 }
 
@@ -1871,7 +1875,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 					   "spec": {
 						  "containers": [
 							 {
-								"^(image)": "*latest",
+								"(image)": "*latest",
 								"imagePullPolicy": "Always"
 							 }
 						  ]
@@ -1916,10 +1920,10 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	// 	"Validation rule 'validate-latest' succesfully validated",
 	// }
 	er := Validate(policy, *resourceUnstructured)
-	for _, r := range er.PolicyResponse.Rules {
-		t.Log(r.Message)
-		//		assert.Equal(t, r.Message, msgs[index])
-	}
+	// for _, r := range er.PolicyResponse.Rules {
+	// 	t.Log(r.Message)
+	// 	//		assert.Equal(t, r.Message, msgs[index])
+	// }
 	assert.Assert(t, er.IsSuccesful())
 }
 
@@ -2538,11 +2542,11 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	er := Validate(policy, *resourceUnstructured)
 	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
 
-	for _, r := range er.PolicyResponse.Rules {
-		t.Error(r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
-	}
-	assert.Assert(t, !er.IsSuccesful())
+	// for _, r := range er.PolicyResponse.Rules {
+	// 	// t.Error(r.Message)
+	// 	// assert.Equal(t, r.Message, msgs[index])
+	// }
+	assert.Assert(t, er.IsSuccesful())
 }
 
 func TestValidate_AnchorList_fail(t *testing.T) {
@@ -2610,12 +2614,11 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/1/name/' for resource Pod//myapp-pod."}
 
-	for _, r := range er.PolicyResponse.Rules {
-		t.Error(r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
-	}
+	// for index, r := range er.PolicyResponse.Rules {
+	// 	assert.Equal(t, r.Message, msgs[index])
+	// }
 	assert.Assert(t, !er.IsSuccesful())
 }
 
@@ -2685,12 +2688,12 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod"}
 
-	for _, r := range er.PolicyResponse.Rules {
-		t.Error(r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
-	}
+	// for index, r := range er.PolicyResponse.Rules {
+	// 	// t.Error(r.Message)
+	// 	assert.Equal(t, r.Message, msgs[index])
+	// }
 	assert.Assert(t, !er.IsSuccesful())
 }
 
@@ -2762,9 +2765,9 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	er := Validate(policy, *resourceUnstructured)
 	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
 
-	for _, r := range er.PolicyResponse.Rules {
-		t.Error(r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
-	}
-	assert.Assert(t, !er.IsSuccesful())
+	// for _, r := range er.PolicyResponse.Rules {
+	// 	t.Error(r.Message)
+	// 	// assert.Equal(t, r.Message, msgs[index])
+	// }
+	assert.Assert(t, er.IsSuccesful())
 }
