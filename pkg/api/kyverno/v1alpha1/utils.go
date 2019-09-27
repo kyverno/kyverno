@@ -3,9 +3,22 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func (r *Rule) HasMutate() bool {
+	return !reflect.DeepEqual(r.Mutation, Mutation{})
+}
+
+func (r *Rule) HasValidate() bool {
+	return !reflect.DeepEqual(r.Validation, Validation{})
+}
+
+func (r *Rule) HasGenerate() bool {
+	return !reflect.DeepEqual(r.Generation, Generation{})
+}
 
 // Validate checks if rule is not empty and all substructures are valid
 func (r *Rule) Validate() error {

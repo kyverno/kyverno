@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -28,13 +29,20 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-	// check for uniqueness of rule names while CREATE/DELET
-	admissionResp = ws.validateUniqueRuleName(policy)
+
+	if err := ws.validatePolicy(policy); err != nil {
+		admissionResp = &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: err.Error(),
+			},
+		}
+	}
 
 	// helper function to evaluate if policy has validtion or mutation rules defined
 	hasMutateOrValidate := func() bool {
 		for _, rule := range policy.Spec.Rules {
-			if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			if rule.HasMutate() || rule.HasValidate() {
 				return true
 			}
 		}
@@ -52,64 +60,92 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	return admissionResp
 }
 
-func (ws *WebhookServer) validatePolicy(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
-	admissionResp := ws.validateUniqueRuleName(policy)
-	if !admissionResp.Allowed {
-		return admissionResp
+func (ws *WebhookServer) validatePolicy(policy *kyverno.ClusterPolicy) error {
+	// validate only one type of rule defined per rule
+	if err := validateRuleType(policy); err != nil {
+		return err
 	}
 
-	return ws.validateOverlayPattern(policy)
+	// validate resource description block
+
+	// validate ^() can only be used on array
+
+	// check for uniqueness of rule names while CREATE/DELET
+	if err := validateUniqueRuleName(policy); err != nil {
+		return err
+	}
+
+	if err := validateOverlayPattern(policy); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
+// validateRuleType checks only one type of rule is defined per rule
+func validateRuleType(policy *kyverno.ClusterPolicy) error {
 	for _, rule := range policy.Spec.Rules {
-		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			continue
+		mutate := rule.HasMutate()
+		validate := rule.HasValidate()
+		generate := rule.HasGenerate()
+
+		if !mutate && !validate && !generate {
+			return fmt.Errorf("No rule defined in '%s'", rule.Name)
 		}
 
-		if rule.Validation.Pattern == nil && len(rule.Validation.AnyPattern) == 0 {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("Invalid policy, neither pattern nor anyPattern found in validate rule %s", rule.Name),
-				},
-			}
+		if (mutate && !validate && !generate) ||
+			(!mutate && validate && !generate) ||
+			(!mutate && !validate && generate) {
+			return nil
 		}
 
-		if rule.Validation.Pattern != nil && len(rule.Validation.AnyPattern) != 0 {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("Invalid policy, either pattern or anyPattern is allowed in validate rule %s", rule.Name),
-				},
-			}
-		}
+		return fmt.Errorf("Multiple types of rule defined in rule '%s', only one type of rule is allowed per rule", rule.Name)
 	}
 
-	return &v1beta1.AdmissionResponse{Allowed: true}
+	return nil
 }
 
 // Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
+func validateUniqueRuleName(policy *kyverno.ClusterPolicy) error {
 	var ruleNames []string
 
 	for _, rule := range policy.Spec.Rules {
 		if utils.ContainsString(ruleNames, rule.Name) {
 			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
 			glog.Errorln(msg)
-
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: msg,
-				},
-			}
+			return errors.New(msg)
 		}
 		ruleNames = append(ruleNames, rule.Name)
 	}
 
 	glog.V(4).Infof("Policy validation passed")
+	return nil
+}
+
+// validateOverlayPattern checks one of pattern/anyPattern must exist
+func validateOverlayPattern(policy *kyverno.ClusterPolicy) error {
+	for _, rule := range policy.Spec.Rules {
+		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			continue
+		}
+
+		if rule.Validation.Pattern == nil && len(rule.Validation.AnyPattern) == 0 {
+			return errors.New(fmt.Sprintf("Invalid policy, neither pattern nor anyPattern found in validate rule %s", rule.Name))
+		}
+
+		if rule.Validation.Pattern != nil && len(rule.Validation.AnyPattern) != 0 {
+			return errors.New(fmt.Sprintf("Invalid policy, either pattern or anyPattern is allowed in validate rule %s", rule.Name))
+		}
+	}
+
+	return nil
+}
+
+func failResponseWithMsg(msg string) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{
-		Allowed: true,
+		Allowed: false,
+		Result: &metav1.Status{
+			Message: msg,
+		},
 	}
 }
