@@ -364,14 +364,10 @@ func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]i
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
 		currentPath := path + strconv.Itoa(i) + "/"
-		//TODO: converting map to interface ???
 		returnpath, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
 		if err != nil {
 			return returnpath, err
 		}
 	}
 	return "", nil
-	// anchor, pattern := getAnchorFromMap(patternMap)
-	// handler := CreateAnchorHandler(anchor, pattern, path)
-	// return handler.Handle(resourceMapArray, patternMap, originPattern)
 }

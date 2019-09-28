@@ -7,24 +7,12 @@ import (
 	"github.com/golang/glog"
 )
 
-func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
-	anchors := map[string]interface{}{}
-	resources := map[string]interface{}{}
-	for key, value := range patternMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) {
-			anchors[key] = value
-			continue
-		}
-		resources[key] = value
-	}
-
-	return anchors, resources
-}
-
+//ValidationHandler for element processes
 type ValidationHandler interface {
 	Handle(resourceMap map[string]interface{}, originPattenr interface{}) (string, error)
 }
 
+//CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
 	switch {
 	case isConditionAnchor(element):
@@ -36,18 +24,7 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 	}
 }
 
-// CreateAnchorHandler is a factory that create anchor handlers
-func CreateAnchorHandler(anchor string, pattern interface{}, path string) ValidationAnchorHandler {
-	switch {
-	case isConditionAnchor(anchor):
-		return NewConditionAnchorValidationHandler(anchor, pattern, path)
-	case isExistanceAnchor(anchor):
-		return NewExistanceAnchorValidationHandler(anchor, pattern, path)
-	default:
-		return NewNoAnchorValidationHandler(path)
-	}
-}
-
+//NewDefaultHandler returns handler for non anchor elements
 func NewDefaultHandler(element string, pattern interface{}, path string) ValidationHandler {
 	return DefaultHandler{
 		element: element,
@@ -56,12 +33,14 @@ func NewDefaultHandler(element string, pattern interface{}, path string) Validat
 	}
 }
 
+//DefaultHandler provides handler for non anchor element
 type DefaultHandler struct {
 	element string
 	pattern interface{}
 	path    string
 }
 
+//Handle process non anchor element
 func (dh DefaultHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	currentPath := dh.path + dh.element + "/"
 	if dh.pattern == "*" && resourceMap[dh.element] != nil {
@@ -77,6 +56,7 @@ func (dh DefaultHandler) Handle(resourceMap map[string]interface{}, originPatter
 	return "", nil
 }
 
+//NewConditionAnchorHandler returns an instance of condition acnhor handler
 func NewConditionAnchorHandler(anchor string, pattern interface{}, path string) ValidationHandler {
 	return ConditionAnchorHandler{
 		anchor:  anchor,
@@ -85,12 +65,14 @@ func NewConditionAnchorHandler(anchor string, pattern interface{}, path string) 
 	}
 }
 
+//ConditionAnchorHandler provides handler for condition anchor
 type ConditionAnchorHandler struct {
 	anchor  string
 	pattern interface{}
 	path    string
 }
 
+//Handle processed condition anchor
 func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	anchorKey := removeAnchor(ch.anchor)
 	currentPath := ch.path + anchorKey + "/"
@@ -105,51 +87,9 @@ func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, orig
 
 	}
 	return "", nil
-
-	// return false
-
-	// var value interface{}
-	// var currentPath string
-	// var ok bool
-	// // check for anchor condition
-	// anchorSatisfied := func() bool {
-	// 	anchorKey := removeAnchor(ch.anchor)
-	// 	currentPath = ch.path + anchorKey + "/"
-	// 	// check if anchor is present in resource
-	// 	if value, ok = resourceMap[anchorKey]; ok {
-	// 		// validate the values of the pattern
-	// 		_, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
-	// 		if err == nil {
-	// 			return true
-	// 		}
-	// 		// return ValidateValueWithPattern(value, ch.pattern)
-	// 	}
-	// 	return false
-	// }()
-
-	// if !anchorSatisfied {
-	// 	return "", nil
-	// }
-
-	// path, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
-	// if err != nil {
-	// 	return path, err
-	// }
-	// evauluate the anchor and resource values
-	// for key, element := range resourceMap {
-	// 	currentPath := ch.path + key + "/"
-	// 	if !ValidateValueWithPattern(element, ch.pattern) {
-	// 		// the anchor does not match so ignore
-	// 		continue
-	// 	}
-	// 	path, err := validateResourceElement(element, ch.pattern, originPattern, currentPath)
-	// 	if err != nil {
-	// 		return path, err
-	// 	}
-	// }
-	return "", nil
 }
 
+//NewExistanceHandler returns existence handler
 func NewExistanceHandler(anchor string, pattern interface{}, path string) ValidationHandler {
 	return ExistanceHandler{
 		anchor:  anchor,
@@ -158,12 +98,14 @@ func NewExistanceHandler(anchor string, pattern interface{}, path string) Valida
 	}
 }
 
+//ExistanceHandler provides handlers to process exitence anchor handler
 type ExistanceHandler struct {
 	anchor  string
 	pattern interface{}
 	path    string
 }
 
+//Handle processes the existence anchor handler
 func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	// skip is used by existance anchor to not process further if condition is not satisfied
 	anchorKey := removeAnchor(eh.anchor)
@@ -193,37 +135,8 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 			// if the anchor value is the satisfied then we evaluate the next
 			return "", nil
 		}
-		// return ValidateValueWithPattern(value, eh.pattern)
 	}
-	// anchoredEntries++
-
-	// path, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
-	// if err != nil {
-	// 	return path, false, err
-	// }
-	// if anchoredEntries == 0 {
-	// 	return eh.path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eh.anchor)
-	// }
 	return "", nil
-
-	// anchoredEntries := 0
-	// for key, element := range resourceMap {
-	// 	currentPath := eh.path + key + "/"
-	// 	// check for anchor condition
-	// 	if !ValidateValueWithPattern(element, eh.pattern) {
-	// 		// the anchor does not match so ignore
-	// 		continue
-	// 	}
-	// 	anchoredEntries++
-	// 	path, err := validateResourceElement(element, eh.pattern, originPattern, currentPath)
-	// 	if err != nil {
-	// 		return path, err
-	// 	}
-	// }
-	// if anchoredEntries == 0 {
-	// 	return eh.path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eh.anchor)
-	// }
-	// return "", nil
 }
 
 func validateExistenceListResource(resourceList []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
@@ -242,146 +155,16 @@ func validateExistenceListResource(resourceList []interface{}, patternMap map[st
 	return path, fmt.Errorf("Existence anchor validation failed at path %s", path)
 }
 
-// ValidationAnchorHandler is an interface that represents
-// a family of anchor handlers for array of maps
-// resourcePart must be an array of dictionaries
-// patternPart must be a dictionary with anchors
-type ValidationAnchorHandler interface {
-	Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error)
-}
-
-// NoAnchorValidationHandler just calls validateMap
-// because no anchors were found in the pattern map
-type NoAnchorValidationHandler struct {
-	path string
-}
-
-// NewNoAnchorValidationHandler creates new instance of
-// NoAnchorValidationHandler
-func NewNoAnchorValidationHandler(path string) ValidationAnchorHandler {
-	return &NoAnchorValidationHandler{
-		path: path,
-	}
-}
-
-// Handle performs validation in context of NoAnchorValidationHandler
-func (navh *NoAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
-
-	for i, resourceElement := range resourcePart {
-		currentPath := navh.path + strconv.Itoa(i) + "/"
-
-		typedResourceElement, ok := resourceElement.(map[string]interface{})
-		if !ok {
-			return currentPath, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
-		}
-
-		path, err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
-		if err != nil {
-			return path, err
-		}
-	}
-
-	return "", nil
-}
-
-// ConditionAnchorValidationHandler performs
-// validation only for array elements that
-// pass condition in the anchor
-// (key): value
-type ConditionAnchorValidationHandler struct {
-	anchor  string
-	pattern interface{}
-	path    string
-}
-
-// NewConditionAnchorValidationHandler creates new instance of
-// NoAnchorValidationHandler
-func NewConditionAnchorValidationHandler(anchor string, pattern interface{}, path string) ValidationAnchorHandler {
-	return &ConditionAnchorValidationHandler{
-		anchor:  anchor,
-		pattern: pattern,
-		path:    path,
-	}
-}
-
-// Handle performs validation in context of ConditionAnchorValidationHandler
-func (cavh *ConditionAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
-	_, path, handlingResult := handleConditionCases(resourcePart, patternPart, cavh.anchor, cavh.pattern, cavh.path, originPattern)
-
-	return path, handlingResult
-}
-
-// ExistanceAnchorValidationHandler performs
-// validation only for array elements that
-// pass condition in the anchor
-// AND requires an existance of at least one
-// element that passes this condition
-// ^(key): value
-type ExistanceAnchorValidationHandler struct {
-	anchor  string
-	pattern interface{}
-	path    string
-}
-
-// NewExistanceAnchorValidationHandler creates new instance of
-// NoAnchorValidationHandler
-func NewExistanceAnchorValidationHandler(anchor string, pattern interface{}, path string) ValidationAnchorHandler {
-	return &ExistanceAnchorValidationHandler{
-		anchor:  anchor,
-		pattern: pattern,
-		path:    path,
-	}
-}
-
-// Handle performs validation in context of ExistanceAnchorValidationHandler
-func (eavh *ExistanceAnchorValidationHandler) Handle(resourcePart []interface{}, patternPart map[string]interface{}, originPattern interface{}) (string, error) {
-	anchoredEntries, path, err := handleConditionCases(resourcePart, patternPart, eavh.anchor, eavh.pattern, eavh.path, originPattern)
-	if err != nil {
-		return path, err
-	}
-	if 0 == anchoredEntries {
-		return path, fmt.Errorf("Existance anchor %s used, but no suitable entries were found", eavh.anchor)
-	}
-
-	return "", nil
-}
-
-// check if array element fits the anchor
-func checkForAnchorCondition(anchor string, pattern interface{}, resourceMap map[string]interface{}) bool {
-	anchorKey := removeAnchor(anchor)
-
-	if value, ok := resourceMap[anchorKey]; ok {
-		return ValidateValueWithPattern(value, pattern)
-	}
-
-	return false
-}
-
-// both () and ^() are checking conditions and have a lot of similar logic
-// the only difference is that ^() requires existace of one element
-// anchoredEntries var counts this occurences.
-func handleConditionCases(resourcePart []interface{}, patternPart map[string]interface{}, anchor string, pattern interface{}, path string, originPattern interface{}) (int, string, error) {
-	anchoredEntries := 0
-
-	for i, resourceElement := range resourcePart {
-		currentPath := path + strconv.Itoa(i) + "/"
-
-		typedResourceElement, ok := resourceElement.(map[string]interface{})
-		if !ok {
-			glog.V(4).Infof("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
-			return 0, currentPath, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", currentPath, patternPart, resourceElement)
-		}
-
-		if !checkForAnchorCondition(anchor, pattern, typedResourceElement) {
+func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	anchors := map[string]interface{}{}
+	resources := map[string]interface{}{}
+	for key, value := range patternMap {
+		if isConditionAnchor(key) || isExistanceAnchor(key) {
+			anchors[key] = value
 			continue
 		}
-
-		anchoredEntries++
-		path, err := validateMap(typedResourceElement, patternPart, originPattern, currentPath)
-		if err != nil {
-			return 0, path, err
-		}
+		resources[key] = value
 	}
 
-	return anchoredEntries, "", nil
+	return anchors, resources
 }
