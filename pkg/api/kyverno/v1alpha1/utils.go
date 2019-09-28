@@ -69,3 +69,16 @@ func containString(list []string, element string) bool {
 	}
 	return false
 }
+
+// hasExstingAnchor checks if str has existing anchor
+// strip anchor if necessary
+func hasExstingAnchor(str string) (bool, string) {
+	left := "^("
+	right := ")"
+
+	if len(str) < len(left)+len(right) {
+		return false, str
+	}
+
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
+}
