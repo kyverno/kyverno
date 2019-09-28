@@ -16,10 +16,10 @@ expected:
       rules:
         - name: check-default-namespace
           type: Validation
-          message: "Validation rule 'check-default-namespace' failed to validate patterns defined in anyPattern. A none 'default' namespace is required; anyPattern[0] failed at path /metadata/namespace/"
+          message: Validation rule 'check-default-namespace' failed at '/' for resource Pod/default/myapp-pod. A none 'default' namespace is required
           success: false
         - name: check-namespace-exist
           type: Validation
-          message: "Validation rule 'check-namespace-exist' anyPattern[0] succesfully validated"
-          success: true
+          message: Validation rule 'check-namespace-exist' failed at '/' for resource Pod/default/myapp-pod. A namespace is required
+          success: false
 

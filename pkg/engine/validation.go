@@ -197,8 +197,13 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 		// - Existance
 		handler := CreateElementHandler(key, patternElement, path)
 		handlerPath, err := handler.Handle(resourceMap, origPattern)
+		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
+		// but if there are non then its a if then check
 		if err != nil {
-			return handlerPath, err
+			if len(resources) == 0 {
+				return handlerPath, err
+			}
+			return "", nil
 		}
 	}
 	// Evaluate resources

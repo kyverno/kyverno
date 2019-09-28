@@ -15,7 +15,7 @@ spec:
         - Pod
     validate:
       message: "Container should not have read-only rootfilesystem"
-      anyPattern:
+      pattern:
       - spec:
           container:
           - securityContext:

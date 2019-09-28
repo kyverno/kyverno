@@ -2197,7 +2197,6 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 					   "spec": {
 						  "volumes": [
 							 {
-								"name": "*",
 								"(hostPath)": {
 								   "path": "!/var/lib"
 								}
