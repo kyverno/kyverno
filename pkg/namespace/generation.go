@@ -115,6 +115,51 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []e
 	return engineResponses
 }
 
+func generateRuleExists(policy *kyverno.ClusterPolicy) bool {
+	for _, rule := range policy.Spec.Rules {
+		if rule.Generation != (kyverno.Generation{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func (nsc *NamespaceController) processPolicy(policy *kyverno.ClusterPolicy) {
+	filteredNamespaces := []*corev1.Namespace{}
+	// get namespaces that policy applies on
+	namespaces, err := nsc.nsLister.ListResources(labels.NewSelector())
+	if err != nil {
+		glog.Errorf("failed to get list namespaces: %v", err)
+		return
+	}
+	for _, namespace := range namespaces {
+		// convert to unstructured
+		unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(namespace)
+		if err != nil {
+			glog.Infof("unable to convert to unstructured, not processing any policies: %v", err)
+			continue
+		}
+		ns := unstructured.Unstructured{Object: unstr}
+		for _, rule := range policy.Spec.Rules {
+			if rule.Generation == (kyverno.Generation{}) {
+				continue
+			}
+			ok := engine.MatchesResourceDescription(ns, rule)
+			if !ok {
+				glog.V(4).Infof("namespace %s does not satisfy the resource description for the policy %s rule %s", ns.GetName(), policy.Name, rule.Name)
+				continue
+			}
+			glog.V(4).Infof("namespace %s satisfies resource description for policy %s rule %s", ns.GetName(), policy.Name, rule.Name)
+			filteredNamespaces = append(filteredNamespaces, namespace)
+		}
+	}
+	// list of namespaces that the policy applies on
+	for _, ns := range filteredNamespaces {
+		glog.V(4).Infof("policy %s with generate rule: namespace %s to be processed ", policy.Name, ns.Name)
+		nsc.addNamespace(ns)
+	}
+}
+
 func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.ClusterPolicyLister) []*kyverno.ClusterPolicy {
 	var filteredpolicies []*kyverno.ClusterPolicy
 	glog.V(4).Infof("listing policies for namespace %s", ns.GetName())

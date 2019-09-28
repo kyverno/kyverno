@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
@@ -83,6 +84,11 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: nsc.deleteNamespace,
 	})
 
+	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    nsc.addPolicy,
+		UpdateFunc: nsc.updatePolicy,
+	})
+
 	nsc.enqueueNs = nsc.enqueue
 	nsc.syncHandler = nsc.syncNamespace
 
@@ -98,6 +104,23 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.rm = NewResourceManager(300)
 
 	return nsc
+}
+func (nsc *NamespaceController) addPolicy(obj interface{}) {
+	p := obj.(*kyverno.ClusterPolicy)
+	// check if the policy has generate rule
+	if generateRuleExists(p) {
+		// process policy
+		nsc.processPolicy(p)
+	}
+}
+
+func (nsc *NamespaceController) updatePolicy(old, cur interface{}) {
+	curP := cur.(*kyverno.ClusterPolicy)
+	// check if the policy has generate rule
+	if generateRuleExists(curP) {
+		// process policy
+		nsc.processPolicy(curP)
+	}
 }
 
 func (nsc *NamespaceController) addNamespace(obj interface{}) {
@@ -210,7 +233,7 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 	// exclude the filtered resources
 	if utils.SkipFilteredResources("Namespace", "", namespace.Name, nsc.filterK8Resources) {
 		//TODO: improve the text
-		glog.V(4).Infof("excluding namespace %s as its a filtered resource",namespace.Name )
+		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil
 	}
 
