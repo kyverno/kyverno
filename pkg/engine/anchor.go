@@ -163,11 +163,6 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 			glog.Error("Invalid type: Existance ^ () anchor can be used only on list/array type resource")
 			return currentPath, fmt.Errorf("Invalid resource type %T: Existance ^ () anchor can be used only on list/array type resource", value)
 		}
-		_, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
-		if err == nil {
-			// if the anchor value is the satisfied then we evaluate the next
-			return "", nil
-		}
 	}
 	return "", nil
 }

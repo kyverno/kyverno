@@ -185,7 +185,6 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	// check if there is anchor in pattern
-	// anchor, pattern := getAnchorFromMap(patternMap)
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
 	anchors, resources := getAnchorsResourcesFromMap(patternMap)
