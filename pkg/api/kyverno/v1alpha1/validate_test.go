@@ -222,12 +222,12 @@ func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate()
+	err = rd.Validate(true)
 	assert.NilError(t, err)
 }
 
-func Test_Validate_ResourceDescription_MissingKinds(t *testing.T) {
-	rawResourcedescirption := []byte(`
+func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
+	matchedResourcedescirption := []byte(`
 	{
 		"selector": {
 		   "matchLabels": {
@@ -237,11 +237,29 @@ func Test_Validate_ResourceDescription_MissingKinds(t *testing.T) {
 	 }`)
 
 	var rd *ResourceDescription
-	err := json.Unmarshal(rawResourcedescirption, &rd)
+	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate()
+	err = rd.Validate(true)
 	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
+	matchedResourcedescirption := []byte(`
+	{
+		"selector": {
+		   "matchLabels": {
+			  "app.type": "prod"
+		   }
+		}
+	 }`)
+
+	var rd *ResourceDescription
+	err := json.Unmarshal(matchedResourcedescirption, &rd)
+	assert.NilError(t, err)
+
+	err = rd.Validate(false)
+	assert.NilError(t, err)
 }
 
 func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
@@ -259,7 +277,7 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate()
+	err = rd.Validate(true)
 	assert.Assert(t, err != nil)
 }
 
@@ -280,7 +298,7 @@ func Test_Validate_ResourceDescription_Valid(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate()
+	err = rd.Validate(true)
 	assert.NilError(t, err)
 }
 
@@ -646,9 +664,6 @@ func Test_Validate_Policy(t *testing.T) {
 				 "name": "validate-user-privilege",
 				 "exclude": {
 					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
 					   "namespaces": [
 						  "kube-system"
 					   ]

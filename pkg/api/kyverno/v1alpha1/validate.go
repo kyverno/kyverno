@@ -49,11 +49,11 @@ func (r Rule) Validate() []error {
 	}
 
 	// validate resource description block
-	if err := r.MatchResources.ResourceDescription.Validate(); err != nil {
+	if err := r.MatchResources.ResourceDescription.Validate(true); err != nil {
 		errs = append(errs, err)
 	}
 
-	if err := r.ExcludeResources.ResourceDescription.Validate(); err != nil {
+	if err := r.ExcludeResources.ResourceDescription.Validate(false); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -120,14 +120,14 @@ func (r Rule) HasGenerate() bool {
 // Validate checks if all necesarry fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
-// - kinds is empty array, i.e. kinds: []
+// - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
-func (rd ResourceDescription) Validate() error {
+func (rd ResourceDescription) Validate(matchedResource bool) error {
 	if reflect.DeepEqual(rd, ResourceDescription{}) {
 		return nil
 	}
 
-	if len(rd.Kinds) == 0 {
+	if matchedResource && len(rd.Kinds) == 0 {
 		return errors.New("field Kind is not specified")
 	}
 
