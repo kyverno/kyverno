@@ -15,7 +15,7 @@ spec:
         - Pod
     validate:
       message: "Disallow use of host's pid namespace and host's ipc namespace"
-      anyPattern:
-      - spec:
+      pattern:
+        spec:
           hostPID: false
           hostIPC: false

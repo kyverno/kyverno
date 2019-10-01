@@ -3,11 +3,9 @@ package webhooks
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -28,13 +26,20 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-	// check for uniqueness of rule names while CREATE/DELET
-	admissionResp = ws.validateUniqueRuleName(policy)
+
+	if err := policy.Validate(); err != nil {
+		admissionResp = &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: err.Error(),
+			},
+		}
+	}
 
 	// helper function to evaluate if policy has validtion or mutation rules defined
 	hasMutateOrValidate := func() bool {
 		for _, rule := range policy.Spec.Rules {
-			if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			if rule.HasMutate() || rule.HasValidate() {
 				return true
 			}
 		}
@@ -52,64 +57,11 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	return admissionResp
 }
 
-func (ws *WebhookServer) validatePolicy(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
-	admissionResp := ws.validateUniqueRuleName(policy)
-	if !admissionResp.Allowed {
-		return admissionResp
-	}
-
-	return ws.validateOverlayPattern(policy)
-}
-
-func (ws *WebhookServer) validateOverlayPattern(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
-	for _, rule := range policy.Spec.Rules {
-		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
-			continue
-		}
-
-		if rule.Validation.Pattern == nil && len(rule.Validation.AnyPattern) == 0 {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("Invalid policy, neither pattern nor anyPattern found in validate rule %s", rule.Name),
-				},
-			}
-		}
-
-		if rule.Validation.Pattern != nil && len(rule.Validation.AnyPattern) != 0 {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("Invalid policy, either pattern or anyPattern is allowed in validate rule %s", rule.Name),
-				},
-			}
-		}
-	}
-
-	return &v1beta1.AdmissionResponse{Allowed: true}
-}
-
-// Verify if the Rule names are unique within a policy
-func (ws *WebhookServer) validateUniqueRuleName(policy *kyverno.ClusterPolicy) *v1beta1.AdmissionResponse {
-	var ruleNames []string
-
-	for _, rule := range policy.Spec.Rules {
-		if utils.ContainsString(ruleNames, rule.Name) {
-			msg := fmt.Sprintf(`The policy "%s" is invalid: duplicate rule name: "%s"`, policy.Name, rule.Name)
-			glog.Errorln(msg)
-
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: msg,
-				},
-			}
-		}
-		ruleNames = append(ruleNames, rule.Name)
-	}
-
-	glog.V(4).Infof("Policy validation passed")
+func failResponseWithMsg(msg string) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{
-		Allowed: true,
+		Allowed: false,
+		Result: &metav1.Status{
+			Message: msg,
+		},
 	}
 }
