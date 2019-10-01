@@ -269,7 +269,7 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 
 	if str[0] == '(' && str[len(str)-1] == ')' {
 		return str[1 : len(str)-1]
-	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+') && (str[1] == '(' && str[len(str)-1] == ')') {
+	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
 		return str[2 : len(str)-1]
 	} else {
 		return str
@@ -296,7 +296,7 @@ func isExistanceAnchor(str string) bool {
 }
 
 func isEqualityAnchor(str string) bool {
-	left := "~("
+	left := "=("
 	right := ")"
 	if len(str) < len(left)+len(right) {
 		return false

@@ -2107,7 +2107,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 						  "volumes": [
 							 {
 								"name": "*",
-								"~(hostPath)": {
+								"=(hostPath)": {
 								   "path": "!/var/lib"
 								}
 							 }
@@ -2195,7 +2195,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 					   "spec": {
 						  "volumes": [
 							 {
-								"~(hostPath)": {
+								"=(hostPath)": {
 								   "path": "!/var/lib"
 								}
 							 }
@@ -2281,7 +2281,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "~(securityContext)": {
+						  "=(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2350,7 +2350,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "~(securityContext)": {
+						  "=(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2422,7 +2422,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "~(securityContext)": {
+						  "=(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2494,7 +2494,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			  "validate": {
 				"pattern": {
 				  "spec": {
-					"~(containers)": [
+					"=(containers)": [
 					  {
 						"name": "nginx"
 					  }
@@ -2568,7 +2568,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			  "validate": {
 				"pattern": {
 				  "spec": {
-					"~(containers)": [
+					"=(containers)": [
 					  {
 						"name": "nginx"
 					  }
