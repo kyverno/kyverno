@@ -193,17 +193,20 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 	// Evaluate anchors
 	for key, patternElement := range anchors {
 		// get handler for each pattern in the pattern
-		// - Anchor
+		// - Conditional
 		// - Existance
+		// - Equality
 		handler := CreateElementHandler(key, patternElement, path)
 		handlerPath, err := handler.Handle(resourceMap, origPattern)
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
-			if len(resources) == 0 {
-				return handlerPath, err
+			// If Conditional anchor fails then we dont process the resources
+			if isConditionAnchor(key) {
+				glog.V(4).Infof("condition anchor did not satisfy, wont process the resources: %s", err)
+				return "", nil
 			}
-			return "", nil
+			return handlerPath, err
 		}
 	}
 	// Evaluate resources

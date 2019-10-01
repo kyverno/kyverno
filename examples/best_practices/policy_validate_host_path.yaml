@@ -14,5 +14,5 @@ spec:
       pattern:
         spec:
           volumes:
-          - (hostPath):
+          - ~(hostPath):
               path: "!/var/lib"

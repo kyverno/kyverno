@@ -8,4 +8,3 @@ spec:
   containers:
   - name: nginx
     image: nginx:latest
-    imagePullPolicy: NotPresent

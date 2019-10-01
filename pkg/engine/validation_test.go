@@ -1816,15 +1816,14 @@ func TestValidate_image_tag_fail(t *testing.T) {
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	// msgs := []string{
-	// 	"Validation rule 'validate-tag' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. An image tag is required",
-	// 	"Validation rule 'validate-latest' succesfully validated",
-	// }
+	msgs := []string{
+		"Validation rule 'validate-tag' succesfully validated",
+		"Validation rule 'validate-latest' failed at '/spec/containers/0/imagePullPolicy/' for resource Pod//myapp-pod. imagePullPolicy 'Always' required with tag 'latest'",
+	}
 	er := Validate(policy, *resourceUnstructured)
-	// for _, r := range er.PolicyResponse.Rules {
-	// 	t.Log(r.Message)
-	// 	//		assert.Equal(t, r.Message, msgs[index])
-	// }
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
 	assert.Assert(t, !er.IsSuccesful())
 }
 
@@ -1915,15 +1914,14 @@ func TestValidate_image_tag_pass(t *testing.T) {
 
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	// msgs := []string{
-	// 	"Validation rule 'validate-tag' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. An image tag is required",
-	// 	"Validation rule 'validate-latest' succesfully validated",
-	// }
+	msgs := []string{
+		"Validation rule 'validate-tag' succesfully validated",
+		"Validation rule 'validate-latest' succesfully validated",
+	}
 	er := Validate(policy, *resourceUnstructured)
-	// for _, r := range er.PolicyResponse.Rules {
-	// 	t.Log(r.Message)
-	// 	//		assert.Equal(t, r.Message, msgs[index])
-	// }
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
 	assert.Assert(t, er.IsSuccesful())
 }
 
@@ -2109,7 +2107,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 						  "volumes": [
 							 {
 								"name": "*",
-								"(hostPath)": {
+								"~(hostPath)": {
 								   "path": "!/var/lib"
 								}
 							 }
@@ -2197,7 +2195,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 					   "spec": {
 						  "volumes": [
 							 {
-								"(hostPath)": {
+								"~(hostPath)": {
 								   "path": "!/var/lib"
 								}
 							 }
@@ -2283,7 +2281,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "(securityContext)": {
+						  "~(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2352,7 +2350,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "(securityContext)": {
+						  "~(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2424,7 +2422,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 					"message": "pod: validate run as non root user",
 					"pattern": {
 					   "spec": {
-						  "(securityContext)": {
+						  "~(securityContext)": {
 							 "runAsNonRoot": true
 						  }
 					   }
@@ -2496,7 +2494,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			  "validate": {
 				"pattern": {
 				  "spec": {
-					"(containers)": [
+					"~(containers)": [
 					  {
 						"name": "nginx"
 					  }
@@ -2539,12 +2537,12 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+	msgs := []string{"Validation rule 'pod image rule' succesfully validated"}
 
-	// for _, r := range er.PolicyResponse.Rules {
-	// 	// t.Error(r.Message)
-	// 	// assert.Equal(t, r.Message, msgs[index])
-	// }
+	for index, r := range er.PolicyResponse.Rules {
+		t.Log(r.Message)
+		assert.Equal(t, r.Message, msgs[index])
+	}
 	assert.Assert(t, er.IsSuccesful())
 }
 
@@ -2570,7 +2568,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			  "validate": {
 				"pattern": {
 				  "spec": {
-					"(containers)": [
+					"~(containers)": [
 					  {
 						"name": "nginx"
 					  }
@@ -2614,8 +2612,8 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
 	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/1/name/' for resource Pod//myapp-pod."}
-
 	// for index, r := range er.PolicyResponse.Rules {
+	// 	// t.Log(r.Message)
 	// 	assert.Equal(t, r.Message, msgs[index])
 	// }
 	assert.Assert(t, !er.IsSuccesful())
@@ -2687,10 +2685,10 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod"}
+	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod."}
 
 	// for index, r := range er.PolicyResponse.Rules {
-	// 	// t.Error(r.Message)
+	// 	t.Log(r.Message)
 	// 	assert.Equal(t, r.Message, msgs[index])
 	// }
 	assert.Assert(t, !er.IsSuccesful())
@@ -2762,11 +2760,10 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	// msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+	msgs := []string{"Validation rule 'pod image rule' succesfully validated"}
 
-	// for _, r := range er.PolicyResponse.Rules {
-	// 	t.Error(r.Message)
-	// 	// assert.Equal(t, r.Message, msgs[index])
-	// }
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
 	assert.Assert(t, er.IsSuccesful())
 }

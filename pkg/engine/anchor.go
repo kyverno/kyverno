@@ -19,9 +19,42 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 		return NewConditionAnchorHandler(element, pattern, path)
 	case isExistanceAnchor(element):
 		return NewExistanceHandler(element, pattern, path)
+	case isEqualityAnchor(element):
+		return NewEqualityHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)
 	}
+}
+
+func NewEqualityHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+	return EqualityHandler{
+		anchor:  anchor,
+		pattern: pattern,
+		path:    path,
+	}
+}
+
+//EqualityHandler provides handler for non anchor element
+type EqualityHandler struct {
+	anchor  string
+	pattern interface{}
+	path    string
+}
+
+//Handle processed condition anchor
+func (eh EqualityHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+	anchorKey := removeAnchor(eh.anchor)
+	currentPath := eh.path + anchorKey + "/"
+	// check if anchor is present in resource
+	if value, ok := resourceMap[anchorKey]; ok {
+		// validate the values of the pattern
+		returnPath, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
+		if err != nil {
+			return returnPath, err
+		}
+		return "", nil
+	}
+	return "", nil
 }
 
 //NewDefaultHandler returns handler for non anchor elements
@@ -159,7 +192,7 @@ func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) {
+		if isConditionAnchor(key) || isExistanceAnchor(key) || isEqualityAnchor(key) {
 			anchors[key] = value
 			continue
 		}
