@@ -3,8 +3,8 @@ kind: Pod
 metadata:
   name: nginx-with-hostpid
 spec:
-  hostPID: true
-  hostIPC: false
+  hostPID: false
+  hostIPC: true
   containers:
   - name: nginx
     image: nginx

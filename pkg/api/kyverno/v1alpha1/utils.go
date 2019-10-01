@@ -3,72 +3,7 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// Validate checks if rule is not empty and all substructures are valid
-func (r *Rule) Validate() error {
-	// check matches Resoource Description of match resource
-	err := r.MatchResources.ResourceDescription.Validate()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Validate checks if all necesarry fields are present and have values. Also checks a Selector.
-// Returns error if
-// - kinds is not defined
-func (pr *ResourceDescription) Validate() error {
-	if len(pr.Kinds) == 0 {
-		return errors.New("The Kind is not specified")
-	}
-
-	if pr.Selector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(pr.Selector)
-		if err != nil {
-			return err
-		}
-		requirements, _ := selector.Requirements()
-		if len(requirements) == 0 {
-			return errors.New("The requirements are not specified in selector")
-		}
-	}
-
-	return nil
-}
-
-// Validate if all mandatory PolicyPatch fields are set
-func (pp *Patch) Validate() error {
-	if pp.Path == "" {
-		return errors.New("JSONPatch field 'path' is mandatory")
-	}
-
-	if pp.Operation == "add" || pp.Operation == "replace" {
-		if pp.Value == nil {
-			return fmt.Errorf("JSONPatch field 'value' is mandatory for operation '%s'", pp.Operation)
-		}
-
-		return nil
-	} else if pp.Operation == "remove" {
-		return nil
-	}
-
-	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
-}
-
-// Validate returns error if generator is configured incompletely
-func (gen *Generation) Validate() error {
-	if gen.Data == nil && gen.Clone == (CloneFrom{}) {
-		return fmt.Errorf("Neither data nor clone (source) of %s is specified", gen.Kind)
-	}
-	if gen.Data != nil && gen.Clone != (CloneFrom{}) {
-		return fmt.Errorf("Both data nor clone (source) of %s are specified", gen.Kind)
-	}
-	return nil
-}
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member
@@ -108,4 +43,42 @@ func (rs ResourceSpec) ToKey() string {
 		return rs.Kind + "." + rs.Name
 	}
 	return rs.Kind + "." + rs.Namespace + "." + rs.Name
+}
+
+// joinErrs joins the list of error into single error
+// adds a new line between errors
+func joinErrs(errs []error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+
+	res := "\n"
+	for _, err := range errs {
+		res = fmt.Sprintf(res + err.Error() + "\n")
+	}
+
+	return errors.New(res)
+}
+
+//Contains Check if strint is contained in a list of string
+func containString(list []string, element string) bool {
+	for _, e := range list {
+		if e == element {
+			return true
+		}
+	}
+	return false
+}
+
+// hasExistingAnchor checks if str has existing anchor
+// strip anchor if necessary
+func hasExistingAnchor(str string) (bool, string) {
+	left := "^("
+	right := ")"
+
+	if len(str) < len(left)+len(right) {
+		return false, str
+	}
+
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
 }

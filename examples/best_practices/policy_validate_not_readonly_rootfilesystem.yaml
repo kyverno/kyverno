@@ -16,7 +16,7 @@ spec:
     validate:
       message: "Container should not have read-only rootfilesystem"
       pattern:
-      - spec:
-          container:
+        spec:
+          containers:
           - securityContext:
               readOnlyRootFilesystem: false

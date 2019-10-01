@@ -12,8 +12,8 @@ spec:
     validate:
       message: "A none 'default' namespace is required"
       pattern:
-        - metadata:
-            namespace: "!default"
+        metadata:
+          namespace: "!default"
   - name: check-namespace-exist
     match:
       resources:
@@ -22,5 +22,5 @@ spec:
     validate:
       message: "A namespace is required"
       pattern:
-        - metadata:
-            namespace: "?*"
+        metadata:
+          namespace: "?*"

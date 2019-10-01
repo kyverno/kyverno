@@ -16,6 +16,6 @@ spec:
     validate:
       message: "Disallow use of host's pid namespace and host's ipc namespace"
       pattern:
-      - spec:
+        spec:
           hostPID: false
           hostIPC: false
