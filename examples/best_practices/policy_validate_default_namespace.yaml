@@ -11,9 +11,9 @@ spec:
         - Pod
     validate:
       message: "A none 'default' namespace is required"
-      anyPattern:
-        - metadata:
-            namespace: "!default"
+      pattern:
+        metadata:
+          namespace: "!default"
   - name: check-namespace-exist
     match:
       resources:
@@ -21,6 +21,6 @@ spec:
         - Pod
     validate:
       message: "A namespace is required"
-      anyPattern:
-        - metadata:
-            namespace: "?*"
+      pattern:
+        metadata:
+          namespace: "?*"
