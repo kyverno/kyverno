@@ -207,7 +207,7 @@ func validateExistingAnchorOnPattern(pattern interface{}, path string) (string, 
 	case string, float64, int, int64, bool, nil:
 		// check on type string
 		if checkedPattern := reflect.ValueOf(pattern); checkedPattern.Kind() == reflect.String {
-			if hasAnchor, str := hasExstingAnchor(checkedPattern.String()); hasAnchor {
+			if hasAnchor, str := hasExistingAnchor(checkedPattern.String()); hasAnchor {
 				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %T", path+str, checkedPattern.Kind())
 			}
 		}
@@ -222,7 +222,7 @@ func validateExistingAnchorOnPattern(pattern interface{}, path string) (string, 
 
 func validateMap(pattern map[string]interface{}, path string) (string, error) {
 	for key, patternElement := range pattern {
-		if hasAnchor, str := hasExstingAnchor(key); hasAnchor {
+		if hasAnchor, str := hasExistingAnchor(key); hasAnchor {
 			if checkedPattern := reflect.ValueOf(patternElement); checkedPattern.Kind() != reflect.Slice {
 				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %T", path+str, patternElement)
 			}
