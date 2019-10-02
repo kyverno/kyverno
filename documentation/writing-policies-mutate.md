@@ -6,6 +6,12 @@ The ```mutate``` rule contains actions that will be applied to matching resource
 
 Resource mutation occurs before validation, so the validation rules should not contradict the changes performed by the mutation section.
 
+## Anchors
+| Anchor      	| Tag 	| Behavior                                    	|
+|-------------	|-----	|---------------------------------------------	|
+| Conditional 	| ()  	| Add the specified tag  	|
+| Add         	| +() 	| Add if the tag if not specified             	|
+
 ## Patches
 
 This patch adds an init container to all deployments.

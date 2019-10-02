@@ -18,7 +18,7 @@ spec :
         pattern:
           spec:
             containers:
-              - ^(name): "*"
+              - (name): "*"
                 resources:
                   requests:
                     memory: "$(<=./../../lim(its/mem)ory)"

@@ -843,37 +843,41 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 }
 
 func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
-	rawPattern := []byte(`[
-		{
-			"(name)":"nirmata-*",
-			"object":[
-				{
-					"(key1)":"value*",
-					"key2":"value*"
-				}
+	rawPattern := []byte(`{
+		"^(list)": [
+		  {
+			"(name)": "nirmata-*",
+			"object": [
+			  {
+				"(key1)": "value*",
+				"key2": "value*"
+			  }
 			]
-		}
-	]`)
-	rawMap := []byte(`[
-		{
-			"name":"nirmata-1",
-			"object":[
-				{
-					"key1":"value1",
-					"key2":"value2"
-				}
+		  }
+		]
+	  }`)
+	rawMap := []byte(`{
+		"list": [
+		  {
+			"name": "nirmata-1",
+			"object": [
+			  {
+				"key1": "value1",
+				"key2": "value2"
+			  }
 			]
-		},
-		{
-			"name":"nirmata-1",
-			"object":[
-				{
-					"key1":"not_value",
-					"key2":"not_value"
-				}
+		  },
+		  {
+			"name": "nirmata-1",
+			"object": [
+			  {
+				"key1": "not_value",
+				"key2": "not_value"
+			  }
 			]
-		}
-	]`)
+		  }
+		]
+	  }`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(rawPattern, &pattern)
@@ -881,7 +885,9 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
-	assert.NilError(t, err)
+	// assert.Equal(t, path, "/1/object/0/key2/")
+	// assert.NilError(t, err)
+	assert.Assert(t, err == nil)
 }
 
 func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
@@ -1306,15 +1312,13 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 			"containers":[
 				{
 					"(name)":"$(/metadata/labels/app)",
-					"image":"nirmata.io*"
+					"(image)":"nirmata.io*"
 				}
 			]
 		}
 	}`)
 
 	rawMap := []byte(`{
-		"apiVersion":"apps/v1",
-		"kind":"Deployment",
 		"metadata":{
 			"labels":{
 				"app":"nirmata*"
@@ -1323,14 +1327,6 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 		"spec":{
 			"containers":[
 				{
-					"resources":{
-						"requests":{
-							"memory":"1024Mi"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					},
 					"name":"nirmata"
 				}
 			]
@@ -1344,6 +1340,48 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
+}
+
+func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
+	rawPattern := []byte(`{
+		"metadata":{
+			"labels":{
+				"app":"nirmata*"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"(name)":"$(/metadata/labels/app)",
+					"image":"nirmata.io*"
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"metadata":{
+			"labels":{
+				"app":"nirmata*"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"image":"nginx"
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
+
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "/spec/containers/0/image/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
@@ -1691,7 +1729,106 @@ func TestValidate_MapHasFloats(t *testing.T) {
 	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
 }
 
-func TestValidate_image_tag(t *testing.T) {
+func TestValidate_image_tag_fail(t *testing.T) {
+	// If image tag is latest then imagepull policy needs to be checked
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-image"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "validate-tag",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "An image tag is required",
+					"pattern": {
+					   "spec": {
+						  "containers": [
+							 {
+								"image": "*:*"
+							 }
+						  ]
+					   }
+					}
+				 }
+			  },
+			  {
+				 "name": "validate-latest",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "imagePullPolicy 'Always' required with tag 'latest'",
+					"pattern": {
+					   "spec": {
+						  "containers": [
+							 {
+								"(image)": "*latest",
+								"imagePullPolicy": "NotPresent"
+							 }
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "myapp"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx:latest",
+				 "imagePullPolicy": "Always"
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	msgs := []string{
+		"Validation rule 'validate-tag' succesfully validated",
+		"Validation rule 'validate-latest' failed at '/spec/containers/0/imagePullPolicy/' for resource Pod//myapp-pod. imagePullPolicy 'Always' required with tag 'latest'",
+	}
+	er := Validate(policy, *resourceUnstructured)
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_image_tag_pass(t *testing.T) {
+	// If image tag is latest then imagepull policy needs to be checked
 	rawPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1alpha1",
 		"kind": "ClusterPolicy",
@@ -1764,7 +1901,8 @@ func TestValidate_image_tag(t *testing.T) {
 		   "containers": [
 			  {
 				 "name": "nginx",
-				 "image": "nginx"
+				 "image": "nginx:latest",
+				 "imagePullPolicy": "Always"
 			  }
 		   ]
 		}
@@ -1777,14 +1915,14 @@ func TestValidate_image_tag(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. An image tag is required",
+		"Validation rule 'validate-tag' succesfully validated",
 		"Validation rule 'validate-latest' succesfully validated",
 	}
 	er := Validate(policy, *resourceUnstructured)
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, er.IsSuccesful())
 }
 
 func TestValidate_Fail_anyPattern(t *testing.T) {
@@ -1941,4 +2079,691 @@ func TestValidate_host_network_port(t *testing.T) {
 		assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_anchor_arraymap_pass(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-host-path"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "validate-host-path",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "Host path '/var/lib/' is not allowed",
+					"pattern": {
+					   "spec": {
+						  "volumes": [
+							 {
+								"name": "*",
+								"=(hostPath)": {
+								   "path": "!/var/lib"
+								}
+							 }
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "image-with-hostpath",
+		   "labels": {
+			  "app.type": "prod",
+			  "namespace": "my-namespace"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "image-with-hostpath",
+				 "image": "docker.io/nautiker/curl",
+				 "volumeMounts": [
+					{
+					   "name": "var-lib-etcd",
+					   "mountPath": "/var/lib"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "var-lib-etcd",
+				 "hostPath": {
+					"path": "/var/lib1"
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'validate-host-path' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
+}
+
+func TestValidate_anchor_arraymap_fail(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-host-path"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "validate-host-path",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "Host path '/var/lib/' is not allowed",
+					"pattern": {
+					   "spec": {
+						  "volumes": [
+							 {
+								"=(hostPath)": {
+								   "path": "!/var/lib"
+								}
+							 }
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "image-with-hostpath",
+		   "labels": {
+			  "app.type": "prod",
+			  "namespace": "my-namespace"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "image-with-hostpath",
+				 "image": "docker.io/nautiker/curl",
+				 "volumeMounts": [
+					{
+					   "name": "var-lib-etcd",
+					   "mountPath": "/var/lib"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "var-lib-etcd",
+				 "hostPath": {
+					"path": "/var/lib"
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'validate-host-path' failed at '/spec/volumes/0/hostPath/path/' for resource Pod//image-with-hostpath. Host path '/var/lib/' is not allowed"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_anchor_map_notfound(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "pod rule 2",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "pod: validate run as non root user",
+					"pattern": {
+					   "spec": {
+						  "=(securityContext)": {
+							 "runAsNonRoot": true
+						  }
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "v1"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ]
+		}
+	 }
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'pod rule 2' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
+}
+
+func TestValidate_anchor_map_found_valid(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "pod rule 2",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "pod: validate run as non root user",
+					"pattern": {
+					   "spec": {
+						  "=(securityContext)": {
+							 "runAsNonRoot": true
+						  }
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "v1"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ],
+		   "securityContext": {
+			  "runAsNonRoot": true
+		   }
+		}
+	 }
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'pod rule 2' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
+}
+
+func TestValidate_anchor_map_found_invalid(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "pod rule 2",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "pod: validate run as non root user",
+					"pattern": {
+					   "spec": {
+						  "=(securityContext)": {
+							 "runAsNonRoot": true
+						  }
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "v1"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ],
+		   "securityContext": {
+			  "runAsNonRoot": false
+		   }
+		}
+	 }
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'pod rule 2' failed at '/spec/securityContext/runAsNonRoot/' for resource Pod//myapp-pod. pod: validate run as non root user"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_AnchorList_pass(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"=(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "nginx"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'pod image rule' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		t.Log(r.Message)
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
+}
+
+func TestValidate_AnchorList_fail(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"=(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/1/name/' for resource Pod//myapp-pod."}
+	// for index, r := range er.PolicyResponse.Rules {
+	// 	// t.Log(r.Message)
+	// 	assert.Equal(t, r.Message, msgs[index])
+	// }
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_existenceAnchor_fail(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"^(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "busy1"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod."}
+
+	// for index, r := range er.PolicyResponse.Rules {
+	// 	t.Log(r.Message)
+	// 	assert.Equal(t, r.Message, msgs[index])
+	// }
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_existenceAnchor_pass(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "pod image rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"^(containers)": [
+					  {
+						"name": "nginx"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+		 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "myapp-pod",
+		  "labels": {
+			"app": "v1"
+		  }
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "name": "nginx"
+			},
+			{
+			  "name": "busy"
+			}
+		  ]
+		}
+	  }	
+`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'pod image rule' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
 }
