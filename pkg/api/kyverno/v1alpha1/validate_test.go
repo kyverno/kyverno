@@ -922,7 +922,6 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	assert.NilError(t, err)
 
 	errs = validate.Validate()
-	fmt.Println(errs)
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -1074,9 +1073,156 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 	 }`)
 
 	var generateNew Generation
-	err = json.Unmarshal(rawGenerateNew, &generateNew)
+	errNew := json.Unmarshal(rawGenerateNew, &generateNew)
+	assert.NilError(t, errNew)
+
+	errNew = generateNew.Validate()
+	assert.Assert(t, errNew != nil)
+}
+
+func Test_Validate_ErrorFormat(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "test-error-format"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "image-pull-policy",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Deployment"
+					   ],
+					   "selector": {
+						  "matchLabels": {
+							 "app": "nginxlatest"
+						  }
+					   }
+					}
+				 },
+				 "exclude": {
+					"resources": {
+						"selector": {
+							"app": "nginxlatest"
+						 }
+					}
+				 },
+				 "mutate": {
+					"overlay": {
+					   "spec": {
+						  "template": {
+							 "spec": {
+								"containers": [
+								   {
+									  "=(image)": "*latest",
+									  "imagePullPolicy": "IfNotPresent"
+								   }
+								]
+							 }
+						  }
+					   }
+					}
+				 }
+			  },
+			  {
+				 "name": "validate-user-privilege",
+				 "match": {
+					"resources": {
+					   "kinds": [],
+					   "selector": {
+						  "matchLabels": {
+							 "app.type": "prod"
+						  }
+					   }
+					}
+				 },
+				 "validate": {
+					"message": "validate container security contexts",
+					"anyPattern": [
+					   {
+						  "spec": {
+							 "template": {
+								"spec": {
+								   "^(containers)": [
+									  {
+										 "securityContext": {
+											"runAsNonRoot": "true"
+										 }
+									  }
+								   ]
+								}
+							 }
+						  }
+					   }
+					]
+				 }
+			  },
+			  {
+				 "name": "validate-user-privilege",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Deployment"
+					   ],
+					   "selector": {
+						  "matchLabels": {
+							 "app.type": "prod"
+						  }
+					   }
+					}
+				 },
+				 "validate": {
+					"message": "validate container security contexts",
+					"pattern": {
+					   "spec": {
+						  "template": {
+							 "spec": {
+								"containers": [
+								   {
+									  "^(securityContext)": {
+										 "allowPrivilegeEscalation": "false"
+									  }
+								   }
+								]
+							 }
+						  }
+					   }
+					}
+				 }
+			  },
+			  {
+				 "name": "default-networkpolicy",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Namespace"
+					   ],
+					   "name": "devtest"
+					}
+				 },
+				 "generate": {
+					"kind": "ConfigMap",
+					"name": "copied-cm",
+					"clone": {
+					   "^(namespace)": "default",
+					   "name": "game-config"
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	`)
+
+	var policy ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = generate.Validate()
-	assert.Assert(t, err != nil)
+	err = policy.Validate()
+	fmt.Println(err)
+	assert.Assert(t, err == nil)
 }

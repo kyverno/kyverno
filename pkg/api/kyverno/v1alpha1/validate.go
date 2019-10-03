@@ -25,14 +25,16 @@ var (
 func (p ClusterPolicy) Validate() error {
 	var errs []error
 
-	for _, rule := range p.Spec.Rules {
-		if ruleErrs := rule.Validate(); len(ruleErrs) != 0 {
-			errs = append(errs, ruleErrs...)
-		}
+	if err := p.ValidateUniqueRuleName(); err != nil {
+		errs = append(errs, fmt.Errorf("- Invalid Policy '%s':", p.Name))
+		errs = append(errs, err)
 	}
 
-	if err := p.ValidateUniqueRuleName(); err != nil {
-		errs = append(errs, err)
+	for _, rule := range p.Spec.Rules {
+		if ruleErrs := rule.Validate(); len(ruleErrs) != 0 {
+			errs = append(errs, fmt.Errorf("- invalid rule '%s':", rule.Name))
+			errs = append(errs, ruleErrs...)
+		}
 	}
 
 	return joinErrs(errs)
@@ -62,11 +64,11 @@ func (r Rule) Validate() []error {
 
 	// validate resource description block
 	if err := r.MatchResources.ResourceDescription.Validate(true); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("error in match block, %v", err))
 	}
 
 	if err := r.ExcludeResources.ResourceDescription.Validate(false); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("error in exclude block, %v", err))
 	}
 
 	// validate anchors on mutate
@@ -87,21 +89,24 @@ func (r Rule) Validate() []error {
 
 // validateRuleType checks only one type of rule is defined per rule
 func (r Rule) ValidateRuleType() error {
-	mutate := r.HasMutate()
-	validate := r.HasValidate()
-	generate := r.HasGenerate()
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
 
-	if !mutate && !validate && !generate {
-		return fmt.Errorf("no rule defined in '%s'", r.Name)
+	operationCount := func() int {
+		count := 0
+		for _, v := range ruleTypes {
+			if v {
+				count++
+			}
+		}
+		return count
+	}()
+
+	if operationCount == 0 {
+		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutation,validation,generation,query)", r.Name)
+	} else if operationCount != 1 {
+		return fmt.Errorf("multiple operations defined in the rule '%s', only one type of operation is allowed per rule", r.Name)
 	}
-
-	if (mutate && !validate && !generate) ||
-		(!mutate && validate && !generate) ||
-		(!mutate && !validate && generate) {
-		return nil
-	}
-
-	return fmt.Errorf("multiple types of rule defined in rule '%s', only one type of rule is allowed per rule", r.Name)
+	return nil
 }
 
 func (r Rule) HasMutate() bool {
@@ -235,13 +240,15 @@ func (gen Generation) Validate() error {
 		return fmt.Errorf("both data nor clone (source) of %s are specified", gen.Kind)
 	}
 
-	if _, err := validateAnchors(nil, gen.Data, "/"); err != nil {
-		return fmt.Errorf("anchors are not allowed on generate rule")
+	if gen.Data != nil {
+		if _, err := validateAnchors(nil, gen.Data, "/"); err != nil {
+			return fmt.Errorf("anchors are not allowed on generate pattern data: %v", err)
+		}
 	}
 
 	if !reflect.DeepEqual(gen.Clone, CloneFrom{}) {
-		if _, err := validateAnchors(nil, gen.Clone, "/"); err != nil {
-			return fmt.Errorf("anchors are not allowed on generate rule")
+		if _, err := validateAnchors(nil, gen.Clone, ""); err != nil {
+			return fmt.Errorf("invalid character found on pattern clone: %v", err)
 		}
 	}
 
@@ -266,13 +273,32 @@ func validateAnchors(anchorPatterns []anchor, pattern interface{}, path string) 
 				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %v", path+str, checkedPattern.Kind())
 			}
 		}
-
 		// return nil on all other cases
+		return "", nil
+	case interface{}:
+		// special case for generate clone, as it is a struct
+		if clone, ok := pattern.(CloneFrom); ok {
+			return "", validateAnchorsOnCloneFrom(nil, clone)
+		}
 		return "", nil
 	default:
 		glog.V(4).Infof("Pattern contains unknown type %T. Path: %s", pattern, path)
 		return path, fmt.Errorf("pattern contains unknown type, path: %s", path)
 	}
+}
+
+func validateAnchorsOnCloneFrom(anchorPatterns []anchor, pattern CloneFrom) error {
+	// namespace and name are required fields
+	// if wrapped with invalid character, this field is empty during unmarshaling
+	if pattern.Namespace == "" {
+		return errors.New("namespace is requried")
+	}
+
+	if pattern.Name == "" {
+		return errors.New("name is requried")
+	}
+
+	return nil
 }
 
 func validateAnchorsOnMap(anchorPatterns []anchor, pattern map[string]interface{}, path string) (string, error) {
