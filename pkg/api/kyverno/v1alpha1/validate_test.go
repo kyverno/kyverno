@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"gotest.tools/assert"
@@ -323,8 +324,8 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		err := rule.ValidateOverlayPattern()
-		assert.NilError(t, err)
+		errs := rule.Validation.Validate()
+		assert.Assert(t, len(errs) == 0)
 	}
 }
 
@@ -352,8 +353,8 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		err := rule.ValidateOverlayPattern()
-		assert.Assert(t, err != nil)
+		errs := rule.Validation.Validate()
+		assert.Assert(t, len(errs) != 0)
 	}
 }
 
@@ -403,8 +404,8 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		err := rule.ValidateOverlayPattern()
-		assert.Assert(t, err != nil)
+		errs := rule.Validation.Validate()
+		assert.Assert(t, len(errs) != 0)
 	}
 }
 
@@ -454,8 +455,8 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		err := rule.ValidateOverlayPattern()
-		assert.NilError(t, err)
+		errs := rule.Validation.Validate()
+		assert.Assert(t, len(errs) == 0)
 	}
 }
 
@@ -513,7 +514,7 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.ValidateExistingAnchor()
+		errs := rule.Validation.Validate()
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -570,7 +571,7 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.ValidateExistingAnchor()
+		errs := rule.Validation.Validate()
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -609,7 +610,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 								   "^(containers)": [
 									  {
 										 "securityContext": {
-											"runAsNonRoot": true
+											"runAsNonRoot": "true"
 										 }
 									  }
 								   ]
@@ -617,7 +618,25 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 							 }
 						  }
 					   }
-					],
+					]
+				 }
+			  },
+			  {
+				 "name": "validate-user-privilege",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Deployment"
+					   ],
+					   "selector": {
+						  "matchLabels": {
+							 "app.type": "prod"
+						  }
+					   }
+					}
+				 },
+				 "validate": {
+					"message": "validate container security contexts",
 					"pattern": {
 					   "spec": {
 						  "template": {
@@ -625,7 +644,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 								"^(containers)": [
 								   {
 									  "securityContext": {
-										 "allowPrivilegeEscalation": false
+										 "allowPrivilegeEscalation": "false"
 									  }
 								   }
 								]
@@ -637,15 +656,14 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 			  }
 		   ]
 		}
-	 }
-	`)
+	 }`)
 
 	var policy ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.ValidateExistingAnchor()
+		errs := rule.Validation.Validate()
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -712,4 +730,249 @@ func Test_Validate_Policy(t *testing.T) {
 
 	err = policy.Validate()
 	assert.NilError(t, err)
+}
+
+func Test_Validate_Mutate_ConditionAnchor(t *testing.T) {
+	rawMutate := []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	var mutate Mutation
+	err := json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs := mutate.Validate()
+	assert.Assert(t, len(errs) == 0)
+}
+
+func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
+	rawMutate := []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "+(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	var mutate Mutation
+	err := json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs := mutate.Validate()
+	assert.Assert(t, len(errs) == 0)
+}
+
+func Test_Validate_Mutate_Mismatched(t *testing.T) {
+	rawMutate := []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "^(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	var mutate Mutation
+	err := json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs := mutate.Validate()
+	assert.Assert(t, len(errs) != 0)
+
+	rawMutate = []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "=(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	err = json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs = mutate.Validate()
+	assert.Assert(t, len(errs) != 0)
+}
+
+func Test_Validate_Mutate_Unsupported(t *testing.T) {
+	// case 1
+	rawMutate := []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "!(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	var mutate Mutation
+	err := json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs := mutate.Validate()
+	assert.Assert(t, len(errs) != 0)
+
+	// case 2
+	rawMutate = []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "~(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	err = json.Unmarshal(rawMutate, &mutate)
+	assert.NilError(t, err)
+
+	errs = mutate.Validate()
+	assert.Assert(t, len(errs) != 0)
+}
+
+func Test_Validate_Validate_ValidAnchor(t *testing.T) {
+	// case 1
+	rawValidate := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"anyPattern": [
+		   {
+			  "spec": {
+				 "securityContext": {
+					"(runAsNonRoot)": true
+				 }
+			  }
+		   },
+		   {
+			  "spec": {
+				 "^(containers)": [
+					{
+					   "name": "*",
+					   "securityContext": {
+						  "runAsNonRoot": true
+					   }
+					}
+				 ]
+			  }
+		   }
+		]
+	 }`)
+
+	var validate Validation
+	err := json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	errs := validate.Validate()
+	assert.Assert(t, len(errs) == 0)
+
+	// case 2
+	rawValidateNew := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "=(securityContext)": {
+				 "runAsNonRoot": "true"
+			  }
+		   }
+		}
+	}`)
+
+	var validateNew Validation
+	err = json.Unmarshal(rawValidateNew, &validateNew)
+	assert.NilError(t, err)
+
+	errs = validate.Validate()
+	fmt.Println(errs)
+	assert.Assert(t, len(errs) == 0)
+}
+
+func Test_Validate_Validate_Mismatched(t *testing.T) {
+	rawValidate := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "+(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
+		}
+	 }`)
+
+	var validate Validation
+	err := json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	errs := validate.Validate()
+	assert.Assert(t, len(errs) != 0)
+
+}
+
+func Test_Validate_Validate_Unsupported(t *testing.T) {
+	// case 1
+	rawValidate := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "!(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
+		}
+	}`)
+
+	var validate Validation
+	err := json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	errs := validate.Validate()
+	assert.Assert(t, len(errs) != 0)
+
+	// case 2
+	rawValidate = []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "~(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
+		}
+	}`)
+
+	err = json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	errs = validate.Validate()
+	assert.Assert(t, len(errs) != 0)
 }

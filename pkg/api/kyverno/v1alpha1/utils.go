@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
@@ -81,4 +82,55 @@ func hasExistingAnchor(str string) (bool, string) {
 	}
 
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
+}
+
+// hasValidAnchors checks str has the valid anchor
+// mutate: (), +()
+// validate: (), ^(), =()
+// generate: none
+// invalid anchors: ~(),!()
+func hasValidAnchors(anchors []anchor, str string) (bool, string) {
+	if len(anchors) == 0 {
+		return true, str
+	}
+	if wrappedWithAttributes(str) {
+		return mustWrapWithAnchors(anchors, str)
+	}
+
+	return true, str
+}
+
+// mustWrapWithAnchors validates str must wrap with
+// at least one given anchor
+func mustWrapWithAnchors(anchors []anchor, str string) (bool, string) {
+	for _, a := range anchors {
+		if str[:len(a.left)] == a.left && str[len(str)-len(a.right):] == a.right {
+			return true, str[len(a.left) : len(str)-len(a.right)]
+		}
+	}
+
+	return false, str
+}
+
+func wrappedWithAttributes(str string) bool {
+	if len(str) < 2 {
+		return false
+	}
+
+	if (str[0] == '(' && str[len(str)-1] == ')') ||
+		(str[0] == '^' || str[0] == '+' || str[0] == '=' || str[0] == '!' || str[0] == '~') &&
+			(str[1] == '(' && str[len(str)-1] == ')') {
+		return true
+	}
+
+	return false
+}
+
+func joinAnchors(anchorPatterns []anchor) string {
+	var res []string
+	for _, a := range anchorPatterns {
+		res = append(res, a.left+a.right)
+	}
+
+	return strings.Join(res, " || ")
 }

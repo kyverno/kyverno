@@ -10,11 +10,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type anchor struct {
+	left  string
+	right string
+}
+
+var (
+	conditionalAnchor = anchor{left: "(", right: ")"}
+	existingAnchor    = anchor{left: "^(", right: ")"}
+	equalityAnchor    = anchor{left: "=(", right: ")"}
+	plusAnchor        = anchor{left: "+(", right: ")"}
+)
+
 func (p ClusterPolicy) Validate() error {
 	var errs []error
 
 	for _, rule := range p.Spec.Rules {
-		if ruleErrs := rule.Validate(); ruleErrs != nil {
+		if ruleErrs := rule.Validate(); len(ruleErrs) != 0 {
 			errs = append(errs, ruleErrs...)
 		}
 	}
@@ -57,33 +69,25 @@ func (r Rule) Validate() []error {
 		errs = append(errs, err)
 	}
 
-	// validate validation rule
-	if err := r.ValidateOverlayPattern(); err != nil {
-		errs = append(errs, err)
+	// validate anchors on mutate
+	if mErrs := r.Mutation.Validate(); len(mErrs) != 0 {
+		errs = append(errs, mErrs...)
 	}
 
-	if patternErrs := r.ValidateExistingAnchor(); patternErrs != nil {
-		errs = append(errs, patternErrs...)
+	if vErrs := r.Validation.Validate(); len(vErrs) != 0 {
+		errs = append(errs, vErrs...)
 	}
+
+	// validate validation rule
+	// if err := r.ValidateOverlayPattern(); err != nil {
+	// 	errs = append(errs, err)
+	// }
+
+	// if patternErrs := r.ValidateExistingAnchor(); patternErrs != nil {
+	// 	errs = append(errs, patternErrs...)
+	// }
 
 	return errs
-}
-
-// validateOverlayPattern checks one of pattern/anyPattern must exist
-func (r Rule) ValidateOverlayPattern() error {
-	if reflect.DeepEqual(r.Validation, Validation{}) {
-		return nil
-	}
-
-	if r.Validation.Pattern == nil && len(r.Validation.AnyPattern) == 0 {
-		return fmt.Errorf("neither pattern nor anyPattern found in rule '%s'", r.Name)
-	}
-
-	if r.Validation.Pattern != nil && len(r.Validation.AnyPattern) != 0 {
-		return fmt.Errorf("either pattern or anyPattern is allowed in rule '%s'", r.Name)
-	}
-
-	return nil
 }
 
 // validateRuleType checks only one type of rule is defined per rule
@@ -145,6 +149,24 @@ func (rd ResourceDescription) Validate(matchedResource bool) error {
 	return nil
 }
 
+func (m Mutation) Validate() []error {
+	var errs []error
+	if len(m.Patches) != 0 {
+		for _, patch := range m.Patches {
+			err := patch.Validate()
+			errs = append(errs, err)
+		}
+	}
+
+	if m.Overlay != nil {
+		_, err := validateAnchors([]anchor{conditionalAnchor, plusAnchor}, m.Overlay, "/")
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}
+
 // Validate if all mandatory PolicyPatch fields are set
 func (pp *Patch) Validate() error {
 	if pp.Path == "" {
@@ -164,6 +186,47 @@ func (pp *Patch) Validate() error {
 	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
 }
 
+func (v Validation) Validate() []error {
+	var errs []error
+
+	if err := v.ValidateOverlayPattern(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if v.Pattern != nil {
+		if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor}, v.Pattern, "/"); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(v.AnyPattern) != 0 {
+		for _, p := range v.AnyPattern {
+			if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor}, p, "/"); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	return errs
+}
+
+// validateOverlayPattern checks one of pattern/anyPattern must exist
+func (v Validation) ValidateOverlayPattern() error {
+	if reflect.DeepEqual(v, Validation{}) {
+		return nil
+	}
+
+	if v.Pattern == nil && len(v.AnyPattern) == 0 {
+		return fmt.Errorf("neither pattern nor anyPattern found")
+	}
+
+	if v.Pattern != nil && len(v.AnyPattern) != 0 {
+		return fmt.Errorf("either pattern or anyPattern is allowed")
+	}
+
+	return nil
+}
+
 // Validate returns error if generator is configured incompletely
 func (gen *Generation) Validate() error {
 	if gen.Data == nil && gen.Clone == (CloneFrom{}) {
@@ -175,40 +238,22 @@ func (gen *Generation) Validate() error {
 	return nil
 }
 
-// ValidateExistingAnchor
-// existing acnchor must define on array
-func (r Rule) ValidateExistingAnchor() []error {
-	var errs []error
-
-	if r.Validation.Pattern != nil {
-		if _, err := validateExistingAnchorOnPattern(r.Validation.Pattern, "/"); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(r.Validation.AnyPattern) != 0 {
-		for _, pattern := range r.Validation.AnyPattern {
-			if _, err := validateExistingAnchorOnPattern(pattern, "/"); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	return errs
-}
-
-// validateExistingAnchorOnPattern validates ^() only defined on array
-func validateExistingAnchorOnPattern(pattern interface{}, path string) (string, error) {
+// validateAnchors validates:
+// 1. existing acnchor must define on array
+// 2. anchors in mutation must be one of: (), +()
+// 3. anchors in validate must be one of: (), ^(), =()
+// 4. no anchor is allowed in generate
+func validateAnchors(anchorPatterns []anchor, pattern interface{}, path string) (string, error) {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
-		return validateMap(typedPattern, path)
+		return validateAnchorsOnMap(anchorPatterns, typedPattern, path)
 	case []interface{}:
-		return validateArray(typedPattern, path)
+		return validateAnchorsOnArray(anchorPatterns, typedPattern, path)
 	case string, float64, int, int64, bool, nil:
 		// check on type string
 		if checkedPattern := reflect.ValueOf(pattern); checkedPattern.Kind() == reflect.String {
 			if hasAnchor, str := hasExistingAnchor(checkedPattern.String()); hasAnchor {
-				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %T", path+str, checkedPattern.Kind())
+				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %v", path+str, checkedPattern.Kind())
 			}
 		}
 
@@ -220,15 +265,18 @@ func validateExistingAnchorOnPattern(pattern interface{}, path string) (string, 
 	}
 }
 
-func validateMap(pattern map[string]interface{}, path string) (string, error) {
+func validateAnchorsOnMap(anchorPatterns []anchor, pattern map[string]interface{}, path string) (string, error) {
 	for key, patternElement := range pattern {
+		if valid, str := hasValidAnchors(anchorPatterns, key); !valid {
+			return path, fmt.Errorf("invalid anchor found at %s, expect: %s", path+str, joinAnchors(anchorPatterns))
+		}
 		if hasAnchor, str := hasExistingAnchor(key); hasAnchor {
 			if checkedPattern := reflect.ValueOf(patternElement); checkedPattern.Kind() != reflect.Slice {
 				return path, fmt.Errorf("existing anchor at %s must be of type array, found: %T", path+str, patternElement)
 			}
 		}
 
-		if path, err := validateExistingAnchorOnPattern(patternElement, path+key+"/"); err != nil {
+		if path, err := validateAnchors(anchorPatterns, patternElement, path+key+"/"); err != nil {
 			return path, err
 		}
 	}
@@ -236,14 +284,14 @@ func validateMap(pattern map[string]interface{}, path string) (string, error) {
 	return "", nil
 }
 
-func validateArray(patternArray []interface{}, path string) (string, error) {
+func validateAnchorsOnArray(anchorPatterns []anchor, patternArray []interface{}, path string) (string, error) {
 	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern array at %s is empty", path)
 	}
 
 	for i, pattern := range patternArray {
 		currentPath := path + strconv.Itoa(i) + "/"
-		if path, err := validateExistingAnchorOnPattern(pattern, currentPath); err != nil {
+		if path, err := validateAnchors(anchorPatterns, pattern, currentPath); err != nil {
 			return path, err
 		}
 	}
