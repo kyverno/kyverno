@@ -90,9 +90,6 @@ func hasExistingAnchor(str string) (bool, string) {
 // generate: none
 // invalid anchors: ~(),!()
 func hasValidAnchors(anchors []anchor, str string) (bool, string) {
-	if len(anchors) == 0 {
-		return true, str
-	}
 	if wrappedWithAttributes(str) {
 		return mustWrapWithAnchors(anchors, str)
 	}

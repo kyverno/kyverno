@@ -78,14 +78,9 @@ func (r Rule) Validate() []error {
 		errs = append(errs, vErrs...)
 	}
 
-	// validate validation rule
-	// if err := r.ValidateOverlayPattern(); err != nil {
-	// 	errs = append(errs, err)
-	// }
-
-	// if patternErrs := r.ValidateExistingAnchor(); patternErrs != nil {
-	// 	errs = append(errs, patternErrs...)
-	// }
+	if err := r.Generation.Validate(); err != nil {
+		errs = append(errs, err)
+	}
 
 	return errs
 }
@@ -228,13 +223,28 @@ func (v Validation) ValidateOverlayPattern() error {
 }
 
 // Validate returns error if generator is configured incompletely
-func (gen *Generation) Validate() error {
+func (gen Generation) Validate() error {
+	if reflect.DeepEqual(gen, Generation{}) {
+		return nil
+	}
+
 	if gen.Data == nil && gen.Clone == (CloneFrom{}) {
-		return fmt.Errorf("Neither data nor clone (source) of %s is specified", gen.Kind)
+		return fmt.Errorf("neither data nor clone (source) of %s is specified", gen.Kind)
 	}
 	if gen.Data != nil && gen.Clone != (CloneFrom{}) {
-		return fmt.Errorf("Both data nor clone (source) of %s are specified", gen.Kind)
+		return fmt.Errorf("both data nor clone (source) of %s are specified", gen.Kind)
 	}
+
+	if _, err := validateAnchors(nil, gen.Data, "/"); err != nil {
+		return fmt.Errorf("anchors are not allowed on generate rule")
+	}
+
+	if !reflect.DeepEqual(gen.Clone, CloneFrom{}) {
+		if _, err := validateAnchors(nil, gen.Clone, "/"); err != nil {
+			return fmt.Errorf("anchors are not allowed on generate rule")
+		}
+	}
+
 	return nil
 }
 

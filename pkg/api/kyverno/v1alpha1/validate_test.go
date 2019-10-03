@@ -679,14 +679,7 @@ func Test_Validate_Policy(t *testing.T) {
 		"spec": {
 		   "rules": [
 			  {
-				 "name": "validate-user-privilege",
-				 "exclude": {
-					"resources": {
-					   "namespaces": [
-						  "kube-system"
-					   ]
-					}
-				 },
+				 "name": "validate-runAsNonRoot",
 				 "match": {
 					"resources": {
 					   "kinds": [
@@ -709,7 +702,7 @@ func Test_Validate_Policy(t *testing.T) {
 								   "^(containers)": [
 									  {
 										 "securityContext": {
-											"runAsNonRoot": true
+											"runAsNonRoot": "true"
 										 }
 									  }
 								   ]
@@ -718,6 +711,39 @@ func Test_Validate_Policy(t *testing.T) {
 						  }
 					   }
 					]
+				 }
+			  },
+			  {
+				 "name": "validate-allowPrivilegeEscalation",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Deployment"
+					   ],
+					   "selector": {
+						  "matchLabels": {
+							 "app.type": "prod"
+						  }
+					   }
+					}
+				 },
+				 "validate": {
+					"message": "validate container security contexts",
+					"pattern": {
+					   "spec": {
+						  "template": {
+							 "spec": {
+								"^(containers)": [
+								   {
+									  "securityContext": {
+										 "allowPrivilegeEscalation": "false"
+									  }
+								   }
+								]
+							 }
+						  }
+					   }
+					}
 				 }
 			  }
 		   ]
@@ -805,6 +831,7 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	assert.Assert(t, len(errs) != 0)
 }
 
+// TODO: validate patches
 func Test_Validate_Mutate_Unsupported(t *testing.T) {
 	// case 1
 	rawMutate := []byte(`
@@ -848,7 +875,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	{
 		"message": "Root user is not allowed. Set runAsNonRoot to true.",
 		"anyPattern": [
-		   {
+		    {
 			  "spec": {
 				 "securityContext": {
 					"(runAsNonRoot)": true
@@ -975,4 +1002,81 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 
 	errs = validate.Validate()
 	assert.Assert(t, len(errs) != 0)
+}
+
+func Test_Validate_Generate(t *testing.T) {
+	rawGenerate := []byte(`
+	{
+		"kind": "NetworkPolicy",
+		"name": "defaultnetworkpolicy",
+		"data": {
+		   "spec": {
+			  "podSelector": {},
+			  "policyTypes": [
+				 "Ingress",
+				 "Egress"
+			  ],
+			  "ingress": [
+				 {}
+			  ],
+			  "egress": [
+				 {}
+			  ]
+		   }
+		}
+	 }`)
+
+	var generate Generation
+	err := json.Unmarshal(rawGenerate, &generate)
+	assert.NilError(t, err)
+
+	err = generate.Validate()
+	assert.NilError(t, err)
+}
+
+func Test_Validate_Generate_HasAnchors(t *testing.T) {
+	rawGenerate := []byte(`
+	{
+		"kind": "NetworkPolicy",
+		"name": "defaultnetworkpolicy",
+		"data": {
+		   "spec": {
+			  "(podSelector)": {},
+			  "policyTypes": [
+				 "Ingress",
+				 "Egress"
+			  ],
+			  "ingress": [
+				 {}
+			  ],
+			  "egress": [
+				 {}
+			  ]
+		   }
+		}
+	 }`)
+
+	var generate Generation
+	err := json.Unmarshal(rawGenerate, &generate)
+	assert.NilError(t, err)
+
+	err = generate.Validate()
+	assert.Assert(t, err != nil)
+
+	rawGenerateNew := []byte(`
+	{
+		"kind": "ConfigMap",
+		"name": "copied-cm",
+		"clone": {
+		   "^(namespace)": "default",
+		   "name": "game"
+		}
+	 }`)
+
+	var generateNew Generation
+	err = json.Unmarshal(rawGenerateNew, &generateNew)
+	assert.NilError(t, err)
+
+	err = generate.Validate()
+	assert.Assert(t, err != nil)
 }
