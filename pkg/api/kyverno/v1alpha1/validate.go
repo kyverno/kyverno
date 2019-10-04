@@ -25,13 +25,13 @@ var (
 func (p ClusterPolicy) Validate() error {
 	var errs []error
 
-	if err := p.ValidateUniqueRuleName(); err != nil {
+	if err := p.validateUniqueRuleName(); err != nil {
 		errs = append(errs, fmt.Errorf("- Invalid Policy '%s':", p.Name))
 		errs = append(errs, err)
 	}
 
 	for _, rule := range p.Spec.Rules {
-		if ruleErrs := rule.Validate(); len(ruleErrs) != 0 {
+		if ruleErrs := rule.validate(); len(ruleErrs) != 0 {
 			errs = append(errs, fmt.Errorf("- invalid rule '%s':", rule.Name))
 			errs = append(errs, ruleErrs...)
 		}
@@ -41,7 +41,7 @@ func (p ClusterPolicy) Validate() error {
 }
 
 // ValidateUniqueRuleName checks if the rule names are unique across a policy
-func (p ClusterPolicy) ValidateUniqueRuleName() error {
+func (p ClusterPolicy) validateUniqueRuleName() error {
 	var ruleNames []string
 
 	for _, rule := range p.Spec.Rules {
@@ -54,33 +54,33 @@ func (p ClusterPolicy) ValidateUniqueRuleName() error {
 }
 
 // Validate checks if rule is not empty and all substructures are valid
-func (r Rule) Validate() []error {
+func (r Rule) validate() []error {
 	var errs []error
 
 	// only one type of rule is allowed per rule
-	if err := r.ValidateRuleType(); err != nil {
+	if err := r.validateRuleType(); err != nil {
 		errs = append(errs, err)
 	}
 
 	// validate resource description block
-	if err := r.MatchResources.ResourceDescription.Validate(true); err != nil {
+	if err := r.MatchResources.ResourceDescription.validate(true); err != nil {
 		errs = append(errs, fmt.Errorf("error in match block, %v", err))
 	}
 
-	if err := r.ExcludeResources.ResourceDescription.Validate(false); err != nil {
+	if err := r.ExcludeResources.ResourceDescription.validate(false); err != nil {
 		errs = append(errs, fmt.Errorf("error in exclude block, %v", err))
 	}
 
 	// validate anchors on mutate
-	if mErrs := r.Mutation.Validate(); len(mErrs) != 0 {
+	if mErrs := r.Mutation.validate(); len(mErrs) != 0 {
 		errs = append(errs, mErrs...)
 	}
 
-	if vErrs := r.Validation.Validate(); len(vErrs) != 0 {
+	if vErrs := r.Validation.validate(); len(vErrs) != 0 {
 		errs = append(errs, vErrs...)
 	}
 
-	if err := r.Generation.Validate(); err != nil {
+	if err := r.Generation.validate(); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -88,8 +88,8 @@ func (r Rule) Validate() []error {
 }
 
 // validateRuleType checks only one type of rule is defined per rule
-func (r Rule) ValidateRuleType() error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
+func (r Rule) validateRuleType() error {
+	ruleTypes := []bool{r.hasMutate(), r.hasValidate(), r.hasGenerate()}
 
 	operationCount := func() int {
 		count := 0
@@ -114,7 +114,7 @@ func (r Rule) ValidateRuleType() error {
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
-func (rd ResourceDescription) Validate(matchedResource bool) error {
+func (rd ResourceDescription) validate(matchedResource bool) error {
 	if reflect.DeepEqual(rd, ResourceDescription{}) {
 		return nil
 	}
@@ -137,11 +137,11 @@ func (rd ResourceDescription) Validate(matchedResource bool) error {
 	return nil
 }
 
-func (m Mutation) Validate() []error {
+func (m Mutation) validate() []error {
 	var errs []error
 	if len(m.Patches) != 0 {
 		for _, patch := range m.Patches {
-			err := patch.Validate()
+			err := patch.validate()
 			errs = append(errs, err)
 		}
 	}
@@ -156,7 +156,7 @@ func (m Mutation) Validate() []error {
 }
 
 // Validate if all mandatory PolicyPatch fields are set
-func (pp *Patch) Validate() error {
+func (pp *Patch) validate() error {
 	if pp.Path == "" {
 		return errors.New("JSONPatch field 'path' is mandatory")
 	}
@@ -174,10 +174,10 @@ func (pp *Patch) Validate() error {
 	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
 }
 
-func (v Validation) Validate() []error {
+func (v Validation) validate() []error {
 	var errs []error
 
-	if err := v.ValidateOverlayPattern(); err != nil {
+	if err := v.validateOverlayPattern(); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -199,7 +199,7 @@ func (v Validation) Validate() []error {
 }
 
 // validateOverlayPattern checks one of pattern/anyPattern must exist
-func (v Validation) ValidateOverlayPattern() error {
+func (v Validation) validateOverlayPattern() error {
 	if reflect.DeepEqual(v, Validation{}) {
 		return nil
 	}
@@ -216,7 +216,7 @@ func (v Validation) ValidateOverlayPattern() error {
 }
 
 // Validate returns error if generator is configured incompletely
-func (gen Generation) Validate() error {
+func (gen Generation) validate() error {
 	if reflect.DeepEqual(gen, Generation{}) {
 		return nil
 	}

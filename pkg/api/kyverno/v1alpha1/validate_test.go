@@ -44,7 +44,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = policy.ValidateUniqueRuleName()
+	err = policy.validateUniqueRuleName()
 	assert.Assert(t, err != nil)
 }
 
@@ -80,7 +80,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.ValidateRuleType()
+		err := rule.validateRuleType()
 		assert.Assert(t, err != nil)
 	}
 }
@@ -155,7 +155,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.ValidateRuleType()
+		err := rule.validateRuleType()
 		assert.Assert(t, err != nil)
 	}
 }
@@ -210,7 +210,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.ValidateRuleType()
+		err := rule.validateRuleType()
 		assert.NilError(t, err)
 	}
 }
@@ -222,7 +222,7 @@ func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate(true)
+	err = rd.validate(true)
 	assert.NilError(t, err)
 }
 
@@ -240,7 +240,7 @@ func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate(true)
+	err = rd.validate(true)
 	assert.Assert(t, err != nil)
 }
 
@@ -258,7 +258,7 @@ func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate(false)
+	err = rd.validate(false)
 	assert.NilError(t, err)
 }
 
@@ -277,7 +277,7 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate(true)
+	err = rd.validate(true)
 	assert.Assert(t, err != nil)
 }
 
@@ -298,7 +298,7 @@ func Test_Validate_ResourceDescription_Valid(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.Validate(true)
+	err = rd.validate(true)
 	assert.NilError(t, err)
 }
 
@@ -323,7 +323,7 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -352,7 +352,7 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -403,7 +403,7 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -454,7 +454,7 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -513,7 +513,7 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -570,7 +570,7 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -662,7 +662,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.Validate()
+		errs := rule.Validation.validate()
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -772,7 +772,7 @@ func Test_Validate_Mutate_ConditionAnchor(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.Validate()
+	errs := mutate.validate()
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -791,7 +791,7 @@ func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.Validate()
+	errs := mutate.validate()
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -810,7 +810,7 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.Validate()
+	errs := mutate.validate()
 	assert.Assert(t, len(errs) != 0)
 
 	rawMutate = []byte(`
@@ -826,7 +826,7 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs = mutate.Validate()
+	errs = mutate.validate()
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -847,7 +847,7 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.Validate()
+	errs := mutate.validate()
 	assert.Assert(t, len(errs) != 0)
 
 	// case 2
@@ -864,7 +864,7 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs = mutate.Validate()
+	errs = mutate.validate()
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -900,7 +900,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.Validate()
+	errs := validate.validate()
 	assert.Assert(t, len(errs) == 0)
 
 	// case 2
@@ -920,7 +920,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	err = json.Unmarshal(rawValidateNew, &validateNew)
 	assert.NilError(t, err)
 
-	errs = validate.Validate()
+	errs = validate.validate()
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -946,7 +946,7 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.Validate()
+	errs := validate.validate()
 	assert.Assert(t, len(errs) != 0)
 
 }
@@ -974,7 +974,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.Validate()
+	errs := validate.validate()
 	assert.Assert(t, len(errs) != 0)
 
 	// case 2
@@ -998,7 +998,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs = validate.Validate()
+	errs = validate.validate()
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -1028,7 +1028,7 @@ func Test_Validate_Generate(t *testing.T) {
 	err := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
 
-	err = generate.Validate()
+	err = generate.validate()
 	assert.NilError(t, err)
 }
 
@@ -1058,7 +1058,7 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 	err := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
 
-	err = generate.Validate()
+	err = generate.validate()
 	assert.Assert(t, err != nil)
 
 	rawGenerateNew := []byte(`
@@ -1075,7 +1075,7 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 	errNew := json.Unmarshal(rawGenerateNew, &generateNew)
 	assert.NilError(t, errNew)
 
-	errNew = generateNew.Validate()
+	errNew = generateNew.validate()
 	assert.Assert(t, errNew != nil)
 }
 

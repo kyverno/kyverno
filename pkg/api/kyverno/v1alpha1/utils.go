@@ -9,7 +9,7 @@ import (
 
 func (p ClusterPolicy) HasMutateOrValidate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() || rule.HasValidate() {
+		if rule.hasMutate() || rule.hasValidate() {
 			return true
 		}
 	}
@@ -17,7 +17,7 @@ func (p ClusterPolicy) HasMutateOrValidate() bool {
 }
 func (p ClusterPolicy) HasMutate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() {
+		if rule.hasMutate() {
 			return true
 		}
 	}
@@ -26,7 +26,7 @@ func (p ClusterPolicy) HasMutate() bool {
 
 func (p ClusterPolicy) HasValidate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasValidate() {
+		if rule.hasValidate() {
 			return true
 		}
 	}
@@ -35,22 +35,22 @@ func (p ClusterPolicy) HasValidate() bool {
 
 func (p ClusterPolicy) HasGenerate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasGenerate() {
+		if rule.hasGenerate() {
 			return true
 		}
 	}
 	return false
 }
 
-func (r Rule) HasMutate() bool {
+func (r Rule) hasMutate() bool {
 	return !reflect.DeepEqual(r.Mutation, Mutation{})
 }
 
-func (r Rule) HasValidate() bool {
+func (r Rule) hasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
 }
 
-func (r Rule) HasGenerate() bool {
+func (r Rule) hasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
