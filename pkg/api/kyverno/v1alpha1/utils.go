@@ -3,8 +3,56 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
+
+func (p ClusterPolicy) HasMutateOrValidate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasMutate() || rule.HasValidate() {
+			return true
+		}
+	}
+	return false
+}
+func (p ClusterPolicy) HasMutate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasMutate() {
+			return true
+		}
+	}
+	return false
+}
+
+func (p ClusterPolicy) HasValidate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasValidate() {
+			return true
+		}
+	}
+	return false
+}
+
+func (p ClusterPolicy) HasGenerate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasGenerate() {
+			return true
+		}
+	}
+	return false
+}
+
+func (r Rule) HasMutate() bool {
+	return !reflect.DeepEqual(r.Mutation, Mutation{})
+}
+
+func (r Rule) HasValidate() bool {
+	return !reflect.DeepEqual(r.Validation, Validation{})
+}
+
+func (r Rule) HasGenerate() bool {
+	return !reflect.DeepEqual(r.Generation, Generation{})
+}
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member

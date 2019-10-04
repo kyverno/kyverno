@@ -36,18 +36,8 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 		}
 	}
 
-	// helper function to evaluate if policy has validtion or mutation rules defined
-	hasMutateOrValidate := func() bool {
-		for _, rule := range policy.Spec.Rules {
-			if rule.HasMutate() || rule.HasValidate() {
-				return true
-			}
-		}
-		return false
-	}
-
 	if admissionResp.Allowed {
-		if hasMutateOrValidate() {
+		if policy.HasMutateOrValidate() {
 			// create mutating resource mutatingwebhookconfiguration if not present
 			if err := ws.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
 				glog.Error("failed to created resource mutating webhook configuration, policies wont be applied on the resource")

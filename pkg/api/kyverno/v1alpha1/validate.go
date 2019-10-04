@@ -109,18 +109,6 @@ func (r Rule) ValidateRuleType() error {
 	return nil
 }
 
-func (r Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, Mutation{})
-}
-
-func (r Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
-}
-
-func (r Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, Generation{})
-}
-
 // Validate checks if all necesarry fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if

@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"gotest.tools/assert"
@@ -1222,7 +1221,19 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
+	expectedErr := `
+- Invalid Policy 'test-error-format':
+duplicate rule name: 'validate-user-privilege'
+- invalid rule 'image-pull-policy':
+error in exclude block, the requirements are not specified in selector
+invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +()
+- invalid rule 'validate-user-privilege':
+error in match block, field Kind is not specified
+- invalid rule 'validate-user-privilege':
+existing anchor at /spec/template/spec/containers/0/securityContext must be of type array, found: map[string]interface {}
+- invalid rule 'default-networkpolicy':
+invalid character found on pattern clone: namespace is requried
+`
 	err = policy.Validate()
-	fmt.Println(err)
-	assert.Assert(t, err == nil)
+	assert.Assert(t, err.Error() == expectedErr)
 }
