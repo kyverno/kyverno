@@ -63,11 +63,11 @@ func (r Rule) validate() []error {
 	}
 
 	// validate resource description block
-	if err := r.MatchResources.ResourceDescription.validate(true); err != nil {
+	if err := validateMatchedResourceDescription(r.MatchResources.ResourceDescription); err != nil {
 		errs = append(errs, fmt.Errorf("error in match block, %v", err))
 	}
 
-	if err := r.ExcludeResources.ResourceDescription.validate(false); err != nil {
+	if err := validateResourceDescription(r.ExcludeResources.ResourceDescription); err != nil {
 		errs = append(errs, fmt.Errorf("error in exclude block, %v", err))
 	}
 
@@ -109,20 +109,26 @@ func (r Rule) validateRuleType() error {
 	return nil
 }
 
-// Validate checks if all necesarry fields are present and have values. Also checks a Selector.
+// validateResourceDescription checks if all necesarry fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
-func (rd ResourceDescription) validate(matchedResource bool) error {
+func validateMatchedResourceDescription(rd ResourceDescription) error {
 	if reflect.DeepEqual(rd, ResourceDescription{}) {
 		return nil
 	}
 
-	if matchedResource && len(rd.Kinds) == 0 {
+	if len(rd.Kinds) == 0 {
 		return errors.New("field Kind is not specified")
 	}
 
+	return validateResourceDescription(rd)
+}
+
+// validateResourceDescription returns error if selector is invalid
+// field type is checked through openapi
+func validateResourceDescription(rd ResourceDescription) error {
 	if rd.Selector != nil {
 		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
 		if err != nil {
@@ -133,7 +139,6 @@ func (rd ResourceDescription) validate(matchedResource bool) error {
 			return errors.New("the requirements are not specified in selector")
 		}
 	}
-
 	return nil
 }
 

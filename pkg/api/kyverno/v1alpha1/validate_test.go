@@ -218,11 +218,11 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	rawResourcedescirption := []byte(`{}`)
 
-	var rd *ResourceDescription
+	var rd ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.validate(true)
+	err = validateMatchedResourceDescription(rd)
 	assert.NilError(t, err)
 }
 
@@ -236,11 +236,11 @@ func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
 		}
 	 }`)
 
-	var rd *ResourceDescription
+	var rd ResourceDescription
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.validate(true)
+	err = validateMatchedResourceDescription(rd)
 	assert.Assert(t, err != nil)
 }
 
@@ -254,11 +254,11 @@ func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 		}
 	 }`)
 
-	var rd *ResourceDescription
+	var rd ResourceDescription
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.validate(false)
+	err = validateResourceDescription(rd)
 	assert.NilError(t, err)
 }
 
@@ -273,11 +273,11 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 		}
 	 }`)
 
-	var rd *ResourceDescription
+	var rd ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.validate(true)
+	err = validateMatchedResourceDescription(rd)
 	assert.Assert(t, err != nil)
 }
 
@@ -294,11 +294,11 @@ func Test_Validate_ResourceDescription_Valid(t *testing.T) {
 		}
 	 }`)
 
-	var rd *ResourceDescription
+	var rd ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = rd.validate(true)
+	err = validateMatchedResourceDescription(rd)
 	assert.NilError(t, err)
 }
 
