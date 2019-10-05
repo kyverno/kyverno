@@ -19,5 +19,6 @@
 | Prevent mounting of default service account    | [policy_validate_disallow_default_serviceaccount.yaml](policy_validate_disallow_default_serviceaccount.yaml)                                                                      |
 | Require a default network policy               | [policy_validate_default_network_policy.yaml](policy_validate_default_network_policy.yaml)                                                                      |
 | Require namespace quotas and limit ranges      | [policy_validate_namespace_quota.yaml](policy_validate_namespace_quota.yaml)                                                                      |
-| Require an FSGroup that owns the pod's volumes      | [policy_validate_fsgroup.yaml](policy_validate_fsgroup.yaml)                                                                      |
-| Require the SELinux level of the container      | [policy_validate_selinux_context.yaml](policy_validate_selinux_context.yaml)                                                                      |
+| Allow an FSGroup that owns the pod's volumes      | [policy_validate_fsgroup.yaml](policy_validate_fsgroup.yaml)                                                                      |
+| Require SELinux level of the container      | [policy_validate_selinux_context.yaml](policy_validate_selinux_context.yaml)                                                                      |
+| Allow default Proc Mount type      | [policy_validate_default_proc_mount.yaml](policy_validate_default_proc_mount.yaml)                                                                      |

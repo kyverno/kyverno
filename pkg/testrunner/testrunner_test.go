@@ -119,3 +119,7 @@ func Test_validate_fsgroup(t *testing.T) {
 func Test_validate_selinux_context(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_selinux_context.yaml")
 }
+
+func Test_validate_proc_mount(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_default_proc_mount.yaml")
+}
