@@ -123,3 +123,7 @@ func Test_validate_selinux_context(t *testing.T) {
 func Test_validate_proc_mount(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_default_proc_mount.yaml")
 }
+
+func Test_validate_container_capabilities(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_container_capabilities.yaml")
+}
