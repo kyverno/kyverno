@@ -115,3 +115,7 @@ func Test_validate_disallow_default_serviceaccount(t *testing.T) {
 func Test_validate_fsgroup(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_fsgroup.yaml")
 }
+
+func Test_validate_selinux_context(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_selinux_context.yaml")
+}
