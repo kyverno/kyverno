@@ -127,3 +127,7 @@ func Test_validate_proc_mount(t *testing.T) {
 func Test_validate_container_capabilities(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_container_capabilities.yaml")
 }
+
+func Test_validate_disallow_sysctl(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_sysctl.yaml")
+}
