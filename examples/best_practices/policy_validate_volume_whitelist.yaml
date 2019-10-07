@@ -22,12 +22,6 @@ spec:
       - spec:
           volumes:
           - configMap: "*"
-      # pattern:
-      # spec:
-      #   ^(volumes):
-      #     - hostPath: "*"
-      #     - emptyDir: "*"
-      #     - configMap: "*"
 
 
 
