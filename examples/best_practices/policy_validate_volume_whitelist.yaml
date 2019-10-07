@@ -1,0 +1,34 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-volumes-whitelist
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: validate-volumes-whitelist
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Volumes white list"
+      anyPattern:
+      - spec:
+          volumes:
+          - hostPath: "*"
+      - spec:
+          volumes:
+          - emptyDir: "*"
+      - spec:
+          volumes:
+          - configMap: "*"
+      # pattern:
+      # spec:
+      #   ^(volumes):
+      #     - hostPath: "*"
+      #     - emptyDir: "*"
+      #     - configMap: "*"
+
+
+
+

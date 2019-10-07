@@ -24,3 +24,4 @@
 | Allow default Proc Mount type      | [policy_validate_default_proc_mount.yaml](policy_validate_default_proc_mount.yaml)                                                                      |
 | Allow certain capability to be added      | [policy_validate_container_capabilities.yaml](policy_validate_container_capabilities.yaml)                                                                      |
 | Allow local tcp/udp port range      | [policy_validate_sysctl_configs.yaml](policy_validate_sysctl_configs.yaml)                                                                      |
+| Allowed volume plugins      | [policy_validate_volume_whitelist.yaml](policy_validate_volume_whitelist.yaml)                                                                      |
