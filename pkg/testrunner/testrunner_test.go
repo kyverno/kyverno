@@ -129,5 +129,5 @@ func Test_validate_container_capabilities(t *testing.T) {
 }
 
 func Test_validate_disallow_sysctl(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_disallow_sysctl.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_sysctl_configs.yaml")
 }

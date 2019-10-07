@@ -23,3 +23,4 @@
 | Require SELinux level of the container      | [policy_validate_selinux_context.yaml](policy_validate_selinux_context.yaml)                                                                      |
 | Allow default Proc Mount type      | [policy_validate_default_proc_mount.yaml](policy_validate_default_proc_mount.yaml)                                                                      |
 | Allow certain capability to be added      | [policy_validate_container_capabilities.yaml](policy_validate_container_capabilities.yaml)                                                                      |
+| Allow local tcp/udp port range      | [policy_validate_sysctl_configs.yaml](policy_validate_sysctl_configs.yaml)                                                                      |
