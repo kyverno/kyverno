@@ -9,7 +9,7 @@
 | Disallow hostPID and hostIPC                   |  [policy_validate_hostpid_hosipc.yaml](policy_validate_hostpid_hosipc.yaml)                                                                     |
 | Require read only root filesystem              | [policy_validate_not_readonly_rootfilesystem.yaml](policy_validate_not_readonly_rootfilesystem.yaml)                                                                      |
 | Disallow node ports                            | [policy_validate_disallow_node_port.yaml](policy_validate_disallow_node_port.yaml)                                                                                                                 |
-| Allow trusted registries                       | [policy_validate_image_registries.yaml](policy_validate_image_registries.yaml)                                                                               |
+| Allow trusted registries                       | [policy_validate_whitelist_image_registries.yaml](policy_validate_whitelist_image_registries.yaml)                                                                               |
 | Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                                                                     |
 | Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                                                                           |
 | Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |

@@ -135,3 +135,7 @@ func Test_validate_disallow_sysctl(t *testing.T) {
 func Test_validate_volume_whitelist(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_volume_whiltelist.yaml")
 }
+
+func Test_validate_whitelist_image_registries(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_whitelist_image_registries.yaml")
+}
