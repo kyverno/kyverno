@@ -86,7 +86,7 @@ func processResourceWithPatches(patch []byte, resource []byte) []byte {
 	if patch == nil {
 		return nil
 	}
-	glog.Info(string(resource))
+
 	resource, err := engine.ApplyPatchNew(resource, patch)
 	if err != nil {
 		glog.Errorf("failed to patch resource: %v", err)
