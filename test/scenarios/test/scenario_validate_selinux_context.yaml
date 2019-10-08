@@ -1,0 +1,19 @@
+
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_selinux_context.yaml
+  resource: examples/best_practices/resources/resource_validate_selinux_context.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-selinux-options
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: default
+        name: busybox-selinux
+      rules:
+        - name: validate-selinux-options
+          type: Validation
+          message: "Validation rule 'validate-selinux-options' failed at '/spec/containers/0/securityContext/seLinuxOptions/' for resource Pod/default/busybox-selinux. SELinux level is required"
+          success: false

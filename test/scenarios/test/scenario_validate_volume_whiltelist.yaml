@@ -1,0 +1,19 @@
+
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_volume_whitelist.yaml
+  resource: examples/best_practices/resources/resource_validate_volume_whitelist.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-volumes-whitelist
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: test-volumes
+      rules:
+        - name: validate-volumes-whitelist
+          type: Validation
+          message: "Validation rule 'validate-volumes-whitelist' anyPattern[2] succesfully validated"
+          success: true

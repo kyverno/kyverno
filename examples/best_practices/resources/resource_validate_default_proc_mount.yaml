@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-proc-mount
+  labels:
+    app: nginx-proc-mount
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      procMount: Unmasked #Default

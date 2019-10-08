@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-selinux-options
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: validate-selinux-options
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "SELinux level is required"
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              seLinuxOptions:
+                level: "*"
