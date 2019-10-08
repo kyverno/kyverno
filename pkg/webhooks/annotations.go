@@ -30,7 +30,7 @@ type response struct {
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(annotations map[string]string, engineResponses []engine.EngineResponseNew) []byte {
+func generateAnnotationPatches(annotations map[string]string, engineResponses []engine.EngineResponse) []byte {
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
@@ -70,7 +70,7 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 	return patchByte
 }
 
-func annotationFromEngineResponses(engineResponses []engine.EngineResponseNew) []byte {
+func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []byte {
 	var policyPatches []policyPatch
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
