@@ -36,7 +36,7 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 	}
 
 	var patchResponse response
-	value := annotationFromPolicyResponses(engineResponses)
+	value := annotationFromEngineResponses(engineResponses)
 	if value == nil {
 		// no patches or error while processing patches
 		return nil
@@ -70,7 +70,7 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 	return patchByte
 }
 
-func annotationFromPolicyResponses(engineResponses []engine.EngineResponseNew) []byte {
+func annotationFromEngineResponses(engineResponses []engine.EngineResponseNew) []byte {
 	var policyPatches []policyPatch
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
