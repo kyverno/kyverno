@@ -16,11 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []engine.EngineResponseNew {
+func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []engine.EngineResponse {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
-	var engineResponses []engine.EngineResponseNew
+	var engineResponses []engine.EngineResponse
 	// get resource that are satisfy the resource description defined in the rules
 	resourceMap := listResources(pc.client, policy, pc.filterK8Resources)
 	for _, resource := range resourceMap {

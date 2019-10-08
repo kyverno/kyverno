@@ -26,6 +26,7 @@ var kindToResource = map[string]string{
 	"Endpoints":     "endpoints",
 	"Namespace":     "namespaces",
 	"Secret":        "secrets",
+	"Service":       "services",
 	"Deployment":    "deployments",
 	"NetworkPolicy": "networkpolicies",
 }

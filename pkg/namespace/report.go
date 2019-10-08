@@ -9,7 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (nsc *NamespaceController) report(engineResponses []engine.EngineResponseNew) {
+func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) {
 	// generate events
 	// generate policy violations
 	for _, er := range engineResponses {
@@ -25,7 +25,7 @@ func (nsc *NamespaceController) report(engineResponses []engine.EngineResponseNe
 }
 
 //reportEvents generates events for the failed resources
-func reportEvents(engineResponse engine.EngineResponseNew, eventGen event.Interface) {
+func reportEvents(engineResponse engine.EngineResponse, eventGen event.Interface) {
 	if engineResponse.IsSuccesful() {
 		return
 	}

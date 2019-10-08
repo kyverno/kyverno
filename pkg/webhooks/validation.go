@@ -76,7 +76,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 		return true, ""
 	}
 
-	var engineResponses []engine.EngineResponseNew
+	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 
 		if !utils.ContainsString(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
