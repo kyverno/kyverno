@@ -9,7 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine"
 )
 
-func isResponseSuccesful(engineReponses []engine.EngineResponseNew) bool {
+func isResponseSuccesful(engineReponses []engine.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
 			return false
@@ -20,7 +20,7 @@ func isResponseSuccesful(engineReponses []engine.EngineResponseNew) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []engine.EngineResponseNew) bool {
+func toBlockResource(engineReponses []engine.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if er.PolicyResponse.ValidationFailureAction == Enforce {
 			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
@@ -31,7 +31,7 @@ func toBlockResource(engineReponses []engine.EngineResponseNew) bool {
 	return false
 }
 
-func getErrorMsg(engineReponses []engine.EngineResponseNew) string {
+func getErrorMsg(engineReponses []engine.EngineResponse) string {
 	var str []string
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {

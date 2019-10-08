@@ -7,8 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-//EngineResponseNew engine response to the action
-type EngineResponseNew struct {
+//EngineResponse engine response to the action
+type EngineResponse struct {
 	// Resource patched with the engine action changes
 	PatchedResource unstructured.Unstructured
 	// Policy Response
@@ -74,7 +74,7 @@ type RuleStats struct {
 }
 
 //IsSuccesful checks if any rule has failed or not
-func (er EngineResponseNew) IsSuccesful() bool {
+func (er EngineResponse) IsSuccesful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if !r.Success {
 			return false
@@ -84,7 +84,7 @@ func (er EngineResponseNew) IsSuccesful() bool {
 }
 
 //GetPatches returns all the patches joined
-func (er EngineResponseNew) GetPatches() [][]byte {
+func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Patches != nil {
@@ -96,16 +96,16 @@ func (er EngineResponseNew) GetPatches() [][]byte {
 }
 
 //GetFailedRules returns failed rules
-func (er EngineResponseNew) GetFailedRules() []string {
+func (er EngineResponse) GetFailedRules() []string {
 	return er.getRules(false)
 }
 
 //GetSuccessRules returns success rules
-func (er EngineResponseNew) GetSuccessRules() []string {
+func (er EngineResponse) GetSuccessRules() []string {
 	return er.getRules(true)
 }
 
-func (er EngineResponseNew) getRules(success bool) []string {
+func (er EngineResponse) getRules(success bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Success == success {

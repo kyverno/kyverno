@@ -70,7 +70,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		return true, nil, ""
 	}
 
-	var engineResponses []engine.EngineResponseNew
+	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 
 		// check if policy has a rule for the admission request kind

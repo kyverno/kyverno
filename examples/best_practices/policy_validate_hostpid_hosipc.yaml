@@ -17,5 +17,5 @@ spec:
       message: "Disallow use of host's pid namespace and host's ipc namespace"
       pattern:
         spec:
-          hostPID: false
+          (hostPID): "!true"
           hostIPC: false

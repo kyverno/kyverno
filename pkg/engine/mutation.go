@@ -10,7 +10,7 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
+func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponse) {
 	startTime := time.Now()
 	// policy information
 	func() {

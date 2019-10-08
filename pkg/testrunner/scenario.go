@@ -140,7 +140,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 	// convert resource -> unstructured.Unstructured
 	resource := loadPolicyResource(t, tc.Input.Resource)
 
-	var er engine.EngineResponseNew
+	var er engine.EngineResponse
 	// Mutation
 	er = engine.Mutate(*policy, *resource)
 	// validate te response
