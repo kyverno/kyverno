@@ -11,12 +11,10 @@ import (
 
 const (
 	policyAnnotation = "policies.kyverno.io"
-	// lastAppliedPatches = policyAnnotation + "last-applied-patches"
 )
 
 type policyPatch struct {
-	PolicyName string `json:"policyname"`
-	// RulePatches []string `json:"patches"`
+	PolicyName  string      `json:"policyname"`
 	RulePatches interface{} `json:"patches"`
 }
 
@@ -32,28 +30,32 @@ type response struct {
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(annotations map[string]string, policyResponse engine.PolicyResponse) []byte {
+func generateAnnotationPatches(annotations map[string]string, engineResponses []engine.EngineResponseNew) []byte {
 	if annotations == nil {
-		annotations = map[string]string{}
+		annotations = make(map[string]string)
 	}
+
 	var patchResponse response
-	value := generateAnnotationsFromPolicyResponse(policyResponse)
+	value := annotationFromEngineResponses(engineResponses)
 	if value == nil {
 		// no patches or error while processing patches
 		return nil
 	}
+
 	if _, ok := annotations[policyAnnotation]; ok {
 		// create update patch string
 		patchResponse = response{
-			Path:  "/metadata/annotations/" + policyAnnotation,
 			Op:    "replace",
+			Path:  "/metadata/annotations/" + policyAnnotation,
 			Value: string(value),
 		}
 	} else {
+		// insert 'policies.kyverno.io' entry in annotation map
+		annotations[policyAnnotation] = string(value)
 		patchResponse = response{
-			Path:  "/metadata/annotations",
 			Op:    "add",
-			Value: map[string]string{policyAnnotation: string(value)},
+			Path:  "/metadata/annotations",
+			Value: annotations,
 		}
 	}
 
@@ -68,109 +70,59 @@ func generateAnnotationPatches(annotations map[string]string, policyResponse eng
 	return patchByte
 }
 
-// func prepareAnnotationPatches(resource *unstructured.Unstructured, policyInfos []info.PolicyInfo) []byte {
-// 	annots := resource.GetAnnotations()
-// 	if annots == nil {
-// 		annots = map[string]string{}
-// 	}
-
-// 	var patchResponse response
-// 	value := annotationFromPolicies(policyInfos)
-// 	if _, ok := annots[policyAnnotation]; ok {
-// 		// create update patch string
-// 		patchResponse = response{
-// 			Op:    "replace",
-// 			Path:  "/metadata/annotations/" + policyAnnotation,
-// 			Value: string(value),
-// 		}
-// 	} else {
-// 		patchResponse = response{
-// 			Op:    "add",
-// 			Path:  "/metadata/annotations",
-// 			Value: map[string]string{policyAnnotation: string(value)},
-// 		}
-// 	}
-
-// 	patchByte, _ := json.Marshal(patchResponse)
-
-// 	// check the patch
-// 	_, err := jsonpatch.DecodePatch([]byte("[" + string(patchByte) + "]"))
-// 	if err != nil {
-// 		glog.Errorf("Failed to make patch from annotation'%s', err: %v\n ", string(patchByte), err)
-// 	}
-
-// 	return patchByte
-// }
-
-// func annotationFromPolicies(policyInfos []info.PolicyInfo) []byte {
-// 	var policyPatches []policyPatch
-// 	for _, policyInfo := range policyInfos {
-// 		var pp policyPatch
-
-// 		pp.PolicyName = policyInfo.Name
-// 		pp.RulePatches = annotationFromPolicy(policyInfo)
-// 		policyPatches = append(policyPatches, pp)
-// 	}
-
-// 	result, _ := json.Marshal(policyPatches)
-
-// 	return result
-// }
-
-func generateAnnotationsFromPolicyResponse(policyResponse engine.PolicyResponse) []byte {
-	var rulePatches []rulePatch
-	// generate annotation for each mutation JSON patch to be applied on the resource
-	for _, rule := range policyResponse.Rules {
-		var patchmap map[string]string
-		patch := engine.JoinPatches(rule.Patches)
-		if err := json.Unmarshal(patch, &patchmap); err != nil {
-			glog.Errorf("Failed to parse patch bytes, err: %v\n", err)
+func annotationFromEngineResponses(engineResponses []engine.EngineResponseNew) []byte {
+	var policyPatches []policyPatch
+	for _, engineResponse := range engineResponses {
+		if !engineResponse.IsSuccesful() {
+			glog.V(3).Infof("Policy %s failed, skip preparing annotation\n", engineResponse.PolicyResponse.Policy)
 			continue
 		}
 
-		rp := rulePatch{
-			RuleName: rule.Name,
-			Op:       patchmap["op"],
-			Path:     patchmap["path"]}
+		var pp policyPatch
+		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse)
+		if rulePatches == nil {
+			continue
+		}
 
-		rulePatches = append(rulePatches, rp)
-		glog.V(4).Infof("Annotation value prepared: %v\n", rulePatches)
-
+		pp.RulePatches = rulePatches
+		pp.PolicyName = engineResponse.PolicyResponse.Policy
+		policyPatches = append(policyPatches, pp)
 	}
-	patch, err := json.Marshal(rulePatches)
-	if err != nil {
-		glog.Infof("failed to marshall: %v", err)
+
+	// return nil if there's no patches
+	// otherwise result = null, len(result) = 4
+	if policyPatches == nil {
 		return nil
 	}
-	return patch
+
+	result, _ := json.Marshal(policyPatches)
+
+	return result
 }
 
-// func annotationFromPolicy(policyInfo info.PolicyInfo) []rulePatch {
-// 	if !policyInfo.IsSuccessful() {
-// 		glog.V(2).Infof("Policy %s failed, skip preparing annotation\n", policyInfo.Name)
-// 		return nil
-// 	}
+func annotationFromPolicyResponse(policyResponse engine.PolicyResponse) []rulePatch {
+	var rulePatches []rulePatch
+	for _, ruleInfo := range policyResponse.Rules {
+		for _, patch := range ruleInfo.Patches {
+			var patchmap map[string]interface{}
+			if err := json.Unmarshal(patch, &patchmap); err != nil {
+				glog.Errorf("Failed to parse patch bytes, err: %v\n", err)
+				continue
+			}
 
-// 	var rulePatches []rulePatch
-// 	for _, ruleInfo := range policyInfo.Rules {
+			rp := rulePatch{
+				RuleName: ruleInfo.Name,
+				Op:       patchmap["op"].(string),
+				Path:     patchmap["path"].(string)}
 
-// 		for _, patch := range ruleInfo.Patches {
-// 			var patchmap map[string]string
+			rulePatches = append(rulePatches, rp)
+			glog.V(4).Infof("Annotation value prepared: %v\n", rulePatches)
+		}
+	}
 
-// 			if err := json.Unmarshal(patch, &patchmap); err != nil {
-// 				glog.Errorf("Failed to parse patch bytes, err: %v\n", err)
-// 				continue
-// 			}
+	if len(rulePatches) == 0 {
+		return nil
+	}
 
-// 			rp := rulePatch{
-// 				RuleName: ruleInfo.Name,
-// 				Op:       patchmap["op"],
-// 				Path:     patchmap["path"]}
-
-// 			rulePatches = append(rulePatches, rp)
-// 			glog.V(4).Infof("Annotation value prepared: %v\n", rulePatches)
-// 		}
-// 	}
-
-// 	return rulePatches
-// }
+	return rulePatches
+}
