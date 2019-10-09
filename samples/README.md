@@ -10,7 +10,7 @@ More information on each best-practice policy is provided below:
 
 ## Run as non-root user
 
-**Description**:  By default, processes in a container run as a root user (uid 0). To prevent compromising the host, a best practice is to specify a least privileged user ID when building the container image, and require that application containers run as non root users. 
+By default, processes in a container run as a root user (uid 0). To prevent compromising the host, a best practice is to specify a least privileged user ID when building the container image, and require that application containers run as non root users. 
 
 **Policy YAML**: [deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml) 
 
