@@ -1,8 +1,8 @@
 
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_validate_disallow_node_port.yaml
-  resource: examples/best_practices/resources/resource_validate_disallow_node_port.yaml
+  policy: samples/best_practices/disallow_node_port.yaml
+  resource: test/manifest/disallow_node_port.yaml
 expected:
   validation:
     policyresponse:
