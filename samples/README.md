@@ -1,9 +1,27 @@
 # Best Practice Policies
 
-| Best practice                                  | Policy
-|------------------------------------------------|-----------------------------------------------------------------------|
-| Run as non-root user              | [deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml)                    |
+Best practice policies are recommended policies that can be applied to yoru Kubernetes clusters with minimal changes. To import these policies install Kyverno and import the resources as follows:
 
+**Install Kyverno**
+````bash
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+````
+
+**Import Policies**
+````bash
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/best_practices/
+````
+
+More information on each best-practice policy is provided below:
+
+## Run as non-root user
+
+**Description**:  By default, processes in a container run as a root user (uid 0). To prevent compromising the host, a best practice is to specify a least privileged user ID when building the container image, and require that application containers run as non root users. 
+
+**Policy YAML**: [deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml) 
+
+**Aditional Information**
+* [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
 
 # Additional Policies
