@@ -7,4 +7,4 @@ spec:
   - name: ghost
     image: ghost
     securityContext:
-      readOnlyRootFilesystem: true
+      readOnlyRootFilesystem: false

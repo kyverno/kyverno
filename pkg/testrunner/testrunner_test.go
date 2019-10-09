@@ -97,7 +97,7 @@ func Test_validate_hostPID_hostIPC(t *testing.T) {
 }
 
 func Test_validate_not_readonly_rootfilesystem(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_disallow_readonly_rootfilesystem.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_require_readonly_rootfilesystem.yaml")
 }
 
 func Test_validate_namespace_quota(t *testing.T) {

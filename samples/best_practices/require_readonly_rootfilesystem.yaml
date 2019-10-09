@@ -1,18 +1,18 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-not-readonly-rootfilesystem
+  name: validate-readonly-rootfilesystem
 spec:
   rules:
-  - name: validate-not-readonly-rootfilesystem
+  - name: validate-readonly-rootfilesystem
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Container should not have read-only rootfilesystem"
+      message: "Container require read-only rootfilesystem"
       pattern:
         spec:
           containers:
           - securityContext:
-              readOnlyRootFilesystem: false
+              readOnlyRootFilesystem: true
