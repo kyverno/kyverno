@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-fsgroup
+spec:
+  validationFailureAction: "audit"
+  rules:
+  - name: validate-fsgroup
+    exclude:
+      resources:
+        namespaces: 
+        - kube-system
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "directory should have group ID 2000"
+      pattern:
+        spec:
+          securityContext:
+            fsGroup: 2000
