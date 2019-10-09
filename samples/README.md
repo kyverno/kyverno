@@ -1,13 +1,7 @@
 # Best Practice Policies
 
-Best practice policies are recommended policies that can be applied to yoru Kubernetes clusters with minimal changes. To import these policies install Kyverno and import the resources as follows:
+Best practice policies are recommended policies that can be applied to yoru Kubernetes clusters with minimal changes. To import these policies [install Kyverno](../documentation/installation.md) and import the resources as follows:
 
-**Install Kyverno**
-````bash
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
-````
-
-**Import Policies**
 ````bash
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/best_practices/
 ````
