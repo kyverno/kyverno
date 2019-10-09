@@ -1,11 +1,11 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-deny-privileged-disallowpriviligedescalation
+  name: validate-deny-privileged-priviligedescalation
 spec:
   validationFailureAction: "audit"
   rules:
-  - name: deny-privileged-disallowpriviligedescalation
+  - name: deny-privileged-priviligedescalation
     exclude:
     match:
       resources:

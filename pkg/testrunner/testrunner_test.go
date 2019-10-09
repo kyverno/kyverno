@@ -23,7 +23,7 @@ func Test_validate_deny_runasrootuser(t *testing.T) {
 }
 
 func Test_validate_disallow_priviledgedprivelegesecalation(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_container_disallow_priviledgedprivelegesecalation.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_priviledged_privelegesecalation.yaml")
 }
 
 func Test_validate_healthChecks(t *testing.T) {

@@ -2,7 +2,7 @@
 
 | Best practice                                  | Policy
 |------------------------------------------------|-----------------------------------------------------------------------|
-| Run as non-root user              | [policy_validate_deny_runasrootuser.yaml](best_practices/policy_validate_deny_runasrootuser.yaml)                    |
+| Run as non-root user              | [deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml)                    |
 
 
 
