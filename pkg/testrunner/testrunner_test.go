@@ -136,8 +136,8 @@ func Test_validate_volume_whitelist(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_volume_whiltelist.yaml")
 }
 
-func Test_validate_whitelist_image_registries(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_whitelist_image_registries.yaml")
+func Test_validate_trusted_image_registries(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_trusted_image_registries.yaml")
 }
 
 func Test_require_pod_requests_limits(t *testing.T) {

@@ -1,0 +1,17 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: trusted-registries
+spec:
+  rules:
+  - name: trusted-registries
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Deny untrusted registries"
+      pattern:
+        spec:
+          containers:
+          - image: "k8s.gcr.io/* | gcr.io/*"
