@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_automountingapicred.yaml
+  resource: test/manifest/disallow_automountingapicred.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-disallow-automoutingapicred
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: disallow-automoutingapicred
+          type: Validation
+          message: Validation rule 'disallow-automoutingapicred' succesfully validated
+          success: true 
