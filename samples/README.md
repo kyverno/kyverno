@@ -71,7 +71,9 @@ A read-only root file system helps to enforce an immutable infrastrucutre strate
 
 ***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
 
+
 # Additional Policies
+Additional policies list some policies that can also assist in maintaing kubernetes clusters.
 
 ## Assign Linux capabilities inside Pod
 Linux divides the privileges traditionally, associated with superuser into distinct units, known as capabilities, which can be independently enabled or disabled by listing them in `securityContext.capabilites`. 
