@@ -14,11 +14,11 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 
 ***Policy YAML***: [deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml) 
 
-**Aditional Information**
+**Additional Information**
 * [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
 
-## hostNetwork and hostPort not allowed
+## `hostNetwork` and `hostPort` not allowed
 
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
 To avoid this limitation, use a validate rule to make sure these attributes are set to null and false.
@@ -33,7 +33,7 @@ A read-only root file system helps to enforce an immutable infrastrucutre strate
 ***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
 
 
-## Disallow hostPID and hostIPC
+## Disallow `hostPID` and `hostIPC`
 Sharing the host's PID namespace allows vibility of process on the host, potentially exposing porcess information. 
 Sharing the host's IPC namespace allows container process to communicate with processes on the host. 
 To avoid pod container from having visilbility to host process space, we can check `hostPID` and `hostIPC` are set as `false`.
@@ -53,10 +53,29 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 `allowPrivilegeEscalation` as `false`
 
 ***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
+
+
+
 # Additional Policies
 
-| Description                                       	| Policy                                                                                                                                                                                           	| Details                                                                                                                                                                                                                                                                                                                                     	|
-|---------------------------------------------------	|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Check userID, groupIP & fsgroup used inside a Pod 	| [Restrict the range of ids used inside a Pod](additional/policy_validate_user_group_fsgroup_id.yaml)                                                                                             	| All processes inside the pod can be made to run with specific user and groupID by setting runAsUser and runAsGroup respectively. fsGroup can be specified to make sure any file created in the volume with have the specified groupID.                                                                                                      	|
-| Assign Linux capabilities inside Pod              	| [Verify capabilities add in a Pod](additional/policy_validate_container_capabilities.yaml)                                                                                                       	| Linux divides the privileges traditionally, associated with superuser into distinct units, known as capabilities, which can be independently enabled and disabled by specifying them in capabilities section of securityContext. [List of linux capabilities](https://github.com/torvalds/linux/blob/master/include/uapi/linux/capability.h 	|
-| Configure kernel parameters                       	| [The minimum and maximum port a network connection can use as its source(local) port can be validating by checking net.ipv4.ip_local_port_range](additional/policy_validate_sysctl_configs.yaml) 	| Sysctl interface allows to modify kernel parameters at runtime and can be specified in the sysctls section of securityContext. [list of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/)                                                                                        	|
+## Assign Linux capabilities inside Pod
+Linux divides the privileges traditionally, associated with superuser into distinct units, known as capabilities, which can be independently enabled or disabled by listing them in `securityContext.capabilites`. 
+
+
+***Policy YAML***: [policy_validate_container_capabilities.yaml](best_practices/policy_validate_container_capabilities.yaml)
+
+**Additional Information**
+* [List of linux capabilities](https://github.com/torvalds/linux/blob/master/include/uapi/linux/capability.h)
+
+## Check userID, groupIP & fsgroup used inside a Pod
+All processes inside the pod can be made to run with specific user and groupID by setting runAsUser and runAsGroup respectively. fsGroup can be specified to make sure any file created in the volume with have the specified groupID. These options can be used validate the IDs used for user and group.
+
+***Policy YAML***: [policy_validate_container_capabilities.yaml](best_practices/policy_validate_user_group_fsgroup_id.yaml)
+
+## Configure kernel parameters inside pod
+Sysctl interface allows to modify kernel parameters at runtime and in the pod can be specified under `securityContext.sysctls`. If kernel parameters in the pod are to be modified should be handled cautiosly, and a policy with rules restricting these options will be helpful. We can control minimum and maximum port that a network connection can use as its source(local) port by checking net.ipv4.ip_local_port_range
+
+***Policy YAML***: [policy_validate_container_capabilities.yaml](best_practices/policy_validate_user_group_fsgroup_id.yaml)
+
+**Additional Information**
+* [List of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/) 
