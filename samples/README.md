@@ -18,6 +18,14 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 **Additional Information**
 * [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
+
+## Disallow use of default namespace
+
+Namespaces are a way to divide cluster resources between multiple users. When multiple users or teams are sharing a single cluster, it is recommended to isolate different workloads and aviod using default namespace.
+
+***Policy YAML***: [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
+
+
 ## Disallow `hostNetwork` and `hostPort`
 
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
@@ -26,6 +34,7 @@ To avoid this limitation, use a validate rule to make sure these attributes are 
 ***Policy YAML***: [disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
 
 ## Disallow `hostPID` and `hostIPC`
+
 Sharing the host's PID namespace allows vibility of process on the host, potentially exposing porcess information. 
 Sharing the host's IPC namespace allows container process to communicate with processes on the host. 
 To avoid pod container from having visilbility to host process space, we can check `hostPID` and `hostIPC` are set as `false`.
@@ -33,12 +42,14 @@ To avoid pod container from having visilbility to host process space, we can che
 ***Policy YAML***: [disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
 
 ## Disallow node port
+
 Node port ranged service is advertised to the public and can be scanned and probed from others exposing all nodes.
 NetworkPolicy resources can currently only control NodePorts by allowing or disallowing all traffic on them. Unless required it is recommend to disable use to service type `NodePort`.
 
 ***Policy YAML***: [disallow_node_port.yaml](best_practices/disallow_node_port.yaml)
 
 ## Disable privileged containers
+
 A process within priveleged containers get almost the same priveleges that are available to processes outside a container providing almost unrestricited host access. With `securityContext.allowPrivilegeEscalation` enabled the process can gain ore priveleges that its parent.
 To restrcit the priveleges it is recommend to run pod containers with `securityContext.priveleged` as `false` and 
 `allowPrivilegeEscalation` as `false`
@@ -46,32 +57,54 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 ***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
 
 ## Default deny all ingress traffic
+
 When no policies exist in a namespace, Kubernetes allows all ingress and egress traffic to and from pods in that namespace. A "default" isolation policy for a namespace denys any ingress traffic to the pods in that namespace, this ensures that even pods that aren’t selected by any other NetworkPolicy will still be isolated.
 
-***Policy YAML***: (TODO)[require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
+***Policy YAML***: [require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
 
 ## Disallow latest image tag
+
 Using the `:latest` tag when deploying containers in production makes it harder to track which version of the image is running and more difficult to roll back properly. Specifying a none latest image tag prevents a lot of errors from occurring when versions are mismatched.
 
 ***Policy YAML***: [require_image_tag_not_latest.yaml](best_practices/require_image_tag_not_latest.yaml)
 
 
+## Default namesapce quotas
+
+In order to limit the quantity of objects, as well as the total amount of compute resources that may be consumed by an application, it is essential to create one resource quota for each namespace by cluster administrator.
+
+**Additional Information**
+* [Resource Quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
+
+***Policy YAML***: [require_namespace_quota.yaml](best_practices/require_namespace_quota.yaml) 
+
+
 ## Require resource quota
+
 When several users or teams share a cluster with a fixed number of nodes, there is a concern that one team could use more than its fair share of resources. To prevent a team taking up more than their fair share of the cluster, it is usually a best practice to configure resource quota for the application.
 
 ***Policy YAML***: [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
 
 
 ## Default health probe
+
 Setting the health probe ensures an application is highly-avaiable and resilient. Health checks are a simple way to let the system know if an application is broken, and it helps the application quickly recover from failure.
 
 ***Policy YAML***: [require_probes.yaml](best_practices/require_probes.yaml)
 
 
 ## Read-only root filesystem
+
 A read-only root file system helps to enforce an immutable infrastrucutre strategy, the container only need to write on mounted volume that persist the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
 
 ***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
+
+
+## Trusted image registries
+
+Images from unrecognized registry can introduce complexity to maintain the application. By specifying trusted registries help reducing such complexity. Follow instructoin [here](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies-validate.md#operators) to add allowed registries using `OR` operator.
+
+***Policy YAML***: [trusted_image_registries.yaml](best_practices/trusted_image_registries.yaml) 
 
 
 # Additional Policies
