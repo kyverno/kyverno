@@ -18,6 +18,3 @@ spec:
             sysctls: 
             - name: net.ipv4.ip_local_port_range
               value: "1024 65535"
-# Configure and use kernel parameters within a POd cluster using namespaced sysctl
-# (refer to https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/ for the list of supported namespaced sysctl interfaces)
-# The minimum and maximum port a network connection can use as its source(local) port can be validating by checking net.ipv4.ip_local_port_range
