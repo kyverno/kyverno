@@ -18,7 +18,7 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 **Additional Information**
 * [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
-## `hostNetwork` and `hostPort` not allowed
+## Disallow `hostNetwork` and `hostPort`
 
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
 To avoid this limitation, use a validate rule to make sure these attributes are set to null and false.
@@ -62,7 +62,7 @@ When several users or teams share a cluster with a fixed number of nodes, there 
 ***Policy YAML***: [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
 
 
-## Require health probes
+## Default health probe
 Setting the health probe ensures an application is highly-avaiable and resilient. Health checks are a simple way to let the system know if an application is broken, and it helps the application quickly recover from failure.
 
 ***Policy YAML***: [require_probes.yaml](best_practices/require_probes.yaml)
