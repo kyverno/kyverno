@@ -5,18 +5,18 @@ input:
 expected:
   generation:
     generatedResources:
-      - name: defaultnetworkpolicy
+      - name: default-deny-ingress
         kind: NetworkPolicy
         namespace: devtest
     policyresponse:
-      policy: defaultgeneratenetworkpolicy
+      policy: default-deny-ingress-networkpolicy
       resource:
         kind: Namespace
         apiVersion: v1
         namespace: ''
         name: devtest
       rules:
-        - name: default-networkpolicy
+        - name: default-deny-ingress
           type: Generation
           success: true
-          message: created resource NetworkPolicy/devtest/defaultnetworkpolicy
+          message: created resource NetworkPolicy/devtest/default-deny-ingress

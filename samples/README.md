@@ -45,8 +45,8 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 
 ***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
 
-## Default network policy
-When no policies are defined, Kubernetes allows all communications. Kubernetes network policies specify the access permissions for groups of pods providing basic level of security. Policies can be used to make sure networking policies are configured as per requirements.
+## Default deny all ingress traffic
+When no policies exist in a namespace, Kubernetes allows all ingress and egress traffic to and from pods in that namespace. A "default" isolation policy for a namespace denys any ingress traffic to the pods in that namespace, this ensures that even pods that aren’t selected by any other NetworkPolicy will still be isolated.
 
 ***Policy YAML***: (TODO)[require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
 
