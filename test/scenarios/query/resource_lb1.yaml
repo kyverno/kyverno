@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb1
+  namespace: test
+spec:
+  selector:
+    app: app
+  ports:
+    - port: 8765 # random
+      targetPort: 9376 # random
+  type: LoadBalancer

@@ -13,7 +13,7 @@ spec:
       message: "hostNetwork and hostPort are not allowed"
       pattern:
         spec:
-          hostNetwork: false
+          (hostNetwork): false
           containers:
           - name: "*"
             ports:

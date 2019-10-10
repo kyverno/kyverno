@@ -17,6 +17,7 @@ spec:
           containers:
           - securityContext:
               seLinuxOptions:
-                level: "s0:c25,c968"
+                level: "*"
+#                level: "s0:c25,c968"
 # If SELinux security module is loaded on the host operating system,
 # we can make sure pods only have access to specified configured level

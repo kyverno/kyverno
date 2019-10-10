@@ -18,14 +18,12 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 **Additional Information**
 * [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
-
 ## `hostNetwork` and `hostPort` not allowed
 
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
 To avoid this limitation, use a validate rule to make sure these attributes are set to null and false.
 
 ***Policy YAML***: [disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
-
 
 ## Disallow `hostPID` and `hostIPC`
 Sharing the host's PID namespace allows vibility of process on the host, potentially exposing porcess information. 
@@ -34,13 +32,11 @@ To avoid pod container from having visilbility to host process space, we can che
 
 ***Policy YAML***: [disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
 
-
 ## Disallow node port
 Node port ranged service is advertised to the public and can be scanned and probed from others exposing all nodes.
 NetworkPolicy resources can currently only control NodePorts by allowing or disallowing all traffic on them. Unless required it is recommend to disable use to service type `NodePort`.
 
 ***Policy YAML***: [disallow_node_port.yaml](best_practices/disallow_node_port.yaml)
-
 
 ## Disable privileged containers
 A process within priveleged containers get almost the same priveleges that are available to processes outside a container providing almost unrestricited host access. With `securityContext.allowPrivilegeEscalation` enabled the process can gain ore priveleges that its parent.
@@ -49,10 +45,10 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 
 ***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
 
-
 ## Default network policy
-***Policy YAML***: [require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
+When no policies are defined, Kubernetes allows all communications. Kubernetes network policies specify the access permissions for groups of pods providing basic level of security. Policies can be used to make sure networking policies are configured as per requirements.
 
+***Policy YAML***: (TODO)[require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
 
 ## Disallow latest image tag
 Using the `:latest` tag when deploying containers in production makes it harder to track which version of the image is running and more difficult to roll back properly. Specifying a none latest image tag prevents a lot of errors from occurring when versions are mismatched.
@@ -73,14 +69,13 @@ Setting the health probe ensures an application is highly-avaiable and resilient
 
 
 ## Read-only root filesystem
-
 A read-only root file system helps to enforce an immutable infrastrucutre strategy, the container only need to write on mounted volume that persist the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
 
 ***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
 
 
-
 # Additional Policies
+Additional policies list some policies that can also assist in maintaing kubernetes clusters.
 
 ## Assign Linux capabilities inside Pod
 Linux divides the privileges traditionally, associated with superuser into distinct units, known as capabilities, which can be independently enabled or disabled by listing them in `securityContext.capabilites`. 

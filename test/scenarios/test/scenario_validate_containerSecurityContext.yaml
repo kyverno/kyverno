@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/policy_validate_containerSecurityContext.yaml
-  resource: examples/resources/resource_validate_containerSecurityContext.yaml
+  policy: test/scenarios/policy_validate_containerSecurityContext.yaml
+  resource: test/scenarios/resources/resource_validate_containerSecurityContext.yaml
 expected:
   validation:
     policyresponse:
