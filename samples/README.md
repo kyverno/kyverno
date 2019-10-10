@@ -51,19 +51,19 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 
 
 ## Default network policy
-***Policy YAML***: [require_default_network_policy.yaml](samples/best_practices/require_default_network_policy.yaml)
+***Policy YAML***: [require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
 
 
 ## Disallow latest image tag
-***Policy YAML***: [require_image_tag_not_latest.yaml](samples/best_practices/require_image_tag_not_latest.yaml)
+***Policy YAML***: [require_image_tag_not_latest.yaml](best_practices/require_image_tag_not_latest.yaml)
 
 
 ## Require pod resource quota
-***Policy YAML***: [require_pod_requests_limits.yaml](samples/best_practices/require_pod_requests_limits.yaml)
+***Policy YAML***: [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
 
 
 ## Require pod probes
-***Policy YAML***: [require_probes.yaml](samples/best_practices/require_probes.yaml)
+***Policy YAML***: [require_probes.yaml](best_practices/require_probes.yaml)
 
 
 ## Read-only root filesystem
