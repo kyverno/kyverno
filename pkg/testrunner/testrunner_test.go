@@ -52,14 +52,6 @@ func Test_validate_image_latest_ifnotpresent_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_latest_ifnotpresent_pass.yaml")
 }
 
-// func Test_validate_image_tag_notspecified_deny(t *testing.T) {
-// 	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_deny.yaml")
-// }
-
-// func Test_validate_image_tag_notspecified_pass(t *testing.T) {
-// 	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_pass.yaml")
-// }
-
 func Test_validate_image_pullpolicy_notalways_deny(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_deny.yaml")
 }
@@ -113,7 +105,7 @@ func Test_validate_disallow_default_serviceaccount(t *testing.T) {
 }
 
 func Test_validate_fsgroup(t *testing.T) {
-	// testScenario(t, "test/scenarios/test/scenario_validate_fsgroup.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_fsgroup.yaml")
 }
 
 func Test_validate_selinux_context(t *testing.T) {
@@ -125,11 +117,11 @@ func Test_validate_proc_mount(t *testing.T) {
 }
 
 func Test_validate_container_capabilities(t *testing.T) {
-	// testScenario(t, "test/scenarios/test/scenario_validate_container_capabilities.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_container_capabilities.yaml")
 }
 
 func Test_validate_disallow_sysctl(t *testing.T) {
-	// testScenario(t, "test/scenarios/test/scenario_validate_sysctl_configs.yaml")
+	testScenario(t, "test/scenarios/test/scenario_validate_sysctl_configs.yaml")
 }
 
 func Test_validate_volume_whitelist(t *testing.T) {

@@ -5,6 +5,8 @@ metadata:
 spec:
   securityContext:
     fsGroup: 2000                           # directory will have group ID 2000
+    runAsUser: 1000
+    runAsGroup: 3000
   volumes:
   - name: fsgroup-demo-vol
     emptyDir: {}
