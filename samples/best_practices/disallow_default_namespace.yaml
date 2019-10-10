@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-namespace
+spec:
+  rules:
+  - name: check-default-namespace
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "A none 'default' namespace is required"
+      pattern:
+        metadata:
+          namespace: "!default"
+  - name: check-namespace-exist
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "A namespace is required"
+      pattern:
+        metadata:
+          namespace: "?*"

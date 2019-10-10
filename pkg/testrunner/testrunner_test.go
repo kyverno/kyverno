@@ -80,8 +80,8 @@ func Test_mutate_pod_disable_automoutingapicred_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_mutate_pod_disable_automountingapicred.yaml")
 }
 
-func Test_validate_default_namespace(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_default_namespace.yaml")
+func Test_validate_disallow_default_namespace(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_default_namespace.yaml")
 }
 
 func Test_validate_host_path(t *testing.T) {
