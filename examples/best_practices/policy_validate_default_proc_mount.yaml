@@ -17,3 +17,4 @@ spec:
           containers:
           - securityContext:
               procMount: Unmasked
+# used by rootless containers
