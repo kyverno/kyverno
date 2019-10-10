@@ -100,8 +100,8 @@ func Test_validate_not_readonly_rootfilesystem(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_require_readonly_rootfilesystem.yaml")
 }
 
-func Test_validate_namespace_quota(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_namespace_quota.yaml")
+func Test_validate_require_namespace_quota(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_require_namespace_quota.yaml")
 }
 
 func Test_validate_disallow_node_port(t *testing.T) {

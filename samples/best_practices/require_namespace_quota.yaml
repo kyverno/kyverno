@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-namespace-quota
+spec:
+  rules:
+  - name: validate-namespace-quota
+    match:
+      resources:
+        kinds:
+        - Namespace
+    generate:
+      kind: ResourceQuota
+      name: "defaultresourcequota"
+      spec:
+        hard:
+          requests.cpu: "*"
+          requests.memory: "*"
+          limits.cpu: "*"
+          limits.memory: "*"
