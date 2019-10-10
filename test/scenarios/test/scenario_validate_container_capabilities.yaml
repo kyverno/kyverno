@@ -1,7 +1,7 @@
 
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_validate_container_capabilities.yaml
+  policy: samples/additional/policy_validate_container_capabilities.yaml
   resource: examples/best_practices/resources/resource_validate_container_capabilities.yaml
 expected:
   validation:
