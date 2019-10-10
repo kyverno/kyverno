@@ -10,8 +10,8 @@
 | Require read only root filesystem              | [policy_validate_not_readonly_rootfilesystem.yaml](policy_validate_not_readonly_rootfilesystem.yaml)                     |      best_practices            |
 | Disallow node ports                            | [policy_validate_disallow_node_port.yaml](policy_validate_disallow_node_port.yaml)                           |      best_practices            |
 | Allow trusted registries                       | [policy_validate_whitelist_image_registries.yaml](policy_validate_whitelist_image_registries.yaml)                                                                               |
-| Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                                                                     |
-| Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                                                                           |
+| Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                           |      best_practices            |
+| Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                            |     best_practices            |
 | Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |
 | Disallow latest tag and pull IfNotPresent      | [policy_validate_image_latest_ifnotpresent_deny.yaml](policy_validate_image_latest_ifnotpresent_deny.yaml)                                                   |
 | Require a namespace (disallow default)         | [policy_validate_default_namespace.yaml](policy_validate_default_namespace.yaml)                                                                     |
