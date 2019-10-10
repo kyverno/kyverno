@@ -8,6 +8,7 @@ kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/best_pra
 
 More information on each best-practice policy is provided below:
 
+
 ## Run as non-root user
 
 By default, processes in a container run as a root user (uid 0). To prevent compromising the host, a best practice is to specify a least privileged user ID when building the container image, and require that application containers run as non root users. 
@@ -26,13 +27,6 @@ To avoid this limitation, use a validate rule to make sure these attributes are 
 ***Policy YAML***: [disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
 
 
-## Read-only root filesystem
-
-A read-only root file system helps to enforce an immutable infrastrucutre strategy, the container only need to write on mounted volume that persist the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
-
-***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
-
-
 ## Disallow `hostPID` and `hostIPC`
 Sharing the host's PID namespace allows vibility of process on the host, potentially exposing porcess information. 
 Sharing the host's IPC namespace allows container process to communicate with processes on the host. 
@@ -47,12 +41,36 @@ NetworkPolicy resources can currently only control NodePorts by allowing or disa
 
 ***Policy YAML***: [disallow_node_port.yaml](best_practices/disallow_node_port.yaml)
 
+
 ## Disable privileged containers
 A process within priveleged containers get almost the same priveleges that are available to processes outside a container providing almost unrestricited host access. With `securityContext.allowPrivilegeEscalation` enabled the process can gain ore priveleges that its parent.
 To restrcit the priveleges it is recommend to run pod containers with `securityContext.priveleged` as `false` and 
 `allowPrivilegeEscalation` as `false`
 
 ***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
+
+
+## Default network policy
+***Policy YAML***: [require_default_network_policy.yaml](samples/best_practices/require_default_network_policy.yaml)
+
+
+## Disallow latest image tag
+***Policy YAML***: [require_image_tag_not_latest.yaml](samples/best_practices/require_image_tag_not_latest.yaml)
+
+
+## Require pod resource quota
+***Policy YAML***: [require_pod_requests_limits.yaml](samples/best_practices/require_pod_requests_limits.yaml)
+
+
+## Require pod probes
+***Policy YAML***: [require_probes.yaml](samples/best_practices/require_probes.yaml)
+
+
+## Read-only root filesystem
+
+A read-only root file system helps to enforce an immutable infrastrucutre strategy, the container only need to write on mounted volume that persist the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
+
+***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
 
 
 
