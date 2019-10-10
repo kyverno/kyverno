@@ -12,11 +12,11 @@
 | Allow trusted registries                       | [policy_validate_whitelist_image_registries.yaml](policy_validate_whitelist_image_registries.yaml)                                                                               |
 | Require resource requests and limits           | [policy_validate_pod_resources.yaml](policy_validate_pod_resources.yaml)                                           |      best_practices            |
 | Require pod liveness and readiness probes      | [policy_validate_pod_probes.yaml](policy_validate_pod_probes.yaml)                                            |     best_practices            |
-| Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |
+| Require an image tag                           | [policy_validate_image_tag_notspecified_deny.yaml](policy_validate_image_tag_notspecified_deny.yaml)                                                         |   best_practices            |
 | Disallow latest tag and pull IfNotPresent      | [policy_validate_image_latest_ifnotpresent_deny.yaml](policy_validate_image_latest_ifnotpresent_deny.yaml)                                                   |
 | Require a namespace (disallow default)         | [policy_validate_default_namespace.yaml](policy_validate_default_namespace.yaml)                                                                     |
 | Prevent mounting of default service account    | [policy_validate_disallow_default_serviceaccount.yaml](policy_validate_disallow_default_serviceaccount.yaml)                                                                      |
-| Require a default network policy               | [policy_validate_default_network_policy.yaml](policy_validate_default_network_policy.yaml)                                                                      |
+| Require a default network policy               | [policy_validate_default_network_policy.yaml](policy_validate_default_network_policy.yaml)                                                                      |   best_practices            |
 | Require namespace quotas and limit ranges      | [policy_validate_namespace_quota.yaml](policy_validate_namespace_quota.yaml)                                                                      |
 | Allow an FSGroup that owns the pod's volumes      | [policy_validate_fsgroup.yaml](policy_validate_fsgroup.yaml)                                                                      |
 | Require SELinux level of the container      | [policy_validate_selinux_context.yaml](policy_validate_selinux_context.yaml)                                                                      |
