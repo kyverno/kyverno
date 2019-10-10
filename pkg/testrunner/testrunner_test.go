@@ -143,3 +143,7 @@ func Test_validate_whitelist_image_registries(t *testing.T) {
 func Test_require_pod_requests_limits(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_require_pod_requests_limits.yaml")
 }
+
+func Test_require_probes(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_probes.yaml")
+}
