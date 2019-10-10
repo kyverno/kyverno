@@ -3,6 +3,7 @@
 | Best practice                                  | Policy                             |             scenario|
 |------------------------------------------------|------------------------------------|---------------------|
 | Run as non-root user                           | [policy_validate_deny_runasrootuser.yaml](policy_validate_deny_runasrootuser.yaml)                  |     best_practices            |
+| Disallow automount api credentials                           | []()                  |     best_practices            |
 | Disallow privileged and privilege escalation   | [policy_validate_container_disallow_priviledgedprivelegesecalation.yaml](policy_validate_container_disallow_priviledgedprivelegesecalation.yaml)             |      best_practices            |
 | Disallow use of host networking and ports      |  [policy_validate_host_network_port.yaml](policy_validate_host_network_port.yaml)             |        best_practices            |
 | Disallow use of host filesystem                |  [policy_validate_host_path.yaml](policy_validate_host_path.yaml)                                                                                            |

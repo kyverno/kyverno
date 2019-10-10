@@ -19,6 +19,13 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 * [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
 
+## Disallow automounte API credentials
+
+One can access the API from inside a pod using automatically mounted service account credentials by default. To restrict access, opt out of automounting API credentials for any pod by setting `automountServiceAccountToken` to `false`.
+
+***Policy YAML***: [disallow_automountingapicred.yaml](best_practices/disallow_automountingapicred.yaml) 
+
+
 ## Disallow use of default namespace
 
 Namespaces are a way to divide cluster resources between multiple users. When multiple users or teams are sharing a single cluster, it is recommended to isolate different workloads and aviod using default namespace.
