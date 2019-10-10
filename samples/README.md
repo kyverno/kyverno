@@ -23,14 +23,14 @@ By default, processes in a container run as a root user (uid 0). To prevent comp
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
 To avoid this limitation, use a validate rule to make sure these attributes are set to null and false.
 
-***Policy YAML*** [disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
+***Policy YAML***: [disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
 
 
 ## Read-only root filesystem
 
 A read-only root file system helps to enforce an immutable infrastrucutre strategy, the container only need to write on mounted volume that persist the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
 
-***Policy YAML*** [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
+***Policy YAML***: [require_readonly_rootfilesystem.yaml](best_practices/require_readonly_rootfilesystem.yaml)
 
 
 ## Disallow hostPID and hostIPC
@@ -38,21 +38,21 @@ Sharing the host's PID namespace allows vibility of process on the host, potenti
 Sharing the host's IPC namespace allows container process to communicate with processes on the host. 
 To avoid pod container from having visilbility to host process space, we can check `hostPID` and `hostIPC` are set as `false`.
 
-***Policy YAML***[disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
+***Policy YAML***: [disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
 
 
 ## Disallow node port
 Node port ranged service is advertised to the public and can be scanned and probed from others exposing all nodes.
 NetworkPolicy resources can currently only control NodePorts by allowing or disallowing all traffic on them. Unless required it is recommend to disable use to service type `NodePort`.
 
-***Policy YAML***[disallow_node_port.yaml](best_practices/disallow_node_port.yaml)
+***Policy YAML***: [disallow_node_port.yaml](best_practices/disallow_node_port.yaml)
 
 ## Disable privileged containers
 A process within priveleged containers get almost the same priveleges that are available to processes outside a container providing almost unrestricited host access. With `securityContext.allowPrivilegeEscalation` enabled the process can gain ore priveleges that its parent.
 To restrcit the priveleges it is recommend to run pod containers with `securityContext.priveleged` as `false` and 
 `allowPrivilegeEscalation` as `false`
 
-***Policy YAML***[disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
+***Policy YAML***: [disallow_priviledged_priviligedescalation.yaml](best_practices/disallow_priviledged_priviligedescalation.yaml)
 # Additional Policies
 
 | Description                                       	| Policy                                                                                                                                                                                           	| Details                                                                                                                                                                                                                                                                                                                                     	|
