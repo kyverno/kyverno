@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-deny-privileged-priviligedescalation
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: deny-privileged-priviligedescalation
     exclude:

@@ -51,19 +51,25 @@ To restrcit the priveleges it is recommend to run pod containers with `securityC
 
 
 ## Default network policy
-***Policy YAML***: [require_default_network_policy.yaml](samples/best_practices/require_default_network_policy.yaml)
+***Policy YAML***: [require_default_network_policy.yaml](best_practices/require_default_network_policy.yaml)
 
 
 ## Disallow latest image tag
-***Policy YAML***: [require_image_tag_not_latest.yaml](samples/best_practices/require_image_tag_not_latest.yaml)
+Using the `:latest` tag when deploying containers in production makes it harder to track which version of the image is running and more difficult to roll back properly. Specifying a none latest image tag prevents a lot of errors from occurring when versions are mismatched.
+
+***Policy YAML***: [require_image_tag_not_latest.yaml](best_practices/require_image_tag_not_latest.yaml)
 
 
-## Require pod resource quota
-***Policy YAML***: [require_pod_requests_limits.yaml](samples/best_practices/require_pod_requests_limits.yaml)
+## Require resource quota
+When several users or teams share a cluster with a fixed number of nodes, there is a concern that one team could use more than its fair share of resources. To prevent a team taking up more than their fair share of the cluster, it is usually a best practice to configure resource quota for the application.
+
+***Policy YAML***: [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
 
 
-## Require pod probes
-***Policy YAML***: [require_probes.yaml](samples/best_practices/require_probes.yaml)
+## Require health probes
+Setting the health probe ensures an application is highly-avaiable and resilient. Health checks are a simple way to let the system know if an application is broken, and it helps the application quickly recover from failure.
+
+***Policy YAML***: [require_probes.yaml](best_practices/require_probes.yaml)
 
 
 ## Read-only root filesystem

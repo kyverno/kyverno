@@ -9,7 +9,7 @@ spec:
       resources: 
         kinds:
         - Namespace
-        name: "devtest"
+        name: "*"
     generate: 
       kind: NetworkPolicy
       name: defaultnetworkpolicy
