@@ -79,12 +79,11 @@ In order to limit the quantity of objects, as well as the total amount of comput
 ***Policy YAML***: [require_namespace_quota.yaml](best_practices/require_namespace_quota.yaml) 
 
 
-## Require resource quota
+## Require pod resource requests and limits
 
-When several users or teams share a cluster with a fixed number of nodes, there is a concern that one team could use more than its fair share of resources. To prevent a team taking up more than their fair share of the cluster, it is usually a best practice to configure resource quota for the application.
+As workloads share the host cluster, it is essential to administer and limit resources requested and consumed by the pod. It is a good practice to always specify `resources.requests` and `resources.limits` per pod.
 
 ***Policy YAML***: [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
-
 
 ## Default health probe
 
