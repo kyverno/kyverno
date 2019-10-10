@@ -52,13 +52,13 @@ func Test_validate_image_latest_ifnotpresent_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_latest_ifnotpresent_pass.yaml")
 }
 
-func Test_validate_image_tag_notspecified_deny(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_deny.yaml")
-}
+// func Test_validate_image_tag_notspecified_deny(t *testing.T) {
+// 	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_deny.yaml")
+// }
 
-func Test_validate_image_tag_notspecified_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_pass.yaml")
-}
+// func Test_validate_image_tag_notspecified_pass(t *testing.T) {
+// 	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_notspecified_pass.yaml")
+// }
 
 func Test_validate_image_pullpolicy_notalways_deny(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_deny.yaml")
@@ -68,12 +68,12 @@ func Test_validate_image_pullpolicy_notalways_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_pass.yaml")
 }
 
-func Test_validate_image_tag_latest_deny(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_latest_deny.yaml")
+func Test_validate_require_image_tag_not_latest_deny(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_deny.yaml")
 }
 
-func Test_validate_image_tag_latest_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_image_tag_latest_pass.yaml")
+func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_pass.yaml")
 }
 
 func Test_mutate_pod_disable_automoutingapicred_pass(t *testing.T) {

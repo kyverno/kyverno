@@ -1,11 +1,11 @@
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_validate_image_tag_notspecified_deny.yaml
-  resource: examples/best_practices/resources/resource_validate_image_tag_notspecified_pass.yaml
+  policy: samples/best_practices/require_image_tag_not_latest.yaml
+  resource: examples/best_practices/resources/resource_validate_image_tag_latest_pass.yaml
 expected:
   validation:
     policyresponse:
-      policy: validate-image-tag-notspecified
+      policy: validate-image-tag
       resource:
         kind: Pod
         apiVersion: v1
@@ -16,3 +16,7 @@ expected:
           type: Validation
           message: "Validation rule 'image-tag-notspecified' succesfully validated"
           success: true    
+        - name: image-tag-not-latest
+          type: Validation
+          message: "Validation rule 'image-tag-not-latest' succesfully validated"
+          success: true  
