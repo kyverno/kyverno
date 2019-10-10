@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/policy_validate_imageRegistries.yaml
-  resource: examples/resources/resource_validate_imageRegistries.yaml
+  policy: test/scenarios/policy_validate_imageRegistries.yaml
+  resource: test/scenarios/resources/resource_validate_imageRegistries.yaml
 expected:
   validation:
     policyresponse:

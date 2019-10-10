@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/policy_mutate_validate_qos.yaml
-  resource: examples/resources/resource_mutate_validate_qos.yaml
+  policy: test/scenarios/policy_mutate_validate_qos.yaml
+  resource: test/scenarios/resources/resource_mutate_validate_qos.yaml
 expected:
   mutation:
     patchedresource: test/output/output_mutate_validate_qos.yaml
