@@ -139,3 +139,11 @@ func Test_require_pod_requests_limits(t *testing.T) {
 func Test_require_probes(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_probes.yaml")
 }
+
+func Test_validate_disallow_host_filesystem_fail(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_host_filesystem.yaml")
+}
+
+func Test_validate_disallow_host_filesystem_pass(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_validate_disallow_host_filesystem_pass.yaml")
+}

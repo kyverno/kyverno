@@ -33,6 +33,13 @@ Namespaces are a way to divide cluster resources between multiple users. When mu
 ***Policy YAML***: [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
 
 
+## Disallow use of host filesystem
+
+Using the volume of type hostpath can easily lose data when a node crashes. Disable use of hostpath prevent data loss. 
+
+***Policy YAML***: [disallow_host_filesystem.yaml](best_practices/disallow_host_filesystem.yaml) 
+
+
 ## Disallow `hostNetwork` and `hostPort`
 
 Using `hostPort` and `hostNetwork` limits the number of nodes the pod can be scheduled on, as the pod is bound to the host thats its mapped to.
