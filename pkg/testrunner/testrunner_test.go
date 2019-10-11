@@ -64,6 +64,10 @@ func Test_validate_require_image_tag_not_latest_deny(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_deny.yaml")
 }
 
+func Test_validate_require_image_tag_not_latest_notag(t *testing.T) {
+	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_notag.yaml")
+}
+
 func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_pass.yaml")
 }
