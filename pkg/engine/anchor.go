@@ -50,7 +50,7 @@ func (nh NegationHandler) Handle(resourceMap map[string]interface{}, originPatte
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
 		// no need to process elements in value as key cannot be present in resource
-		return currentPath, fmt.Errorf("validation rule failed at %s, field %s is disallowed", currentPath, anchorKey)
+		return currentPath, fmt.Errorf("Validation rule failed at %s, field %s is disallowed", currentPath, anchorKey)
 	}
 	// key is not defined in the resource
 	return "", nil
