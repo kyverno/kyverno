@@ -82,3 +82,12 @@ func hasExistingAnchor(str string) (bool, string) {
 
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
 }
+
+func hasNegationAnchor(str string) (bool, string) {
+	left := "X("
+	right := ")"
+	if len(str) < len(left)+len(right) {
+		return false, str
+	}
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
+}

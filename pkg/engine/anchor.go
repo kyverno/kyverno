@@ -21,9 +21,39 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 		return NewExistanceHandler(element, pattern, path)
 	case isEqualityAnchor(element):
 		return NewEqualityHandler(element, pattern, path)
+	case isNegationAnchor(element):
+		return NewNegationHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)
 	}
+}
+
+func NewNegationHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+	return NegationHandler{
+		anchor:  anchor,
+		pattern: pattern,
+		path:    path,
+	}
+}
+
+//NegationHandler provides handler for check if the tag in anchor is not defined
+type NegationHandler struct {
+	anchor  string
+	pattern interface{}
+	path    string
+}
+
+//Handle process negation handler
+func (nh NegationHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+	anchorKey := removeAnchor(nh.anchor)
+	currentPath := nh.path + anchorKey + "/"
+	// if anchor is present in the resource then fail
+	if _, ok := resourceMap[anchorKey]; ok {
+		// no need to process elements in value as key cannot be present in resource
+		return currentPath, fmt.Errorf("Validation rule failed at %s, field %s is disallowed", currentPath, anchorKey)
+	}
+	// key is not defined in the resource
+	return "", nil
 }
 
 func NewEqualityHandler(anchor string, pattern interface{}, path string) ValidationHandler {
@@ -150,7 +180,7 @@ func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPatt
 		case []interface{}:
 			typedPattern, ok := eh.pattern.([]interface{})
 			if !ok {
-				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of lis to compare against resource", eh.pattern)
+				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of list to compare against resource", eh.pattern)
 			}
 			// get the first item in the pattern array
 			patternMap := typedPattern[0]
@@ -187,7 +217,7 @@ func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) || isEqualityAnchor(key) {
+		if isConditionAnchor(key) || isExistanceAnchor(key) || isEqualityAnchor(key) || isNegationAnchor(key) {
 			anchors[key] = value
 			continue
 		}
