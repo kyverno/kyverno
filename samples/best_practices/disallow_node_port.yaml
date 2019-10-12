@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: disallow-node-port
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Disable exposing the Service on each Node’s IP at a static port
 spec:
   rules:
   - name: disallow-node-port

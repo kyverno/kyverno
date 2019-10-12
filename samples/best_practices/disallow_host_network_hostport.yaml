@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-host-network-hostport
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Disallow the use of hostNetwork, disable ports to expose on the host
 spec:
   rules:
   - name: validate-host-network-hostport

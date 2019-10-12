@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-deny-runasrootuser
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: A container should not run as root user, validate if security context 'runAsNonRoot' set to true
 spec:
   validationFailureAction: "audit"
   rules:

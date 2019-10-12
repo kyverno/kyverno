@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-probes
+  annotations:
+    policies.kyverno.io/category: Health Check
+    policies.kyverno.io/description: Containers need to be configured with health checks
 spec:
   rules:
   - name: check-probes

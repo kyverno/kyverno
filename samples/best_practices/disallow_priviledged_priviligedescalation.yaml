@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-deny-privileged-priviligedescalation
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: A container cannot run in privileged mode, and a process cannot gain more privileges than its parent process
 spec:
   rules:
   - name: deny-privileged-priviligedescalation

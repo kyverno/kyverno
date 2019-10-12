@@ -2,6 +2,9 @@ apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-disallow-automoutingapicred
+  annotations:
+    policies.kyverno.io/category: API Server Access Control
+    policies.kyverno.io/description: Disable automounting API credentials for service account, restricting access of API from inside a pod
 spec:
   rules:
   - name: disallow-automoutingapicred

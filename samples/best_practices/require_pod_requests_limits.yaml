@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: Policy
 metadata:
   name: check-resource
+  annotations:
+    policies.kyverno.io/category: Resource Quota
+    policies.kyverno.io/description: Containers need to be configured with resource quotas
 spec:
   validationFailureAction: "audit"
   rules:

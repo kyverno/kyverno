@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-namespace
+  annotations:
+    policies.kyverno.io/category: Workload Isolation
+    policies.kyverno.io/description: Disallow pod scheduling to 'default' namesapce
 spec:
   rules:
   - name: check-default-namespace

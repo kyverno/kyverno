@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-hostpid-hostipc
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Deny visibility of process on the host via hostPID, disable a process to communicate with processes on the host via hostIPC
 spec:
   rules:
   - name: validate-hostpid-hostipc

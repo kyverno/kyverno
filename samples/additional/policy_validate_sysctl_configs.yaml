@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-allow-portrange-with-sysctl
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: The local port range can be used by TCP and UDP is from 1024 to 65535
 spec:
   validationFailureAction: "audit"
   rules:

@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-container-capablities
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: The capabilities to add/drop when running containers
 spec:
   validationFailureAction: "audit"
   rules:

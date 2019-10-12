@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-namespace-quota
+  annotations:
+    policies.kyverno.io/category: Resource Quota
+    policies.kyverno.io/description: A namespace should be properly configured with resource quota
 spec:
   rules:
   - name: validate-namespace-quota

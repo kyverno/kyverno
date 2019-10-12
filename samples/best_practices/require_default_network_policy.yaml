@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: default-deny-ingress-networkpolicy
+  annotations:
+    policies.kyverno.io/category: NetworkPolicy
+    policies.kyverno.io/description: A namespace should be configured with the default networkpolicy (deny all ingress traffic)
 spec:
   rules:
   - name: "default-deny-ingress"

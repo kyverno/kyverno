@@ -49,7 +49,7 @@ To avoid this limitation, use a validate rule to make sure these attributes are 
 
 ## Disallow `hostPID` and `hostIPC`
 
-Sharing the host's PID namespace allows vibility of process on the host, potentially exposing porcess information. 
+Sharing the host's PID namespace allows visibility of process on the host, potentially exposing porcess information. 
 Sharing the host's IPC namespace allows container process to communicate with processes on the host. 
 To avoid pod container from having visilbility to host process space, we can check `hostPID` and `hostIPC` are set as `false`.
 

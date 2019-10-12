@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-readonly-rootfilesystem
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: Containers should run with read-only rootfilesystem
 spec:
   rules:
   - name: validate-readonly-rootfilesystem

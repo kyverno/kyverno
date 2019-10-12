@@ -2,6 +2,9 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-userid-groupid-fsgroup
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: Set processes to run with specific userID and groupID, and configure new files are owned by 'fsGroup'
 spec:
   rules:
   - name: validate-userid
