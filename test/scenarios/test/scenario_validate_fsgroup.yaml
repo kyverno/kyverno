@@ -1,7 +1,7 @@
 
 # file path relative to project root
 input:
-  policy: samples/additional/policy_validate_user_group_fsgroup_id.yaml
+  policy: samples/more/policy_validate_user_group_fsgroup_id.yaml
   resource: test/scenarios/resources/resource_validate_fsgroup.yaml
 expected:
   validation:
