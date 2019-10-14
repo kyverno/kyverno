@@ -10,7 +10,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "user ID should be 1000"
+      message: "User ID should be 1000"
       pattern:
         spec:
           securityContext:
@@ -21,7 +21,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "group ID should be 3000"
+      message: "Group ID should be 3000"
       pattern:
         spec:
           securityContext:

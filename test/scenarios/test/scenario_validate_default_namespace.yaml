@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_default_namespace.yaml
-  resource: test/manifest/disallow_default_namespace.yaml
+  policy: examples/best_practices/policy_validate_default_namespace.yaml
+  resource: examples/best_practices/resources/resource_default_namespace.yaml
 expected:
   validation:
     policyresponse:
@@ -16,7 +16,7 @@ expected:
       rules:
         - name: check-default-namespace
           type: Validation
-          message: "Validation rule 'check-default-namespace' failed at '/metadata/namespace/' for resource Pod/default/myapp-pod. Using 'default' namespace is restricted"
+          message: "Validation rule 'check-default-namespace' failed at '/metadata/namespace/' for resource Pod/default/myapp-pod. A none 'default' namespace is required"
           success: false
         - name: check-namespace-exist
           type: Validation

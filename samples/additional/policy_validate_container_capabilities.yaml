@@ -11,7 +11,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Allow certain capability to be added"
+      message: "Allow certain linux capability"
       pattern:
         spec:
           containers:

@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_image_tag_notspecified_deny.yaml
+  resource: examples/best_practices/resources/resource_validate_image_tag_notspecified_deny.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-image-tag-notspecified
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: image-tag-notspecified
+          type: Validation
+          message: "Validation rule 'image-tag-notspecified' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. image tag not specified"
+          success: false    

@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: examples/best_practices/policy_validate_host_network_port.yaml
+  resource: examples/best_practices/resources/resource_validate_host_netwok_port.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-host-network-port
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "nginx-host-network"
+      rules:
+        - name: validate-host-network-port
+          type: Validation
+          message: "Validation rule 'validate-host-network-port' failed at '/spec/containers/0/ports/0/hostPort/' for resource Pod//nginx-host-network. Host network and port are not allowed"
+          success: false   

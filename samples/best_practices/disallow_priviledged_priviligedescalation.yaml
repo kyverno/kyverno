@@ -5,7 +5,6 @@ metadata:
 spec:
   rules:
   - name: deny-privileged-priviligedescalation
-    exclude:
     match:
       resources:
         kinds:
