@@ -4,8 +4,10 @@ metadata:
   name: default-deny-ingress-networkpolicy
   annotations:
     policies.kyverno.io/category: NetworkPolicy
-    policies.kyverno.io/description: |
-      By default, Kubernetes allows all ingress and egress traffic to and from pods within a cluster. A "default" NetworkPolicy resource for a namespace should be used to deny all ingress traffic to the pods in that namespace. Additional NetworkPolicy resources can then be configured to allow desired traffic to application pods.
+    policies.kyverno.io/description: By default, Kubernetes allows all ingress and egress traffic 
+      to and from pods within a cluster. A "default" NetworkPolicy resource for a namespace should 
+      be used to deny all ingress traffic to the pods in that namespace. Additional NetworkPolicy 
+      resources can then be configured to allow desired traffic to application pods.
 spec:
   rules:
   - name: "default-deny-ingress"

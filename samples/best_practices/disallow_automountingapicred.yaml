@@ -4,8 +4,8 @@ metadata:
   name: validate-disallow-automoutingapicred
   annotations:
     policies.kyverno.io/category: API Server Access Control
-    policies.kyverno.io/description: |
-      Kubernetes automounts default service account credentials in each pod. To restrict access, opt out of automounting credentials by setting 'automountServiceAccountToken' to 'false'.
+    policies.kyverno.io/description: Kubernetes automounts default service account credentials in each pod. 
+      To restrict access, opt out of automounting credentials by setting 'automountServiceAccountToken' to 'false'.
 spec:
   rules:
   - name: disallow-automoutingapicred
