@@ -1,7 +1,7 @@
 
 # file path relative to project root
 input:
-  policy: samples/additional/policy_validate_sysctl_configs.yaml
+  policy: samples/more/policy_validate_sysctl_configs.yaml
   resource: examples/best_practices/resources/resource_validate_sysctl_configs.yaml
 expected:
   validation:
