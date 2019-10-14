@@ -6,17 +6,9 @@ func Test_Mutate_EndPoint(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_endpoint.yaml")
 }
 
-// func Test_Mutate_imagePullPolicy(t *testing.T) {
-// 	testScenario(t, "/test/scenarios/test/scenario_mutate_imagePullPolicy.yaml")
-// }
-
 func Test_Mutate_Validate_qos(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos.yaml")
 }
-
-// func Test_validate_containerSecurityContext(t *testing.T) {
-// 	testScenario(t, "/test/scenarios/test/scenario_validate_containerSecurityContext.yaml")
-// }
 
 func Test_validate_deny_runasrootuser(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_deny_runasrootuser.yaml")
@@ -40,21 +32,9 @@ func Test_generate_networkPolicy(t *testing.T) {
 
 // namespace is blank, not "default" as testrunner evaulates the policyengine, but the "default" is added by kubeapiserver
 
-// func Test_validate_image_pullpolicy_notalways_deny(t *testing.T) {
-// 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_deny.yaml")
-// }
-
-// func Test_validate_image_pullpolicy_notalways_pass(t *testing.T) {
-// 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_pass.yaml")
-// }
-
 func Test_validate_require_image_tag_not_latest_deny(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_valiadate_require_image_tag_not_latest_deny.yaml")
 }
-
-// func Test_validate_require_image_tag_not_latest_notag(t *testing.T) {
-// 	testScenario(t, "test/scenarios/test/scenario_valiadate_require_image_tag_not_latest_notag.yaml")
-// }
 
 func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_valiadate_require_image_tag_not_latest_pass.yaml")
