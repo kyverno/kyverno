@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/require_namespace_quota.yaml
-  resource: test/manifest/require_namespace_quota.yaml
+  resource: test/scenarios/resources/require_namespace_quota.yaml
 expected:
   generation:
     generatedResources:

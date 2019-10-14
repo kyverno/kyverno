@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/require_default_network_policy.yaml
-  resource: test/manifest/require_default_network_policy.yaml
+  resource: test/scenarios/resources/require_default_network_policy.yaml
 expected:
   generation:
     generatedResources:

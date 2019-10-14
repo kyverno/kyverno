@@ -1,7 +1,7 @@
 # file path relative to project root
 input:  
   policy: samples/best_practices/disallow_hostpid_hostipc.yaml
-  resource: test/manifest/disallow_hostpid_hostipc.yaml
+  resource: test/scenarios/resources/disallow_hostpid_hostipc.yaml
 expected:
   validation:
     policyresponse:

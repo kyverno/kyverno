@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/require_readonly_rootfilesystem.yaml
-  resource: test/manifest/require_readonly_rootfilesystem.yaml
+  resource: test/scenarios/resources/require_readonly_rootfilesystem.yaml
 expected:
   validation:
     policyresponse:

@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/disallow_automountingapicred.yaml
-  resource: test/manifest/disallow_automountingapicred.yaml
+  resource: test/scenarios/resources/disallow_automountingapicred.yaml
 expected:
   validation:
     policyresponse:

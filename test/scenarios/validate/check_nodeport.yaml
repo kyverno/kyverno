@@ -1,0 +1,16 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: check-node-port
+spec:
+  rules:
+  - name: check-node-port
+    match:
+      resources:
+        kinds:
+        - Service
+    validate:
+      message: "NodePort type is not allowed"
+      pattern:
+        spec:
+          type: "!NodePort"

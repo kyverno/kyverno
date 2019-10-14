@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_mutate_pod_disable_automountingapicred.yaml
-  resource: examples/best_practices/resources/resource_mutate_pod_disable_automountingapicred.yaml
+  policy: test/scenarios/mutate/policy_mutate_pod_disable_automountingapicred.yaml
+  resource: test/scenarios/mutate/resource_mutate_pod_disable_automountingapicred.yaml
 expected:
   mutation:
     patchedresource: test/output/output_mutate_pod_disable_automoutingapicred.yaml

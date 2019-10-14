@@ -1,8 +1,8 @@
 
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_validate_volume_whitelist.yaml
-  resource: examples/best_practices/resources/resource_validate_volume_whitelist.yaml
+  policy: test/scenarios/validate/policy_validate_volume_whitelist.yaml
+  resource: test/scenarios/resources/resource_validate_volume_whitelist.yaml
 expected:
   validation:
     policyresponse:

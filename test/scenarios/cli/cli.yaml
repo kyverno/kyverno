@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/cli/policy_deployment.yaml
-  resource: examples/cli/nginx.yaml
+  policy: test/scenarios/cli/policy_deployment.yaml
+  resource: test/scenarios/cli/nginx.yaml
 expected:
   passes: true
   mutation:
@@ -19,8 +19,8 @@ expected:
           - "Rule check-image: Validation succesfully."
 ---
 input:
-  policy: examples/cli/policy_deployment.yaml
-  resource: examples/cli/ghost.yaml
+  policy:  test/scenarios/cli/policy_deployment.yaml
+  resource: test/scenarios/cli/ghost.yaml
 expected:
   passes: true
   mutation:

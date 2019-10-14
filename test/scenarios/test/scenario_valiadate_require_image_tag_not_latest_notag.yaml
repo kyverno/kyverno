@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/require_image_tag_not_latest.yaml
-  resource: test/manifest/require_image_tag_not_latest_notag.yaml
+  resource: test/scenarios/resources/require_image_tag_not_latest_notag.yaml
 expected:
   validation:
     policyresponse:

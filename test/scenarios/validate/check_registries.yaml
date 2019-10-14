@@ -10,9 +10,6 @@ spec:
         kinds:
         - Deployment
         - StatefulSet
-        selector:
-          matchLabels:
-            app: nirmata-nginx
     validate:
       message: "Registry is not allowed"
       pattern:
@@ -22,4 +19,4 @@ spec:
               containers:
               - name: "*"
                 # Check allowed registries
-                image: "*nirmata* | https://private.registry.io/*"
+                image: "*/nirmata/* | https://private.registry.io/*"

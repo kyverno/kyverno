@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/disallow_host_filesystem.yaml
-  resource: test/manifest/disallow_host_filesystem.yaml
+  resource: test/scenarios/resources/disallow_host_filesystem.yaml
 expected:
   validation:
     policyresponse:

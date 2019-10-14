@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nirmata-nginx
-spec:
-  containers:
-  - name: nirmata-nginx
-    image: nirmata/nginx
