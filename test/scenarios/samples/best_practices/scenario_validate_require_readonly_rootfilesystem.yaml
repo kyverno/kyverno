@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/require_readonly_rootfilesystem.yaml
+  resource: test/resources/require_readonly_rootfilesystem.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-readonly-rootfilesystem
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "ghost-with-readonly-rootfilesystem"
+      rules:
+        - name: validate-readonly-rootfilesystem
+          type: Validation
+          message: Validation rule 'validate-readonly-rootfilesystem' failed at '/spec/containers/0/securityContext/readOnlyRootFilesystem/' for resource Pod//ghost-with-readonly-rootfilesystem. Container require read-only rootfilesystem
+          success: false   

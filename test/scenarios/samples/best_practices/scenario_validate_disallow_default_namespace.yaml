@@ -1,0 +1,25 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_default_namespace.yaml
+  resource: test/resources/disallow_default_namespace.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-namespace
+      resource:
+        kind: Pod
+        apiVersion: v1
+        # this is set to pass resource NS check
+        # actual valiation is defined through rule success=false
+        namespace: 'default'
+        name: myapp-pod
+      rules:
+        - name: check-default-namespace
+          type: Validation
+          message: "Validation rule 'check-default-namespace' failed at '/metadata/namespace/' for resource Pod/default/myapp-pod. Using 'default' namespace is restricted"
+          success: false
+        - name: check-namespace-exist
+          type: Validation
+          message: "Validation rule 'check-namespace-exist' succesfully validated"
+          success: true
+

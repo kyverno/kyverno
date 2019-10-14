@@ -143,7 +143,7 @@ All processes inside the pod can be made to run with specific user and groupID b
 ## Configure kernel parameters inside pod
 The Sysctl interface allows to modify kernel parameters at runtime and in the pod can be specified under `securityContext.sysctls`. If kernel parameters in the pod are to be modified, should be handled cautiously, and policy with rules restricting these options will be helpful. We can control minimum and maximum port that a network connection can use as its source(local) port by checking net.ipv4.ip_local_port_range
 
-***Policy YAML***: [policy_validate_container_capabilities.yaml](more/policy_validate_user_group_fsgroup_id.yaml)
+***Policy YAML***: [policy_validate_container_capabilities.yaml](more/policy_validate_sysctl_configs.yaml)
 
 **Additional Information**
 * [List of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/) 

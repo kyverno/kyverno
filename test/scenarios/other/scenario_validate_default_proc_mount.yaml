@@ -1,0 +1,19 @@
+
+# file path relative to project root
+input:
+  policy: test/policy/validate/policy_validate_default_proc_mount.yaml
+  resource: test/resources/resource_validate_default_proc_mount.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-default-proc-mount
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: nginx-proc-mount
+      rules:
+        - name: validate-default-proc-mount
+          type: Validation
+          message: "Validation rule 'validate-default-proc-mount' succesfully validated"
+          success: true

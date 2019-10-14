@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/require_probes.yaml
+  resource: test/resources/require_probes.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-probes
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: check-probes
+          type: Validation
+          message: Validation rule 'check-probes' failed at '/spec/containers/0/livenessProbe/' for resource Pod//myapp-pod. Liveness and readiness probes are required
+          success: false 
