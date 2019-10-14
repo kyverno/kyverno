@@ -4,7 +4,8 @@ metadata:
   name: validate-readonly-rootfilesystem
   annotations:
     policies.kyverno.io/category: Security Context
-    policies.kyverno.io/description: Containers should run with read-only rootfilesystem
+    policies.kyverno.io/description: |
+      A read-only root file system helps to enforce an immutable infrastructure strategy; the container only needs to write on the mounted volume that persists the state. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
 spec:
   rules:
   - name: validate-readonly-rootfilesystem

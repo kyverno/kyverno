@@ -4,7 +4,8 @@ metadata:
   name: validate-namespace
   annotations:
     policies.kyverno.io/category: Workload Isolation
-    policies.kyverno.io/description: Disallow pod scheduling to 'default' namesapce
+    policies.kyverno.io/description: |
+      With many users spread across multiple teams, restricting use of the default namespace and subdividing the cluster by namesoace isolates workloads.
 spec:
   rules:
   - name: check-default-namespace

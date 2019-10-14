@@ -4,7 +4,8 @@ metadata:
   name: validate-deny-runasrootuser
   annotations:
     policies.kyverno.io/category: Security Context
-    policies.kyverno.io/description: A container should not run as root user, validate if security context 'runAsNonRoot' set to true
+    policies.kyverno.io/description: |
+      By default, processes in a container run as a root user (uid 0). To prevent potential compromise of container hosts, specify a least privileged user ID when building the container image and require that application containers run as non root users.
 spec:
   validationFailureAction: "audit"
   rules:

@@ -4,7 +4,8 @@ metadata:
   name: trusted-registries
   annotations:
     policies.kyverno.io/category: Image
-    policies.kyverno.io/description: A whitelist of image registries
+    policies.kyverno.io/description: |
+      Images from unknown registries may not be scanned and secured. Requiring use of known registries helps reduce threat exposure. You can customize this policy to allow image registries that you trust.
 spec:
   rules:
   - name: trusted-registries

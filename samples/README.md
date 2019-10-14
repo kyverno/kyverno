@@ -27,7 +27,7 @@ Kubernetes automounts default service account credentials in each pod. To restri
 
 ## Disallow use of default namespace
 
-Namespaces are a way to segment and isolate cluster resources across multiple users. When multiple users or teams are sharing a single cluster, it is recommended to isolate different workloads and restrict use of the default namespace.
+With many users spread across multiple teams, restricting use of the default namespace and subdividing the cluster by namesoace isolates workloads.
 
 ***Policy YAML***: [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
 

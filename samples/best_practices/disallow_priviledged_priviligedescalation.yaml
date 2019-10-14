@@ -4,7 +4,9 @@ metadata:
   name: validate-deny-privileged-priviligedescalation
   annotations:
     policies.kyverno.io/category: Security Context
-    policies.kyverno.io/description: A container cannot run in privileged mode, and a process cannot gain more privileges than its parent process
+    policies.kyverno.io/description: |
+      Privileged containers are defined as any container where the container uid 0 is mapped to the host’s uid 0. A process within privileged containers can get unrestricted host access. With 'securityContext.allowPrivilegeEscalation' enabled a process can gain privileges from its parent.
+      To disallow privileged containers and the escalation of privileges it is recommended to run pod containers with 'securityContext.priveleged' as 'false' and 'allowPrivilegeEscalation' as 'false'.
 spec:
   rules:
   - name: deny-privileged-priviligedescalation
