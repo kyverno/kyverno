@@ -4,7 +4,8 @@ metadata:
   name: validate-container-capablities
   annotations:
     policies.kyverno.io/category: Security Context
-    policies.kyverno.io/description: The capabilities to add/drop when running containers
+    policies.kyverno.io/description: |
+      Linux divides the privileges traditionally associated with superuser into distinct units, known as capabilities, which can be independently enabled or disabled by listing them in 'securityContext.capabilites'.
 spec:
   validationFailureAction: "audit"
   rules:
