@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-deny-runasrootuser
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: deny-runasrootuser
     match:

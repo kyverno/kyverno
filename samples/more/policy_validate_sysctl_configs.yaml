@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-allow-portrange-with-sysctl
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: allow-portrange-with-sysctl
     match:
