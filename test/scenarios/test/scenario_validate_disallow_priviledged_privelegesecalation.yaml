@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/disallow_priviledged_priviligedescalation.yaml
-  resource: test/manifest/disallow_priviledged_priviligedescalation.yaml
+  resource: test/scenarios/resources/disallow_priviledged_priviligedescalation.yaml
 expected:
   validation:
     policyresponse:

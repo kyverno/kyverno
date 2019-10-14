@@ -30,10 +30,6 @@ func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_healthChecks.yaml")
 }
 
-func Test_validate_imageRegistries(t *testing.T) {
-	testScenario(t, "/test/scenarios/test/scenario_validate_imageRegistries.yaml")
-}
-
 func Test_validate_nonRootUsers(t *testing.T) {
 	testScenario(t, "/test/scenarios/test/scenario_validate_nonRootUser.yaml")
 }
@@ -43,14 +39,6 @@ func Test_generate_networkPolicy(t *testing.T) {
 }
 
 // namespace is blank, not "default" as testrunner evaulates the policyengine, but the "default" is added by kubeapiserver
-func Test_validate_image_latest_ifnotpresent_deny(t *testing.T) {
-	testScenario(t, "/test/scenarios/test/scenario_validate_image_latest_ifnotpresent_deny.yaml")
-
-}
-
-func Test_validate_image_latest_ifnotpresent_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_image_latest_ifnotpresent_pass.yaml")
-}
 
 func Test_validate_image_pullpolicy_notalways_deny(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_image_pullpolicy_notalways_deny.yaml")
@@ -78,10 +66,6 @@ func Test_validate_disallow_automoutingapicred_pass(t *testing.T) {
 
 func Test_validate_disallow_default_namespace(t *testing.T) {
 	testScenario(t, "test/scenarios/test/scenario_validate_disallow_default_namespace.yaml")
-}
-
-func Test_validate_host_path(t *testing.T) {
-	testScenario(t, "test/scenarios/test/scenario_validate_host_path.yaml")
 }
 
 func Test_validate_host_network_port(t *testing.T) {

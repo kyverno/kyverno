@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/require_image_tag_not_latest.yaml
-  resource: test/manifest/require_image_tag_not_latest_notag.yaml
+  resource: test/scenarios/resources/require_image_tag_not_latest_notag.yaml
 expected:
   validation:
     policyresponse:
@@ -14,7 +14,7 @@ expected:
       rules:
         - name: image-tag-notspecified
           type: Validation
-          message: Validation rule 'image-tag-notspecified' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. image tag not specified
+          message: Validation rule 'image-tag-notspecified' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. Image tag not specified
           success: false
         - name: image-tag-not-latest
           type: Validation

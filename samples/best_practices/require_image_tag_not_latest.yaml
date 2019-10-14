@@ -13,7 +13,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "image tag not specified"  
+      message: "Image tag not specified"  
       pattern:
         spec:
           containers:
@@ -24,7 +24,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "set image tag to a specific version"
+      message: "Using 'latest' image tag is restricted. Set image tag to a specific version"
       pattern:
         spec:
           containers:

@@ -13,7 +13,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "hostNetwork and hostPort are not allowed"
+      message: "Defining hostNetwork and hostPort are not allowed."
       pattern:
         spec:
           (hostNetwork): false

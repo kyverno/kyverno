@@ -13,7 +13,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "A none 'default' namespace is required"
+      message: "Using 'default' namespace is restricted"
       pattern:
         metadata:
           namespace: "!default"

@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: test/scenarios/policy_mutate_validate_qos.yaml
+  policy: test/scenarios/mutate/policy_mutate_validate_qos.yaml
   resource: test/scenarios/resources/resource_mutate_validate_qos.yaml
 expected:
   mutation:

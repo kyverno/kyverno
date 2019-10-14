@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/deny_runasrootuser.yaml
-  resource: test/manifest/deny_runasrootuser.yaml
+  resource: test/scenarios/resources/deny_runasrootuser.yaml
 expected:
   validation:
     policyresponse:

@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
-  policy: examples/best_practices/policy_validate_image_pullpolicy_notalways_deny.yaml
-  resource: examples/best_practices/resources/resource_validate_image_pullpolicy_notalways_pass.yaml
+  policy: test/scenarios/validate/policy_validate_image_pullpolicy_notalways_deny.yaml
+  resource: test/scenarios/resources/resource_validate_image_pullpolicy_notalways_pass.yaml
 expected:
   validation:
     policyresponse:

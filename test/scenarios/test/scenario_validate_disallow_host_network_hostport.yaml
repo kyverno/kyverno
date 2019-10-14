@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/disallow_host_network_hostport.yaml
-  resource: test/manifest/disallow_host_network_hostport.yaml
+  resource: test/scenarios/resources/disallow_host_network_hostport.yaml
 expected:
   validation:
     policyresponse:
@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-host-network-hostport
           type: Validation
-          message: "Validation rule 'validate-host-network-hostport' failed at '/spec/containers/0/ports/0/hostPort/' for resource Pod//nginx-host-network. hostNetwork and hostPort are not allowed"
+          message: "Validation rule 'validate-host-network-hostport' failed at '/spec/containers/0/ports/0/hostPort/' for resource Pod//nginx-host-network. Defining hostNetwork and hostPort are not allowed."
           success: false   

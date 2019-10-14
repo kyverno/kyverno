@@ -1,7 +1,7 @@
 # file path relative to project root
 input:
   policy: samples/best_practices/trusted_image_registries.yaml
-  resource: test/manifest/trusted_image_registries.yaml
+  resource: test/scenarios/resources//trusted_image_registries.yaml
 expected:
   validation:
     policyresponse:
