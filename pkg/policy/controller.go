@@ -202,7 +202,7 @@ func (pc *PolicyController) addPolicyViolation(obj interface{}) {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", pv.Name)
 		if err := pc.pvControl.DeletePolicyViolation(pv.Name); err != nil {
-			glog.Error("Failed to deleted policy violation %s: %v", pv.Name, err)
+			glog.Errorf("Failed to deleted policy violation %s: %v", pv.Name, err)
 			return
 		}
 		glog.V(4).Infof("PolicyViolation %s deleted", pv.Name)
@@ -257,7 +257,7 @@ func (pc *PolicyController) updatePolicyViolation(old, cur interface{}) {
 			// there is no cluster policy for this violation, so we can delete this cluster policy violation
 			glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", curPV.Name)
 			if err := pc.pvControl.DeletePolicyViolation(curPV.Name); err != nil {
-				glog.Error("Failed to deleted policy violation %s: %v", curPV.Name, err)
+				glog.Errorf("Failed to deleted policy violation %s: %v", curPV.Name, err)
 				return
 			}
 			glog.V(4).Infof("PolicyViolation %s deleted", curPV.Name)
