@@ -269,7 +269,7 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: kyverno
@@ -277,6 +277,9 @@ metadata:
   labels:
     app: kyverno
 spec:
+  selector:
+    matchLabels:
+      app: kyverno
   replicas: 1
   template:
     metadata:

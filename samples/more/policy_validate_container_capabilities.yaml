@@ -8,7 +8,6 @@ metadata:
       superuser into distinct units, known as capabilities, which can be independently enabled 
       or disabled by listing them in 'securityContext.capabilites'.
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: validate-container-capablities
     match:

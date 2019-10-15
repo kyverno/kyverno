@@ -134,6 +134,12 @@ Linux divides the privileges traditionally associated with superuser into distin
 * [List of linux capabilities](https://github.com/torvalds/linux/blob/master/include/uapi/linux/capability.h)
 
 
+## Check userID, groupIP & fsgroup used inside a Pod
+All processes inside the pod can be made to run with specific user and groupID by setting `runAsUser` and `runAsGroup` respectively. `fsGroup` can be specified to make sure any file created in the volume with have the specified groupID. These options can be used to validate the IDs used for user and group.
+
+***Policy YAML***: [policy_validate_user_group_fsgroup_id.yaml](more/policy_validate_user_group_fsgroup_id.yaml)
+
+
 ## Configure kernel parameters inside pod
 
 The Sysctl interface allows to modify kernel parameters at runtime and in the pod can be specified under `securityContext.sysctls`. If kernel parameters in the pod are to be modified, should be handled cautiously, and policy with rules restricting these options will be helpful. We can control minimum and maximum port that a network connection can use as its source(local) port by checking net.ipv4.ip_local_port_range

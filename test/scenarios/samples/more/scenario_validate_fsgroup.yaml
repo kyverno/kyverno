@@ -1,0 +1,27 @@
+
+# file path relative to project root
+input:
+  policy: samples/more/policy_validate_user_group_fsgroup_id.yaml
+  resource: test/resources/resource_validate_fsgroup.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-userid-groupid-fsgroup
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: fsgroup-demo
+      rules:
+        - name: validate-userid
+          type: Validation
+          message: Validation rule 'validate-userid' succesfully validated
+          success: true
+        - name: validate-groupid
+          type: Validation
+          message: Validation rule 'validate-groupid' succesfully validated
+          success: true
+        - name: validate-fsgroup
+          type: Validation
+          message: Validation rule 'validate-fsgroup' succesfully validated
+          success: true

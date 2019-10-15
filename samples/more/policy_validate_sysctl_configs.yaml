@@ -10,7 +10,6 @@ metadata:
       these options will be helpful. We can control minimum and maximum port that a network connection 
       can use as its source(local) port by checking 'net.ipv4.ip_local_port_range'.
 spec:
-  validationFailureAction: "audit"
   rules:
   - name: allow-portrange-with-sysctl
     match:
