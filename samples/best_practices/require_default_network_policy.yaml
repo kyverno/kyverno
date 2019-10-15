@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: default-deny-ingress-networkpolicy
+spec:
+  rules:
+  - name: "default-deny-ingress"
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "*"
+    generate: 
+      kind: NetworkPolicy
+      name: default-deny-ingress
+      data:
+        spec:
+          # select all pods in the namespace
+          podSelector: {}
+          policyTypes: 
+          - Ingress

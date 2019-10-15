@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-container-capablities
+spec:
+  rules:
+  - name: validate-container-capablities
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Allow certain linux capability"
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fsgroup-demo
+spec:
+  securityContext:
+    fsGroup: 2000                           # directory will have group ID 2000
+    runAsUser: 1000
+    runAsGroup: 3000
+  volumes:
+  - name: fsgroup-demo-vol
+    emptyDir: {}
+  containers:
+  - name: fsgroup-demo
+    image: busybox
+    command: [ "sh", "-c", "sleep 1h" ]
+    volumeMounts:
+    - name: fsgroup-demo-vol
+      mountPath: /data/demo
