@@ -27,7 +27,7 @@ Kubernetes automounts default service account credentials in each pod. To restri
 
 ## Disallow use of default namespace
 
-Namespaces are a way to segment and isolate cluster resources across multiple users. When multiple users or teams are sharing a single cluster, it is recommended to isolate different workloads and restrict use of the default namespace.
+With many users spread across multiple teams, restricting use of the default namespace and subdividing the cluster by namesoace isolates workloads.
 
 ***Policy YAML***: [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
 
@@ -141,9 +141,17 @@ All processes inside the pod can be made to run with specific user and groupID b
 
 
 ## Configure kernel parameters inside pod
+
 The Sysctl interface allows to modify kernel parameters at runtime and in the pod can be specified under `securityContext.sysctls`. If kernel parameters in the pod are to be modified, should be handled cautiously, and policy with rules restricting these options will be helpful. We can control minimum and maximum port that a network connection can use as its source(local) port by checking net.ipv4.ip_local_port_range
 
 ***Policy YAML***: [policy_validate_sysctl_configs.yaml](more/policy_validate_sysctl_configs.yaml)
 
 **Additional Information**
 * [List of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/) 
+
+
+## Check userID, groupIP & fsgroup used inside a Pod
+
+All processes inside the pod can be made to run with specific user and groupID by setting `runAsUser` and `runAsGroup` respectively. `fsGroup` can be specified to make sure any file created in the volume with have the specified groupID. These options can be used to validate the IDs used for user and group.
+
+***Policy YAML***: [policy_validate_user_group_fsgroup_id.yaml](more/policy_validate_user_group_fsgroup_id.yaml)

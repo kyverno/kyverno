@@ -2,6 +2,11 @@ apiVersion: "kyverno.io/v1alpha1"
 kind: "ClusterPolicy"
 metadata: 
   name: "deny-use-of-host-fs"
+  annotations:
+    policies.kyverno.io/category: Data Protection
+    policies.kyverno.io/description: The volume of type 'hostpath' binds pods to a specific host, 
+      and data persisted in the volume is dependent on the life of the node. In a shared cluster, 
+      it is recommeded that applications are independent of hosts.
 spec: 
   rules: 
   - name: "deny-use-of-host-fs"

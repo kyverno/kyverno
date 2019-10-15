@@ -2,6 +2,12 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-probes
+  annotations:
+    policies.kyverno.io/category: Health Check
+    policies.kyverno.io/description: For each pod, a 'livenessProbe' is carried out by the kubelet to 
+      determine when to restart a container. A 'readinessProbe' is used by services and deployments to 
+      determine if the pod is ready to recieve network traffic. Both liveness and readiness probes 
+      need to be configured to manage the pod lifecycle during restarts and upgrades.
 spec:
   rules:
   - name: check-probes

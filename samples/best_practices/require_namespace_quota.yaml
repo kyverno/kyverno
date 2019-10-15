@@ -2,6 +2,11 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-namespace-quota
+  annotations:
+    policies.kyverno.io/category: Resource Quota
+    policies.kyverno.io/description: To limit the number of objects, as well as the 
+      total amount of compute that may be consumed by an application, it is important 
+      to create resource limits and quotas for each namespace.
 spec:
   rules:
   - name: validate-namespace-quota

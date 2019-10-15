@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.io"
+	policyAnnotation = "policies.kyverno.io/patches"
 )
 
 type policyPatch struct {
