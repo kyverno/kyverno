@@ -198,6 +198,14 @@ func (pc *PolicyController) addPolicyViolation(obj interface{}) {
 	// them to see if anyone wants to adopt it.
 	ps := pc.getPolicyForPolicyViolation(pv)
 	if len(ps) == 0 {
+		// there is no cluster policy for this violation, so we can delete this cluster policy violation
+		// there is no cluster policy for this violation, so we can delete this cluster policy violation
+		glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", pv.Name)
+		if err := pc.pvControl.DeletePolicyViolation(pv.Name); err != nil {
+			glog.Error("Failed to deleted policy violation %s: %v", pv.Name, err)
+			return
+		}
+		glog.V(4).Infof("PolicyViolation %s deleted", pv.Name)
 		return
 	}
 	glog.V(4).Infof("Orphan Policy Violation %s added.", pv.Name)
@@ -246,6 +254,13 @@ func (pc *PolicyController) updatePolicyViolation(old, cur interface{}) {
 	if labelChanged || controllerRefChanged {
 		ps := pc.getPolicyForPolicyViolation(curPV)
 		if len(ps) == 0 {
+			// there is no cluster policy for this violation, so we can delete this cluster policy violation
+			glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", curPV.Name)
+			if err := pc.pvControl.DeletePolicyViolation(curPV.Name); err != nil {
+				glog.Error("Failed to deleted policy violation %s: %v", curPV.Name, err)
+				return
+			}
+			glog.V(4).Infof("PolicyViolation %s deleted", curPV.Name)
 			return
 		}
 		glog.V(4).Infof("Orphan PolicyViolation %s updated", curPV.Name)
@@ -316,8 +331,8 @@ func (pc *PolicyController) getPolicyForPolicyViolation(pv *kyverno.ClusterPolic
 	if err != nil || len(policies) == 0 {
 		return nil
 	}
-	// Because all ReplicaSet's belonging to a deployment should have a unique label key,
-	// there should never be more than one deployment returned by the above method.
+	// Because all PolicyViolations's belonging to a Policy should have a unique label key,
+	// there should never be more than one Policy returned by the above method.
 	// If that happens we should probably dynamically repair the situation by ultimately
 	// trying to clean up one of the controllers, for now we just return the older one
 	if len(policies) > 1 {
@@ -741,6 +756,7 @@ func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(met
 //PVControlInterface provides interface to  operate on policy violation resource
 type PVControlInterface interface {
 	PatchPolicyViolation(name string, data []byte) error
+	DeletePolicyViolation(name string) error
 }
 
 // RealPVControl is the default implementation of PVControlInterface.
@@ -753,6 +769,11 @@ type RealPVControl struct {
 func (r RealPVControl) PatchPolicyViolation(name string, data []byte) error {
 	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Patch(name, types.JSONPatchType, data)
 	return err
+}
+
+//DeletePolicyViolation deletes the policy violation
+func (r RealPVControl) DeletePolicyViolation(name string) error {
+	return r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }
 
 // RecheckDeletionTimestamp returns a CanAdopt() function to recheck deletion.
