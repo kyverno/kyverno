@@ -53,7 +53,7 @@ func initRecorder(client *client.Client) record.EventRecorder {
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(glog.V(4).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		glog.Error(err) // TODO: add more specific error
