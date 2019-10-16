@@ -110,7 +110,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
 	if !isResponseSuccesful(engineResponses) && toBlockResource(engineResponses) {
-		resource.GetOwnerReferences()
 		policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses, true)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
