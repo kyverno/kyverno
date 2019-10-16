@@ -64,8 +64,12 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	//TODO: check if resource gvk is available in raw resource,
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	//TODO: check if the name and namespace is also passed right in the resource?
+
+	//TODO: check if the name is also passed right in the resource?
 	// all the patches to be applied on the resource
+	// explictly set resource namespace with request namespace
+	// resource namespace is empty for the first CREATE operation
+	resource.SetNamespace(request.Namespace)
 
 	policies, err := ws.pLister.List(labels.NewSelector())
 	if err != nil {
@@ -102,17 +106,19 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	ws.eventGen.Add(events...)
 
 	// If Validation fails then reject the request
-	// violations are created if "audit" flag is set
+	// violations are created with resource owner(if exist) on "enforce"
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
 	if !isResponseSuccesful(engineResponses) && toBlockResource(engineResponses) {
+		resource.GetOwnerReferences()
+		policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses, true)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
 	}
 
 	// ADD POLICY VIOLATIONS
-	policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, engineResponses)
-
+	// violations are created with resource on "audit"
+	policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses, false)
 	sendStat(false)
 	return true, ""
 }

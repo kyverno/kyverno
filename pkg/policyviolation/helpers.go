@@ -8,10 +8,18 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 )
+
+type pvResourceOwner struct {
+	kind      string
+	namespace string
+	name      string
+}
 
 //BuildPolicyViolation returns an value of type PolicyViolation
 func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
@@ -28,49 +36,37 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 	return pv
 }
 
-func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
-	var violatedRules []kyverno.ViolatedRule
-	glog.V(4).Infof("building policy violation for engine response %v", er)
-	for _, r := range er.PolicyResponse.Rules {
-		// filter failed/violated rules
-		if !r.Success {
-			vrule := kyverno.ViolatedRule{
-				Name:    r.Name,
-				Message: r.Message,
-				Type:    r.Type,
-			}
-			violatedRules = append(violatedRules, vrule)
-		}
-	}
-	pv := BuildPolicyViolation(er.PolicyResponse.Policy,
-		kyverno.ResourceSpec{
-			Kind:      er.PolicyResponse.Resource.Kind,
-			Namespace: er.PolicyResponse.Resource.Namespace,
-			Name:      er.PolicyResponse.Resource.Name,
-		},
-		violatedRules,
-	)
-	return pv
-}
-
 //CreatePV creates policy violation resource based on the engine responses
-func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
+func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
+	dclient *dclient.Client, engineResponses []engine.EngineResponse, requestBlocked bool) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
+		if requestBlocked {
+			glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
+			if pvList := buildPVWithOwner(dclient, er); len(pvList) != 0 {
+				pvs = append(pvs, pvList...)
+			}
+			continue
+		}
+
 		// ignore creation of PV for resoruces that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
 			glog.V(4).Infof("resource %v, has not been assigned a name. not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
 		}
+
 		if !er.IsSuccesful() {
+			glog.V(4).Infof("Building policy violation for engine response %v", er)
 			if pv := buildPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.ClusterPolicyViolation{}) {
 				pvs = append(pvs, pv)
 			}
 		}
 	}
+
 	if len(pvs) == 0 {
 		return
 	}
+
 	for _, newPv := range pvs {
 		glog.V(4).Infof("creating policyViolation resource for policy %s and resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
 		// check if there was a previous policy voilation for policy & resource combination
@@ -91,7 +87,8 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 		// compare the policyviolation spec for existing resource if present else
 		if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
 			// if they are equal there has been no change so dont update the polivy violation
-			glog.Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+			glog.Infof("policy violation '%s/%s/%s' spec did not change so not updating it", newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
+			glog.V(4).Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
 			continue
 		}
 		// spec changed so update the policyviolation
@@ -104,6 +101,47 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 			continue
 		}
 	}
+}
+
+func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
+	pvResourceSpec := kyverno.ResourceSpec{
+		Kind:      er.PolicyResponse.Resource.Kind,
+		Namespace: er.PolicyResponse.Resource.Namespace,
+		Name:      er.PolicyResponse.Resource.Name,
+	}
+
+	violatedRules := newViolatedRules(er, "")
+
+	return BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules)
+}
+
+func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.ClusterPolicyViolation) {
+	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Name)
+	violatedRules := newViolatedRules(er, msg)
+
+	// create violation on resource owner (if exist) when action is set to enforce
+	owners := getOwners(dclient, er.PatchedResource)
+
+	// standaloneresource, set pvResourceSpec with resource itself
+	if len(owners) == 0 {
+		pvResourceSpec := kyverno.ResourceSpec{
+			Namespace: er.PolicyResponse.Resource.Namespace,
+			Kind:      er.PolicyResponse.Resource.Kind,
+			Name:      er.PolicyResponse.Resource.Name,
+		}
+		return append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+	}
+
+	for _, owner := range owners {
+		// resource has owner, set pvResourceSpec with owner info
+		pvResourceSpec := kyverno.ResourceSpec{
+			Namespace: owner.namespace,
+			Kind:      owner.kind,
+			Name:      owner.name,
+		}
+		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+	}
+	return
 }
 
 //TODO: change the name
@@ -147,4 +185,43 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 		return nil, nil
 	}
 	return pvs[0], nil
+}
+
+func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvResourceOwner {
+	resourceOwners := unstr.GetOwnerReferences()
+	if len(resourceOwners) == 0 {
+		return []pvResourceOwner{pvResourceOwner{
+			kind:      unstr.GetKind(),
+			namespace: unstr.GetNamespace(),
+			name:      unstr.GetName(),
+		}}
+	}
+
+	var owners []pvResourceOwner
+	for _, resourceOwner := range resourceOwners {
+		// if name is empty then GetResource panic as it returns a list
+		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
+		if err != nil {
+			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name, err)
+			return nil
+		}
+
+		owners = append(owners, getOwners(dclient, *unstrParent)...)
+	}
+	return owners
+}
+
+func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyverno.ViolatedRule) {
+	for _, r := range er.PolicyResponse.Rules {
+		// filter failed/violated rules
+		if !r.Success {
+			vrule := kyverno.ViolatedRule{
+				Name:    r.Name,
+				Type:    r.Type,
+				Message: msg + r.Message,
+			}
+			violatedRules = append(violatedRules, vrule)
+		}
+	}
+	return
 }
