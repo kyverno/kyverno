@@ -27,7 +27,9 @@ after_script:
 
 # only push images if the branch is master
 after_success:
-  - if [$TRAVIS_BRANCH == 'master']; then
-      docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
-      make docker-publish
-    fi
+ - |
+   if [ $TRAVIS_BRANCH == 'master' ]
+   then
+     docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+     make docker-publish
+   fi
