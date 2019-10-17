@@ -25,6 +25,10 @@ script:
 after_script:
   - curl -d "repo=https://github.com/nirmata/kyverno" https://goreportcard.com/checks
 
+# only push images if the branch is master
 after_success:
-  - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD 
-  - make docker-publish
+  - | 
+    if $TRAVIS_BRANCH == "master"
+    then
+      docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      make docker-publish
