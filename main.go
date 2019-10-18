@@ -8,7 +8,7 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
@@ -34,10 +34,13 @@ const defaultReSyncTime = 10 * time.Second
 
 func main() {
 	defer glog.Flush()
-	printVersionInfo()
 	// profile cpu and memory consuption
 	prof = enableProfiling(cpu, memory)
-	// cleanUp Channel
+
+	// SIGTERM and SIGINT channel
+	stopCh := signals.SetupSignalHandler()
+
+	// cleanUp channel
 	cleanUp := make(chan struct{})
 	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
@@ -56,13 +59,13 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig)
+	// - invalidate local cache of registered resource every 10 seconds
+	client, err := dclient.NewClient(clientConfig, 10*time.Second, stopCh)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
-
 	// CRD CHECK
-	// - verify if the CRD for Policy & PolicyViolation are avialalbe
+	// - verify if the CRD for Policy & PolicyViolation are available
 	if !utils.CRDInstalled(client.DiscoveryClient) {
 		glog.Fatalf("Required CRDs unavailable")
 	}
@@ -142,8 +145,6 @@ func main() {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
-	stopCh := signals.SetupSignalHandler()
-
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
@@ -164,6 +165,7 @@ func main() {
 }
 
 func init() {
+	printVersionInfo()
 	// profiling feature gate
 	// cpu and memory profiling cannot be enabled at same time
 	// if both cpu and memory are enabled
