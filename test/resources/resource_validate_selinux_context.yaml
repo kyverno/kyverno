@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox-selinux
+  namespace: default
+spec:
+  containers:
+  - image: busybox-selinux
+    name: busybox
+    command:
+      - sleep
+      - "36000"
+    volumeMounts:
+      - name: storage
+        mountPath: /storage
+    securityContext:
+      seLinuxOptions:
+        level: ""
+  volumes:
+    - name: storage
+      emptyDir: {}

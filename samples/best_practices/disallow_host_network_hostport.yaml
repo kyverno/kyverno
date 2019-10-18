@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-host-network-hostport
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Using 'hostPort' and 'hostNetwork' allows pods to share 
+      the host network stack, allowing potential snooping of network traffic from an application pod.
+spec:
+  rules:
+  - name: validate-host-network-hostport
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Defining hostNetwork and hostPort are not allowed."
+      pattern:
+        spec:
+          (hostNetwork): false
+          containers:
+          - name: "*"
+            ports:
+            - hostPort: null

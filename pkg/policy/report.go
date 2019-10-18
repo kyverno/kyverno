@@ -9,7 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (pc *PolicyController) report(engineResponses []engine.EngineResponseNew) {
+func (pc *PolicyController) report(engineResponses []engine.EngineResponse) {
 	// generate events
 	// generate policy violations
 	for _, policyInfo := range engineResponses {
@@ -26,7 +26,7 @@ func (pc *PolicyController) report(engineResponses []engine.EngineResponseNew) {
 }
 
 //reportEvents generates events for the failed resources
-func reportEvents(engineResponse engine.EngineResponseNew, eventGen event.Interface) {
+func reportEvents(engineResponse engine.EngineResponse, eventGen event.Interface) {
 	if engineResponse.IsSuccesful() {
 		return
 	}

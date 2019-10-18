@@ -305,6 +305,16 @@ func isEqualityAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
+func isNegationAnchor(str string) bool {
+	left := "X("
+	right := ")"
+	if len(str) < len(left)+len(right) {
+		return false
+	}
+	//TODO: trim spaces ?
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+}
+
 func isAddingAnchor(key string) bool {
 	const left = "+("
 	const right = ")"
@@ -340,7 +350,7 @@ func removeAnchor(key string) string {
 		return key[1 : len(key)-1]
 	}
 
-	if isExistanceAnchor(key) || isAddingAnchor(key) || isEqualityAnchor(key) {
+	if isExistanceAnchor(key) || isAddingAnchor(key) || isEqualityAnchor(key) || isNegationAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 

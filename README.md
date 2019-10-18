@@ -115,7 +115,7 @@ spec:
 
 ### 4. More examples
 
-Additional examples are available in [examples](/examples).
+Refer to a list of curated of [kyverno policies](/samples/README.md) to follow kubernetes best practices.
 
 ## License
 
@@ -149,7 +149,6 @@ Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used
 * [Testing Policies](documentation/testing-policies.md)
   * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
   * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
-* [Examples](examples/)
 
 ## Roadmap
 

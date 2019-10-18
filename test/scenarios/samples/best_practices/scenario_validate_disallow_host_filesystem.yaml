@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_host_filesystem.yaml
+  resource: test/resources/disallow_host_filesystem.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: deny-use-of-host-fs
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: image-with-hostpath
+      rules:
+        - name: deny-use-of-host-fs
+          type: Validation
+          message: Validation rule 'deny-use-of-host-fs' failed at '/spec/volumes/0/hostPath/' for resource Pod//image-with-hostpath. Host path is not allowed
+          success: false

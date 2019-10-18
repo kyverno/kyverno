@@ -2767,3 +2767,176 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	}
 	assert.Assert(t, er.IsSuccesful())
 }
+
+func TestValidate_negationAnchor_deny(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "validate-host-path"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate-host-path",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Host path is not allowed",
+				"pattern": {
+				  "spec": {
+					"volumes": [
+					  {
+						"name": "*",
+						"X(hostPath)": null
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "image-with-hostpath",
+		   "labels": {
+			  "app.type": "prod",
+			  "namespace": "my-namespace"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "image-with-hostpath",
+				 "image": "docker.io/nautiker/curl",
+				 "volumeMounts": [
+					{
+					   "name": "var-lib-etcd",
+					   "mountPath": "/var/lib"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "var-lib-etcd",
+				 "hostPath": {
+					"path": "/var/lib1"
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'validate-host-path' failed at '/spec/volumes/0/hostPath/' for resource Pod//image-with-hostpath. Host path is not allowed"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccesful())
+}
+
+func TestValidate_negationAnchor_pass(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1alpha1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "validate-host-path"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate-host-path",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Host path is not allowed",
+				"pattern": {
+				  "spec": {
+					"volumes": [
+					  {
+						"name": "*",
+						"X(hostPath)": null
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }	
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "image-with-hostpath",
+		   "labels": {
+			  "app.type": "prod",
+			  "namespace": "my-namespace"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "image-with-hostpath",
+				 "image": "docker.io/nautiker/curl",
+				 "volumeMounts": [
+					{
+					   "name": "var-lib-etcd",
+					   "mountPath": "/var/lib"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "var-lib-etcd",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }
+	 	 `)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(rawPolicy, &policy)
+
+	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(policy, *resourceUnstructured)
+	msgs := []string{"Validation rule 'validate-host-path' succesfully validated"}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccesful())
+}

@@ -15,7 +15,7 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponseNew) {
+func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponse) {
 	startTime := time.Now()
 	// policy information
 	func() {

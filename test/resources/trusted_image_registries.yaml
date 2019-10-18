@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-nginx
+spec:
+  containers:
+  - name: k8s-nginx
+    image: k8s.gcr.io/nginx:1.7.9

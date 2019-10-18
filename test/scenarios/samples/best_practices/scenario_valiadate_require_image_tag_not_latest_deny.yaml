@@ -1,0 +1,22 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/require_image_tag_not_latest.yaml
+  resource: test/resources/require_image_tag_not_latest_deny.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-image-tag
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: image-tag-notspecified
+          type: Validation
+          message: "Validation rule 'image-tag-notspecified' succesfully validated"
+          success: true
+        - name: image-tag-not-latest
+          type: Validation
+          message: "Validation rule 'image-tag-not-latest' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. Using 'latest' image tag is restricted. Set image tag to a specific version"
+          success: false   

@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: validate-deny-runasrootuser
+spec:
+  rules:
+  - name: deny-runasrootuser
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Root user is not allowed. Set runAsNonRoot to true."
+      anyPattern:
+      - spec:
+          securityContext:
+            runAsNonRoot: true
+      - spec:
+          containers:
+          - name: "*"
+            securityContext:
+              runAsNonRoot: true

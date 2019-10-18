@@ -85,7 +85,7 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []engine.EngineResponseNew {
+func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []engine.EngineResponse {
 	//	convert to unstructured
 	unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&namespace)
 	if err != nil {
@@ -99,7 +99,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []e
 	// get all the policies that have a generate rule and resource description satifies the namespace
 	// apply policy on resource
 	policies := listpolicies(ns, nsc.pLister)
-	var engineResponses []engine.EngineResponseNew
+	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !nsc.rm.ProcessResource(policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion()) {
@@ -185,13 +185,13 @@ func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.ClusterPol
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponseNew {
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponse {
 	var policyStats []policyctr.PolicyStat
 	// gather stats from the engine response
 	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
-		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
+		ps.Stats.GenerationExecutionTime = policyResponse.ProcessingTime
 		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
 		// capture rule level stats
 		for _, rule := range policyResponse.Rules {

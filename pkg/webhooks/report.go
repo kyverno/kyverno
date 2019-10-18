@@ -11,7 +11,7 @@ import (
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []engine.EngineResponseNew, onUpdate bool) []event.Info {
+func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []event.Info {
 	var events []event.Info
 	if !isResponseSuccesful(engineResponses) {
 		for _, er := range engineResponses {

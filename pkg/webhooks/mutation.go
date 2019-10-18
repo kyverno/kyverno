@@ -70,7 +70,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		return true, nil, ""
 	}
 
-	var engineResponses []engine.EngineResponseNew
+	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 
 		// check if policy has a rule for the admission request kind
@@ -91,13 +91,15 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 		}
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
-		// generate annotations
-		if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponse.PolicyResponse); annPatches != nil {
-			patches = append(patches, annPatches)
-		}
+
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 		//TODO: check if there is an order to policy application on resource
 		// resource = &engineResponse.PatchedResource
+	}
+
+	// generate annotations
+	if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponses); annPatches != nil {
+		patches = append(patches, annPatches)
 	}
 
 	// ADD EVENTS

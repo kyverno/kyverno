@@ -36,9 +36,11 @@ There is no operator for `equals` as providing a field value in the pattern requ
 ## Anchors
 | Anchor      	| Tag 	| Behavior                                                                                                                                                                                                                                     	|
 |-------------	|-----	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Conditional 	| ()  	| If tag with the given value is specified, then following resource elements must satisfy the conditions.<br>e.g. <br><code> (image):"*:latest" <br>imagePullPolicy: "!IfNotPresent"</code><br> If image has tag latest then, imagePullPolicy cannot be IfNotPresent.                                                	|
-| Equality    	| =() 	| if tag is specified, then it should have the provided value.<br>e.g.<br><code> =(hostPath):<br> path: "!/var/lib" </code><br> If hostPath is defined then the path cannot be /var/lib                                                                                  	|
-| Existance   	| ^() 	| It can be specified on the list/array type only. If there exists at least one resource in the list that satisfies the pattern.<br>e.g. <br><code> ^(containers):<br> - image: nginx:latest </code><br> There must exist at least one container with image nginx:latest. 	|
+| Conditional 	| ()  	| If tag with the given value is specified, then following resource elements must satisfy the conditions.<br/>e.g. <br/><code> (image):"*:latest" <br/>  imagePullPolicy: "!IfNotPresent"</code>  <br/> If image has tag latest then, imagePullPolicy cannot be IfNotPresent.                                                	|
+| Equality    	| =() 	| If tag is specified, then it should have the provided value.<br/>e.g.<br/><code> =(hostPath):<br/> path: "!/var/lib" </code><br/> If hostPath is defined then the path cannot be /var/lib                                                                                  	|
+| Existance   	| ^() 	| It can be specified on the list/array type only. If there exists at least one resource in the list that satisfies the pattern.<br/>e.g. <br/><code> ^(containers):<br/> - image: nginx:latest </code><br/> There must exist at least one container with image nginx:latest. 	|
+| Negation    	| X() 	| A tag with negation anchor cannot be present in the resource. The value of the tag is never evaulated as the tag is not expected to be there. <br/>e.g. <br/><code> X(hostPath):</code><br/> Hostpath tag cannot be defined.	|
+
 ## Example
 The next rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
 ````yaml
@@ -98,13 +100,13 @@ spec :
       validate:
         pattern:
           spec:
-            containers:
-              - ^(name): "*"
-                resources:
-                  requests:
-                    memory: "$(<=./../../limits/memory)"
-                  limits:
-                    memory: "2048Mi"
+            ^(containers):
+            - (name): "*"
+              resources:
+                requests:
+                  memory: "$(<=./../../limits/memory)"
+                limits:
+                  memory: "2048Mi"
 ````
 
 ### Allow OR across overlay pattern

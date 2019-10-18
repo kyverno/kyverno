@@ -1,0 +1,19 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_priviledged_priviligedescalation.yaml
+  resource: test/resources/disallow_priviledged_priviligedescalation.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: validate-deny-privileged-priviligedescalation
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: check-privileged-cfg
+      rules:
+        - name: deny-privileged-priviligedescalation
+          type: Validation
+          message: "Validation rule 'deny-privileged-priviligedescalation' failed to validate patterns defined in anyPattern. Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false; anyPattern[0] failed at path /spec/securityContext/; anyPattern[1] failed at path /spec/containers/0/securityContext/allowPrivilegeEscalation/"
+          success: false
+

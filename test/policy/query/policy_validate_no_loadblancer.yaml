@@ -1,0 +1,16 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: query1
+spec:
+  rules:
+    - name: No service of type LoadBalancer in namespace test
+      match:
+        resources:
+          kinds:
+          - Service
+          namespaces: 
+          - test
+      query:
+        query: "length([?spec.type=='LoadBalancer'])"
+        expectedResult: 0
