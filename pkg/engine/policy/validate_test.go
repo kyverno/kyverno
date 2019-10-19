@@ -807,13 +807,14 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 		}
 	 }`)
 
-	var mutate kyverno.Mutation
-	err := json.Unmarshal(rawMutate, &mutate)
+	var mutateExistence kyverno.Mutation
+	err := json.Unmarshal(rawMutate, &mutateExistence)
 	assert.NilError(t, err)
 
-	errs := validateMutation(mutate)
+	errs := validateMutation(mutateExistence)
 	assert.Assert(t, len(errs) != 0)
 
+	var mutateEqual kyverno.Mutation
 	rawMutate = []byte(`
 	{
 		"overlay": {
@@ -824,10 +825,27 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 		}
 	 }`)
 
-	err = json.Unmarshal(rawMutate, &mutate)
+	err = json.Unmarshal(rawMutate, &mutateEqual)
 	assert.NilError(t, err)
 
-	errs = validateMutation(mutate)
+	errs = validateMutation(mutateEqual)
+	assert.Assert(t, len(errs) != 0)
+
+	var mutateNegation kyverno.Mutation
+	rawMutate = []byte(`
+	{
+		"overlay": {
+		   "spec": {
+			  "X(serviceAccountName)": "*",
+			  "automountServiceAccountToken": false
+		   }
+		}
+	 }`)
+
+	err = json.Unmarshal(rawMutate, &mutateNegation)
+	assert.NilError(t, err)
+
+	errs = validateMutation(mutateNegation)
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -1227,7 +1245,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 duplicate rule name: 'validate-user-privilege'
 - invalid rule 'image-pull-policy':
 error in exclude block, the requirements are not specified in selector
-invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +() || X()
+invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +()
 - invalid rule 'validate-user-privilege':
 error in match block, field Kind is not specified
 - invalid rule 'validate-user-privilege':

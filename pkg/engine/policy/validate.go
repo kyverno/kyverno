@@ -154,7 +154,7 @@ func validateMutation(m kyverno.Mutation) []error {
 	}
 
 	if m.Overlay != nil {
-		_, err := validateAnchors([]anchor{conditionalAnchor, plusAnchor, negationAnchor}, m.Overlay, "/")
+		_, err := validateAnchors([]anchor{conditionalAnchor, plusAnchor}, m.Overlay, "/")
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -189,14 +189,14 @@ func validateValidation(v kyverno.Validation) []error {
 	}
 
 	if v.Pattern != nil {
-		if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor}, v.Pattern, "/"); err != nil {
+		if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor, negationAnchor}, v.Pattern, "/"); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
 	if len(v.AnyPattern) != 0 {
 		for _, p := range v.AnyPattern {
-			if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor}, p, "/"); err != nil {
+			if _, err := validateAnchors([]anchor{conditionalAnchor, existingAnchor, equalityAnchor, negationAnchor}, p, "/"); err != nil {
 				errs = append(errs, err)
 			}
 		}
