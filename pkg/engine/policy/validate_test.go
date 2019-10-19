@@ -1227,7 +1227,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 duplicate rule name: 'validate-user-privilege'
 - invalid rule 'image-pull-policy':
 error in exclude block, the requirements are not specified in selector
-invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +()
+invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +() || X()
 - invalid rule 'validate-user-privilege':
 error in match block, field Kind is not specified
 - invalid rule 'validate-user-privilege':

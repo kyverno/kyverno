@@ -33,7 +33,7 @@ func Validate(p kyverno.ClusterPolicy) error {
 	}
 
 	for _, rule := range p.Spec.Rules {
-		if ruleErrs := validate(rule); len(ruleErrs) != 0 {
+		if ruleErrs := validateRule(rule); len(ruleErrs) != 0 {
 			errs = append(errs, fmt.Errorf("- invalid rule '%s':", rule.Name))
 			errs = append(errs, ruleErrs...)
 		}
@@ -56,7 +56,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) error {
 }
 
 // Validate checks if rule is not empty and all substructures are valid
-func validate(r kyverno.Rule) []error {
+func validateRule(r kyverno.Rule) []error {
 	var errs []error
 
 	// only one type of rule is allowed per rule
@@ -154,7 +154,7 @@ func validateMutation(m kyverno.Mutation) []error {
 	}
 
 	if m.Overlay != nil {
-		_, err := validateAnchors([]anchor{conditionalAnchor, plusAnchor}, m.Overlay, "/")
+		_, err := validateAnchors([]anchor{conditionalAnchor, plusAnchor, negationAnchor}, m.Overlay, "/")
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -253,7 +253,7 @@ func validateGeneration(gen kyverno.Generation) error {
 // validateAnchors validates:
 // 1. existing acnchor must define on array
 // 2. anchors in mutation must be one of: (), +()
-// 3. anchors in validate must be one of: (), ^(), =()
+// 3. anchors in validate must be one of: (), ^(), =(), X()
 // 4. no anchor is allowed in generate
 func validateAnchors(anchorPatterns []anchor, pattern interface{}, path string) (string, error) {
 	switch typedPattern := pattern.(type) {
