@@ -1,4 +1,4 @@
-package v1alpha1
+package policy
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,18 +21,19 @@ var (
 	existingAnchor    = anchor{left: "^(", right: ")"}
 	equalityAnchor    = anchor{left: "=(", right: ")"}
 	plusAnchor        = anchor{left: "+(", right: ")"}
+	negationAnchor    = anchor{left: "X(", right: ")"}
 )
 
-func (p ClusterPolicy) Validate() error {
+func Validate(p kyverno.ClusterPolicy) error {
 	var errs []error
 
-	if err := p.validateUniqueRuleName(); err != nil {
+	if err := validateUniqueRuleName(p); err != nil {
 		errs = append(errs, fmt.Errorf("- Invalid Policy '%s':", p.Name))
 		errs = append(errs, err)
 	}
 
 	for _, rule := range p.Spec.Rules {
-		if ruleErrs := rule.validate(); len(ruleErrs) != 0 {
+		if ruleErrs := validate(rule); len(ruleErrs) != 0 {
 			errs = append(errs, fmt.Errorf("- invalid rule '%s':", rule.Name))
 			errs = append(errs, ruleErrs...)
 		}
@@ -41,7 +43,7 @@ func (p ClusterPolicy) Validate() error {
 }
 
 // ValidateUniqueRuleName checks if the rule names are unique across a policy
-func (p ClusterPolicy) validateUniqueRuleName() error {
+func validateUniqueRuleName(p kyverno.ClusterPolicy) error {
 	var ruleNames []string
 
 	for _, rule := range p.Spec.Rules {
@@ -54,11 +56,11 @@ func (p ClusterPolicy) validateUniqueRuleName() error {
 }
 
 // Validate checks if rule is not empty and all substructures are valid
-func (r Rule) validate() []error {
+func validate(r kyverno.Rule) []error {
 	var errs []error
 
 	// only one type of rule is allowed per rule
-	if err := r.validateRuleType(); err != nil {
+	if err := validateRuleType(r); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -72,15 +74,15 @@ func (r Rule) validate() []error {
 	}
 
 	// validate anchors on mutate
-	if mErrs := r.Mutation.validate(); len(mErrs) != 0 {
+	if mErrs := validateMutation(r.Mutation); len(mErrs) != 0 {
 		errs = append(errs, mErrs...)
 	}
 
-	if vErrs := r.Validation.validate(); len(vErrs) != 0 {
+	if vErrs := validateValidation(r.Validation); len(vErrs) != 0 {
 		errs = append(errs, vErrs...)
 	}
 
-	if err := r.Generation.validate(); err != nil {
+	if err := validateGeneration(r.Generation); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -88,8 +90,8 @@ func (r Rule) validate() []error {
 }
 
 // validateRuleType checks only one type of rule is defined per rule
-func (r Rule) validateRuleType() error {
-	ruleTypes := []bool{r.hasMutate(), r.hasValidate(), r.hasGenerate()}
+func validateRuleType(r kyverno.Rule) error {
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
 
 	operationCount := func() int {
 		count := 0
@@ -114,8 +116,8 @@ func (r Rule) validateRuleType() error {
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
-func validateMatchedResourceDescription(rd ResourceDescription) error {
-	if reflect.DeepEqual(rd, ResourceDescription{}) {
+func validateMatchedResourceDescription(rd kyverno.ResourceDescription) error {
+	if reflect.DeepEqual(rd, kyverno.ResourceDescription{}) {
 		return nil
 	}
 
@@ -128,7 +130,7 @@ func validateMatchedResourceDescription(rd ResourceDescription) error {
 
 // validateResourceDescription returns error if selector is invalid
 // field type is checked through openapi
-func validateResourceDescription(rd ResourceDescription) error {
+func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
 		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
 		if err != nil {
@@ -142,11 +144,11 @@ func validateResourceDescription(rd ResourceDescription) error {
 	return nil
 }
 
-func (m Mutation) validate() []error {
+func validateMutation(m kyverno.Mutation) []error {
 	var errs []error
 	if len(m.Patches) != 0 {
 		for _, patch := range m.Patches {
-			err := patch.validate()
+			err := validatePatch(patch)
 			errs = append(errs, err)
 		}
 	}
@@ -161,7 +163,7 @@ func (m Mutation) validate() []error {
 }
 
 // Validate if all mandatory PolicyPatch fields are set
-func (pp *Patch) validate() error {
+func validatePatch(pp kyverno.Patch) error {
 	if pp.Path == "" {
 		return errors.New("JSONPatch field 'path' is mandatory")
 	}
@@ -179,10 +181,10 @@ func (pp *Patch) validate() error {
 	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
 }
 
-func (v Validation) validate() []error {
+func validateValidation(v kyverno.Validation) []error {
 	var errs []error
 
-	if err := v.validateOverlayPattern(); err != nil {
+	if err := validateOverlayPattern(v); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -204,8 +206,8 @@ func (v Validation) validate() []error {
 }
 
 // validateOverlayPattern checks one of pattern/anyPattern must exist
-func (v Validation) validateOverlayPattern() error {
-	if reflect.DeepEqual(v, Validation{}) {
+func validateOverlayPattern(v kyverno.Validation) error {
+	if reflect.DeepEqual(v, kyverno.Validation{}) {
 		return nil
 	}
 
@@ -221,15 +223,15 @@ func (v Validation) validateOverlayPattern() error {
 }
 
 // Validate returns error if generator is configured incompletely
-func (gen Generation) validate() error {
-	if reflect.DeepEqual(gen, Generation{}) {
+func validateGeneration(gen kyverno.Generation) error {
+	if reflect.DeepEqual(gen, kyverno.Generation{}) {
 		return nil
 	}
 
-	if gen.Data == nil && gen.Clone == (CloneFrom{}) {
+	if gen.Data == nil && gen.Clone == (kyverno.CloneFrom{}) {
 		return fmt.Errorf("neither data nor clone (source) of %s is specified", gen.Kind)
 	}
-	if gen.Data != nil && gen.Clone != (CloneFrom{}) {
+	if gen.Data != nil && gen.Clone != (kyverno.CloneFrom{}) {
 		return fmt.Errorf("both data nor clone (source) of %s are specified", gen.Kind)
 	}
 
@@ -239,7 +241,7 @@ func (gen Generation) validate() error {
 		}
 	}
 
-	if !reflect.DeepEqual(gen.Clone, CloneFrom{}) {
+	if !reflect.DeepEqual(gen.Clone, kyverno.CloneFrom{}) {
 		if _, err := validateAnchors(nil, gen.Clone, ""); err != nil {
 			return fmt.Errorf("invalid character found on pattern clone: %v", err)
 		}
@@ -270,7 +272,7 @@ func validateAnchors(anchorPatterns []anchor, pattern interface{}, path string) 
 		return "", nil
 	case interface{}:
 		// special case for generate clone, as it is a struct
-		if clone, ok := pattern.(CloneFrom); ok {
+		if clone, ok := pattern.(kyverno.CloneFrom); ok {
 			return "", validateAnchorsOnCloneFrom(nil, clone)
 		}
 		return "", nil
@@ -280,7 +282,7 @@ func validateAnchors(anchorPatterns []anchor, pattern interface{}, path string) 
 	}
 }
 
-func validateAnchorsOnCloneFrom(anchorPatterns []anchor, pattern CloneFrom) error {
+func validateAnchorsOnCloneFrom(anchorPatterns []anchor, pattern kyverno.CloneFrom) error {
 	// namespace and name are required fields
 	// if wrapped with invalid character, this field is empty during unmarshaling
 	if pattern.Namespace == "" {

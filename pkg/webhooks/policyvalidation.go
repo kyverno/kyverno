@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,7 +28,7 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 			}}
 	}
 
-	if err := policy.Validate(); err != nil {
+	if err := policyvalidate.Validate(*policy); err != nil {
 		admissionResp = &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{

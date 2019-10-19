@@ -1,9 +1,10 @@
-package v1alpha1
+package policy
 
 import (
 	"encoding/json"
 	"testing"
 
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"gotest.tools/assert"
 )
 
@@ -40,11 +41,11 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 	 }
 	`)
 
-	var policy *ClusterPolicy
+	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = policy.validateUniqueRuleName()
+	err = validateUniqueRuleName(*policy)
 	assert.Assert(t, err != nil)
 }
 
@@ -75,12 +76,12 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	 }
 	`)
 
-	var policy *ClusterPolicy
+	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.validateRuleType()
+		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
 }
@@ -150,12 +151,12 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 		}
 	 }`)
 
-	var policy *ClusterPolicy
+	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.validateRuleType()
+		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
 }
@@ -205,12 +206,12 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	 }
 	`)
 
-	var policy *ClusterPolicy
+	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		err := rule.validateRuleType()
+		err := validateRuleType(rule)
 		assert.NilError(t, err)
 	}
 }
@@ -218,7 +219,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	rawResourcedescirption := []byte(`{}`)
 
-	var rd ResourceDescription
+	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
@@ -236,7 +237,7 @@ func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
 		}
 	 }`)
 
-	var rd ResourceDescription
+	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
@@ -254,7 +255,7 @@ func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 		}
 	 }`)
 
-	var rd ResourceDescription
+	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
@@ -273,7 +274,7 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 		}
 	 }`)
 
-	var rd ResourceDescription
+	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
@@ -294,7 +295,7 @@ func Test_Validate_ResourceDescription_Valid(t *testing.T) {
 		}
 	 }`)
 
-	var rd ResourceDescription
+	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
@@ -318,12 +319,12 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
    }
 ]`)
 
-	var rules []Rule
+	var rules []kyverno.Rule
 	err := json.Unmarshal(rawRules, &rules)
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -347,12 +348,12 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 ]
 	`)
 
-	var rules []Rule
+	var rules []kyverno.Rule
 	err := json.Unmarshal(rawRules, &rules)
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -398,12 +399,12 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
    }
 ]`)
 
-	var rules []Rule
+	var rules []kyverno.Rule
 	err := json.Unmarshal(rawRules, &rules)
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -449,12 +450,12 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
    }
 ]`)
 
-	var rules []Rule
+	var rules []kyverno.Rule
 	err := json.Unmarshal(rawRules, &rules)
 	assert.NilError(t, err)
 
 	for _, rule := range rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -508,12 +509,12 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 		}
 	 }`)
 
-	var policy ClusterPolicy
+	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -565,12 +566,12 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 		}
 	 }`)
 
-	var policy ClusterPolicy
+	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) == 1)
 	}
 }
@@ -657,12 +658,12 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 		}
 	 }`)
 
-	var policy ClusterPolicy
+	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	for _, rule := range policy.Spec.Rules {
-		errs := rule.Validation.validate()
+		errs := validateValidation(rule.Validation)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -749,11 +750,11 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	var policy ClusterPolicy
+	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = policy.Validate()
+	err = Validate(policy)
 	assert.NilError(t, err)
 }
 
@@ -768,11 +769,11 @@ func Test_Validate_Mutate_ConditionAnchor(t *testing.T) {
 		}
 	 }`)
 
-	var mutate Mutation
+	var mutate kyverno.Mutation
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.validate()
+	errs := validateMutation(mutate)
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -787,11 +788,11 @@ func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
 		}
 	 }`)
 
-	var mutate Mutation
+	var mutate kyverno.Mutation
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.validate()
+	errs := validateMutation(mutate)
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -806,11 +807,11 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 		}
 	 }`)
 
-	var mutate Mutation
+	var mutate kyverno.Mutation
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.validate()
+	errs := validateMutation(mutate)
 	assert.Assert(t, len(errs) != 0)
 
 	rawMutate = []byte(`
@@ -826,7 +827,7 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs = mutate.validate()
+	errs = validateMutation(mutate)
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -843,11 +844,11 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 		}
 	 }`)
 
-	var mutate Mutation
+	var mutate kyverno.Mutation
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := mutate.validate()
+	errs := validateMutation(mutate)
 	assert.Assert(t, len(errs) != 0)
 
 	// case 2
@@ -864,7 +865,7 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs = mutate.validate()
+	errs = validateMutation(mutate)
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -896,11 +897,11 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 		]
 	 }`)
 
-	var validate Validation
+	var validate kyverno.Validation
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.validate()
+	errs := validateValidation(validate)
 	assert.Assert(t, len(errs) == 0)
 
 	// case 2
@@ -916,11 +917,11 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 		}
 	}`)
 
-	var validateNew Validation
+	var validateNew kyverno.Validation
 	err = json.Unmarshal(rawValidateNew, &validateNew)
 	assert.NilError(t, err)
 
-	errs = validate.validate()
+	errs = validateValidation(validate)
 	assert.Assert(t, len(errs) == 0)
 }
 
@@ -942,11 +943,11 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 		}
 	 }`)
 
-	var validate Validation
+	var validate kyverno.Validation
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.validate()
+	errs := validateValidation(validate)
 	assert.Assert(t, len(errs) != 0)
 
 }
@@ -970,11 +971,11 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 		}
 	}`)
 
-	var validate Validation
+	var validate kyverno.Validation
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs := validate.validate()
+	errs := validateValidation(validate)
 	assert.Assert(t, len(errs) != 0)
 
 	// case 2
@@ -998,7 +999,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	errs = validate.validate()
+	errs = validateValidation(validate)
 	assert.Assert(t, len(errs) != 0)
 }
 
@@ -1024,11 +1025,11 @@ func Test_Validate_Generate(t *testing.T) {
 		}
 	 }`)
 
-	var generate Generation
+	var generate kyverno.Generation
 	err := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
 
-	err = generate.validate()
+	err = validateGeneration(generate)
 	assert.NilError(t, err)
 }
 
@@ -1054,11 +1055,11 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 		}
 	 }`)
 
-	var generate Generation
+	var generate kyverno.Generation
 	err := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
 
-	err = generate.validate()
+	err = validateGeneration(generate)
 	assert.Assert(t, err != nil)
 
 	rawGenerateNew := []byte(`
@@ -1071,11 +1072,11 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 		}
 	 }`)
 
-	var generateNew Generation
+	var generateNew kyverno.Generation
 	errNew := json.Unmarshal(rawGenerateNew, &generateNew)
 	assert.NilError(t, errNew)
 
-	errNew = generateNew.validate()
+	errNew = validateGeneration(generateNew)
 	assert.Assert(t, errNew != nil)
 }
 
@@ -1217,7 +1218,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	 }
 	`)
 
-	var policy ClusterPolicy
+	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
@@ -1234,6 +1235,6 @@ existing anchor at /spec/template/spec/containers/0/securityContext must be of t
 - invalid rule 'default-networkpolicy':
 invalid character found on pattern clone: namespace is requried
 `
-	err = policy.Validate()
+	err = Validate(policy)
 	assert.Assert(t, err.Error() == expectedErr)
 }
