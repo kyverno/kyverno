@@ -290,9 +290,9 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
           ports:
           - containerPort: 443
-          securityContext:
-            privileged: true
+          env:
+          - name: INIT_CONFIG
+            value: init-config
 
