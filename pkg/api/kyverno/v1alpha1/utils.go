@@ -1,9 +1,27 @@
 package v1alpha1
 
-import (
-	"errors"
-	"fmt"
-)
+import "reflect"
+
+func (p ClusterPolicy) HasMutateOrValidate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasMutate() || rule.HasValidate() {
+			return true
+		}
+	}
+	return false
+}
+
+func (r Rule) HasMutate() bool {
+	return !reflect.DeepEqual(r.Mutation, Mutation{})
+}
+
+func (r Rule) HasValidate() bool {
+	return !reflect.DeepEqual(r.Validation, Validation{})
+}
+
+func (r Rule) HasGenerate() bool {
+	return !reflect.DeepEqual(r.Generation, Generation{})
+}
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member
@@ -43,51 +61,4 @@ func (rs ResourceSpec) ToKey() string {
 		return rs.Kind + "." + rs.Name
 	}
 	return rs.Kind + "." + rs.Namespace + "." + rs.Name
-}
-
-// joinErrs joins the list of error into single error
-// adds a new line between errors
-func joinErrs(errs []error) error {
-	if len(errs) == 0 {
-		return nil
-	}
-
-	res := "\n"
-	for _, err := range errs {
-		res = fmt.Sprintf(res + err.Error() + "\n")
-	}
-
-	return errors.New(res)
-}
-
-//Contains Check if strint is contained in a list of string
-func containString(list []string, element string) bool {
-	for _, e := range list {
-		if e == element {
-			return true
-		}
-	}
-	return false
-}
-
-// hasExistingAnchor checks if str has existing anchor
-// strip anchor if necessary
-func hasExistingAnchor(str string) (bool, string) {
-	left := "^("
-	right := ")"
-
-	if len(str) < len(left)+len(right) {
-		return false, str
-	}
-
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
-}
-
-func hasNegationAnchor(str string) (bool, string) {
-	left := "X("
-	right := ")"
-	if len(str) < len(left)+len(right) {
-		return false, str
-	}
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right), str[len(left) : len(str)-len(right)]
 }

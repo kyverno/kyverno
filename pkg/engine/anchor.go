@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
 //ValidationHandler for element processes
@@ -15,19 +16,20 @@ type ValidationHandler interface {
 //CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
 	switch {
-	case isConditionAnchor(element):
+	case anchor.IsConditionAnchor(element):
 		return NewConditionAnchorHandler(element, pattern, path)
-	case isExistanceAnchor(element):
+	case anchor.IsExistanceAnchor(element):
 		return NewExistanceHandler(element, pattern, path)
-	case isEqualityAnchor(element):
+	case anchor.IsEqualityAnchor(element):
 		return NewEqualityHandler(element, pattern, path)
-	case isNegationAnchor(element):
+	case anchor.IsNegationAnchor(element):
 		return NewNegationHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)
 	}
 }
 
+//NewNegationHandler returns instance of negation handler
 func NewNegationHandler(anchor string, pattern interface{}, path string) ValidationHandler {
 	return NegationHandler{
 		anchor:  anchor,
@@ -56,6 +58,7 @@ func (nh NegationHandler) Handle(resourceMap map[string]interface{}, originPatte
 	return "", nil
 }
 
+//NewEqualityHandler returens instance of equality handler
 func NewEqualityHandler(anchor string, pattern interface{}, path string) ValidationHandler {
 	return EqualityHandler{
 		anchor:  anchor,
@@ -217,7 +220,7 @@ func getAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) || isEqualityAnchor(key) || isNegationAnchor(key) {
+		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
 			anchors[key] = value
 			continue
 		}

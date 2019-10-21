@@ -38,7 +38,7 @@ func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructur
 		response.PolicyResponse.RulesAppliedCount++
 	}
 	for _, rule := range policy.Spec.Rules {
-		if rule.Generation == (kyverno.Generation{}) {
+		if !rule.HasGenerate() {
 			continue
 		}
 		glog.V(4).Infof("applying policy %s generate rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())

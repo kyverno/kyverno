@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"reflect"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,7 +41,7 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 
 func (pc *PolicyController) createResourceMutatingWebhookConfigurationIfRequired(policy kyverno.ClusterPolicy) error {
 	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if hasMutateOrValidate(policy) {
+	if policy.HasMutateOrValidate() {
 		if err := pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
 			return err
 		}
@@ -53,16 +51,7 @@ func (pc *PolicyController) createResourceMutatingWebhookConfigurationIfRequired
 
 func hasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
 	for _, policy := range policies {
-		if hasMutateOrValidate(*policy) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasMutateOrValidate(policy kyverno.ClusterPolicy) bool {
-	for _, rule := range policy.Spec.Rules {
-		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) || !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+		if (*policy).HasMutateOrValidate() {
 			return true
 		}
 	}
