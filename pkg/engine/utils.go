@@ -11,6 +11,7 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -209,11 +210,12 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
+// Validation
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) {
+		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
 			result[key] = value
 		}
 	}
@@ -221,13 +223,14 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	return result
 }
 
+// Mutation
 func getElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
 	anchors := make(map[string]interface{})
 	elementsWithoutanchor := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) {
+		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
 			anchors[key] = value
-		} else if !isAddingAnchor(key) {
+		} else if !anchor.IsAddingAnchor(key) {
 			elementsWithoutanchor[key] = value
 		}
 	}
@@ -237,7 +240,7 @@ func getElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface
 
 func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
 	for key, value := range anchorsMap {
-		if isConditionAnchor(key) || isExistanceAnchor(key) {
+		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
 			return key, value
 		}
 	}
@@ -254,13 +257,13 @@ func findKind(kinds []string, kindGVK string) bool {
 	return false
 }
 
-func isConditionAnchor(str string) bool {
-	if len(str) < 2 {
-		return false
-	}
+// func isConditionAnchor(str string) bool {
+// 	if len(str) < 2 {
+// 		return false
+// 	}
 
-	return (str[0] == '(' && str[len(str)-1] == ')')
-}
+// 	return (str[0] == '(' && str[len(str)-1] == ')')
+// }
 
 func getRawKeyIfWrappedWithAttributes(str string) string {
 	if len(str) < 2 {
@@ -284,48 +287,6 @@ func isStringIsReference(str string) bool {
 	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
 }
 
-func isExistanceAnchor(str string) bool {
-	left := "^("
-	right := ")"
-
-	if len(str) < len(left)+len(right) {
-		return false
-	}
-
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
-}
-
-func isEqualityAnchor(str string) bool {
-	left := "=("
-	right := ")"
-	if len(str) < len(left)+len(right) {
-		return false
-	}
-	//TODO: trim spaces ?
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
-}
-
-func isNegationAnchor(str string) bool {
-	left := "X("
-	right := ")"
-	if len(str) < len(left)+len(right) {
-		return false
-	}
-	//TODO: trim spaces ?
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
-}
-
-func isAddingAnchor(key string) bool {
-	const left = "+("
-	const right = ")"
-
-	if len(key) < len(left)+len(right) {
-		return false
-	}
-
-	return left == key[:len(left)] && right == key[len(key)-len(right):]
-}
-
 // Checks if array object matches anchors. If not - skip - return true
 func skipArrayObject(object, anchors map[string]interface{}) bool {
 	for key, pattern := range anchors {
@@ -346,11 +307,11 @@ func skipArrayObject(object, anchors map[string]interface{}) bool {
 
 // removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
-	if isConditionAnchor(key) {
+	if anchor.IsConditionAnchor(key) {
 		return key[1 : len(key)-1]
 	}
 
-	if isExistanceAnchor(key) || isAddingAnchor(key) || isEqualityAnchor(key) || isNegationAnchor(key) {
+	if anchor.IsExistanceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 

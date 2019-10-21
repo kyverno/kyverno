@@ -45,7 +45,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = validateUniqueRuleName(*policy)
+	_, err = validateUniqueRuleName(*policy)
 	assert.Assert(t, err != nil)
 }
 
@@ -217,17 +217,39 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 }
 
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
+	var err error
 	rawResourcedescirption := []byte(`{}`)
+
+	var rd kyverno.ResourceDescription
+	err = json.Unmarshal(rawResourcedescirption, &rd)
+	assert.NilError(t, err)
+
+	_, err = validateMatchedResourceDescription(rd)
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
+	rawResourcedescirption := []byte(`
+	{
+		"kinds": [
+		   "Deployment"
+		],
+		"selector": {
+		   "matchLabels": {
+			  "app.type": "prod"
+		   }
+		}
+	 }`)
 
 	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = validateMatchedResourceDescription(rd)
+	_, err = validateMatchedResourceDescription(rd)
 	assert.NilError(t, err)
 }
-
 func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
+	var err error
 	matchedResourcedescirption := []byte(`
 	{
 		"selector": {
@@ -238,15 +260,16 @@ func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
 	 }`)
 
 	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(matchedResourcedescirption, &rd)
+	err = json.Unmarshal(matchedResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = validateMatchedResourceDescription(rd)
+	_, err = validateMatchedResourceDescription(rd)
 	assert.Assert(t, err != nil)
 }
 
 func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
-	matchedResourcedescirption := []byte(`
+	var err error
+	excludeResourcedescirption := []byte(`
 	{
 		"selector": {
 		   "matchLabels": {
@@ -256,10 +279,10 @@ func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 	 }`)
 
 	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(matchedResourcedescirption, &rd)
+	err = json.Unmarshal(excludeResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = validateResourceDescription(rd)
+	_, err = validateExcludeResourceDescription(rd)
 	assert.NilError(t, err)
 }
 
@@ -278,394 +301,373 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 	err := json.Unmarshal(rawResourcedescirption, &rd)
 	assert.NilError(t, err)
 
-	err = validateMatchedResourceDescription(rd)
+	err = validateResourceDescription(rd)
 	assert.Assert(t, err != nil)
 }
 
-func Test_Validate_ResourceDescription_Valid(t *testing.T) {
-	rawResourcedescirption := []byte(`
-	{
-		"kinds": [
-		   "Deployment"
-		],
-		"selector": {
-		   "matchLabels": {
-			  "app.type": "prod"
-		   }
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	err = validateMatchedResourceDescription(rd)
-	assert.NilError(t, err)
-}
-
 func Test_Validate_OverlayPattern_Empty(t *testing.T) {
-	rawRules := []byte(`
-	[
-   {
-      "name": "deny-privileged-disallowpriviligedescalation",
-      "match": {
-         "resources": {
-            "kinds": [
-               "Pod"
-            ]
-         }
-      },
-      "validate": {}
-   }
-]`)
+	rawValidation := []byte(`
+   {}`)
 
-	var rules []kyverno.Rule
-	err := json.Unmarshal(rawRules, &rules)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 
-	for _, rule := range rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) == 0)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
 	}
 }
 
 func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
-	rawRules := []byte(`
-	[
-   {
-      "name": "deny-privileged-disallowpriviligedescalation",
-      "match": {
-         "resources": {
-            "kinds": [
-               "Pod"
-            ]
-         }
-      },
-      "validate": {
-         "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false"
+	rawValidation := []byte(`
+ 	{ "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false"
       }
-   }
-]
 	`)
 
-	var rules []kyverno.Rule
-	err := json.Unmarshal(rawRules, &rules)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-
-	for _, rule := range rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) != 0)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
 	}
 }
 
 func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
-	rawRules := []byte(`
-	[
-   {
-      "name": "deny-privileged-disallowpriviligedescalation",
-      "match": {
-         "resources": {
-            "kinds": [
-               "Pod"
-            ]
-         }
-      },
-      "validate": {
-         "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
-         "anyPattern": [
-            {
-               "spec": {
-                  "securityContext": {
-                     "allowPrivilegeEscalation": false,
-                     "privileged": false
-                  }
-               }
-            }
-         ],
-         "pattern": {
-            "spec": {
-               "containers": [
-                  {
-                     "name": "*",
-                     "securityContext": {
-                        "allowPrivilegeEscalation": false,
-                        "privileged": false
-                     }
-                  }
-               ]
-            }
-         }
-      }
-   }
-]`)
+	rawValidation := []byte(`
+	{
+		"message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
+		"anyPattern": [
+		  {
+			"spec": {
+			  "securityContext": {
+				"allowPrivilegeEscalation": false,
+				"privileged": false
+			  }
+			}
+		  }
+		],
+		"pattern": {
+		  "spec": {
+			"containers": [
+			  {
+				"name": "*",
+				"securityContext": {
+				  "allowPrivilegeEscalation": false,
+				  "privileged": false
+				}
+			  }
+			]
+		  }
+		}
+	  }`)
 
-	var rules []kyverno.Rule
-	err := json.Unmarshal(rawRules, &rules)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-
-	for _, rule := range rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) != 0)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
 	}
 }
 
 func Test_Validate_OverlayPattern_Valid(t *testing.T) {
-	rawRules := []byte(`
-	[
-   {
-      "name": "deny-privileged-disallowpriviligedescalation",
-      "match": {
-         "resources": {
-            "kinds": [
-               "Pod"
-            ]
-         }
-      },
-      "validate": {
-         "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
-         "anyPattern": [
-            {
-               "spec": {
-                  "securityContext": {
-                     "allowPrivilegeEscalation": false,
-                     "privileged": false
-                  }
-               }
-            },
-            {
-               "spec": {
-                  "containers": [
-                     {
-                        "name": "*",
-                        "securityContext": {
-                           "allowPrivilegeEscalation": false,
-                           "privileged": false
-                        }
-                     }
-                  ]
-               }
-            }
-         ]
-      }
-   }
-]`)
+	rawValidation := []byte(`
+	{
+		"message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
+		"anyPattern": [
+		  {
+			"spec": {
+			  "securityContext": {
+				"allowPrivilegeEscalation": false,
+				"privileged": false
+			  }
+			}
+		  },
+		  {
+			"spec": {
+			  "containers": [
+				{
+				  "name": "*",
+				  "securityContext": {
+					"allowPrivilegeEscalation": false,
+					"privileged": false
+				  }
+				}
+			  ]
+			}
+		  }
+		]
+	  }
+`)
 
-	var rules []kyverno.Rule
-	err := json.Unmarshal(rawRules, &rules)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-
-	for _, rule := range rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) == 0)
+	if _, err := validateValidation(validation); err != nil {
+		assert.NilError(t, err)
 	}
+
 }
 
 func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
-	rawPolicy := []byte(`
+	rawValidation := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		   "name": "container-security-context"
-		},
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
+		"message": "validate container security contexts",
+		"anyPattern": [
+		  {
+			"spec": {
+			  "template": {
+				"spec": {
+				  "containers": [
+					{
+					  "^(securityContext)": {
+						"runAsNonRoot": true
+					  }
 					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "containers": [
-									  {
-										 "^(securityContext)": {
-											"runAsNonRoot": true
-										 }
-									  }
-								   ]
-								}
-							 }
-						  }
-					   }
-					]
-				 }
+				  ]
+				}
 			  }
-		   ]
-		}
-	 }`)
+			}
+		  }
+		]
+	  }
+`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-
-	for _, rule := range policy.Spec.Rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) == 1)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
 	}
+
 }
 
 func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1alpha1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		   "name": "container-security-context"
-		},
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
+	rawValidation := []byte(`{
+		"message": "validate container security contexts",
+		"pattern": {
+		  "spec": {
+			"template": {
+			  "spec": {
+				"containers": [
+				  {
+					"securityContext": {
+					  "allowPrivilegeEscalation": "^(false)"
 					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"pattern": {
-					   "spec": {
-						  "template": {
-							 "spec": {
-								"containers": [
-								   {
-									  "securityContext": {
-										 "allowPrivilegeEscalation": "^(false)"
-									  }
-								   }
-								]
-							 }
-						  }
-					   }
-					}
-				 }
+				  }
+				]
 			  }
-		   ]
+			}
+		  }
 		}
-	 }`)
+	  }
+	  		  `)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-
-	for _, rule := range policy.Spec.Rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) == 1)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
 	}
 }
 
 func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
-	rawPolicy := []byte(`
+	var err error
+	var validation kyverno.Validation
+	rawValidation := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		   "name": "container-security-context"
-		},
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "^(containers)": [
-									  {
-										 "securityContext": {
-											"runAsNonRoot": "true"
-										 }
-									  }
-								   ]
-								}
+		"message": "validate container security contexts",
+		"anyPattern": [
+		   {
+			  "spec": {
+				 "template": {
+					"spec": {
+					   "^(containers)": [
+						  {
+							 "securityContext": {
+								"runAsNonRoot": "true"
 							 }
+						  }
+					   ]
+					}
+				 }
+			  }
+		   }
+		]
+	 }`)
+
+	err = json.Unmarshal(rawValidation, &validation)
+	assert.NilError(t, err)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
+	}
+	rawValidation = nil
+	rawValidation = []byte(`
+	{
+		"message": "validate container security contexts",
+		"pattern": {
+		   "spec": {
+			  "template": {
+				 "spec": {
+					"^(containers)": [
+					   {
+						  "securityContext": {
+							 "allowPrivilegeEscalation": "false"
 						  }
 					   }
 					]
 				 }
-			  },
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"pattern": {
-					   "spec": {
-						  "template": {
-							 "spec": {
-								"^(containers)": [
-								   {
-									  "securityContext": {
-										 "allowPrivilegeEscalation": "false"
-									  }
-								   }
-								]
-							 }
-						  }
-					   }
-					}
+			  }
+		   }
+		}
+	 }	`)
+	err = json.Unmarshal(rawValidation, &validation)
+	assert.NilError(t, err)
+	if _, err := validateValidation(validation); err != nil {
+		assert.Assert(t, err != nil)
+	}
+
+}
+
+func Test_Validate_Validate_ValidAnchor(t *testing.T) {
+	var err error
+	var validate kyverno.Validation
+	var rawValidate []byte
+	// case 1
+	rawValidate = []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"anyPattern": [
+		    {
+			  "spec": {
+				 "securityContext": {
+					"(runAsNonRoot)": true
 				 }
 			  }
-		   ]
+		   },
+		   {
+			  "spec": {
+				 "^(containers)": [
+					{
+					   "name": "*",
+					   "securityContext": {
+						  "runAsNonRoot": true
+					   }
+					}
+				 ]
+			  }
+		   }
+		]
+	 }`)
+
+	err = json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	if _, err := validateValidation(validate); err != nil {
+		assert.NilError(t, err)
+	}
+
+	// case 2
+	rawValidate = nil
+	validate = kyverno.Validation{}
+	rawValidate = []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "=(securityContext)": {
+				 "runAsNonRoot": "true"
+			  }
+		   }
+		}
+	}`)
+
+	err = json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+
+	if _, err := validateValidation(validate); err != nil {
+		assert.NilError(t, err)
+	}
+}
+
+func Test_Validate_Validate_Mismatched(t *testing.T) {
+	rawValidate := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "+(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
 		}
 	 }`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	var validate kyverno.Validation
+	err := json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+	if _, err := validateValidation(validate); err != nil {
+		assert.Assert(t, err != nil)
+	}
+}
+
+func Test_Validate_Validate_Unsupported(t *testing.T) {
+	var err error
+	var validate kyverno.Validation
+
+	// case 1
+	rawValidate := []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "!(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
+		}
+	}`)
+
+	err = json.Unmarshal(rawValidate, &validate)
+	assert.NilError(t, err)
+	if _, err := validateValidation(validate); err != nil {
+		assert.Assert(t, err != nil)
+	}
+
+	// case 2
+	rawValidate = []byte(`
+	{
+		"message": "Root user is not allowed. Set runAsNonRoot to true.",
+		"pattern": {
+		   "spec": {
+			  "containers": [
+				 {
+					"name": "*",
+					"securityContext": {
+					   "~(runAsNonRoot)": true
+					}
+				 }
+			  ]
+		   }
+		}
+	}`)
+
+	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.Rules {
-		errs := validateValidation(rule.Validation)
-		assert.Assert(t, len(errs) == 0)
+	if _, err := validateValidation(validate); err != nil {
+		assert.Assert(t, err != nil)
 	}
+
 }
 
 func Test_Validate_Policy(t *testing.T) {
@@ -762,19 +764,19 @@ func Test_Validate_Mutate_ConditionAnchor(t *testing.T) {
 	rawMutate := []byte(`
 	{
 		"overlay": {
-		   "spec": {
-			  "(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
+		  "spec": {
+			"(serviceAccountName)": "*",
+			"automountServiceAccountToken": false
+		  }
 		}
-	 }`)
+	  }`)
 
 	var mutate kyverno.Mutation
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
-
-	errs := validateMutation(mutate)
-	assert.Assert(t, len(errs) == 0)
+	if _, err := validateMutation(mutate); err != nil {
+		assert.NilError(t, err)
+	}
 }
 
 func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
@@ -792,8 +794,9 @@ func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := validateMutation(mutate)
-	assert.Assert(t, len(errs) == 0)
+	if _, err := validateMutation(mutate); err != nil {
+		assert.NilError(t, err)
+	}
 }
 
 func Test_Validate_Mutate_Mismatched(t *testing.T) {
@@ -811,8 +814,9 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err := json.Unmarshal(rawMutate, &mutateExistence)
 	assert.NilError(t, err)
 
-	errs := validateMutation(mutateExistence)
-	assert.Assert(t, len(errs) != 0)
+	if _, err := validateMutation(mutateExistence); err != nil {
+		assert.Assert(t, err != nil)
+	}
 
 	var mutateEqual kyverno.Mutation
 	rawMutate = []byte(`
@@ -828,8 +832,9 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutateEqual)
 	assert.NilError(t, err)
 
-	errs = validateMutation(mutateEqual)
-	assert.Assert(t, len(errs) != 0)
+	if _, err := validateMutation(mutateEqual); err != nil {
+		assert.Assert(t, err != nil)
+	}
 
 	var mutateNegation kyverno.Mutation
 	rawMutate = []byte(`
@@ -845,12 +850,14 @@ func Test_Validate_Mutate_Mismatched(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutateNegation)
 	assert.NilError(t, err)
 
-	errs = validateMutation(mutateNegation)
-	assert.Assert(t, len(errs) != 0)
+	if _, err := validateMutation(mutateEqual); err != nil {
+		assert.Assert(t, err != nil)
+	}
 }
 
-// TODO: validate patches
 func Test_Validate_Mutate_Unsupported(t *testing.T) {
+	var err error
+	var mutate kyverno.Mutation
 	// case 1
 	rawMutate := []byte(`
 	{
@@ -862,12 +869,12 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 		}
 	 }`)
 
-	var mutate kyverno.Mutation
-	err := json.Unmarshal(rawMutate, &mutate)
+	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs := validateMutation(mutate)
-	assert.Assert(t, len(errs) != 0)
+	if _, err := validateMutation(mutate); err != nil {
+		assert.Assert(t, err != nil)
+	}
 
 	// case 2
 	rawMutate = []byte(`
@@ -883,142 +890,9 @@ func Test_Validate_Mutate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawMutate, &mutate)
 	assert.NilError(t, err)
 
-	errs = validateMutation(mutate)
-	assert.Assert(t, len(errs) != 0)
-}
-
-func Test_Validate_Validate_ValidAnchor(t *testing.T) {
-	// case 1
-	rawValidate := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"anyPattern": [
-		    {
-			  "spec": {
-				 "securityContext": {
-					"(runAsNonRoot)": true
-				 }
-			  }
-		   },
-		   {
-			  "spec": {
-				 "^(containers)": [
-					{
-					   "name": "*",
-					   "securityContext": {
-						  "runAsNonRoot": true
-					   }
-					}
-				 ]
-			  }
-		   }
-		]
-	 }`)
-
-	var validate kyverno.Validation
-	err := json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	errs := validateValidation(validate)
-	assert.Assert(t, len(errs) == 0)
-
-	// case 2
-	rawValidateNew := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "=(securityContext)": {
-				 "runAsNonRoot": "true"
-			  }
-		   }
-		}
-	}`)
-
-	var validateNew kyverno.Validation
-	err = json.Unmarshal(rawValidateNew, &validateNew)
-	assert.NilError(t, err)
-
-	errs = validateValidation(validate)
-	assert.Assert(t, len(errs) == 0)
-}
-
-func Test_Validate_Validate_Mismatched(t *testing.T) {
-	rawValidate := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "+(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	 }`)
-
-	var validate kyverno.Validation
-	err := json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	errs := validateValidation(validate)
-	assert.Assert(t, len(errs) != 0)
-
-}
-
-func Test_Validate_Validate_Unsupported(t *testing.T) {
-	// case 1
-	rawValidate := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "!(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	}`)
-
-	var validate kyverno.Validation
-	err := json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	errs := validateValidation(validate)
-	assert.Assert(t, len(errs) != 0)
-
-	// case 2
-	rawValidate = []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "~(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	}`)
-
-	err = json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	errs = validateValidation(validate)
-	assert.Assert(t, len(errs) != 0)
+	if _, err := validateMutation(mutate); err != nil {
+		assert.Assert(t, err != nil)
+	}
 }
 
 func Test_Validate_Generate(t *testing.T) {
@@ -1047,11 +921,14 @@ func Test_Validate_Generate(t *testing.T) {
 	err := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
 
-	err = validateGeneration(generate)
-	assert.NilError(t, err)
+	if _, err := validateGeneration(generate); err != nil {
+		assert.Assert(t, err != nil)
+	}
 }
 
 func Test_Validate_Generate_HasAnchors(t *testing.T) {
+	var err error
+	var generate kyverno.Generation
 	rawGenerate := []byte(`
 	{
 		"kind": "NetworkPolicy",
@@ -1073,14 +950,13 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 		}
 	 }`)
 
-	var generate kyverno.Generation
-	err := json.Unmarshal(rawGenerate, &generate)
+	err = json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, err)
+	if _, err := validateGeneration(generate); err != nil {
+		assert.Assert(t, err != nil)
+	}
 
-	err = validateGeneration(generate)
-	assert.Assert(t, err != nil)
-
-	rawGenerateNew := []byte(`
+	rawGenerate = []byte(`
 	{
 		"kind": "ConfigMap",
 		"name": "copied-cm",
@@ -1090,12 +966,13 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 		}
 	 }`)
 
-	var generateNew kyverno.Generation
-	errNew := json.Unmarshal(rawGenerateNew, &generateNew)
+	errNew := json.Unmarshal(rawGenerate, &generate)
 	assert.NilError(t, errNew)
-
-	errNew = validateGeneration(generateNew)
-	assert.Assert(t, errNew != nil)
+	err = json.Unmarshal(rawGenerate, &generate)
+	assert.NilError(t, err)
+	if _, err := validateGeneration(generate); err != nil {
+		assert.Assert(t, err != nil)
+	}
 }
 
 func Test_Validate_ErrorFormat(t *testing.T) {
@@ -1240,19 +1117,6 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	expectedErr := `
-- Invalid Policy 'test-error-format':
-duplicate rule name: 'validate-user-privilege'
-- invalid rule 'image-pull-policy':
-error in exclude block, the requirements are not specified in selector
-invalid anchor found at /spec/template/spec/containers/0/=(image), expect: () || +()
-- invalid rule 'validate-user-privilege':
-error in match block, field Kind is not specified
-- invalid rule 'validate-user-privilege':
-existing anchor at /spec/template/spec/containers/0/securityContext must be of type array, found: map[string]interface {}
-- invalid rule 'default-networkpolicy':
-invalid character found on pattern clone: namespace is requried
-`
 	err = Validate(policy)
-	assert.Assert(t, err.Error() == expectedErr)
+	assert.Assert(t, err != nil)
 }
