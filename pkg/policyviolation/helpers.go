@@ -41,6 +41,9 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 	dclient *dclient.Client, engineResponses []engine.EngineResponse, requestBlocked bool) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
+		// create pv on resource owner only when admission request is denied
+		// check before validate "er.PolicyResponse.Resource.Name" since
+		// child resource is not created in this case thus it won't have a name
 		if requestBlocked {
 			glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
 			if pvList := buildPVWithOwner(dclient, er); len(pvList) != 0 {
@@ -51,7 +54,7 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 
 		// ignore creation of PV for resoruces that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
-			glog.V(4).Infof("resource %v, has not been assigned a name. not creating a policy violation for it", er.PolicyResponse.Resource)
+			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
 		}
 
@@ -187,6 +190,8 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 	return pvs[0], nil
 }
 
+// pass in unstr rather than using the client to get the unstr
+// as if name is empty then GetResource panic as it returns a list
 func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvResourceOwner {
 	resourceOwners := unstr.GetOwnerReferences()
 	if len(resourceOwners) == 0 {
@@ -199,7 +204,6 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 
 	var owners []pvResourceOwner
 	for _, resourceOwner := range resourceOwners {
-		// if name is empty then GetResource panic as it returns a list
 		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
 		if err != nil {
 			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name, err)

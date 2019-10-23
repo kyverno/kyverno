@@ -423,7 +423,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 		// remove the recorded stats for the policy
 		pc.statusAggregator.RemovePolicyStats(key)
-		// remove webhook configurations if there are not policies
+		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			// do not fail, if unable to delete resource webhook config
 			glog.V(4).Infof("failed to remove resource webhook configuration: %v", err)
