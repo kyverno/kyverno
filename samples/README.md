@@ -7,13 +7,19 @@ Sample policies are designed to be applied to your Kubernetes clusters with mini
 ````sh
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 ````
-[full installation docs](../documentation/installation.md)
+<small>[(installation docs)](../documentation/installation.md)</small>
 
-**Create Kyverno Policies**
+**Apply Kyverno Policies**
 
 ````bash
+
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/best_practices/
+
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/more/
+
 ````
+
+The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
 
 ## Best Practice Policies
 
