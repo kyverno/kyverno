@@ -1,6 +1,6 @@
 # Disallow use of default namespace
 
-Namespaces are a way to segment and isolate cluster resources across multiple users. When multiple users or teams are sharing a single cluster, it is recommended to isolate different workloads and restrict use of the default namespace.
+Kubernetes namespaces provide a way to segment and isolate cluster resources across multiple applictaions and users. It is recommended that each workload be isolated in its own namespace and that use of the default namespace be not allowed.
 
 ## Policy YAML 
 

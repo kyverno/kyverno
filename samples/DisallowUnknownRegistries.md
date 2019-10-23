@@ -1,6 +1,8 @@
 # Disallow unknown image registries
 
-Images from unknown registries may not be scanned and secured. Requiring use of known registries helps reduce threat exposure. You can customize this policy to allow image registries that you trust.
+Images from unknown registries may not be scanned and secured. Requiring the use of trusted registries helps reduce threat exposure. 
+
+You can customize this policy to allow image registries that you trust.
 
 ## Policy YAML 
 

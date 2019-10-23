@@ -1,6 +1,6 @@
 # Require `livenessProbe` and `readinessProbe`
 
-For each pod, a livenessProbe is carried out by the kubelet to determine when to restart a container. A readinessProbe is used by services and deployments to determine if the pod is ready to recieve network traffic. 
+For each pod, a `livenessProbe` is carried out by the kubelet to determine if containers are running and when to restart the pod. A `readinessProbe` is used by services and deployments to determine if the pod is ready to recieve network traffic. 
 
 Both liveness and readiness probes need to be configured to manage the pod lifecycle during restarts and upgrades.
 

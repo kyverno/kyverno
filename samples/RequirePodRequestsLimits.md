@@ -1,6 +1,8 @@
 # Require pod resource requests and limits
 
-As application workloads share cluster resources, it is important to limit resources requested and consumed by each pod. It is recommended to require `resources.requests` and `resources.limits` per pod. If a namespace level request or limit is specified, defaults will automatically be applied to each pod based on the `LimitRange` configuration. 
+Application workloads share cluster resources. Hence, it is important to manage resources assigned for each pod.  It is recommended that `resources.requests` and `resources.limits` are configured per pod and include CPU and memory resources. Other resources such as, GPUs, may also be specified as needed. 
+
+If a namespace level request or limit is specified, defaults will automatically be applied to each pod based on the `LimitRange` configuration. 
 
 ## Policy YAML 
 

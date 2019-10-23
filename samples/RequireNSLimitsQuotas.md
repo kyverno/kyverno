@@ -1,6 +1,10 @@
 # Configure namespace limits and quotas
 
-To limit the number of objects, as well as the total amount of compute that may be consumed by an application, it is important to create resource limits and quotas for each namespace.
+To limit the number of resources like CPU and memory, as well as objects that may be consumed by workloads in a namespace, it is important to configure resource limits and quotas for each namespace.
+
+## Additional Information
+
+* [Resource Quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
 
 ## Policy YAML 
 
@@ -28,8 +32,4 @@ spec:
           limits.cpu: "*"
           limits.memory: "*"
 ````
-
-## Additional Information
-
-* [Resource Quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
 

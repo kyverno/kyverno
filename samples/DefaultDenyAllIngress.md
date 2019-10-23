@@ -1,6 +1,8 @@
 # Default deny all ingress traffic
 
-By default, Kubernetes allows all ingress and egress traffic to and from pods within a cluster. A "default" `NetworkPolicy` resource for a namespace should be used to deny all ingress traffic to the pods in that namespace. Additional `NetworkPolicy` resources can then be configured to allow desired traffic to application pods.
+By default, Kubernetes allows all ingress and egress traffic to and from pods within a cluster. 
+
+A "default" `NetworkPolicy` should be configured for each namespace to default deny all ingress traffic to the pods in that namespace. Later, the application team can configure additional `NetworkPolicy` resources to allow desired traffic to application pods from select sources.
 
 ## Policy YAML 
 

@@ -1,6 +1,6 @@
 # Disallow use of host filesystem
 
-The volume of type `hostpath` binds pods to a specific host, and data persisted in the volume is dependent on the life of the node. In a shared cluster, it is recommeded that applications are independent of hosts.
+The volume of type `hostpath` allows pods to use host directories and volume mounted to a host path. This binds pods to a specific host, and data persisted in the volume is coupled to the life of the node. It is highly recommeded that applications are designed to be decoupled from the underlying infrstructure (in this case, nodes).
 
 ## Policy YAML 
 

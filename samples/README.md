@@ -26,7 +26,7 @@ The policies are mostly validation rules in `audit` mode i.e. your existing work
 These policies are highly recommended.
 
 1. [Run as non-root user](RunAsNonRootUser.md)
-2. [Disable privilege escalation](DisablePrivilegedContainers.md)
+2. [Disable privileged containers and disallow privilege escalation](DisablePrivilegedContainers.md)
 3. [Require Read-only root filesystem](RequireReadOnlyFS.md)
 4. [Disallow use of host filesystem](DisallowHostFS.md)
 5. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
@@ -36,7 +36,7 @@ These policies are highly recommended.
 9. [Disallow use of default namespace](DisallowDefaultNamespace.md)
 10. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
 11. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
-12. [Require pod `livenessProbe` and `readinessProbe`]()
+12. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 13. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
 
 

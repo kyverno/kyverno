@@ -1,7 +1,7 @@
 
 # Disallow `hostNetwork` and `hostPort`
 
-Using `hostPort` and `hostNetwork` allows pods to share the host network stack, allowing potential snooping of network traffic from an application pod. 
+Using `hostPort` and `hostNetwork` allows pods to share the host networking stack allowing potential snooping of network traffic across application pods. 
 
 ## Policy YAML
 

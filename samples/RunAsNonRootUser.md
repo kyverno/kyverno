@@ -1,6 +1,10 @@
 # Run as non-root user
 
-By default, processes in a container run as a root user (uid 0). To prevent potential compromise of container hosts, specify a least privileged user ID when building the container image and require that application containers run as non root users i.e. set `runAsNonRoot` to `true`.
+By default, all processes in a container run as the root user (uid 0). To prevent potential compromise of container hosts, specify a non-root and least privileged user ID when building the container image and require that application containers run as non root users i.e. set `runAsNonRoot` to `true`.
+
+## Additional Information
+
+* [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 
 ## Policy YAML 
 
@@ -30,8 +34,3 @@ spec:
             securityContext:
               runAsNonRoot: true
 ````
-
-
-## Additional Information
-
-* [Pod Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
