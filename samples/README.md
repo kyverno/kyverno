@@ -36,7 +36,7 @@ These policies are highly recommended.
 9. [Disallow use of default namespace](DisallowDefaultNamespace.md)
 10. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
 11. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
-12. [Require pod `livenessProbe` and `readinessProbe`]()
+12. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 13. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
 
 
@@ -44,7 +44,7 @@ These policies are highly recommended.
 
 The policies provide additional best practices and are worthy of close consideration. These policies may require workload specific changes. 
 
-14. [Limit use of `NodePort` services]()
+14. [Limit use of `NodePort` services](RestrictNodePort.md)
 15. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
 16. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
 17. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
