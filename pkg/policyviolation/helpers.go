@@ -3,6 +3,7 @@ package policyviolation
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -10,16 +11,14 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
+	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	"k8s.io/client-go/tools/cache"
+	deployutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
-
-type pvResourceOwner struct {
-	kind      string
-	namespace string
-	name      string
-}
 
 //BuildPolicyViolation returns an value of type PolicyViolation
 func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
@@ -48,6 +47,8 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 			glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
 			if pvList := buildPVWithOwner(dclient, er); len(pvList) != 0 {
 				pvs = append(pvs, pvList...)
+				glog.V(3).Infof("Built policy violation for denied admission request %s/%s/%s",
+					er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
 			}
 			continue
 		}
@@ -84,13 +85,15 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 			_, err := client.KyvernoV1alpha1().ClusterPolicyViolations().Create(&newPv)
 			if err != nil {
 				glog.Error(err)
+			} else {
+				glog.Infof("policy violation created for resource %s", newPv.Spec.ResourceSpec.ToKey())
 			}
 			continue
 		}
 		// compare the policyviolation spec for existing resource if present else
 		if reflect.DeepEqual(curPv.Spec, newPv.Spec) {
 			// if they are equal there has been no change so dont update the polivy violation
-			glog.Infof("policy violation '%s/%s/%s' spec did not change so not updating it", newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
+			glog.V(3).Infof("policy violation '%s/%s/%s' spec did not change so not updating it", newPv.Spec.Kind, newPv.Spec.Namespace, newPv.Spec.Name)
 			glog.V(4).Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
 			continue
 		}
@@ -103,6 +106,7 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 			glog.Error(err)
 			continue
 		}
+		glog.Infof("policy violation updated for resource %s", newPv.Spec.ResourceSpec.ToKey())
 	}
 }
 
@@ -119,7 +123,7 @@ func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 }
 
 func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.ClusterPolicyViolation) {
-	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Name)
+	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
 	violatedRules := newViolatedRules(er, msg)
 
 	// create violation on resource owner (if exist) when action is set to enforce
@@ -152,16 +156,9 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 	// TODO: check for existing ov using label selectors on resource and policy
 	// TODO: there can be duplicates, as the labels have not been assigned to the policy violation yet
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
-	ls := &metav1.LabelSelector{}
-	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
+	policyViolationSelector, err := converLabelToSelector(labelMap)
 	if err != nil {
-		glog.Errorf("failed to generate label sector of Policy name %s: %v", newPv.Spec.Policy, err)
-		return nil, err
-	}
-	policyViolationSelector, err := metav1.LabelSelectorAsSelector(ls)
-	if err != nil {
-		glog.Errorf("invalid label selector: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", newPv.Spec.Policy, err)
 	}
 
 	//TODO: sync the cache before reading from it ?
@@ -190,6 +187,34 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 	return pvs[0], nil
 }
 
+func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) {
+	ls := &metav1.LabelSelector{}
+	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	policyViolationSelector, err := metav1.LabelSelectorAsSelector(ls)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label selector: %v", err)
+	}
+
+	return policyViolationSelector, nil
+}
+
+type pvResourceOwner struct {
+	kind      string
+	namespace string
+	name      string
+}
+
+func (o pvResourceOwner) toKey() string {
+	if o.namespace == "" {
+		return o.kind + "." + o.name
+	}
+	return o.kind + "." + o.namespace + "." + o.name
+}
+
 // pass in unstr rather than using the client to get the unstr
 // as if name is empty then GetResource panic as it returns a list
 func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvResourceOwner {
@@ -216,6 +241,13 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 }
 
 func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyverno.ViolatedRule) {
+	unstr := er.PatchedResource
+	dependant := kyverno.Dependant{
+		Kind:            unstr.GetKind(),
+		Namespace:       unstr.GetNamespace(),
+		CreationBlocked: true,
+	}
+
 	for _, r := range er.PolicyResponse.Rules {
 		// filter failed/violated rules
 		if !r.Success {
@@ -224,8 +256,88 @@ func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyv
 				Type:    r.Type,
 				Message: msg + r.Message,
 			}
+			// resource creation blocked
+			// set resource itself as dependant
+			if strings.Contains(msg, "Request Blocked") {
+				vrule.Dependant = dependant
+			}
+
 			violatedRules = append(violatedRules, vrule)
 		}
 	}
 	return
+}
+
+func containsOwner(owners []pvResourceOwner, pv *kyverno.ClusterPolicyViolation) bool {
+	curOwner := pvResourceOwner{
+		kind:      pv.Spec.ResourceSpec.Kind,
+		name:      pv.Spec.ResourceSpec.Name,
+		namespace: pv.Spec.ResourceSpec.Namespace,
+	}
+
+	for _, targetOwner := range owners {
+		if reflect.DeepEqual(curOwner, targetOwner) {
+			return true
+		}
+	}
+	return false
+}
+
+// validDependantForDeployment checks if resource (pod) matches the intent of the given deployment
+// explicitly handles deployment-replicaset-pod relationship
+func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.ClusterPolicyViolation, resource unstructured.Unstructured) bool {
+	if resource.GetKind() != "Pod" {
+		return false
+	}
+
+	// only handles deploymeny-replicaset-pod relationship
+	if curPv.Spec.ResourceSpec.Kind != "Deployment" {
+		return false
+	}
+
+	owner := pvResourceOwner{
+		kind:      curPv.Spec.ResourceSpec.Kind,
+		namespace: curPv.Spec.ResourceSpec.Namespace,
+		name:      curPv.Spec.ResourceSpec.Name,
+	}
+
+	deploy, err := client.Deployments(owner.namespace).Get(owner.name, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		return false
+	}
+
+	expectReplicaset, err := deployutil.GetNewReplicaSet(deploy, client)
+	if err != nil {
+		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		return false
+	}
+
+	if reflect.DeepEqual(expectReplicaset, v1.ReplicaSet{}) {
+		glog.V(2).Infof("no replicaset found for deploy %s/%s/%s", owner.namespace, owner.kind, owner.name)
+		return false
+	}
+	var actualReplicaset *v1.ReplicaSet
+	for _, podOwner := range resource.GetOwnerReferences() {
+		if podOwner.Kind != "ReplicaSet" {
+			continue
+		}
+
+		actualReplicaset, err = client.ReplicaSets(resource.GetNamespace()).Get(podOwner.Name, metav1.GetOptions{})
+		if err != nil {
+			glog.Errorf("failed to get replicaset from %s/%s/%s: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+			return false
+		}
+
+		if reflect.DeepEqual(actualReplicaset, v1.ReplicaSet{}) {
+			glog.V(2).Infof("no replicaset found for Pod/%s/%s", resource.GetNamespace(), podOwner.Name)
+			return false
+		}
+
+		if expectReplicaset.Name == actualReplicaset.Name {
+			return true
+		}
+	}
+
+	return false
 }

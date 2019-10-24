@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -69,6 +70,10 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 		return nil, err
 	}
 	return &deploy, nil
+}
+
+func (c *Client) GetAppsV1Interface() appsv1.AppsV1Interface {
+	return c.kclient.AppsV1()
 }
 
 //GetEventsInterface provides typed interface for events
