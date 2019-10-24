@@ -17,9 +17,10 @@ spec:
     generate:
       kind: ResourceQuota
       name: "defaultresourcequota"
-      spec:
-        hard:
-          requests.cpu: "*"
-          requests.memory: "*"
-          limits.cpu: "*"
-          limits.memory: "*"
+      data:
+        spec:
+          hard:
+            requests.cpu: '1'
+            requests.memory: "1Gi"
+            limits.cpu: '3'
+            limits.memory: "2Gi"
