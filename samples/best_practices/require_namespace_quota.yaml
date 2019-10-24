@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-namespace-quota
+  name: generate-namespace-quota
   annotations:
     policies.kyverno.io/category: Resource Quota
     policies.kyverno.io/description: To limit the number of objects, as well as the 
@@ -9,7 +9,7 @@ metadata:
       to create resource limits and quotas for each namespace.
 spec:
   rules:
-  - name: validate-namespace-quota
+  - name: generate-namespace-quota
     match:
       resources:
         kinds:
@@ -20,7 +20,7 @@ spec:
       data:
         spec:
           hard:
-            requests.cpu: '1'
-            requests.memory: "1Gi"
-            limits.cpu: '3'
-            limits.memory: "2Gi"
+            requests.cpu: '4'
+            requests.memory: "16Gi"
+            limits.cpu: '4'
+            limits.memory: "16Gi"
