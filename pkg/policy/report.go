@@ -22,7 +22,7 @@ func (pc *PolicyController) report(engineResponses []engine.EngineResponse) {
 	}
 
 	// generate policy violation
-	policyviolation.CreatePV(pc.pvLister, pc.kyvernoClient, nil, engineResponses, false)
+	policyviolation.CreatePV(pc.pvLister, pc.kyvernoClient, engineResponses)
 }
 
 //reportEvents generates events for the failed resources

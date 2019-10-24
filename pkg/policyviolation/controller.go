@@ -221,24 +221,50 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 		return err
 	}
 
-	if err := pvc.syncBlockedResource(pv); err != nil {
-		glog.V(4).Infof("not syncing policy violation status")
+	return pvc.syncStatusOnly(pv)
+}
+
+func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterPolicyViolation) error {
+	// check if the resource is active or not ?
+	rspec := curPv.Spec.ResourceSpec
+	// get resource
+	_, err := pvc.client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+	if errors.IsNotFound(err) {
+		// TODO: does it help to retry?
+		// resource is not found
+		// remove the violation
+
+		if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
+			glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
+			return err
+		}
+		glog.V(4).Infof("removing policy violation %s as the corresponding resource %s/%s/%s does not exist anymore", curPv.Name, rspec.Kind, rspec.Namespace, rspec.Name)
+		return nil
+	}
+	if err != nil {
+		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
 		return err
 	}
 
-	return pvc.syncStatusOnly(pv)
+	// cleanup pv with dependant
+	if err := pvc.syncBlockedResource(curPv); err != nil {
+		return err
+	}
+
+	//TODO- if the policy is not present, remove the policy violation
+	return nil
 }
 
 // syncBlockedResource remove inactive policy violation
 // when rejected resource created in the cluster
 func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.ClusterPolicyViolation) error {
 	for _, violatedRule := range curPv.Spec.ViolatedRules {
-		if reflect.DeepEqual(violatedRule.Dependant, kyverno.Dependant{}) {
+		if reflect.DeepEqual(violatedRule.ManagedResource, kyverno.ManagedResource{}) {
 			continue
 		}
 
 		// get resource
-		blockedResource := violatedRule.Dependant
+		blockedResource := violatedRule.ManagedResource
 		resources, _ := pvc.client.ListResource(blockedResource.Kind, blockedResource.Namespace, nil)
 
 		for _, resource := range resources.Items {
@@ -265,31 +291,6 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 			}
 		}
 	}
-	return nil
-}
-
-func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterPolicyViolation) error {
-	// check if the resource is active or not ?
-	rspec := curPv.Spec.ResourceSpec
-	// get resource
-	_, err := pvc.client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
-	if errors.IsNotFound(err) {
-		// TODO: does it help to retry?
-		// resource is not found
-		// remove the violation
-
-		if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
-			glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
-			return err
-		}
-		glog.V(4).Infof("removing policy violation %s as the corresponding resource %s/%s/%s does not exist anymore", curPv.Name, rspec.Kind, rspec.Namespace, rspec.Name)
-		return nil
-	}
-	if err != nil {
-		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
-		return err
-	}
-	//TODO- if the policy is not present, remove the policy violation
 	return nil
 }
 

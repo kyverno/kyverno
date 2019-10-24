@@ -230,7 +230,7 @@ spec:
                     type: string
                   message:
                     type: string
-                  dependant:
+                  managedResource:
                     type: object
                     required:
                     - kind

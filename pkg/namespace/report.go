@@ -21,7 +21,7 @@ func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) 
 		// failure - policy/rule failed to apply on the resource
 	}
 	// generate policy violation
-	policyviolation.CreatePV(nsc.pvLister, nsc.kyvernoClient, nil, engineResponses, false)
+	policyviolation.CreatePV(nsc.pvLister, nsc.kyvernoClient, engineResponses)
 }
 
 //reportEvents generates events for the failed resources

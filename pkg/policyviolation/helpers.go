@@ -36,23 +36,9 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 }
 
 //CreatePV creates policy violation resource based on the engine responses
-func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
-	dclient *dclient.Client, engineResponses []engine.EngineResponse, requestBlocked bool) {
+func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
-		// create pv on resource owner only when admission request is denied
-		// check before validate "er.PolicyResponse.Resource.Name" since
-		// child resource is not created in this case thus it won't have a name
-		if requestBlocked {
-			glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
-			if pvList := buildPVWithOwner(dclient, er); len(pvList) != 0 {
-				pvs = append(pvs, pvList...)
-				glog.V(3).Infof("Built policy violation for denied admission request %s/%s/%s",
-					er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
-			}
-			continue
-		}
-
 		// ignore creation of PV for resoruces that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
 			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
@@ -67,6 +53,26 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 		}
 	}
 
+	createPV(pvLister, client, pvs)
+}
+
+// CreatePVWhenBlocked creates pv on resource owner only when admission request is denied
+func CreatePVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
+	dclient *dclient.Client, engineResponses []engine.EngineResponse) {
+	var pvs []kyverno.ClusterPolicyViolation
+	for _, er := range engineResponses {
+		// child resource is not created in this case thus it won't have a name
+		glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
+		if pvList := buildPVWithOwner(dclient, er); len(pvList) != 0 {
+			pvs = append(pvs, pvList...)
+			glog.V(3).Infof("Built policy violation for denied admission request %s/%s/%s",
+				er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
+		}
+	}
+	createPV(pvLister, client, pvs)
+}
+
+func createPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.ClusterPolicyViolation) {
 	if len(pvs) == 0 {
 		return
 	}
@@ -242,7 +248,7 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 
 func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyverno.ViolatedRule) {
 	unstr := er.PatchedResource
-	dependant := kyverno.Dependant{
+	dependant := kyverno.ManagedResource{
 		Kind:            unstr.GetKind(),
 		Namespace:       unstr.GetNamespace(),
 		CreationBlocked: true,
@@ -259,7 +265,7 @@ func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyv
 			// resource creation blocked
 			// set resource itself as dependant
 			if strings.Contains(msg, "Request Blocked") {
-				vrule.Dependant = dependant
+				vrule.ManagedResource = dependant
 			}
 
 			violatedRules = append(violatedRules, vrule)
