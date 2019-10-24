@@ -38,6 +38,7 @@ import (
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/handlers"
+	iampolicy "github.com/minio/minio/pkg/iam/policy"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
@@ -52,23 +53,11 @@ func IsErrIgnored(err error, ignoredErrs ...error) bool {
 // IsErr returns whether given error is exact error.
 func IsErr(err error, errs ...error) bool {
 	for _, exactErr := range errs {
-		if err == exactErr {
+		if errors.Is(err, exactErr) {
 			return true
 		}
 	}
 	return false
-}
-
-// make a copy of http.Header
-func cloneHeader(h http.Header) http.Header {
-	h2 := make(http.Header, len(h))
-	for k, vv := range h {
-		vv2 := make([]string, len(vv))
-		copy(vv2, vv)
-		h2[k] = vv2
-
-	}
-	return h2
 }
 
 func request2BucketObjectName(r *http.Request) (bucketName, objectName string) {
@@ -288,7 +277,7 @@ var globalProfiler minioProfiler
 
 // dump the request into a string in JSON format.
 func dumpRequest(r *http.Request) string {
-	header := cloneHeader(r.Header)
+	header := r.Header.Clone()
 	header.Set("Host", r.Host)
 	// Replace all '%' to '%%' so that printer format parser
 	// to ignore URL encoded values.
@@ -437,28 +426,6 @@ func newContext(r *http.Request, w http.ResponseWriter, api string) context.Cont
 	return logger.SetReqInfo(r.Context(), reqInfo)
 }
 
-// isNetworkOrHostDown - if there was a network error or if the host is down.
-func isNetworkOrHostDown(err error) bool {
-	if err == nil {
-		return false
-	}
-	// We need to figure if the error either a timeout
-	// or a non-temporary error.
-	e, ok := err.(net.Error)
-	if ok {
-		return e.Timeout()
-	}
-	// Fallback to other mechanisms.
-	if strings.Contains(err.Error(), "i/o timeout") {
-		// If error is - tcp timeoutError.
-		ok = true
-	} else if strings.Contains(err.Error(), "connection timed out") {
-		// If err is a net.Dial timeout.
-		ok = true
-	}
-	return ok
-}
-
 // Used for registering with rest handlers (have a look at registerStorageRESTHandlers for usage example)
 // If it is passed ["aaaa", "bbbb"], it returns ["aaaa", "{aaaa:.*}", "bbbb", "{bbbb:.*}"]
 func restQueries(keys ...string) []string {
@@ -474,4 +441,54 @@ func reverseStringSlice(input []string) {
 	for left, right := 0, len(input)-1; left < right; left, right = left+1, right-1 {
 		input[left], input[right] = input[right], input[left]
 	}
+}
+
+// lcp finds the longest common prefix of the input strings.
+// It compares by bytes instead of runes (Unicode code points).
+// It's up to the caller to do Unicode normalization if desired
+// (e.g. see golang.org/x/text/unicode/norm).
+func lcp(l []string) string {
+	// Special cases first
+	switch len(l) {
+	case 0:
+		return ""
+	case 1:
+		return l[0]
+	}
+	// LCP of min and max (lexigraphically)
+	// is the LCP of the whole set.
+	min, max := l[0], l[0]
+	for _, s := range l[1:] {
+		switch {
+		case s < min:
+			min = s
+		case s > max:
+			max = s
+		}
+	}
+	for i := 0; i < len(min) && i < len(max); i++ {
+		if min[i] != max[i] {
+			return min[:i]
+		}
+	}
+	// In the case where lengths are not equal but all bytes
+	// are equal, min is the answer ("foo" < "foobar").
+	return min
+}
+
+// Returns the mode in which MinIO is running
+func getMinioMode() string {
+	mode := globalMinioModeFS
+	if globalIsDistXL {
+		mode = globalMinioModeDistXL
+	} else if globalIsXL {
+		mode = globalMinioModeXL
+	} else if globalIsGateway {
+		mode = globalMinioModeGatewayPrefix + globalGatewayName
+	}
+	return mode
+}
+
+func iamPolicyName() string {
+	return globalOpenIDConfig.ClaimPrefix + iampolicy.PolicyName
 }

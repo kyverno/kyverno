@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package debug exports debug information for gopls.
 package debug
 
 import (
@@ -20,7 +21,7 @@ const (
 )
 
 // Version is a manually-updated mechanism for tracking versions.
-var Version = "v0.1.3"
+var Version = "v0.1.6"
 
 // This writes the version and environment information to a writer.
 func PrintVersionInfo(w io.Writer, verbose bool, mode PrintMode) {

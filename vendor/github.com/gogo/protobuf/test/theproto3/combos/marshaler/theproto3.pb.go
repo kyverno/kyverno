@@ -17,6 +17,7 @@ import (
 	github_com_gogo_protobuf_test_custom "github.com/gogo/protobuf/test/custom"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -31,7 +32,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MapEnum int32
 
@@ -115,7 +116,7 @@ func (m *Message) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Message.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +155,7 @@ func (m *Nested) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Nested.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -209,7 +210,7 @@ func (m *AllMaps) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_AllMaps.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +262,7 @@ func (m *AllMapsOrdered) XXX_Unmarshal(b []byte) error {
 }
 func (m *AllMapsOrdered) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	b = b[:cap(b)]
-	n, err := m.MarshalTo(b)
+	n, err := m.MarshalToSizedBuffer(b)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +302,7 @@ func (m *MessageWithMap) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_MessageWithMap.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +341,7 @@ func (m *FloatingPoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_FloatingPoint.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -380,7 +381,7 @@ func (m *Uint128Pair) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_Uint128Pair.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +419,7 @@ func (m *ContainsNestedMap) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_ContainsNestedMap.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -457,7 +458,7 @@ func (m *ContainsNestedMap_NestedMap) XXX_Marshal(b []byte, deterministic bool) 
 		return xxx_messageInfo_ContainsNestedMap_NestedMap.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -496,7 +497,7 @@ func (m *NotPacked) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NotPacked.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3716,7 +3717,7 @@ func valueToGoStringTheproto3(v interface{}, typ string) string {
 func (m *Message) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3724,154 +3725,161 @@ func (m *Message) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Message) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Message) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Hilarity != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.Hilarity))
-	}
-	if m.HeightInCm != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.HeightInCm))
-	}
-	if len(m.Data) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
-	}
-	if len(m.Key) > 0 {
-		dAtA2 := make([]byte, len(m.Key)*10)
-		var j1 int
-		for _, num := range m.Key {
-			for num >= 1<<7 {
-				dAtA2[j1] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j1++
+	if len(m.Proto2Value) > 0 {
+		for k := range m.Proto2Value {
+			v := m.Proto2Value[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTheproto3(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
 			}
-			dAtA2[j1] = uint8(num)
-			j1++
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x6a
 		}
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(j1))
-		i += copy(dAtA[i:], dAtA2[:j1])
 	}
-	if m.Nested != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.Nested.Size()))
-		n3, err := m.Nested.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if m.Proto2Field != nil {
+		{
+			size, err := m.Proto2Field.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTheproto3(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x5a
 	}
-	if m.ResultCount != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.ResultCount))
+	if len(m.Terrain) > 0 {
+		for k := range m.Terrain {
+			v := m.Terrain[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTheproto3(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x52
+		}
+	}
+	if m.Score != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Score))))
+		i--
+		dAtA[i] = 0x4d
 	}
 	if m.TrueScotsman {
-		dAtA[i] = 0x40
-		i++
+		i--
 		if m.TrueScotsman {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x40
 	}
-	if m.Score != 0 {
-		dAtA[i] = 0x4d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Score))))
-		i += 4
+	if m.ResultCount != 0 {
+		i = encodeVarintTheproto3(dAtA, i, uint64(m.ResultCount))
+		i--
+		dAtA[i] = 0x38
 	}
-	if len(m.Terrain) > 0 {
-		for k := range m.Terrain {
-			dAtA[i] = 0x52
-			i++
-			v := m.Terrain[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTheproto3(uint64(msgSize))
+	if m.Nested != nil {
+		{
+			size, err := m.Nested.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			mapSize := 1 + sovTheproto3(uint64(k)) + msgSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(v.Size()))
-				n4, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n4
-			}
+			i -= size
+			i = encodeVarintTheproto3(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.Proto2Field != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.Proto2Field.Size()))
-		n5, err := m.Proto2Field.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if len(m.Proto2Value) > 0 {
-		for k := range m.Proto2Value {
-			dAtA[i] = 0x6a
-			i++
-			v := m.Proto2Value[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTheproto3(uint64(msgSize))
+	if len(m.Key) > 0 {
+		dAtA6 := make([]byte, len(m.Key)*10)
+		var j5 int
+		for _, num := range m.Key {
+			for num >= 1<<7 {
+				dAtA6[j5] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j5++
 			}
-			mapSize := 1 + sovTheproto3(uint64(k)) + msgSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(v.Size()))
-				n6, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n6
-			}
+			dAtA6[j5] = uint8(num)
+			j5++
 		}
+		i -= j5
+		copy(dAtA[i:], dAtA6[:j5])
+		i = encodeVarintTheproto3(dAtA, i, uint64(j5))
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Data) > 0 {
+		i -= len(m.Data)
+		copy(dAtA[i:], m.Data)
+		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Data)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.HeightInCm != 0 {
+		i = encodeVarintTheproto3(dAtA, i, uint64(m.HeightInCm))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Hilarity != 0 {
+		i = encodeVarintTheproto3(dAtA, i, uint64(m.Hilarity))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Nested) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3879,26 +3887,33 @@ func (m *Nested) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Nested) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Nested) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Bunny) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Bunny)))
-		i += copy(dAtA[i:], m.Bunny)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Bunny) > 0 {
+		i -= len(m.Bunny)
+		copy(dAtA[i:], m.Bunny)
+		i = encodeVarintTheproto3(dAtA, i, uint64(len(m.Bunny)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AllMaps) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3906,325 +3921,332 @@ func (m *AllMaps) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AllMaps) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AllMaps) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.StringToDoubleMap) > 0 {
-		for k := range m.StringToDoubleMap {
-			dAtA[i] = 0xa
-			i++
-			v := m.StringToDoubleMap[k]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.StringToMsgMap) > 0 {
+		for k := range m.StringToMsgMap {
+			v := m.StringToMsgMap[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTheproto3(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
-			i += 8
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x8a
 		}
 	}
-	if len(m.StringToFloatMap) > 0 {
-		for k := range m.StringToFloatMap {
+	if len(m.StringToEnumMap) > 0 {
+		for k := range m.StringToEnumMap {
+			v := m.StringToEnumMap[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x82
+		}
+	}
+	if len(m.StringToBytesMap) > 0 {
+		for k := range m.StringToBytesMap {
+			v := m.StringToBytesMap[k]
+			baseI := i
+			if len(v) > 0 {
+				i -= len(v)
+				copy(dAtA[i:], v)
+				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7a
+		}
+	}
+	if len(m.StringMap) > 0 {
+		for k := range m.StringMap {
+			v := m.StringMap[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+			i--
 			dAtA[i] = 0x12
-			i++
-			v := m.StringToFloatMap[k]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
-			i += 4
-		}
-	}
-	if len(m.Int32Map) > 0 {
-		for k := range m.Int32Map {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Int32Map[k]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Int64Map) > 0 {
-		for k := range m.Int64Map {
-			dAtA[i] = 0x22
-			i++
-			v := m.Int64Map[k]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Uint32Map) > 0 {
-		for k := range m.Uint32Map {
-			dAtA[i] = 0x2a
-			i++
-			v := m.Uint32Map[k]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Uint64Map) > 0 {
-		for k := range m.Uint64Map {
-			dAtA[i] = 0x32
-			i++
-			v := m.Uint64Map[k]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Sint32Map) > 0 {
-		for k := range m.Sint32Map {
-			dAtA[i] = 0x3a
-			i++
-			v := m.Sint32Map[k]
-			mapSize := 1 + sozTheproto3(uint64(k)) + 1 + sozTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
-		}
-	}
-	if len(m.Sint64Map) > 0 {
-		for k := range m.Sint64Map {
-			dAtA[i] = 0x42
-			i++
-			v := m.Sint64Map[k]
-			mapSize := 1 + sozTheproto3(uint64(k)) + 1 + sozTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(k)<<1)^uint64((k>>63))))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
-		}
-	}
-	if len(m.Fixed32Map) > 0 {
-		for k := range m.Fixed32Map {
-			dAtA[i] = 0x4a
-			i++
-			v := m.Fixed32Map[k]
-			mapSize := 1 + 4 + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xd
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
-			i += 4
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
-			i += 4
-		}
-	}
-	if len(m.Sfixed32Map) > 0 {
-		for k := range m.Sfixed32Map {
-			dAtA[i] = 0x52
-			i++
-			v := m.Sfixed32Map[k]
-			mapSize := 1 + 4 + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xd
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
-			i += 4
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
-			i += 4
-		}
-	}
-	if len(m.Fixed64Map) > 0 {
-		for k := range m.Fixed64Map {
-			dAtA[i] = 0x5a
-			i++
-			v := m.Fixed64Map[k]
-			mapSize := 1 + 8 + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x9
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
-			i += 8
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
-		}
-	}
-	if len(m.Sfixed64Map) > 0 {
-		for k := range m.Sfixed64Map {
-			dAtA[i] = 0x62
-			i++
-			v := m.Sfixed64Map[k]
-			mapSize := 1 + 8 + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x9
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
-			i += 8
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.BoolMap) > 0 {
 		for k := range m.BoolMap {
-			dAtA[i] = 0x6a
-			i++
 			v := m.BoolMap[k]
-			mapSize := 1 + 1 + 1 + 1
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			if k {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-			dAtA[i] = 0x10
-			i++
+			baseI := i
+			i--
 			if v {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
-		}
-	}
-	if len(m.StringMap) > 0 {
-		for k := range m.StringMap {
-			dAtA[i] = 0x72
-			i++
-			v := m.StringMap[k]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + len(v) + sovTheproto3(uint64(len(v)))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.StringToBytesMap) > 0 {
-		for k := range m.StringToBytesMap {
-			dAtA[i] = 0x7a
-			i++
-			v := m.StringToBytesMap[k]
-			byteSize := 0
-			if len(v) > 0 {
-				byteSize = 1 + len(v) + sovTheproto3(uint64(len(v)))
-			}
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + byteSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if len(v) > 0 {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-				i += copy(dAtA[i:], v)
-			}
-		}
-	}
-	if len(m.StringToEnumMap) > 0 {
-		for k := range m.StringToEnumMap {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.StringToEnumMap[k]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
+			i--
 			dAtA[i] = 0x10
-			i++
+			i--
+			if k {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x6a
+		}
+	}
+	if len(m.Sfixed64Map) > 0 {
+		for k := range m.Sfixed64Map {
+			v := m.Sfixed64Map[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
+			dAtA[i] = 0x11
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
+			i--
+			dAtA[i] = 0x9
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if len(m.Fixed64Map) > 0 {
+		for k := range m.Fixed64Map {
+			v := m.Fixed64Map[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
+			dAtA[i] = 0x11
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
+			i--
+			dAtA[i] = 0x9
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x5a
+		}
+	}
+	if len(m.Sfixed32Map) > 0 {
+		for k := range m.Sfixed32Map {
+			v := m.Sfixed32Map[k]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			i--
+			dAtA[i] = 0x15
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
+			i--
+			dAtA[i] = 0xd
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x52
+		}
+	}
+	if len(m.Fixed32Map) > 0 {
+		for k := range m.Fixed32Map {
+			v := m.Fixed32Map[k]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			i--
+			dAtA[i] = 0x15
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
+			i--
+			dAtA[i] = 0xd
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
+	if len(m.Sint64Map) > 0 {
+		for k := range m.Sint64Map {
+			v := m.Sint64Map[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(k)<<1)^uint64((k>>63))))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x42
+		}
+	}
+	if len(m.Sint32Map) > 0 {
+		for k := range m.Sint32Map {
+			v := m.Sint32Map[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
+	if len(m.Uint64Map) > 0 {
+		for k := range m.Uint64Map {
+			v := m.Uint64Map[k]
+			baseI := i
 			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
 		}
 	}
-	if len(m.StringToMsgMap) > 0 {
-		for k := range m.StringToMsgMap {
-			dAtA[i] = 0x8a
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.StringToMsgMap[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTheproto3(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + msgSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
+	if len(m.Uint32Map) > 0 {
+		for k := range m.Uint32Map {
+			v := m.Uint32Map[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.Int64Map) > 0 {
+		for k := range m.Int64Map {
+			v := m.Int64Map[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Int32Map) > 0 {
+		for k := range m.Int32Map {
+			v := m.Int32Map[k]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.StringToFloatMap) > 0 {
+		for k := range m.StringToFloatMap {
+			v := m.StringToFloatMap[k]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
+			i--
+			dAtA[i] = 0x15
+			i -= len(k)
+			copy(dAtA[i:], k)
 			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(v.Size()))
-				n7, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n7
-			}
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.StringToDoubleMap) > 0 {
+		for k := range m.StringToDoubleMap {
+			v := m.StringToDoubleMap[k]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			i--
+			dAtA[i] = 0x11
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AllMapsOrdered) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4232,340 +4254,50 @@ func (m *AllMapsOrdered) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AllMapsOrdered) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AllMapsOrdered) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.StringToDoubleMap) > 0 {
-		keysForStringToDoubleMap := make([]string, 0, len(m.StringToDoubleMap))
-		for k := range m.StringToDoubleMap {
-			keysForStringToDoubleMap = append(keysForStringToDoubleMap, string(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
-		for _, k := range keysForStringToDoubleMap {
-			dAtA[i] = 0xa
-			i++
-			v := m.StringToDoubleMap[string(k)]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
-			i += 8
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.StringToFloatMap) > 0 {
-		keysForStringToFloatMap := make([]string, 0, len(m.StringToFloatMap))
-		for k := range m.StringToFloatMap {
-			keysForStringToFloatMap = append(keysForStringToFloatMap, string(k))
+	if len(m.StringToMsgMap) > 0 {
+		keysForStringToMsgMap := make([]string, 0, len(m.StringToMsgMap))
+		for k := range m.StringToMsgMap {
+			keysForStringToMsgMap = append(keysForStringToMsgMap, string(k))
 		}
-		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
-		for _, k := range keysForStringToFloatMap {
-			dAtA[i] = 0x12
-			i++
-			v := m.StringToFloatMap[string(k)]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
-			i += 4
-		}
-	}
-	if len(m.Int32Map) > 0 {
-		keysForInt32Map := make([]int32, 0, len(m.Int32Map))
-		for k := range m.Int32Map {
-			keysForInt32Map = append(keysForInt32Map, int32(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
-		for _, k := range keysForInt32Map {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Int32Map[int32(k)]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Int64Map) > 0 {
-		keysForInt64Map := make([]int64, 0, len(m.Int64Map))
-		for k := range m.Int64Map {
-			keysForInt64Map = append(keysForInt64Map, int64(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
-		for _, k := range keysForInt64Map {
-			dAtA[i] = 0x22
-			i++
-			v := m.Int64Map[int64(k)]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Uint32Map) > 0 {
-		keysForUint32Map := make([]uint32, 0, len(m.Uint32Map))
-		for k := range m.Uint32Map {
-			keysForUint32Map = append(keysForUint32Map, uint32(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
-		for _, k := range keysForUint32Map {
-			dAtA[i] = 0x2a
-			i++
-			v := m.Uint32Map[uint32(k)]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Uint64Map) > 0 {
-		keysForUint64Map := make([]uint64, 0, len(m.Uint64Map))
-		for k := range m.Uint64Map {
-			keysForUint64Map = append(keysForUint64Map, uint64(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
-		for _, k := range keysForUint64Map {
-			dAtA[i] = 0x32
-			i++
-			v := m.Uint64Map[uint64(k)]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Sint32Map) > 0 {
-		keysForSint32Map := make([]int32, 0, len(m.Sint32Map))
-		for k := range m.Sint32Map {
-			keysForSint32Map = append(keysForSint32Map, int32(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
-		for _, k := range keysForSint32Map {
-			dAtA[i] = 0x3a
-			i++
-			v := m.Sint32Map[int32(k)]
-			mapSize := 1 + sozTheproto3(uint64(k)) + 1 + sozTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
-		}
-	}
-	if len(m.Sint64Map) > 0 {
-		keysForSint64Map := make([]int64, 0, len(m.Sint64Map))
-		for k := range m.Sint64Map {
-			keysForSint64Map = append(keysForSint64Map, int64(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
-		for _, k := range keysForSint64Map {
-			dAtA[i] = 0x42
-			i++
-			v := m.Sint64Map[int64(k)]
-			mapSize := 1 + sozTheproto3(uint64(k)) + 1 + sozTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(k)<<1)^uint64((k>>63))))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
-		}
-	}
-	if len(m.Fixed32Map) > 0 {
-		keysForFixed32Map := make([]uint32, 0, len(m.Fixed32Map))
-		for k := range m.Fixed32Map {
-			keysForFixed32Map = append(keysForFixed32Map, uint32(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
-		for _, k := range keysForFixed32Map {
-			dAtA[i] = 0x4a
-			i++
-			v := m.Fixed32Map[uint32(k)]
-			mapSize := 1 + 4 + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xd
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
-			i += 4
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
-			i += 4
-		}
-	}
-	if len(m.Sfixed32Map) > 0 {
-		keysForSfixed32Map := make([]int32, 0, len(m.Sfixed32Map))
-		for k := range m.Sfixed32Map {
-			keysForSfixed32Map = append(keysForSfixed32Map, int32(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
-		for _, k := range keysForSfixed32Map {
-			dAtA[i] = 0x52
-			i++
-			v := m.Sfixed32Map[int32(k)]
-			mapSize := 1 + 4 + 1 + 4
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xd
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
-			i += 4
-			dAtA[i] = 0x15
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
-			i += 4
-		}
-	}
-	if len(m.Fixed64Map) > 0 {
-		keysForFixed64Map := make([]uint64, 0, len(m.Fixed64Map))
-		for k := range m.Fixed64Map {
-			keysForFixed64Map = append(keysForFixed64Map, uint64(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
-		for _, k := range keysForFixed64Map {
-			dAtA[i] = 0x5a
-			i++
-			v := m.Fixed64Map[uint64(k)]
-			mapSize := 1 + 8 + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x9
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
-			i += 8
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
-		}
-	}
-	if len(m.Sfixed64Map) > 0 {
-		keysForSfixed64Map := make([]int64, 0, len(m.Sfixed64Map))
-		for k := range m.Sfixed64Map {
-			keysForSfixed64Map = append(keysForSfixed64Map, int64(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
-		for _, k := range keysForSfixed64Map {
-			dAtA[i] = 0x62
-			i++
-			v := m.Sfixed64Map[int64(k)]
-			mapSize := 1 + 8 + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x9
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(k))
-			i += 8
-			dAtA[i] = 0x11
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
-			i += 8
-		}
-	}
-	if len(m.BoolMap) > 0 {
-		keysForBoolMap := make([]bool, 0, len(m.BoolMap))
-		for k := range m.BoolMap {
-			keysForBoolMap = append(keysForBoolMap, bool(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
-		for _, k := range keysForBoolMap {
-			dAtA[i] = 0x6a
-			i++
-			v := m.BoolMap[bool(k)]
-			mapSize := 1 + 1 + 1 + 1
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			if k {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-			dAtA[i] = 0x10
-			i++
-			if v {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-		}
-	}
-	if len(m.StringMap) > 0 {
-		keysForStringMap := make([]string, 0, len(m.StringMap))
-		for k := range m.StringMap {
-			keysForStringMap = append(keysForStringMap, string(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
-		for _, k := range keysForStringMap {
-			dAtA[i] = 0x72
-			i++
-			v := m.StringMap[string(k)]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + len(v) + sovTheproto3(uint64(len(v)))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.StringToBytesMap) > 0 {
-		keysForStringToBytesMap := make([]string, 0, len(m.StringToBytesMap))
-		for k := range m.StringToBytesMap {
-			keysForStringToBytesMap = append(keysForStringToBytesMap, string(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
-		for _, k := range keysForStringToBytesMap {
-			dAtA[i] = 0x7a
-			i++
-			v := m.StringToBytesMap[string(k)]
-			byteSize := 0
-			if len(v) > 0 {
-				byteSize = 1 + len(v) + sovTheproto3(uint64(len(v)))
-			}
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + byteSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if len(v) > 0 {
+		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
+		for iNdEx := len(keysForStringToMsgMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringToMsgMap[string(keysForStringToMsgMap[iNdEx])]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTheproto3(dAtA, i, uint64(size))
+				}
+				i--
 				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-				i += copy(dAtA[i:], v)
 			}
+			i -= len(keysForStringToMsgMap[iNdEx])
+			copy(dAtA[i:], keysForStringToMsgMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringToMsgMap[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x8a
 		}
 	}
 	if len(m.StringToEnumMap) > 0 {
@@ -4574,68 +4306,365 @@ func (m *AllMapsOrdered) MarshalTo(dAtA []byte) (int, error) {
 			keysForStringToEnumMap = append(keysForStringToEnumMap, string(k))
 		}
 		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToEnumMap)
-		for _, k := range keysForStringToEnumMap {
-			dAtA[i] = 0x82
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.StringToEnumMap[string(k)]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + sovTheproto3(uint64(v))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+		for iNdEx := len(keysForStringToEnumMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringToEnumMap[string(keysForStringToEnumMap[iNdEx])]
+			baseI := i
 			i = encodeVarintTheproto3(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.StringToMsgMap) > 0 {
-		keysForStringToMsgMap := make([]string, 0, len(m.StringToMsgMap))
-		for k := range m.StringToMsgMap {
-			keysForStringToMsgMap = append(keysForStringToMsgMap, string(k))
-		}
-		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
-		for _, k := range keysForStringToMsgMap {
-			dAtA[i] = 0x8a
-			i++
-			dAtA[i] = 0x1
-			i++
-			v := m.StringToMsgMap[string(k)]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTheproto3(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + msgSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
+			i--
+			dAtA[i] = 0x10
+			i -= len(keysForStringToEnumMap[iNdEx])
+			copy(dAtA[i:], keysForStringToEnumMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringToEnumMap[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(v.Size()))
-				n8, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n8
-			}
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0x82
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.StringToBytesMap) > 0 {
+		keysForStringToBytesMap := make([]string, 0, len(m.StringToBytesMap))
+		for k := range m.StringToBytesMap {
+			keysForStringToBytesMap = append(keysForStringToBytesMap, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
+		for iNdEx := len(keysForStringToBytesMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringToBytesMap[string(keysForStringToBytesMap[iNdEx])]
+			baseI := i
+			if len(v) > 0 {
+				i -= len(v)
+				copy(dAtA[i:], v)
+				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(keysForStringToBytesMap[iNdEx])
+			copy(dAtA[i:], keysForStringToBytesMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringToBytesMap[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x7a
+		}
 	}
-	return i, nil
+	if len(m.StringMap) > 0 {
+		keysForStringMap := make([]string, 0, len(m.StringMap))
+		for k := range m.StringMap {
+			keysForStringMap = append(keysForStringMap, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
+		for iNdEx := len(keysForStringMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringMap[string(keysForStringMap[iNdEx])]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(keysForStringMap[iNdEx])
+			copy(dAtA[i:], keysForStringMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringMap[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x72
+		}
+	}
+	if len(m.BoolMap) > 0 {
+		keysForBoolMap := make([]bool, 0, len(m.BoolMap))
+		for k := range m.BoolMap {
+			keysForBoolMap = append(keysForBoolMap, bool(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
+		for iNdEx := len(keysForBoolMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.BoolMap[bool(keysForBoolMap[iNdEx])]
+			baseI := i
+			i--
+			if v {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+			i--
+			dAtA[i] = 0x10
+			i--
+			if keysForBoolMap[iNdEx] {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
+			}
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x6a
+		}
+	}
+	if len(m.Sfixed64Map) > 0 {
+		keysForSfixed64Map := make([]int64, 0, len(m.Sfixed64Map))
+		for k := range m.Sfixed64Map {
+			keysForSfixed64Map = append(keysForSfixed64Map, int64(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
+		for iNdEx := len(keysForSfixed64Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Sfixed64Map[int64(keysForSfixed64Map[iNdEx])]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
+			dAtA[i] = 0x11
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(keysForSfixed64Map[iNdEx]))
+			i--
+			dAtA[i] = 0x9
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if len(m.Fixed64Map) > 0 {
+		keysForFixed64Map := make([]uint64, 0, len(m.Fixed64Map))
+		for k := range m.Fixed64Map {
+			keysForFixed64Map = append(keysForFixed64Map, uint64(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
+		for iNdEx := len(keysForFixed64Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Fixed64Map[uint64(keysForFixed64Map[iNdEx])]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			i--
+			dAtA[i] = 0x11
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(keysForFixed64Map[iNdEx]))
+			i--
+			dAtA[i] = 0x9
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x5a
+		}
+	}
+	if len(m.Sfixed32Map) > 0 {
+		keysForSfixed32Map := make([]int32, 0, len(m.Sfixed32Map))
+		for k := range m.Sfixed32Map {
+			keysForSfixed32Map = append(keysForSfixed32Map, int32(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
+		for iNdEx := len(keysForSfixed32Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Sfixed32Map[int32(keysForSfixed32Map[iNdEx])]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			i--
+			dAtA[i] = 0x15
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(keysForSfixed32Map[iNdEx]))
+			i--
+			dAtA[i] = 0xd
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x52
+		}
+	}
+	if len(m.Fixed32Map) > 0 {
+		keysForFixed32Map := make([]uint32, 0, len(m.Fixed32Map))
+		for k := range m.Fixed32Map {
+			keysForFixed32Map = append(keysForFixed32Map, uint32(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
+		for iNdEx := len(keysForFixed32Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Fixed32Map[uint32(keysForFixed32Map[iNdEx])]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			i--
+			dAtA[i] = 0x15
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(keysForFixed32Map[iNdEx]))
+			i--
+			dAtA[i] = 0xd
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
+	if len(m.Sint64Map) > 0 {
+		keysForSint64Map := make([]int64, 0, len(m.Sint64Map))
+		for k := range m.Sint64Map {
+			keysForSint64Map = append(keysForSint64Map, int64(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
+		for iNdEx := len(keysForSint64Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Sint64Map[int64(keysForSint64Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(v)<<1)^uint64((v>>63))))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(keysForSint64Map[iNdEx])<<1)^uint64((keysForSint64Map[iNdEx]>>63))))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x42
+		}
+	}
+	if len(m.Sint32Map) > 0 {
+		keysForSint32Map := make([]int32, 0, len(m.Sint32Map))
+		for k := range m.Sint32Map {
+			keysForSint32Map = append(keysForSint32Map, int32(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
+		for iNdEx := len(keysForSint32Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Sint32Map[int32(keysForSint32Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(v)<<1)^uint32((v>>31))))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint32(keysForSint32Map[iNdEx])<<1)^uint32((keysForSint32Map[iNdEx]>>31))))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
+	if len(m.Uint64Map) > 0 {
+		keysForUint64Map := make([]uint64, 0, len(m.Uint64Map))
+		for k := range m.Uint64Map {
+			keysForUint64Map = append(keysForUint64Map, uint64(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
+		for iNdEx := len(keysForUint64Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Uint64Map[uint64(keysForUint64Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(keysForUint64Map[iNdEx]))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
+		}
+	}
+	if len(m.Uint32Map) > 0 {
+		keysForUint32Map := make([]uint32, 0, len(m.Uint32Map))
+		for k := range m.Uint32Map {
+			keysForUint32Map = append(keysForUint32Map, uint32(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
+		for iNdEx := len(keysForUint32Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Uint32Map[uint32(keysForUint32Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(keysForUint32Map[iNdEx]))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.Int64Map) > 0 {
+		keysForInt64Map := make([]int64, 0, len(m.Int64Map))
+		for k := range m.Int64Map {
+			keysForInt64Map = append(keysForInt64Map, int64(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
+		for iNdEx := len(keysForInt64Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Int64Map[int64(keysForInt64Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(keysForInt64Map[iNdEx]))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Int32Map) > 0 {
+		keysForInt32Map := make([]int32, 0, len(m.Int32Map))
+		for k := range m.Int32Map {
+			keysForInt32Map = append(keysForInt32Map, int32(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
+		for iNdEx := len(keysForInt32Map) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.Int32Map[int32(keysForInt32Map[iNdEx])]
+			baseI := i
+			i = encodeVarintTheproto3(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintTheproto3(dAtA, i, uint64(keysForInt32Map[iNdEx]))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.StringToFloatMap) > 0 {
+		keysForStringToFloatMap := make([]string, 0, len(m.StringToFloatMap))
+		for k := range m.StringToFloatMap {
+			keysForStringToFloatMap = append(keysForStringToFloatMap, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
+		for iNdEx := len(keysForStringToFloatMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringToFloatMap[string(keysForStringToFloatMap[iNdEx])]
+			baseI := i
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
+			i--
+			dAtA[i] = 0x15
+			i -= len(keysForStringToFloatMap[iNdEx])
+			copy(dAtA[i:], keysForStringToFloatMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringToFloatMap[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.StringToDoubleMap) > 0 {
+		keysForStringToDoubleMap := make([]string, 0, len(m.StringToDoubleMap))
+		for k := range m.StringToDoubleMap {
+			keysForStringToDoubleMap = append(keysForStringToDoubleMap, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
+		for iNdEx := len(keysForStringToDoubleMap) - 1; iNdEx >= 0; iNdEx-- {
+			v := m.StringToDoubleMap[string(keysForStringToDoubleMap[iNdEx])]
+			baseI := i
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			i--
+			dAtA[i] = 0x11
+			i -= len(keysForStringToDoubleMap[iNdEx])
+			copy(dAtA[i:], keysForStringToDoubleMap[iNdEx])
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(keysForStringToDoubleMap[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *MessageWithMap) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4643,90 +4672,91 @@ func (m *MessageWithMap) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MessageWithMap) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MessageWithMap) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.NameMapping) > 0 {
-		for k := range m.NameMapping {
-			dAtA[i] = 0xa
-			i++
-			v := m.NameMapping[k]
-			mapSize := 1 + sovTheproto3(uint64(k)) + 1 + len(v) + sovTheproto3(uint64(len(v)))
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(k))
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if len(m.MsgMapping) > 0 {
-		for k := range m.MsgMapping {
-			dAtA[i] = 0x12
-			i++
-			v := m.MsgMapping[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovTheproto3(uint64(msgSize))
-			}
-			mapSize := 1 + sozTheproto3(uint64(k)) + msgSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(k)<<1)^uint64((k>>63))))
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(v.Size()))
-				n9, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n9
-			}
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ByteMapping) > 0 {
 		for k := range m.ByteMapping {
-			dAtA[i] = 0x1a
-			i++
 			v := m.ByteMapping[k]
-			byteSize := 0
+			baseI := i
 			if len(v) > 0 {
-				byteSize = 1 + len(v) + sovTheproto3(uint64(len(v)))
+				i -= len(v)
+				copy(dAtA[i:], v)
+				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+				i--
+				dAtA[i] = 0x12
 			}
-			mapSize := 1 + 1 + byteSize
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
+			i--
 			if k {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
-			if len(v) > 0 {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
-				i += copy(dAtA[i:], v)
-			}
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.MsgMapping) > 0 {
+		for k := range m.MsgMapping {
+			v := m.MsgMapping[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTheproto3(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i = encodeVarintTheproto3(dAtA, i, uint64((uint64(k)<<1)^uint64((k>>63))))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	return i, nil
+	if len(m.NameMapping) > 0 {
+		for k := range m.NameMapping {
+			v := m.NameMapping[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i = encodeVarintTheproto3(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *FloatingPoint) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4734,26 +4764,32 @@ func (m *FloatingPoint) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *FloatingPoint) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FloatingPoint) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.F != 0 {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.F))))
-		i += 8
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.F != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.F))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Uint128Pair) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4761,38 +4797,48 @@ func (m *Uint128Pair) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Uint128Pair) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Uint128Pair) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintTheproto3(dAtA, i, uint64(m.Left.Size()))
-	n10, err := m.Left.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	i += n10
 	if m.Right != nil {
+		{
+			size := m.Right.Size()
+			i -= size
+			if _, err := m.Right.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintTheproto3(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTheproto3(dAtA, i, uint64(m.Right.Size()))
-		n11, err := m.Right.MarshalTo(dAtA[i:])
-		if err != nil {
+	}
+	{
+		size := m.Left.Size()
+		i -= size
+		if _, err := m.Left.MarshalTo(dAtA[i:]); err != nil {
 			return 0, err
 		}
-		i += n11
+		i = encodeVarintTheproto3(dAtA, i, uint64(size))
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *ContainsNestedMap) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4800,20 +4846,26 @@ func (m *ContainsNestedMap) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ContainsNestedMap) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ContainsNestedMap) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ContainsNestedMap_NestedMap) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4821,37 +4873,44 @@ func (m *ContainsNestedMap_NestedMap) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ContainsNestedMap_NestedMap) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ContainsNestedMap_NestedMap) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.NestedMapField) > 0 {
 		for k := range m.NestedMapField {
-			dAtA[i] = 0xa
-			i++
 			v := m.NestedMapField[k]
-			mapSize := 1 + len(k) + sovTheproto3(uint64(len(k))) + 1 + 8
-			i = encodeVarintTheproto3(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x11
-			i++
+			baseI := i
+			i -= 8
 			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
-			i += 8
+			i--
+			dAtA[i] = 0x11
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTheproto3(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTheproto3(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NotPacked) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4859,31 +4918,39 @@ func (m *NotPacked) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NotPacked) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NotPacked) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Key) > 0 {
-		for _, num := range m.Key {
+		for iNdEx := len(m.Key) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintTheproto3(dAtA, i, uint64(m.Key[iNdEx]))
+			i--
 			dAtA[i] = 0x28
-			i++
-			i = encodeVarintTheproto3(dAtA, i, uint64(num))
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTheproto3(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTheproto3(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func NewPopulatedMessage(r randyTheproto3, easy bool) *Message {
 	this := &Message{}
@@ -4900,7 +4967,7 @@ func NewPopulatedMessage(r randyTheproto3, easy bool) *Message {
 	for i := 0; i < v2; i++ {
 		this.Key[i] = uint64(uint64(r.Uint32()))
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Nested = NewPopulatedNested(r, easy)
 	}
 	this.ResultCount = int64(r.Int63())
@@ -4912,17 +4979,17 @@ func NewPopulatedMessage(r randyTheproto3, easy bool) *Message {
 	if r.Intn(2) == 0 {
 		this.Score *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := r.Intn(10)
 		this.Terrain = make(map[int64]*Nested)
 		for i := 0; i < v3; i++ {
 			this.Terrain[int64(r.Int63())] = NewPopulatedNested(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Proto2Field = both.NewPopulatedNinOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := r.Intn(10)
 		this.Proto2Value = make(map[int64]*both.NinOptEnum)
 		for i := 0; i < v4; i++ {
@@ -4946,7 +5013,7 @@ func NewPopulatedNested(r randyTheproto3, easy bool) *Nested {
 
 func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 	this := &AllMaps{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(10)
 		this.StringToDoubleMap = make(map[string]float64)
 		for i := 0; i < v5; i++ {
@@ -4957,7 +5024,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := r.Intn(10)
 		this.StringToFloatMap = make(map[string]float32)
 		for i := 0; i < v7; i++ {
@@ -4968,7 +5035,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := r.Intn(10)
 		this.Int32Map = make(map[int32]int32)
 		for i := 0; i < v9; i++ {
@@ -4979,7 +5046,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v11 := r.Intn(10)
 		this.Int64Map = make(map[int64]int64)
 		for i := 0; i < v11; i++ {
@@ -4990,7 +5057,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := r.Intn(10)
 		this.Uint32Map = make(map[uint32]uint32)
 		for i := 0; i < v13; i++ {
@@ -4998,7 +5065,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Uint32Map[v14] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := r.Intn(10)
 		this.Uint64Map = make(map[uint64]uint64)
 		for i := 0; i < v15; i++ {
@@ -5006,7 +5073,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Uint64Map[v16] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v17 := r.Intn(10)
 		this.Sint32Map = make(map[int32]int32)
 		for i := 0; i < v17; i++ {
@@ -5017,7 +5084,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := r.Intn(10)
 		this.Sint64Map = make(map[int64]int64)
 		for i := 0; i < v19; i++ {
@@ -5028,7 +5095,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v21 := r.Intn(10)
 		this.Fixed32Map = make(map[uint32]uint32)
 		for i := 0; i < v21; i++ {
@@ -5036,7 +5103,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Fixed32Map[v22] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v23 := r.Intn(10)
 		this.Sfixed32Map = make(map[int32]int32)
 		for i := 0; i < v23; i++ {
@@ -5047,7 +5114,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := r.Intn(10)
 		this.Fixed64Map = make(map[uint64]uint64)
 		for i := 0; i < v25; i++ {
@@ -5055,7 +5122,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Fixed64Map[v26] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v27 := r.Intn(10)
 		this.Sfixed64Map = make(map[int64]int64)
 		for i := 0; i < v27; i++ {
@@ -5066,7 +5133,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v29 := r.Intn(10)
 		this.BoolMap = make(map[bool]bool)
 		for i := 0; i < v29; i++ {
@@ -5074,14 +5141,14 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.BoolMap[v30] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v31 := r.Intn(10)
 		this.StringMap = make(map[string]string)
 		for i := 0; i < v31; i++ {
 			this.StringMap[randStringTheproto3(r)] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v32 := r.Intn(10)
 		this.StringToBytesMap = make(map[string][]byte)
 		for i := 0; i < v32; i++ {
@@ -5093,14 +5160,14 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v35 := r.Intn(10)
 		this.StringToEnumMap = make(map[string]MapEnum)
 		for i := 0; i < v35; i++ {
 			this.StringToEnumMap[randStringTheproto3(r)] = MapEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v36 := r.Intn(10)
 		this.StringToMsgMap = make(map[string]*FloatingPoint)
 		for i := 0; i < v36; i++ {
@@ -5115,7 +5182,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 
 func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 	this := &AllMapsOrdered{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v37 := r.Intn(10)
 		this.StringToDoubleMap = make(map[string]float64)
 		for i := 0; i < v37; i++ {
@@ -5126,7 +5193,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v39 := r.Intn(10)
 		this.StringToFloatMap = make(map[string]float32)
 		for i := 0; i < v39; i++ {
@@ -5137,7 +5204,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v41 := r.Intn(10)
 		this.Int32Map = make(map[int32]int32)
 		for i := 0; i < v41; i++ {
@@ -5148,7 +5215,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v43 := r.Intn(10)
 		this.Int64Map = make(map[int64]int64)
 		for i := 0; i < v43; i++ {
@@ -5159,7 +5226,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v45 := r.Intn(10)
 		this.Uint32Map = make(map[uint32]uint32)
 		for i := 0; i < v45; i++ {
@@ -5167,7 +5234,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Uint32Map[v46] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v47 := r.Intn(10)
 		this.Uint64Map = make(map[uint64]uint64)
 		for i := 0; i < v47; i++ {
@@ -5175,7 +5242,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Uint64Map[v48] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v49 := r.Intn(10)
 		this.Sint32Map = make(map[int32]int32)
 		for i := 0; i < v49; i++ {
@@ -5186,7 +5253,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v51 := r.Intn(10)
 		this.Sint64Map = make(map[int64]int64)
 		for i := 0; i < v51; i++ {
@@ -5197,7 +5264,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v53 := r.Intn(10)
 		this.Fixed32Map = make(map[uint32]uint32)
 		for i := 0; i < v53; i++ {
@@ -5205,7 +5272,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Fixed32Map[v54] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v55 := r.Intn(10)
 		this.Sfixed32Map = make(map[int32]int32)
 		for i := 0; i < v55; i++ {
@@ -5216,7 +5283,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v57 := r.Intn(10)
 		this.Fixed64Map = make(map[uint64]uint64)
 		for i := 0; i < v57; i++ {
@@ -5224,7 +5291,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Fixed64Map[v58] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v59 := r.Intn(10)
 		this.Sfixed64Map = make(map[int64]int64)
 		for i := 0; i < v59; i++ {
@@ -5235,7 +5302,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v61 := r.Intn(10)
 		this.BoolMap = make(map[bool]bool)
 		for i := 0; i < v61; i++ {
@@ -5243,14 +5310,14 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.BoolMap[v62] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v63 := r.Intn(10)
 		this.StringMap = make(map[string]string)
 		for i := 0; i < v63; i++ {
 			this.StringMap[randStringTheproto3(r)] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v64 := r.Intn(10)
 		this.StringToBytesMap = make(map[string][]byte)
 		for i := 0; i < v64; i++ {
@@ -5262,14 +5329,14 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v67 := r.Intn(10)
 		this.StringToEnumMap = make(map[string]MapEnum)
 		for i := 0; i < v67; i++ {
 			this.StringToEnumMap[randStringTheproto3(r)] = MapEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v68 := r.Intn(10)
 		this.StringToMsgMap = make(map[string]*FloatingPoint)
 		for i := 0; i < v68; i++ {
@@ -5284,21 +5351,21 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 
 func NewPopulatedMessageWithMap(r randyTheproto3, easy bool) *MessageWithMap {
 	this := &MessageWithMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v69 := r.Intn(10)
 		this.NameMapping = make(map[int32]string)
 		for i := 0; i < v69; i++ {
 			this.NameMapping[int32(r.Int31())] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v70 := r.Intn(10)
 		this.MsgMapping = make(map[int64]*FloatingPoint)
 		for i := 0; i < v70; i++ {
 			this.MsgMapping[int64(r.Int63())] = NewPopulatedFloatingPoint(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v71 := r.Intn(10)
 		this.ByteMapping = make(map[bool][]byte)
 		for i := 0; i < v71; i++ {
@@ -5349,7 +5416,7 @@ func NewPopulatedContainsNestedMap(r randyTheproto3, easy bool) *ContainsNestedM
 
 func NewPopulatedContainsNestedMap_NestedMap(r randyTheproto3, easy bool) *ContainsNestedMap_NestedMap {
 	this := &ContainsNestedMap_NestedMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v75 := r.Intn(10)
 		this.NestedMapField = make(map[string]float64)
 		for i := 0; i < v75; i++ {
@@ -5985,14 +6052,7 @@ func (m *NotPacked) Size() (n int) {
 }
 
 func sovTheproto3(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTheproto3(x uint64) (n int) {
 	return sovTheproto3(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -6027,7 +6087,7 @@ func (this *Message) String() string {
 		`HeightInCm:` + fmt.Sprintf("%v", this.HeightInCm) + `,`,
 		`Data:` + fmt.Sprintf("%v", this.Data) + `,`,
 		`Key:` + fmt.Sprintf("%v", this.Key) + `,`,
-		`Nested:` + strings.Replace(fmt.Sprintf("%v", this.Nested), "Nested", "Nested", 1) + `,`,
+		`Nested:` + strings.Replace(this.Nested.String(), "Nested", "Nested", 1) + `,`,
 		`ResultCount:` + fmt.Sprintf("%v", this.ResultCount) + `,`,
 		`TrueScotsman:` + fmt.Sprintf("%v", this.TrueScotsman) + `,`,
 		`Score:` + fmt.Sprintf("%v", this.Score) + `,`,

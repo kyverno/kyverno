@@ -5,14 +5,16 @@
 package debug
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"sort"
 
-	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/lsp/telemetry/metric"
+	tlm "golang.org/x/tools/internal/lsp/telemetry"
+	"golang.org/x/tools/internal/telemetry"
+	"golang.org/x/tools/internal/telemetry/metric"
 )
 
 var rpcTmpl = template.Must(template.Must(BaseTemplate.Clone()).Parse(`
@@ -88,13 +90,18 @@ type rpcCodeBucket struct {
 	Count int64
 }
 
-func (r *rpcs) observeMetric(data metric.Data) {
+func (r *rpcs) StartSpan(ctx context.Context, span *telemetry.Span)  {}
+func (r *rpcs) FinishSpan(ctx context.Context, span *telemetry.Span) {}
+func (r *rpcs) Log(ctx context.Context, event telemetry.Event)       {}
+func (r *rpcs) Flush()                                               {}
+
+func (r *rpcs) Metric(ctx context.Context, data telemetry.MetricData) {
 	for i, group := range data.Groups() {
 		set := &r.Inbound
-		if group.Get(telemetry.RPCDirection) == telemetry.Outbound {
+		if group.Get(tlm.RPCDirection) == tlm.Outbound {
 			set = &r.Outbound
 		}
-		method, ok := group.Get(telemetry.Method).(string)
+		method, ok := group.Get(tlm.Method).(string)
 		if !ok {
 			log.Printf("Not a method... %v", group)
 			continue
@@ -114,7 +121,7 @@ func (r *rpcs) observeMetric(data metric.Data) {
 		case started:
 			stats.Started = data.(*metric.Int64Data).Rows[i]
 		case completed:
-			status, ok := group.Get(telemetry.StatusCode).(string)
+			status, ok := group.Get(tlm.StatusCode).(string)
 			if !ok {
 				log.Printf("Not status... %v", group)
 				continue
@@ -130,7 +137,7 @@ func (r *rpcs) observeMetric(data metric.Data) {
 				b = &rpcCodeBucket{Key: status}
 				stats.Codes = append(stats.Codes, b)
 				sort.Slice(stats.Codes, func(i int, j int) bool {
-					return stats.Codes[i].Key < stats.Codes[i].Key
+					return stats.Codes[i].Key < stats.Codes[j].Key
 				})
 			}
 			b.Count = data.(*metric.Int64Data).Rows[i]

@@ -9,28 +9,20 @@ import (
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
-	"golang.org/x/tools/internal/lsp/telemetry/tag"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/tag"
 )
 
 func (s *Server) references(ctx context.Context, params *protocol.ReferenceParams) ([]protocol.Location, error) {
 	uri := span.NewURI(params.TextDocument.URI)
 	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
-	if err != nil {
-		return nil, err
-	}
-	spn, err := m.PointSpan(params.Position)
-	if err != nil {
-		return nil, err
-	}
-	rng, err := spn.Range(m.Converter)
+	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
 	// Find all references to the identifier at the position.
-	ident, err := source.Identifier(ctx, f, rng.Start)
+	ident, err := source.Identifier(ctx, view, f, params.Position)
 	if err != nil {
 		return nil, err
 	}
@@ -38,23 +30,12 @@ func (s *Server) references(ctx context.Context, params *protocol.ReferenceParam
 	if err != nil {
 		log.Error(ctx, "no references", err, tag.Of("Identifier", ident.Name))
 	}
-	if params.Context.IncludeDeclaration {
-		// The declaration of this identifier may not be in the
-		// scope that we search for references, so make sure
-		// it is added to the beginning of the list if IncludeDeclaration
-		// was specified.
-		references = append([]*source.ReferenceInfo{
-			&source.ReferenceInfo{
-				Range: ident.DeclarationRange(),
-			},
-		}, references...)
-	}
 
 	// Get the location of each reference to return as the result.
 	locations := make([]protocol.Location, 0, len(references))
 	seen := make(map[span.Span]bool)
 	for _, ref := range references {
-		refSpan, err := ref.Range.Span()
+		refSpan, err := ref.Span()
 		if err != nil {
 			return nil, err
 		}
@@ -62,16 +43,36 @@ func (s *Server) references(ctx context.Context, params *protocol.ReferenceParam
 			continue // already added this location
 		}
 		seen[refSpan] = true
-
-		_, refM, err := getSourceFile(ctx, view, refSpan.URI())
+		refRange, err := ref.Range()
 		if err != nil {
 			return nil, err
 		}
-		loc, err := refM.Location(refSpan)
+		locations = append(locations, protocol.Location{
+			URI:   protocol.NewURI(ref.URI()),
+			Range: refRange,
+		})
+	}
+	// The declaration of this identifier may not be in the
+	// scope that we search for references, so make sure
+	// it is added to the beginning of the list if IncludeDeclaration
+	// was specified.
+	if params.Context.IncludeDeclaration {
+		decSpan, err := ident.Declaration.Span()
 		if err != nil {
 			return nil, err
 		}
-		locations = append(locations, loc)
+		if !seen[decSpan] {
+			rng, err := ident.Declaration.Range()
+			if err != nil {
+				return nil, err
+			}
+			locations = append([]protocol.Location{
+				{
+					URI:   protocol.NewURI(ident.Declaration.URI()),
+					Range: rng,
+				},
+			}, locations...)
+		}
 	}
 	return locations, nil
 }

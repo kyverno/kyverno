@@ -24,11 +24,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/mimedb"
+	"github.com/minio/minio/pkg/sync/errgroup"
 )
 
 func (xl xlObjects) getUploadIDDir(bucket, object, uploadID string) string {
@@ -56,21 +57,23 @@ func (xl xlObjects) checkUploadIDExists(ctx context.Context, bucket, object, upl
 // Removes part given by partName belonging to a mulitpart upload from minioMetaBucket
 func (xl xlObjects) removeObjectPart(bucket, object, uploadID, partName string) {
 	curpartPath := path.Join(bucket, object, uploadID, partName)
-	wg := sync.WaitGroup{}
-	for i, disk := range xl.getDisks() {
+	storageDisks := xl.getDisks()
+
+	g := errgroup.WithNErrs(len(storageDisks))
+	for index, disk := range storageDisks {
 		if disk == nil {
 			continue
 		}
-		wg.Add(1)
-		go func(index int, disk StorageAPI) {
-			defer wg.Done()
+		index := index
+		g.Go(func() error {
 			// Ignoring failure to remove parts that weren't present in CompleteMultipartUpload
 			// requests. xl.json is the authoritative source of truth on which parts constitute
 			// the object. The presence of parts that don't belong in the object doesn't affect correctness.
-			_ = disk.DeleteFile(minioMetaMultipartBucket, curpartPath)
-		}(i, disk)
+			_ = storageDisks[index].DeleteFile(minioMetaMultipartBucket, curpartPath)
+			return nil
+		}, index)
 	}
-	wg.Wait()
+	g.Wait()
 }
 
 // statPart - returns fileInfo structure for a successful stat on part file.
@@ -103,37 +106,29 @@ func (xl xlObjects) statPart(ctx context.Context, bucket, object, uploadID, part
 
 // commitXLMetadata - commit `xl.json` from source prefix to destination prefix in the given slice of disks.
 func commitXLMetadata(ctx context.Context, disks []StorageAPI, srcBucket, srcPrefix, dstBucket, dstPrefix string, quorum int) ([]StorageAPI, error) {
-	var wg = &sync.WaitGroup{}
-	var mErrs = make([]error, len(disks))
-
 	srcJSONFile := path.Join(srcPrefix, xlMetaJSONFile)
 	dstJSONFile := path.Join(dstPrefix, xlMetaJSONFile)
 
+	g := errgroup.WithNErrs(len(disks))
+
 	// Rename `xl.json` to all disks in parallel.
-	for index, disk := range disks {
-		if disk == nil {
-			mErrs[index] = errDiskNotFound
-			continue
-		}
-		wg.Add(1)
-		// Rename `xl.json` in a routine.
-		go func(index int, disk StorageAPI) {
-			defer wg.Done()
+	for index := range disks {
+		index := index
+		g.Go(func() error {
+			if disks[index] == nil {
+				return errDiskNotFound
+			}
+
 			// Delete any dangling directories.
-			defer disk.DeleteFile(srcBucket, srcPrefix)
+			defer disks[index].DeleteFile(srcBucket, srcPrefix)
 
 			// Renames `xl.json` from source prefix to destination prefix.
-			rErr := disk.RenameFile(srcBucket, srcJSONFile, dstBucket, dstJSONFile)
-			if rErr != nil {
-				logger.LogIf(ctx, rErr)
-				mErrs[index] = rErr
-				return
-			}
-			mErrs[index] = nil
-		}(index, disk)
+			return disks[index].RenameFile(srcBucket, srcJSONFile, dstBucket, dstJSONFile)
+		}, index)
 	}
+
 	// Wait for all the routines.
-	wg.Wait()
+	mErrs := g.Wait()
 
 	err := reduceWriteQuorumErrs(ctx, mErrs, objectOpIgnoredErrs, quorum)
 	return evalDisks(disks, mErrs), err
@@ -194,7 +189,12 @@ func (xl xlObjects) ListMultipartUploads(ctx context.Context, bucket, object, ke
 // operation(s) on the object.
 func (xl xlObjects) newMultipartUpload(ctx context.Context, bucket string, object string, meta map[string]string) (string, error) {
 
-	dataBlocks, parityBlocks := getRedundancyCount(meta[amzStorageClass], len(xl.getDisks()))
+	onlineDisks := xl.getDisks()
+	parityBlocks := globalStorageClass.GetParityForSC(meta[xhttp.AmzStorageClass])
+	if parityBlocks == 0 {
+		parityBlocks = len(onlineDisks) / 2
+	}
+	dataBlocks := len(onlineDisks) - parityBlocks
 
 	xlMeta := newXLMetaV1(object, dataBlocks, parityBlocks)
 
@@ -218,16 +218,22 @@ func (xl xlObjects) newMultipartUpload(ctx context.Context, bucket string, objec
 	// success.
 	defer xl.deleteObject(ctx, minioMetaTmpBucket, tempUploadIDPath, writeQuorum, false)
 
+	var partsMetadata = make([]xlMetaV1, len(onlineDisks))
+	for i := range onlineDisks {
+		partsMetadata[i] = xlMeta
+	}
+
+	var err error
 	// Write updated `xl.json` to all disks.
-	disks, err := writeSameXLMetadata(ctx, xl.getDisks(), minioMetaTmpBucket, tempUploadIDPath, xlMeta, writeQuorum)
+	onlineDisks, err = writeUniqueXLMetadata(ctx, onlineDisks, minioMetaTmpBucket, tempUploadIDPath, partsMetadata, writeQuorum)
 	if err != nil {
 		return "", toObjectErr(err, minioMetaTmpBucket, tempUploadIDPath)
 	}
 
 	// Attempt to rename temp upload object to actual upload path object
-	_, rErr := rename(ctx, disks, minioMetaTmpBucket, tempUploadIDPath, minioMetaMultipartBucket, uploadIDPath, true, writeQuorum, nil)
-	if rErr != nil {
-		return "", toObjectErr(rErr, minioMetaMultipartBucket, uploadIDPath)
+	_, err = rename(ctx, onlineDisks, minioMetaTmpBucket, tempUploadIDPath, minioMetaMultipartBucket, uploadIDPath, true, writeQuorum, nil)
+	if err != nil {
+		return "", toObjectErr(err, minioMetaMultipartBucket, uploadIDPath)
 	}
 
 	// Return success.
@@ -290,7 +296,7 @@ func (xl xlObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID 
 
 	// Validate input data size and it can never be less than zero.
 	if data.Size() < -1 {
-		logger.LogIf(ctx, errInvalidArgument)
+		logger.LogIf(ctx, errInvalidArgument, logger.Application)
 		return pi, toObjectErr(errInvalidArgument)
 	}
 
@@ -456,7 +462,8 @@ func (xl xlObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID 
 	defer xl.deleteObject(ctx, minioMetaTmpBucket, tempXLMetaPath, writeQuorum, false)
 
 	// Writes a unique `xl.json` each disk carrying new checksum related information.
-	if onlineDisks, err = writeUniqueXLMetadata(ctx, onlineDisks, minioMetaTmpBucket, tempXLMetaPath, partsMetadata, writeQuorum); err != nil {
+	onlineDisks, err = writeUniqueXLMetadata(ctx, onlineDisks, minioMetaTmpBucket, tempXLMetaPath, partsMetadata, writeQuorum)
+	if err != nil {
 		return pi, toObjectErr(err, minioMetaTmpBucket, tempXLMetaPath)
 	}
 
@@ -518,7 +525,7 @@ func (xl xlObjects) ListObjectParts(ctx context.Context, bucket, object, uploadI
 
 	reducedErr := reduceWriteQuorumErrs(ctx, errs, objectOpIgnoredErrs, writeQuorum)
 	if reducedErr == errXLWriteQuorum {
-		return result, toObjectErr(err, minioMetaMultipartBucket, uploadIDPath)
+		return result, toObjectErr(reducedErr, minioMetaMultipartBucket, uploadIDPath)
 	}
 
 	_, modTime := listOnlineDisks(storageDisks, partsMetadata, errs)

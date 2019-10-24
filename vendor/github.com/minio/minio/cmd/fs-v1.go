@@ -30,7 +30,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/minio/minio-go/v6/pkg/s3utils"
+	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/lifecycle"
 	"github.com/minio/minio/pkg/lock"
@@ -115,7 +117,7 @@ func NewFSObjectLayer(fsPath string) (ObjectLayer, error) {
 		if err == errMinDiskSize {
 			return nil, err
 		}
-		return nil, uiErrUnableToWriteInBackend(err)
+		return nil, config.ErrUnableToWriteInBackend(err)
 	}
 
 	// Assign a new UUID for FS minio mode. Each server instance
@@ -250,10 +252,12 @@ func (fs *FSObjects) StorageInfo(ctx context.Context) StorageInfo {
 	if !fs.diskMount {
 		used = atomic.LoadUint64(&fs.totalUsed)
 	}
+	localPeer := GetLocalPeer(globalEndpoints)
 	storageInfo := StorageInfo{
-		Used:      used,
-		Total:     di.Total,
-		Available: di.Free,
+		Used:       []uint64{used},
+		Total:      []uint64{di.Total},
+		Available:  []uint64{di.Free},
+		MountPaths: []string{localPeer + fs.fsPath},
 	}
 	storageInfo.Backend.Type = BackendFS
 	return storageInfo
@@ -546,7 +550,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 	// Check if range is valid
 	if off > size || off+length > size {
 		err = InvalidRange{off, length, size}
-		logger.LogIf(ctx, err)
+		logger.LogIf(ctx, err, logger.Application)
 		closeFn()
 		rwPoolUnlocker()
 		nsUnlocker()
@@ -585,13 +589,13 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 
 	// Offset cannot be negative.
 	if offset < 0 {
-		logger.LogIf(ctx, errUnexpected)
+		logger.LogIf(ctx, errUnexpected, logger.Application)
 		return toObjectErr(errUnexpected, bucket, object)
 	}
 
 	// Writer cannot be nil.
 	if writer == nil {
-		logger.LogIf(ctx, errUnexpected)
+		logger.LogIf(ctx, errUnexpected, logger.Application)
 		return toObjectErr(errUnexpected, bucket, object)
 	}
 
@@ -620,7 +624,7 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 			return toObjectErr(perr, bucket, object)
 		}
 		if objEtag != etag {
-			logger.LogIf(ctx, InvalidETag{})
+			logger.LogIf(ctx, InvalidETag{}, logger.Application)
 			return toObjectErr(InvalidETag{}, bucket, object)
 		}
 	}
@@ -646,7 +650,7 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 	// Reply back invalid range if the input offset and length fall out of range.
 	if offset > size || offset+length > size {
 		err = InvalidRange{offset, length, size}
-		logger.LogIf(ctx, err)
+		logger.LogIf(ctx, err, logger.Application)
 		return err
 	}
 
@@ -862,7 +866,7 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 
 	// Validate input data size and it can never be less than zero.
 	if data.Size() < -1 {
-		logger.LogIf(ctx, errInvalidArgument)
+		logger.LogIf(ctx, errInvalidArgument, logger.Application)
 		return ObjectInfo{}, errInvalidArgument
 	}
 
@@ -1092,13 +1096,19 @@ func (fs *FSObjects) getObjectETag(ctx context.Context, bucket, entry string, lo
 		return "", toObjectErr(err, bucket, entry)
 	}
 
+	var fsMeta fsMetaV1
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	if err = json.Unmarshal(fsMetaBuf, &fsMeta); err != nil {
+		return "", err
+	}
+
 	// Check if FS metadata is valid, if not return error.
-	if !isFSMetaValid(parseFSVersion(fsMetaBuf)) {
+	if !isFSMetaValid(fsMeta.Version) {
 		logger.LogIf(ctx, errCorruptedFormat)
 		return "", toObjectErr(errCorruptedFormat, bucket, entry)
 	}
 
-	return extractETag(parseFSMetaMap(fsMetaBuf)), nil
+	return extractETag(fsMeta.Meta), nil
 }
 
 // ListObjects - list all objects at prefix upto maxKeys., optionally delimited by '/'. Maintains the list pool

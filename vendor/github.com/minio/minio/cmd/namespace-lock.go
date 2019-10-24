@@ -53,8 +53,9 @@ type RWLocker interface {
 
 // Initialize distributed locking only in case of distributed setup.
 // Returns lock clients and the node index for the current server.
-func newDsyncNodes(endpoints EndpointList) (clnts []dsync.NetLocker, myNode int) {
+func newDsyncNodes(endpoints EndpointList) (clnts []dsync.NetLocker, myNode int, err error) {
 	myNode = -1
+
 	seenHosts := set.NewStringSet()
 	for _, endpoint := range endpoints {
 		if seenHosts.Contains(endpoint.Host) {
@@ -66,26 +67,27 @@ func newDsyncNodes(endpoints EndpointList) (clnts []dsync.NetLocker, myNode int)
 		if endpoint.IsLocal {
 			myNode = len(clnts)
 
-			receiver := &lockRESTServer{
-				ll: localLocker{
+			globalLockServer = &lockRESTServer{
+				ll: &localLocker{
 					serverAddr:      endpoint.Host,
 					serviceEndpoint: lockServicePath,
 					lockMap:         make(map[string][]lockRequesterInfo),
 				},
 			}
-
-			globalLockServer = receiver
-			locker = &(receiver.ll)
+			locker = globalLockServer.ll
 		} else {
-			host, err := xnet.ParseHost(endpoint.Host)
-			logger.FatalIf(err, "Unable to parse Lock RPC Host")
+			var host *xnet.Host
+			host, err = xnet.ParseHost(endpoint.Host)
 			locker = newlockRESTClient(host)
 		}
 
 		clnts = append(clnts, locker)
 	}
 
-	return clnts, myNode
+	if myNode == -1 {
+		return clnts, myNode, errors.New("no endpoint pointing to the local machine is found")
+	}
+	return clnts, myNode, err
 }
 
 // newNSLock - return a new name space lock map.
@@ -167,7 +169,7 @@ func (n *nsLockMap) lock(ctx context.Context, volume, path string, lockSource, o
 }
 
 // Unlock the namespace resource.
-func (n *nsLockMap) unlock(volume, path, opsID string, readLock bool) {
+func (n *nsLockMap) unlock(volume, path string, readLock bool) {
 	param := nsParam{volume, path}
 	n.lockMapMutex.RLock()
 	nsLk, found := n.lockMap[param]
@@ -205,7 +207,7 @@ func (n *nsLockMap) Lock(volume, path, opsID string, timeout time.Duration) (loc
 // Unlock - unlocks any previously acquired write locks.
 func (n *nsLockMap) Unlock(volume, path, opsID string) {
 	readLock := false
-	n.unlock(volume, path, opsID, readLock)
+	n.unlock(volume, path, readLock)
 }
 
 // RLock - locks any previously acquired read locks.
@@ -219,7 +221,7 @@ func (n *nsLockMap) RLock(volume, path, opsID string, timeout time.Duration) (lo
 // RUnlock - unlocks any previously acquired read locks.
 func (n *nsLockMap) RUnlock(volume, path, opsID string) {
 	readLock := true
-	n.unlock(volume, path, opsID, readLock)
+	n.unlock(volume, path, readLock)
 }
 
 // ForceUnlock - forcefully unlock a lock based on name.
@@ -323,7 +325,7 @@ func (li *localLockInstance) GetLock(timeout *dynamicTimeout) (timedOutErr error
 // Unlock - block until write lock is released.
 func (li *localLockInstance) Unlock() {
 	readLock := false
-	li.ns.unlock(li.volume, li.path, li.opsID, readLock)
+	li.ns.unlock(li.volume, li.path, readLock)
 }
 
 // RLock - block until read lock is taken or timeout has occurred.
@@ -342,7 +344,7 @@ func (li *localLockInstance) GetRLock(timeout *dynamicTimeout) (timedOutErr erro
 // RUnlock - block until read lock is released.
 func (li *localLockInstance) RUnlock() {
 	readLock := true
-	li.ns.unlock(li.volume, li.path, li.opsID, readLock)
+	li.ns.unlock(li.volume, li.path, readLock)
 }
 
 func getSource() string {

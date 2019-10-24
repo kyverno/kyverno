@@ -1,5 +1,5 @@
 /*
- * MinIO Cloud Storage, (C) 2017 MinIO, Inc.
+ * MinIO Cloud Storage, (C) 2017-2019 MinIO, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,15 @@ package cmd
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
+	"github.com/minio/minio/cmd/config"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/auth"
+	"github.com/minio/minio/pkg/env"
 	"github.com/minio/minio/pkg/hash"
+	xnet "github.com/minio/minio/pkg/net"
 
 	minio "github.com/minio/minio-go/v6"
 )
@@ -299,7 +302,7 @@ func ErrorRespToObjectError(err error, params ...string) error {
 		object = params[1]
 	}
 
-	if isNetworkOrHostDown(err) {
+	if xnet.IsNetworkOrHostDown(err) {
 		return BackendDown{}
 	}
 
@@ -364,14 +367,14 @@ func parseGatewaySSE(s string) (gatewaySSE, error) {
 			gwSlice = append(gwSlice, v)
 			continue
 		}
-		return nil, uiErrInvalidGWSSEValue(nil).Msg("gateway SSE cannot be (%s) ", v)
+		return nil, config.ErrInvalidGWSSEValue(nil).Msg("gateway SSE cannot be (%s) ", v)
 	}
 	return gatewaySSE(gwSlice), nil
 }
 
 // handle gateway env vars
 func handleGatewayEnvVars() {
-	gwsseVal, ok := os.LookupEnv("MINIO_GATEWAY_SSE")
+	gwsseVal, ok := env.Lookup("MINIO_GATEWAY_SSE")
 	if ok {
 		var err error
 		GlobalGatewaySSE, err = parseGatewaySSE(gwsseVal)
@@ -379,4 +382,13 @@ func handleGatewayEnvVars() {
 			logger.Fatal(err, "Unable to parse MINIO_GATEWAY_SSE value (`%s`)", gwsseVal)
 		}
 	}
+
+	accessKey := env.Get(config.EnvAccessKey, "")
+	secretKey := env.Get(config.EnvSecretKey, "")
+	cred, err := auth.CreateCredentials(accessKey, secretKey)
+	if err != nil {
+		logger.Fatal(config.ErrInvalidCredentials(err),
+			"Unable to validate credentials inherited from the shell environment")
+	}
+	globalActiveCred = cred
 }

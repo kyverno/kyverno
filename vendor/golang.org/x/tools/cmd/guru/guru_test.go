@@ -48,6 +48,7 @@ import (
 	"testing"
 
 	guru "golang.org/x/tools/cmd/guru"
+	"golang.org/x/tools/internal/testenv"
 )
 
 func init() {
@@ -274,13 +275,15 @@ func TestGuru(t *testing.T) {
 			json := strings.Contains(filename, "-json/")
 			queries := parseQueries(t, filename)
 			golden := filename + "lden"
-			got := filename + "t"
-			gotfh, err := os.Create(got)
+			gotfh, err := ioutil.TempFile("", filepath.Base(filename)+"t")
 			if err != nil {
-				t.Fatalf("Create(%s) failed: %s", got, err)
+				t.Fatal(err)
 			}
-			defer os.Remove(got)
-			defer gotfh.Close()
+			got := gotfh.Name()
+			defer func() {
+				gotfh.Close()
+				os.Remove(got)
+			}()
 
 			// Run the guru on each query, redirecting its output
 			// and error (if any) to the foo.got file.
@@ -296,6 +299,7 @@ func TestGuru(t *testing.T) {
 			default:
 				cmd = exec.Command("/usr/bin/diff", "-u", golden, got)
 			}
+			testenv.NeedsTool(t, cmd.Path)
 			buf := new(bytes.Buffer)
 			cmd.Stdout = buf
 			cmd.Stderr = os.Stderr

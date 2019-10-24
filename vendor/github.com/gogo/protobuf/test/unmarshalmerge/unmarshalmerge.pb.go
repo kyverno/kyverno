@@ -25,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Big struct {
 	Sub                  *Sub     `protobuf:"bytes,1,opt,name=Sub" json:"Sub,omitempty"`
@@ -741,10 +741,10 @@ func valueToGoStringUnmarshalmerge(v interface{}, typ string) string {
 }
 func NewPopulatedBig(r randyUnmarshalmerge, easy bool) *Big {
 	this := &Big{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Sub = NewPopulatedSub(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v1 *= -1
@@ -759,10 +759,10 @@ func NewPopulatedBig(r randyUnmarshalmerge, easy bool) *Big {
 
 func NewPopulatedBigUnsafe(r randyUnmarshalmerge, easy bool) *BigUnsafe {
 	this := &BigUnsafe{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Sub = NewPopulatedSub(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v2 *= -1
@@ -777,7 +777,7 @@ func NewPopulatedBigUnsafe(r randyUnmarshalmerge, easy bool) *BigUnsafe {
 
 func NewPopulatedSub(r randyUnmarshalmerge, easy bool) *Sub {
 	this := &Sub{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v3 *= -1
@@ -904,7 +904,7 @@ func (this *Big) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Big{`,
-		`Sub:` + strings.Replace(fmt.Sprintf("%v", this.Sub), "Sub", "Sub", 1) + `,`,
+		`Sub:` + strings.Replace(this.Sub.String(), "Sub", "Sub", 1) + `,`,
 		`Number:` + valueToStringUnmarshalmerge(this.Number) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -916,7 +916,7 @@ func (this *BigUnsafe) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&BigUnsafe{`,
-		`Sub:` + strings.Replace(fmt.Sprintf("%v", this.Sub), "Sub", "Sub", 1) + `,`,
+		`Sub:` + strings.Replace(this.Sub.String(), "Sub", "Sub", 1) + `,`,
 		`Number:` + valueToStringUnmarshalmerge(this.Number) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -1509,6 +1509,7 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 func skipUnmarshalmerge(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -1540,10 +1541,8 @@ func skipUnmarshalmerge(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -1564,55 +1563,30 @@ func skipUnmarshalmerge(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthUnmarshalmerge
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthUnmarshalmerge
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowUnmarshalmerge
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipUnmarshalmerge(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthUnmarshalmerge
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupUnmarshalmerge
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthUnmarshalmerge
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthUnmarshalmerge = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowUnmarshalmerge   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthUnmarshalmerge        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowUnmarshalmerge          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupUnmarshalmerge = fmt.Errorf("proto: unexpected end of group")
 )

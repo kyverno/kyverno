@@ -19,7 +19,6 @@ package cmd
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1247,22 +1246,22 @@ var posixReadFileWithVerifyTests = []struct {
 	algorithm BitrotAlgorithm
 	expError  error
 }{
-	{file: "myobject", offset: 0, length: 100, algorithm: SHA256, expError: nil},                     // 0
-	{file: "myobject", offset: 25, length: 74, algorithm: SHA256, expError: nil},                     // 1
-	{file: "myobject", offset: 29, length: 70, algorithm: SHA256, expError: nil},                     // 2
-	{file: "myobject", offset: 100, length: 0, algorithm: SHA256, expError: nil},                     // 3
-	{file: "myobject", offset: 1, length: 120, algorithm: SHA256, expError: HashMismatchError{}},     // 4
-	{file: "myobject", offset: 3, length: 1100, algorithm: SHA256, expError: nil},                    // 5
-	{file: "myobject", offset: 2, length: 100, algorithm: SHA256, expError: HashMismatchError{}},     // 6
-	{file: "myobject", offset: 1000, length: 1001, algorithm: SHA256, expError: nil},                 // 7
-	{file: "myobject", offset: 0, length: 100, algorithm: BLAKE2b512, expError: HashMismatchError{}}, // 8
-	{file: "myobject", offset: 25, length: 74, algorithm: BLAKE2b512, expError: nil},                 // 9
-	{file: "myobject", offset: 29, length: 70, algorithm: BLAKE2b512, expError: HashMismatchError{}}, // 10
-	{file: "myobject", offset: 100, length: 0, algorithm: BLAKE2b512, expError: nil},                 // 11
-	{file: "myobject", offset: 1, length: 120, algorithm: BLAKE2b512, expError: nil},                 // 12
-	{file: "myobject", offset: 3, length: 1100, algorithm: BLAKE2b512, expError: nil},                // 13
-	{file: "myobject", offset: 2, length: 100, algorithm: BLAKE2b512, expError: nil},                 // 14
-	{file: "myobject", offset: 1000, length: 1001, algorithm: BLAKE2b512, expError: nil},             // 15
+	{file: "myobject", offset: 0, length: 100, algorithm: SHA256, expError: nil},                // 0
+	{file: "myobject", offset: 25, length: 74, algorithm: SHA256, expError: nil},                // 1
+	{file: "myobject", offset: 29, length: 70, algorithm: SHA256, expError: nil},                // 2
+	{file: "myobject", offset: 100, length: 0, algorithm: SHA256, expError: nil},                // 3
+	{file: "myobject", offset: 1, length: 120, algorithm: SHA256, expError: errFileCorrupt},     // 4
+	{file: "myobject", offset: 3, length: 1100, algorithm: SHA256, expError: nil},               // 5
+	{file: "myobject", offset: 2, length: 100, algorithm: SHA256, expError: errFileCorrupt},     // 6
+	{file: "myobject", offset: 1000, length: 1001, algorithm: SHA256, expError: nil},            // 7
+	{file: "myobject", offset: 0, length: 100, algorithm: BLAKE2b512, expError: errFileCorrupt}, // 8
+	{file: "myobject", offset: 25, length: 74, algorithm: BLAKE2b512, expError: nil},            // 9
+	{file: "myobject", offset: 29, length: 70, algorithm: BLAKE2b512, expError: errFileCorrupt}, // 10
+	{file: "myobject", offset: 100, length: 0, algorithm: BLAKE2b512, expError: nil},            // 11
+	{file: "myobject", offset: 1, length: 120, algorithm: BLAKE2b512, expError: nil},            // 12
+	{file: "myobject", offset: 3, length: 1100, algorithm: BLAKE2b512, expError: nil},           // 13
+	{file: "myobject", offset: 2, length: 100, algorithm: BLAKE2b512, expError: nil},            // 14
+	{file: "myobject", offset: 1000, length: 1001, algorithm: BLAKE2b512, expError: nil},        // 15
 }
 
 // TestPosixReadFile with bitrot verification - tests the posix level
@@ -1294,9 +1293,7 @@ func TestPosixReadFileWithVerify(t *testing.T) {
 		h := test.algorithm.New()
 		h.Write(data)
 		if test.expError != nil {
-			expected := h.Sum(nil)
 			h.Write([]byte{0})
-			test.expError = HashMismatchError{hex.EncodeToString(h.Sum(nil)), hex.EncodeToString(expected)}
 		}
 
 		buffer := make([]byte, test.length)
@@ -1797,7 +1794,7 @@ func TestPosixVerifyFile(t *testing.T) {
 	if err := posixStorage.WriteAll(volName, fileName, bytes.NewBuffer(data)); err != nil {
 		t.Fatal(err)
 	}
-	if err := posixStorage.VerifyFile(volName, fileName, false, algo, hashBytes, 0); err != nil {
+	if err := posixStorage.VerifyFile(volName, fileName, size, algo, hashBytes, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1805,7 +1802,14 @@ func TestPosixVerifyFile(t *testing.T) {
 	if err := posixStorage.AppendFile(volName, fileName, []byte("a")); err != nil {
 		t.Fatal(err)
 	}
-	if err := posixStorage.VerifyFile(volName, fileName, false, algo, hashBytes, 0); err == nil {
+
+	// Check if VerifyFile reports the incorrect file length (the correct length is `size+1`)
+	if err := posixStorage.VerifyFile(volName, fileName, size, algo, hashBytes, 0); err == nil {
+		t.Fatal("expected to fail bitrot check")
+	}
+
+	// Check if bitrot fails
+	if err := posixStorage.VerifyFile(volName, fileName, size+1, algo, hashBytes, 0); err == nil {
 		t.Fatal("expected to fail bitrot check")
 	}
 
@@ -1833,7 +1837,7 @@ func TestPosixVerifyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.Close()
-	if err := posixStorage.VerifyFile(volName, fileName, false, algo, nil, shardSize); err != nil {
+	if err := posixStorage.VerifyFile(volName, fileName, size, algo, nil, shardSize); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1847,7 +1851,10 @@ func TestPosixVerifyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
-	if err := posixStorage.VerifyFile(volName, fileName, false, algo, nil, shardSize); err == nil {
+	if err := posixStorage.VerifyFile(volName, fileName, size, algo, nil, shardSize); err == nil {
+		t.Fatal("expected to fail bitrot check")
+	}
+	if err := posixStorage.VerifyFile(volName, fileName, size+1, algo, nil, shardSize); err == nil {
 		t.Fatal("expected to fail bitrot check")
 	}
 }

@@ -7,9 +7,13 @@ package imports
 import (
 	"flag"
 	"fmt"
+	"go/build"
+	"log"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/tools/go/packages/packagestest"
@@ -372,7 +376,37 @@ func foo() {
 }
 `,
 	},
+	// Merge import blocks, even when no additions are required.
+	{
+		name: "merge_import_blocks_no_fix",
+		in: `package foo
 
+import (
+	"fmt"
+)
+import "os"
+
+import (
+	"rsc.io/p"
+)
+
+var _, _ = os.Args, fmt.Println
+var _, _ = snappy.ErrCorrupt, p.P
+`,
+		out: `package foo
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/golang/snappy"
+	"rsc.io/p"
+)
+
+var _, _ = os.Args, fmt.Println
+var _, _ = snappy.ErrCorrupt, p.P
+`,
+	},
 	// Delete existing empty import block
 	{
 		name: "delete_empty_import_block",
@@ -1508,6 +1542,39 @@ func TestFindStdlib(t *testing.T) {
 	}
 }
 
+// https://golang.org/issue/31814
+func TestStdlibNotPrefixed(t *testing.T) {
+	const input = `package p
+var _ = bytes.Buffer
+`
+	const want = `package p
+
+import "bytes"
+
+var _ = bytes.Buffer
+`
+	// Force a scan of the stdlib.
+	savedStdlib := stdlib
+	defer func() { stdlib = savedStdlib }()
+	stdlib = map[string]map[string]bool{}
+
+	testConfig{
+		module: packagestest.Module{
+			Name: "ignored.com",
+		},
+	}.test(t, func(t *goimportTest) {
+		// Run in GOROOT/src so that the std module shows up in go list -m all.
+		t.env.WorkingDir = filepath.Join(t.env.GOROOT, "src")
+		got, err := t.processNonModule(filepath.Join(t.env.GOROOT, "src/x.go"), []byte(input), nil)
+		if err != nil {
+			t.Fatalf("Process() = %v", err)
+		}
+		if string(got) != want {
+			t.Errorf("Got:\n%s\nWant:\n%s", got, want)
+		}
+	})
+}
+
 type testConfig struct {
 	gopathOnly             bool
 	goPackagesIncompatible bool
@@ -1576,8 +1643,14 @@ func (c testConfig) test(t *testing.T, fn func(*goimportTest)) {
 					WorkingDir:      exported.Config.Dir,
 					ForceGoPackages: forceGoPackages,
 					Debug:           *testDebug,
+					Logf:            log.Printf,
 				},
 				exported: exported,
+			}
+			if it.env.GOROOT == "" {
+				// packagestest clears out GOROOT to work around https://golang.org/issue/32849,
+				// which isn't relevant here. Fill it back in so we can find the standard library.
+				it.env.GOROOT = build.Default.GOROOT
 			}
 			fn(it)
 		})
@@ -1611,8 +1684,9 @@ func (t *goimportTest) processNonModule(file string, contents []byte, opts *Opti
 	if opts == nil {
 		opts = &Options{Comments: true, TabIndent: true, TabWidth: 8}
 	}
-	opts.Env = t.env
-	opts.Env.Debug = *testDebug
+	// ProcessEnv is not safe for concurrent use. Make a copy.
+	env := *t.env
+	opts.Env = &env
 	return Process(file, contents, opts)
 }
 
@@ -2438,4 +2512,92 @@ var _ = bytes.Buffer{}
 			Files: fm{"foo.go": input},
 		},
 	}.processTest(t, "foo.com", "foo.go", nil, nil, want)
+}
+
+// TestStdLibGetCandidates tests that get packages finds std library packages
+// with correct priorities.
+func TestGetCandidates(t *testing.T) {
+	type res struct {
+		name, path string
+	}
+	want := []res{
+		{"bar", "bar.com/bar"},
+		{"bytes", "bytes"},
+		{"rand", "crypto/rand"},
+		{"foo", "foo.com/foo"},
+		{"rand", "math/rand"},
+		{"http", "net/http"},
+	}
+
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name:  "foo.com",
+				Files: fm{"foo/foo.go": "package foo\n"},
+			},
+			{
+				Name:  "bar.com",
+				Files: fm{"bar/bar.go": "package bar\n"},
+			},
+		},
+		goPackagesIncompatible: true, // getAllCandidates doesn't support the go/packages resolver.
+	}.test(t, func(t *goimportTest) {
+		candidates, err := getAllCandidates("x.go", t.env)
+		if err != nil {
+			t.Fatalf("GetAllCandidates() = %v", err)
+		}
+		var got []res
+		for _, c := range candidates {
+			for _, w := range want {
+				if c.StmtInfo.ImportPath == w.path {
+					got = append(got, res{c.IdentName, c.StmtInfo.ImportPath})
+				}
+			}
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("wanted stdlib results in order %v, got %v", want, got)
+		}
+	})
+}
+
+// Tests #34895: process should not panic on concurrent calls.
+func TestConcurrentProcess(t *testing.T) {
+	testConfig{
+		module: packagestest.Module{
+			Name: "foo.com",
+			Files: fm{
+				"p/first.go": `package foo
+
+func _() {
+	fmt.Println()
+}
+`,
+				"p/second.go": `package foo
+
+import "fmt"
+
+func _() {
+	fmt.Println()
+	imports.Bar() // not imported.
+}
+`,
+			},
+		},
+	}.test(t, func(t *goimportTest) {
+		var (
+			n  = 10
+			wg sync.WaitGroup
+		)
+		wg.Add(n)
+		for i := 0; i < n; i++ {
+			go func() {
+				defer wg.Done()
+				_, err := t.process("foo.com", "p/first.go", nil, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}()
+		}
+		wg.Wait()
+	})
 }

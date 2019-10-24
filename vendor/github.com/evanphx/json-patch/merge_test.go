@@ -1,6 +1,7 @@
 package jsonpatch
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -446,6 +447,45 @@ func TestCreateMergePatchComplexAddAll(t *testing.T) {
 		t.Fatalf("Did not get everything as, it was:\n%s", string(res))
 	}
 }
+
+// createNestedMap created a series of nested map objects such that the number of
+// objects is roughly 2^n (precisely, 2^(n+1)-1).
+func createNestedMap(m map[string]interface{}, depth int, objectCount *int) {
+	if depth == 0 {
+		return
+	}
+	for i := 0; i< 2;i++ {
+		nested := map[string]interface{}{}
+		*objectCount += 1
+		createNestedMap(nested, depth-1, objectCount)
+		m[fmt.Sprintf("key-%v", i)] = nested
+	}
+}
+
+func benchmarkMatchesValueWithDeeplyNestedFields(depth int, b *testing.B) {
+	a := map[string]interface{}{}
+	objCount := 1
+	createNestedMap(a, depth, &objCount)
+	b.ResetTimer()
+	b.Run(fmt.Sprintf("objectCount=%v", objCount), func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if !matchesValue(a, a) {
+				b.Errorf("Should be equal")
+			}
+		}
+	})
+}
+
+func BenchmarkMatchesValue1(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(1, b) }
+func BenchmarkMatchesValue2(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(2, b) }
+func BenchmarkMatchesValue3(b *testing.B)  { benchmarkMatchesValueWithDeeplyNestedFields(3, b) }
+func BenchmarkMatchesValue4(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(4, b) }
+func BenchmarkMatchesValue5(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(5, b) }
+func BenchmarkMatchesValue6(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(6, b) }
+func BenchmarkMatchesValue7(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(7, b) }
+func BenchmarkMatchesValue8(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(8, b) }
+func BenchmarkMatchesValue9(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(9, b) }
+func BenchmarkMatchesValue10(b *testing.B) { benchmarkMatchesValueWithDeeplyNestedFields(10, b) }
 
 func TestCreateMergePatchComplexRemoveAll(t *testing.T) {
 	doc := `{"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4], "nested": {"hello": "world","t": true ,"f": false, "n": null,"i": 123,"pi": 3.1416,"a": [1, 2, 3, 4]} }`

@@ -21,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MoreDefaultsB struct {
 	Field1               *string  `protobuf:"bytes,1,opt,name=Field1" json:"Field1,omitempty"`
@@ -252,7 +252,7 @@ func (this *MoreDefaultsA) Equal(that interface{}) bool {
 }
 func NewPopulatedMoreDefaultsB(r randyMd, easy bool) *MoreDefaultsB {
 	this := &MoreDefaultsB{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := string(randStringMd(r))
 		this.Field1 = &v1
 	}
@@ -264,7 +264,7 @@ func NewPopulatedMoreDefaultsB(r randyMd, easy bool) *MoreDefaultsB {
 
 func NewPopulatedMoreDefaultsA(r randyMd, easy bool) *MoreDefaultsA {
 	this := &MoreDefaultsA{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v2 *= -1
@@ -275,12 +275,12 @@ func NewPopulatedMoreDefaultsA(r randyMd, easy bool) *MoreDefaultsA {
 	if r.Intn(2) == 0 {
 		this.Field2 *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.B1 = NewPopulatedMoreDefaultsB(r, easy)
 	}
 	v3 := NewPopulatedMoreDefaultsB(r, easy)
 	this.B2 = *v3
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.A1 = example.NewPopulatedA(r, easy)
 	}
 	v4 := example.NewPopulatedA(r, easy)

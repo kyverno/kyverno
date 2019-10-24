@@ -7,11 +7,13 @@ package source
 import (
 	"context"
 	"go/ast"
+	"go/doc"
 	"go/token"
 	"go/types"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	"golang.org/x/tools/internal/lsp/protocol"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
@@ -25,22 +27,41 @@ type ParameterInformation struct {
 	Label string
 }
 
-func SignatureHelp(ctx context.Context, f GoFile, pos token.Pos) (*SignatureInformation, error) {
+func SignatureHelp(ctx context.Context, view View, f File, pos protocol.Position) (*SignatureInformation, error) {
 	ctx, done := trace.StartSpan(ctx, "source.SignatureHelp")
 	defer done()
 
-	file, err := f.GetAST(ctx, ParseFull)
-	if file == nil {
+	_, cphs, err := view.CheckPackageHandles(ctx, f)
+	if err != nil {
 		return nil, err
 	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, errors.Errorf("package for %s is ill typed", f.URI())
+	cph, err := NarrowestCheckPackageHandle(cphs)
+	if err != nil {
+		return nil, err
 	}
-
+	pkg, err := cph.Check(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ph, err := pkg.File(f.URI())
+	if err != nil {
+		return nil, err
+	}
+	file, m, _, err := ph.Cached(ctx)
+	if err != nil {
+		return nil, err
+	}
+	spn, err := m.PointSpan(pos)
+	if err != nil {
+		return nil, err
+	}
+	rng, err := spn.Range(m.Converter)
+	if err != nil {
+		return nil, err
+	}
 	// Find a call expression surrounding the query position.
 	var callExpr *ast.CallExpr
-	path, _ := astutil.PathEnclosingInterval(file, pos, pos)
+	path, _ := astutil.PathEnclosingInterval(file, rng.Start, rng.Start)
 	if path == nil {
 		return nil, errors.Errorf("cannot find node enclosing position")
 	}
@@ -48,7 +69,7 @@ FindCall:
 	for _, node := range path {
 		switch node := node.(type) {
 		case *ast.CallExpr:
-			if pos >= node.Lparen && pos <= node.Rparen {
+			if rng.Start >= node.Lparen && rng.Start <= node.Rparen {
 				callExpr = node
 				break FindCall
 			}
@@ -76,7 +97,7 @@ FindCall:
 
 	// Handle builtin functions separately.
 	if obj, ok := obj.(*types.Builtin); ok {
-		return builtinSignature(ctx, f.View(), callExpr, obj.Name(), pos)
+		return builtinSignature(ctx, view, callExpr, obj.Name(), rng.Start)
 	}
 
 	// Get the type information for the function being called.
@@ -93,25 +114,25 @@ FindCall:
 	qf := qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo())
 	params := formatParams(sig.Params(), sig.Variadic(), qf)
 	results, writeResultParens := formatResults(sig.Results(), qf)
-	activeParam := activeParameter(callExpr, sig.Params().Len(), sig.Variadic(), pos)
+	activeParam := activeParameter(callExpr, sig.Params().Len(), sig.Variadic(), rng.Start)
 
 	var (
 		name    string
 		comment *ast.CommentGroup
 	)
 	if obj != nil {
-		rng, err := objToRange(ctx, f.FileSet(), obj)
+		node, err := objToNode(ctx, pkg, obj)
 		if err != nil {
 			return nil, err
 		}
-		node, err := objToNode(ctx, f.View(), pkg.GetTypes(), obj, rng)
+		rng, err := objToMappedRange(ctx, pkg, obj)
 		if err != nil {
 			return nil, err
 		}
-		decl := &declaration{
-			obj:  obj,
-			rng:  rng,
-			node: node,
+		decl := &Declaration{
+			obj:         obj,
+			mappedRange: rng,
+			node:        node,
 		}
 		d, err := decl.hover(ctx)
 		if err != nil {
@@ -126,7 +147,11 @@ FindCall:
 }
 
 func builtinSignature(ctx context.Context, v View, callExpr *ast.CallExpr, name string, pos token.Pos) (*SignatureInformation, error) {
-	decl, ok := lookupBuiltinDecl(v, name).(*ast.FuncDecl)
+	obj := v.BuiltinPackage().Lookup(name)
+	if obj == nil {
+		return nil, errors.Errorf("no object for %s", name)
+	}
+	decl, ok := obj.Decl.(*ast.FuncDecl)
 	if !ok {
 		return nil, errors.Errorf("no function declaration for builtin: %s", name)
 	}
@@ -154,10 +179,13 @@ func signatureInformation(name string, comment *ast.CommentGroup, params, result
 		paramInfo = append(paramInfo, ParameterInformation{Label: p})
 	}
 	label := name + formatFunction(params, results, writeResultParens)
+	var c string
+	if comment != nil {
+		c = doc.Synopsis(comment.Text())
+	}
 	return &SignatureInformation{
-		Label: label,
-		// TODO: Should we have the HoverKind apply to signature information as well?
-		Documentation:   formatDocumentation(comment, SynopsisDocumentation),
+		Label:           label,
+		Documentation:   c,
 		Parameters:      paramInfo,
 		ActiveParameter: activeParam,
 	}

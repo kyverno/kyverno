@@ -273,7 +273,11 @@ func GenerateExtension(schemaFile string, outDir string) error {
 	err = exec.Command(runtime.GOROOT()+"/bin/gofmt", "-w", goFilename).Run()
 
 	// generate the main file.
-	outDirRelativeToGoPathSrc := strings.Replace(outDir, path.Join(os.Getenv("GOPATH"), "src")+"/", "", 1)
+
+	// TODO: This path is currently fixed to the location of the samples.
+	//       Can we make it relative, perhaps with an option or by generating
+	//       a go.mod file for the generated extension handler?
+	outDirRelativeToPackageRoot := "github.com/googleapis/gnostic/extensions/sample/" + outDir
 
 	var extensionNameKeys []string
 	for k := range extensionNameToMessageName {
@@ -298,7 +302,7 @@ func GenerateExtension(schemaFile string, outDir string) error {
 		"github.com/googleapis/gnostic/extensions",
 		"github.com/googleapis/gnostic/compiler",
 		"gopkg.in/yaml.v2",
-		outDirRelativeToGoPathSrc + "/" + "proto",
+		outDirRelativeToPackageRoot + "/" + "proto",
 	}
 	if wrapperTypeIncluded {
 		imports = append(imports, "github.com/golang/protobuf/ptypes/wrappers")

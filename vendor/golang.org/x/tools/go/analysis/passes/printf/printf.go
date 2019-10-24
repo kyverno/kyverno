@@ -117,7 +117,11 @@ func maybePrintfWrapper(info *types.Info, decl ast.Decl) *printfWrapper {
 	if !ok || fdecl.Body == nil {
 		return nil
 	}
-	fn := info.Defs[fdecl.Name].(*types.Func)
+	fn, ok := info.Defs[fdecl.Name].(*types.Func)
+	// Type information may be incomplete.
+	if !ok {
+		return nil
+	}
 
 	sig := fn.Type().(*types.Signature)
 	if !sig.Variadic() {
@@ -762,8 +766,8 @@ var printVerbs = []printVerb{
 	{'U', "-#", argRune | argInt},
 	{'v', allFlags, anyType},
 	{'w', allFlags, argError},
-	{'x', sharpNumFlag, argRune | argInt | argString | argPointer},
-	{'X', sharpNumFlag, argRune | argInt | argString | argPointer},
+	{'x', sharpNumFlag, argRune | argInt | argString | argPointer | argFloat | argComplex},
+	{'X', sharpNumFlag, argRune | argInt | argString | argPointer | argFloat | argComplex},
 }
 
 // okPrintfArg compares the formatState to the arguments actually present,

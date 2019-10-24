@@ -131,6 +131,15 @@ func TestLimiterJumpBackwards(t *testing.T) {
 	})
 }
 
+// Ensure that tokensFromDuration doesn't produce
+// rounding errors by truncating nanoseconds.
+// See golang.org/issues/34861.
+func TestLimiter_noTruncationErrors(t *testing.T) {
+	if !NewLimiter(0.7692307692307693, 1).Allow() {
+		t.Fatal("expected true")
+	}
+}
+
 func TestSimultaneousRequests(t *testing.T) {
 	const (
 		limit       = 1
@@ -350,6 +359,15 @@ func TestReserveSetLimit(t *testing.T) {
 	runReserve(t, lim, request{t0, 2, t4, true})
 	lim.SetLimitAt(t2, 10)
 	runReserve(t, lim, request{t2, 1, t4, true}) // violates Limit and Burst
+}
+
+func TestReserveSetBurst(t *testing.T) {
+	lim := NewLimiter(5, 2)
+
+	runReserve(t, lim, request{t0, 2, t0, true})
+	runReserve(t, lim, request{t0, 2, t4, true})
+	lim.SetBurstAt(t3, 4)
+	runReserve(t, lim, request{t0, 4, t9, true}) // violates Limit and Burst
 }
 
 func TestReserveSetLimitCancel(t *testing.T) {

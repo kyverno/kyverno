@@ -27,14 +27,17 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/minio/cli"
+	"github.com/minio/minio/cmd/config"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/certs"
+	"github.com/minio/minio/pkg/color"
+	"github.com/minio/minio/pkg/env"
 )
 
 func init() {
 	logger.Init(GOPATH, GOROOT)
-	logger.RegisterUIError(fmtError)
+	logger.RegisterError(config.FmtError)
 }
 
 var (
@@ -106,6 +109,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	logger.Disable = true
 
 	// Validate if we have access, secret set through environment.
+	globalGatewayName = gw.Name()
 	gatewayName := gw.Name()
 	if ctx.Args().First() == "help" {
 		cli.ShowCommandHelpAndExit(ctx, gatewayName, 1)
@@ -129,7 +133,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	logger.FatalIf(err, "Invalid TLS certificate file")
 
 	// Check and load Root CAs.
-	globalRootCAs, err = getRootCAs(globalCertsCADir.Get())
+	globalRootCAs, err = config.GetRootCAs(globalCertsCADir.Get())
 	logger.FatalIf(err, "Failed to read root CAs (%v)", err)
 
 	// Handle common env vars.
@@ -137,11 +141,6 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 	// Handle gateway specific env
 	handleGatewayEnvVars()
-
-	// Validate if we have access, secret set through environment.
-	if !globalIsEnvCreds {
-		logger.Fatal(uiErrEnvCredentialsMissingGateway(nil), "Unable to start gateway")
-	}
 
 	// Set system resources to maximum.
 	logger.LogIf(context.Background(), setMaxResources())
@@ -158,6 +157,9 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		registerSTSRouter(router)
 	}
 
+	// Initialize globalConsoleSys system
+	globalConsoleSys = NewConsoleLogger(context.Background(), globalEndpoints)
+
 	enableConfigOps := gatewayName == "nas"
 	enableIAMOps := globalEtcdClient != nil
 
@@ -172,7 +174,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	registerMetricsRouter(router)
 
 	// Register web router when its enabled.
-	if globalIsBrowserEnabled {
+	if globalBrowserEnabled {
 		logger.FatalIf(registerWebRouter(router), "Unable to configure web browser")
 	}
 
@@ -189,26 +191,22 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	}
 
 	globalHTTPServer = xhttp.NewServer([]string{globalCLIContext.Addr}, criticalErrorHandler{registerHandlers(router, globalHandlers...)}, getCert)
-	globalHTTPServer.UpdateBytesReadFunc = globalConnStats.incInputBytes
-	globalHTTPServer.UpdateBytesWrittenFunc = globalConnStats.incOutputBytes
 	go func() {
 		globalHTTPServerErrorCh <- globalHTTPServer.Start()
 	}()
 
 	signal.Notify(globalOSSignalCh, os.Interrupt, syscall.SIGTERM)
 
-	// !!! Do not move this block !!!
-	// For all gateways, the config needs to be loaded from env
-	// prior to initializing the gateway layer
-	{
+	if !enableConfigOps {
+		// TODO: We need to move this code with globalConfigSys.Init()
+		// for now keep it here such that "s3" gateway layer initializes
+		// itself properly when KMS is set.
+
 		// Initialize server config.
 		srvCfg := newServerConfig()
 
 		// Override any values from ENVs.
-		srvCfg.loadFromEnvs()
-
-		// Load values to cached global values.
-		srvCfg.loadToCachedConfigs()
+		lookupConfigs(srvCfg)
 
 		// hold the mutex lock before a new config is assigned.
 		globalServerConfigMu.Lock()
@@ -216,7 +214,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		globalServerConfigMu.Unlock()
 	}
 
-	newObject, err := gw.NewGatewayLayer(globalServerConfig.GetCredential())
+	newObject, err := gw.NewGatewayLayer(globalActiveCred)
 	if err != nil {
 		// Stop watching for any certificate changes.
 		globalTLSCerts.Stop()
@@ -242,18 +240,13 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		globalConfigSys.WatchConfigNASDisk(newObject)
 	}
 
-	// Load logger subsystem
-	loadLoggers()
-
 	// This is only to uniquely identify each gateway deployments.
-	globalDeploymentID = os.Getenv("MINIO_GATEWAY_DEPLOYMENT_ID")
+	globalDeploymentID = env.Get("MINIO_GATEWAY_DEPLOYMENT_ID", mustGetUUID())
 	logger.SetDeploymentID(globalDeploymentID)
 
-	var cacheConfig = globalServerConfig.GetCacheConfig()
-	if len(cacheConfig.Drives) > 0 {
-		var err error
+	if globalCacheConfig.Enabled {
 		// initialize the new disk cache objects.
-		globalCacheObjectAPI, err = newServerCacheObjects(cacheConfig)
+		globalCacheObjectAPI, err = newServerCacheObjects(context.Background(), globalCacheConfig)
 		logger.FatalIf(err, "Unable to initialize disk caching")
 	}
 
@@ -270,17 +263,11 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// Create new policy system.
 	globalPolicySys = NewPolicySys()
 
-	// Initialize policy system.
-	go globalPolicySys.Init(newObject)
-
-	// Create new lifecycle system
+	// Create new lifecycle system.
 	globalLifecycleSys = NewLifecycleSys()
 
 	// Create new notification system.
 	globalNotificationSys = NewNotificationSys(globalServerConfig, globalEndpoints)
-	if enableConfigOps && newObject.IsNotificationSupported() {
-		logger.LogIf(context.Background(), globalNotificationSys.Init(newObject))
-	}
 
 	// Verify if object layer supports
 	// - encryption
@@ -300,7 +287,7 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 
 		// Print a warning message if gateway is not ready for production before the startup banner.
 		if !gw.Production() {
-			logger.StartupMessage(colorYellow("               *** Warning: Not Ready for Production ***"))
+			logStartupMessage(color.Yellow("               *** Warning: Not Ready for Production ***"))
 		}
 
 		// Print gateway startup message.

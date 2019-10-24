@@ -142,7 +142,7 @@ func checkAdminRequestAuthType(ctx context.Context, r *http.Request, region stri
 	if s3Err != ErrNone {
 		reqInfo := (&logger.ReqInfo{}).AppendTags("requestHeaders", dumpRequest(r))
 		ctx := logger.SetReqInfo(ctx, reqInfo)
-		logger.LogIf(ctx, errors.New(getAPIError(s3Err).Description))
+		logger.LogIf(ctx, errors.New(getAPIError(s3Err).Description), logger.Application)
 	}
 	return s3Err
 }
@@ -179,7 +179,7 @@ func getClaimsFromToken(r *http.Request) (map[string]interface{}, error) {
 		// hijacking the policies. We need to make sure that this is
 		// based an admin credential such that token cannot be decoded
 		// on the client side and is treated like an opaque value.
-		return []byte(globalServerConfig.GetCredential().SecretKey), nil
+		return []byte(globalActiveCred.SecretKey), nil
 	}
 	p := &jwtgo.Parser{
 		ValidMethods: []string{
@@ -203,10 +203,16 @@ func getClaimsFromToken(r *http.Request) (map[string]interface{}, error) {
 	}
 
 	if globalPolicyOPA == nil {
+		// If OPA is not set and if ldap claim key is set,
+		// allow the claim.
+		if _, ok := claims[ldapUser]; ok {
+			return claims, nil
+		}
+
 		// If OPA is not set, session token should
 		// have a policy and its mandatory, reject
 		// requests without policy claim.
-		p, pok := claims[iampolicy.PolicyName]
+		p, pok := claims[iamPolicyName()]
 		if !pok {
 			return nil, errAuthentication
 		}
@@ -229,7 +235,7 @@ func getClaimsFromToken(r *http.Request) (map[string]interface{}, error) {
 		if err != nil {
 			// Base64 decoding fails, we should log to indicate
 			// something is malforming the request sent by client.
-			logger.LogIf(context.Background(), err)
+			logger.LogIf(context.Background(), err, logger.Application)
 			return nil, errAuthentication
 		}
 		claims[iampolicy.SessionPolicyName] = string(spBytes)
@@ -259,34 +265,45 @@ func checkClaimsFromToken(r *http.Request, cred auth.Credentials) (map[string]in
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
 func checkRequestAuthType(ctx context.Context, r *http.Request, action policy.Action, bucketName, objectName string) (s3Err APIErrorCode) {
+	_, _, s3Err = checkRequestAuthTypeToAccessKey(ctx, r, action, bucketName, objectName)
+	return s3Err
+}
+
+// Check request auth type verifies the incoming http request
+// - validates the request signature
+// - validates the policy action if anonymous tests bucket policies if any,
+//   for authenticated requests validates IAM policies.
+// returns APIErrorCode if any to be replied to the client.
+// Additionally returns the accessKey used in the request, and if this request is by an admin.
+func checkRequestAuthTypeToAccessKey(ctx context.Context, r *http.Request, action policy.Action, bucketName, objectName string) (accessKey string, owner bool, s3Err APIErrorCode) {
 	var cred auth.Credentials
-	var owner bool
 	switch getRequestAuthType(r) {
 	case authTypeUnknown, authTypeStreamingSigned:
-		return ErrAccessDenied
+		return accessKey, owner, ErrAccessDenied
 	case authTypePresignedV2, authTypeSignedV2:
 		if s3Err = isReqAuthenticatedV2(r); s3Err != ErrNone {
-			return s3Err
+			return accessKey, owner, s3Err
 		}
 		cred, owner, s3Err = getReqAccessKeyV2(r)
 	case authTypeSigned, authTypePresigned:
-		region := globalServerConfig.GetRegion()
+		region := globalServerRegion
 		switch action {
 		case policy.GetBucketLocationAction, policy.ListAllMyBucketsAction:
 			region = ""
 		}
 		if s3Err = isReqAuthenticated(ctx, r, region, serviceS3); s3Err != ErrNone {
-			return s3Err
+			return accessKey, owner, s3Err
 		}
 		cred, owner, s3Err = getReqAccessKeyV4(r, region, serviceS3)
 	}
 	if s3Err != ErrNone {
-		return s3Err
+		return accessKey, owner, s3Err
 	}
 
-	claims, s3Err := checkClaimsFromToken(r, cred)
+	var claims map[string]interface{}
+	claims, s3Err = checkClaimsFromToken(r, cred)
 	if s3Err != ErrNone {
-		return s3Err
+		return accessKey, owner, s3Err
 	}
 
 	// LocationConstraint is valid only for CreateBucketAction.
@@ -295,8 +312,8 @@ func checkRequestAuthType(ctx context.Context, r *http.Request, action policy.Ac
 		// To extract region from XML in request body, get copy of request body.
 		payload, err := ioutil.ReadAll(io.LimitReader(r.Body, maxLocationConstraintSize))
 		if err != nil {
-			logger.LogIf(ctx, err)
-			return ErrMalformedXML
+			logger.LogIf(ctx, err, logger.Application)
+			return accessKey, owner, ErrMalformedXML
 		}
 
 		// Populate payload to extract location constraint.
@@ -305,7 +322,7 @@ func checkRequestAuthType(ctx context.Context, r *http.Request, action policy.Ac
 		var s3Error APIErrorCode
 		locationConstraint, s3Error = parseLocationConstraint(r)
 		if s3Error != ErrNone {
-			return s3Error
+			return accessKey, owner, s3Error
 		}
 
 		// Populate payload again to handle it in HTTP handler.
@@ -317,27 +334,29 @@ func checkRequestAuthType(ctx context.Context, r *http.Request, action policy.Ac
 			AccountName:     cred.AccessKey,
 			Action:          action,
 			BucketName:      bucketName,
-			ConditionValues: getConditionValues(r, locationConstraint, ""),
+			ConditionValues: getConditionValues(r, locationConstraint, "", nil),
 			IsOwner:         false,
 			ObjectName:      objectName,
 		}) {
-			return ErrNone
+			// Request is allowed return the appropriate access key.
+			return cred.AccessKey, owner, ErrNone
 		}
-		return ErrAccessDenied
+		return accessKey, owner, ErrAccessDenied
 	}
 
 	if globalIAMSys.IsAllowed(iampolicy.Args{
 		AccountName:     cred.AccessKey,
 		Action:          iampolicy.Action(action),
 		BucketName:      bucketName,
-		ConditionValues: getConditionValues(r, "", cred.AccessKey),
+		ConditionValues: getConditionValues(r, "", cred.AccessKey, claims),
 		ObjectName:      objectName,
 		IsOwner:         owner,
 		Claims:          claims,
 	}) {
-		return ErrNone
+		// Request is allowed return the appropriate access key.
+		return cred.AccessKey, owner, ErrNone
 	}
-	return ErrAccessDenied
+	return accessKey, owner, ErrAccessDenied
 }
 
 // Verify if request has valid AWS Signature Version '2'.
@@ -466,7 +485,7 @@ func isPutAllowed(atype authType, bucketName, objectName string, r *http.Request
 	case authTypeSignedV2, authTypePresignedV2:
 		cred, owner, s3Err = getReqAccessKeyV2(r)
 	case authTypeStreamingSigned, authTypePresigned, authTypeSigned:
-		region := globalServerConfig.GetRegion()
+		region := globalServerRegion
 		cred, owner, s3Err = getReqAccessKeyV4(r, region, serviceS3)
 	}
 	if s3Err != ErrNone {
@@ -483,7 +502,7 @@ func isPutAllowed(atype authType, bucketName, objectName string, r *http.Request
 			AccountName:     cred.AccessKey,
 			Action:          policy.PutObjectAction,
 			BucketName:      bucketName,
-			ConditionValues: getConditionValues(r, "", ""),
+			ConditionValues: getConditionValues(r, "", "", nil),
 			IsOwner:         false,
 			ObjectName:      objectName,
 		}) {
@@ -496,7 +515,7 @@ func isPutAllowed(atype authType, bucketName, objectName string, r *http.Request
 		AccountName:     cred.AccessKey,
 		Action:          policy.PutObjectAction,
 		BucketName:      bucketName,
-		ConditionValues: getConditionValues(r, "", cred.AccessKey),
+		ConditionValues: getConditionValues(r, "", cred.AccessKey, claims),
 		ObjectName:      objectName,
 		IsOwner:         owner,
 		Claims:          claims,

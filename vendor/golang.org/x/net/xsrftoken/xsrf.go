@@ -20,9 +20,9 @@ import (
 // It is exported so clients may set cookie timeouts that match generated tokens.
 const Timeout = 24 * time.Hour
 
-// clean sanitizes a string for inclusion in a token by replacing all ":"s.
+// clean sanitizes a string for inclusion in a token by replacing all ":" with "::".
 func clean(s string) string {
-	return strings.Replace(s, ":", "_", -1)
+	return strings.Replace(s, `:`, `::`, -1)
 }
 
 // Generate returns a URL-safe secure XSRF token that expires in 24 hours.
