@@ -12,6 +12,7 @@ import (
 	_ "github.com/gogo/protobuf/types"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 	time "time"
@@ -27,7 +28,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type StdTypes struct {
 	NullableTimestamp    *time.Time     `protobuf:"bytes,1,opt,name=nullableTimestamp,proto3,stdtime" json:"nullableTimestamp,omitempty"`
@@ -698,37 +699,37 @@ type isOneofStdTypes_OneOfStdTimes interface {
 }
 
 type OneofStdTypes_Timestamp struct {
-	Timestamp *time.Time `protobuf:"bytes,1,opt,name=timestamp,proto3,oneof,stdtime"`
+	Timestamp *time.Time `protobuf:"bytes,1,opt,name=timestamp,proto3,oneof,stdtime" json:"timestamp,omitempty"`
 }
 type OneofStdTypes_Duration struct {
-	Duration *time.Duration `protobuf:"bytes,2,opt,name=duration,proto3,oneof,stdduration"`
+	Duration *time.Duration `protobuf:"bytes,2,opt,name=duration,proto3,oneof,stdduration" json:"duration,omitempty"`
 }
 type OneofStdTypes_RepDouble struct {
-	RepDouble *float64 `protobuf:"bytes,3,opt,name=repDouble,proto3,oneof,wktptr"`
+	RepDouble *float64 `protobuf:"bytes,3,opt,name=repDouble,proto3,oneof,wktptr" json:"repDouble,omitempty"`
 }
 type OneofStdTypes_RepFloat struct {
-	RepFloat *float32 `protobuf:"bytes,4,opt,name=repFloat,proto3,oneof,wktptr"`
+	RepFloat *float32 `protobuf:"bytes,4,opt,name=repFloat,proto3,oneof,wktptr" json:"repFloat,omitempty"`
 }
 type OneofStdTypes_RepInt64 struct {
-	RepInt64 *int64 `protobuf:"bytes,5,opt,name=repInt64,proto3,oneof,wktptr"`
+	RepInt64 *int64 `protobuf:"bytes,5,opt,name=repInt64,proto3,oneof,wktptr" json:"repInt64,omitempty"`
 }
 type OneofStdTypes_RepUInt64 struct {
-	RepUInt64 *uint64 `protobuf:"bytes,6,opt,name=repUInt64,proto3,oneof,wktptr"`
+	RepUInt64 *uint64 `protobuf:"bytes,6,opt,name=repUInt64,proto3,oneof,wktptr" json:"repUInt64,omitempty"`
 }
 type OneofStdTypes_RepInt32 struct {
-	RepInt32 *int32 `protobuf:"bytes,7,opt,name=repInt32,proto3,oneof,wktptr"`
+	RepInt32 *int32 `protobuf:"bytes,7,opt,name=repInt32,proto3,oneof,wktptr" json:"repInt32,omitempty"`
 }
 type OneofStdTypes_RepUInt32 struct {
-	RepUInt32 *uint32 `protobuf:"bytes,8,opt,name=repUInt32,proto3,oneof,wktptr"`
+	RepUInt32 *uint32 `protobuf:"bytes,8,opt,name=repUInt32,proto3,oneof,wktptr" json:"repUInt32,omitempty"`
 }
 type OneofStdTypes_RepBool struct {
-	RepBool *bool `protobuf:"bytes,9,opt,name=repBool,proto3,oneof,wktptr"`
+	RepBool *bool `protobuf:"bytes,9,opt,name=repBool,proto3,oneof,wktptr" json:"repBool,omitempty"`
 }
 type OneofStdTypes_RepString struct {
-	RepString *string `protobuf:"bytes,10,opt,name=repString,proto3,oneof,wktptr"`
+	RepString *string `protobuf:"bytes,10,opt,name=repString,proto3,oneof,wktptr" json:"repString,omitempty"`
 }
 type OneofStdTypes_RepBytes struct {
-	RepBytes *[]byte `protobuf:"bytes,11,opt,name=repBytes,proto3,oneof,wktptr"`
+	RepBytes *[]byte `protobuf:"bytes,11,opt,name=repBytes,proto3,oneof,wktptr" json:"repBytes,omitempty"`
 }
 
 func (*OneofStdTypes_Timestamp) isOneofStdTypes_OneOfStdTimes() {}
@@ -827,9 +828,9 @@ func (m *OneofStdTypes) GetRepBytes() *[]byte {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*OneofStdTypes) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _OneofStdTypes_OneofMarshaler, _OneofStdTypes_OneofUnmarshaler, _OneofStdTypes_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*OneofStdTypes) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*OneofStdTypes_Timestamp)(nil),
 		(*OneofStdTypes_Duration)(nil),
 		(*OneofStdTypes_RepDouble)(nil),
@@ -842,344 +843,6 @@ func (*OneofStdTypes) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer)
 		(*OneofStdTypes_RepString)(nil),
 		(*OneofStdTypes_RepBytes)(nil),
 	}
-}
-
-func _OneofStdTypes_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*OneofStdTypes)
-	// OneOfStdTimes
-	switch x := m.OneOfStdTimes.(type) {
-	case *OneofStdTypes_Timestamp:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdTimeMarshal(*x.Timestamp)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_Duration:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdDurationMarshal(*x.Duration)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepDouble:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdDoubleMarshal(*x.RepDouble)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepFloat:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdFloatMarshal(*x.RepFloat)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepInt64:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdInt64Marshal(*x.RepInt64)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepUInt64:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdUInt64Marshal(*x.RepUInt64)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepInt32:
-		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdInt32Marshal(*x.RepInt32)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepUInt32:
-		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdUInt32Marshal(*x.RepUInt32)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepBool:
-		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdBoolMarshal(*x.RepBool)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepString:
-		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdStringMarshal(*x.RepString)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case *OneofStdTypes_RepBytes:
-		_ = b.EncodeVarint(11<<3 | proto.WireBytes)
-		dAtA, err := github_com_gogo_protobuf_types.StdBytesMarshal(*x.RepBytes)
-		if err != nil {
-			return err
-		}
-		if err := b.EncodeRawBytes(dAtA); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("OneofStdTypes.OneOfStdTimes has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _OneofStdTypes_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*OneofStdTypes)
-	switch tag {
-	case 1: // OneOfStdTimes.timestamp
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(time.Time)
-		if err2 := github_com_gogo_protobuf_types.StdTimeUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_Timestamp{c}
-		return true, err
-	case 2: // OneOfStdTimes.duration
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(time.Duration)
-		if err2 := github_com_gogo_protobuf_types.StdDurationUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_Duration{c}
-		return true, err
-	case 3: // OneOfStdTimes.repDouble
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(float64)
-		if err2 := github_com_gogo_protobuf_types.StdDoubleUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepDouble{c}
-		return true, err
-	case 4: // OneOfStdTimes.repFloat
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(float32)
-		if err2 := github_com_gogo_protobuf_types.StdFloatUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepFloat{c}
-		return true, err
-	case 5: // OneOfStdTimes.repInt64
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(int64)
-		if err2 := github_com_gogo_protobuf_types.StdInt64Unmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepInt64{c}
-		return true, err
-	case 6: // OneOfStdTimes.repUInt64
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(uint64)
-		if err2 := github_com_gogo_protobuf_types.StdUInt64Unmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepUInt64{c}
-		return true, err
-	case 7: // OneOfStdTimes.repInt32
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(int32)
-		if err2 := github_com_gogo_protobuf_types.StdInt32Unmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepInt32{c}
-		return true, err
-	case 8: // OneOfStdTimes.repUInt32
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(uint32)
-		if err2 := github_com_gogo_protobuf_types.StdUInt32Unmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepUInt32{c}
-		return true, err
-	case 9: // OneOfStdTimes.repBool
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(bool)
-		if err2 := github_com_gogo_protobuf_types.StdBoolUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepBool{c}
-		return true, err
-	case 10: // OneOfStdTimes.repString
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new(string)
-		if err2 := github_com_gogo_protobuf_types.StdStringUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepString{c}
-		return true, err
-	case 11: // OneOfStdTimes.repBytes
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeRawBytes(true)
-		if err != nil {
-			return true, err
-		}
-		c := new([]byte)
-		if err2 := github_com_gogo_protobuf_types.StdBytesUnmarshal(c, x); err2 != nil {
-			return true, err
-		}
-		m.OneOfStdTimes = &OneofStdTypes_RepBytes{c}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _OneofStdTypes_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*OneofStdTypes)
-	// OneOfStdTimes
-	switch x := m.OneOfStdTimes.(type) {
-	case *OneofStdTypes_Timestamp:
-		s := github_com_gogo_protobuf_types.SizeOfStdTime(*x.Timestamp)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_Duration:
-		s := github_com_gogo_protobuf_types.SizeOfStdDuration(*x.Duration)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepDouble:
-		s := github_com_gogo_protobuf_types.SizeOfStdDouble(*x.RepDouble)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepFloat:
-		s := github_com_gogo_protobuf_types.SizeOfStdFloat(*x.RepFloat)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepInt64:
-		s := github_com_gogo_protobuf_types.SizeOfStdInt64(*x.RepInt64)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepUInt64:
-		s := github_com_gogo_protobuf_types.SizeOfStdUInt64(*x.RepUInt64)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepInt32:
-		s := github_com_gogo_protobuf_types.SizeOfStdInt32(*x.RepInt32)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepUInt32:
-		s := github_com_gogo_protobuf_types.SizeOfStdUInt32(*x.RepUInt32)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepBool:
-		s := github_com_gogo_protobuf_types.SizeOfStdBool(*x.RepBool)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepString:
-		s := github_com_gogo_protobuf_types.SizeOfStdString(*x.RepString)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *OneofStdTypes_RepBytes:
-		s := github_com_gogo_protobuf_types.SizeOfStdBytes(*x.RepBytes)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -3766,57 +3429,57 @@ func valueToGoStringStdtypes(v interface{}, typ string) string {
 }
 func NewPopulatedStdTypes(r randyStdtypes, easy bool) *StdTypes {
 	this := &StdTypes{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableTimestamp = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableDuration = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
 	}
 	v1 := github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 	this.Timestamp = *v1
 	v2 := github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
 	this.Duration = *v2
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableDouble = github_com_gogo_protobuf_types.NewPopulatedStdDouble(r, easy)
 	}
 	v3 := github_com_gogo_protobuf_types.NewPopulatedStdDouble(r, easy)
 	this.NonnullDouble = *v3
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableFloat = github_com_gogo_protobuf_types.NewPopulatedStdFloat(r, easy)
 	}
 	v4 := github_com_gogo_protobuf_types.NewPopulatedStdFloat(r, easy)
 	this.NonnullFloat = *v4
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableInt64 = github_com_gogo_protobuf_types.NewPopulatedStdInt64(r, easy)
 	}
 	v5 := github_com_gogo_protobuf_types.NewPopulatedStdInt64(r, easy)
 	this.NonnullInt64 = *v5
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableUInt64 = github_com_gogo_protobuf_types.NewPopulatedStdUInt64(r, easy)
 	}
 	v6 := github_com_gogo_protobuf_types.NewPopulatedStdUInt64(r, easy)
 	this.NonnullUInt64 = *v6
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableInt32 = github_com_gogo_protobuf_types.NewPopulatedStdInt32(r, easy)
 	}
 	v7 := github_com_gogo_protobuf_types.NewPopulatedStdInt32(r, easy)
 	this.NonnullInt32 = *v7
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableUInt32 = github_com_gogo_protobuf_types.NewPopulatedStdUInt32(r, easy)
 	}
 	v8 := github_com_gogo_protobuf_types.NewPopulatedStdUInt32(r, easy)
 	this.NonnullUInt32 = *v8
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableBool = github_com_gogo_protobuf_types.NewPopulatedStdBool(r, easy)
 	}
 	v9 := github_com_gogo_protobuf_types.NewPopulatedStdBool(r, easy)
 	this.NonnullBool = *v9
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableString = github_com_gogo_protobuf_types.NewPopulatedStdString(r, easy)
 	}
 	v10 := github_com_gogo_protobuf_types.NewPopulatedStdString(r, easy)
 	this.NonnullString = *v10
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NullableBytes = github_com_gogo_protobuf_types.NewPopulatedStdBytes(r, easy)
 	}
 	v11 := github_com_gogo_protobuf_types.NewPopulatedStdBytes(r, easy)
@@ -3829,21 +3492,21 @@ func NewPopulatedStdTypes(r randyStdtypes, easy bool) *StdTypes {
 
 func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 	this := &RepStdTypes{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v12 := r.Intn(5)
 		this.NullableTimestamps = make([]*time.Time, v12)
 		for i := 0; i < v12; i++ {
 			this.NullableTimestamps[i] = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := r.Intn(5)
 		this.NullableDurations = make([]*time.Duration, v13)
 		for i := 0; i < v13; i++ {
 			this.NullableDurations[i] = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v14 := r.Intn(5)
 		this.Timestamps = make([]time.Time, v14)
 		for i := 0; i < v14; i++ {
@@ -3851,7 +3514,7 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.Timestamps[i] = *v15
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v16 := r.Intn(5)
 		this.Durations = make([]time.Duration, v16)
 		for i := 0; i < v16; i++ {
@@ -3859,14 +3522,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.Durations[i] = *v17
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v18 := r.Intn(5)
 		this.NullableDouble = make([]*float64, v18)
 		for i := 0; i < v18; i++ {
 			this.NullableDouble[i] = github_com_gogo_protobuf_types.NewPopulatedStdDouble(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := r.Intn(5)
 		this.NonnullDouble = make([]float64, v19)
 		for i := 0; i < v19; i++ {
@@ -3874,14 +3537,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullDouble[i] = *v20
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v21 := r.Intn(5)
 		this.NullableFloat = make([]*float32, v21)
 		for i := 0; i < v21; i++ {
 			this.NullableFloat[i] = github_com_gogo_protobuf_types.NewPopulatedStdFloat(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v22 := r.Intn(5)
 		this.NonnullFloat = make([]float32, v22)
 		for i := 0; i < v22; i++ {
@@ -3889,14 +3552,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullFloat[i] = *v23
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v24 := r.Intn(5)
 		this.NullableInt64 = make([]*int64, v24)
 		for i := 0; i < v24; i++ {
 			this.NullableInt64[i] = github_com_gogo_protobuf_types.NewPopulatedStdInt64(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := r.Intn(5)
 		this.NonnullInt64 = make([]int64, v25)
 		for i := 0; i < v25; i++ {
@@ -3904,14 +3567,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullInt64[i] = *v26
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v27 := r.Intn(5)
 		this.NullableUInt64 = make([]*uint64, v27)
 		for i := 0; i < v27; i++ {
 			this.NullableUInt64[i] = github_com_gogo_protobuf_types.NewPopulatedStdUInt64(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v28 := r.Intn(5)
 		this.NonnullUInt64 = make([]uint64, v28)
 		for i := 0; i < v28; i++ {
@@ -3919,14 +3582,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullUInt64[i] = *v29
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v30 := r.Intn(5)
 		this.NullableInt32 = make([]*int32, v30)
 		for i := 0; i < v30; i++ {
 			this.NullableInt32[i] = github_com_gogo_protobuf_types.NewPopulatedStdInt32(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v31 := r.Intn(5)
 		this.NonnullInt32 = make([]int32, v31)
 		for i := 0; i < v31; i++ {
@@ -3934,14 +3597,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullInt32[i] = *v32
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v33 := r.Intn(5)
 		this.NullableUInt32 = make([]*uint32, v33)
 		for i := 0; i < v33; i++ {
 			this.NullableUInt32[i] = github_com_gogo_protobuf_types.NewPopulatedStdUInt32(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v34 := r.Intn(5)
 		this.NonnullUInt32 = make([]uint32, v34)
 		for i := 0; i < v34; i++ {
@@ -3949,14 +3612,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullUInt32[i] = *v35
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v36 := r.Intn(5)
 		this.NullableBool = make([]*bool, v36)
 		for i := 0; i < v36; i++ {
 			this.NullableBool[i] = github_com_gogo_protobuf_types.NewPopulatedStdBool(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v37 := r.Intn(5)
 		this.NonnullBool = make([]bool, v37)
 		for i := 0; i < v37; i++ {
@@ -3964,14 +3627,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullBool[i] = *v38
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v39 := r.Intn(5)
 		this.NullableString = make([]*string, v39)
 		for i := 0; i < v39; i++ {
 			this.NullableString[i] = github_com_gogo_protobuf_types.NewPopulatedStdString(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v40 := r.Intn(5)
 		this.NonnullString = make([]string, v40)
 		for i := 0; i < v40; i++ {
@@ -3979,14 +3642,14 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 			this.NonnullString[i] = *v41
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v42 := r.Intn(5)
 		this.NullableBytes = make([]*[]byte, v42)
 		for i := 0; i < v42; i++ {
 			this.NullableBytes[i] = github_com_gogo_protobuf_types.NewPopulatedStdBytes(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v43 := r.Intn(5)
 		this.NonnullBytes = make([][]byte, v43)
 		for i := 0; i < v43; i++ {
@@ -4002,154 +3665,154 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 
 func NewPopulatedMapStdTypes(r randyStdtypes, easy bool) *MapStdTypes {
 	this := &MapStdTypes{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v45 := r.Intn(10)
 		this.NullableTimestamp = make(map[int32]*time.Time)
 		for i := 0; i < v45; i++ {
 			this.NullableTimestamp[int32(r.Int31())] = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v46 := r.Intn(10)
 		this.Timestamp = make(map[int32]time.Time)
 		for i := 0; i < v46; i++ {
 			this.Timestamp[int32(r.Int31())] = *github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v47 := r.Intn(10)
 		this.NullableDuration = make(map[int32]*time.Duration)
 		for i := 0; i < v47; i++ {
 			this.NullableDuration[int32(r.Int31())] = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v48 := r.Intn(10)
 		this.Duration = make(map[int32]time.Duration)
 		for i := 0; i < v48; i++ {
 			this.Duration[int32(r.Int31())] = *github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v49 := r.Intn(10)
 		this.NullableDouble = make(map[int32]*float64)
 		for i := 0; i < v49; i++ {
 			this.NullableDouble[int32(r.Int31())] = (*float64)(github_com_gogo_protobuf_types.NewPopulatedStdDouble(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v50 := r.Intn(10)
 		this.NonnullDouble = make(map[int32]float64)
 		for i := 0; i < v50; i++ {
 			this.NonnullDouble[int32(r.Int31())] = (float64)(*github_com_gogo_protobuf_types.NewPopulatedStdDouble(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v51 := r.Intn(10)
 		this.NullableFloat = make(map[int32]*float32)
 		for i := 0; i < v51; i++ {
 			this.NullableFloat[int32(r.Int31())] = (*float32)(github_com_gogo_protobuf_types.NewPopulatedStdFloat(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v52 := r.Intn(10)
 		this.NonnullFloat = make(map[int32]float32)
 		for i := 0; i < v52; i++ {
 			this.NonnullFloat[int32(r.Int31())] = (float32)(*github_com_gogo_protobuf_types.NewPopulatedStdFloat(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v53 := r.Intn(10)
 		this.NullableInt64 = make(map[int32]*int64)
 		for i := 0; i < v53; i++ {
 			this.NullableInt64[int32(r.Int31())] = (*int64)(github_com_gogo_protobuf_types.NewPopulatedStdInt64(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v54 := r.Intn(10)
 		this.NonnullInt64 = make(map[int32]int64)
 		for i := 0; i < v54; i++ {
 			this.NonnullInt64[int32(r.Int31())] = (int64)(*github_com_gogo_protobuf_types.NewPopulatedStdInt64(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v55 := r.Intn(10)
 		this.NullableUInt64 = make(map[int32]*uint64)
 		for i := 0; i < v55; i++ {
 			this.NullableUInt64[int32(r.Int31())] = (*uint64)(github_com_gogo_protobuf_types.NewPopulatedStdUInt64(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v56 := r.Intn(10)
 		this.NonnullUInt64 = make(map[int32]uint64)
 		for i := 0; i < v56; i++ {
 			this.NonnullUInt64[int32(r.Int31())] = (uint64)(*github_com_gogo_protobuf_types.NewPopulatedStdUInt64(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v57 := r.Intn(10)
 		this.NullableInt32 = make(map[int32]*int32)
 		for i := 0; i < v57; i++ {
 			this.NullableInt32[int32(r.Int31())] = (*int32)(github_com_gogo_protobuf_types.NewPopulatedStdInt32(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v58 := r.Intn(10)
 		this.NonnullInt32 = make(map[int32]int32)
 		for i := 0; i < v58; i++ {
 			this.NonnullInt32[int32(r.Int31())] = (int32)(*github_com_gogo_protobuf_types.NewPopulatedStdInt32(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v59 := r.Intn(10)
 		this.NullableUInt32 = make(map[int32]*uint32)
 		for i := 0; i < v59; i++ {
 			this.NullableUInt32[int32(r.Int31())] = (*uint32)(github_com_gogo_protobuf_types.NewPopulatedStdUInt32(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v60 := r.Intn(10)
 		this.NonnullUInt32 = make(map[int32]uint32)
 		for i := 0; i < v60; i++ {
 			this.NonnullUInt32[int32(r.Int31())] = (uint32)(*github_com_gogo_protobuf_types.NewPopulatedStdUInt32(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v61 := r.Intn(10)
 		this.NullableBool = make(map[int32]*bool)
 		for i := 0; i < v61; i++ {
 			this.NullableBool[int32(r.Int31())] = (*bool)(github_com_gogo_protobuf_types.NewPopulatedStdBool(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v62 := r.Intn(10)
 		this.NonnullBool = make(map[int32]bool)
 		for i := 0; i < v62; i++ {
 			this.NonnullBool[int32(r.Int31())] = (bool)(*github_com_gogo_protobuf_types.NewPopulatedStdBool(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v63 := r.Intn(10)
 		this.NullableString = make(map[int32]*string)
 		for i := 0; i < v63; i++ {
 			this.NullableString[int32(r.Int31())] = (*string)(github_com_gogo_protobuf_types.NewPopulatedStdString(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v64 := r.Intn(10)
 		this.NonnullString = make(map[int32]string)
 		for i := 0; i < v64; i++ {
 			this.NonnullString[int32(r.Int31())] = (string)(*github_com_gogo_protobuf_types.NewPopulatedStdString(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v65 := r.Intn(10)
 		this.NullableBytes = make(map[int32]*[]byte)
 		for i := 0; i < v65; i++ {
 			this.NullableBytes[int32(r.Int31())] = (*[]byte)(github_com_gogo_protobuf_types.NewPopulatedStdBytes(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v66 := r.Intn(10)
 		this.NonnullBytes = make(map[int32][]byte)
 		for i := 0; i < v66; i++ {
@@ -4948,14 +4611,7 @@ func (m *OneofStdTypes_RepBytes) Size() (n int) {
 }
 
 func sovStdtypes(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozStdtypes(x uint64) (n int) {
 	return sovStdtypes(uint64((x << 1) ^ uint64((int64(x) >> 63))))

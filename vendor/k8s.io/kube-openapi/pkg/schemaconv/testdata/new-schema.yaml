@@ -10258,3 +10258,13 @@ types:
     elementType:
       namedType: __untyped_atomic_
     elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable

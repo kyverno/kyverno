@@ -20,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type NativeWithSizeCache struct {
 	Field1        *float64 `protobuf:"fixed64,1,opt,name=Field1" json:"Field1,omitempty"`
@@ -735,28 +735,28 @@ func (this *StructWithoutSizeCache) Equal(that interface{}) bool {
 }
 func NewPopulatedNativeWithSizeCache(r randyXxxfields, easy bool) *NativeWithSizeCache {
 	this := &NativeWithSizeCache{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v1 *= -1
 		}
 		this.Field1 = &v1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v2 *= -1
 		}
 		this.Field2 = &v2
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
 		this.Field3 = &v3
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v4 *= -1
@@ -764,15 +764,15 @@ func NewPopulatedNativeWithSizeCache(r randyXxxfields, easy bool) *NativeWithSiz
 		this.Field4 = &v4
 	}
 	this.Field11 = uint64(uint64(r.Uint32()))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v5
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := string(randStringXxxfields(r))
 		this.Field14 = &v6
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := r.Intn(100)
 		this.Field15 = make([]byte, v7)
 		for i := 0; i < v7; i++ {
@@ -796,7 +796,7 @@ func NewPopulatedStructWithSizeCache(r randyXxxfields, easy bool) *StructWithSiz
 	}
 	v8 := NewPopulatedNativeWithSizeCache(r, easy)
 	this.Field3 = *v8
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v9
 	}
@@ -806,14 +806,14 @@ func NewPopulatedStructWithSizeCache(r randyXxxfields, easy bool) *StructWithSiz
 	}
 	v10 := NewPopulatedNativeWithoutSizeCache(r, easy)
 	this.Field8 = *v10
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v11 := r.Intn(10)
 		this.Field13 = make([]bool, v11)
 		for i := 0; i < v11; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v12 := string(randStringXxxfields(r))
 		this.Field14 = &v12
 	}
@@ -829,28 +829,28 @@ func NewPopulatedStructWithSizeCache(r randyXxxfields, easy bool) *StructWithSiz
 
 func NewPopulatedNativeWithoutSizeCache(r randyXxxfields, easy bool) *NativeWithoutSizeCache {
 	this := &NativeWithoutSizeCache{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v14 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v14 *= -1
 		}
 		this.Field1 = &v14
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v15 *= -1
 		}
 		this.Field2 = &v15
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v16 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v16 *= -1
 		}
 		this.Field3 = &v16
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v17 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v17 *= -1
@@ -858,15 +858,15 @@ func NewPopulatedNativeWithoutSizeCache(r randyXxxfields, easy bool) *NativeWith
 		this.Field4 = &v17
 	}
 	this.Field11 = uint64(uint64(r.Uint32()))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v18 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v18
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := string(randStringXxxfields(r))
 		this.Field14 = &v19
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v20 := r.Intn(100)
 		this.Field15 = make([]byte, v20)
 		for i := 0; i < v20; i++ {
@@ -890,7 +890,7 @@ func NewPopulatedStructWithoutSizeCache(r randyXxxfields, easy bool) *StructWith
 	}
 	v21 := NewPopulatedNativeWithSizeCache(r, easy)
 	this.Field3 = *v21
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v22 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v22
 	}
@@ -900,14 +900,14 @@ func NewPopulatedStructWithoutSizeCache(r randyXxxfields, easy bool) *StructWith
 	}
 	v23 := NewPopulatedNativeWithoutSizeCache(r, easy)
 	this.Field8 = *v23
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v24 := r.Intn(10)
 		this.Field13 = make([]bool, v24)
 		for i := 0; i < v24; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := string(randStringXxxfields(r))
 		this.Field14 = &v25
 	}

@@ -173,9 +173,16 @@ type ResourceSpec struct {
 
 // ViolatedRule stores the information regarding the rule
 type ViolatedRule struct {
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Message string `json:"message"`
+	Name            string          `json:"name"`
+	Type            string          `json:"type"`
+	Message         string          `json:"message"`
+	ManagedResource ManagedResource `json:"managedResource,omitempty"`
+}
+
+type ManagedResource struct {
+	Kind            string `json:"kind,omitempty"`
+	Namespace       string `json:"namespace,omitempty"`
+	CreationBlocked bool   `json:"creationBlocked,omitempty"`
 }
 
 //PolicyViolationStatus provides information regarding policyviolation status

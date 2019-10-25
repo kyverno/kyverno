@@ -24,8 +24,9 @@ import (
 	"golang.org/x/tools/internal/lsp/cache"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
-	"golang.org/x/tools/internal/lsp/telemetry/ocagent"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/export"
+	"golang.org/x/tools/internal/telemetry/export/ocagent"
 	"golang.org/x/tools/internal/tool"
 	"golang.org/x/tools/internal/xcontext"
 	errors "golang.org/x/xerrors"
@@ -64,15 +65,19 @@ type Application struct {
 
 	// Control ocagent export of telemetry
 	OCAgent string `flag:"ocagent" help:"The address of the ocagent, or off"`
+
+	// PrepareOptions is called to update the options when a new view is built.
+	// It is primarily to allow the behavior of gopls to be modified by hooks.
+	PrepareOptions func(*source.Options)
 }
 
 // Returns a new Application ready to run.
-func New(name, wd string, env []string) *Application {
+func New(name, wd string, env []string, options func(*source.Options)) *Application {
 	if wd == "" {
 		wd, _ = os.Getwd()
 	}
 	app := &Application{
-		cache:   cache.New(),
+		cache:   cache.New(options),
 		name:    name,
 		wd:      wd,
 		env:     env,
@@ -112,17 +117,18 @@ gopls flags are:
 // If no arguments are passed it will invoke the server sub command, as a
 // temporary measure for compatibility.
 func (app *Application) Run(ctx context.Context, args ...string) error {
-	ocagent.Export(app.name, app.OCAgent)
+	ocConfig := ocagent.Discover()
+	//TODO: we should not need to adjust the discovered configuration
+	ocConfig.Address = app.OCAgent
+	export.AddExporters(ocagent.Connect(ocConfig))
 	app.Serve.app = app
 	if len(args) == 0 {
-		tool.Main(ctx, &app.Serve, args)
-		return nil
+		return tool.Run(ctx, &app.Serve, args)
 	}
 	command, args := args[0], args[1:]
 	for _, c := range app.commands() {
 		if c.Name() == command {
-			tool.Main(ctx, c, args)
-			return nil
+			return tool.Run(ctx, c, args)
 		}
 	}
 	return tool.CommandLineErrorf("Unknown command %v", command)
@@ -138,6 +144,7 @@ func (app *Application) commands() []tool.Application {
 		&check{app: app},
 		&format{app: app},
 		&query{app: app},
+		&rename{app: app},
 		&version{app: app},
 	}
 }
@@ -190,10 +197,12 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 }
 
 func (c *connection) initialize(ctx context.Context) error {
-	params := &protocol.InitializeParams{}
+	params := &protocol.ParamInitia{}
 	params.RootURI = string(span.FileURI(c.Client.app.wd))
 	params.Capabilities.Workspace.Configuration = true
-	params.Capabilities.TextDocument.Hover.ContentFormat = []protocol.MarkupKind{protocol.PlainText}
+	params.Capabilities.TextDocument.Hover = &protocol.HoverClientCapabilities{
+		ContentFormat: []protocol.MarkupKind{protocol.PlainText},
+	}
 	if _, err := c.Server.Initialize(ctx, params); err != nil {
 		return err
 	}
@@ -279,7 +288,7 @@ func (c *cmdClient) WorkspaceFolders(ctx context.Context) ([]protocol.WorkspaceF
 	return nil, nil
 }
 
-func (c *cmdClient) Configuration(ctx context.Context, p *protocol.ConfigurationParams) ([]interface{}, error) {
+func (c *cmdClient) Configuration(ctx context.Context, p *protocol.ParamConfig) ([]interface{}, error) {
 	results := make([]interface{}, len(p.Items))
 	for i, item := range p.Items {
 		if item.Section != "gopls" {
@@ -294,8 +303,7 @@ func (c *cmdClient) Configuration(ctx context.Context, p *protocol.Configuration
 			env[l[0]] = l[1]
 		}
 		results[i] = map[string]interface{}{
-			"env":           env,
-			"noDocsOnHover": true,
+			"env": env,
 		}
 	}
 	return results, nil
@@ -341,7 +349,12 @@ func (c *cmdClient) getFile(ctx context.Context, uri span.URI) *cmdFile {
 		}
 		f := c.fset.AddFile(fname, -1, len(content))
 		f.SetLinesForContent(content)
-		file.mapper = protocol.NewColumnMapper(uri, fname, c.fset, f, content)
+		converter := span.NewContentConverter(fname, content)
+		file.mapper = &protocol.ColumnMapper{
+			URI:       uri,
+			Converter: converter,
+			Content:   content,
+		}
 	}
 	return file
 }

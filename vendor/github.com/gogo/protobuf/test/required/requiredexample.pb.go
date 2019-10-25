@@ -11,6 +11,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type RequiredExample struct {
 	TheRequiredString    *string  `protobuf:"bytes,1,req,name=theRequiredString" json:"theRequiredString,omitempty"`
@@ -47,7 +48,7 @@ func (m *RequiredExample) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_RequiredExample.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +123,7 @@ func (m *NidOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -281,7 +282,7 @@ func (m *NinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +427,7 @@ func (m *NestedNinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_NestedNinOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -498,7 +499,7 @@ var fileDescriptor_96043524afb2ed2f = []byte{
 func (m *RequiredExample) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -506,49 +507,51 @@ func (m *RequiredExample) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RequiredExample) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequiredExample) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.TheRepeatedStrings) > 0 {
+		for iNdEx := len(m.TheRepeatedStrings) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.TheRepeatedStrings[iNdEx])
+			copy(dAtA[i:], m.TheRepeatedStrings[iNdEx])
+			i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.TheRepeatedStrings[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.TheOptionalString != nil {
+		i -= len(*m.TheOptionalString)
+		copy(dAtA[i:], *m.TheOptionalString)
+		i = encodeVarintRequiredexample(dAtA, i, uint64(len(*m.TheOptionalString)))
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.TheRequiredString == nil {
 		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("theRequiredString")
 	} else {
-		dAtA[i] = 0xa
-		i++
+		i -= len(*m.TheRequiredString)
+		copy(dAtA[i:], *m.TheRequiredString)
 		i = encodeVarintRequiredexample(dAtA, i, uint64(len(*m.TheRequiredString)))
-		i += copy(dAtA[i:], *m.TheRequiredString)
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.TheOptionalString != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(len(*m.TheOptionalString)))
-		i += copy(dAtA[i:], *m.TheOptionalString)
-	}
-	if len(m.TheRepeatedStrings) > 0 {
-		for _, s := range m.TheRepeatedStrings {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NidOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -556,80 +559,88 @@ func (m *NidOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x9
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
-	i += 8
-	dAtA[i] = 0x15
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
-	i += 4
-	dAtA[i] = 0x18
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field3))
-	dAtA[i] = 0x20
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field4))
-	dAtA[i] = 0x28
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field5))
-	dAtA[i] = 0x30
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field6))
-	dAtA[i] = 0x38
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
-	dAtA[i] = 0x40
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
-	dAtA[i] = 0x4d
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9))
-	i += 4
-	dAtA[i] = 0x55
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10))
-	i += 4
-	dAtA[i] = 0x59
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11))
-	i += 8
-	dAtA[i] = 0x61
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12))
-	i += 8
-	dAtA[i] = 0x68
-	i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
+	}
+	i -= len(m.Field14)
+	copy(dAtA[i:], m.Field14)
+	i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field14)))
+	i--
+	dAtA[i] = 0x72
+	i--
 	if m.Field13 {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	dAtA[i] = 0x72
-	i++
-	i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field14)))
-	i += copy(dAtA[i:], m.Field14)
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	i--
+	dAtA[i] = 0x68
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12))
+	i--
+	dAtA[i] = 0x61
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11))
+	i--
+	dAtA[i] = 0x59
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10))
+	i--
+	dAtA[i] = 0x55
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9))
+	i--
+	dAtA[i] = 0x4d
+	i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
+	i--
+	dAtA[i] = 0x40
+	i = encodeVarintRequiredexample(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
+	i--
+	dAtA[i] = 0x38
+	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field6))
+	i--
+	dAtA[i] = 0x30
+	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field5))
+	i--
+	dAtA[i] = 0x28
+	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field4))
+	i--
+	dAtA[i] = 0x20
+	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field3))
+	i--
+	dAtA[i] = 0x18
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
+	i--
+	dAtA[i] = 0x15
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
+	i--
+	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -637,138 +648,146 @@ func (m *NinOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field1")
-	} else {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field2")
+	if m.Field15 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field15")
 	} else {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field3")
+	if m.Field14 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field14")
 	} else {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field3))
-	}
-	if m.Field4 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field4")
-	} else {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field4))
-	}
-	if m.Field5 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field5")
-	} else {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field5))
-	}
-	if m.Field6 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field6")
-	} else {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field6))
-	}
-	if m.Field7 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field7")
-	} else {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
-	}
-	if m.Field8 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field8")
-	} else {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
-	}
-	if m.Field9 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field9")
-	} else {
-		dAtA[i] = 0x4d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
-		i += 4
-	}
-	if m.Field10 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field10")
-	} else {
-		dAtA[i] = 0x55
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
-		i += 4
-	}
-	if m.Field11 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field11")
-	} else {
-		dAtA[i] = 0x59
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
-		i += 8
-	}
-	if m.Field12 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field12")
-	} else {
-		dAtA[i] = 0x61
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
-		i += 8
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintRequiredexample(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 == nil {
 		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field13")
 	} else {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field14")
+	if m.Field12 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field12")
 	} else {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
+		i--
+		dAtA[i] = 0x61
 	}
-	if m.Field15 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field15")
+	if m.Field11 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field11")
 	} else {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintRequiredexample(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
+		i--
+		dAtA[i] = 0x59
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field10 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field10")
+	} else {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
+		i--
+		dAtA[i] = 0x55
 	}
-	return i, nil
+	if m.Field9 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field9")
+	} else {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
+		i--
+		dAtA[i] = 0x4d
+	}
+	if m.Field8 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field8")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.Field7 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field7")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.Field6 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field6")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.Field5 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field5")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field5))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Field4 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field4")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field4))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Field3 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field3")
+	} else {
+		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Field2 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field2")
+	} else {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 == nil {
+		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field1")
+	} else {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NestedNinOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -776,46 +795,56 @@ func (m *NestedNinOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NestedNinOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NestedNinOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.NestedNinOpts) > 0 {
-		for _, msg := range m.NestedNinOpts {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintRequiredexample(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.NestedNinOpts) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.NestedNinOpts[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintRequiredexample(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintRequiredexample(dAtA []byte, offset int, v uint64) int {
+	offset -= sovRequiredexample(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func NewPopulatedRequiredExample(r randyRequiredexample, easy bool) *RequiredExample {
 	this := &RequiredExample{}
 	v1 := string(randStringRequiredexample(r))
 	this.TheRequiredString = &v1
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := string(randStringRequiredexample(r))
 		this.TheOptionalString = &v2
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := r.Intn(10)
 		this.TheRepeatedStrings = make([]string, v3)
 		for i := 0; i < v3; i++ {
@@ -946,7 +975,7 @@ func NewPopulatedNinOptNative(r randyRequiredexample, easy bool) *NinOptNative {
 
 func NewPopulatedNestedNinOptNative(r randyRequiredexample, easy bool) *NestedNinOptNative {
 	this := &NestedNinOptNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v20 := r.Intn(5)
 		this.NestedNinOpts = make([]*NinOptNative, v20)
 		for i := 0; i < v20; i++ {
@@ -1166,14 +1195,7 @@ func (m *NestedNinOptNative) Size() (n int) {
 }
 
 func sovRequiredexample(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozRequiredexample(x uint64) (n int) {
 	return sovRequiredexample(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -2201,6 +2223,7 @@ func (m *NestedNinOptNative) Unmarshal(dAtA []byte) error {
 func skipRequiredexample(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -2232,10 +2255,8 @@ func skipRequiredexample(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -2256,55 +2277,30 @@ func skipRequiredexample(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthRequiredexample
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthRequiredexample
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowRequiredexample
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipRequiredexample(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthRequiredexample
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupRequiredexample
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthRequiredexample
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthRequiredexample = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowRequiredexample   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthRequiredexample        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowRequiredexample          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupRequiredexample = fmt.Errorf("proto: unexpected end of group")
 )

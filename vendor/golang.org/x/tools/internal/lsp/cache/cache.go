@@ -18,21 +18,23 @@ import (
 	"golang.org/x/tools/internal/span"
 )
 
-func New() source.Cache {
+func New(options func(*source.Options)) source.Cache {
 	index := atomic.AddInt64(&cacheIndex, 1)
 	c := &cache{
-		fs:   &nativeFileSystem{},
-		id:   strconv.FormatInt(index, 10),
-		fset: token.NewFileSet(),
+		fs:      &nativeFileSystem{},
+		id:      strconv.FormatInt(index, 10),
+		fset:    token.NewFileSet(),
+		options: options,
 	}
 	debug.AddCache(debugCache{c})
 	return c
 }
 
 type cache struct {
-	fs   source.FileSystem
-	id   string
-	fset *token.FileSet
+	fs      source.FileSystem
+	id      string
+	fset    *token.FileSet
+	options func(*source.Options)
 
 	store memoize.Store
 }
@@ -54,8 +56,8 @@ type fileData struct {
 	err   error
 }
 
-func (c *cache) GetFile(uri span.URI) source.FileHandle {
-	underlying := c.fs.GetFile(uri)
+func (c *cache) GetFile(uri span.URI, kind source.FileKind) source.FileHandle {
+	underlying := c.fs.GetFile(uri, kind)
 	key := fileKey{
 		identity: underlying.Identity(),
 	}
@@ -76,6 +78,7 @@ func (c *cache) NewSession(ctx context.Context) source.Session {
 	s := &session{
 		cache:         c,
 		id:            strconv.FormatInt(index, 10),
+		options:       source.DefaultOptions,
 		overlays:      make(map[span.URI]*overlay),
 		filesWatchMap: NewWatchMap(),
 	}
@@ -93,10 +96,6 @@ func (h *fileHandle) FileSystem() source.FileSystem {
 
 func (h *fileHandle) Identity() source.FileIdentity {
 	return h.underlying.Identity()
-}
-
-func (h *fileHandle) Kind() source.FileKind {
-	return h.underlying.Kind()
 }
 
 func (h *fileHandle) Read(ctx context.Context) ([]byte, string, error) {

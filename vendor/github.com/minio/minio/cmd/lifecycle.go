@@ -20,12 +20,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"fmt"
 	"path"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/minio/minio-go/pkg/set"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/lifecycle"
 )
@@ -44,10 +43,34 @@ type LifecycleSys struct {
 
 // Set - sets lifecycle config to given bucket name.
 func (sys *LifecycleSys) Set(bucketName string, lifecycle lifecycle.Lifecycle) {
+	if globalIsGateway {
+		// no-op
+		return
+	}
+
 	sys.Lock()
 	defer sys.Unlock()
 
 	sys.bucketLifecycleMap[bucketName] = lifecycle
+}
+
+// Get - gets lifecycle config associated to a given bucket name.
+func (sys *LifecycleSys) Get(bucketName string) (lifecycle lifecycle.Lifecycle, ok bool) {
+	if globalIsGateway {
+		// When gateway is enabled, no cached value
+		// is used to validate life cycle policies.
+		objAPI := newObjectLayerFn()
+		if objAPI == nil {
+			return
+		}
+		l, err := objAPI.GetBucketLifecycle(context.Background(), bucketName)
+		return *l, err == nil
+	}
+	sys.Lock()
+	defer sys.Unlock()
+
+	l, ok := sys.bucketLifecycleMap[bucketName]
+	return l, ok
 }
 
 func saveLifecycleConfig(ctx context.Context, objAPI ObjectLayer, bucketName string, bucketLifecycle *lifecycle.Lifecycle) error {
@@ -97,26 +120,16 @@ func NewLifecycleSys() *LifecycleSys {
 }
 
 // Init - initializes lifecycle system from lifecycle.xml of all buckets.
-func (sys *LifecycleSys) Init(objAPI ObjectLayer) error {
+func (sys *LifecycleSys) Init(buckets []BucketInfo, objAPI ObjectLayer) error {
 	if objAPI == nil {
 		return errServerNotInitialized
 	}
 
-	defer func() {
-		// Refresh LifecycleSys in background.
-		go func() {
-			ticker := time.NewTicker(globalRefreshBucketLifecycleInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-GlobalServiceDoneCh:
-					return
-				case <-ticker.C:
-					sys.refresh(objAPI)
-				}
-			}
-		}()
-	}()
+	// In gateway mode, we always fetch the bucket lifecycle configuration from the gateway backend.
+	// So, this is a no-op for gateway servers.
+	if globalIsGateway {
+		return nil
+	}
 
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -125,30 +138,29 @@ func (sys *LifecycleSys) Init(objAPI ObjectLayer) error {
 	// the following reasons:
 	//  - Read quorum is lost just after the initialization
 	//    of the object layer.
-	for range newRetryTimerSimple(doneCh) {
-		// Load LifecycleSys once during boot.
-		if err := sys.refresh(objAPI); err != nil {
-			if err == errDiskNotFound ||
-				strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
-				strings.Contains(err.Error(), InsufficientWriteQuorum{}.Error()) {
-				logger.Info("Waiting for lifecycle subsystem to be initialized..")
-				continue
+	retryTimerCh := newRetryTimerSimple(doneCh)
+	for {
+		select {
+		case <-retryTimerCh:
+			// Load LifecycleSys once during boot.
+			if err := sys.load(buckets, objAPI); err != nil {
+				if err == errDiskNotFound ||
+					strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
+					strings.Contains(err.Error(), InsufficientWriteQuorum{}.Error()) {
+					logger.Info("Waiting for lifecycle subsystem to be initialized..")
+					continue
+				}
+				return err
 			}
-			return err
+			return nil
+		case <-globalOSSignalCh:
+			return fmt.Errorf("Initializing Lifecycle sub-system gracefully stopped")
 		}
-		break
 	}
-	return nil
 }
 
-// Refresh LifecycleSys.
-func (sys *LifecycleSys) refresh(objAPI ObjectLayer) error {
-	buckets, err := objAPI.ListBuckets(context.Background())
-	if err != nil {
-		logger.LogIf(context.Background(), err)
-		return err
-	}
-	sys.removeDeletedBuckets(buckets)
+// Loads lifecycle policies for all buckets into LifecycleSys.
+func (sys *LifecycleSys) load(buckets []BucketInfo, objAPI ObjectLayer) error {
 	for _, bucket := range buckets {
 		config, err := objAPI.GetBucketLifecycle(context.Background(), bucket.Name)
 		if err != nil {
@@ -162,24 +174,6 @@ func (sys *LifecycleSys) refresh(objAPI ObjectLayer) error {
 	}
 
 	return nil
-}
-
-// removeDeletedBuckets - to handle a corner case where we have cached the lifecycle for a deleted
-// bucket. i.e if we miss a delete-bucket notification we should delete the corresponding
-// bucket policy during sys.refresh()
-func (sys *LifecycleSys) removeDeletedBuckets(bucketInfos []BucketInfo) {
-	buckets := set.NewStringSet()
-	for _, info := range bucketInfos {
-		buckets.Add(info.Name)
-	}
-	sys.Lock()
-	defer sys.Unlock()
-
-	for bucket := range sys.bucketLifecycleMap {
-		if !buckets.Contains(bucket) {
-			delete(sys.bucketLifecycleMap, bucket)
-		}
-	}
 }
 
 // Remove - removes policy for given bucket name.

@@ -3,10 +3,10 @@
 #
 # Install dependencies that aren't available as Ubuntu packages.
 #
-# Everything goes into $HOME/local. 
+# Everything goes into $HOME/local.
 #
-# Scripts should add 
-# - $HOME/local/bin to PATH 
+# Scripts should add
+# - $HOME/local/bin to PATH
 # - $HOME/local/lib to LD_LIBRARY_PATH
 #
 

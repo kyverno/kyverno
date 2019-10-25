@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/xml"
 	"net/http"
 	"net/url"
@@ -42,6 +43,45 @@ const (
 type LocationResponse struct {
 	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ LocationConstraint" json:"-"`
 	Location string   `xml:",chardata"`
+}
+
+// ListVersionsResponse - format for list bucket versions response.
+type ListVersionsResponse struct {
+	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListVersionsResult" json:"-"`
+
+	Name      string
+	Prefix    string
+	KeyMarker string
+
+	// When response is truncated (the IsTruncated element value in the response
+	// is true), you can use the key name in this field as marker in the subsequent
+	// request to get next set of objects. Server lists objects in alphabetical
+	// order Note: This element is returned only if you have delimiter request parameter
+	// specified. If response does not include the NextMaker and it is truncated,
+	// you can use the value of the last Key in the response as the marker in the
+	// subsequent request to get the next set of object keys.
+	NextKeyMarker string `xml:"NextKeyMarker,omitempty"`
+
+	// When the number of responses exceeds the value of MaxKeys,
+	// NextVersionIdMarker specifies the first object version not
+	// returned that satisfies the search criteria. Use this value
+	// for the version-id-marker request parameter in a subsequent request.
+	NextVersionIDMarker string `xml:"NextVersionIdMarker"`
+
+	// Marks the last version of the Key returned in a truncated response.
+	VersionIDMarker string `xml:"VersionIdMarker"`
+
+	MaxKeys   int
+	Delimiter string
+	// A flag that indicates whether or not ListObjects returned all of the results
+	// that satisfied the search criteria.
+	IsTruncated bool
+
+	CommonPrefixes []CommonPrefix
+	Versions       []ObjectVersion
+
+	// Encoding type used to encode object keys in the response.
+	EncodingType string `xml:"EncodingType,omitempty"`
 }
 
 // ListObjectsResponse - format for list objects response.
@@ -191,6 +231,14 @@ type Bucket struct {
 	CreationDate string // time string of format "2006-01-02T15:04:05.000Z"
 }
 
+// ObjectVersion container for object version metadata
+type ObjectVersion struct {
+	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ Version" json:"-"`
+	Object
+	VersionID string `xml:"VersionId"`
+	IsLatest  bool
+}
+
 // Object container for object metadata
 type Object struct {
 	Key          string
@@ -328,6 +376,52 @@ func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
 	return data
 }
 
+// generates an ListBucketVersions response for the said bucket with other enumerated options.
+func generateListVersionsResponse(bucket, prefix, marker, delimiter, encodingType string, maxKeys int, resp ListObjectsInfo) ListVersionsResponse {
+	var versions []ObjectVersion
+	var prefixes []CommonPrefix
+	var owner = Owner{}
+	var data = ListVersionsResponse{}
+
+	owner.ID = globalMinioDefaultOwnerID
+	for _, object := range resp.Objects {
+		var content = ObjectVersion{}
+		if object.Name == "" {
+			continue
+		}
+		content.Key = s3EncodeName(object.Name, encodingType)
+		content.LastModified = object.ModTime.UTC().Format(timeFormatAMZLong)
+		if object.ETag != "" {
+			content.ETag = "\"" + object.ETag + "\""
+		}
+		content.Size = object.Size
+		content.StorageClass = object.StorageClass
+		content.Owner = owner
+		content.VersionID = "null"
+		content.IsLatest = true
+		versions = append(versions, content)
+	}
+	data.Name = bucket
+	data.Versions = versions
+
+	data.EncodingType = encodingType
+	data.Prefix = s3EncodeName(prefix, encodingType)
+	data.KeyMarker = s3EncodeName(marker, encodingType)
+	data.Delimiter = s3EncodeName(delimiter, encodingType)
+	data.MaxKeys = maxKeys
+
+	data.NextKeyMarker = s3EncodeName(resp.NextMarker, encodingType)
+	data.IsTruncated = resp.IsTruncated
+
+	for _, prefix := range resp.Prefixes {
+		var prefixItem = CommonPrefix{}
+		prefixItem.Prefix = s3EncodeName(prefix, encodingType)
+		prefixes = append(prefixes, prefixItem)
+	}
+	data.CommonPrefixes = prefixes
+	return data
+}
+
 // generates an ListObjectsV1 response for the said bucket with other enumerated options.
 func generateListObjectsV1Response(bucket, prefix, marker, delimiter, encodingType string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
@@ -405,8 +499,8 @@ func generateListObjectsV2Response(bucket, prefix, token, nextToken, startAfter,
 	data.Delimiter = s3EncodeName(delimiter, encodingType)
 	data.Prefix = s3EncodeName(prefix, encodingType)
 	data.MaxKeys = maxKeys
-	data.ContinuationToken = token
-	data.NextContinuationToken = nextToken
+	data.ContinuationToken = base64.StdEncoding.EncodeToString([]byte(token))
+	data.NextContinuationToken = base64.StdEncoding.EncodeToString([]byte(nextToken))
 	data.IsTruncated = isTruncated
 	for _, prefix := range prefixes {
 		var prefixItem = CommonPrefix{}
@@ -582,7 +676,7 @@ func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err APIError
 	case "AccessDenied":
 		// The request is from browser and also if browser
 		// is enabled we need to redirect.
-		if browser && globalIsBrowserEnabled {
+		if browser && globalBrowserEnabled {
 			w.Header().Set(xhttp.Location, minioReservedBucketPath+reqURL.Path)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
@@ -607,6 +701,17 @@ func writeErrorResponseJSON(ctx context.Context, w http.ResponseWriter, err APIE
 	errorResponse := getAPIErrorResponse(ctx, err, reqURL.Path, w.Header().Get(xhttp.AmzRequestID), globalDeploymentID)
 	encodedErrorResponse := encodeResponseJSON(errorResponse)
 	writeResponse(w, err.HTTPStatusCode, encodedErrorResponse, mimeJSON)
+}
+
+// writeVersionMismatchResponse - writes custom error responses for version mismatches.
+func writeVersionMismatchResponse(ctx context.Context, w http.ResponseWriter, err APIError, reqURL *url.URL, isJSON bool) {
+	if isJSON {
+		// Generate error response.
+		errorResponse := getAPIErrorResponse(ctx, err, reqURL.String(), w.Header().Get(xhttp.AmzRequestID), globalDeploymentID)
+		writeResponse(w, err.HTTPStatusCode, encodeResponseJSON(errorResponse), mimeJSON)
+	} else {
+		writeResponse(w, err.HTTPStatusCode, []byte(err.Description), mimeNone)
+	}
 }
 
 // writeCustomErrorResponseJSON - similar to writeErrorResponseJSON,
@@ -642,7 +747,7 @@ func writeCustomErrorResponseXML(ctx context.Context, w http.ResponseWriter, err
 	case "AccessDenied":
 		// The request is from browser and also if browser
 		// is enabled we need to redirect.
-		if browser && globalIsBrowserEnabled {
+		if browser && globalBrowserEnabled {
 			w.Header().Set(xhttp.Location, minioReservedBucketPath+reqURL.Path)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return

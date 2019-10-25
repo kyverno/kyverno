@@ -78,7 +78,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 			continue
 		}
 
-		glog.V(4).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		// TODO: this can be
 		engineResponse := engine.Mutate(*policy, *resource)

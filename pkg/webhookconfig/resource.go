@@ -12,7 +12,7 @@ import (
 
 func (wrc *WebhookRegistrationClient) contructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
-	glog.V(3).Infof("Debug MutatingWebhookConfig is registered with url %s\n", url)
+	glog.V(4).Infof("Debug MutatingWebhookConfig is registered with url %s\n", url)
 
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{

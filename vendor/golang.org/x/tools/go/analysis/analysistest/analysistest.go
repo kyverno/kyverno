@@ -18,6 +18,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/internal/checker"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/testenv"
 )
 
 // WriteFiles is a helper function that creates a temporary directory
@@ -98,6 +99,10 @@ type Testing interface {
 // attempted, even if unsuccessful. It is safe for a test to ignore all
 // the results, but a test may use it to perform additional checks.
 func Run(t Testing, dir string, a *analysis.Analyzer, patterns ...string) []*Result {
+	if t, ok := t.(testenv.Testing); ok {
+		testenv.NeedsGoPackages(t)
+	}
+
 	pkgs, err := loadPackages(dir, patterns...)
 	if err != nil {
 		t.Errorf("loading %s: %v", patterns, err)
@@ -272,6 +277,11 @@ func check(t Testing, gopath string, pass *analysis.Pass, diagnostics []analysis
 		objects = append(objects, obj)
 	}
 	sort.Slice(objects, func(i, j int) bool {
+		// Package facts compare less than object facts.
+		ip, jp := objects[i] == nil, objects[j] == nil // whether i, j is a package fact
+		if ip != jp {
+			return ip && !jp
+		}
 		return objects[i].Pos() < objects[j].Pos()
 	})
 	for _, obj := range objects {
@@ -324,7 +334,7 @@ func (ex expectation) String() string {
 }
 
 // parseExpectations parses the content of a "// want ..." comment
-// and returns the expections, a mixture of diagnostics ("rx") and
+// and returns the expectations, a mixture of diagnostics ("rx") and
 // facts (name:"rx").
 func parseExpectations(text string) ([]expectation, error) {
 	var scanErr string

@@ -100,7 +100,7 @@ Issues with Compare include:
   * <a href="https://github.com/gogo/protobuf/issues/230">Not all Well Known Types are supported yet</a>
   * <a href="https://github.com/gogo/protobuf/issues/231">Maps are not supported</a>
 
-#Peace of Mind
+# Peace of Mind
 
 Test and Benchmark generation is done with the following extensions:
 

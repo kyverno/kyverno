@@ -10,19 +10,19 @@ language: go
 addons:
   apt:
     packages:
-    - clang-3.8 
-    - lldb-3.8 
-    - libicu-dev 
-    - libtool 
-    - libcurl4-openssl-dev 
-    - libbsd-dev 
-    - build-essential 
-    - libssl-dev 
+    - clang-3.8
+    - lldb-3.8
+    - libicu-dev
+    - libtool
+    - libcurl4-openssl-dev
+    - libbsd-dev
+    - build-essential
+    - libssl-dev
     - uuid-dev
     - curl
     - unzip
 
-install: 
+install:
   - ./.travis-install.sh
   - export PATH=.:$HOME/local/bin:$PATH
   - make

@@ -141,6 +141,7 @@ const (
 	ErrInvalidPrefixMarker
 	ErrBadRequest
 	ErrKeyTooLongError
+	ErrInvalidAPIVersion
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -315,6 +316,7 @@ const (
 	ErrAdminProfilerNotEnabled
 	ErrInvalidDecompressedSize
 	ErrAddUserInvalidArgument
+	ErrPostPolicyConditionInvalidFormat
 )
 
 type errorCodeMap map[APIErrorCode]APIError
@@ -1496,6 +1498,16 @@ var errorCodes = errorCodeMap{
 		Description:    "User is not allowed to be same as admin access key",
 		HTTPStatusCode: http.StatusConflict,
 	},
+	ErrPostPolicyConditionInvalidFormat: {
+		Code:           "PostPolicyInvalidKeyName",
+		Description:    "Invalid according to Policy: Policy Condition failed",
+		HTTPStatusCode: http.StatusForbidden,
+	},
+	ErrInvalidAPIVersion: {
+		Code:           "ErrInvalidAPIVersion",
+		Description:    "Invalid version found in the request",
+		HTTPStatusCode: http.StatusNotFound,
+	},
 	// Add your error structure here.
 }
 
@@ -1526,6 +1538,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 		apiErr = ErrEntityTooLarge
 	case errDataTooSmall:
 		apiErr = ErrEntityTooSmall
+	case errAuthentication:
+		apiErr = ErrAccessDenied
 	case auth.ErrInvalidAccessKeyLength:
 		apiErr = ErrAdminInvalidAccessKey
 	case auth.ErrInvalidSecretKeyLength:
@@ -1721,6 +1735,12 @@ func toAPIError(ctx context.Context, err error) APIError {
 		// their internal error types. This code is only
 		// useful with gateway implementations.
 		switch e := err.(type) {
+		case crypto.Error:
+			apiErr = APIError{
+				Code:           "XKMSInternalError",
+				Description:    e.Error(),
+				HTTPStatusCode: http.StatusBadRequest,
+			}
 		case minio.ErrorResponse:
 			apiErr = APIError{
 				Code:           e.Code,
@@ -1776,7 +1796,7 @@ func getAPIErrorResponse(ctx context.Context, err APIError, resource, requestID,
 		BucketName: reqInfo.BucketName,
 		Key:        reqInfo.ObjectName,
 		Resource:   resource,
-		Region:     globalServerConfig.GetRegion(),
+		Region:     globalServerRegion,
 		RequestID:  requestID,
 		HostID:     hostID,
 	}

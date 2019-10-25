@@ -19,9 +19,13 @@ package cmd
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/bpool"
+	"github.com/minio/minio/pkg/madmin"
+	xnet "github.com/minio/minio/pkg/net"
+	"github.com/minio/minio/pkg/sync/errgroup"
 )
 
 // XL constants.
@@ -68,26 +72,58 @@ func (d byDiskTotal) Less(i, j int) bool {
 }
 
 // getDisksInfo - fetch disks info across all other storage API.
-func getDisksInfo(disks []StorageAPI) (disksInfo []DiskInfo, onlineDisks int, offlineDisks int) {
+func getDisksInfo(disks []StorageAPI) (disksInfo []DiskInfo, onlineDisks, offlineDisks madmin.BackendDisks) {
 	disksInfo = make([]DiskInfo, len(disks))
-	for i, storageDisk := range disks {
-		if storageDisk == nil {
-			// Storage disk is empty, perhaps ignored disk or not available.
-			offlineDisks++
+
+	g := errgroup.WithNErrs(len(disks))
+	for index := range disks {
+		index := index
+		g.Go(func() error {
+			if disks[index] == nil {
+				// Storage disk is empty, perhaps ignored disk or not available.
+				return errDiskNotFound
+			}
+			info, err := disks[index].DiskInfo()
+			if err != nil {
+				if IsErr(err, baseErrs...) {
+					return err
+				}
+				reqInfo := (&logger.ReqInfo{}).AppendTags("disk", disks[index].String())
+				ctx := logger.SetReqInfo(context.Background(), reqInfo)
+				logger.LogIf(ctx, err)
+			}
+			disksInfo[index] = info
+			return nil
+		}, index)
+	}
+
+	getPeerAddress := func(diskPath string) (string, error) {
+		hostPort := strings.Split(diskPath, SlashSeparator)[0]
+		thisAddr, err := xnet.ParseHost(hostPort)
+		if err != nil {
+			return "", err
+		}
+		return thisAddr.String(), nil
+	}
+
+	onlineDisks = make(madmin.BackendDisks)
+	offlineDisks = make(madmin.BackendDisks)
+	// Wait for the routines.
+	for i, err := range g.Wait() {
+		peerAddr, pErr := getPeerAddress(disksInfo[i].RelativePath)
+		if pErr != nil {
 			continue
 		}
-		info, err := storageDisk.DiskInfo()
-		if err != nil {
-			ctx := context.Background()
-			logger.GetReqInfo(ctx).AppendTags("disk", storageDisk.String())
-			logger.LogIf(ctx, err)
-			if IsErr(err, baseErrs...) {
-				offlineDisks++
-				continue
-			}
+		if _, ok := offlineDisks[peerAddr]; !ok {
+			offlineDisks[peerAddr] = 0
 		}
-		onlineDisks++
-		disksInfo[i] = info
+		if _, ok := onlineDisks[peerAddr]; !ok {
+			onlineDisks[peerAddr] = 0
+		}
+		if err != nil {
+			offlineDisks[peerAddr]++
+		}
+		onlineDisks[peerAddr]++
 	}
 
 	// Success.
@@ -121,28 +157,28 @@ func getStorageInfo(disks []StorageAPI) StorageInfo {
 	}
 
 	// Combine all disks to get total usage
-	var used, total, available uint64
-	for _, di := range validDisksInfo {
-		used = used + di.Used
-		total = total + di.Total
-		available = available + di.Free
+	usedList := make([]uint64, len(validDisksInfo))
+	totalList := make([]uint64, len(validDisksInfo))
+	availableList := make([]uint64, len(validDisksInfo))
+	mountPaths := make([]string, len(validDisksInfo))
+
+	for i, di := range validDisksInfo {
+		usedList[i] = di.Used
+		totalList[i] = di.Total
+		availableList[i] = di.Free
+		mountPaths[i] = di.RelativePath
 	}
 
-	_, sscParity := getRedundancyCount(standardStorageClass, len(disks))
-	_, rrscparity := getRedundancyCount(reducedRedundancyStorageClass, len(disks))
-
 	storageInfo := StorageInfo{
-		Used:      used,
-		Total:     total,
-		Available: available,
+		Used:       usedList,
+		Total:      totalList,
+		Available:  availableList,
+		MountPaths: mountPaths,
 	}
 
 	storageInfo.Backend.Type = BackendErasure
 	storageInfo.Backend.OnlineDisks = onlineDisks
 	storageInfo.Backend.OfflineDisks = offlineDisks
-
-	storageInfo.Backend.StandardSCParity = sscParity
-	storageInfo.Backend.RRSCParity = rrscparity
 
 	return storageInfo
 }

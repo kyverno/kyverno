@@ -92,12 +92,18 @@ func TestPipeCloseWithError(t *testing.T) {
 	if err != a {
 		t.Logf("read error = %v, %v", err, a)
 	}
+	if p.Len() != 0 {
+		t.Errorf("pipe should have 0 unread bytes")
+	}
 	// Read and Write should fail.
 	if n, err := p.Write([]byte("abc")); err != errClosedPipeWrite || n != 0 {
 		t.Errorf("Write(abc) after close\ngot %v, %v\nwant 0, %v", n, err, errClosedPipeWrite)
 	}
 	if n, err := p.Read(make([]byte, 1)); err == nil || n != 0 {
 		t.Errorf("Read() after close\ngot %v, nil\nwant 0, %v", n, errClosedPipeWrite)
+	}
+	if p.Len() != 0 {
+		t.Errorf("pipe should have 0 unread bytes")
 	}
 }
 
@@ -116,12 +122,18 @@ func TestPipeBreakWithError(t *testing.T) {
 	if p.b != nil {
 		t.Errorf("buffer should be nil after BreakWithError")
 	}
+	if p.Len() != 3 {
+		t.Errorf("pipe should have 3 unread bytes")
+	}
 	// Write should succeed silently.
 	if n, err := p.Write([]byte("abc")); err != nil || n != 3 {
 		t.Errorf("Write(abc) after break\ngot %v, %v\nwant 0, nil", n, err)
 	}
 	if p.b != nil {
 		t.Errorf("buffer should be nil after Write")
+	}
+	if p.Len() != 6 {
+		t.Errorf("pipe should have 6 unread bytes")
 	}
 	// Read should fail.
 	if n, err := p.Read(make([]byte, 1)); err == nil || n != 0 {

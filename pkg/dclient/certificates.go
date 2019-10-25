@@ -140,7 +140,7 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 		glog.Warningf("root CA certificate not found in secret %s/%s", certProps.Namespace, tlsca.Name)
 		return result
 	}
-	glog.Infof("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", certProps.Namespace, tlsca.Name)
+	glog.V(4).Infof("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", certProps.Namespace, tlsca.Name)
 	return result
 }
 

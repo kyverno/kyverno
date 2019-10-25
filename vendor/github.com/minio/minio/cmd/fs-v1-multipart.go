@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/minio/minio/cmd/logger"
 	mioutil "github.com/minio/minio/pkg/ioutil"
 )
@@ -279,7 +280,7 @@ func (fs *FSObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID
 
 	// Validate input data size and it can never be less than -1.
 	if data.Size() < -1 {
-		logger.LogIf(ctx, errInvalidArgument)
+		logger.LogIf(ctx, errInvalidArgument, logger.Application)
 		return pi, toObjectErr(errInvalidArgument)
 	}
 
@@ -456,7 +457,8 @@ func (fs *FSObjects) ListObjectParts(ctx context.Context, bucket, object, upload
 	}
 	for i, part := range result.Parts {
 		var stat os.FileInfo
-		stat, err = fsStatFile(ctx, pathJoin(uploadIDDir, fs.encodePartFile(part.PartNumber, part.ETag, part.ActualSize)))
+		stat, err = fsStatFile(ctx, pathJoin(uploadIDDir,
+			fs.encodePartFile(part.PartNumber, part.ETag, part.ActualSize)))
 		if err != nil {
 			return result, toObjectErr(err)
 		}
@@ -470,7 +472,13 @@ func (fs *FSObjects) ListObjectParts(ctx context.Context, bucket, object, upload
 		return result, err
 	}
 
-	result.UserDefined = parseFSMetaMap(fsMetaBytes)
+	var fsMeta fsMetaV1
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	if err = json.Unmarshal(fsMetaBytes, &fsMeta); err != nil {
+		return result, err
+	}
+
+	result.UserDefined = fsMeta.Meta
 	return result, nil
 }
 
@@ -769,6 +777,12 @@ func (fs *FSObjects) cleanupStaleMultipartUploads(ctx context.Context, cleanupIn
 				if err != nil {
 					continue
 				}
+
+				// Remove the trailing slash separator
+				for i := range uploadIDs {
+					uploadIDs[i] = strings.TrimSuffix(uploadIDs[i], SlashSeparator)
+				}
+
 				for _, uploadID := range uploadIDs {
 					fi, err := fsStatDir(ctx, pathJoin(fs.fsPath, minioMetaMultipartBucket, entry, uploadID))
 					if err != nil {
@@ -779,6 +793,15 @@ func (fs *FSObjects) cleanupStaleMultipartUploads(ctx context.Context, cleanupIn
 						// It is safe to ignore any directory not empty error (in case there were multiple uploadIDs on the same object)
 						fsRemoveDir(ctx, pathJoin(fs.fsPath, minioMetaMultipartBucket, entry))
 
+						// Remove uploadID from the append file map and its corresponding temporary file
+						fs.appendFileMapMu.Lock()
+						bgAppend, ok := fs.appendFileMap[uploadID]
+						if ok {
+							err := fsRemoveFile(ctx, bgAppend.filePath)
+							logger.LogIf(ctx, err)
+							delete(fs.appendFileMap, uploadID)
+						}
+						fs.appendFileMapMu.Unlock()
 					}
 				}
 			}

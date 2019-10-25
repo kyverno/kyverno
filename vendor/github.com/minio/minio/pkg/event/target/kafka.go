@@ -17,7 +17,9 @@
 package target
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net"
@@ -31,6 +33,32 @@ import (
 	sarama "gopkg.in/Shopify/sarama.v1"
 )
 
+// MQTT input constants
+const (
+	KafkaBrokers       = "brokers"
+	KafkaTopic         = "topic"
+	KafkaQueueDir      = "queue_dir"
+	KafkaQueueLimit    = "queue_limit"
+	KafkaTLSEnable     = "tls_enable"
+	KafkaTLSSkipVerify = "tls_skip_verify"
+	KafkaTLSClientAuth = "tls_client_auth"
+	KafkaSASLEnable    = "sasl_enable"
+	KafkaSASLUsername  = "sasl_username"
+	KafkaSASLPassword  = "sasl_password"
+
+	EnvKafkaState         = "MINIO_NOTIFY_KAFKA_STATE"
+	EnvKafkaBrokers       = "MINIO_NOTIFY_KAFKA_BROKERS"
+	EnvKafkaTopic         = "MINIO_NOTIFY_KAFKA_TOPIC"
+	EnvKafkaQueueDir      = "MINIO_NOTIFY_KAFKA_QUEUE_DIR"
+	EnvKafkaQueueLimit    = "MINIO_NOTIFY_KAFKA_QUEUE_LIMIT"
+	EnvKafkaTLSEnable     = "MINIO_NOTIFY_KAFKA_TLS_ENABLE"
+	EnvKafkaTLSSkipVerify = "MINIO_NOTIFY_KAFKA_TLS_SKIP_VERIFY"
+	EnvKafkaTLSClientAuth = "MINIO_NOTIFY_KAFKA_TLS_CLIENT_AUTH"
+	EnvKafkaSASLEnable    = "MINIO_NOTIFY_KAFKA_SASL_ENABLE"
+	EnvKafkaSASLUsername  = "MINIO_NOTIFY_KAFKA_SASL_USERNAME"
+	EnvKafkaSASLPassword  = "MINIO_NOTIFY_KAFKA_SASL_PASSWORD"
+)
+
 // KafkaArgs - Kafka target arguments.
 type KafkaArgs struct {
 	Enable     bool        `json:"enable"`
@@ -40,6 +68,7 @@ type KafkaArgs struct {
 	QueueLimit uint64      `json:"queueLimit"`
 	TLS        struct {
 		Enable     bool               `json:"enable"`
+		RootCAs    *x509.CertPool     `json:"-"`
 		SkipVerify bool               `json:"skipVerify"`
 		ClientAuth tls.ClientAuthType `json:"clientAuth"`
 	} `json:"tls"`
@@ -189,7 +218,7 @@ func (k KafkaArgs) pingBrokers() bool {
 }
 
 // NewKafkaTarget - creates new Kafka target with auth credentials.
-func NewKafkaTarget(id string, args KafkaArgs, doneCh <-chan struct{}) (*KafkaTarget, error) {
+func NewKafkaTarget(id string, args KafkaArgs, doneCh <-chan struct{}, loggerOnce func(ctx context.Context, err error, id interface{}, kind ...interface{})) (*KafkaTarget, error) {
 	config := sarama.NewConfig()
 
 	config.Net.SASL.User = args.SASL.User
@@ -198,7 +227,9 @@ func NewKafkaTarget(id string, args KafkaArgs, doneCh <-chan struct{}) (*KafkaTa
 
 	config.Net.TLS.Enable = args.TLS.Enable
 	tlsConfig := &tls.Config{
-		ClientAuth: args.TLS.ClientAuth,
+		ClientAuth:         args.TLS.ClientAuth,
+		InsecureSkipVerify: args.TLS.SkipVerify,
+		RootCAs:            args.TLS.RootCAs,
 	}
 	config.Net.TLS.Config = tlsConfig
 
@@ -238,9 +269,9 @@ func NewKafkaTarget(id string, args KafkaArgs, doneCh <-chan struct{}) (*KafkaTa
 
 	if target.store != nil {
 		// Replays the events from the store.
-		eventKeyCh := replayEvents(target.store, doneCh)
+		eventKeyCh := replayEvents(target.store, doneCh, loggerOnce, target.ID())
 		// Start replaying events from the store.
-		go sendEvents(target, eventKeyCh, doneCh)
+		go sendEvents(target, eventKeyCh, doneCh, loggerOnce)
 	}
 
 	return target, nil

@@ -8,8 +8,11 @@ package mergo
 import (
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"gopkg.in/yaml.v2"
 )
@@ -346,7 +349,7 @@ func TestEmptyToNotEmptyMaps(t *testing.T) {
 func TestMapsWithOverwrite(t *testing.T) {
 	m := map[string]simpleTest{
 		"a": {},   // overwritten by 16
-		"b": {42}, // not overwritten by empty value
+		"b": {42}, // overwritten by 0, as map Value is not addressable and it doesn't check for b is set or not set in `n`
 		"c": {13}, // overwritten by 12
 		"d": {61},
 	}
@@ -373,6 +376,167 @@ func TestMapsWithOverwrite(t *testing.T) {
 	}
 }
 
+func TestMapWithEmbeddedStructPointer(t *testing.T) {
+	m := map[string]*simpleTest{
+		"a": {},   // overwritten by 16
+		"b": {42}, // not overwritten by empty value
+		"c": {13}, // overwritten by 12
+		"d": {61},
+	}
+	n := map[string]*simpleTest{
+		"a": {16},
+		"b": {},
+		"c": {12},
+		"e": {14},
+	}
+	expect := map[string]*simpleTest{
+		"a": {16},
+		"b": {42},
+		"c": {12},
+		"d": {61},
+		"e": {14},
+	}
+
+	if err := Merge(&m, n, WithOverride); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	assert.Equalf(t, expect, m, "Test Failed")
+	if !reflect.DeepEqual(m, expect) {
+		t.Fatalf("Test failed:\ngot  :\n%#v\n\nwant :\n%#v\n\n", m, expect)
+	}
+}
+
+func TestMergeUsingStructAndMap(t *testing.T) {
+	type multiPtr struct {
+		Text   string
+		Number int
+	}
+	type final struct {
+		Msg1 string
+		Msg2 string
+	}
+	type params struct {
+		Name  string
+		Multi *multiPtr
+		Final *final
+	}
+	type config struct {
+		Foo    string
+		Bar    string
+		Params *params
+	}
+
+	cases := []struct {
+		name      string
+		overwrite bool
+		changes   *config
+		target    *config
+		output    *config
+	}{
+		{
+			name:      "Should overwrite values in target for non-nil values in source",
+			overwrite: true,
+			changes: &config{
+				Bar: "from changes",
+				Params: &params{
+					Final: &final{
+						Msg1: "from changes",
+						Msg2: "from changes",
+					},
+				},
+			},
+			target: &config{
+				Foo: "from target",
+				Params: &params{
+					Name: "from target",
+					Multi: &multiPtr{
+						Text:   "from target",
+						Number: 5,
+					},
+					Final: &final{
+						Msg1: "from target",
+						Msg2: "",
+					},
+				},
+			},
+			output: &config{
+				Foo: "from target",
+				Bar: "from changes",
+				Params: &params{
+					Name: "from target",
+					Multi: &multiPtr{
+						Text:   "from target",
+						Number: 5,
+					},
+					Final: &final{
+						Msg1: "from changes",
+						Msg2: "from changes",
+					},
+				},
+			},
+		},
+		{
+			name:      "Should not overwrite values in target for non-nil values in source",
+			overwrite: false,
+			changes: &config{
+				Bar: "from changes",
+				Params: &params{
+					Final: &final{
+						Msg1: "from changes",
+						Msg2: "from changes",
+					},
+				},
+			},
+			target: &config{
+				Foo: "from target",
+				Params: &params{
+					Name: "from target",
+					Multi: &multiPtr{
+						Text:   "from target",
+						Number: 5,
+					},
+					Final: &final{
+						Msg1: "from target",
+						Msg2: "",
+					},
+				},
+			},
+			output: &config{
+				Foo: "from target",
+				Bar: "from changes",
+				Params: &params{
+					Name: "from target",
+					Multi: &multiPtr{
+						Text:   "from target",
+						Number: 5,
+					},
+					Final: &final{
+						Msg1: "from target",
+						Msg2: "from changes",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var err error
+			if tc.overwrite {
+				err = Merge(tc.target, *tc.changes, WithOverride)
+			} else {
+				err = Merge(tc.target, *tc.changes)
+			}
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(tc.target, tc.output) {
+				t.Fatalf("Test failed:\ngot  :\n%#v\n\nwant :\n%#v\n\n", tc.target, tc.output)
+			}
+		})
+	}
+}
 func TestMaps(t *testing.T) {
 	m := map[string]simpleTest{
 		"a": {},
@@ -734,23 +898,43 @@ func TestBooleanPointer(t *testing.T) {
 }
 
 func TestMergeMapWithInnerSliceOfDifferentType(t *testing.T) {
-	src := map[string]interface{}{
-		"foo": []string{"a", "b"},
+	testCases := []struct {
+		name    string
+		options []func(*Config)
+		err     string
+	}{
+		{
+			"With override and append slice",
+			[]func(*Config){WithOverride, WithAppendSlice},
+			"cannot append two slices with different type",
+		},
+		{
+			"With override and type check",
+			[]func(*Config){WithOverride, WithTypeCheck},
+			"cannot override two slices with different type",
+		},
 	}
-	dst := map[string]interface{}{
-		"foo": []int{1, 2},
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := map[string]interface{}{
+				"foo": []string{"a", "b"},
+			}
+			dst := map[string]interface{}{
+				"foo": []int{1, 2},
+			}
 
-	if err := Merge(&src, &dst, WithOverride, WithAppendSlice); err == nil {
-		t.Fatal("expected an error, got nothing")
+			if err := Merge(&src, &dst, tc.options...); err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Fatalf("expected %q, got %q", tc.err, err)
+			}
+		})
 	}
 }
 
-func TestMergeSliceDifferentType(t *testing.T) {
+func TestMergeSlicesIsNotSupported(t *testing.T) {
 	src := []string{"a", "b"}
 	dst := []int{1, 2}
 
-	if err := Merge(&src, &dst, WithOverride, WithAppendSlice); err == nil {
-		t.Fatal("expected an error, got nothing")
+	if err := Merge(&src, &dst, WithOverride, WithAppendSlice); err != ErrNotSupported {
+		t.Fatalf("expected %q, got %q", ErrNotSupported, err)
 	}
 }

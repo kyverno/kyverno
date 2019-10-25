@@ -59,6 +59,13 @@ func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) 
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		}
 	}
+
+	// set PatchedResource with orgin resource if empty
+	// in order to create policy violation
+	if reflect.DeepEqual(response.PatchedResource, unstructured.Unstructured{}) {
+		response.PatchedResource = resource
+	}
+
 	return response
 }
 

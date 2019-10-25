@@ -1,4 +1,5 @@
-URL="https://raw.githubusercontent.com/google/protobuf/master/src/google/protobuf/"
+VERSION=3.9.1
+URL="https://raw.githubusercontent.com/protocolbuffers/protobuf/v${VERSION}/src/google/protobuf"
 
 regenerate:
 	go install github.com/gogo/protobuf/protoc-gen-gogotypes
@@ -39,7 +40,7 @@ update:
 
 	(cd ./google/protobuf/compiler && rm plugin.proto; wget ${URL}/compiler/plugin.proto)
 	gogoreplace 'option go_package = "github.com/golang/protobuf/protoc-gen-go/plugin;plugin_go";' 'option go_package = "plugin_go";' ./google/protobuf/compiler/plugin.proto
-	
+
 	(cd ./google/protobuf && rm any.proto; wget ${URL}/any.proto)
 	gogoreplace 'go_package = "github.com/golang/protobuf/ptypes/any";' 'go_package = "types";' ./google/protobuf/any.proto
 	(cd ./google/protobuf && rm empty.proto; wget ${URL}/empty.proto)
@@ -60,5 +61,5 @@ update:
 	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/ptype;ptype";' 'option go_package = "types";' ./google/protobuf/type.proto
 	(cd ./google/protobuf && rm source_context.proto; wget ${URL}/source_context.proto)
 	gogoreplace 'option go_package = "google.golang.org/genproto/protobuf/source_context;source_context";' 'option go_package = "types";' ./google/protobuf/source_context.proto
-	
-	
+
+

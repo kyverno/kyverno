@@ -14,6 +14,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -27,7 +28,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MapTest struct {
 	StrStr               map[string]string `protobuf:"bytes,1,rep,name=str_str,json=strStr,proto3" json:"str_str,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
@@ -710,7 +711,7 @@ func valueToGoStringMap(v interface{}, typ string) string {
 }
 func NewPopulatedMapTest(r randyMap, easy bool) *MapTest {
 	this := &MapTest{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := r.Intn(10)
 		this.StrStr = make(map[string]string)
 		for i := 0; i < v1; i++ {
@@ -725,7 +726,7 @@ func NewPopulatedMapTest(r randyMap, easy bool) *MapTest {
 
 func NewPopulatedFakeMap(r randyMap, easy bool) *FakeMap {
 	this := &FakeMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := r.Intn(5)
 		this.Entries = make([]*FakeMapEntry, v2)
 		for i := 0; i < v2; i++ {
@@ -884,14 +885,7 @@ func (m *FakeMapEntry) Size() (n int) {
 }
 
 func sovMap(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozMap(x uint64) (n int) {
 	return sovMap(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -921,8 +915,13 @@ func (this *FakeMap) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForEntries := "[]*FakeMapEntry{"
+	for _, f := range this.Entries {
+		repeatedStringForEntries += strings.Replace(f.String(), "FakeMapEntry", "FakeMapEntry", 1) + ","
+	}
+	repeatedStringForEntries += "}"
 	s := strings.Join([]string{`&FakeMap{`,
-		`Entries:` + strings.Replace(fmt.Sprintf("%v", this.Entries), "FakeMapEntry", "FakeMapEntry", 1) + `,`,
+		`Entries:` + repeatedStringForEntries + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
