@@ -182,7 +182,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
-func (ws *WebhookServer) RunAsync() {
+func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
@@ -190,6 +190,8 @@ func (ws *WebhookServer) RunAsync() {
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")
+
+	go checker(10*time.Second, stopCh)
 }
 
 // Stop TLS server and returns control after the server is shut down

@@ -153,7 +153,7 @@ func main() {
 	go nsc.Run(1, stopCh)
 
 	//TODO add WG for the go routines?
-	server.RunAsync()
+	server.RunAsync(stopCh)
 
 	<-stopCh
 	disableProfiling(prof)
