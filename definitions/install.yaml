@@ -300,8 +300,13 @@ spec:
       serviceAccountName: kyverno-service-account
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v0.10.0
-          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
+          image: nirmata/kyverno:latest
+          args:
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+          # customize webhook timout
+          # - "--webhooktimeout=4"
+          # open one of the profiling flag here
+          # - "--cpu=true"
           ports:
           - containerPort: 443
           securityContext:
