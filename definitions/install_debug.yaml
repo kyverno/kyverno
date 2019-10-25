@@ -27,7 +27,7 @@ spec:
               type: string
               enum: 
               - enforce # blocks the resorce api-reques if a rule fails.
-              - audit # allows resource creationg and reports the failed validation rules as violations. Default
+              - audit # allows resource creation and reports the failed validation rules as violations. Default
             rules:
               type: array
               items:
@@ -206,8 +206,8 @@ spec:
             resource:
               type: object
               required:
-                - kind
-                - name
+              - kind
+              - name
               properties:
                 kind:
                   type: string
@@ -220,6 +220,24 @@ spec:
               items:
                 type: object
                 required:
-                  - name
-                  - type
-                  - message
+                - name
+                - type
+                - message
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  message:
+                    type: string
+                  managedResource:
+                    type: object
+                    required:
+                    - kind
+                    properties:
+                      kind:
+                        type: string
+                      namespace:
+                        type: string
+                      creationBlocked:
+                        type: bool
