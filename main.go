@@ -96,10 +96,8 @@ func main() {
 	// dyamically load the configuration from configMap
 	// - resource filters
 	// if the configMap is update, the configuration will be updated :D
-	configData, err := config.NewConfigData(clientConfig, kubeInformer.Core().V1().ConfigMaps(), stopCh)
-	if err != nil {
-		glog.Fatalf("error loading dynamic configuration: %v", err)
-	}
+	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps())
+
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().ClusterPolicies())
@@ -155,6 +153,9 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
+	if err := configData.Run(kubeInformer.Core().V1().ConfigMaps(), stopCh); err != nil {
+		glog.Fatalf("Unable loading dynamic configuration: %v\n", err)
+	}
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)

@@ -13,7 +13,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,18 +49,13 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(restconfig *rest.Config, cmInformer informers.ConfigMapInformer, stopCh <-chan struct{}) (*ConfigData, error) {
-	// get the client
-	kclient, err := kubernetes.NewForConfig(restconfig)
-	if err != nil {
-		return nil, err
-	}
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		glog.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
-		client: kclient,
+		client: rclient,
 		cmName: os.Getenv(cmNameEnv),
 	}
 
@@ -70,11 +64,15 @@ func NewConfigData(restconfig *rest.Config, cmInformer informers.ConfigMapInform
 		UpdateFunc: cd.updateCM,
 		DeleteFunc: cd.deleteCM,
 	})
+	return &cd
+}
+
+func (cd *ConfigData) Run(cmInformer informers.ConfigMapInformer, stopCh <-chan struct{}) error {
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, cmInformer.Informer().HasSynced) {
-		return nil, fmt.Errorf("Configuration: Failed to sync informer cache")
+		return fmt.Errorf("Configuration: Failed to sync informer cache")
 	}
-	return &cd, nil
+	return nil
 }
 
 func (cd *ConfigData) addCM(obj interface{}) {
