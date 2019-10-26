@@ -19,17 +19,17 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"path"
 	"sort"
-	"sync"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/pkg/sync/errgroup"
+	"github.com/minio/sha256-simd"
 )
 
 const erasureAlgorithmKlauspost = "klauspost/reedsolomon/vandermonde"
@@ -77,7 +77,6 @@ func (c ChecksumInfo) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON - should never be called, instead xlMetaV1UnmarshalJSON() should be used.
 func (c *ChecksumInfo) UnmarshalJSON(data []byte) error {
 	var info checksumInfoJSON
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	if err := json.Unmarshal(data, &info); err != nil {
 		return err
 	}
@@ -253,7 +252,7 @@ func (m xlMetaV1) ToObjectInfo(bucket, object string) ObjectInfo {
 	objInfo.Parts = m.Parts
 
 	// Update storage class
-	if sc, ok := m.Meta[amzStorageClass]; ok {
+	if sc, ok := m.Meta[xhttp.AmzStorageClass]; ok {
 		objInfo.StorageClass = sc
 	} else {
 		objInfo.StorageClass = globalMinioDefaultStorageClass
@@ -453,68 +452,40 @@ func renameXLMetadata(ctx context.Context, disks []StorageAPI, srcBucket, srcEnt
 
 // writeUniqueXLMetadata - writes unique `xl.json` content for each disk in order.
 func writeUniqueXLMetadata(ctx context.Context, disks []StorageAPI, bucket, prefix string, xlMetas []xlMetaV1, quorum int) ([]StorageAPI, error) {
-	var wg = &sync.WaitGroup{}
-	var mErrs = make([]error, len(disks))
+	g := errgroup.WithNErrs(len(disks))
 
 	// Start writing `xl.json` to all disks in parallel.
-	for index, disk := range disks {
-		if disk == nil {
-			mErrs[index] = errDiskNotFound
-			continue
-		}
-		wg.Add(1)
-		// Write `xl.json` in a routine.
-		go func(index int, disk StorageAPI) {
-			defer wg.Done()
-
+	for index := range disks {
+		index := index
+		g.Go(func() error {
+			if disks[index] == nil {
+				return errDiskNotFound
+			}
 			// Pick one xlMeta for a disk at index.
 			xlMetas[index].Erasure.Index = index + 1
-
-			// Write unique `xl.json` for a disk at index.
-			err := writeXLMetadata(ctx, disk, bucket, prefix, xlMetas[index])
-			if err != nil {
-				mErrs[index] = err
-			}
-		}(index, disk)
+			return writeXLMetadata(ctx, disks[index], bucket, prefix, xlMetas[index])
+		}, index)
 	}
 
 	// Wait for all the routines.
-	wg.Wait()
+	mErrs := g.Wait()
 
 	err := reduceWriteQuorumErrs(ctx, mErrs, objectOpIgnoredErrs, quorum)
 	return evalDisks(disks, mErrs), err
 }
 
-// writeSameXLMetadata - write `xl.json` on all disks in order.
-func writeSameXLMetadata(ctx context.Context, disks []StorageAPI, bucket, prefix string, xlMeta xlMetaV1, writeQuorum int) ([]StorageAPI, error) {
-	var wg = &sync.WaitGroup{}
-	var mErrs = make([]error, len(disks))
+// Returns per object readQuorum and writeQuorum
+// readQuorum is the min required disks to read data.
+// writeQuorum is the min required disks to write data.
+func objectQuorumFromMeta(ctx context.Context, xl xlObjects, partsMetaData []xlMetaV1, errs []error) (objectReadQuorum, objectWriteQuorum int, err error) {
+	// get the latest updated Metadata and a count of all the latest updated xlMeta(s)
+	latestXLMeta, err := getLatestXLMeta(ctx, partsMetaData, errs)
 
-	// Start writing `xl.json` to all disks in parallel.
-	for index, disk := range disks {
-		if disk == nil {
-			mErrs[index] = errDiskNotFound
-			continue
-		}
-		wg.Add(1)
-		// Write `xl.json` in a routine.
-		go func(index int, disk StorageAPI, metadata xlMetaV1) {
-			defer wg.Done()
-
-			// Save the disk order index.
-			metadata.Erasure.Index = index + 1
-
-			// Write xl metadata.
-			err := writeXLMetadata(ctx, disk, bucket, prefix, metadata)
-			if err != nil {
-				mErrs[index] = err
-			}
-		}(index, disk, xlMeta)
+	if err != nil {
+		return 0, 0, err
 	}
 
-	// Wait for all the routines.
-	wg.Wait()
-
-	err := reduceWriteQuorumErrs(ctx, mErrs, objectOpIgnoredErrs, writeQuorum)
-	return evalDisks(disks, mErrs), err
+	// Since all the valid erasure code meta updated at the same time are equivalent, pass dataBlocks
+	// from latestXLMeta to get the quorum
+	return latestXLMeta.Erasure.DataBlocks, latestXLMeta.Erasure.DataBlocks + 1, nil
 }

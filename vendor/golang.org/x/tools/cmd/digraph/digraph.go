@@ -17,6 +17,8 @@ The support commands are:
 		the set of all nodes
 	degree
 		the in-degree and out-degree of each node
+	transpose
+		the reverse of the input edges
 	preds <node> ...
 		the set of immediate predecessors of the specified nodes
 	succs <node> ...
@@ -101,6 +103,8 @@ The support commands are:
 		the set of all nodes
 	degree
 		the in-degree and out-degree of each node
+	transpose
+		the reverse of the input edges
 	preds <node> ...
 		the set of immediate predecessors of the specified nodes
 	succs <node> ...
@@ -303,6 +307,36 @@ func (g graph) allpaths(from, to string) error {
 	return nil
 }
 
+func (g graph) somepath(from, to string) error {
+	type edge struct{ from, to string }
+	seen := make(nodeset)
+	var dfs func(path []edge, from string) bool
+	dfs = func(path []edge, from string) bool {
+		if !seen[from] {
+			seen[from] = true
+			if from == to {
+				// fmt.Println(path, len(path), cap(path))
+				// Print and unwind.
+				for _, e := range path {
+					fmt.Fprintln(stdout, e.from+" "+e.to)
+				}
+				return true
+			}
+			for e := range g[from] {
+				if dfs(append(path, edge{from: from, to: e}), e) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	maxEdgesInGraph := len(g) * (len(g) - 1)
+	if !dfs(make([]edge, 0, maxEdgesInGraph), from) {
+		return fmt.Errorf("no path from %q to %q", from, to)
+	}
+	return nil
+}
+
 func parse(rd io.Reader) (graph, error) {
 	g := make(graph)
 
@@ -361,6 +395,21 @@ func digraph(cmd string, args []string) error {
 			fmt.Fprintf(stdout, "%d\t%d\t%s\n", len(rev[label]), len(g[label]), label)
 		}
 
+	case "transpose":
+		if len(args) != 0 {
+			return fmt.Errorf("usage: digraph transpose")
+		}
+		var revEdges []string
+		for node, succs := range g.transpose() {
+			for succ := range succs {
+				revEdges = append(revEdges, fmt.Sprintf("%s %s", node, succ))
+			}
+		}
+		sort.Strings(revEdges) // make output deterministic
+		for _, e := range revEdges {
+			fmt.Fprintln(stdout, e)
+		}
+
 	case "succs", "preds":
 		if len(args) == 0 {
 			return fmt.Errorf("usage: digraph %s <label> ...", cmd)
@@ -407,26 +456,8 @@ func digraph(cmd string, args []string) error {
 		if g[to] == nil {
 			return fmt.Errorf("no such 'to' node %q", to)
 		}
-
-		seen := make(nodeset)
-		var visit func(path nodelist, label string) bool
-		visit = func(path nodelist, label string) bool {
-			if !seen[label] {
-				seen[label] = true
-				if label == to {
-					append(path, label).println("\n")
-					return true // unwind
-				}
-				for e := range g[label] {
-					if visit(append(path, label), e) {
-						return true
-					}
-				}
-			}
-			return false
-		}
-		if !visit(make(nodelist, 0, 100), from) {
-			return fmt.Errorf("no path from %q to %q", args[0], args[1])
+		if err := g.somepath(from, to); err != nil {
+			return err
 		}
 
 	case "allpaths":
@@ -440,7 +471,9 @@ func digraph(cmd string, args []string) error {
 		if g[to] == nil {
 			return fmt.Errorf("no such 'to' node %q", to)
 		}
-		g.allpaths(from, to)
+		if err := g.allpaths(from, to); err != nil {
+			return err
+		}
 
 	case "sccs":
 		if len(args) != 0 {

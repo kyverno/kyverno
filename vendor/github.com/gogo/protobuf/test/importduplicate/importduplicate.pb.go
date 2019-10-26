@@ -25,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MapAndSortKeys struct {
 	Key                  *sortkeys.Object `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -189,17 +189,17 @@ func valueToGoStringImportduplicate(v interface{}, typ string) string {
 }
 func NewPopulatedMapAndSortKeys(r randyImportduplicate, easy bool) *MapAndSortKeys {
 	this := &MapAndSortKeys{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Key = sortkeys.NewPopulatedObject(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := r.Intn(10)
 		this.KeyValue = make(map[int32]string)
 		for i := 0; i < v1; i++ {
 			this.KeyValue[int32(r.Int31())] = randStringImportduplicate(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = proto1.NewPopulatedSubject(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {

@@ -47,7 +47,7 @@ func parseLocationConstraint(r *http.Request) (location string, s3Error APIError
 	} // else for both err as nil or io.EOF
 	location = locationConstraint.Location
 	if location == "" {
-		location = globalServerConfig.GetRegion()
+		location = globalServerRegion
 	}
 	return location, ErrNone
 }
@@ -55,7 +55,7 @@ func parseLocationConstraint(r *http.Request) (location string, s3Error APIError
 // Validates input location is same as configured region
 // of MinIO server.
 func isValidLocation(location string) bool {
-	return globalServerConfig.GetRegion() == "" || globalServerConfig.GetRegion() == location
+	return globalServerRegion == "" || globalServerRegion == location
 }
 
 // Supported headers that needs to be extracted.
@@ -65,14 +65,14 @@ var supportedHeaders = []string{
 	"content-language",
 	"content-encoding",
 	"content-disposition",
-	amzStorageClass,
+	xhttp.AmzStorageClass,
 	"expires",
 	// Add more supported headers here.
 }
 
 // isMetadataDirectiveValid - check if metadata-directive is valid.
 func isMetadataDirectiveValid(h http.Header) bool {
-	_, ok := h[http.CanonicalHeaderKey("X-Amz-Metadata-Directive")]
+	_, ok := h[http.CanonicalHeaderKey(xhttp.AmzMetadataDirective)]
 	if ok {
 		// Check atleast set metadata-directive is valid.
 		return (isMetadataCopy(h) || isMetadataReplace(h))
@@ -84,12 +84,12 @@ func isMetadataDirectiveValid(h http.Header) bool {
 
 // Check if the metadata COPY is requested.
 func isMetadataCopy(h http.Header) bool {
-	return h.Get("X-Amz-Metadata-Directive") == "COPY"
+	return h.Get(xhttp.AmzMetadataDirective) == "COPY"
 }
 
 // Check if the metadata REPLACE is requested.
 func isMetadataReplace(h http.Header) bool {
-	return h.Get("X-Amz-Metadata-Directive") == "REPLACE"
+	return h.Get(xhttp.AmzMetadataDirective) == "REPLACE"
 }
 
 // Splits an incoming path into bucket and object components.
@@ -191,9 +191,9 @@ func getReqAccessCred(r *http.Request, region string) (cred auth.Credentials) {
 	if cred.AccessKey == "" {
 		claims, owner, _ := webRequestAuthenticate(r)
 		if owner {
-			return globalServerConfig.GetCredential()
+			return globalActiveCred
 		}
-		cred, _ = globalIAMSys.GetUser(claims.Subject)
+		cred, _ = globalIAMSys.GetUser(claims.AccessKey())
 	}
 	return cred
 }
@@ -204,7 +204,7 @@ func extractReqParams(r *http.Request) map[string]string {
 		return nil
 	}
 
-	region := globalServerConfig.GetRegion()
+	region := globalServerRegion
 	cred := getReqAccessCred(r, region)
 
 	// Success.
@@ -348,6 +348,39 @@ func httpTraceHdrs(f http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func collectAPIStats(api string, f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		isS3Request := !strings.HasPrefix(r.URL.Path, minioReservedBucketPath)
+		apiStatsWriter := &recordAPIStats{w, UTCNow(), false, 0, isS3Request}
+
+		// Time start before the call is about to start.
+		tBefore := UTCNow()
+
+		if isS3Request {
+			globalHTTPStats.currentS3Requests.Inc(api)
+		}
+		// Execute the request
+		f.ServeHTTP(apiStatsWriter, r)
+
+		if isS3Request {
+			globalHTTPStats.currentS3Requests.Dec(api)
+		}
+
+		// Firstbyte read.
+		tAfter := apiStatsWriter.TTFB
+
+		// Time duration in secs since the call started.
+		//
+		// We don't need to do nanosecond precision in this
+		// simply for the fact that it is not human readable.
+		durationSecs := tAfter.Sub(tBefore).Seconds()
+
+		// Update http statistics
+		globalHTTPStats.updateStats(api, r, apiStatsWriter, durationSecs)
+	}
+}
+
 // Returns "/bucketName/objectName" for path-style or virtual-host-style requests.
 func getResource(path string, host string, domains []string) (string, error) {
 	if len(domains) == 0 {
@@ -375,14 +408,24 @@ func getResource(path string, host string, domains []string) (string, error) {
 	return path, nil
 }
 
-// If none of the http routes match respond with MethodNotAllowed, in JSON
-func notFoundHandlerJSON(w http.ResponseWriter, r *http.Request) {
-	writeErrorResponseJSON(context.Background(), w, errorCodes.ToAPIErr(ErrMethodNotAllowed), r.URL)
-}
-
 // If none of the http routes match respond with MethodNotAllowed
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	writeErrorResponse(context.Background(), w, errorCodes.ToAPIErr(ErrMethodNotAllowed), r.URL, guessIsBrowserReq(r))
+}
+
+// If the API version does not match with current version.
+func versionMismatchHandler(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, minioReservedBucketPath+"/peer/"):
+		writeVersionMismatchResponse(r.Context(), w, errorCodes.ToAPIErr(ErrInvalidAPIVersion), r.URL, false)
+	case strings.HasPrefix(path, minioReservedBucketPath+"/storage/"):
+		writeVersionMismatchResponse(r.Context(), w, errorCodes.ToAPIErr(ErrInvalidAPIVersion), r.URL, false)
+	case strings.HasPrefix(path, minioReservedBucketPath+"/lock/"):
+		writeVersionMismatchResponse(r.Context(), w, errorCodes.ToAPIErr(ErrInvalidAPIVersion), r.URL, false)
+	default:
+		writeVersionMismatchResponse(r.Context(), w, errorCodes.ToAPIErr(ErrInvalidAPIVersion), r.URL, true)
+	}
 }
 
 // gets host name for current node

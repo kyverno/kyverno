@@ -18,6 +18,7 @@ package target
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -36,10 +37,25 @@ import (
 	xnet "github.com/minio/minio/pkg/net"
 )
 
+// Webhook constants
+const (
+	WebhookEndpoint   = "endpoint"
+	WebhookAuthToken  = "auth_token"
+	WebhookQueueDir   = "queue_dir"
+	WebhookQueueLimit = "queue_limit"
+
+	EnvWebhookState      = "MINIO_NOTIFY_WEBHOOK_STATE"
+	EnvWebhookEndpoint   = "MINIO_NOTIFY_WEBHOOK_ENDPOINT"
+	EnvWebhookAuthToken  = "MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN"
+	EnvWebhookQueueDir   = "MINIO_NOTIFY_WEBHOOK_QUEUE_DIR"
+	EnvWebhookQueueLimit = "MINIO_NOTIFY_WEBHOOK_QUEUE_LIMIT"
+)
+
 // WebhookArgs - Webhook target arguments.
 type WebhookArgs struct {
 	Enable     bool           `json:"enable"`
 	Endpoint   xnet.URL       `json:"endpoint"`
+	AuthToken  string         `json:"authToken"`
 	RootCAs    *x509.CertPool `json:"-"`
 	QueueDir   string         `json:"queueDir"`
 	QueueLimit uint64         `json:"queueLimit"`
@@ -82,14 +98,12 @@ func (target *WebhookTarget) Save(eventData event.Event) error {
 	if target.store != nil {
 		return target.store.Put(eventData)
 	}
-	urlStr, pErr := xnet.ParseURL(target.args.Endpoint.String())
+	u, pErr := xnet.ParseURL(target.args.Endpoint.String())
 	if pErr != nil {
 		return pErr
 	}
-	_, dErr := net.Dial("tcp", urlStr.Host)
-	if dErr != nil {
-		// To treat "connection refused" errors as errNotConnected.
-		if IsConnRefusedErr(dErr) {
+	if dErr := u.DialHTTP(); dErr != nil {
+		if xnet.IsNetworkOrHostDown(dErr) {
 			return errNotConnected
 		}
 		return dErr
@@ -115,6 +129,10 @@ func (target *WebhookTarget) send(eventData event.Event) error {
 		return err
 	}
 
+	if target.args.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+target.args.AuthToken)
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := target.httpClient.Do(req)
@@ -135,15 +153,12 @@ func (target *WebhookTarget) send(eventData event.Event) error {
 
 // Send - reads an event from store and sends it to webhook.
 func (target *WebhookTarget) Send(eventKey string) error {
-
-	urlStr, pErr := xnet.ParseURL(target.args.Endpoint.String())
+	u, pErr := xnet.ParseURL(target.args.Endpoint.String())
 	if pErr != nil {
 		return pErr
 	}
-	_, dErr := net.Dial("tcp", urlStr.Host)
-	if dErr != nil {
-		// To treat "connection refused" errors as errNotConnected.
-		if IsConnRefusedErr(dErr) {
+	if dErr := u.DialHTTP(); dErr != nil {
+		if xnet.IsNetworkOrHostDown(dErr) {
 			return errNotConnected
 		}
 		return dErr
@@ -160,6 +175,9 @@ func (target *WebhookTarget) Send(eventKey string) error {
 	}
 
 	if err := target.send(eventData); err != nil {
+		if xnet.IsNetworkOrHostDown(err) {
+			return errNotConnected
+		}
 		return err
 	}
 
@@ -173,15 +191,15 @@ func (target *WebhookTarget) Close() error {
 }
 
 // NewWebhookTarget - creates new Webhook target.
-func NewWebhookTarget(id string, args WebhookArgs, doneCh <-chan struct{}) *WebhookTarget {
+func NewWebhookTarget(id string, args WebhookArgs, doneCh <-chan struct{}, loggerOnce func(ctx context.Context, err error, id interface{}, kind ...interface{})) (*WebhookTarget, error) {
 
 	var store Store
 
 	if args.QueueDir != "" {
 		queueDir := filepath.Join(args.QueueDir, storePrefix+"-webhook-"+id)
 		store = NewQueueStore(queueDir, args.QueueLimit)
-		if oErr := store.Open(); oErr != nil {
-			return nil
+		if err := store.Open(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -205,10 +223,10 @@ func NewWebhookTarget(id string, args WebhookArgs, doneCh <-chan struct{}) *Webh
 
 	if target.store != nil {
 		// Replays the events from the store.
-		eventKeyCh := replayEvents(target.store, doneCh)
+		eventKeyCh := replayEvents(target.store, doneCh, loggerOnce, target.ID())
 		// Start replaying events from the store.
-		go sendEvents(target, eventKeyCh, doneCh)
+		go sendEvents(target, eventKeyCh, doneCh, loggerOnce)
 	}
 
-	return target
+	return target, nil
 }

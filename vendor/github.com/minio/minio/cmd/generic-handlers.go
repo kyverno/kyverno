@@ -17,9 +17,7 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -178,7 +176,9 @@ func getRedirectLocation(urlPath string) (rLocation string) {
 		SlashSeparator,
 		"/webrpc",
 		"/login",
-		"/favicon.ico",
+		"/favicon-16x16.png",
+		"/favicon-32x32.png",
+		"/favicon-96x96.png",
 	}, urlPath) {
 		rLocation = minioReservedBucketPath + urlPath
 	}
@@ -196,7 +196,7 @@ func guessIsBrowserReq(req *http.Request) bool {
 		return false
 	}
 	aType := getRequestAuthType(req)
-	return strings.Contains(req.Header.Get("User-Agent"), "Mozilla") && globalIsBrowserEnabled &&
+	return strings.Contains(req.Header.Get("User-Agent"), "Mozilla") && globalBrowserEnabled &&
 		(aType == authTypeJWT || aType == authTypeAnonymous)
 }
 
@@ -219,7 +219,7 @@ func guessIsMetricsReq(req *http.Request) bool {
 		return false
 	}
 	aType := getRequestAuthType(req)
-	return aType == authTypeAnonymous &&
+	return (aType == authTypeAnonymous || aType == authTypeJWT) &&
 		req.URL.Path == minioReservedBucketPath+prometheusMetricsPath
 }
 
@@ -479,14 +479,12 @@ var notimplementedBucketResourceNames = map[string]bool{
 	"requestPayment": true,
 	"tagging":        true,
 	"versioning":     true,
-	"versions":       true,
 	"website":        true,
 }
 
 // List of not implemented object queries
 var notimplementedObjectResourceNames = map[string]bool{
 	"acl":     true,
-	"policy":  true,
 	"restore": true,
 	"tagging": true,
 	"torrent": true,
@@ -515,34 +513,6 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
-// httpResponseRecorder wraps http.ResponseWriter
-// to record some useful http response data.
-type httpResponseRecorder struct {
-	http.ResponseWriter
-	respStatusCode int
-}
-
-// Wraps ResponseWriter's Write()
-func (rww *httpResponseRecorder) Write(b []byte) (int, error) {
-	return rww.ResponseWriter.Write(b)
-}
-
-// Wraps ResponseWriter's Flush()
-func (rww *httpResponseRecorder) Flush() {
-	rww.ResponseWriter.(http.Flusher).Flush()
-}
-
-// Wraps ResponseWriter's WriteHeader() and record
-// the response status code
-func (rww *httpResponseRecorder) WriteHeader(httpCode int) {
-	rww.respStatusCode = httpCode
-	rww.ResponseWriter.WriteHeader(httpCode)
-}
-
-func (rww *httpResponseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return rww.ResponseWriter.(http.Hijacker).Hijack()
-}
-
 // httpStatsHandler definition: gather HTTP statistics
 type httpStatsHandler struct {
 	handler http.Handler
@@ -554,26 +524,13 @@ func setHTTPStatsHandler(h http.Handler) http.Handler {
 }
 
 func (h httpStatsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Wraps w to record http response information
-	ww := &httpResponseRecorder{ResponseWriter: w}
-
-	// Time start before the call is about to start.
-	tBefore := UTCNow()
-
+	isS3Request := !strings.HasPrefix(r.URL.Path, minioReservedBucketPath)
+	// record s3 connection stats.
+	recordRequest := &recordTrafficRequest{ReadCloser: r.Body, isS3Request: isS3Request}
+	r.Body = recordRequest
+	recordResponse := &recordTrafficResponse{w, isS3Request}
 	// Execute the request
-	h.handler.ServeHTTP(ww, r)
-
-	// Time after call has completed.
-	tAfter := UTCNow()
-
-	// Time duration in secs since the call started.
-	//
-	// We don't need to do nanosecond precision in this
-	// simply for the fact that it is not human readable.
-	durationSecs := tAfter.Sub(tBefore).Seconds()
-
-	// Update http statistics
-	globalHTTPStats.updateStats(r, ww, durationSecs)
+	h.handler.ServeHTTP(recordResponse, r)
 }
 
 // requestValidityHandler validates all the incoming paths for
@@ -672,25 +629,29 @@ func (f bucketForwardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 				bucket, _ = urlPath2BucketObjectName(r.URL.Path)
 			}
 		}
-		if bucket != "" {
-			sr, err := globalDNSConfig.Get(bucket)
-			if err != nil {
-				if err == dns.ErrNoEntriesFound {
-					writeErrorResponse(context.Background(), w, errorCodes.ToAPIErr(ErrNoSuchBucket), r.URL, guessIsBrowserReq(r))
-				} else {
-					writeErrorResponse(context.Background(), w, toAPIError(context.Background(), err), r.URL, guessIsBrowserReq(r))
-				}
-				return
+		if bucket == "" {
+			f.handler.ServeHTTP(w, r)
+			return
+		}
+		sr, err := globalDNSConfig.Get(bucket)
+		if err != nil {
+			if err == dns.ErrNoEntriesFound {
+				writeErrorResponse(context.Background(), w, errorCodes.ToAPIErr(ErrNoSuchBucket),
+					r.URL, guessIsBrowserReq(r))
+			} else {
+				writeErrorResponse(context.Background(), w, toAPIError(context.Background(), err),
+					r.URL, guessIsBrowserReq(r))
 			}
-			if globalDomainIPs.Intersection(set.CreateStringSet(getHostsSlice(sr)...)).IsEmpty() {
-				r.URL.Scheme = "http"
-				if globalIsSSL {
-					r.URL.Scheme = "https"
-				}
-				r.URL.Host = getHostFromSrv(sr)
-				f.fwd.ServeHTTP(w, r)
-				return
+			return
+		}
+		if globalDomainIPs.Intersection(set.CreateStringSet(getHostsSlice(sr)...)).IsEmpty() {
+			r.URL.Scheme = "http"
+			if globalIsSSL {
+				r.URL.Scheme = "https"
 			}
+			r.URL.Host = getHostFromSrv(sr)
+			f.fwd.ServeHTTP(w, r)
+			return
 		}
 		f.handler.ServeHTTP(w, r)
 		return
@@ -714,9 +675,12 @@ func (f bucketForwardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// CopyObject requests should be handled at current endpoint as path style
 	// requests have target bucket and object in URI and source details are in
 	// header fields
-	if r.Method == http.MethodPut && r.Header.Get("X-Amz-Copy-Source") != "" {
-		f.handler.ServeHTTP(w, r)
-		return
+	if r.Method == http.MethodPut && r.Header.Get(xhttp.AmzCopySource) != "" {
+		bucket, object = urlPath2BucketObjectName(r.Header.Get(xhttp.AmzCopySource))
+		if bucket == "" || object == "" {
+			f.handler.ServeHTTP(w, r)
+			return
+		}
 	}
 	sr, err := globalDNSConfig.Get(bucket)
 	if err != nil {

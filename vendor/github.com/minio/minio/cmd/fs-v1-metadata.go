@@ -27,10 +27,11 @@ import (
 	pathutil "path"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
+	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/lock"
 	"github.com/minio/minio/pkg/mimedb"
-	"github.com/tidwall/gjson"
 )
 
 // FS format, and object metadata.
@@ -166,7 +167,7 @@ func (m fsMetaV1) ToObjectInfo(bucket, object string, fi os.FileInfo) ObjectInfo
 	objInfo.ETag = extractETag(m.Meta)
 	objInfo.ContentType = m.Meta["content-type"]
 	objInfo.ContentEncoding = m.Meta["content-encoding"]
-	if storageClass, ok := m.Meta[amzStorageClass]; ok {
+	if storageClass, ok := m.Meta[xhttp.AmzStorageClass]; ok {
 		objInfo.StorageClass = storageClass
 	} else {
 		objInfo.StorageClass = globalMinioDefaultStorageClass
@@ -203,44 +204,6 @@ func (m *fsMetaV1) WriteTo(lk *lock.LockedFile) (n int64, err error) {
 	return fi.Size(), nil
 }
 
-func parseFSVersion(fsMetaBuf []byte) string {
-	return gjson.GetBytes(fsMetaBuf, "version").String()
-}
-
-func parseFSMetaMap(fsMetaBuf []byte) map[string]string {
-	// Get xlMetaV1.Meta map.
-	metaMapResult := gjson.GetBytes(fsMetaBuf, "meta").Map()
-	metaMap := make(map[string]string)
-	for key, valResult := range metaMapResult {
-		metaMap[key] = valResult.String()
-	}
-	return metaMap
-}
-
-func parseFSPartsArray(fsMetaBuf []byte) []ObjectPartInfo {
-	// Get xlMetaV1.Parts array
-	var partsArray []ObjectPartInfo
-
-	partsArrayResult := gjson.GetBytes(fsMetaBuf, "parts")
-	partsArrayResult.ForEach(func(key, part gjson.Result) bool {
-		partJSON := part.String()
-		number := gjson.Get(partJSON, "number").Int()
-		name := gjson.Get(partJSON, "name").String()
-		etag := gjson.Get(partJSON, "etag").String()
-		size := gjson.Get(partJSON, "size").Int()
-		actualSize := gjson.Get(partJSON, "actualSize").Int()
-		partsArray = append(partsArray, ObjectPartInfo{
-			Number:     int(number),
-			Name:       name,
-			ETag:       etag,
-			Size:       size,
-			ActualSize: int64(actualSize),
-		})
-		return true
-	})
-	return partsArray
-}
-
 func (m *fsMetaV1) ReadFrom(ctx context.Context, lk *lock.LockedFile) (n int64, err error) {
 	var fsMetaBuf []byte
 	fi, err := lk.Stat()
@@ -260,8 +223,10 @@ func (m *fsMetaV1) ReadFrom(ctx context.Context, lk *lock.LockedFile) (n int64, 
 		return 0, io.EOF
 	}
 
-	// obtain version.
-	m.Version = parseFSVersion(fsMetaBuf)
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	if err = json.Unmarshal(fsMetaBuf, m); err != nil {
+		return 0, err
+	}
 
 	// Verify if the format is valid, return corrupted format
 	// for unrecognized formats.
@@ -270,12 +235,6 @@ func (m *fsMetaV1) ReadFrom(ctx context.Context, lk *lock.LockedFile) (n int64, 
 		logger.LogIf(ctx, errCorruptedFormat)
 		return 0, errCorruptedFormat
 	}
-
-	// obtain parts information
-	m.Parts = parseFSPartsArray(fsMetaBuf)
-
-	// obtain metadata.
-	m.Meta = parseFSMetaMap(fsMetaBuf)
 
 	// Success.
 	return int64(len(fsMetaBuf)), nil

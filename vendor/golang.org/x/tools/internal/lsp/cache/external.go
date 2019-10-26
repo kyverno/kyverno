@@ -11,9 +11,12 @@ import (
 
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/trace"
 )
+
+// ioLimit limits the number of parallel file reads per process.
+var ioLimit = make(chan struct{}, 128)
 
 // nativeFileSystem implements FileSystem reading from the normal os file system.
 type nativeFileSystem struct{}
@@ -24,7 +27,7 @@ type nativeFileHandle struct {
 	identity source.FileIdentity
 }
 
-func (fs *nativeFileSystem) GetFile(uri span.URI) source.FileHandle {
+func (fs *nativeFileSystem) GetFile(uri span.URI, kind source.FileKind) source.FileHandle {
 	version := "DOES NOT EXIST"
 	if fi, err := os.Stat(uri.Filename()); err == nil {
 		version = fi.ModTime().String()
@@ -34,6 +37,7 @@ func (fs *nativeFileSystem) GetFile(uri span.URI) source.FileHandle {
 		identity: source.FileIdentity{
 			URI:     uri,
 			Version: version,
+			Kind:    kind,
 		},
 	}
 }
@@ -46,15 +50,14 @@ func (h *nativeFileHandle) Identity() source.FileIdentity {
 	return h.identity
 }
 
-func (h *nativeFileHandle) Kind() source.FileKind {
-	// TODO: How should we determine the file kind?
-	return source.Go
-}
-
 func (h *nativeFileHandle) Read(ctx context.Context) ([]byte, string, error) {
 	ctx, done := trace.StartSpan(ctx, "cache.nativeFileHandle.Read", telemetry.File.Of(h.identity.URI.Filename()))
+	_ = ctx
 	defer done()
-	//TODO: this should fail if the version is not the same as the handle
+
+	ioLimit <- struct{}{}
+	defer func() { <-ioLimit }()
+	// TODO: this should fail if the version is not the same as the handle
 	data, err := ioutil.ReadFile(h.identity.URI.Filename())
 	if err != nil {
 		return nil, "", err

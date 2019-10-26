@@ -36,10 +36,32 @@ func TestValidToken(t *testing.T) {
 
 // TestSeparatorReplacement tests that separators are being correctly substituted
 func TestSeparatorReplacement(t *testing.T) {
-	tok := generateTokenAtTime("foo:bar", "baz", "wah", now)
-	tok2 := generateTokenAtTime("foo", "bar:baz", "wah", now)
-	if tok == tok2 {
-		t.Errorf("Expected generated tokens to be different")
+	separatorTests := []struct {
+		name   string
+		token1 string
+		token2 string
+	}{
+		{
+			"Colon",
+			generateTokenAtTime("foo:bar", "baz", "wah", now),
+			generateTokenAtTime("foo", "bar:baz", "wah", now),
+		},
+		{
+			"Colon and Underscore",
+			generateTokenAtTime("key", ":foo:", "wah", now),
+			generateTokenAtTime("key", "_foo_", "wah", now),
+		},
+		{
+			"Colon and Double Colon",
+			generateTokenAtTime("key", ":foo:", "wah", now),
+			generateTokenAtTime("key", "::foo::", "wah", now),
+		},
+	}
+
+	for _, st := range separatorTests {
+		if st.token1 == st.token2 {
+			t.Errorf("%v: Expected generated tokens to be different", st.name)
+		}
 	}
 }
 

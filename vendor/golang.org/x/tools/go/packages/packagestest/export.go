@@ -25,6 +25,7 @@ import (
 	"golang.org/x/tools/go/expect"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/testenv"
 )
 
 var (
@@ -127,6 +128,10 @@ func BenchmarkAll(b *testing.B, f func(*testing.B, Exporter)) {
 // debugging tests.
 func Export(t testing.TB, exporter Exporter, modules []Module) *Exported {
 	t.Helper()
+	if exporter == Modules {
+		testenv.NeedsTool(t, "go")
+	}
+
 	dirname := strings.Replace(t.Name(), "/", "_", -1)
 	dirname = strings.Replace(dirname, "#", "_", -1) // duplicate subtests get a #NNN suffix.
 	temp, err := ioutil.TempDir("", dirname)
@@ -136,7 +141,7 @@ func Export(t testing.TB, exporter Exporter, modules []Module) *Exported {
 	exported := &Exported{
 		Config: &packages.Config{
 			Dir:     temp,
-			Env:     append(os.Environ(), "GOPACKAGESDRIVER=off"),
+			Env:     append(os.Environ(), "GOPACKAGESDRIVER=off", "GOROOT="), // Clear GOROOT to work around #32849.
 			Overlay: make(map[string][]byte),
 			Tests:   true,
 			Mode:    packages.LoadImports,
@@ -185,6 +190,7 @@ func Export(t testing.TB, exporter Exporter, modules []Module) *Exported {
 	if err := exporter.Finalize(exported); err != nil {
 		t.Fatal(err)
 	}
+	testenv.NeedsGoPackagesEnv(t, exported.Config.Env)
 	return exported
 }
 
@@ -234,7 +240,7 @@ func Copy(source string) Writer {
 		if !stat.Mode().IsRegular() {
 			// cannot copy non-regular files (e.g., directories,
 			// symlinks, devices, etc.)
-			return fmt.Errorf("Cannot copy non regular file %s", source)
+			return fmt.Errorf("cannot copy non regular file %s", source)
 		}
 		contents, err := ioutil.ReadFile(source)
 		if err != nil {

@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 GO_VERSION:=$(shell go version)
+BENCHLIST?=all
 
 # Skip known issues from purego tests
 # https://github.com/gogo/protobuf/issues/447
@@ -132,6 +133,13 @@ regenerate:
 	make -C test/xxxfields regenerate
 	make -C test/issue435 regenerate
 	make -C test/issue411 regenerate
+	make -C test/issue498 regenerate
+	make -C test/issue503 regenerate
+	make -C test/issue530 regenerate
+	make -C test/issue617 regenerate
+	make -C test/issue620 regenerate
+	make -C test/protobuffer regenerate
+	make -C test/issue630 regenerate
 
 	make gofmt
 
@@ -141,8 +149,9 @@ tests:
 	(cd test/stdtypes && make test)
 
 vet:
+	go get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
 	go vet ./...
-	go tool vet --shadow .
+	go vet -vettool=$(shell which shadow) ./...
 
 errcheck:
 	go get github.com/kisielk/errcheck
@@ -164,13 +173,13 @@ testall:
 bench:
 	go get golang.org/x/tools/cmd/benchcmp
 	(cd test/mixbench && go build .)
-	./test/mixbench/mixbench
+	./test/mixbench/mixbench -benchlist "${BENCHLIST}"
 
 contributors:
 	git log --format='%aN <%aE>' | sort -fu > CONTRIBUTORS
 
 js:
-ifeq (go1.11, $(findstring go1.11, $(GO_VERSION)))
+ifeq (go1.12, $(findstring go1.12, $(GO_VERSION)))
 	go get -u github.com/gopherjs/gopherjs
 	gopherjs build github.com/gogo/protobuf/protoc-gen-gogo
 endif

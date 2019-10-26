@@ -9,20 +9,63 @@ import (
 	"strings"
 )
 
+// Unified represents a set of edits as a unified diff.
 type Unified struct {
-	From, To string
-	Hunks    []*Hunk
+	// From is the name of the original file.
+	From string
+	// To is the name of the modified file.
+	To string
+	// Hunks is the set of edit hunks needed to transform the file content.
+	Hunks []*Hunk
 }
 
+// Hunk represents a contiguous set of line edits to apply.
 type Hunk struct {
+	// The line in the original source where the hunk starts.
 	FromLine int
-	ToLine   int
-	Lines    []Line
+	// The line in the original source where the hunk finishes.
+	ToLine int
+	// The set of line based edits to apply.
+	Lines []Line
 }
 
+// Line represents a single line operation to apply as part of a Hunk.
 type Line struct {
-	Kind    OpKind
+	// Kind is the type of line this represents, deletion, insertion or copy.
+	Kind OpKind
+	// Content is the content of this line.
+	// For deletion it is the line being removed, for all others it is the line
+	// to put in the output.
 	Content string
+}
+
+// OpKind is used to denote the type of operation a line represents.
+type OpKind int
+
+const (
+	// Delete is the operation kind for a line that is present in the input
+	// but not in the output.
+	Delete OpKind = iota
+	// Insert is the operation kind for a line that is new in the output.
+	Insert
+	// Equal is the operation kind for a line that is the same in the input and
+	// output, often used to provide context around edited lines.
+	Equal
+)
+
+// String returns a human readable representation of an OpKind. It is not
+// intended for machine processing.
+func (k OpKind) String() string {
+	switch k {
+	case Delete:
+		return "delete"
+	case Insert:
+		return "insert"
+	case Equal:
+		return "equal"
+	default:
+		panic("unknown operation kind")
+	}
 }
 
 const (
@@ -30,25 +73,33 @@ const (
 	gap  = edge * 2
 )
 
-func ToUnified(from, to string, lines []string, ops []*Op) Unified {
+// ToUnified takes a file contents and a sequence of edits, and calculates
+// a unified diff that represents those edits.
+func ToUnified(from, to string, content string, edits []TextEdit) Unified {
 	u := Unified{
 		From: from,
 		To:   to,
 	}
-	if len(ops) == 0 {
+	if len(edits) == 0 {
 		return u
 	}
+	c, edits, partial := prepareEdits(content, edits)
+	if partial {
+		edits = lineEdits(content, c, edits)
+	}
+	lines := splitLines(content)
 	var h *Hunk
-	last := -(gap + 2)
-	for _, op := range ops {
+	last := 0
+	toLine := 0
+	for _, edit := range edits {
+		start := edit.Span.Start().Line() - 1
+		end := edit.Span.End().Line() - 1
 		switch {
-		case op.I1 < last:
-			panic("cannot convert unsorted operations to unified diff")
-		case op.I1 == last:
+		case h != nil && start == last:
 			//direct extension
-		case op.I1 <= last+gap:
+		case h != nil && start <= last+gap:
 			//within range of previous lines, add the joiners
-			addEqualLines(h, lines, last, op.I1)
+			addEqualLines(h, lines, last, start)
 		default:
 			//need to start a new hunk
 			if h != nil {
@@ -56,28 +107,26 @@ func ToUnified(from, to string, lines []string, ops []*Op) Unified {
 				addEqualLines(h, lines, last, last+edge)
 				u.Hunks = append(u.Hunks, h)
 			}
+			toLine += start - last
 			h = &Hunk{
-				FromLine: op.I1 + 1,
-				ToLine:   op.J1 + 1,
+				FromLine: start + 1,
+				ToLine:   toLine + 1,
 			}
 			// add the edge to the new hunk
-			delta := addEqualLines(h, lines, op.I1-edge, op.I1)
+			delta := addEqualLines(h, lines, start-edge, start)
 			h.FromLine -= delta
 			h.ToLine -= delta
 		}
-		last = op.I1
-		switch op.Kind {
-		case Delete:
-			for i := op.I1; i < op.I2; i++ {
-				h.Lines = append(h.Lines, Line{Kind: Delete, Content: lines[i]})
-				last++
+		last = start
+		for i := start; i < end; i++ {
+			h.Lines = append(h.Lines, Line{Kind: Delete, Content: lines[i]})
+			last++
+		}
+		if edit.NewText != "" {
+			for _, line := range splitLines(edit.NewText) {
+				h.Lines = append(h.Lines, Line{Kind: Insert, Content: line})
+				toLine++
 			}
-		case Insert:
-			for _, c := range op.Content {
-				h.Lines = append(h.Lines, Line{Kind: Insert, Content: c})
-			}
-		default:
-			// all other op types ignored
 		}
 	}
 	if h != nil {
@@ -86,6 +135,14 @@ func ToUnified(from, to string, lines []string, ops []*Op) Unified {
 		u.Hunks = append(u.Hunks, h)
 	}
 	return u
+}
+
+func splitLines(text string) []string {
+	lines := strings.SplitAfter(text, "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
 }
 
 func addEqualLines(h *Hunk, lines []string, start, end int) int {
@@ -103,7 +160,12 @@ func addEqualLines(h *Hunk, lines []string, start, end int) int {
 	return delta
 }
 
+// Format converts a unified diff to the standard textual form for that diff.
+// The output of this function can be passed to tools like patch.
 func (u Unified) Format(f fmt.State, r rune) {
+	if len(u.Hunks) == 0 {
+		return
+	}
 	fmt.Fprintf(f, "--- %s\n", u.From)
 	fmt.Fprintf(f, "+++ %s\n", u.To)
 	for _, hunk := range u.Hunks {

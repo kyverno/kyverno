@@ -1795,6 +1795,57 @@ func TestTransportChecksResponseHeaderListSize(t *testing.T) {
 	ct.run()
 }
 
+func TestTransportCookieHeaderSplit(t *testing.T) {
+	ct := newClientTester(t)
+	ct.client = func() error {
+		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
+		req.Header.Add("Cookie", "a=b;c=d;  e=f;")
+		req.Header.Add("Cookie", "e=f;g=h; ")
+		req.Header.Add("Cookie", "i=j")
+		_, err := ct.tr.RoundTrip(req)
+		return err
+	}
+	ct.server = func() error {
+		ct.greet()
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				return err
+			}
+			switch f := f.(type) {
+			case *HeadersFrame:
+				dec := hpack.NewDecoder(initialHeaderTableSize, nil)
+				hfs, err := dec.DecodeFull(f.HeaderBlockFragment())
+				if err != nil {
+					return err
+				}
+				got := []string{}
+				want := []string{"a=b", "c=d", "e=f", "e=f", "g=h", "i=j"}
+				for _, hf := range hfs {
+					if hf.Name == "cookie" {
+						got = append(got, hf.Value)
+					}
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("Cookies = %#v, want %#v", got, want)
+				}
+
+				var buf bytes.Buffer
+				enc := hpack.NewEncoder(&buf)
+				enc.WriteField(hpack.HeaderField{Name: ":status", Value: "200"})
+				ct.fr.WriteHeaders(HeadersFrameParam{
+					StreamID:      f.StreamID,
+					EndHeaders:    true,
+					EndStream:     true,
+					BlockFragment: buf.Bytes(),
+				})
+				return nil
+			}
+		}
+	}
+	ct.run()
+}
+
 // Test that the Transport returns a typed error from Response.Body.Read calls
 // when the server sends an error. (here we use a panic, since that should generate
 // a stream error, but others like cancel should be similar)
@@ -4319,3 +4370,114 @@ func testTransportBodyReadError(t *testing.T, body []byte) {
 
 func TestTransportBodyReadError_Immediately(t *testing.T) { testTransportBodyReadError(t, nil) }
 func TestTransportBodyReadError_Some(t *testing.T)        { testTransportBodyReadError(t, []byte("123")) }
+
+// Issue 32254: verify that the client sends END_STREAM flag eagerly with the last
+// (or in this test-case the only one) request body data frame, and does not send
+// extra zero-len data frames.
+func TestTransportBodyEagerEndStream(t *testing.T) {
+	const reqBody = "some request body"
+	const resBody = "some response body"
+
+	ct := newClientTester(t)
+	ct.client = func() error {
+		defer ct.cc.(*net.TCPConn).CloseWrite()
+		body := strings.NewReader(reqBody)
+		req, err := http.NewRequest("PUT", "https://dummy.tld/", body)
+		if err != nil {
+			return err
+		}
+		_, err = ct.tr.RoundTrip(req)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				return err
+			}
+
+			switch f := f.(type) {
+			case *WindowUpdateFrame, *SettingsFrame:
+			case *HeadersFrame:
+			case *DataFrame:
+				if !f.StreamEnded() {
+					ct.fr.WriteRSTStream(f.StreamID, ErrCodeRefusedStream)
+					return fmt.Errorf("data frame without END_STREAM %v", f)
+				}
+				var buf bytes.Buffer
+				enc := hpack.NewEncoder(&buf)
+				enc.WriteField(hpack.HeaderField{Name: ":status", Value: "200"})
+				ct.fr.WriteHeaders(HeadersFrameParam{
+					StreamID:      f.Header().StreamID,
+					EndHeaders:    true,
+					EndStream:     false,
+					BlockFragment: buf.Bytes(),
+				})
+				ct.fr.WriteData(f.StreamID, true, []byte(resBody))
+				return nil
+			case *RSTStreamFrame:
+			default:
+				return fmt.Errorf("Unexpected client frame %v", f)
+			}
+		}
+	}
+	ct.run()
+}
+
+type chunkReader struct {
+	chunks [][]byte
+}
+
+func (r *chunkReader) Read(p []byte) (int, error) {
+	if len(r.chunks) > 0 {
+		n := copy(p, r.chunks[0])
+		r.chunks = r.chunks[1:]
+		return n, nil
+	}
+	panic("shouldn't read this many times")
+}
+
+// Issue 32254: if the request body is larger than the specified
+// content length, the client should refuse to send the extra part
+// and abort the stream.
+//
+// In _len3 case, the first Read() matches the expected content length
+// but the second read returns more data.
+//
+// In _len2 case, the first Read() exceeds the expected content length.
+func TestTransportBodyLargerThanSpecifiedContentLength_len3(t *testing.T) {
+	body := &chunkReader{[][]byte{
+		[]byte("123"),
+		[]byte("456"),
+	}}
+	testTransportBodyLargerThanSpecifiedContentLength(t, body, 3)
+}
+
+func TestTransportBodyLargerThanSpecifiedContentLength_len2(t *testing.T) {
+	body := &chunkReader{[][]byte{
+		[]byte("123"),
+	}}
+	testTransportBodyLargerThanSpecifiedContentLength(t, body, 2)
+}
+
+func testTransportBodyLargerThanSpecifiedContentLength(t *testing.T, body *chunkReader, contentLen int64) {
+	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		// Nothing.
+	}, optOnlyServer)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+
+	req, _ := http.NewRequest("POST", st.ts.URL, body)
+	req.ContentLength = contentLen
+	_, err := tr.RoundTrip(req)
+	if err != errReqBodyTooLong {
+		t.Fatalf("expected %v, got %v", errReqBodyTooLong, err)
+	}
+}

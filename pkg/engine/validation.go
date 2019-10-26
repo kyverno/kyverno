@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -41,10 +42,9 @@ func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) 
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		if reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+		if !rule.HasValidate() {
 			continue
 		}
-
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
@@ -59,6 +59,13 @@ func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) 
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		}
 	}
+
+	// set PatchedResource with orgin resource if empty
+	// in order to create policy violation
+	if reflect.DeepEqual(response.PatchedResource, unstructured.Unstructured{}) {
+		response.PatchedResource = resource
+	}
+
 	return response
 }
 
@@ -201,7 +208,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 		// but if there are non then its a if then check
 		if err != nil {
 			// If Conditional anchor fails then we dont process the resources
-			if isConditionAnchor(key) {
+			if anchor.IsConditionAnchor(key) {
 				glog.V(4).Infof("condition anchor did not satisfy, wont process the resources: %s", err)
 				return "", nil
 			}

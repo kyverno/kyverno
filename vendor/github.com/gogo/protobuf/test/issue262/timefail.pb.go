@@ -11,6 +11,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 	time "time"
@@ -26,7 +27,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type TimeFail struct {
 	TimeTest *time.Time `protobuf:"bytes,1,opt,name=time_test,json=timeTest,proto3,stdtime" json:"time_test,omitempty"`
@@ -45,7 +46,7 @@ func (m *TimeFail) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_TimeFail.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +145,7 @@ func valueToGoStringTimefail(v interface{}, typ string) string {
 func (m *TimeFail) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -152,31 +153,38 @@ func (m *TimeFail) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimeFail) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeFail) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.TimeTest != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTimefail(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdTime(*m.TimeTest)))
-		n1, err := github_com_gogo_protobuf_types.StdTimeMarshalTo(*m.TimeTest, dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := github_com_gogo_protobuf_types.StdTimeMarshalTo(*m.TimeTest, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdTime(*m.TimeTest):])
+		if err1 != nil {
+			return 0, err1
 		}
-		i += n1
+		i -= n1
+		i = encodeVarintTimefail(dAtA, i, uint64(n1))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTimefail(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTimefail(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *TimeFail) Size() (n int) {
 	if m == nil {
@@ -192,14 +200,7 @@ func (m *TimeFail) Size() (n int) {
 }
 
 func sovTimefail(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTimefail(x uint64) (n int) {
 	return sovTimefail(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -314,6 +315,7 @@ func (m *TimeFail) Unmarshal(dAtA []byte) error {
 func skipTimefail(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -345,10 +347,8 @@ func skipTimefail(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -369,55 +369,30 @@ func skipTimefail(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthTimefail
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthTimefail
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowTimefail
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipTimefail(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthTimefail
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupTimefail
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthTimefail
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthTimefail = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowTimefail   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthTimefail        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowTimefail          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupTimefail = fmt.Errorf("proto: unexpected end of group")
 )

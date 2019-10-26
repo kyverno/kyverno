@@ -16,6 +16,7 @@ import (
 	github_com_gogo_protobuf_test_custom "github.com/gogo/protobuf/test/custom"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strconv "strconv"
 	strings "strings"
@@ -30,7 +31,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MapEnum int32
 
@@ -3650,20 +3651,20 @@ func NewPopulatedMessage(r randyTheproto3, easy bool) *Message {
 	for i := 0; i < v2; i++ {
 		this.Key[i] = uint64(uint64(r.Uint32()))
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Nested = NewPopulatedNested(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := r.Intn(10)
 		this.Terrain = make(map[int64]*Nested)
 		for i := 0; i < v3; i++ {
 			this.Terrain[int64(r.Int63())] = NewPopulatedNested(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Proto2Field = both.NewPopulatedNinOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := r.Intn(10)
 		this.Proto2Value = make(map[int64]*both.NinOptEnum)
 		for i := 0; i < v4; i++ {
@@ -3687,7 +3688,7 @@ func NewPopulatedNested(r randyTheproto3, easy bool) *Nested {
 
 func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 	this := &AllMaps{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(10)
 		this.StringToDoubleMap = make(map[string]float64)
 		for i := 0; i < v5; i++ {
@@ -3698,7 +3699,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := r.Intn(10)
 		this.StringToFloatMap = make(map[string]float32)
 		for i := 0; i < v7; i++ {
@@ -3709,7 +3710,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := r.Intn(10)
 		this.Int32Map = make(map[int32]int32)
 		for i := 0; i < v9; i++ {
@@ -3720,7 +3721,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v11 := r.Intn(10)
 		this.Int64Map = make(map[int64]int64)
 		for i := 0; i < v11; i++ {
@@ -3731,7 +3732,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := r.Intn(10)
 		this.Uint32Map = make(map[uint32]uint32)
 		for i := 0; i < v13; i++ {
@@ -3739,7 +3740,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Uint32Map[v14] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := r.Intn(10)
 		this.Uint64Map = make(map[uint64]uint64)
 		for i := 0; i < v15; i++ {
@@ -3747,7 +3748,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Uint64Map[v16] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v17 := r.Intn(10)
 		this.Sint32Map = make(map[int32]int32)
 		for i := 0; i < v17; i++ {
@@ -3758,7 +3759,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := r.Intn(10)
 		this.Sint64Map = make(map[int64]int64)
 		for i := 0; i < v19; i++ {
@@ -3769,7 +3770,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v21 := r.Intn(10)
 		this.Fixed32Map = make(map[uint32]uint32)
 		for i := 0; i < v21; i++ {
@@ -3777,7 +3778,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Fixed32Map[v22] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v23 := r.Intn(10)
 		this.Sfixed32Map = make(map[int32]int32)
 		for i := 0; i < v23; i++ {
@@ -3788,7 +3789,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := r.Intn(10)
 		this.Fixed64Map = make(map[uint64]uint64)
 		for i := 0; i < v25; i++ {
@@ -3796,7 +3797,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.Fixed64Map[v26] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v27 := r.Intn(10)
 		this.Sfixed64Map = make(map[int64]int64)
 		for i := 0; i < v27; i++ {
@@ -3807,7 +3808,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v29 := r.Intn(10)
 		this.BoolMap = make(map[bool]bool)
 		for i := 0; i < v29; i++ {
@@ -3815,14 +3816,14 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			this.BoolMap[v30] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v31 := r.Intn(10)
 		this.StringMap = make(map[string]string)
 		for i := 0; i < v31; i++ {
 			this.StringMap[randStringTheproto3(r)] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v32 := r.Intn(10)
 		this.StringToBytesMap = make(map[string][]byte)
 		for i := 0; i < v32; i++ {
@@ -3834,14 +3835,14 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v35 := r.Intn(10)
 		this.StringToEnumMap = make(map[string]MapEnum)
 		for i := 0; i < v35; i++ {
 			this.StringToEnumMap[randStringTheproto3(r)] = MapEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v36 := r.Intn(10)
 		this.StringToMsgMap = make(map[string]*FloatingPoint)
 		for i := 0; i < v36; i++ {
@@ -3856,7 +3857,7 @@ func NewPopulatedAllMaps(r randyTheproto3, easy bool) *AllMaps {
 
 func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 	this := &AllMapsOrdered{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v37 := r.Intn(10)
 		this.StringToDoubleMap = make(map[string]float64)
 		for i := 0; i < v37; i++ {
@@ -3867,7 +3868,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v39 := r.Intn(10)
 		this.StringToFloatMap = make(map[string]float32)
 		for i := 0; i < v39; i++ {
@@ -3878,7 +3879,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v41 := r.Intn(10)
 		this.Int32Map = make(map[int32]int32)
 		for i := 0; i < v41; i++ {
@@ -3889,7 +3890,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v43 := r.Intn(10)
 		this.Int64Map = make(map[int64]int64)
 		for i := 0; i < v43; i++ {
@@ -3900,7 +3901,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v45 := r.Intn(10)
 		this.Uint32Map = make(map[uint32]uint32)
 		for i := 0; i < v45; i++ {
@@ -3908,7 +3909,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Uint32Map[v46] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v47 := r.Intn(10)
 		this.Uint64Map = make(map[uint64]uint64)
 		for i := 0; i < v47; i++ {
@@ -3916,7 +3917,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Uint64Map[v48] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v49 := r.Intn(10)
 		this.Sint32Map = make(map[int32]int32)
 		for i := 0; i < v49; i++ {
@@ -3927,7 +3928,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v51 := r.Intn(10)
 		this.Sint64Map = make(map[int64]int64)
 		for i := 0; i < v51; i++ {
@@ -3938,7 +3939,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v53 := r.Intn(10)
 		this.Fixed32Map = make(map[uint32]uint32)
 		for i := 0; i < v53; i++ {
@@ -3946,7 +3947,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Fixed32Map[v54] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v55 := r.Intn(10)
 		this.Sfixed32Map = make(map[int32]int32)
 		for i := 0; i < v55; i++ {
@@ -3957,7 +3958,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v57 := r.Intn(10)
 		this.Fixed64Map = make(map[uint64]uint64)
 		for i := 0; i < v57; i++ {
@@ -3965,7 +3966,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.Fixed64Map[v58] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v59 := r.Intn(10)
 		this.Sfixed64Map = make(map[int64]int64)
 		for i := 0; i < v59; i++ {
@@ -3976,7 +3977,7 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v61 := r.Intn(10)
 		this.BoolMap = make(map[bool]bool)
 		for i := 0; i < v61; i++ {
@@ -3984,14 +3985,14 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			this.BoolMap[v62] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v63 := r.Intn(10)
 		this.StringMap = make(map[string]string)
 		for i := 0; i < v63; i++ {
 			this.StringMap[randStringTheproto3(r)] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v64 := r.Intn(10)
 		this.StringToBytesMap = make(map[string][]byte)
 		for i := 0; i < v64; i++ {
@@ -4003,14 +4004,14 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v67 := r.Intn(10)
 		this.StringToEnumMap = make(map[string]MapEnum)
 		for i := 0; i < v67; i++ {
 			this.StringToEnumMap[randStringTheproto3(r)] = MapEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v68 := r.Intn(10)
 		this.StringToMsgMap = make(map[string]*FloatingPoint)
 		for i := 0; i < v68; i++ {
@@ -4025,21 +4026,21 @@ func NewPopulatedAllMapsOrdered(r randyTheproto3, easy bool) *AllMapsOrdered {
 
 func NewPopulatedMessageWithMap(r randyTheproto3, easy bool) *MessageWithMap {
 	this := &MessageWithMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v69 := r.Intn(10)
 		this.NameMapping = make(map[int32]string)
 		for i := 0; i < v69; i++ {
 			this.NameMapping[int32(r.Int31())] = randStringTheproto3(r)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v70 := r.Intn(10)
 		this.MsgMapping = make(map[int64]*FloatingPoint)
 		for i := 0; i < v70; i++ {
 			this.MsgMapping[int64(r.Int63())] = NewPopulatedFloatingPoint(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v71 := r.Intn(10)
 		this.ByteMapping = make(map[bool][]byte)
 		for i := 0; i < v71; i++ {
@@ -4090,7 +4091,7 @@ func NewPopulatedContainsNestedMap(r randyTheproto3, easy bool) *ContainsNestedM
 
 func NewPopulatedContainsNestedMap_NestedMap(r randyTheproto3, easy bool) *ContainsNestedMap_NestedMap {
 	this := &ContainsNestedMap_NestedMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v75 := r.Intn(10)
 		this.NestedMapField = make(map[string]float64)
 		for i := 0; i < v75; i++ {
@@ -4726,14 +4727,7 @@ func (m *NotPacked) Size() (n int) {
 }
 
 func sovTheproto3(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTheproto3(x uint64) (n int) {
 	return sovTheproto3(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -4771,7 +4765,7 @@ func (this *Message) String() string {
 		`TrueScotsman:` + fmt.Sprintf("%v", this.TrueScotsman) + `,`,
 		`Score:` + fmt.Sprintf("%v", this.Score) + `,`,
 		`Key:` + fmt.Sprintf("%v", this.Key) + `,`,
-		`Nested:` + strings.Replace(fmt.Sprintf("%v", this.Nested), "Nested", "Nested", 1) + `,`,
+		`Nested:` + strings.Replace(this.Nested.String(), "Nested", "Nested", 1) + `,`,
 		`Terrain:` + mapStringForTerrain + `,`,
 		`Proto2Field:` + strings.Replace(fmt.Sprintf("%v", this.Proto2Field), "NinOptNative", "both.NinOptNative", 1) + `,`,
 		`Proto2Value:` + mapStringForProto2Value + `,`,

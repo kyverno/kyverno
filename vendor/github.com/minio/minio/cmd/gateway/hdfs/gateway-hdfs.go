@@ -18,6 +18,7 @@ package hdfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -40,6 +41,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
+	"github.com/minio/minio/pkg/env"
 	xnet "github.com/minio/minio/pkg/net"
 )
 
@@ -77,7 +79,7 @@ ENVIRONMENT VARIABLES:
      MINIO_CACHE_DRIVES: List of mounted drives or directories delimited by ";".
      MINIO_CACHE_EXCLUDE: List of cache exclusion patterns delimited by ";".
      MINIO_CACHE_EXPIRY: Cache expiry duration in days.
-     MINIO_CACHE_MAXUSE: Maximum permitted usage of the cache in percentage (0-100).
+     MINIO_CACHE_QUOTA: Maximum permitted usage of the cache in percentage (0-100).
 
 EXAMPLES:
   1. Start minio gateway server for HDFS backend.
@@ -91,7 +93,7 @@ EXAMPLES:
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_DRIVES{{.AssignmentOperator}}"/mnt/drive1;/mnt/drive2;/mnt/drive3;/mnt/drive4"
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXCLUDE{{.AssignmentOperator}}"bucket1/*;*.png"
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXPIRY{{.AssignmentOperator}}40
-     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_MAXUSE{{.AssignmentOperator}}80
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_QUOTA{{.AssignmentOperator}}80
      {{.Prompt}} {{.HelpName}} hdfs://namenode:8200
 `
 
@@ -125,32 +127,24 @@ func (g *HDFS) Name() string {
 }
 
 func getKerberosClient() (*krb.Client, error) {
-	configPath := os.Getenv("KRB5_CONFIG")
-	if configPath == "" {
-		configPath = "/etc/krb5.conf"
-	}
-
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(env.Get("KRB5_CONFIG", "/etc/krb5.conf"))
 	if err != nil {
 		return nil, err
 	}
 
-	// Determine the ccache location from the environment,
-	// falling back to the default location.
-	ccachePath := os.Getenv("KRB5CCNAME")
+	u, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine the ccache location from the environment, falling back to the default location.
+	ccachePath := env.Get("KRB5CCNAME", fmt.Sprintf("/tmp/krb5cc_%s", u.Uid))
 	if strings.Contains(ccachePath, ":") {
 		if strings.HasPrefix(ccachePath, "FILE:") {
 			ccachePath = strings.TrimPrefix(ccachePath, "FILE:")
 		} else {
 			return nil, fmt.Errorf("unable to use kerberos ccache: %s", ccachePath)
 		}
-	} else if ccachePath == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-
-		ccachePath = fmt.Sprintf("/tmp/krb5cc_%s", u.Uid)
 	}
 
 	ccache, err := credentials.LoadCCache(ccachePath)
@@ -191,20 +185,18 @@ func (g *HDFS) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error
 		opts.Addresses = addresses
 	}
 
+	u, err := user.Current()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to lookup local user: %s", err)
+	}
+
 	if opts.KerberosClient != nil {
 		opts.KerberosClient, err = getKerberosClient()
 		if err != nil {
 			return nil, fmt.Errorf("Unable to initialize kerberos client: %s", err)
 		}
 	} else {
-		opts.User = os.Getenv("HADOOP_USER_NAME")
-		if opts.User == "" {
-			u, err := user.Current()
-			if err != nil {
-				return nil, fmt.Errorf("Unable to lookup local user: %s", err)
-			}
-			opts.User = u.Username
-		}
+		opts.User = env.Get("HADOOP_USER_NAME", u.Username)
 	}
 
 	clnt, err := hdfs.NewClient(opts)
@@ -234,7 +226,7 @@ func (n *hdfsObjects) StorageInfo(ctx context.Context) minio.StorageInfo {
 		return minio.StorageInfo{}
 	}
 	sinfo := minio.StorageInfo{}
-	sinfo.Used = fsInfo.Used
+	sinfo.Used = []uint64{fsInfo.Used}
 	sinfo.Backend.Type = minio.Unknown
 	return sinfo
 }
@@ -280,7 +272,7 @@ func hdfsToObjectErr(ctx context.Context, err error, params ...string) error {
 			return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
 		}
 		return minio.BucketAlreadyOwnedByYou{Bucket: bucket}
-	case isSysErrNotEmpty(err):
+	case errors.Is(err, syscall.ENOTEMPTY):
 		if object != "" {
 			return minio.PrefixAccessDenied{Bucket: bucket, Object: object}
 		}
@@ -370,7 +362,6 @@ func (n *hdfsObjects) listDirFactory() minio.ListDirFunc {
 				entries = append(entries, fi.Name())
 			}
 		}
-		fis = nil
 		return minio.FilterMatchingPrefix(entries, prefixEntry)
 	}
 
@@ -387,20 +378,6 @@ func (n *hdfsObjects) ListObjects(ctx context.Context, bucket, prefix, marker, d
 	return minio.ListObjects(ctx, n, bucket, prefix, marker, delimiter, maxKeys, n.listPool, n.listDirFactory(), getObjectInfo, getObjectInfo)
 }
 
-// Check if the given error corresponds to ENOTEMPTY for unix
-// and ERROR_DIR_NOT_EMPTY for windows (directory not empty).
-func isSysErrNotEmpty(err error) bool {
-	if err == syscall.ENOTEMPTY {
-		return true
-	}
-	if pathErr, ok := err.(*os.PathError); ok {
-		if pathErr.Err == syscall.ENOTEMPTY {
-			return true
-		}
-	}
-	return false
-}
-
 // deleteObject deletes a file path if its empty. If it's successfully deleted,
 // it will recursively move up the tree, deleting empty parent directories
 // until it finds one with files in it. Returns nil for a non-empty directory.
@@ -411,16 +388,13 @@ func (n *hdfsObjects) deleteObject(basePath, deletePath string) error {
 
 	// Attempt to remove path.
 	if err := n.clnt.Remove(deletePath); err != nil {
-		switch {
-		case err == syscall.ENOTEMPTY:
-		case isSysErrNotEmpty(err):
+		if errors.Is(err, syscall.ENOTEMPTY) {
 			// Ignore errors if the directory is not empty. The server relies on
 			// this functionality, and sometimes uses recursion that should not
 			// error on parent directories.
 			return nil
-		default:
-			return err
 		}
+		return err
 	}
 
 	// Trailing slash is removed when found to ensure
@@ -523,12 +497,35 @@ func (n *hdfsObjects) GetObject(ctx context.Context, bucket, key string, startOf
 	return hdfsToObjectErr(ctx, err, bucket, key)
 }
 
+func (n *hdfsObjects) isObjectDir(ctx context.Context, bucket, object string) bool {
+	f, err := n.clnt.Open(minio.PathJoin(hdfsSeparator, bucket, object))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		logger.LogIf(ctx, err)
+		return false
+	}
+	defer f.Close()
+	fis, err := f.Readdir(1)
+	if err != nil && err != io.EOF {
+		logger.LogIf(ctx, err)
+		return false
+	}
+	// Readdir returns an io.EOF when len(fis) == 0.
+	return len(fis) == 0
+}
+
 // GetObjectInfo reads object info and replies back ObjectInfo.
 func (n *hdfsObjects) GetObjectInfo(ctx context.Context, bucket, object string, opts minio.ObjectOptions) (objInfo minio.ObjectInfo, err error) {
 	_, err = n.clnt.Stat(minio.PathJoin(hdfsSeparator, bucket))
 	if err != nil {
 		return objInfo, hdfsToObjectErr(ctx, err, bucket)
 	}
+	if strings.HasSuffix(object, hdfsSeparator) && !n.isObjectDir(ctx, bucket, object) {
+		return objInfo, hdfsToObjectErr(ctx, os.ErrNotExist, bucket, object)
+	}
+
 	fi, err := n.clnt.Stat(minio.PathJoin(hdfsSeparator, bucket, object))
 	if err != nil {
 		return objInfo, hdfsToObjectErr(ctx, err, bucket, object)
@@ -552,7 +549,7 @@ func (n *hdfsObjects) PutObject(ctx context.Context, bucket string, object strin
 	name := minio.PathJoin(hdfsSeparator, bucket, object)
 
 	// If its a directory create a prefix {
-	if strings.HasSuffix(object, hdfsSeparator) {
+	if strings.HasSuffix(object, hdfsSeparator) && r.Size() == 0 {
 		if err = n.clnt.MkdirAll(name, os.FileMode(0755)); err != nil {
 			n.deleteObject(minio.PathJoin(hdfsSeparator, bucket), name)
 			return objInfo, hdfsToObjectErr(ctx, err, bucket, object)

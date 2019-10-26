@@ -258,6 +258,11 @@ var tokenTests = []tokenTest{
 		"<title><b>K&amp;R C</b></title>",
 		"<title>$&lt;b&gt;K&amp;R C&lt;/b&gt;$</title>",
 	},
+	{
+		"title with trailing '&lt;' entity",
+		"<title>foobar<</title>",
+		"<title>$foobar&lt;$</title>",
+	},
 	// DOCTYPE tests.
 	{
 		"Proper DOCTYPE",

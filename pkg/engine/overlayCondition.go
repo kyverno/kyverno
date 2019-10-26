@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
 func meetConditions(resource, overlay interface{}) bool {
@@ -51,7 +52,7 @@ func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}) bool {
 	for key, value := range overlayMap {
 		resourcePart, ok := resourceMap[key]
 
-		if ok && !isAddingAnchor(key) {
+		if ok && !anchor.IsAddingAnchor(key) {
 			if !meetConditions(resourcePart, value) {
 				return false
 			}

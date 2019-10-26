@@ -37,7 +37,7 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 
 	for _, rule := range policy.Spec.Rules {
 		//TODO: to be checked before calling the resources as well
-		if reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+		if !rule.HasMutate() {
 			continue
 		}
 		// check if the resource satisfies the filter conditions defined in the rule

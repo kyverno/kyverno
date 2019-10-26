@@ -24,12 +24,14 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	xldap "github.com/minio/minio/cmd/config/identity/ldap"
+	"github.com/minio/minio/cmd/config/identity/openid"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
 	iampolicy "github.com/minio/minio/pkg/iam/policy"
-	"github.com/minio/minio/pkg/iam/validator"
 	"github.com/minio/minio/pkg/wildcard"
+	ldap "gopkg.in/ldap.v3"
 )
 
 const (
@@ -39,9 +41,14 @@ const (
 	// STS API action constants
 	clientGrants = "AssumeRoleWithClientGrants"
 	webIdentity  = "AssumeRoleWithWebIdentity"
+	ldapIdentity = "AssumeRoleWithLDAPIdentity"
 	assumeRole   = "AssumeRole"
 
 	stsRequestBodyLimit = 10 * (1 << 20) // 10 MiB
+
+	// LDAP claim keys
+	ldapUser   = "ldapUser"
+	ldapGroups = "ldapGroups"
 )
 
 // stsAPIHandlers implements and provides http handlers for AWS STS API.
@@ -82,6 +89,12 @@ func registerSTSRouter(router *mux.Router) {
 		Queries("Version", stsAPIVersion).
 		Queries("WebIdentityToken", "{Token:.*}")
 
+	// AssumeRoleWithLDAPIdentity
+	stsRouter.Methods("POST").HandlerFunc(httpTraceAll(sts.AssumeRoleWithLDAPIdentity)).
+		Queries("Action", ldapIdentity).
+		Queries("Version", stsAPIVersion).
+		Queries("LDAPUsername", "{LDAPUsername:.*}").
+		Queries("LDAPPassword", "{LDAPPassword:.*}")
 }
 
 func checkAssumeRoleAuth(ctx context.Context, r *http.Request) (user auth.Credentials, stsErr STSErrorCode) {
@@ -89,12 +102,12 @@ func checkAssumeRoleAuth(ctx context.Context, r *http.Request) (user auth.Creden
 	default:
 		return user, ErrSTSAccessDenied
 	case authTypeSigned:
-		s3Err := isReqAuthenticated(ctx, r, globalServerConfig.GetRegion(), serviceSTS)
+		s3Err := isReqAuthenticated(ctx, r, globalServerRegion, serviceSTS)
 		if STSErrorCode(s3Err) != ErrSTSNone {
 			return user, STSErrorCode(s3Err)
 		}
 		var owner bool
-		user, owner, s3Err = getReqAccessKeyV4(r, globalServerConfig.GetRegion(), serviceSTS)
+		user, owner, s3Err = getReqAccessKeyV4(r, globalServerRegion, serviceSTS)
 		if STSErrorCode(s3Err) != ErrSTSNone {
 			return user, STSErrorCode(s3Err)
 		}
@@ -120,19 +133,16 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 
 	user, stsErr := checkAssumeRoleAuth(ctx, r)
 	if stsErr != ErrSTSNone {
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(stsErr))
+		writeSTSErrorResponse(ctx, w, stsErr, nil)
 		return
 	}
-
 	if err := r.ParseForm(); err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
 	if r.Form.Get("Version") != stsAPIVersion {
-		logger.LogIf(ctx, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSMissingParameter))
+		writeSTSErrorResponse(ctx, w, ErrSTSMissingParameter, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
 		return
 	}
 
@@ -140,8 +150,7 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case assumeRole:
 	default:
-		logger.LogIf(ctx, fmt.Errorf("Unsupported action %s", action))
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Unsupported action %s", action))
 		return
 	}
 
@@ -153,42 +162,35 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 	// The plain text that you use for both inline and managed session
 	// policies shouldn't exceed 2048 characters.
 	if len(sessionPolicyStr) > 2048 {
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Session policy shouldn't exceed 2048 characters"))
 		return
 	}
 
 	if len(sessionPolicyStr) > 0 {
 		sessionPolicy, err := iampolicy.ParseConfig(bytes.NewReader([]byte(sessionPolicyStr)))
 		if err != nil {
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 			return
 		}
 
 		// Version in policy must not be empty
 		if sessionPolicy.Version == "" {
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Version cannot be empty expecting '2012-10-17'"))
 			return
 		}
 	}
 
 	var err error
 	m := make(map[string]interface{})
-	m["exp"], err = validator.GetDefaultExpiration(r.Form.Get("DurationSeconds"))
+	m["exp"], err = openid.GetDefaultExpiration(r.Form.Get("DurationSeconds"))
 	if err != nil {
-		switch err {
-		case validator.ErrInvalidDuration:
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
-		default:
-			logger.LogIf(ctx, err)
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
-		}
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
 	policies, err := globalIAMSys.PolicyDBGet(user.AccessKey, false)
 	if err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
@@ -200,24 +202,22 @@ func (sts *stsAPIHandlers) AssumeRole(w http.ResponseWriter, r *http.Request) {
 	// This policy is the policy associated with the user
 	// requesting for temporary credentials. The temporary
 	// credentials will inherit the same policy requirements.
-	m[iampolicy.PolicyName] = policyName
+	m[iamPolicyName()] = policyName
 
 	if len(sessionPolicyStr) > 0 {
 		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
 	}
 
-	secret := globalServerConfig.GetCredential().SecretKey
+	secret := globalActiveCred.SecretKey
 	cred, err := auth.GetNewCredentialsWithMetadata(m, secret)
 	if err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInternalError))
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
 		return
 	}
 
 	// Set the newly generated credentials.
 	if err = globalIAMSys.SetTempUser(cred.AccessKey, cred, policyName); err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInternalError))
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
 		return
 	}
 
@@ -244,14 +244,12 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 
 	// Parse the incoming form data.
 	if err := r.ParseForm(); err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
 	if r.Form.Get("Version") != stsAPIVersion {
-		logger.LogIf(ctx, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSMissingParameter))
+		writeSTSErrorResponse(ctx, w, ErrSTSMissingParameter, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
 		return
 	}
 
@@ -259,23 +257,21 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	switch action {
 	case clientGrants, webIdentity:
 	default:
-		logger.LogIf(ctx, fmt.Errorf("Unsupported action %s", action))
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Unsupported action %s", action))
 		return
 	}
 
 	ctx = newContext(r, w, action)
 	defer logger.AuditLog(w, r, action, nil)
 
-	if globalIAMValidators == nil {
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSNotInitialized))
+	if globalOpenIDValidators == nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSNotInitialized, errServerNotInitialized)
 		return
 	}
 
-	v, err := globalIAMValidators.Get("jwt")
+	v, err := globalOpenIDValidators.Get("jwt")
 	if err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
@@ -287,20 +283,19 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	m, err := v.Validate(token, r.Form.Get("DurationSeconds"))
 	if err != nil {
 		switch err {
-		case validator.ErrTokenExpired:
+		case openid.ErrTokenExpired:
 			switch action {
 			case clientGrants:
-				writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSClientGrantsExpiredToken))
+				writeSTSErrorResponse(ctx, w, ErrSTSClientGrantsExpiredToken, err)
 			case webIdentity:
-				writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSWebIdentityExpiredToken))
+				writeSTSErrorResponse(ctx, w, ErrSTSWebIdentityExpiredToken, err)
 			}
 			return
-		case validator.ErrInvalidDuration:
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		case openid.ErrInvalidDuration:
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 			return
 		}
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 		return
 	}
 
@@ -309,29 +304,32 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	// The plain text that you use for both inline and managed session
 	// policies shouldn't exceed 2048 characters.
 	if len(sessionPolicyStr) > 2048 {
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Session policy should not exceed 2048 characters"))
 		return
 	}
 
 	if len(sessionPolicyStr) > 0 {
 		sessionPolicy, err := iampolicy.ParseConfig(bytes.NewReader([]byte(sessionPolicyStr)))
 		if err != nil {
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
 			return
 		}
 
 		// Version in policy must not be empty
 		if sessionPolicy.Version == "" {
-			writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInvalidParameterValue))
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Invalid session policy version"))
 			return
 		}
 	}
 
-	secret := globalServerConfig.GetCredential().SecretKey
+	if len(sessionPolicyStr) > 0 {
+		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
+	}
+
+	secret := globalActiveCred.SecretKey
 	cred, err := auth.GetNewCredentialsWithMetadata(m, secret)
 	if err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInternalError))
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
 		return
 	}
 
@@ -340,7 +338,7 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 	// be set and configured on your identity provider as part of
 	// JWT custom claims.
 	var policyName string
-	if v, ok := m[iampolicy.PolicyName]; ok {
+	if v, ok := m[iamPolicyName()]; ok {
 		policyName, _ = v.(string)
 	}
 
@@ -349,14 +347,9 @@ func (sts *stsAPIHandlers) AssumeRoleWithJWT(w http.ResponseWriter, r *http.Requ
 		subFromToken, _ = v.(string)
 	}
 
-	if len(sessionPolicyStr) > 0 {
-		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
-	}
-
 	// Set the newly generated credentials.
 	if err = globalIAMSys.SetTempUser(cred.AccessKey, cred, policyName); err != nil {
-		logger.LogIf(ctx, err)
-		writeSTSErrorResponse(w, stsErrCodes.ToSTSErr(ErrSTSInternalError))
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
 		return
 	}
 
@@ -410,4 +403,157 @@ func (sts *stsAPIHandlers) AssumeRoleWithWebIdentity(w http.ResponseWriter, r *h
 //    $ curl https://minio:9000/?Action=AssumeRoleWithClientGrants&Token=<jwt>
 func (sts *stsAPIHandlers) AssumeRoleWithClientGrants(w http.ResponseWriter, r *http.Request) {
 	sts.AssumeRoleWithJWT(w, r)
+}
+
+// AssumeRoleWithLDAPIdentity - implements user auth against LDAP server
+func (sts *stsAPIHandlers) AssumeRoleWithLDAPIdentity(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "AssumeRoleWithLDAPIdentity")
+
+	// Parse the incoming form data.
+	if err := r.ParseForm(); err != nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
+		return
+	}
+
+	if r.Form.Get("Version") != stsAPIVersion {
+		writeSTSErrorResponse(ctx, w, ErrSTSMissingParameter, fmt.Errorf("Invalid STS API version %s, expecting %s", r.Form.Get("Version"), stsAPIVersion))
+		return
+	}
+
+	action := r.Form.Get("Action")
+	switch action {
+	case ldapIdentity:
+	default:
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Unsupported action %s", action))
+		return
+	}
+
+	ctx = newContext(r, w, action)
+	defer logger.AuditLog(w, r, action, nil)
+
+	ldapUsername := r.Form.Get("LDAPUsername")
+	ldapPassword := r.Form.Get("LDAPPassword")
+
+	if ldapUsername == "" || ldapPassword == "" {
+		writeSTSErrorResponse(ctx, w, ErrSTSMissingParameter, fmt.Errorf("LDAPUsername and LDAPPassword cannot be empty"))
+		return
+	}
+
+	sessionPolicyStr := r.Form.Get("Policy")
+	// https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+	// The plain text that you use for both inline and managed session
+	// policies shouldn't exceed 2048 characters.
+	if len(sessionPolicyStr) > 2048 {
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Session policy should not exceed 2048 characters"))
+		return
+	}
+
+	if len(sessionPolicyStr) > 0 {
+		sessionPolicy, err := iampolicy.ParseConfig(bytes.NewReader([]byte(sessionPolicyStr)))
+		if err != nil {
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
+			return
+		}
+
+		// Version in policy must not be empty
+		if sessionPolicy.Version == "" {
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("Version needs to be specified in session policy"))
+			return
+		}
+	}
+
+	ldapConn, err := globalLDAPConfig.Connect()
+	if err != nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("LDAP server connection failure: %v", err))
+		return
+	}
+	if ldapConn == nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("LDAP server not configured: %v", err))
+		return
+	}
+
+	usernameSubs, _ := xldap.NewSubstituter("username", ldapUsername)
+	// We ignore error below as we already validated the username
+	// format string at startup.
+	usernameDN, _ := usernameSubs.Substitute(globalLDAPConfig.UsernameFormat)
+	// Bind with user credentials to validate the password
+	if err = ldapConn.Bind(usernameDN, ldapPassword); err != nil {
+		err = fmt.Errorf("LDAP authentication failure: %v", err)
+		writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, err)
+		return
+	}
+
+	groups := []string{}
+	if globalLDAPConfig.GroupSearchFilter != "" {
+		// Verified user credentials. Now we find the groups they are
+		// a member of.
+		searchSubs, _ := xldap.NewSubstituter(
+			"username", ldapUsername,
+			"usernamedn", usernameDN,
+		)
+		// We ignore error below as we already validated the search string
+		// at startup.
+		groupSearchFilter, _ := searchSubs.Substitute(globalLDAPConfig.GroupSearchFilter)
+		baseDN, _ := searchSubs.Substitute(globalLDAPConfig.GroupSearchBaseDN)
+		searchRequest := ldap.NewSearchRequest(
+			baseDN,
+			ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+			groupSearchFilter,
+			[]string{globalLDAPConfig.GroupNameAttribute},
+			nil,
+		)
+
+		sr, err := ldapConn.Search(searchRequest)
+		if err != nil {
+			writeSTSErrorResponse(ctx, w, ErrSTSInvalidParameterValue, fmt.Errorf("LDAP search failure: %v", err))
+			return
+		}
+		for _, entry := range sr.Entries {
+			// We only queried one attribute, so we only look up
+			// the first one.
+			groups = append(groups, entry.Attributes[0].Values...)
+		}
+	}
+	expiryDur := globalLDAPConfig.GetExpiryDuration()
+	m := map[string]interface{}{
+		"exp":        UTCNow().Add(expiryDur).Unix(),
+		"ldapUser":   ldapUsername,
+		"ldapGroups": groups,
+	}
+
+	if len(sessionPolicyStr) > 0 {
+		m[iampolicy.SessionPolicyName] = base64.StdEncoding.EncodeToString([]byte(sessionPolicyStr))
+	}
+
+	secret := globalActiveCred.SecretKey
+	cred, err := auth.GetNewCredentialsWithMetadata(m, secret)
+	if err != nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
+		return
+	}
+
+	policyName := ""
+	// Set the newly generated credentials.
+	if err = globalIAMSys.SetTempUser(cred.AccessKey, cred, policyName); err != nil {
+		writeSTSErrorResponse(ctx, w, ErrSTSInternalError, err)
+		return
+	}
+
+	// Notify all other MinIO peers to reload temp users
+	for _, nerr := range globalNotificationSys.LoadUser(cred.AccessKey, true) {
+		if nerr.Err != nil {
+			logger.GetReqInfo(ctx).SetTags("peerAddress", nerr.Host.String())
+			logger.LogIf(ctx, nerr.Err)
+		}
+	}
+
+	ldapIdentityResponse := &AssumeRoleWithLDAPResponse{
+		Result: LDAPIdentityResult{
+			Credentials: cred,
+		},
+	}
+	ldapIdentityResponse.ResponseMetadata.RequestID = w.Header().Get(xhttp.AmzRequestID)
+	encodedSuccessResponse := encodeResponse(ldapIdentityResponse)
+
+	writeSuccessResponseXML(w, encodedSuccessResponse)
 }

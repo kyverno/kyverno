@@ -37,7 +37,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 	case bool:
 		typedValue, ok := value.(bool)
 		if !ok {
-			glog.Warningf("Expected bool, found %T", value)
+			glog.V(4).Infof("Expected bool, found %T", value)
 			return false
 		}
 		return typedPattern == typedValue

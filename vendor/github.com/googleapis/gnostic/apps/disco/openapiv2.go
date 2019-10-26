@@ -38,7 +38,7 @@ func buildOpenAPI2SchemaForSchema(schema *discovery.Schema) *openapi2.Schema {
 		s.Description = description
 	}
 	if typeName := schema.Type; typeName != "" {
-		s.Type = &openapi2.TypeItem{[]string{typeName}}
+		s.Type = &openapi2.TypeItem{Value: []string{typeName}}
 	}
 	if ref := schema.XRef; ref != "" {
 		s.XRef = "#/definitions/" + ref

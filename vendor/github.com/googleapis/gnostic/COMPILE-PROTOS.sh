@@ -17,19 +17,9 @@
 
 go get github.com/golang/protobuf/protoc-gen-go
 
-protoc \
---go_out=Mgoogle/protobuf/any.proto=github.com/golang/protobuf/ptypes/any:. \
-OpenAPIv2/OpenAPIv2.proto 
-
-protoc \
--I.:$GOPATH/src \
---go_out=:. \
-plugins/plugin.proto 
-
-protoc \
---go_out=Mgoogle/protobuf/any.proto=github.com/golang/protobuf/ptypes/any:. \
-OpenAPIv3/OpenAPIv3.proto 
-
-protoc \
---go_out=Mgoogle/protobuf/any.proto=github.com/golang/protobuf/ptypes/any:. \
-discovery/discovery.proto 
+protoc --go_out=. OpenAPIv2/OpenAPIv2.proto
+protoc --go_out=. OpenAPIv3/OpenAPIv3.proto
+protoc --go_out=. discovery/discovery.proto
+protoc --go_out=. plugins/plugin.proto
+protoc --go_out=. extensions/extension.proto
+protoc --go_out=. surface/surface.proto

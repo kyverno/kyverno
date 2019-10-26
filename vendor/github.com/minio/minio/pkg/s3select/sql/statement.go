@@ -133,7 +133,7 @@ func (e *SelectStatement) EvalFrom(format string, input Record) (Record, error) 
 			}
 
 			jsonRec := rawVal.(jstream.KVS)
-			txedRec, err := jsonpathEval(e.selectAST.From.Table.PathExpr[1:], jsonRec)
+			txedRec, _, err := jsonpathEval(e.selectAST.From.Table.PathExpr[1:], jsonRec)
 			if err != nil {
 				return nil, err
 			}
@@ -219,6 +219,7 @@ func (e *SelectStatement) AggregateRow(input Record) error {
 
 // Eval - evaluates the Select statement for the given record. It
 // applies only to non-aggregation queries.
+// The function returns whether the statement passed the WHERE clause and should be outputted.
 func (e *SelectStatement) Eval(input, output Record) (Record, error) {
 	ok, err := e.isPassingWhereClause(input)
 	if err != nil || !ok {
@@ -234,8 +235,8 @@ func (e *SelectStatement) Eval(input, output Record) (Record, error) {
 		if e.limitValue > -1 {
 			e.outputCount++
 		}
-
-		return input, nil
+		output = input.Clone(output)
+		return output, nil
 	}
 
 	for i, expr := range e.selectAST.Expression.Expressions {

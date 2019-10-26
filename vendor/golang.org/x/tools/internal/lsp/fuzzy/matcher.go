@@ -36,8 +36,6 @@ func score(val int, prevK int /*0 or 1*/) scoreVal {
 // Matcher implements a fuzzy matching algorithm for scoring candidates against a pattern.
 // The matcher does not support parallel usage.
 type Matcher struct {
-	input Input
-
 	pattern       string
 	patternLower  []byte // lower-case version of the pattern
 	patternShort  []byte // first characters of the pattern
@@ -67,13 +65,12 @@ func (m *Matcher) bestK(i, j int) int {
 }
 
 // NewMatcher returns a new fuzzy matcher for scoring candidates against the provided pattern.
-func NewMatcher(pattern string, input Input) *Matcher {
+func NewMatcher(pattern string) *Matcher {
 	if len(pattern) > MaxPatternSize {
 		pattern = pattern[:MaxPatternSize]
 	}
 
 	m := &Matcher{
-		input:        input,
 		pattern:      pattern,
 		patternLower: ToLower(pattern, nil),
 	}
@@ -91,30 +88,18 @@ func NewMatcher(pattern string, input Input) *Matcher {
 		m.patternShort = m.patternLower
 	}
 
-	m.patternRoles = RuneRoles(pattern, input, nil)
+	m.patternRoles = RuneRoles(pattern, nil)
 
 	if len(pattern) > 0 {
 		maxCharScore := 4
-		if input == Text {
-			maxCharScore = 6
-		}
 		m.scoreScale = 1 / float32(maxCharScore*len(pattern))
 	}
 
 	return m
 }
 
-// SetInput updates the input type for subsequent scoring attempts.
-func (m *Matcher) SetInput(input Input) {
-	if m.input == input {
-		return
-	}
-	m.input = input
-	m.patternRoles = RuneRoles(m.pattern, input, m.patternRoles)
-}
-
 // Score returns the score returned by matching the candidate to the pattern.
-// This is not designed for parallel use. Multiple candidates must be scored sequentally.
+// This is not designed for parallel use. Multiple candidates must be scored sequentially.
 // Returns a score between 0 and 1 (0 - no match, 1 - perfect match).
 func (m *Matcher) Score(candidate string) float32 {
 	if len(candidate) > MaxInputSize {
@@ -202,18 +187,8 @@ func (m *Matcher) match(candidate string, candidateLower []byte) bool {
 
 	// The input passes the simple test against pattern, so it is time to classify its characters.
 	// Character roles are used below to find the last segment.
-	m.roles = RuneRoles(candidate, m.input, m.rolesBuf[:])
-	if m.input != Text {
-		sep := len(candidateLower) - 1
-		for sep >= i && m.roles[sep] != RSep {
-			sep--
-		}
-		if sep >= i {
-			// We are not in the last segment, check that we have at least one character match in the last
-			// segment of the candidate.
-			return bytes.IndexByte(candidateLower[sep:], m.patternLower[len(m.pattern)-1]) != -1
-		}
-	}
+	m.roles = RuneRoles(candidate, m.rolesBuf[:])
+
 	return true
 }
 
@@ -236,10 +211,6 @@ func (m *Matcher) computeScore(candidate string, candidateLower []byte) int {
 
 	// A per-character bonus for a consecutive match.
 	consecutiveBonus := 2
-	if m.input == Text {
-		// Consecutive matches for text are more important.
-		consecutiveBonus = 4
-	}
 	wordIdx := 0 // Word count within segment.
 	for i := 1; i <= candLen; i++ {
 
@@ -254,24 +225,14 @@ func (m *Matcher) computeScore(candidate string, candidateLower []byte) int {
 		}
 
 		var skipPenalty int
-		if segmentsLeft == 1 && isHead && m.input != Text {
-			// Skipping a word.
-			skipPenalty++
-		}
-		if i-1 == lastSegStart {
-			// Skipping the start of the last segment.
-			skipPenalty += 3
+		if i == 1 || (i-1) == lastSegStart {
+			// Skipping the start of first or last segment.
+			skipPenalty += 1
 		}
 
 		for j := 0; j <= pattLen; j++ {
 			// By default, we don't have a match. Fill in the skip data.
 			m.scores[i][j][1] = minScore << 1
-
-			if segmentsLeft > 1 && j == pattLen {
-				// The very last pattern character can only be matched in the last segment.
-				m.scores[i][j][0] = minScore << 1
-				continue
-			}
 
 			// Compute the skip score.
 			k := 0
@@ -333,7 +294,7 @@ func (m *Matcher) computeScore(candidate string, candidateLower []byte) int {
 				sc := m.scores[i-1][j-1][k].val() + charScore
 
 				isConsecutive := k == 1 || i-1 == 0 || i-1 == lastSegStart
-				if isConsecutive || (m.input == Text && j-1 == 0) {
+				if isConsecutive {
 					// Bonus 3: a consecutive match. First character match also gets a bonus to
 					// ensure prefix final match score normalizes to 1.0.
 					// Logically, this is a part of charScore, but we have to compute it here because it

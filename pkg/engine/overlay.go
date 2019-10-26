@@ -14,6 +14,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
 // processOverlay processes validation patterns on the resource
@@ -148,7 +149,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
 		// the value that must replace resource value
-		if isConditionAnchor(key) {
+		if anchor.IsConditionAnchor(key) {
 			continue
 		}
 
@@ -156,7 +157,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 		currentPath := path + noAnchorKey + "/"
 		resourcePart, ok := resourceMap[noAnchorKey]
 
-		if ok && !isAddingAnchor(key) {
+		if ok && !anchor.IsAddingAnchor(key) {
 			// Key exists - go down through the overlay and resource trees
 			patches, err := applyOverlay(resourcePart, value, currentPath)
 			if err != nil {

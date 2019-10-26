@@ -15,38 +15,39 @@ import (
 func (s *Server) rename(ctx context.Context, params *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	uri := span.NewURI(params.TextDocument.URI)
 	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
+	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
+	ident, err := source.Identifier(ctx, view, f, params.Position)
 	if err != nil {
 		return nil, err
 	}
-	rng, err := spn.Range(m.Converter)
-	if err != nil {
-		return nil, err
-	}
-	ident, err := source.Identifier(ctx, f, rng.Start)
-	if err != nil {
-		return nil, err
-	}
-	edits, err := ident.Rename(ctx, params.NewName)
+	edits, err := ident.Rename(ctx, view, params.NewName)
 	if err != nil {
 		return nil, err
 	}
 	changes := make(map[string][]protocol.TextEdit)
-	for uri, textEdits := range edits {
-		_, m, err := getGoFile(ctx, view, uri)
-		if err != nil {
-			return nil, err
-		}
-		protocolEdits, err := ToProtocolEdits(m, textEdits)
-		if err != nil {
-			return nil, err
-		}
-		changes[string(uri)] = protocolEdits
+	for uri, e := range edits {
+		changes[protocol.NewURI(uri)] = e
 	}
 
 	return &protocol.WorkspaceEdit{Changes: &changes}, nil
+}
+
+func (s *Server) prepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (*protocol.Range, error) {
+	uri := span.NewURI(params.TextDocument.URI)
+	view := s.session.ViewOf(uri)
+	f, err := view.GetFile(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	// Do not return errors here, as it adds clutter.
+	// Returning a nil result means there is not a valid rename.
+	item, err := source.PrepareRename(ctx, view, f, params.Position)
+	if err != nil {
+		return nil, nil
+	}
+	// TODO(suzmue): return ident.Name as the placeholder text.
+	return &item.Range, nil
 }

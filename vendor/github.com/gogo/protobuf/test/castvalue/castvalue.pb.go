@@ -14,6 +14,7 @@ import (
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -27,7 +28,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Castaway struct {
 	CastMapValueMessage         map[int32]MyWilson  `protobuf:"bytes,1,rep,name=CastMapValueMessage,castvalue=MyWilson,castvaluetype=castvalue.Wilson" json:"CastMapValueMessage" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -685,14 +686,14 @@ func valueToGoStringCastvalue(v interface{}, typ string) string {
 }
 func NewPopulatedCastaway(r randyCastvalue, easy bool) *Castaway {
 	this := &Castaway{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := r.Intn(10)
 		this.CastMapValueMessage = make(map[int32]MyWilson)
 		for i := 0; i < v1; i++ {
 			this.CastMapValueMessage[int32(r.Int31())] = (MyWilson)(*NewPopulatedWilson(r, easy))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := r.Intn(10)
 		this.CastMapValueMessageNullable = make(map[int32]*MyWilson)
 		for i := 0; i < v2; i++ {
@@ -707,7 +708,7 @@ func NewPopulatedCastaway(r randyCastvalue, easy bool) *Castaway {
 
 func NewPopulatedWilson(r randyCastvalue, easy bool) *Wilson {
 	this := &Wilson{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v3 *= -1
@@ -842,14 +843,7 @@ func (m *Wilson) Size() (n int) {
 }
 
 func sovCastvalue(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozCastvalue(x uint64) (n int) {
 	return sovCastvalue(uint64((x << 1) ^ uint64((int64(x) >> 63))))

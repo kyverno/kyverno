@@ -145,6 +145,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	// MUTATION
 	ok, patches, msg := ws.HandleMutation(request)
 	if !ok {
+		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -160,6 +161,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	// VALIDATION
 	ok, msg = ws.HandleValidation(request, patchedResource)
 	if !ok {
+		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{

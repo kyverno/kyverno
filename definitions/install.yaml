@@ -230,6 +230,17 @@ spec:
                     type: string
                   message:
                     type: string
+                  managedResource:
+                    type: object
+                    required:
+                    - kind
+                    properties:
+                      kind:
+                        type: string
+                      namespace:
+                        type: string
+                      creationBlocked:
+                        type: bool
 ---
 kind: Namespace
 apiVersion: v1
@@ -290,6 +301,11 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
+          args:
+          customize webhook timout
+          - "--webhooktimeout=4"
+          open one of the profiling flag here
+          - "--cpu=true"
           ports:
           - containerPort: 443
           env:

@@ -3,6 +3,7 @@ package policyviolation
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -244,7 +245,52 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterP
 		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, rspec.Namespace, rspec.Name, err)
 		return err
 	}
+
+	// cleanup pv with dependant
+	if err := pvc.syncBlockedResource(curPv); err != nil {
+		return err
+	}
+
 	//TODO- if the policy is not present, remove the policy violation
+	return nil
+}
+
+// syncBlockedResource remove inactive policy violation
+// when rejected resource created in the cluster
+func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.ClusterPolicyViolation) error {
+	for _, violatedRule := range curPv.Spec.ViolatedRules {
+		if reflect.DeepEqual(violatedRule.ManagedResource, kyverno.ManagedResource{}) {
+			continue
+		}
+
+		// get resource
+		blockedResource := violatedRule.ManagedResource
+		resources, _ := pvc.client.ListResource(blockedResource.Kind, blockedResource.Namespace, nil)
+
+		for _, resource := range resources.Items {
+			glog.V(4).Infof("getting owners for %s/%s/%s\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+			owners := getOwners(pvc.client, resource)
+			// owner of resource matches violation resourceSpec
+			// remove policy violation as the blocked request got created
+			if containsOwner(owners, curPv) {
+				// pod -> replicaset1; deploy -> replicaset2
+				// if replicaset1 == replicaset2, the pod is
+				// no longer an active child of deploy, skip removing pv
+				if !validDependantForDeployment(pvc.client.GetAppsV1Interface(), *curPv, resource) {
+					glog.V(4).Infof("")
+					continue
+				}
+
+				// resource created, remove policy violation
+				if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
+					glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
+					return err
+				}
+				glog.V(4).Infof("removed policy violation %s as the blocked resource %s/%s successfully created, owner: %s",
+					curPv.Name, blockedResource.Kind, blockedResource.Namespace, strings.ReplaceAll(curPv.Spec.ResourceSpec.ToKey(), ".", "/"))
+			}
+		}
+	}
 	return nil
 }
 

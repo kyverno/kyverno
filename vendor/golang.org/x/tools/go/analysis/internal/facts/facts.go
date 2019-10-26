@@ -29,7 +29,7 @@
 // The notion of "exportedness" that matters here is that of the
 // compiler. According to the language spec, a method pkg.T.f is
 // unexported simply because its name starts with lowercase. But the
-// compiler must nonethless export f so that downstream compilations can
+// compiler must nonetheless export f so that downstream compilations can
 // accurately ascertain whether pkg.T implements an interface pkg.I
 // defined as interface{f()}. Exported thus means "described in export
 // data".
@@ -103,7 +103,7 @@ func (s *Set) AllObjectFacts(filter map[reflect.Type]bool) []analysis.ObjectFact
 	var facts []analysis.ObjectFact
 	for k, v := range s.m {
 		if k.obj != nil && filter[k.t] {
-			facts = append(facts, analysis.ObjectFact{k.obj, v})
+			facts = append(facts, analysis.ObjectFact{Object: k.obj, Fact: v})
 		}
 	}
 	return facts
@@ -136,7 +136,7 @@ func (s *Set) AllPackageFacts(filter map[reflect.Type]bool) []analysis.PackageFa
 	var facts []analysis.PackageFact
 	for k, v := range s.m {
 		if k.obj == nil && filter[k.t] {
-			facts = append(facts, analysis.PackageFact{k.pkg, v})
+			facts = append(facts, analysis.PackageFact{Package: k.pkg, Fact: v})
 		}
 	}
 	return facts

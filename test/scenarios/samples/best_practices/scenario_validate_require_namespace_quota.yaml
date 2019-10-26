@@ -9,14 +9,14 @@ expected:
         kind: ResourceQuota
         namespace: test-namespace-quota
     policyresponse:
-      policy: validate-namespace-quota
+      policy: generate-namespace-quota
       resource:
         kind: Namespace
         apiVersion: v1
         namespace: ''
         name: test-namespace-quota
       rules:
-        - name: validate-namespace-quota
+        - name: generate-namespace-quota
           type: Generation
           success: true
           message: created resource ResourceQuota/test-namespace-quota/defaultresourcequota

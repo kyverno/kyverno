@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -37,6 +38,7 @@ d c
 	}{
 		{"nodes", g1, "nodes", nil, "belt\nhat\njacket\npants\nshirt\nshoes\nshorts\nsocks\nsweater\ntie\n"},
 		{"reverse", g1, "reverse", []string{"jacket"}, "jacket\nshirt\nsweater\n"},
+		{"transpose", g1, "transpose", nil, "belt pants\njacket sweater\npants shorts\nshoes pants\nshoes socks\nsweater shirt\ntie shirt\n"},
 		{"forward", g1, "forward", []string{"socks"}, "shoes\nsocks\n"},
 		{"forward multiple args", g1, "forward", []string{"socks", "sweater"}, "jacket\nshoes\nsocks\nsweater\n"},
 		{"scss", g2, "sccs", nil, "a\nb\nc d\n"},
@@ -163,6 +165,62 @@ func TestAllpaths(t *testing.T) {
 			got := stdout.(fmt.Stringer).String()
 			if got != test.want {
 				t.Errorf("digraph(allpaths, A, %s) = got %q, want %q", test.to, got, test.want)
+			}
+		})
+	}
+}
+
+func TestSomepath(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		in   string
+		to   string
+		// somepath is non-deterministic, so we have to provide all the
+		// possible options. Each option is separated with |.
+		wantAnyOf string
+	}{
+		{
+			name:      "Basic",
+			in:        "A B\n",
+			to:        "B",
+			wantAnyOf: "A B",
+		},
+		{
+			name:      "Basic With Cycle",
+			in:        "A B\nB A",
+			to:        "B",
+			wantAnyOf: "A B",
+		},
+		{
+			name: "Two Paths",
+			//      /-> B --\
+			// A --          -> D
+			//      \-> C --/
+			in:        "A B\nA C\nB D\nC D",
+			to:        "D",
+			wantAnyOf: "A B\nB D|A C\nC D",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stdin = strings.NewReader(test.in)
+			stdout = new(bytes.Buffer)
+			if err := digraph("somepath", []string{"A", test.to}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := stdout.(fmt.Stringer).String()
+			lines := strings.Split(got, "\n")
+			sort.Strings(lines)
+			got = strings.Join(lines[1:], "\n")
+
+			var oneMatch bool
+			for _, want := range strings.Split(test.wantAnyOf, "|") {
+				if got == want {
+					oneMatch = true
+				}
+			}
+			if !oneMatch {
+				t.Errorf("digraph(somepath, A, %s) = got %q, want any of\n%s", test.to, got, test.wantAnyOf)
 			}
 		})
 	}

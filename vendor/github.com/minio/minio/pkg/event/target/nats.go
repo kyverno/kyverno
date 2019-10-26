@@ -17,6 +17,7 @@
 package target
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -27,6 +28,42 @@ import (
 	xnet "github.com/minio/minio/pkg/net"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/stan.go"
+)
+
+// NATS related constants
+const (
+	NATSAddress      = "address"
+	NATSSubject      = "subject"
+	NATSUsername     = "username"
+	NATSPassword     = "password"
+	NATSToken        = "token"
+	NATSSecure       = "secure"
+	NATSPingInterval = "ping_interval"
+	NATSQueueDir     = "queue_dir"
+	NATSQueueLimit   = "queue_limit"
+
+	// Streaming constants
+	NATSStreamingEnable             = "streaming_enable"
+	NATSStreamingClusterID          = "streaming_cluster_id"
+	NATSStreamingAsync              = "streaming_async"
+	NATSStreamingMaxPubAcksInFlight = "streaming_max_pub_acks_in_flight"
+
+	EnvNATSState        = "MINIO_NOTIFY_NATS_STATE"
+	EnvNATSAddress      = "MINIO_NOTIFY_NATS_ADDRESS"
+	EnvNATSSubject      = "MINIO_NOTIFY_NATS_SUBJECT"
+	EnvNATSUsername     = "MINIO_NOTIFY_NATS_USERNAME"
+	EnvNATSPassword     = "MINIO_NOTIFY_NATS_PASSWORD"
+	EnvNATSToken        = "MINIO_NOTIFY_NATS_TOKEN"
+	EnvNATSSecure       = "MINIO_NOTIFY_NATS_SECURE"
+	EnvNATSPingInterval = "MINIO_NOTIFY_NATS_PING_INTERVAL"
+	EnvNATSQueueDir     = "MINIO_NOTIFY_NATS_QUEUE_DIR"
+	EnvNATSQueueLimit   = "MINIO_NOTIFY_NATS_QUEUE_LIMIT"
+
+	// Streaming constants
+	EnvNATSStreamingEnable             = "MINIO_NOTIFY_NATS_STREAMING_ENABLE"
+	EnvNATSStreamingClusterID          = "MINIO_NOTIFY_NATS_STREAMING_CLUSTER_ID"
+	EnvNATSStreamingAsync              = "MINIO_NOTIFY_NATS_STREAMING_ASYNC"
+	EnvNATSStreamingMaxPubAcksInFlight = "MINIO_NOTIFY_NATS_STREAMING_MAX_PUB_ACKS_IN_FLIGHT"
 )
 
 // NATSArgs - NATS target arguments.
@@ -233,7 +270,7 @@ func (target *NATSTarget) Close() (err error) {
 }
 
 // NewNATSTarget - creates new NATS target.
-func NewNATSTarget(id string, args NATSArgs, doneCh <-chan struct{}) (*NATSTarget, error) {
+func NewNATSTarget(id string, args NATSArgs, doneCh <-chan struct{}, loggerOnce func(ctx context.Context, err error, id interface{}, kind ...interface{})) (*NATSTarget, error) {
 	var natsConn *nats.Conn
 	var stanConn stan.Conn
 
@@ -271,9 +308,9 @@ func NewNATSTarget(id string, args NATSArgs, doneCh <-chan struct{}) (*NATSTarge
 
 	if target.store != nil {
 		// Replays the events from the store.
-		eventKeyCh := replayEvents(target.store, doneCh)
+		eventKeyCh := replayEvents(target.store, doneCh, loggerOnce, target.ID())
 		// Start replaying events from the store.
-		go sendEvents(target, eventKeyCh, doneCh)
+		go sendEvents(target, eventKeyCh, doneCh, loggerOnce)
 	}
 
 	return target, nil

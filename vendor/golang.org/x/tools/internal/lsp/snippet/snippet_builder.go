@@ -9,7 +9,7 @@
 // tab stops defined in the snippet. Each tab stop can optionally have placeholder
 // text, which can be pre-selected by editors. For a full description of syntax
 // and features, see "Snippet Syntax" at
-// https://microsoft.github.io/language-server-protocol/specification#textDocument_completion.
+// https://microsoft.github.io/language-server-protocol/specifications/specification-3-14/#textDocument_completion.
 //
 // A typical snippet looks like "foo(${1:i int}, ${2:s string})".
 package snippet
@@ -28,7 +28,7 @@ type Builder struct {
 	sb             strings.Builder
 }
 
-// Escape characters defined in https://microsoft.github.io/language-server-protocol/specification#textDocument_completion under "Grammar".
+// Escape characters defined in https://microsoft.github.io/language-server-protocol/specifications/specification-3-14/#textDocument_completion under "Grammar".
 var replacer = strings.NewReplacer(
 	`\`, `\\`,
 	`}`, `\}`,
@@ -43,12 +43,18 @@ func (b *Builder) WriteText(s string) {
 // The callback style allows for creating nested placeholders. To write an
 // empty tab stop, provide a nil callback.
 func (b *Builder) WritePlaceholder(fn func(*Builder)) {
-	fmt.Fprintf(&b.sb, "${%d", b.nextTabStop())
+	fmt.Fprintf(&b.sb, "${%d:", b.nextTabStop())
 	if fn != nil {
-		b.sb.WriteByte(':')
 		fn(b)
 	}
 	b.sb.WriteByte('}')
+}
+
+// WriteFinalTabstop marks where cursor ends up after the user has
+// cycled through all the normal tab stops. It defaults to the
+// character after the snippet.
+func (b *Builder) WriteFinalTabstop() {
+	fmt.Fprint(&b.sb, "$0")
 }
 
 // In addition to '\', '}', and '$', snippet choices also use '|' and ',' as

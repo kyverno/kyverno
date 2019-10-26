@@ -24,6 +24,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/lock"
 )
@@ -153,13 +154,13 @@ func formatFSMigrate(ctx context.Context, wlk *lock.LockedFile, fsPath string) e
 		return err
 	}
 	if version != formatFSVersionV2 {
-		return uiErrUnexpectedBackendVersion(fmt.Errorf(`%s file: expected FS version: %s, found FS version: %s`, formatConfigFile, formatFSVersionV2, version))
+		return config.ErrUnexpectedBackendVersion(fmt.Errorf(`%s file: expected FS version: %s, found FS version: %s`, formatConfigFile, formatFSVersionV2, version))
 	}
 	return nil
 }
 
 // Creates a new format.json if unformatted.
-func createFormatFS(ctx context.Context, fsFormatPath string) error {
+func createFormatFS(fsFormatPath string) error {
 	// Attempt a write lock on formatConfigFile `format.json`
 	// file stored in minioMetaBucket(.minio.sys) directory.
 	lk, err := lock.TryLockedOpenFile(fsFormatPath, os.O_RDWR|os.O_CREATE, 0600)
@@ -214,7 +215,7 @@ func initFormatFS(ctx context.Context, fsPath string) (rlk *lock.RLockedFile, er
 				rlk.Close()
 			}
 			// Fresh disk - create format.json
-			err = createFormatFS(ctx, fsFormatPath)
+			err = createFormatFS(fsFormatPath)
 			if err == lock.ErrAlreadyLocked {
 				// Lock already present, sleep and attempt again.
 				// Can happen in a rare situation when a parallel minio process

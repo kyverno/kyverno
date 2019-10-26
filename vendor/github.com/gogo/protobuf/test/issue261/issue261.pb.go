@@ -12,6 +12,7 @@ import (
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 	time "time"
@@ -27,7 +28,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type MapStdTypes struct {
 	NullableDuration map[int32]*time.Duration `protobuf:"bytes,3,rep,name=nullableDuration,proto3,stdduration" json:"nullableDuration,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
@@ -46,7 +47,7 @@ func (m *MapStdTypes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_MapStdTypes.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +164,7 @@ func valueToGoStringIssue261(v interface{}, typ string) string {
 func (m *MapStdTypes) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -171,48 +172,50 @@ func (m *MapStdTypes) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MapStdTypes) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MapStdTypes) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if len(m.NullableDuration) > 0 {
 		for k := range m.NullableDuration {
-			dAtA[i] = 0x1a
-			i++
 			v := m.NullableDuration[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = github_com_gogo_protobuf_types.SizeOfStdDuration(*v)
-				msgSize += 1 + sovIssue261(uint64(msgSize))
-			}
-			mapSize := 1 + sovIssue261(uint64(k)) + msgSize
-			i = encodeVarintIssue261(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintIssue261(dAtA, i, uint64(k))
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintIssue261(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*v)))
-				n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*v, dAtA[i:])
-				if err != nil {
-					return 0, err
+				n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo((*v), dAtA[i-github_com_gogo_protobuf_types.SizeOfStdDuration((*v)):])
+				if err1 != nil {
+					return 0, err1
 				}
-				i += n1
+				i -= n1
+				i = encodeVarintIssue261(dAtA, i, uint64(n1))
+				i--
+				dAtA[i] = 0x12
 			}
+			i = encodeVarintIssue261(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintIssue261(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
 		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintIssue261(dAtA []byte, offset int, v uint64) int {
+	offset -= sovIssue261(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *MapStdTypes) Size() (n int) {
 	if m == nil {
@@ -237,14 +240,7 @@ func (m *MapStdTypes) Size() (n int) {
 }
 
 func sovIssue261(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozIssue261(x uint64) (n int) {
 	return sovIssue261(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -447,6 +443,7 @@ func (m *MapStdTypes) Unmarshal(dAtA []byte) error {
 func skipIssue261(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -478,10 +475,8 @@ func skipIssue261(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -502,55 +497,30 @@ func skipIssue261(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthIssue261
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthIssue261
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowIssue261
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipIssue261(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthIssue261
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupIssue261
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthIssue261
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthIssue261 = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowIssue261   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthIssue261        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowIssue261          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupIssue261 = fmt.Errorf("proto: unexpected end of group")
 )

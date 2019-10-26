@@ -14,24 +14,24 @@ import (
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
-	"golang.org/x/tools/internal/lsp/telemetry/tag"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/tag"
 	errors "golang.org/x/xerrors"
 )
 
 func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
 	uri := span.NewURI(params.TextDocument.URI)
 	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
+	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	file, err := f.GetAST(ctx, source.ParseFull)
-	if file == nil {
+	fh := view.Snapshot().Handle(ctx, f)
+	file, m, _, err := view.Session().Cache().ParseGoHandle(fh, source.ParseFull).Parse(ctx)
+	if err != nil {
 		return nil, err
 	}
-
 	var links []protocol.DocumentLink
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch n := node.(type) {
