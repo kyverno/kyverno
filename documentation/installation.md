@@ -129,7 +129,7 @@ The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) 
 # Filter kuberenetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`
 
-THe confimap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. 
+THe confimap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. The resourceFilters configuration can be updated dynamically at runtime.
 
 ```
 apiVersion: v1
