@@ -21,12 +21,11 @@ import (
 )
 
 var (
-	kubeconfig        string
-	serverIP          string
-	filterK8Resources string
-	cpu               bool
-	memory            bool
-	webhookTimeout    int
+	kubeconfig     string
+	serverIP       string
+	cpu            bool
+	memory         bool
+	webhookTimeout int
 )
 
 // TODO: tune resync time differently for each informer
@@ -37,8 +36,10 @@ func main() {
 	printVersionInfo()
 	// profile cpu and memory consuption
 	prof = enableProfiling(cpu, memory)
-	// cleanUp Channel
+	// cleanUp channel
 	cleanUp := make(chan struct{})
+	// SIGINT & SIGTERM channel
+	stopCh := signals.SetupSignalHandler()
 	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
@@ -90,6 +91,12 @@ func main() {
 	// - cache resync time: 10 seconds
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
 
+	// Configuration Data
+	// dyamically load the configuration from configMap
+	// - resource filters
+	// if the configMap is update, the configuration will be updated :D
+	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps())
+
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
 	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().ClusterPolicies())
@@ -99,7 +106,7 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, filterK8Resources)
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, configData)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -114,7 +121,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, filterK8Resources)
+	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, configData)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := initTLSPemPair(clientConfig, client)
@@ -137,16 +144,17 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), filterK8Resources, cleanUp)
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), configData, cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 
-	stopCh := signals.SetupSignalHandler()
-
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
+	if err := configData.Run(kubeInformer.Core().V1().ConfigMaps(), stopCh); err != nil {
+		glog.Fatalf("Unable loading dynamic configuration: %v\n", err)
+	}
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
@@ -174,7 +182,6 @@ func init() {
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 2, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	config.LogDefaultFlags()
 	flag.Parse()
 }

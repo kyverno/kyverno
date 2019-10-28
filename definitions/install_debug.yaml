@@ -239,3 +239,12 @@ spec:
                         type: string
                       creationBlocked:
                         type: boolean
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-config
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
