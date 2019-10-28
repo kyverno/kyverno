@@ -248,7 +248,7 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 
 func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyverno.ViolatedRule) {
 	unstr := er.PatchedResource
-	dependant := kyverno.ManagedResource{
+	dependant := kyverno.ManagedResourceSpec{
 		Kind:            unstr.GetKind(),
 		Namespace:       unstr.GetNamespace(),
 		CreationBlocked: true,

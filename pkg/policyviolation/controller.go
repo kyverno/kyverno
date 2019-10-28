@@ -259,7 +259,7 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterP
 // when rejected resource created in the cluster
 func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.ClusterPolicyViolation) error {
 	for _, violatedRule := range curPv.Spec.ViolatedRules {
-		if reflect.DeepEqual(violatedRule.ManagedResource, kyverno.ManagedResource{}) {
+		if reflect.DeepEqual(violatedRule.ManagedResource, kyverno.ManagedResourceSpec{}) {
 			continue
 		}
 

@@ -232,15 +232,13 @@ spec:
                     type: string
                   managedResource:
                     type: object
-                    required:
-                    - kind
                     properties:
                       kind:
                         type: string
                       namespace:
                         type: string
                       creationBlocked:
-                        type: bool
+                        type: boolean
 ---
 kind: Namespace
 apiVersion: v1
