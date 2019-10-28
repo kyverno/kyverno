@@ -99,8 +99,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		webhookRegistrationClient: webhookRegistrationClient,
-		// filterK8Resources:         utils.ParseKinds(filterK8Resources),
-		configHandler: configHandler,
+		configHandler:             configHandler,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

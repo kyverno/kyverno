@@ -310,11 +310,11 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          args:
-          customize webhook timout
-          - "--webhooktimeout=4"
-          open one of the profiling flag here
-          - "--cpu=true"
+          # args:
+          # customize webhook timout
+          # - "--webhooktimeout=4"
+          # open one of the profiling flag here
+          # - "--cpu=true"
           ports:
           - containerPort: 443
           env:

@@ -55,8 +55,6 @@ type NamespaceController struct {
 	queue workqueue.RateLimitingInterface
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
-	// filter the resources defined in the list
-	// filterK8Resources []utils.K8Resource
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 }
@@ -234,7 +232,6 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 	// skip processing namespace if its been filtered
 	// exclude the filtered resources
 	if nsc.configHandler.ToFilter("Namespace", "", namespace.Name) {
-		// if utils.SkipFilteredResources("Namespace", "", namespace.Name, nsc.filterK8Resources) {
 		//TODO: improve the text
 		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil
