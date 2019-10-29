@@ -49,7 +49,7 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources string) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		glog.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -57,6 +57,12 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	cd := ConfigData{
 		client: rclient,
 		cmName: os.Getenv(cmNameEnv),
+	}
+	//TODO: this has been added to backward support command line arguments
+	// will be removed in future and the configuration will be set only via configmaps
+	if filterK8Resources != "" {
+		glog.Info("Init configuration from commandline arguments")
+		cd.initFilters(filterK8Resources)
 	}
 
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -131,7 +137,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		glog.Infof("Configuration: resourceFilters is empty in ConfigMap %s", cm.Name)
 		return
 	}
-
 	// parse and load the configuration
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
@@ -143,6 +148,19 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	}
 	glog.V(4).Infof("Configuration: Old resource filters %v", cd.filters)
 	glog.Infof("Configuration: New resource filters to %v", newFilters)
+	// update filters
+	cd.filters = newFilters
+}
+
+//TODO: this has been added to backward support command line arguments
+// will be removed in future and the configuration will be set only via configmaps
+func (cd *ConfigData) initFilters(filters string) {
+	// parse and load the configuration
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+
+	newFilters := parseKinds(filters)
+	glog.Infof("Configuration: Init resource filters to %v", newFilters)
 	// update filters
 	cd.filters = newFilters
 }

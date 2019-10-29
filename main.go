@@ -26,6 +26,9 @@ var (
 	cpu            bool
 	memory         bool
 	webhookTimeout int
+	//TODO: this has been added to backward support command line arguments
+	// will be removed in future and the configuration will be set only via configmaps
+	filterK8Resources string
 )
 
 // TODO: tune resync time differently for each informer
@@ -95,7 +98,7 @@ func main() {
 	// dyamically load the configuration from configMap
 	// - resource filters
 	// if the configMap is update, the configuration will be updated :D
-	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps())
+	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps(), filterK8Resources)
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
@@ -178,7 +181,9 @@ func init() {
 	// by default is to profile cpu
 	flag.BoolVar(&cpu, "cpu", false, "cpu profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
 	flag.BoolVar(&memory, "memory", false, "memory profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
-
+	//TODO: this has been added to backward support command line arguments
+	// will be removed in future and the configuration will be set only via configmaps
+	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 2, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
