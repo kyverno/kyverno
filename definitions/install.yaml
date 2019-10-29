@@ -278,15 +278,6 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: init-config
-  namespace: kyverno
-data:
-  # resource types to be skipped by kyverno policy engine
-  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -308,14 +299,14 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          # args:
+          args:
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
           # customize webhook timout
           # - "--webhooktimeout=4"
           # open one of the profiling flag here
           # - "--cpu=true"
           ports:
           - containerPort: 443
-          env:
-          - name: INIT_CONFIG
-            value: init-config
+          securityContext:
+            privileged: true
 

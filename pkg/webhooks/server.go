@@ -19,6 +19,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,11 +39,9 @@ type WebhookServer struct {
 	eventGen                  event.Interface
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
-	policyStatus policy.PolicyStatusInterface
-	// helpers to validate against current loaded configuration
-	configHandler config.Interface
-	// channel for cleanup notification
-	cleanUp chan<- struct{}
+	policyStatus      policy.PolicyStatusInterface
+	filterK8Resources []utils.K8Resource
+	cleanUp           chan<- struct{}
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -56,7 +55,7 @@ func NewWebhookServer(
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
-	configHandler config.Interface,
+	filterK8Resources string,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -81,7 +80,7 @@ func NewWebhookServer(
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
-		configHandler:             configHandler,
+		filterK8Resources:         utils.ParseKinds(filterK8Resources),
 		cleanUp:                   cleanUp,
 	}
 	mux := http.NewServeMux()
@@ -113,21 +112,20 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
-	request := admissionReview.Request
-	if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+	if !utils.SkipFilteredResourcesReq(admissionReview.Request, ws.filterK8Resources) {
 		// Resource CREATE
 		// Resource UPDATE
 		switch r.URL.Path {
 		case config.MutatingWebhookServicePath:
-			admissionReview.Response = ws.handleAdmissionRequest(request)
+			admissionReview.Response = ws.handleAdmissionRequest(admissionReview.Request)
 		case config.PolicyValidatingWebhookServicePath:
-			admissionReview.Response = ws.handlePolicyValidation(request)
+			admissionReview.Response = ws.handlePolicyValidation(admissionReview.Request)
 		case config.PolicyMutatingWebhookServicePath:
-			admissionReview.Response = ws.handlePolicyMutation(request)
+			admissionReview.Response = ws.handlePolicyMutation(admissionReview.Request)
 		}
 	}
 
-	admissionReview.Response.UID = request.UID
+	admissionReview.Response.UID = admissionReview.Request.UID
 
 	responseJSON, err := json.Marshal(admissionReview)
 	if err != nil {
