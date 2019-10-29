@@ -318,4 +318,3 @@ spec:
           env:
           - name: INIT_CONFIG
             value: init-config
-
