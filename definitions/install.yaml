@@ -308,7 +308,8 @@ spec:
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest
-          # args:
+          args:
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
           # customize webhook timout
           # - "--webhooktimeout=4"
           # open one of the profiling flag here

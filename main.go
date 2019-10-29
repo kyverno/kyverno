@@ -39,7 +39,7 @@ func main() {
 	printVersionInfo()
 	// profile cpu and memory consuption
 	prof = enableProfiling(cpu, memory)
-	// cleanUp channel
+	// cleanUp Channel
 	cleanUp := make(chan struct{})
 	// SIGINT & SIGTERM channel
 	stopCh := signals.SetupSignalHandler()
@@ -151,7 +151,6 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
-
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
@@ -187,6 +186,7 @@ func init() {
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	config.LogDefaultFlags()
 	flag.Parse()
 }

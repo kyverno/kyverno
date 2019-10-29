@@ -7,10 +7,10 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -68,13 +68,13 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
 	configHandler config.Interface) *NamespaceController {
-	//TODO: do we need to event recorder for this controller?
+		//TODO: do we need to event recorder for this controller?
 	// create the controller
 	nsc := &NamespaceController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
+		client:            client,
+		kyvernoClient:     kyvernoClient,
+		eventGen:          eventGen,
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
 		configHandler: configHandler,
 	}
 
