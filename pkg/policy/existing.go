@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -22,7 +23,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	pc.rm.Drop()
 	var engineResponses []engine.EngineResponse
 	// get resource that are satisfy the resource description defined in the rules
-	resourceMap := listResources(pc.client, policy, pc.filterK8Resources)
+	resourceMap := listResources(pc.client, policy, pc.configHandler)
 	for _, resource := range resourceMap {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
@@ -40,7 +41,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	return engineResponses
 }
 
-func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
+func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHandler config.Interface) map[string]unstructured.Unstructured {
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 
@@ -69,7 +70,7 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 
 			// get resources in the namespaces
 			for _, ns := range namespaces {
-				rMap := getResourcesPerNamespace(k, client, ns, rule, filterK8Resources)
+				rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler)
 				mergeresources(resourceMap, rMap)
 			}
 
@@ -78,7 +79,7 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, filterK8
 	return resourceMap
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, filterK8Resources []utils.K8Resource) map[string]unstructured.Unstructured {
+func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	// merge include and exclude label selector values
 	ls := rule.MatchResources.Selector
@@ -100,7 +101,7 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 			}
 		}
 		// Skip the filtered resources
-		if utils.SkipFilteredResources(r.GetKind(), r.GetNamespace(), r.GetName(), filterK8Resources) {
+		if configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
 			continue
 		}
 
@@ -110,12 +111,12 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 
 	// exclude the resources
 	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, filterK8Resources)
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, configHandler)
 	//	glog.V(4).Infof("resource map: %v", resourceMap)
 	return resourceMap
 }
 
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, filterK8Resources []utils.K8Resource) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return
 	}
@@ -196,7 +197,7 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 			excludeEval = append(excludeEval, ret)
 		}
 		// exclude the filtered resources
-		if utils.SkipFilteredResources(resource.GetKind(), resource.GetNamespace(), resource.GetName(), filterK8Resources) {
+		if configHandler.ToFilter(resource.GetKind(), resource.GetNamespace(), resource.GetName()) {
 			//TODO: improve the text
 			glog.V(4).Infof("excluding resource %s/%s/%s as its satisfies the filtered resources", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			delete(included, uid)

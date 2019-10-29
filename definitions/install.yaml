@@ -278,6 +278,15 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-config
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -307,6 +316,6 @@ spec:
           # - "--cpu=true"
           ports:
           - containerPort: 443
-          securityContext:
-            privileged: true
-
+          env:
+          - name: INIT_CONFIG
+            value: init-config
