@@ -232,15 +232,13 @@ spec:
                     type: string
                   managedResource:
                     type: object
-                    required:
-                    - kind
                     properties:
                       kind:
                         type: string
                       namespace:
                         type: string
                       creationBlocked:
-                        type: bool
+                        type: boolean
 ---
 kind: Namespace
 apiVersion: v1
@@ -280,6 +278,15 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-config
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -300,10 +307,15 @@ spec:
       serviceAccountName: kyverno-service-account
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v0.10.0
-          args: ["--filterK8Resources","[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"]
+          image: nirmata/kyverno:latest
+          args:
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+          # customize webhook timout
+          # - "--webhooktimeout=4"
+          # open one of the profiling flag here
+          # - "--cpu=true"
           ports:
           - containerPort: 443
-          securityContext:
-            privileged: true
-
+          env:
+          - name: INIT_CONFIG
+            value: init-config

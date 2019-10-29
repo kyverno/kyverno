@@ -13,9 +13,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -73,15 +73,16 @@ type PolicyController struct {
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
-	// filter the resources defined in the list
-	filterK8Resources []utils.K8Resource
+	// helpers to validate against current loaded configuration
+	configHandler config.Interface
 	// recieves stats and aggregates details
 	statusAggregator *PolicyStatusAggregator
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient, filterK8Resources string) (*PolicyController, error) {
+	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	configHandler config.Interface) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -98,7 +99,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		eventRecorder:             eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		webhookRegistrationClient: webhookRegistrationClient,
-		filterK8Resources:         utils.ParseKinds(filterK8Resources),
+		configHandler:             configHandler,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

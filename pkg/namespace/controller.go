@@ -10,7 +10,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -55,8 +55,8 @@ type NamespaceController struct {
 	queue workqueue.RateLimitingInterface
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
-	// filter the resources defined in the list
-	filterK8Resources []utils.K8Resource
+	// helpers to validate against current loaded configuration
+	configHandler config.Interface
 }
 
 //NewNamespaceController returns a new Controller to manage generation rules
@@ -67,15 +67,15 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
-	filterK8Resources string) *NamespaceController {
-	//TODO: do we need to event recorder for this controller?
+	configHandler config.Interface) *NamespaceController {
+		//TODO: do we need to event recorder for this controller?
 	// create the controller
 	nsc := &NamespaceController{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		eventGen:          eventGen,
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
-		filterK8Resources: utils.ParseKinds(filterK8Resources),
+		configHandler: configHandler,
 	}
 
 	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -231,7 +231,7 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 
 	// skip processing namespace if its been filtered
 	// exclude the filtered resources
-	if utils.SkipFilteredResources("Namespace", "", namespace.Name, nsc.filterK8Resources) {
+	if nsc.configHandler.ToFilter("Namespace", "", namespace.Name) {
 		//TODO: improve the text
 		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil

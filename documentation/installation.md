@@ -118,9 +118,9 @@ To build Kyverno in a development environment see: https://github.com/nirmata/ky
 
 To run controller in this mode you should prepare TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-1. Run scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>, where <server_IP> is the IP address of the host where controller runs. This scripts will generate TLS certificate for debug webhook server and register this webhook in the cluster. Also it registers CustomResource Policy.
+1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate TLS certificate for debug webhook server and register this webhook in the cluster. Also it registers CustomResource Policy.
 
-2. Start the controller using the following command: sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>
+2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
 # Try Kyverno without a Kubernetes cluster
 
@@ -128,10 +128,23 @@ The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) 
 
 
 # Filter kuberenetes resources that admission webhook should not process
+The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`
 
-The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by using the command line argument 'filterKind'. 
+THe confimap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. The resourceFilters configuration can be updated dynamically at runtime.
 
-By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the [install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-config
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+```
+
+By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configmap
+[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/init_configMap.yaml).
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
