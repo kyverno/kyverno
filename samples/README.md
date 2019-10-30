@@ -11,6 +11,13 @@ kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/inst
 
 **Apply Kyverno Policies**
 
+To start applying policies to your cluster, first clone the repo:
+
+````bash
+git clone https://github.com/nirmata/kyverno.git
+cd kyverno
+````
+
 Import best_practices from [here](best_pratices):
 
 ````bash
