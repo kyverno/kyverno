@@ -36,10 +36,10 @@ There is no operator for `equals` as providing a field value in the pattern requ
 ## Anchors
 | Anchor      	| Tag 	| Behavior                                                                                                                                                                                                                                     	|
 |-------------	|-----	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Conditional 	| ()  	| If tag with the given value is specified, then following resource elements must satisfy the conditions. e.g. <br/><code> (image):"*:latest" <br/>  imagePullPolicy: "!IfNotPresent"</code> <br/> If image has tag latest then, imagePullPolicy cannot be IfNotPresent.                                                	|
-| Equality    	| =() 	| If tag is specified, then it should have the provided value. e.g.<br/><code> =(hostPath):<br/> path: "!/var/lib" </code><br/> If hostPath is defined then the path cannot be /var/lib                                                                                  	|
-| Existence   	| ^() 	| Specified on the list/array type only. If there exists at least one resource in the list that satisfies the pattern. e.g. <br/><code> ^(containers):<br/> - image: nginx:latest </code><br/> There must exist at least one container with image nginx:latest. 	|
-| Negation    	| X() 	| Tag cannot be present in the resource. The value of the tag is not evaulated. e.g. <br/><code> X(hostPath):</code><br/> Hostpath tag cannot be defined.	|
+| Conditional 	| ()  	| If tag with the given value is specified, then following resource elements must satisfy the conditions. e.g. <br><code> (image):"*:latest" <br>  imagePullPolicy: "!IfNotPresent"</code> <br> If image has tag latest then, imagePullPolicy cannot be IfNotPresent.                                                	|
+| Equality    	| =() 	| If tag is specified, then it should have the provided value. e.g.<br><code> =(hostPath):<br> path: "!/var/lib" </code><br> If hostPath is defined then the path cannot be /var/lib                                                                                  	|
+| Existence   	| ^() 	| Specified on the list/array type only. If at least one element in the satisfies the pattern. e.g. <br><code> ^(containers):<br> - image: nginx:latest </code><br> At least one container with image nginx:latest must exist. 	|
+| Negation    	| X() 	| The tag cannot be specified. The value of the tag is not evaulated. e.g. <br><code> X(hostPath):</code><br> Hostpath tag cannot be defined.	|
 
 ## Example
 The following rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
