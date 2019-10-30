@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/policy_validate_deny_runasrootuser.yaml
+  policy: samples/best_practices/deny_runasrootuser.yaml
   resource: test/resources/resource_validate_nonRootUser.yaml
 expected:
   validation:

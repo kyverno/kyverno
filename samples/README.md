@@ -11,12 +11,23 @@ kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/inst
 
 **Apply Kyverno Policies**
 
+To start applying policies to your cluster, first clone the repo:
+
 ````bash
+git clone https://github.com/nirmata/kyverno.git
+cd kyverno
+````
 
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/best_practices/
+Import best_practices from [here](best_pratices):
 
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/samples/more/
+````bash
+kubectl create -f samples/best_practices
+````
 
+Import addition policies from [here](more):
+
+````bash
+kubectl create -f samples/more/
 ````
 
 The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
