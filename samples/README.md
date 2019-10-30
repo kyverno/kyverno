@@ -28,7 +28,7 @@ These policies are highly recommended.
 1. [Run as non-root user](RunAsNonRootUser.md)
 2. [Disable privileged containers and disallow privilege escalation](DisablePrivilegedContainers.md)
 3. [Require Read-only root filesystem](RequireReadOnlyFS.md)
-4. [Disallow use of host filesystem](DisallowHostFS.md)
+4. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)
 5. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
 6. [Disallow `hostPID` and `hostIPC`](DisallowHostPIDIPC.md)
 7. [Disallow unknown image registries](DisallowUnknownRegistries.md)
