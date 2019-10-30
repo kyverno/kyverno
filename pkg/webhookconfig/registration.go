@@ -64,6 +64,13 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
 		return err
 	}
+
+	// create Verify mutating webhook configuration resource
+	// that is used to check if admission control is enabled or not
+	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -184,6 +191,36 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 	return nil
 }
 
+func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration() error {
+	var caData []byte
+	var config *admregapi.MutatingWebhookConfiguration
+
+	// read CA data from
+	// 1) secret(config)
+	// 2) kubeconfig
+	if caData = wrc.readCaData(); caData == nil {
+		return errors.New("Unable to extract CA data from configuration")
+	}
+
+	// if serverIP is specified we assume its debug mode
+	if wrc.serverIP != "" {
+		// debug mode
+		// clientConfig - URL
+		config = wrc.constructDebugVerifyMutatingWebhookConfig(caData)
+	} else {
+		// clientConfig - service
+		config = wrc.constructVerifyMutatingWebhookConfig(caData)
+	}
+
+	// create mutating webhook configuration resource
+	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+		return err
+	}
+
+	glog.V(4).Infof("created Mutating Webhook Configuration %s ", config.Name)
+	return nil
+}
+
 // DeregisterAll deletes webhook configs from cluster
 // This function does not fail on error:
 // Register will fail if the config exists, so there is no need to fail on error
@@ -198,44 +235,7 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 
 	// mutating and validating webhook configurtion for Policy CRD resource
 	wrc.removePolicyWebhookConfigurations()
-}
 
-// removePolicyWebhookConfigurations removes mutating and validating webhook configurations, if already presnt
-// webhookConfigurations are re-created later
-func (wrc *WebhookRegistrationClient) removePolicyWebhookConfigurations() {
-	// Validating webhook configuration
-	var err error
-	var validatingConfig string
-	if wrc.serverIP != "" {
-		validatingConfig = config.PolicyValidatingWebhookConfigurationDebugName
-	} else {
-		validatingConfig = config.PolicyValidatingWebhookConfigurationName
-	}
-	glog.V(4).Infof("removing webhook configuration %s", validatingConfig)
-	err = wrc.registrationClient.ValidatingWebhookConfigurations().Delete(validatingConfig, &v1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", validatingConfig)
-	} else if err != nil {
-		glog.Errorf("failed to delete policy webhook configuration %s: %v", validatingConfig, err)
-	} else {
-		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", validatingConfig)
-	}
-
-	// Mutating webhook configuration
-	var mutatingConfig string
-	if wrc.serverIP != "" {
-		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
-	} else {
-		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
-	}
-
-	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
-	err = wrc.registrationClient.MutatingWebhookConfigurations().Delete(mutatingConfig, &v1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", mutatingConfig)
-	} else if err != nil {
-		glog.Errorf("failed to delete policy webhook configuration %s: %v", mutatingConfig, err)
-	} else {
-		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", mutatingConfig)
-	}
+	// muating webhook configuration use to verify if admission control flow is working or not
+	wrc.removeVerifyWebhookMutatingWebhookConfig()
 }

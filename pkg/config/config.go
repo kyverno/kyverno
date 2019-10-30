@@ -15,6 +15,10 @@ const (
 	// ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
 	// ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
 
+	VerifyMutatingWebhookConfigurationName      = "kyverno-verify-mutating-webhook-cfg"
+	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
+	VerifyMutatingWebhookName                   = "nirmata.kyverno.verify-mutating-webhook"
+
 	PolicyValidatingWebhookConfigurationName      = "kyverno-policy-validating-webhook-cfg"
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
 	PolicyValidatingWebhookName                   = "nirmata.kyverno.policy-validating-webhook"
@@ -36,6 +40,7 @@ var (
 	ValidatingWebhookServicePath       = "/validate"
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	PolicyMutatingWebhookServicePath   = "/policymutate"
+	VerifyMutatingWebhookServicePath   = "/verifymutate"
 
 	SupportedKinds = []string{
 		"ConfigMap",
