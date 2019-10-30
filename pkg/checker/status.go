@@ -102,7 +102,7 @@ func (vc StatusControl) IncrementAnnotation() error {
 	// increment counter
 	counter++
 	ann[annCounter] = strconv.Itoa(counter)
-	glog.Info("incrementing annotation %s counter to %d", annCounter, counter)
+	glog.Infof("incrementing annotation %s counter to %d", annCounter, counter)
 	deploy.SetAnnotations(ann)
 	// update counter
 	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
