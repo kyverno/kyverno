@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"time"
 
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -147,12 +149,38 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rul
 
 //checkResource checks if the config is present in th eresource
 func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
+	var err error
 
-	// we are checking if config is a subset of resource with default pattern
-	path, err := validateResourceWithPattern(resource.Object, config)
+	objByte, err := resource.MarshalJSON()
 	if err != nil {
-		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
+		// unable to parse the json
 		return false, err
 	}
-	return true, nil
+	err = resource.UnmarshalJSON(objByte)
+	if err != nil {
+		// unable to parse the json
+		return false, err
+	}
+	// marshall and unmarshall json to verify if its right format
+	configByte, err := json.Marshal(config)
+	if err != nil {
+		// unable to marshall the config
+		return false, err
+	}
+	var configData interface{}
+	err = json.Unmarshal(configByte, &configData)
+	if err != nil {
+		// unable to unmarshall
+		return false, err
+	}
+
+	var objData interface{}
+	err = json.Unmarshal(objByte, &objData)
+	if err != nil {
+		// unable to unmarshall
+		return false, err
+	}
+
+	// Check if the config is a subset of resource
+	return utils.JSONsubsetValue(configData, objData), nil
 }
