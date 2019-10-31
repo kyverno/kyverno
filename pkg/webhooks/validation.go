@@ -90,8 +90,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		// glog.V(4).Infof("Validating resource %s/%s/%s with policy %s with %d rules\n", resource.GetKind(), resource.GetNamespace(), resource.GetName(), policy.ObjectMeta.Name, len(policy.Spec.Rules))
-
 		engineResponse := engine.Validate(*policy, *resource)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics

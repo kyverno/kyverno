@@ -3,6 +3,7 @@ package engine
 import (
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -91,6 +92,14 @@ func validateValueWithIntPattern(value interface{}, pattern int64) bool {
 
 		glog.Warningf("Expected int, found float: %f\n", typedValue)
 		return false
+	case string:
+		// extract int64 from string
+		int64Num, err := strconv.ParseInt(typedValue, 10, 64)
+		if err != nil {
+			glog.Warningf("Failed to parse int64 from string: %v", err)
+			return false
+		}
+		return int64Num == pattern
 	default:
 		glog.Warningf("Expected int, found: %T\n", value)
 		return false
@@ -105,11 +114,25 @@ func validateValueWithFloatPattern(value interface{}, pattern float64) bool {
 		if pattern == math.Trunc(pattern) {
 			return int(pattern) == value
 		}
-
+		glog.Warningf("Expected float, found int: %d\n", typedValue)
+		return false
+	case int64:
+		// check that float has no fraction
+		if pattern == math.Trunc(pattern) {
+			return int64(pattern) == value
+		}
 		glog.Warningf("Expected float, found int: %d\n", typedValue)
 		return false
 	case float64:
 		return typedValue == pattern
+	case string:
+		// extract float64 from string
+		float64Num, err := strconv.ParseFloat(typedValue, 64)
+		if err != nil {
+			glog.Warningf("Failed to parse float64 from string: %v", err)
+			return false
+		}
+		return float64Num == pattern
 	default:
 		glog.Warningf("Expected float, found: %T\n", value)
 		return false
