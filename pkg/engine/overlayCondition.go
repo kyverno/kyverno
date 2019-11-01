@@ -18,7 +18,7 @@ func meetConditions(resource, overlay interface{}) bool {
 	// conditon never be true in this case
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
 		if hasNestedAnchors(overlay) {
-			glog.V(3).Infof("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource)
+			glog.Errorf("Found anchor on different types of element: overlay %T, %v, resource %T, %v\nSkip processing overlay.", overlay, overlay, resource, resource)
 			return false
 		}
 		return true
@@ -27,6 +27,7 @@ func meetConditions(resource, overlay interface{}) bool {
 	return checkConditions(resource, overlay)
 }
 
+// resource and overlay should be the same type
 func checkConditions(resource, overlay interface{}) bool {
 	switch typedOverlay := overlay.(type) {
 	case map[string]interface{}:
@@ -36,30 +37,108 @@ func checkConditions(resource, overlay interface{}) bool {
 		typedResource := resource.([]interface{})
 		return checkConditionOnArray(typedResource, typedOverlay)
 	default:
+		// anchor on non map/array is invalid:
+		// - anchor defined on values
 		return true
 	}
 }
 
-func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}) bool {
-	anchors := getAnchorsFromMap(overlayMap)
-	if len(anchors) > 0 {
-		if !isConditionMetOnMap(resourceMap, anchors) {
-			return false
-		}
-		return true
+// compareOverlay compare values in anchormap and resourcemap
+// i.e. check if B1 == B2
+// overlay - (A): B1
+// resource - A: B2
+func compareOverlay(resource, overlay interface{}) bool {
+	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
+		glog.Errorf("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource)
+		return false
 	}
 
-	for key, value := range overlayMap {
-		resourcePart, ok := resourceMap[key]
-
-		if ok && !anchor.IsAddingAnchor(key) {
-			if !meetConditions(resourcePart, value) {
+	switch typedOverlay := overlay.(type) {
+	case map[string]interface{}:
+		typedResource := resource.(map[string]interface{})
+		for key, overlayVal := range typedOverlay {
+			noAnchorKey := removeAnchor(key)
+			resourceVal, ok := typedResource[noAnchorKey]
+			if !ok {
+				return false
+			}
+			if !compareOverlay(resourceVal, overlayVal) {
 				return false
 			}
 		}
+	case []interface{}:
+		typedResource := resource.([]interface{})
+		for _, overlayElement := range typedOverlay {
+			for _, resourceElement := range typedResource {
+				if !compareOverlay(resourceElement, overlayElement) {
+					return false
+				}
+			}
+		}
+	case string, float64, int, int64, bool, nil:
+		if !ValidateValueWithPattern(resource, overlay) {
+			glog.Errorf("Mutate rule failed validating value %v with overlay %v", resource, overlay)
+			return false
+		}
+	default:
+		glog.Errorf("Mutate overlay has unknown type %T, value %v", overlay, overlay)
+		return false
 	}
 
-	// key does not exist or isAddingAnchor
+	return true
+}
+
+func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}) bool {
+	anchors, overlayWithoutAnchor := getAnchorAndElementsFromMap(overlayMap)
+
+	if !validateConditionAnchorMap(resourceMap, anchors) {
+		return false
+	}
+
+	if !validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor) {
+		return false
+	}
+
+	// empty overlayMap
+	return true
+}
+
+func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}) bool {
+	for key, overlayValue := range anchors {
+		// skip if key does not have condition anchor
+		if !anchor.IsConditionAnchor(key) {
+			continue
+		}
+
+		// validate condition anchor map
+		noAnchorKey := removeAnchor(key)
+		if resourceValue, ok := resourceMap[noAnchorKey]; ok {
+			if !compareOverlay(resourceValue, overlayValue) {
+				return false
+			}
+		} else {
+			// noAnchorKey doesn't exist in resource
+			return false
+		}
+	}
+	return true
+}
+
+func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]interface{}) bool {
+	// validate resource map (anchors could exist in resource)
+	for key, overlayValue := range overlayWithoutAnchor {
+		resourceValue, ok := resourceMap[key]
+		if !ok {
+			// policy: 		"(image)": "*:latest",
+			//				"imagePullPolicy": "IfNotPresent",
+			// resource:	"(image)": "*:latest",
+			// the above case should be allowed
+			continue
+		}
+		if !meetConditions(resourceValue, overlayValue) {
+			return false
+		}
+	}
 	return true
 }
 
@@ -85,6 +164,7 @@ func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}) bool {
 	case map[string]interface{}:
 		return checkConditionsOnArrayOfMaps(resource, overlay)
 	default:
+		// TODO: array of array?
 		glog.Warningf("Anchors not supported in overlay of array type %T\n", overlay[0])
 		return false
 	}
@@ -92,82 +172,10 @@ func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}) bool {
 
 func checkConditionsOnArrayOfMaps(resource, overlay []interface{}) bool {
 	for _, overlayElement := range overlay {
-		typedOverlay := overlayElement.(map[string]interface{})
-		anchors, overlayWithoutAnchor := getElementsFromMap(typedOverlay)
-
-		if len(anchors) > 0 {
-			if !validAnchorMap(anchors) {
+		for _, resourceMap := range resource {
+			if !checkConditionOnMap(resourceMap.(map[string]interface{}), overlayElement.(map[string]interface{})) {
 				return false
 			}
-
-			if !isConditionMet(resource, anchors) {
-				return false
-			}
-		}
-
-		for key, val := range overlayWithoutAnchor {
-			if hasNestedAnchors(val) {
-				for _, resourceElement := range resource {
-					typedResource := resourceElement.(map[string]interface{})
-
-					if resourcePart, ok := typedResource[key]; ok {
-						if !meetConditions(resourcePart, val) {
-							return false
-						}
-					}
-				}
-			}
-		}
-	}
-	return true
-}
-
-func validAnchorMap(anchors map[string]interface{}) bool {
-	for _, val := range anchors {
-		switch val.(type) {
-		case map[string]interface{}, []interface{}:
-			glog.Warning("Maps and arrays as patterns are not supported")
-			return false
-		}
-	}
-	return true
-}
-
-func isConditionMet(resource []interface{}, anchors map[string]interface{}) bool {
-	for _, resourceElement := range resource {
-		typedResource := resourceElement.(map[string]interface{})
-		for key, pattern := range anchors {
-			key = key[1 : len(key)-1]
-
-			value, ok := typedResource[key]
-			if !ok {
-				continue
-			}
-
-			if len(resource) == 1 {
-				if !ValidateValueWithPattern(value, pattern) {
-					return false
-				}
-			} else {
-				ValidateValueWithPattern(value, pattern)
-				return true
-			}
-		}
-	}
-	return true
-}
-
-func isConditionMetOnMap(resource, anchors map[string]interface{}) bool {
-	for key, pattern := range anchors {
-		key = key[1 : len(key)-1]
-
-		value, ok := resource[key]
-		if !ok {
-			continue
-		}
-
-		if !ValidateValueWithPattern(value, pattern) {
-			return false
 		}
 	}
 	return true

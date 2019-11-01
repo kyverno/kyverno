@@ -223,8 +223,8 @@ func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	return result
 }
 
-// Mutation
-func getElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+// getAnchorAndElementsFromMap gets the condition anchor map and resource map without anchor
+func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
 	anchors := make(map[string]interface{})
 	elementsWithoutanchor := make(map[string]interface{})
 	for key, value := range anchorsMap {

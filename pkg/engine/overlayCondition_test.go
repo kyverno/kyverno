@@ -30,7 +30,7 @@ func TestMeetConditions_NoAnchor(t *testing.T) {
 	assert.Assert(t, res)
 }
 
-func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
+func TestMeetConditions_conditionalAnchorOnMap(t *testing.T) {
 	resourceRaw := []byte(`
 	 {  
 		"apiVersion":"v1",
@@ -89,8 +89,8 @@ func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
 			 "ports":[  
 				{  
 				   "name":"secure-connection",
-				   "port":444,
-				   "protocol":"UDP"
+				   "port":443,
+				   "protocol":"TCP"
 				}
 			 ]
 		  }
@@ -100,7 +100,7 @@ func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	res = meetConditions(resource, overlay)
-	assert.Assert(t, !res)
+	assert.Assert(t, res)
 }
 
 func TestMeetConditions_DifferentTypes(t *testing.T) {

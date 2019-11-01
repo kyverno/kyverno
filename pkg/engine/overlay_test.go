@@ -590,10 +590,10 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 							"imagePullPolicy":"Always"
 						},
 						{  
-							"image":"debian:10"
+							"image":"debian:latest"
 						},
 						{  
-							"image":"ubuntu:18.04",
+							"image":"ubuntu:latest",
 							"imagePullPolicy":"Always"
 						}
 					]
@@ -647,10 +647,11 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 							"imagePullPolicy":"Always"
 						},
 						{  
-							"image":"debian:10"
+							"image":"debian:latest",
+							"imagePullPolicy":"IfNotPresent"
 						},
 						{  
-							"image":"ubuntu:18.04",
+							"image":"ubuntu:latest",
 							"imagePullPolicy":"Always"
 						}
 					]
