@@ -15,5 +15,5 @@ expected:
       rules:
         - name: allow-portrange-with-sysctl
           type: Validation
-          message: "Validation rule 'allow-portrange-with-sysctl' failed at '/spec/securityContext/sysctls/0/value/' for resource Pod//nginx. Allowed port range is from 1024 to 65535"
+          message: "Validation rule 'allow-portrange-with-sysctl' failed at '/spec/securityContext/sysctls/0/value/' for resource Pod//nginx. Allowed port range is from 1024 to 65535."
           success: false

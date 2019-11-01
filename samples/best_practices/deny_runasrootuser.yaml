@@ -16,7 +16,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Root user is not allowed. Set runAsNonRoot to true."
+      message: "Root user is not allowed. Set runAsNonRoot to true"
       anyPattern:
       - spec:
           securityContext:

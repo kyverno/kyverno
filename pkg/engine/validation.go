@@ -87,7 +87,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 			// rule application failed
 			glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
 			response.Success = false
-			response.Message = fmt.Sprintf("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message)
+			response.Message = fmt.Sprintf("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s.", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message)
 			return response
 		}
 		// rule application succesful
@@ -122,7 +122,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 			response.Success = false
 			response.Success = false
 			var errorStr []string
-			errorStr = append(errorStr, fmt.Sprintf("Validation rule '%s' failed to validate patterns defined in anyPattern. %s", rule.Name, rule.Validation.Message))
+			errorStr = append(errorStr, fmt.Sprintf("Validation rule '%s' failed to validate patterns defined in anyPattern. %s.", rule.Name, rule.Validation.Message))
 			for index, err := range errs {
 				glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)
 				str := fmt.Sprintf("anyPattern[%d] failed at path %s", index, failedPaths[index])
