@@ -20,12 +20,12 @@ spec:
       message: "Capabilities cannot be added"
       anyPattern:
       - spec:
-          securityContext:
-            capabilities:
+          (securityContext):
+            (capabilities):
               X(add): null    
       - spec:
           containers:
           - name: "*"
-            securityContext:
+            (securityContext):
               (capabilities):
                 X(add): null
