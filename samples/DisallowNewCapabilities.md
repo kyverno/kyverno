@@ -15,6 +15,13 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: validate-new-capabilities
+  annotations:
+    policies.kyverno.io/category: Security Context
+    policies.kyverno.io/description: Linux allows defining fine-grained permissions using
+      capabilities. With Kubernetes, it is possible to add capabilities that escalate the
+      level of kernel access and allow other potentially dangerous behaviors. This policy 
+      enforces that pods cannot add new capabilities. Other policies can be used to set 
+      default capabilities. 
 spec:
   rules:
   - name: deny-new-capabilities
@@ -26,13 +33,13 @@ spec:
       message: "Capabilities cannot be added"
       anyPattern:
       - spec:
-          securityContext:
-            capabilities:
-              X(add): null    
+        =(securityContext):
+          =(capabilities):
+            X(add): null
       - spec:
           containers:
           - name: "*"
-            securityContext:
-              (capabilities):
+            =(securityContext):
+              =(capabilities):
                 X(add): null
 ````
