@@ -29,7 +29,7 @@ spec:
       message: "Use of the Docker Unix socket is not allowed"
       pattern:
         spec:
-          (volume):
-            (hostPath):
+          =(volumes):
+            =(hostPath):
               path: "!/var/run/docker.sock"
 ````
