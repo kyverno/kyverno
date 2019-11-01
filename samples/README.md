@@ -41,25 +41,26 @@ These policies are highly recommended.
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
 4. [Require Read-only root filesystem](RequireReadOnlyFS.md)
 5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)
-6. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
-7. [Disallow `hostPID` and `hostIPC`](DisallowHostPIDIPC.md)
-8. [Disallow unknown image registries](DisallowUnknownRegistries.md)
-8. [Disallow latest image tag](DisallowLatestTag.md)
-10. [Disallow use of default namespace](DisallowDefaultNamespace.md)
-11. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
-12. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
-13. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
-14. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
+6. [Disallow docker socket bind mount](DisallowDockerSockMount.md)
+7. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
+8. [Disallow `hostPID` and `hostIPC`](DisallowHostPIDIPC.md)
+9. [Disallow unknown image registries](DisallowUnknownRegistries.md)
+10. [Disallow latest image tag](DisallowLatestTag.md)
+11. [Disallow use of default namespace](DisallowDefaultNamespace.md)
+12. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
+13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
+14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
+15. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
 
 
 ## Additional Policies
 
 The policies provide additional best practices and are worthy of close consideration. These policies may require workload specific changes. 
 
-15. [Limit use of `NodePort` services](LimitNodePort.md)
-16. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
-17. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
-18. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
+16. [Limit use of `NodePort` services](LimitNodePort.md)
+17. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
+18. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
+19. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
 
 
 
