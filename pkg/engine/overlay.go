@@ -31,7 +31,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	patches, err := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
 	// resource does not satisfy the overlay pattern, we dont apply this rule
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
-		glog.V(4).Infof("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
+		glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
 		//TODO: send zero response and not consider this as applied?
 		return RuleResponse{}, resource
 	}
@@ -74,10 +74,12 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	// apply the patches to the resource
 	return response, patchedResource
 }
+
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
 
-	if !meetConditions(resource, overlay) {
-		return nil, errors.New("Conditions are not met")
+	if path, err := meetConditions(resource, overlay); err != nil {
+		glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, err)
+		return nil, fmt.Errorf("Conditions are not met at %s, %v", path, err)
 	}
 
 	return mutateResourceWithOverlay(resource, overlay)
