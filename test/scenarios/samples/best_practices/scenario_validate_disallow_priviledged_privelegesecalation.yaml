@@ -14,6 +14,6 @@ expected:
       rules:
         - name: deny-privileged-priviligedescalation
           type: Validation
-          message: "Validation rule 'deny-privileged-priviligedescalation' failed to validate patterns defined in anyPattern. Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false; anyPattern[0] failed at path /spec/securityContext/; anyPattern[1] failed at path /spec/containers/0/securityContext/allowPrivilegeEscalation/"
+          message: "Validation rule 'deny-privileged-priviligedescalation' failed to validate patterns defined in anyPattern. Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false.; anyPattern[0] failed at path /spec/securityContext/; anyPattern[1] failed at path /spec/containers/0/securityContext/allowPrivilegeEscalation/"
           success: false
 
