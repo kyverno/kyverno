@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-hostpid-hostipc
           type: Validation
-          message: Validation rule 'validate-hostpid-hostipc' failed at '/spec/hostIPC/' for resource Pod//nginx-with-hostpid. Disallow use of host's pid namespace and host's ipc namespace
+          message: Validation rule 'validate-hostpid-hostipc' failed at '/spec/hostIPC/' for resource Pod//nginx-with-hostpid. Disallow use of host's pid namespace and host's ipc namespace.
           success: false   

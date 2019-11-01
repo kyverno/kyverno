@@ -14,5 +14,5 @@ expected:
       rules:
         - name: check-resource-request-limit
           type: Validation
-          message: Validation rule 'check-resource-request-limit' failed at '/spec/containers/0/resources/limits/cpu/' for resource Pod//myapp-pod. CPU and memory resource requests and limits are required
+          message: Validation rule 'check-resource-request-limit' failed at '/spec/containers/0/resources/limits/cpu/' for resource Pod//myapp-pod. CPU and memory resource requests and limits are required.
           success: false 

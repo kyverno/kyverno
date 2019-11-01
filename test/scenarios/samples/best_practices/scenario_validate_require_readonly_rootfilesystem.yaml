@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-readonly-rootfilesystem
           type: Validation
-          message: Validation rule 'validate-readonly-rootfilesystem' failed at '/spec/containers/0/securityContext/readOnlyRootFilesystem/' for resource Pod//ghost-with-readonly-rootfilesystem. Container require read-only rootfilesystem
+          message: Validation rule 'validate-readonly-rootfilesystem' failed at '/spec/containers/0/securityContext/readOnlyRootFilesystem/' for resource Pod//ghost-with-readonly-rootfilesystem. Container require read-only rootfilesystem.
           success: false   
