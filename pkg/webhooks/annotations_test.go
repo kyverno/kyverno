@@ -61,7 +61,7 @@ func Test_exist_kyverno_annotation(t *testing.T) {
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, true)
 	annPatches := generateAnnotationPatches(annotation, []engine.EngineResponse{engineResponse})
 
-	expectedPatches := `{"op":"replace","path":"/metadata/annotations/policies.kyverno.io/patches","value":"[{\"policyname\":\"mutate-container\",\"patches\":[{\"rulename\":\"default-imagepullpolicy\",\"op\":\"replace\",\"path\":\"/spec/containers/0/imagePullPolicy\"}]}]"}`
+	expectedPatches := `{"op":"add","path":"/metadata/annotations","value":{"policies.kyverno.io/patches":"[{\"policyname\":\"mutate-container\",\"patches\":[{\"rulename\":\"default-imagepullpolicy\",\"op\":\"replace\",\"path\":\"/spec/containers/0/imagePullPolicy\"}]}]"}}`
 	assert.Assert(t, string(annPatches) == expectedPatches)
 }
 
