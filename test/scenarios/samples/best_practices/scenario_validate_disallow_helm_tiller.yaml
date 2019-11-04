@@ -1,0 +1,16 @@
+# file paths are relative to project root
+input:
+  policy: samples/best_practices/disallow_helm_tiller.yaml
+  resource: test/resources/disallow_helm_tiller.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-helm-tiller
+      resource:
+        kind: Pod
+        name: pod-helm-tiller
+      rules:
+        - name: validate-helm-tiller
+          type: Validation
+          message: "Validation rule 'validate-helm-tiller' failed at '/spec/containers/0/image/' for resource Pod//pod-helm-tiller. Helm Tiller is not allowed."
+          success: false
