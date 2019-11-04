@@ -51,7 +51,7 @@ These policies are highly recommended.
 13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
 14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 15. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
-
+16. [Disallow Helm Tiller](DisallowHelmTiller.md)
 
 ## Additional Policies
 
