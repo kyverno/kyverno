@@ -3,7 +3,6 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -443,10 +442,6 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-	flag.Parse()
-	flag.Set("v", "10")
-	flag.Set("logtostderr", "true")
-
 	scenario, err := loadScenario(t, path)
 	if err != nil {
 		t.Error(err)
