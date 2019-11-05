@@ -94,7 +94,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 		// rule application succesful
 		glog.V(4).Infof("rule %s pattern validated succesfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		response.Success = true
-		response.Message = fmt.Sprintf("Validation rule '%s' succeeded for %s/%s/%s.", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		response.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)
 		return response
 	}
 
@@ -108,7 +108,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 				// this pattern was succesfully validated
 				glog.V(4).Infof("anyPattern %v succesfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				response.Success = true
-				response.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded for %s/%s/%s.", rule.Name, index, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				response.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, index)
 				return response
 			}
 			if err != nil {
@@ -126,11 +126,10 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 			var errorStr []string
 			for index, err := range errs {
 				glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)
-				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s for %s/%s/%s.",
-					rule.Name, index, failedPaths[index], resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s.", rule.Name, index, failedPaths[index])
 				errorStr = append(errorStr, str)
 			}
-			response.Message = fmt.Sprintf("Validation error: %s\n%s", rule.Validation.Message, strings.Join(errorStr, "\n"))
+			response.Message = fmt.Sprintf("Validation error for %s/%s/%s: %s\n%s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, strings.Join(errorStr, "\n"))
 
 			return response
 		}
