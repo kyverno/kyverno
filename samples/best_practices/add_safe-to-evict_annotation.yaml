@@ -35,4 +35,4 @@ spec:
         spec:          
           volumes: 
           - (hostPath):
-            path: "*"
+              path: "*"

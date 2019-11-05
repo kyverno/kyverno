@@ -33,7 +33,9 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
 		glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
 		//TODO: send zero response and not consider this as applied?
-		return RuleResponse{}, resource
+		response.Success = false
+		response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+		return response, resource
 	}
 
 	if err != nil {

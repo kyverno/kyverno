@@ -20,4 +20,4 @@ expected:
         - name: host-path-add-safe-to-evict
           type: Mutation
           success: false
-          message: "successfully processed overlay"          
+          message: "Resource Pod//pod-with-emptydir: Conditions are not met at /spec/volumes/0/hostPath/, resource field hostPath is not present."
