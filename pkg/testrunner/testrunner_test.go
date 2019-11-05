@@ -126,3 +126,7 @@ func Test_validate_disallow_docker_sock_mount(t *testing.T) {
 func Test_validate_disallow_helm_tiller(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_helm_tiller.yaml")
 }
+
+func Test_mutate_add_safe_to_evict_annotation(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/scenario_mutate_safe-to-evict.yaml")
+}

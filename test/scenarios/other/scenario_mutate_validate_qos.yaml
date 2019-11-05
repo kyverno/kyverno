@@ -1,4 +1,4 @@
-# file path relative to project root
+# file path is relative to project root
 input:
   policy: test/policy/mutate/policy_mutate_validate_qos.yaml
   resource: test/resources/resource_mutate_validate_qos.yaml
@@ -16,7 +16,7 @@ expected:
         - name: add-memory-limit
           type: Mutation
           success: true
-          message: succesfully process overlay
+          message: successfully processed overlay
   validation:
     policyresponse:
       policy: policy-qos
