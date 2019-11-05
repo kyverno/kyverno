@@ -69,7 +69,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 
 	// rule application succesfuly
 	response.Success = true
-	response.Message = fmt.Sprintf("succesfully process overlay")
+	response.Message = fmt.Sprintf("successfully processed overlay")
 	response.Patches = patches
 	// apply the patches to the resource
 	return response, patchedResource

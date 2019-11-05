@@ -947,3 +947,96 @@ func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
 
 	compareJSONAsMap(t, expectedResult, doc)
 }
+
+func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
+	overlayRaw := []byte(`
+	{
+		"metadata": {
+		   "annotations": {
+			  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+		   }
+		},
+		"spec": {
+		   "volumes": [
+			  {
+				 "(emptyDir)": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	resourceRaw := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "pod-with-emptydir"
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "image": "k8s.gcr.io/test-webserver",
+				 "name": "test-container",
+				 "volumeMounts": [
+					{
+					   "mountPath": "/cache",
+					   "name": "cache-volume"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "cache-volume",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	patches, err := processOverlayPatches(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(patches) != 0)
+
+	doc, err := ApplyPatches(resourceRaw, patches)
+	assert.NilError(t, err)
+
+	expectedResult := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "pod-with-emptydir",
+		   "annotations": {
+			  "cluster-autoscaler.kubernetes.io/safe-to-evict": true
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "image": "k8s.gcr.io/test-webserver",
+				 "name": "test-container",
+				 "volumeMounts": [
+					{
+					   "mountPath": "/cache",
+					   "name": "cache-volume"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "cache-volume",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	compareJSONAsMap(t, expectedResult, doc)
+}

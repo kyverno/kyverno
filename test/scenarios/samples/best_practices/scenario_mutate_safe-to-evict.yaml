@@ -16,4 +16,4 @@ expected:
         - name: add-safe-to-evict-annotation
           type: Mutation
           success: true
-          message: "succesfully processed overlay"
+          message: "successfully processed overlay"
