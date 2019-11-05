@@ -14,5 +14,5 @@ expected:
       rules:
         - name: trusted-registries
           type: Validation
-          message: Validation rule 'trusted-registries' succeeded for Pod//k8s-nginx.
+          message: Validation rule 'trusted-registries' succeeded.
           success: true

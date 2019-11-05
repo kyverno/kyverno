@@ -1817,7 +1817,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' succeeded for Pod//myapp-pod.",
+		"Validation rule 'validate-tag' succeeded.",
 		"Validation error: imagePullPolicy 'Always' required with tag 'latest'\nValidation rule 'validate-latest' failed at path '/spec/containers/0/imagePullPolicy/' for Pod//myapp-pod.",
 	}
 	er := Validate(policy, *resourceUnstructured)
@@ -1915,8 +1915,8 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' succeeded for Pod//myapp-pod.",
-		"Validation rule 'validate-latest' succeeded for Pod//myapp-pod.",
+		"Validation rule 'validate-tag' succeeded.",
+		"Validation rule 'validate-latest' succeeded.",
 	}
 	er := Validate(policy, *resourceUnstructured)
 	for index, r := range er.PolicyResponse.Rules {
@@ -1992,7 +1992,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation error: A namespace is required\nValidation rule check-default-namespace anyPattern[0] failed at path /metadata/namespace/ for Pod//myapp-pod.\nValidation rule check-default-namespace anyPattern[1] failed at path /metadata/namespace/ for Pod//myapp-pod."}
+	msgs := []string{"Validation error for Pod//myapp-pod: A namespace is required\nValidation rule check-default-namespace anyPattern[0] failed at path /metadata/namespace/.\nValidation rule check-default-namespace anyPattern[1] failed at path /metadata/namespace/."}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -2162,7 +2162,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'validate-host-path' succeeded for Pod//image-with-hostpath."}
+	msgs := []string{"Validation rule 'validate-host-path' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2319,7 +2319,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'pod rule 2' succeeded for Pod//myapp-pod."}
+	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2391,7 +2391,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'pod rule 2' succeeded for Pod//myapp-pod."}
+	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2537,7 +2537,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'pod image rule' succeeded for Pod//myapp-pod."}
+	msgs := []string{"Validation rule 'pod image rule' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		t.Log(r.Message)
@@ -2760,7 +2760,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'pod image rule' succeeded for Pod//myapp-pod."}
+	msgs := []string{"Validation rule 'pod image rule' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2933,7 +2933,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation rule 'validate-host-path' succeeded for Pod//image-with-hostpath."}
+	msgs := []string{"Validation rule 'validate-host-path' succeeded."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])

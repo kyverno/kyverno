@@ -28,5 +28,5 @@ expected:
       rules:
         - name: check-cpu-memory-limits
           type: Validation
-          message: Validation rule 'check-cpu-memory-limits' succeeded for Deployment//qos-demo.
+          message: Validation rule 'check-cpu-memory-limits' succeeded.
           success: true     
