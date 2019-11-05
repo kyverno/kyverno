@@ -18,5 +18,5 @@ expected:
           success: true
         - name: image-tag-not-latest
           type: Validation
-          message: "Validation error: Using 'latest' image tag is restricted. Set image tag to a specific version\nValidation rule 'image-tag-not-latest' failed at path '/spec/containers/0/image/' for Pod//myapp-pod."
+          message: "Validation error for Pod//myapp-pod: Using 'latest' image tag is restricted. Set image tag to a specific version\nValidation rule 'image-tag-not-latest' failed at path '/spec/containers/0/image/'."
           success: false   

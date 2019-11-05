@@ -15,5 +15,5 @@ expected:
       rules:
         - name: validate-container-capablities
           type: Validation
-          message: "Validation error: Allow certain linux capability\nValidation rule 'validate-container-capablities' failed at path '/spec/containers/0/securityContext/capabilities/add/0/' for Pod//add-capabilities."
+          message: "Validation error for Pod//add-capabilities: Allow certain linux capability\nValidation rule 'validate-container-capablities' failed at path '/spec/containers/0/securityContext/capabilities/add/0/'."
           success: false
