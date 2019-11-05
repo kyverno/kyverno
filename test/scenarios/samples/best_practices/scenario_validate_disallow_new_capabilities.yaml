@@ -14,5 +14,5 @@ expected:
       rules:
         - name: deny-new-capabilities
           type: Validation
-          message: Validation rule 'deny-new-capabilities' failed to validate patterns defined in anyPattern. Capabilities cannot be added.; anyPattern[0] failed at path /spec/; anyPattern[1] failed at path /spec/containers/0/securityContext/capabilities/add/
+          message: "Validation error: Capabilities cannot be added\nValidation rule deny-new-capabilities anyPattern[0] failed at path /spec/ for Pod//add-new-capabilities.\nValidation rule deny-new-capabilities anyPattern[1] failed at path /spec/containers/0/securityContext/capabilities/add/ for Pod//add-new-capabilities."
           success: false

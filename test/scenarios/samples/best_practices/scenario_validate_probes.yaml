@@ -14,5 +14,5 @@ expected:
       rules:
         - name: check-probes
           type: Validation
-          message: Validation rule 'check-probes' failed at '/spec/containers/0/livenessProbe/' for resource Pod//myapp-pod. Liveness and readiness probes are required.
+          message: "Validation error: Liveness and readiness probes are required\nValidation rule 'check-probes' failed at path '/spec/containers/0/livenessProbe/' for Pod//myapp-pod."
           success: false 

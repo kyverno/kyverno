@@ -15,13 +15,13 @@ expected:
       rules:
         - name: validate-userid
           type: Validation
-          message: Validation rule 'validate-userid' succesfully validated
+          message: Validation rule 'validate-userid' succeeded for Pod//fsgroup-demo.
           success: true
         - name: validate-groupid
           type: Validation
-          message: Validation rule 'validate-groupid' succesfully validated
+          message: Validation rule 'validate-groupid' succeeded for Pod//fsgroup-demo.
           success: true
         - name: validate-fsgroup
           type: Validation
-          message: Validation rule 'validate-fsgroup' succesfully validated
+          message: Validation rule 'validate-fsgroup' succeeded for Pod//fsgroup-demo.
           success: true
