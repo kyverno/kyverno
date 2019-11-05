@@ -20,6 +20,6 @@ expected:
           success: false
         - name: check-namespace-exist
           type: Validation
-          message: "Validation rule 'check-namespace-exist' succeeded for Pod/default/myapp-pod."
+          message: "Validation rule 'check-namespace-exist' succeeded."
           success: true
 

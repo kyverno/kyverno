@@ -14,5 +14,5 @@ expected:
       rules:
         - name: disallow-automoutingapicred
           type: Validation
-          message: Validation rule 'disallow-automoutingapicred' succeeded for Pod//myapp-pod.
+          message: Validation rule 'disallow-automoutingapicred' succeeded.
           success: true 

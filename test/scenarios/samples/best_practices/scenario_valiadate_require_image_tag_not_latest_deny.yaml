@@ -14,7 +14,7 @@ expected:
       rules:
         - name: image-tag-notspecified
           type: Validation
-          message: "Validation rule 'image-tag-notspecified' succeeded for Pod//myapp-pod."
+          message: "Validation rule 'image-tag-notspecified' succeeded."
           success: true
         - name: image-tag-not-latest
           type: Validation
