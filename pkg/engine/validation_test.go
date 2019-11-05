@@ -1818,7 +1818,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	assert.NilError(t, err)
 	msgs := []string{
 		"Validation rule 'validate-tag' succeeded.",
-		"Validation error: imagePullPolicy 'Always' required with tag 'latest'\nValidation rule 'validate-latest' failed at path '/spec/containers/0/imagePullPolicy/' for Pod//myapp-pod.",
+		"Validation error for Pod//myapp-pod: imagePullPolicy 'Always' required with tag 'latest'\nValidation rule 'validate-latest' failed at path '/spec/containers/0/imagePullPolicy/'.",
 	}
 	er := Validate(policy, *resourceUnstructured)
 	for index, r := range er.PolicyResponse.Rules {
@@ -2073,7 +2073,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation error: Host network and port are not allowed\nValidation rule 'validate-host-network-port' failed at path '/spec/containers/0/ports/0/hostPort/' for Pod//nginx-host-network."}
+	msgs := []string{"Validation error for Pod//nginx-host-network: Host network and port are not allowed\nValidation rule 'validate-host-network-port' failed at path '/spec/containers/0/ports/0/hostPort/'."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2250,7 +2250,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation error: Host path '/var/lib/' is not allowed\nValidation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/path/' for Pod//image-with-hostpath."}
+	msgs := []string{"Validation error for Pod//image-with-hostpath: Host path '/var/lib/' is not allowed\nValidation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/path/'."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2463,7 +2463,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation error: pod: validate run as non root user\nValidation rule 'pod rule 2' failed at path '/spec/securityContext/runAsNonRoot/' for Pod//myapp-pod."}
+	msgs := []string{"Validation error for Pod//myapp-pod: pod: validate run as non root user\nValidation rule 'pod rule 2' failed at path '/spec/securityContext/runAsNonRoot/'."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -2847,7 +2847,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(policy, *resourceUnstructured)
-	msgs := []string{"Validation error: Host path is not allowed\nValidation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/' for Pod//image-with-hostpath."}
+	msgs := []string{"Validation error for Pod//image-with-hostpath: Host path is not allowed\nValidation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/'."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
