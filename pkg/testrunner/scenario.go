@@ -3,6 +3,7 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -283,9 +284,8 @@ func compareResourceSpec(t *testing.T, resource engine.ResourceSpec, expectedRes
 func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.RuleResponse) {
 	// name
 	if rule.Name != expectedRule.Name {
-		t.Errorf("rule name: expected %s, recieved %s", expectedRule.Name, rule.Name)
+		t.Errorf("rule name: expected %s, recieved %+v", expectedRule.Name, rule.Name)
 		// as the rule names dont match no need to compare the rest of the information
-		return
 	}
 	// type
 	if rule.Type != expectedRule.Type {
@@ -443,11 +443,15 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-	//load scenario
+	flag.Parse()
+	flag.Set("v", "10")
+	flag.Set("logtostderr", "true")
+
 	scenario, err := loadScenario(t, path)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+
 	runScenario(t, scenario)
 }
