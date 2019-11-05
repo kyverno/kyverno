@@ -1,0 +1,22 @@
+apiVersion: "kyverno.io/v1alpha1"
+kind: "ClusterPolicy"
+metadata: 
+  name: "annotate-emptyDir"
+  annotations:
+    policies.kyverno.io/category: AutoScaling
+    policies.kyverno.io/description: 
+spec: 
+  rules: 
+  - name: "add-safe-to-evict-annotation"
+    match: 
+      resources: 
+        kinds: 
+        - "Pod"
+    mutate: 
+      overlay:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): true
+        spec:          
+          volumes: 
+          - (emptyDir): {}

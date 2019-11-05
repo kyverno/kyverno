@@ -1,4 +1,4 @@
-# file path relative to project root
+# file path is relative to project root
 input:
   policy: test/policy/mutate/policy_mutate_validate_qos.yaml
   resource: test/resources/resource_mutate_validate_qos.yaml
