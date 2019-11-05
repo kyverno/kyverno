@@ -22,10 +22,6 @@ func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_validate_healthChecks.yaml")
 }
 
-func Test_validate_nonRootUsers(t *testing.T) {
-	testScenario(t, "/test/scenarios/samples/best_practices/scenario_validate_nonRootUser.yaml")
-}
-
 func Test_generate_networkPolicy(t *testing.T) {
 	testScenario(t, "/test/scenarios/samples/best_practices/scenario_generate_networkPolicy.yaml")
 }
