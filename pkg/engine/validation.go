@@ -87,13 +87,14 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 			// rule application failed
 			glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
 			response.Success = false
-			response.Message = fmt.Sprintf("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s.", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message)
+			response.Message = fmt.Sprintf("Validation error: %s\nValidation rule '%s' failed at path '%s' for %s/%s/%s.",
+				rule.Validation.Message, rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			return response
 		}
 		// rule application succesful
 		glog.V(4).Infof("rule %s pattern validated succesfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		response.Success = true
-		response.Message = fmt.Sprintf("Validation rule '%s' succesfully validated", rule.Name)
+		response.Message = fmt.Sprintf("Validation rule '%s' succeeded for %s/%s/%s.", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		return response
 	}
 
@@ -107,11 +108,12 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 				// this pattern was succesfully validated
 				glog.V(4).Infof("anyPattern %v succesfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				response.Success = true
-				response.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succesfully validated", rule.Name, index)
+				response.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded for %s/%s/%s.", rule.Name, index, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				return response
 			}
 			if err != nil {
-				glog.V(4).Infof("anyPattern %v, failed to validate on resource %s/%s/%s at path %s: %v", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName(), path, err)
+				glog.V(4).Infof("Validation error: %s\nValidation rule %s anyPattern[%d] failed at path %s for %s/%s/%s",
+					rule.Validation.Message, rule.Name, index, path, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				errs = append(errs, err)
 				failedPaths = append(failedPaths, path)
 			}
@@ -122,13 +124,14 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 			response.Success = false
 			response.Success = false
 			var errorStr []string
-			errorStr = append(errorStr, fmt.Sprintf("Validation rule '%s' failed to validate patterns defined in anyPattern. %s.", rule.Name, rule.Validation.Message))
 			for index, err := range errs {
 				glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)
-				str := fmt.Sprintf("anyPattern[%d] failed at path %s", index, failedPaths[index])
+				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s for %s/%s/%s.",
+					rule.Name, index, failedPaths[index], resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				errorStr = append(errorStr, str)
 			}
-			response.Message = strings.Join(errorStr, "; ")
+			response.Message = fmt.Sprintf("Validation error: %s\n%s", rule.Validation.Message, strings.Join(errorStr, "\n"))
+
 			return response
 		}
 	}
