@@ -1,7 +1,7 @@
 apiVersion: "kyverno.io/v1alpha1"
 kind: "ClusterPolicy"
 metadata: 
-  name: "annotate-emptyDir"
+  name: "annotate-emptydir-hostpath"
   annotations:
     policies.kyverno.io/category: AutoScaling
     policies.kyverno.io/description: The Kubernetes cluster autoscaler does not evict pods that 

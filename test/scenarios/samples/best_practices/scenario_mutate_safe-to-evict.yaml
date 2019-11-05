@@ -6,7 +6,7 @@ expected:
   mutation:
     patchedresource: test/output/pod-with-emptydir.yaml
     policyresponse:
-      policy: annotate-emptyDir
+      policy: annotate-emptydir-hostpath
       resource:
         kind: Pod
         apiVersion: v1
