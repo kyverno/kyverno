@@ -228,7 +228,7 @@ func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]
 	anchors := make(map[string]interface{})
 	elementsWithoutanchor := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
+		if anchor.IsConditionAnchor(key) {
 			anchors[key] = value
 		} else if !anchor.IsAddingAnchor(key) {
 			elementsWithoutanchor[key] = value

@@ -595,3 +595,63 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	_, err = meetConditions(resource, overlay)
 	assert.Error(t, err, "failed validating value ENV_VALUE with overlay ENV_VALUE1")
 }
+
+func TestMeetConditions_AtleastOneExist(t *testing.T) {
+	overlayRaw := []byte(`
+	{
+		"metadata": {
+		   "annotations": {
+			  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+		   }
+		},
+		"spec": {
+		   "volumes": [
+			  {
+				 "(emptyDir)": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	// validate when resource has multiple same blocks
+	resourceRaw := []byte(`
+	{
+		"spec": {
+		   "containers": [
+			  {
+				 "image": "k8s.gcr.io/test-webserver",
+				 "name": "test-container",
+				 "volumeMounts": [
+					{
+					   "mountPath": "/cache",
+					   "name": "cache-volume"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "cache-volume1",
+				 "emptyDir": 1
+			  },
+			  {
+				 "name": "cache-volume2",
+				 "emptyDir": 2
+			  },
+			  {
+				 "name": "cache-volume3",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	path, err := meetConditions(resource, overlay)
+	assert.NilError(t, err)
+	assert.Assert(t, len(path) == 0)
+}

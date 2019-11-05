@@ -50,10 +50,12 @@ func checkConditions(resource, overlay interface{}, path string) (string, error)
 func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}, path string) (string, error) {
 	anchors, overlayWithoutAnchor := getAnchorAndElementsFromMap(overlayMap)
 
+	// validate resource with conditions
 	if newPath, err := validateConditionAnchorMap(resourceMap, anchors, path); err != nil {
 		return newPath, err
 	}
 
+	// traverse overlay pattern to further validate conditions
 	if newPath, err := validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor, path); err != nil {
 		return newPath, err
 	}
@@ -87,6 +89,8 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 		noAnchorKey := removeAnchor(key)
 		curPath := path + noAnchorKey + "/"
 		if resourceValue, ok := resourceMap[noAnchorKey]; ok {
+			// compare entire resourceValue block
+			// return immediately on err since condition fails on this block
 			if newPath, err := compareOverlay(resourceValue, overlayValue, curPath); err != nil {
 				return newPath, err
 			}
@@ -143,6 +147,7 @@ func compareOverlay(resource, overlay interface{}, path string) (string, error) 
 	return "", nil
 }
 
+// validateNonAnchorOverlayMap validate anchor condition in overlay block without anchor
 func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]interface{}, path string) (string, error) {
 	// validate resource map (anchors could exist in resource)
 	for key, overlayValue := range overlayWithoutAnchor {
@@ -179,13 +184,22 @@ func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}, path str
 }
 
 func checkConditionsOnArrayOfMaps(resource, overlay []interface{}, path string) (string, error) {
+	var newPath string
+	var err error
+
 	for i, overlayElement := range overlay {
 		for _, resourceMap := range resource {
 			curPath := path + strconv.Itoa(i) + "/"
-			if newPath, err := checkConditionOnMap(resourceMap.(map[string]interface{}), overlayElement.(map[string]interface{}), curPath); err != nil {
-				return newPath, err
+			newPath, err = checkConditionOnMap(resourceMap.(map[string]interface{}), overlayElement.(map[string]interface{}), curPath)
+			// when resource has multiple same blocks of the overlay block
+			// return true if there is one resource block meet the overlay pattern
+			// reference: TestMeetConditions_AtleastOneExist
+			if err == nil {
+				return "", nil
 			}
 		}
 	}
-	return "", nil
+
+	// report last error
+	return newPath, err
 }
