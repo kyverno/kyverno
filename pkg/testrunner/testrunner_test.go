@@ -118,3 +118,7 @@ func Test_validate_disallow_new_capabilities(t *testing.T) {
 func Test_validate_disallow_docker_sock_mount(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_docker_sock_mount.yaml")
 }
+
+func Test_validate_disallow_helm_tiller(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_helm_tiller.yaml")
+}
