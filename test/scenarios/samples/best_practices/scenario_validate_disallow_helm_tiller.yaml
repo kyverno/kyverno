@@ -12,5 +12,5 @@ expected:
       rules:
         - name: validate-helm-tiller
           type: Validation
-          message: "Validation rule 'validate-helm-tiller' failed at '/spec/containers/0/image/' for resource Pod//pod-helm-tiller. Helm Tiller is not allowed."
+          message: "Validation error for Pod//pod-helm-tiller: Helm Tiller is not allowed\nValidation rule 'validate-helm-tiller' failed at path '/spec/containers/0/image/'."
           success: false
