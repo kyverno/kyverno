@@ -42,6 +42,7 @@ func checkConditions(resource, overlay interface{}, path string) (string, error)
 	default:
 		// anchor on non map/array is invalid:
 		// - anchor defined on values
+		glog.Warningln("Found invalid conditional anchor: anchor defined on values")
 		return "", nil
 	}
 }

@@ -210,12 +210,12 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
-// Validation
+// getAnchorsFromMap gets the conditional anchor map
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
+		if anchor.IsConditionAnchor(key) {
 			result[key] = value
 		}
 	}
