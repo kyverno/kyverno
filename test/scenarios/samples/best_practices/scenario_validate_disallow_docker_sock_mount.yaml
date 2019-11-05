@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_docker_sock_mount.yaml
+  resource: test/resources/disallow_docker_sock_mount.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-docker-sock-mount
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: pod-with-docker-sock-mount
+      rules:
+        - name: validate-docker-sock-mount
+          type: Validation
+          message: Validation rule 'validate-docker-sock-mount' failed at '/spec/volumes/' for resource Pod//pod-with-docker-sock-mount. Use of the Docker Unix socket is not allowed.
+          success: false

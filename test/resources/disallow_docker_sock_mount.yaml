@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+ name: pod-with-docker-sock-mount
+spec:
+  containers:
+   - name: myshell
+     image: "ubuntu:18.04"
+     command:
+       - /bin/sleep
+       - "300"
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock

@@ -13,5 +13,5 @@ expected:
       rules:
         - name: disallow-node-port
           type: Validation
-          message: Validation rule 'disallow-node-port' failed at '/spec/type/' for resource Service//my-service. Disallow service of type NodePort
+          message: Validation rule 'disallow-node-port' failed at '/spec/type/' for resource Service//my-service. Disallow service of type NodePort.
           success: false

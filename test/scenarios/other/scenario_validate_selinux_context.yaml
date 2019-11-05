@@ -15,5 +15,5 @@ expected:
       rules:
         - name: validate-selinux-options
           type: Validation
-          message: "Validation rule 'validate-selinux-options' failed at '/spec/containers/0/securityContext/seLinuxOptions/' for resource Pod/default/busybox-selinux. SELinux level is required"
+          message: "Validation rule 'validate-selinux-options' failed at '/spec/containers/0/securityContext/seLinuxOptions/' for resource Pod/default/busybox-selinux. SELinux level is required."
           success: false
