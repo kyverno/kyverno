@@ -292,7 +292,8 @@ func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.Ru
 		t.Errorf("rule type: expected %s, recieved %s", expectedRule.Type, rule.Type)
 	}
 	// message
-	if rule.Message != expectedRule.Message {
+	// compare messages if expected rule message is not empty
+	if expectedRule.Message != "" && rule.Message != expectedRule.Message {
 		t.Errorf("rule message: expected %s, recieved %s", expectedRule.Message, rule.Message)
 	}
 	// //TODO patches
