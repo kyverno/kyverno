@@ -28,9 +28,6 @@ const (
 
 func main() {
 	defer glog.Flush()
-	// Test
-	glog.Errorf("failed to cleanup webhook configurations")
-	os.Exit(1)
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// arguments
