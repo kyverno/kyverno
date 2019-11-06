@@ -17,6 +17,10 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
+// conditionalFieldEmpty is the message to indicate the conditional key
+// is not present in the resource, the rule is skipped and is considered as successs
+const conditionalFieldEmpty = "resource field is not present"
+
 // processOverlay processes validation patterns on the resource
 func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
@@ -33,7 +37,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	if err != nil {
 		// condition key is not present in the resource, don't apply this rule
 		// consider as success
-		if strings.Contains(err.Error(), "policy not applied") {
+		if strings.Contains(err.Error(), conditionalFieldEmpty) {
 			response.Success = true
 			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
 			return response, resource
@@ -92,7 +96,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
 	if path, err := meetConditions(resource, overlay); err != nil {
 		// anchor key does not exist in the resource, skip applying policy
-		if strings.Contains(err.Error(), "resource field is not present") {
+		if strings.Contains(err.Error(), conditionalFieldEmpty) {
 			glog.V(4).Infof("Mutate rule: policy not applied: %v at %s", err, path)
 			return nil, fmt.Errorf("policy not applied: %v at %s", err, path)
 		}
