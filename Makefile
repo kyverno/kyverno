@@ -1,6 +1,5 @@
 .DEFAULT_GOAL: build
 
-
 # The CLI binary to build
 BIN ?= kyverno
 
@@ -24,6 +23,31 @@ OUTPUT=$(shell pwd)/_output/cli/$(BIN)
 
 build:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags=$(LD_FLAGS) $(MAIN)
+
+initContainer:
+	@echo "building initContainer"
+	$(eval BIN:= kyvernopre)
+	$(eval PATH:= $(shell pwd)/cmd/initContainer)
+	$(eval OUTPUT=$(PATH)/$(BIN))
+	$(eval FLAGS="-s -w")
+
+	CGO_ENABLED=0 GOOS=linux  go build -o $(OUTPUT) -ldflags=$(FLAGS)  $(PATH)/main.go
+
+docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initContainer docker-push-initContainer
+
+docker-build-initContainer:
+	$(eval PATH:= $(shell pwd)/cmd/initContainer/)
+	$(eval REPO:= $(REGISTRY)/nirmata/kyvernopre)
+	@docker build -f $(PATH)/Dockerfile -t $(REPO):$(IMAGE_TAG) $(PATH)
+
+docker-tag-repo-initContainer:
+	$(eval REPO:= $(REGISTRY)/nirmata/kyvernoPre)
+	@docker tag $(REPO):$(IMAGE_TAG) $(REPO):latest
+
+docker-push-initContainer:
+	$(eval REPO:= $(REGISTRY)/nirmata/kyvernoPre)
+	@docker push $(REPO):$(IMAGE_TAG)
+	@docker push $(REPO):latest
 
 local:
 	go build -ldflags=$(LD_FLAGS) $(MAIN)
