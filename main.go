@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -41,7 +42,7 @@ func main() {
 	prof = enableProfiling(cpu, memory)
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
-	// SIGINT & SIGTERM channel
+	//  handle os signals
 	stopCh := signal.SetupSignalHandler()
 	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
@@ -162,15 +163,22 @@ func main() {
 	go egen.Run(1, stopCh)
 	go nsc.Run(1, stopCh)
 
-	//TODO add WG for the go routines?
 	server.RunAsync()
-
 	<-stopCh
 	disableProfiling(prof)
-	server.Stop()
+	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
+	// adding a threshold will handle zombie connections
+	// adjust the context deadline to 5 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+	// cleanup webhookconfigurations followed by webhook shutdown
+	server.Stop(ctx)
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp
+	glog.Info("successful shutdown of kyverno controller")
 }
 
 func init() {

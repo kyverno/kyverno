@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -67,9 +68,9 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	return nil
 }
 
-// RemovePolicyWebhookConfigurations removes webhook configurations for reosurces and policy
+// RemoveWebhookConfigurations removes webhook configurations for reosurces and policy
 // called during webhook server shutdown
-func (wrc *WebhookRegistrationClient) RemovePolicyWebhookConfigurations(cleanUp chan<- struct{}) {
+func (wrc *WebhookRegistrationClient) RemoveWebhookConfigurations(cleanUp chan<- struct{}) {
 	//TODO: dupliate, but a placeholder to perform more error handlind during cleanup
 	wrc.removeWebhookConfigurations()
 	// close channel to notify cleanup is complete
@@ -193,16 +194,54 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	defer func() {
 		glog.V(4).Infof("Finished cleaning up webhookcongfigurations (%v)", time.Since(startTime))
 	}()
-	// mutating and validating webhook configuration for Kubernetes resources
-	wrc.RemoveResourceMutatingWebhookConfiguration()
 
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+	// mutating and validating webhook configuration for Kubernetes resources
+	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	// mutating and validating webhook configurtion for Policy CRD resource
-	wrc.removePolicyWebhookConfigurations()
+	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
+	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
+
+	// wait for the removal go routines to return
+	wg.Wait()
 }
 
-// removePolicyWebhookConfigurations removes mutating and validating webhook configurations, if already presnt
-// webhookConfigurations are re-created later
-func (wrc *WebhookRegistrationClient) removePolicyWebhookConfigurations() {
+// wrapper to handle wait group
+// TODO: re-work with RemoveResourceMutatingWebhookConfiguration, as the only difference is wg handling
+func (wrc *WebhookRegistrationClient) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.RemoveResourceMutatingWebhookConfiguration()
+}
+
+// delete policy mutating webhookconfigurations
+// handle wait group
+func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	// Mutating webhook configuration
+	var mutatingConfig string
+	if wrc.serverIP != "" {
+		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
+	} else {
+		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
+	}
+
+	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
+	err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(mutatingConfig, &v1.DeleteOptions{})
+	if errorsapi.IsNotFound(err) {
+		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", mutatingConfig)
+	} else if err != nil {
+		glog.Errorf("failed to delete policy webhook configuration %s: %v", mutatingConfig, err)
+	} else {
+		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", mutatingConfig)
+	}
+}
+
+// delete policy validating webhookconfigurations
+// handle wait group
+func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
 	// Validating webhook configuration
 	var err error
 	var validatingConfig string
@@ -219,23 +258,5 @@ func (wrc *WebhookRegistrationClient) removePolicyWebhookConfigurations() {
 		glog.Errorf("failed to delete policy webhook configuration %s: %v", validatingConfig, err)
 	} else {
 		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", validatingConfig)
-	}
-
-	// Mutating webhook configuration
-	var mutatingConfig string
-	if wrc.serverIP != "" {
-		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
-	} else {
-		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
-	}
-
-	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
-	err = wrc.registrationClient.MutatingWebhookConfigurations().Delete(mutatingConfig, &v1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", mutatingConfig)
-	} else if err != nil {
-		glog.Errorf("failed to delete policy webhook configuration %s: %v", mutatingConfig, err)
-	} else {
-		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", mutatingConfig)
 	}
 }
