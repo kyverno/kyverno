@@ -29,13 +29,25 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	}()
 
 	patches, err := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
-	// resource does not satisfy the overlay pattern, we dont apply this rule
-	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
-		glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
-		//TODO: send zero response and not consider this as applied?
-		response.Success = false
-		response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
-		return response, resource
+	// resource does not satisfy the overlay pattern, we don't apply this rule
+	if err != nil {
+		// condition key is not present in the resource, don't apply this rule
+		// consider as success
+		if strings.Contains(err.Error(), "policy not applied") {
+			response.Success = true
+			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+			return response, resource
+		}
+
+		// conditions are not met, don't apply this rule
+		// consider as failure
+		if strings.Contains(err.Error(), "Conditions are not met") {
+			glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
+			//TODO: send zero response and not consider this as applied?
+			response.Success = false
+			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+			return response, resource
+		}
 	}
 
 	if err != nil {
@@ -78,8 +90,14 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 }
 
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
-
 	if path, err := meetConditions(resource, overlay); err != nil {
+		// anchor key does not exist in the resource, skip applying policy
+		if strings.Contains(err.Error(), "resource field is not present") {
+			glog.V(4).Infof("Mutate rule: policy not applied: %v at %s", err, path)
+			return nil, fmt.Errorf("policy not applied: %v at %s", err, path)
+		}
+
+		// anchor key is not satisfied in the resource, skip applying policy
 		glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, err)
 		return nil, fmt.Errorf("Conditions are not met at %s, %v", path, err)
 	}

@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"reflect"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -52,7 +52,7 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse RuleResponse
 			ruleResponse, patchedResource = processOverlay(rule, resource)
-			if reflect.DeepEqual(ruleResponse, (RuleResponse{})) {
+			if strings.Contains(ruleResponse.Message, "policy not applied") {
 				// overlay pattern does not match the resource conditions
 				continue
 			}

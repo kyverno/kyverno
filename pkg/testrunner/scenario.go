@@ -202,8 +202,8 @@ func validateGeneratedResources(t *testing.T, client *client.Client, policy kyve
 }
 
 func validateResource(t *testing.T, responseResource unstructured.Unstructured, expectedResourceFile string) {
-	resourcePrint := func(obj unstructured.Unstructured) {
-		t.Log("-----patched resource----")
+	resourcePrint := func(obj unstructured.Unstructured, msg string) {
+		t.Logf("-----%s----", msg)
 		if data, err := obj.MarshalJSON(); err == nil {
 			t.Log(string(data))
 		}
@@ -219,8 +219,8 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 		return
 	}
 
-	resourcePrint(responseResource)
-	resourcePrint(*expectedResource)
+	resourcePrint(responseResource, "response resource")
+	resourcePrint(*expectedResource, "expected resource")
 	// compare the resources
 	if !reflect.DeepEqual(responseResource, *expectedResource) {
 		t.Error("failed: response resource returned does not match expected resource")
