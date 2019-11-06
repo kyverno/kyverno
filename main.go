@@ -13,11 +13,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 var (
@@ -42,7 +42,7 @@ func main() {
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
 	// SIGINT & SIGTERM channel
-	stopCh := signals.SetupSignalHandler()
+	stopCh := signal.SetupSignalHandler()
 	// CLIENT CONFIG
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
