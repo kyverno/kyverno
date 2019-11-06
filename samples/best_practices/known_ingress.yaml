@@ -1,0 +1,20 @@
+apiVersion : kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: known-ingress
+  annotations:
+    policies.kyverno.io/category: Ingress
+    policies.kyverno.io/description: 
+spec:
+  rules:
+  - name: known-ingress
+    match:
+      resources:
+        kinds:
+        - Ingress
+    validate:
+      message: "Unknown ingress class"
+      pattern:
+        metadata:
+          annotations:
+            kubernetes.io/ingress.class: "F5 | nginx"

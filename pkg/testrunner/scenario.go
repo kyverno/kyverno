@@ -134,25 +134,21 @@ func runScenario(t *testing.T, s *scenarioT) bool {
 }
 
 func runTestCase(t *testing.T, tc scaseT) bool {
-
-	// apply policy
-	// convert policy -> kyverno.Policy
 	policy := loadPolicy(t, tc.Input.Policy)
 	if policy == nil {
-		t.Error("Policy no loaded")
+		t.Error("Policy not loaded")
 		t.FailNow()
 	}
-	// convert resource -> unstructured.Unstructured
+
 	resource := loadPolicyResource(t, tc.Input.Resource)
 	if resource == nil {
-		t.Error("Resources no loaded")
+		t.Error("Resources not loaded")
 		t.FailNow()
 	}
 
 	var er engine.EngineResponse
-	// Mutation
+
 	er = engine.Mutate(*policy, *resource)
-	// validate te response
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -162,9 +158,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	// Validation
 	er = engine.Validate(*policy, *resource)
-	// validate the response
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 

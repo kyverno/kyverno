@@ -134,3 +134,11 @@ func Test_add_safe_to_evict_annotation(t *testing.T) {
 func Test_add_safe_to_evict_annotation2(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_mutate_safe-to-evict2.yaml")
 }
+
+func Test_known_ingress(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_known_ingress_class.yaml")
+}
+
+func Test_unknown_ingress(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_unknown_ingress_class.yaml")
+}
