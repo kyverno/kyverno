@@ -14,5 +14,5 @@ expected:
       rules:
         - name: known-ingress
           type: Validation
-          message: Validation rule 'known-ingress' failed at '/metadata/annotations/kubernetes.io/ingress.class/' for resource Ingress//test-ingress. Unknown ingress class.
+          message: "Validation error: Unknown ingress class\nValidation rule 'known-ingress' failed at path '/metadata/annotations/kubernetes.io/ingress.class/'."
           success: false

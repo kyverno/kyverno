@@ -16,7 +16,7 @@ expected:
       rules:
         - name: check-default-namespace
           type: Validation
-          message: "Validation error for Pod/default/myapp-pod: Using 'default' namespace is restricted\nValidation rule 'check-default-namespace' failed at path '/metadata/namespace/'."
+          message: "Validation error: Using 'default' namespace is restricted\nValidation rule 'check-default-namespace' failed at path '/metadata/namespace/'."
           success: false
         - name: check-namespace-exist
           type: Validation

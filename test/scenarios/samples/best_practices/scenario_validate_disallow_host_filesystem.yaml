@@ -14,5 +14,5 @@ expected:
       rules:
         - name: deny-use-of-host-fs
           type: Validation
-          message: "Validation error for Pod//image-with-hostpath: Host path is not allowed\nValidation rule 'deny-use-of-host-fs' failed at path '/spec/volumes/0/hostPath/'."
+          message: "Validation error: Host path is not allowed\nValidation rule 'deny-use-of-host-fs' failed at path '/spec/volumes/0/hostPath/'."
           success: false
