@@ -33,10 +33,6 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
 
   ${certsGenerator} "--service=${service_name}" "--serverIp=${serverIp}" || exit 2
 
-  echo "Applying webhook..."
-  kubectl delete -f definitions/MutatingWebhookConfiguration_debug.yaml
-  kubectl create -f definitions/MutatingWebhookConfiguration_debug.yaml || exit 3
-
   kubectl delete -f definitions/install.yaml
   kubectl create -f definitions/install.yaml || exit 3
 
@@ -58,10 +54,6 @@ else # controller should be launched within a cluster
   echo "Creating deployment..."
   kubectl delete -f crd/deployment.yaml
   kubectl create -f crd/deployment.yaml || exit 5
-
-  echo "Applying webhook..."
-  kubectl delete -f crd/MutatingWebhookConfiguration.yaml
-  kubectl create -f crd/MutatingWebhookConfiguration.yaml || exit 3
 
   kubectl delete -f crd/crd.yaml
   kubectl create -f crd/crd.yaml || exit 3

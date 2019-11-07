@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestMeetConditions_NoAnchor(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(nil, overlay)
-	assert.Assert(t, err == nil)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_conditionalAnchorOnMap(t *testing.T) {
@@ -81,7 +82,7 @@ func TestMeetConditions_conditionalAnchorOnMap(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.Assert(t, err != nil)
+	assert.Assert(t, !reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`
 	{  
@@ -100,8 +101,8 @@ func TestMeetConditions_conditionalAnchorOnMap(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	_, err = meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	_, overlayerr := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 }
 
 func TestMeetConditions_DifferentTypes(t *testing.T) {
@@ -193,7 +194,7 @@ func TestMeetConditions_anchosInSameObject(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.Error(t, err, "failed validating value 443 with overlay 444")
+	assert.Error(t, err, "[overlayError:0] failed validating value 443 with overlay 444")
 }
 
 func TestMeetConditions_anchorOnPeer(t *testing.T) {
@@ -251,7 +252,7 @@ func TestMeetConditions_anchorOnPeer(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnMetaAndSpec(t *testing.T) {
@@ -328,7 +329,7 @@ func TestMeetConditions_anchorsOnMetaAndSpec(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 var resourceRawAnchorOnPeers = []byte(`{
@@ -409,7 +410,7 @@ func TestMeetConditions_anchorsOnPeer_single(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
@@ -443,7 +444,7 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.Error(t, err, "failed validating value true with overlay false")
+	assert.Error(t, err, "[overlayError:0] failed validating value true with overlay false")
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -472,7 +473,7 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err = meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -501,7 +502,7 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err = meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
@@ -535,7 +536,7 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -564,7 +565,7 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err = meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -593,7 +594,7 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err = meetConditions(resource, overlay)
-	assert.Error(t, err, "failed validating value ENV_VALUE with overlay ENV_VALUE1")
+	assert.Error(t, err, "[overlayError:0] failed validating value ENV_VALUE with overlay ENV_VALUE1")
 }
 
 func TestMeetConditions_AtleastOneExist(t *testing.T) {
@@ -652,6 +653,6 @@ func TestMeetConditions_AtleastOneExist(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	path, err := meetConditions(resource, overlay)
-	assert.NilError(t, err)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(path) == 0)
 }
