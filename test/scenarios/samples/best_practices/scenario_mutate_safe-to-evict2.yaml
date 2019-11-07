@@ -1,19 +1,19 @@
 # file path is relative to project root
 input:
   policy: samples/best_practices/add_safe-to-evict_annotation.yaml
-  resource: test/resources/pod-with-emptydir.yaml
+  resource: test/resources/pod-with-hostpath.yaml
 expected:
   mutation:
-    patchedresource: test/output/pod-with-emptydir.yaml
+    patchedresource: test/output/pod-with-hostpath.yaml
     policyresponse:
       policy: annotate-emptydir-hostpath
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
-        name: pod-with-emptydir
+        name: pod-with-hostpath
       rules:
-        - name: empty-dir-add-safe-to-evict
+        - name: host-path-add-safe-to-evict
           type: Mutation
           success: true
           message: "successfully processed overlay"

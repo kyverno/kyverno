@@ -39,7 +39,7 @@ These policies are highly recommended.
 1. [Run as non-root user](RunAsNonRootUser.md)
 2. [Disable privileged containers and disallow privilege escalation](DisablePrivilegedContainers.md)
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
-4. [Require Read-only root filesystem](RequireReadOnlyFS.md)
+4. [Require read-only root filesystem](RequireReadOnlyFS.md)
 5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)
 6. [Disallow docker socket bind mount](DisallowDockerSockMount.md)
 7. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
@@ -52,15 +52,14 @@ These policies are highly recommended.
 14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 15. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
 16. [Disallow Helm Tiller](DisallowHelmTiller.md)
+17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](MutateSafeToEvict.md)
 
 ## Additional Policies
 
 The policies provide additional best practices and are worthy of close consideration. These policies may require workload specific changes. 
 
-16. [Limit use of `NodePort` services](LimitNodePort.md)
-17. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
-18. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
-19. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
-
-
-
+18. [Limit use of `NodePort` services](LimitNodePort.md)
+19. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
+20. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
+21. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
+22. [Restrict ingress class](KnownIngressClass.md)
