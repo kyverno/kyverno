@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -16,10 +15,6 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
-
-// conditionalFieldEmpty is the message to indicate the conditional key
-// is not present in the resource, the rule is skipped and is considered as successs
-const conditionalFieldEmpty = "resource field is not present"
 
 // processOverlay processes validation patterns on the resource
 func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
@@ -32,34 +27,39 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
 	}()
 
-	patches, err := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
+	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
 	// resource does not satisfy the overlay pattern, we don't apply this rule
-	if err != nil {
+	if !reflect.DeepEqual(overlayerr, overlayError{}) {
+		switch overlayerr.statusCode {
 		// condition key is not present in the resource, don't apply this rule
 		// consider as success
-		if strings.Contains(err.Error(), conditionalFieldEmpty) {
+		case conditionNotPresent:
+			glog.Infof("Resource %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			response.Success = true
-			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+			response.Message = fmt.Sprintf("Resource %s/%s/%s: %s.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			return response, resource
-		}
-
 		// conditions are not met, don't apply this rule
 		// consider as failure
-		if strings.Contains(err.Error(), "Conditions are not met") {
+		case conditionFailure:
 			glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
 			//TODO: send zero response and not consider this as applied?
 			response.Success = false
-			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			return response, resource
+		// rule application failed
+		case overlayFailure:
+			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), rule.Name)
+			response.Success = false
+			response.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
+			return response, resource
+		default:
+			glog.Errorf("Resource %s/%s/%s: Unknown type of error: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.Error())
+			response.Success = false
+			response.Message = fmt.Sprintf("Unknown type of error: %v", overlayerr.Error())
 			return response, resource
 		}
 	}
 
-	if err != nil {
-		// rule application failed
-		response.Success = false
-		response.Message = fmt.Sprintf("failed to process overlay: %v", err)
-		return response, resource
-	}
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
@@ -93,20 +93,26 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	return response, patchedResource
 }
 
-func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
-	if path, err := meetConditions(resource, overlay); err != nil {
+func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
+	if path, overlayerr := meetConditions(resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
+		switch overlayerr.statusCode {
 		// anchor key does not exist in the resource, skip applying policy
-		if strings.Contains(err.Error(), conditionalFieldEmpty) {
-			glog.V(4).Infof("Mutate rule: policy not applied: %v at %s", err, path)
-			return nil, fmt.Errorf("policy not applied: %v at %s", err, path)
-		}
-
+		case conditionNotPresent:
+			glog.V(4).Infof("Mutate rule: policy not applied: %v at %s", overlayerr, path)
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("policy not applied: %v at %s", overlayerr.ErrorMsg(), path))
 		// anchor key is not satisfied in the resource, skip applying policy
-		glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, err)
-		return nil, fmt.Errorf("Conditions are not met at %s, %v", path, err)
+		case conditionFailure:
+			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Conditions are not met at %s, %v", path, overlayerr))
+		}
 	}
 
-	return mutateResourceWithOverlay(resource, overlay)
+	patchBytes, err := mutateResourceWithOverlay(resource, overlay)
+	if err != nil {
+		return patchBytes, newOverlayError(overlayFailure, err.Error())
+	}
+
+	return patchBytes, overlayError{}
 }
 
 // mutateResourceWithOverlay is a start of overlaying process
