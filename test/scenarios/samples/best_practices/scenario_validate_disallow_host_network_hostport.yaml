@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-host-network-hostport
           type: Validation
-          message: "Validation rule 'validate-host-network-hostport' failed at '/spec/containers/0/ports/0/hostPort/' for resource Pod//nginx-host-network. Defining hostNetwork and hostPort are not allowed."
+          message: "Validation error: Defining hostNetwork and hostPort are not allowed\nValidation rule 'validate-host-network-hostport' failed at path '/spec/containers/0/ports/0/hostPort/'."
           success: false   

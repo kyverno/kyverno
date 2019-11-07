@@ -14,5 +14,5 @@ expected:
       rules:
         - name: deny-use-of-host-fs
           type: Validation
-          message: Validation rule 'deny-use-of-host-fs' succesfully validated
+          message: Validation rule 'deny-use-of-host-fs' succeeded.
           success: true

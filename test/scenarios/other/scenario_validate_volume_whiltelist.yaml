@@ -15,5 +15,5 @@ expected:
       rules:
         - name: validate-volumes-whitelist
           type: Validation
-          message: "Validation rule 'validate-volumes-whitelist' anyPattern[2] succesfully validated"
+          message: "Validation rule 'validate-volumes-whitelist' anyPattern[2] succeeded."
           success: true

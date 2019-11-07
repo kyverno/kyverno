@@ -41,21 +41,15 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 		return nil
 	}
 
-	if _, ok := annotations[policyAnnotation]; ok {
-		// create update patch string
-		patchResponse = response{
-			Op:    "replace",
-			Path:  "/metadata/annotations/" + policyAnnotation,
-			Value: string(value),
-		}
-	} else {
-		// insert 'policies.kyverno.io' entry in annotation map
-		annotations[policyAnnotation] = string(value)
-		patchResponse = response{
-			Op:    "add",
-			Path:  "/metadata/annotations",
-			Value: annotations,
-		}
+	// Kyverno uses jsonpath to patch obejct
+	// since policyAnnotation=policies.kyverno.io/patches contains "/"
+	// the operation here should always be "add"
+	// otherwise the key when patching will be "patches" which is missing
+	annotations[policyAnnotation] = string(value)
+	patchResponse = response{
+		Op:    "add",
+		Path:  "/metadata/annotations",
+		Value: annotations,
 	}
 
 	patchByte, _ := json.Marshal(patchResponse)

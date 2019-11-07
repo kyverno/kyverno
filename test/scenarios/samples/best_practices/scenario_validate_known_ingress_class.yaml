@@ -14,5 +14,5 @@ expected:
       rules:
         - name: known-ingress
           type: Validation
-          message: Validation rule 'known-ingress' succesfully validated
+          message: Validation rule 'known-ingress' succeeded.
           success: true

@@ -286,7 +286,8 @@ func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.Ru
 		t.Errorf("rule type: expected %s, recieved %s", expectedRule.Type, rule.Type)
 	}
 	// message
-	if rule.Message != expectedRule.Message {
+	// compare messages if expected rule message is not empty
+	if expectedRule.Message != "" && rule.Message != expectedRule.Message {
 		t.Errorf("rule message: expected %s, recieved %s", expectedRule.Message, rule.Message)
 	}
 	// //TODO patches
@@ -438,7 +439,7 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 
 func testScenario(t *testing.T, path string) {
 	flag.Set("logtostderr", "true")
-	flag.Set("v", "8")
+	// flag.Set("v", "8")
 
 	scenario, err := loadScenario(t, path)
 	if err != nil {

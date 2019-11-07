@@ -14,5 +14,5 @@ expected:
       rules:
         - name: disallow-automoutingapicred
           type: Validation
-          message: Validation rule 'disallow-automoutingapicred' succesfully validated
+          message: Validation rule 'disallow-automoutingapicred' succeeded.
           success: true 
