@@ -2,16 +2,16 @@ package webhooks
 
 import (
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, policies []*v1alpha1.ClusterPolicy) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -61,14 +61,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest) (bool
 	//TODO: check if the name and namespace is also passed right in the resource?
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	policies, err := ws.pLister.List(labels.NewSelector())
-	if err != nil {
-		//TODO check if the CRD is created ?
-		// Unable to connect to policy Lister to access policies
-		glog.Errorln("Unable to connect to policy controller to access policies. Mutation Rules are NOT being applied")
-		glog.Warning(err)
-		return true, nil, ""
-	}
 
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {

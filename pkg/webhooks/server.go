@@ -22,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -142,8 +143,16 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	policies, err := ws.pLister.List(labels.NewSelector())
+	if err != nil {
+		//TODO check if the CRD is created ?
+		// Unable to connect to policy Lister to access policies
+		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
+		return &v1beta1.AdmissionResponse{Allowed: true}
+	}
+
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request)
+	ok, patches, msg := ws.HandleMutation(request, policies)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -159,7 +168,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.HandleValidation(request, patchedResource)
+	ok, msg = ws.HandleValidation(request, policies, patchedResource)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{

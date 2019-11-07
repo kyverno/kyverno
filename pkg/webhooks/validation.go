@@ -2,19 +2,19 @@ package webhooks
 
 import (
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, patchedResource []byte) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []*v1alpha1.ClusterPolicy, patchedResource []byte) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -70,15 +70,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pat
 	// explictly set resource namespace with request namespace
 	// resource namespace is empty for the first CREATE operation
 	resource.SetNamespace(request.Namespace)
-
-	policies, err := ws.pLister.List(labels.NewSelector())
-	if err != nil {
-		//TODO check if the CRD is created ?
-		// Unable to connect to policy Lister to access policies
-		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
-		glog.Warning(err)
-		return true, ""
-	}
 
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
