@@ -36,7 +36,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		case conditionNotPresent:
 			glog.Infof("Resource %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			response.Success = true
-			response.Message = fmt.Sprintf("Resource %s/%s/%s: %s.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			response.Message = overlayerr.ErrorMsg()
 			return response, resource
 		// conditions are not met, don't apply this rule
 		// consider as failure
@@ -44,7 +44,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 			glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
 			//TODO: send zero response and not consider this as applied?
 			response.Success = false
-			response.Message = fmt.Sprintf("Resource %s/%s/%s: %v.", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			response.Message = overlayerr.ErrorMsg()
 			return response, resource
 		// rule application failed
 		case overlayFailure:
