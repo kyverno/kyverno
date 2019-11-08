@@ -12,18 +12,25 @@ To avoid pod container from having visibility to host process space, validate th
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-hostpid-hostipc
+  name: validate-host-pid-ipc
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Sharing the host's PID namespace allows visibility of process 
+      on the host, potentially exposing process information. Sharing the host's IPC namespace allows 
+      the container process to communicate with processes on the host. To avoid pod container from 
+      having visibility to host process space, validate that 'hostPID' and 'hostIPC' are set to 'false'.
 spec:
+  validationFailureAction: enforce
   rules:
-  - name: validate-hostpid-hostipc
+  - name: validate-host-pid-ipc
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Disallow use of host's pid namespace and host's ipc namespace"
+      message: "Use of host PID and IPC namespaces is not allowed"
       pattern:
         spec:
-          (hostPID): "!true"
-          hostIPC: false
+          =(hostPID): "false"
+          =(hostIPC): "false"
 ````
