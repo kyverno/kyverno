@@ -5,13 +5,13 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-hostpid-hostipc
+      policy: validate-host-pid-ipc
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: "nginx-with-hostpid"
       rules:
-        - name: validate-hostpid-hostipc
+        - name: validate-host-pid-ipc
           type: Validation
           success: false   
