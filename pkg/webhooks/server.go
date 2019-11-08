@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
@@ -43,6 +44,8 @@ type WebhookServer struct {
 	configHandler config.Interface
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
+	// last request time
+	lastReqTime *checker.LastReqTime
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -83,6 +86,7 @@ func NewWebhookServer(
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
+		lastReqTime:               checker.NewLastReqTime(),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -103,6 +107,9 @@ func NewWebhookServer(
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
+	// for every request recieved on the ep update last request time,
+	// this is used to verify admission control
+	ws.lastReqTime.SetTime(time.Now())
 	admissionReview := ws.bodyToAdmissionReview(r, w)
 	if admissionReview == nil {
 		return
@@ -114,19 +121,24 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 	// Do not process the admission requests for kinds that are in filterKinds for filtering
 	request := admissionReview.Request
-	if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-		// Resource CREATE
-		// Resource UPDATE
-		switch r.URL.Path {
-		case config.MutatingWebhookServicePath:
+	switch r.URL.Path {
+	case config.VerifyMutatingWebhookServicePath:
+		// we do not apply filters as this endpoint is used explicity
+		// to watch kyveno deployment and verify if admission control is enabled
+		admissionReview.Response = ws.handleVerifyRequest(request)
+	case config.MutatingWebhookServicePath:
+		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			admissionReview.Response = ws.handleAdmissionRequest(request)
-		case config.PolicyValidatingWebhookServicePath:
+		}
+	case config.PolicyValidatingWebhookServicePath:
+		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			admissionReview.Response = ws.handlePolicyValidation(request)
-		case config.PolicyMutatingWebhookServicePath:
+		}
+	case config.PolicyMutatingWebhookServicePath:
+		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			admissionReview.Response = ws.handlePolicyMutation(request)
 		}
 	}
-
 	admissionReview.Response.UID = request.UID
 
 	responseJSON, err := json.Marshal(admissionReview)
@@ -143,7 +155,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request)
+	ok, patches, msg := ws.handleMutation(request)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -159,7 +171,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.HandleValidation(request, patchedResource)
+	ok, msg = ws.handleValidation(request, patchedResource)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -184,7 +196,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
-func (ws *WebhookServer) RunAsync() {
+func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
@@ -192,6 +204,11 @@ func (ws *WebhookServer) RunAsync() {
 		}
 	}(ws)
 	glog.Info("Started Webhook Server")
+	// verifys if the admission control is enabled and active
+	// resync: 60 seconds
+	// deadline: 60 seconds (send request)
+	// max deadline: deadline*3 (set the deployment annotation as false)
+	go ws.lastReqTime.Run(ws.pLister, ws.client, 60*time.Second, 60*time.Second, stopCh)
 }
 
 // Stop TLS server and returns control after the server is shut down

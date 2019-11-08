@@ -31,9 +31,6 @@ var (
 	filterK8Resources string
 )
 
-// TODO: tune resync time differently for each informer
-const defaultReSyncTime = 10 * time.Second
-
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
@@ -162,8 +159,11 @@ func main() {
 	go egen.Run(1, stopCh)
 	go nsc.Run(1, stopCh)
 
-	//TODO add WG for the go routines?
-	server.RunAsync()
+	// verifys if the admission control is enabled and active
+	// resync: 60 seconds
+	// deadline: 60 seconds (send request)
+	// max deadline: deadline*3 (set the deployment annotation as false)
+	server.RunAsync(stopCh)
 
 	<-stopCh
 	disableProfiling(prof)
