@@ -62,3 +62,13 @@ func (rs ResourceSpec) ToKey() string {
 	}
 	return rs.Kind + "." + rs.Namespace + "." + rs.Name
 }
+
+//BuildKey builds the key
+func BuildResourceKey(kind, namespace, name string) string {
+	resource := ResourceSpec{
+		Kind:      kind,
+		Namespace: namespace,
+		Name:      name,
+	}
+	return resource.ToKey()
+}

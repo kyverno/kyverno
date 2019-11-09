@@ -387,7 +387,6 @@ func (pc *PolicyController) processNextWorkItem() bool {
 		return false
 	}
 	defer pc.queue.Done(key)
-
 	err := pc.syncHandler(key.(string))
 	pc.handleErr(err, key)
 
@@ -451,11 +450,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 	// process policies on existing resources
-	policyInfos := pc.processExistingResources(*p)
+	engineResponses := pc.processExistingResources(*p)
 	// report errors
-	pc.report(policyInfos)
+	pc.cleanupAndReport(engineResponses)
 	// fetch the policy again via the aggreagator to remain consistent
-	// return pc.statusAggregator.UpdateViolationCount(p.Name, pvList)
 	return pc.syncStatusOnly(p, pvList)
 }
 

@@ -133,7 +133,7 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 	violatedRules := newViolatedRules(er, msg)
 
 	// create violation on resource owner (if exist) when action is set to enforce
-	owners := getOwners(dclient, er.PatchedResource)
+	owners := GetOwners(dclient, er.PatchedResource)
 
 	// standaloneresource, set pvResourceSpec with resource itself
 	if len(owners) == 0 {
@@ -146,13 +146,7 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 	}
 
 	for _, owner := range owners {
-		// resource has owner, set pvResourceSpec with owner info
-		pvResourceSpec := kyverno.ResourceSpec{
-			Namespace: owner.namespace,
-			Kind:      owner.kind,
-			Name:      owner.name,
-		}
-		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
 	}
 	return
 }
@@ -221,19 +215,18 @@ func (o pvResourceOwner) toKey() string {
 	return o.kind + "." + o.namespace + "." + o.name
 }
 
-// pass in unstr rather than using the client to get the unstr
+//GetOwners pass in unstr rather than using the client to get the unstr
 // as if name is empty then GetResource panic as it returns a list
-func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvResourceOwner {
+func GetOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
 	resourceOwners := unstr.GetOwnerReferences()
 	if len(resourceOwners) == 0 {
-		return []pvResourceOwner{pvResourceOwner{
-			kind:      unstr.GetKind(),
-			namespace: unstr.GetNamespace(),
-			name:      unstr.GetName(),
+		return []kyverno.ResourceSpec{kyverno.ResourceSpec{
+			Kind:      unstr.GetKind(),
+			Namespace: unstr.GetNamespace(),
+			Name:      unstr.GetName(),
 		}}
 	}
-
-	var owners []pvResourceOwner
+	var owners []kyverno.ResourceSpec
 	for _, resourceOwner := range resourceOwners {
 		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
 		if err != nil {
@@ -241,7 +234,7 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 			return nil
 		}
 
-		owners = append(owners, getOwners(dclient, *unstrParent)...)
+		owners = append(owners, GetOwners(dclient, *unstrParent)...)
 	}
 	return owners
 }
@@ -274,11 +267,11 @@ func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyv
 	return
 }
 
-func containsOwner(owners []pvResourceOwner, pv *kyverno.ClusterPolicyViolation) bool {
-	curOwner := pvResourceOwner{
-		kind:      pv.Spec.ResourceSpec.Kind,
-		name:      pv.Spec.ResourceSpec.Name,
-		namespace: pv.Spec.ResourceSpec.Namespace,
+func containsOwner(owners []kyverno.ResourceSpec, pv *kyverno.ClusterPolicyViolation) bool {
+	curOwner := kyverno.ResourceSpec{
+		Kind:      pv.Spec.ResourceSpec.Kind,
+		Namespace: pv.Spec.ResourceSpec.Namespace,
+		Name:      pv.Spec.ResourceSpec.Name,
 	}
 
 	for _, targetOwner := range owners {
