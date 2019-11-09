@@ -151,8 +151,15 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
+	// TODO(shuting): continue apply policy if error getting roleRef?
+	roles, clusterRoles, err := getRoleRef(ws.client, request)
+	if err != nil {
+		glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
+	}
+
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, policies)
+	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -168,7 +175,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.HandleValidation(request, policies, patchedResource)
+	ok, msg = ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
