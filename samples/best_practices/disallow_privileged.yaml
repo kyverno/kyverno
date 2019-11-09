@@ -2,6 +2,13 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: disallow-privileged
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: Privileged containers are defined as any 
+      container where the container uid 0 is mapped to the host’s uid 0. 
+      A process within a privileged container can get unrestricted host access. 
+      With `securityContext.allowPrivilegeEscalation` enabled, a process can 
+      gain privileges from its parent. 
 spec:
   rules:
   - name: validate-privileged
