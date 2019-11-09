@@ -281,26 +281,26 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.Cl
 		return false
 	}
 
-	owner := pvResourceOwner{
-		kind:      curPv.Spec.ResourceSpec.Kind,
-		namespace: curPv.Spec.ResourceSpec.Namespace,
-		name:      curPv.Spec.ResourceSpec.Name,
+	owner := kyverno.ResourceSpec{
+		Kind:      curPv.Spec.ResourceSpec.Kind,
+		Namespace: curPv.Spec.ResourceSpec.Namespace,
+		Name:      curPv.Spec.ResourceSpec.Name,
 	}
 
-	deploy, err := client.Deployments(owner.namespace).Get(owner.name, metav1.GetOptions{})
+	deploy, err := client.Deployments(owner.Namespace).Get(owner.Name, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)
 		return false
 	}
 
 	expectReplicaset, err := deployutil.GetNewReplicaSet(deploy, client)
 	if err != nil {
-		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)
 		return false
 	}
 
 	if reflect.DeepEqual(expectReplicaset, v1.ReplicaSet{}) {
-		glog.V(2).Infof("no replicaset found for deploy %s/%s/%s", owner.namespace, owner.kind, owner.name)
+		glog.V(2).Infof("no replicaset found for deploy %s/%s/%s", owner.Namespace, owner.Kind, owner.Name)
 		return false
 	}
 	var actualReplicaset *v1.ReplicaSet
