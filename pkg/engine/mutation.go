@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponse) {
+func Mutate(policyContext PolicyContext) (response EngineResponse) {
 	startTime := time.Now()
+	policy := policyContext.Policy
+	resource := policyContext.Resource
+
 	// policy information
 	func() {
 		// set policy information
@@ -40,6 +42,13 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		if !rule.HasMutate() {
 			continue
 		}
+
+		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+			glog.Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
+			continue
+		}
+
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description

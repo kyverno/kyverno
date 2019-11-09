@@ -11,7 +11,8 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, policies []*v1alpha1.ClusterPolicy) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest,
+	policies []*v1alpha1.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -63,8 +64,16 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
 
 	var engineResponses []engine.EngineResponse
-	for _, policy := range policies {
+	policyContext := engine.PolicyContext{
+		Resource: *resource,
+		AdmissionInfo: engine.RequestInfo{
+			Roles:             roles,
+			ClusterRoles:      clusterRoles,
+			AdmissionUserInfo: request.UserInfo},
+	}
 
+	for _, policy := range policies {
+		policyContext.Policy = *policy
 		// check if policy has a rule for the admission request kind
 		if !utils.ContainsString(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
 			continue
@@ -73,7 +82,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		// TODO: this can be
-		engineResponse := engine.Mutate(*policy, *resource)
+		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
