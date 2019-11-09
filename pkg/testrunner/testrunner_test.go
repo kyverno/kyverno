@@ -123,12 +123,12 @@ func Test_validate_disallow_helm_tiller(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_helm_tiller.yaml")
 }
 
-func Test_add_safe_to_evict_annotation(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_mutate_safe-to-evict.yaml")
+func Test_add_safe_to_evict(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/add_safe_to_evict.yaml")
 }
 
 func Test_add_safe_to_evict_annotation2(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_mutate_safe-to-evict2.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/add_safe_to_evict2.yaml")
 }
 
 func Test_known_ingress(t *testing.T) {
