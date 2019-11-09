@@ -202,19 +202,6 @@ func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) 
 	return policyViolationSelector, nil
 }
 
-type pvResourceOwner struct {
-	kind      string
-	namespace string
-	name      string
-}
-
-func (o pvResourceOwner) toKey() string {
-	if o.namespace == "" {
-		return o.kind + "." + o.name
-	}
-	return o.kind + "." + o.namespace + "." + o.name
-}
-
 //GetOwners pass in unstr rather than using the client to get the unstr
 // as if name is empty then GetResource panic as it returns a list
 func GetOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
