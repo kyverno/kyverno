@@ -33,8 +33,6 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse engine.PolicyRespon
 			glog.Errorf("failed to delete policy violation: %v", err)
 			continue
 		}
-		// create event for policy violation cleanup
-		pvCleanUpEvent(pc.eventGen, pv)
 	}
 }
 
