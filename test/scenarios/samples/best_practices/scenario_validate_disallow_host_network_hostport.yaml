@@ -5,14 +5,16 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-host-network-hostport
+      policy: host-network-port
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: "nginx-host-network"
       rules:
-        - name: validate-host-network-hostport
+        - name: validate-host-network
           type: Validation
-          message: "Validation error: Defining hostNetwork and hostPort are not allowed\nValidation rule 'validate-host-network-hostport' failed at path '/spec/containers/0/ports/0/hostPort/'."
-          success: false   
+          success: true   
+        - name: validate-host-port
+          type: Validation
+          success: false             
