@@ -12,6 +12,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
+	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -86,7 +87,7 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 	//	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
 	// list resources
 	glog.V(4).Infof("get resources for kind %s, namespace %s, selector %v", kind, namespace, rule.MatchResources.Selector)
-	list, err := client.ListResource(kind, namespace, ls)
+	list, err := client.ListResource(kind, namespace, metav1.ListOptions{LabelSelector: helperv1.FormatLabelSelector(ls)})
 	if err != nil {
 		glog.Infof("unable to get resources: err %v", err)
 		return nil
@@ -277,7 +278,7 @@ func excludeNamespaces(namespaces, excludeNs []string) []string {
 func getAllNamespaces(client *client.Client) []string {
 	var namespaces []string
 	// get all namespaces
-	nsList, err := client.ListResource("Namespace", "", nil)
+	nsList, err := client.ListResource("Namespace", "", metav1.ListOptions{})
 	if err != nil {
 		glog.Error(err)
 		return namespaces

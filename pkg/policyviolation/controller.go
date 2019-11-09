@@ -265,7 +265,7 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 
 		// get resource
 		blockedResource := violatedRule.ManagedResource
-		resources, _ := pvc.client.ListResource(blockedResource.Kind, blockedResource.Namespace, nil)
+		resources, _ := pvc.client.ListResource(blockedResource.Kind, blockedResource.Namespace, metav1.ListOptions{})
 
 		for _, resource := range resources.Items {
 			glog.V(4).Infof("getting owners for %s/%s/%s\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
