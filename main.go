@@ -151,8 +151,8 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-	if err := configData.Run(kubeInformer.Core().V1().ConfigMaps(), stopCh); err != nil {
-		glog.Fatalf("Unable loading dynamic configuration: %v\n", err)
+	if err := configData.Run(stopCh); err != nil {
+		glog.Fatalf("Unable to load dynamic configuration: %v\n", err)
 	}
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
