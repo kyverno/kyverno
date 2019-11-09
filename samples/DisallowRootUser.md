@@ -8,16 +8,22 @@ By default, all processes in a container run as the root user (uid 0). To preven
 
 ## Policy YAML 
 
-[deny_runasrootuser.yaml](best_practices/deny_runasrootuser.yaml) 
+[disallow_root_user.yaml](best_practices/disallow_root_user.yaml) 
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-deny-runasrootuser
+  name: disallow-root-user
+  annotations:
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: By default, processes in a container run as a 
+      root user (uid 0). To prevent potential compromise of container hosts, specify a 
+      least privileged user ID when building the container image and require that 
+      application containers run as non root users.
 spec:
   rules:
-  - name: deny-runasrootuser
+  - name: validate-runAsNonRoot
     match:
       resources:
         kinds:

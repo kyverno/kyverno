@@ -10,7 +10,7 @@ This policy matches and mutates pods with `emptyDir` and `hostPath` volumes, to 
 
 ## Policy YAML
 
-[add_safe_to_evict_annotation.yaml](best_practices/add_safe-to-evict_annotation.yaml)
+[add_safe_to_evict_annotation.yaml](best_practices/add_safe_to_evict.yaml)
 
 ````yaml
 apiVersion: "kyverno.io/v1alpha1"

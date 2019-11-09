@@ -1,19 +1,18 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/deny_runasrootuser.yaml
+  policy: samples/best_practices/disallow_root_user.yaml
   resource: test/resources/deny_runasrootuser.yaml
 expected:
   validation:
     policyresponse:
-      policy: validate-deny-runasrootuser
+      policy: disallow-root-user
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: check-root-user
       rules:
-        - name: deny-runasrootuser
+        - name: validate-runAsNonRoot
           type: Validation
-          message: "Validation rule 'deny-runasrootuser' anyPattern[1] succeeded."
           success: true
 

@@ -36,7 +36,7 @@ The policies are mostly validation rules in `audit` mode i.e. your existing work
 
 These policies are highly recommended.
 
-1. [Run as non-root user](RunAsNonRootUser.md)
+1. [Disallow root user](DisallowRootUser.md)
 2. [Disable privileged containers and disallow privilege escalation](DisablePrivilegedContainers.md)
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
 4. [Require read-only root filesystem](RequireReadOnlyFS.md)
@@ -52,7 +52,7 @@ These policies are highly recommended.
 14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 15. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
 16. [Disallow Helm Tiller](DisallowHelmTiller.md)
-17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](MutateSafeToEvict.md)
+17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
 
 ## Additional Policies
 
