@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged
+spec:
+  rules:
+  - name: validate-privileged
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Privileged mode is not allowed. Set privileged to false"
+      anyPattern:
+      - spec:
+          securityContext:
+            privileged: false
+      - spec:
+          containers:
+          - name: "*"
+            securityContext:
+              privileged: false
+  - name: validate-allowPrivilegeEscalation
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Privileged mode is not allowed. Set allowPrivilegeEscalation to false"
+      anyPattern:
+      - spec:
+          securityContext:
+            allowPrivilegeEscalation: false
+      - spec:
+          containers:
+          - name: "*"
+            securityContext:
+              allowPrivilegeEscalation: false
+

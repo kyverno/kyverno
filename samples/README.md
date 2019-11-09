@@ -37,7 +37,7 @@ The policies are mostly validation rules in `audit` mode i.e. your existing work
 These policies are highly recommended.
 
 1. [Disallow root user](DisallowRootUser.md)
-2. [Disable privileged containers and disallow privilege escalation](DisablePrivilegedContainers.md)
+2. [Disallow privileged containers](DisallowPrivilegedContainers.md)
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
 4. [Require read-only root filesystem](RequireReadOnlyFS.md)
 5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)

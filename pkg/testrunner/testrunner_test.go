@@ -14,8 +14,8 @@ func Test_disallow_root_user(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_root_user.yaml")
 }
 
-func Test_validate_disallow_priviledgedprivelegesecalation(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_priviledged_privelegesecalation.yaml")
+func Test_disallow_priviledged(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_priviledged.yaml")
 }
 
 func Test_validate_healthChecks(t *testing.T) {

@@ -8,4 +8,4 @@ spec:
     image: nginxinc/nginx-unprivileged
     securityContext:
       allowPrivilegeEscalation: true
-      privileged: false
+      privileged: true
