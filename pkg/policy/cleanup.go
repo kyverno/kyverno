@@ -107,6 +107,7 @@ func getPVOnResource(pvLister kyvernolister.ClusterPolicyViolationLister, policy
 		glog.V(4).Infof("policy violation does not exist with labels %v", labelMap)
 		return kyverno.ClusterPolicyViolation{}, nil
 	}
+	glog.V(4).Infof("shiv: got resource: %v", *pvs[0])
 	// return a copy of pv
 	return *pvs[0], nil
 }
