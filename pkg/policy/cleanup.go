@@ -64,7 +64,7 @@ func getPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister, dclien
 	// get resource
 	resource, err := dclient.GetResource(kind, namespace, name)
 	if err != nil {
-		glog.V(4).Info("error while fetching the resource: %v", err)
+		glog.V(4).Infof("error while fetching the resource: %v", err)
 		return pvs, err
 	}
 	// get owners
