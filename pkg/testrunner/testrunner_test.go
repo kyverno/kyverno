@@ -52,8 +52,8 @@ func Test_validate_hostPID_hostIPC(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_hostpid_hostipc.yaml")
 }
 
-func Test_validate_not_readonly_rootfilesystem(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_require_readonly_rootfilesystem.yaml")
+func Test_validate_ro_rootfs(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/require_ro_rootfs.yaml")
 }
 
 func Test_validate_require_namespace_quota(t *testing.T) {

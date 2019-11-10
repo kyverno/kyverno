@@ -39,7 +39,7 @@ These policies are highly recommended.
 1. [Disallow root user](DisallowRootUser.md)
 2. [Disallow privileged containers](DisallowPrivilegedContainers.md)
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
-4. [Require read-only root filesystem](RequireReadOnlyFS.md)
+4. [Require read-only root filesystem](RequireReadOnlyRootFS.md)
 5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)
 6. [Disallow docker socket bind mount](DisallowDockerSockMount.md)
 7. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
