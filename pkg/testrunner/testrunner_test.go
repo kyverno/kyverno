@@ -111,8 +111,9 @@ func Test_validate_disallow_host_filesystem_fail(t *testing.T) {
 func Test_validate_disallow_host_filesystem_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_host_filesystem_pass.yaml")
 }
+
 func Test_validate_disallow_new_capabilities(t *testing.T) {
-	testScenario(t, "/test/scenarios/samples/best_practices/scenario_validate_disallow_new_capabilities.yaml")
+	testScenario(t, "/test/scenarios/samples/best_practices/disallow_new_capabilities.yaml")
 }
 
 func Test_validate_disallow_docker_sock_mount(t *testing.T) {
