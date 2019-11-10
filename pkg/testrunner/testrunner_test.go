@@ -45,7 +45,7 @@ func Test_validate_disallow_default_namespace(t *testing.T) {
 }
 
 func Test_validate_host_network_port(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_host_network_hostport.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_network_port.yaml")
 }
 
 func Test_validate_hostPID_hostIPC(t *testing.T) {
@@ -117,7 +117,7 @@ func Test_validate_disallow_new_capabilities(t *testing.T) {
 }
 
 func Test_validate_disallow_docker_sock_mount(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_docker_sock_mount.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_docker_sock_mount.yaml")
 }
 
 func Test_validate_disallow_helm_tiller(t *testing.T) {

@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_host_network_hostport.yaml
+  policy: samples/best_practices/disallow_host_network_port.yaml
   resource: test/resources/disallow_host_network_hostport.yaml
 expected:
   validation:
@@ -12,7 +12,6 @@ expected:
         namespace: ''
         name: "nginx-host-network"
       rules:
-        - name: validate-host-network-hostport
+        - name: validate-host-network-port
           type: Validation
-          message: "Validation error: Defining hostNetwork and hostPort are not allowed\nValidation rule 'validate-host-network-hostport' failed at path '/spec/containers/0/ports/0/hostPort/'."
           success: false   

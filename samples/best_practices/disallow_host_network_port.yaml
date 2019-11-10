@@ -8,7 +8,7 @@ metadata:
       the host network stack, allowing potential snooping of network traffic from an application pod.
 spec:
   rules:
-  - name: validate-host-network-hostport
+  - name: validate-host-network-port
     match:
       resources:
         kinds:
