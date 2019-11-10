@@ -41,15 +41,15 @@ func Test_validate_disallow_automoutingapicred_pass(t *testing.T) {
 }
 
 func Test_validate_disallow_default_namespace(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_default_namespace.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_default_namespace.yaml")
 }
 
 func Test_validate_host_network_port(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_network_port.yaml")
 }
 
-func Test_validate_hostPID_hostIPC(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_hostpid_hostipc.yaml")
+func Test_validate_host_PID_IPC(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_pid_ipc.yaml")
 }
 
 func Test_validate_ro_rootfs(t *testing.T) {

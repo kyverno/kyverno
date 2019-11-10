@@ -6,13 +6,13 @@ To avoid pod container from having visibility to host process space, validate th
 
 ## Policy YAML 
 
-[disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
+[disallow_host_pid_ipc.yaml](best_practices/disallow_host_pid_ipc.yaml)
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-host-pid-ipc
+  name: disallow-host-pid-ipc
   annotations:
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: Sharing the host's PID namespace allows visibility of process 
@@ -20,9 +20,9 @@ metadata:
       the container process to communicate with processes on the host. To avoid pod container from 
       having visibility to host process space, validate that 'hostPID' and 'hostIPC' are set to 'false'.
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: audit
   rules:
-  - name: validate-host-pid-ipc
+  - name: validate-hostPID-hostIPC
     match:
       resources:
         kinds:

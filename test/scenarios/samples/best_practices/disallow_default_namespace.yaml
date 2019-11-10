@@ -5,7 +5,7 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-namespace
+      policy: disallow-default-namespace
       resource:
         kind: Pod
         apiVersion: v1
@@ -14,12 +14,10 @@ expected:
         namespace: 'default'
         name: myapp-pod
       rules:
-        - name: check-default-namespace
+        - name: validate-namespace
           type: Validation
-          message: "Validation error: Using 'default' namespace is restricted\nValidation rule 'check-default-namespace' failed at path '/metadata/namespace/'."
           success: false
-        - name: check-namespace-exist
+        - name: require-namespace
           type: Validation
-          message: "Validation rule 'check-namespace-exist' succeeded."
           success: true
 

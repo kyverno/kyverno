@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-host-pid-ipc
+  name: disallow-host-pid-ipc
   annotations:
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: Sharing the host's PID namespace allows visibility of process 
@@ -11,7 +11,7 @@ metadata:
 spec:
   validationFailureAction: audit
   rules:
-  - name: validate-host-pid-ipc
+  - name: validate-hostPID-hostIPC
     match:
       resources:
         kinds:
