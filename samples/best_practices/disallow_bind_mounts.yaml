@@ -1,7 +1,7 @@
 apiVersion: "kyverno.io/v1alpha1"
 kind: "ClusterPolicy"
 metadata: 
-  name: "deny-use-of-host-fs"
+  name: "disallow-bind-mounts"
   annotations:
     policies.kyverno.io/category: Data Protection
     policies.kyverno.io/description: The volume of type `hostPath` allows pods to use host bind 
@@ -13,13 +13,13 @@ metadata:
 
 spec: 
   rules: 
-  - name: "deny-use-of-host-fs"
+  - name: "validate-hostPath"
     match: 
       resources: 
         kinds: 
         - "Pod"
     validate: 
-      message: "Host path is not allowed"
+      message: "Host path volumes are not allowed"
       pattern: 
         spec: 
           volumes: 

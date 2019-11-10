@@ -104,12 +104,12 @@ func Test_require_probes(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_probes.yaml")
 }
 
-func Test_validate_disallow_host_filesystem_fail(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_host_filesystem.yaml")
+func Test_validate_disallow_bind_mounts_fail(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_bind_mounts_fail.yaml")
 }
 
-func Test_validate_disallow_host_filesystem_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_host_filesystem_pass.yaml")
+func Test_validate_disallow_bind_mounts_pass(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_bind_mounts_pass.yaml")
 }
 
 func Test_validate_disallow_new_capabilities(t *testing.T) {
