@@ -1,10 +1,12 @@
 package checker
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/golang/glog"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/event"
 )
 
 const deployName string = "kyverno"
@@ -25,7 +27,8 @@ type StatusInterface interface {
 
 //StatusControl controls the webhook status
 type StatusControl struct {
-	client *dclient.Client
+	client   *dclient.Client
+	eventGen event.Interface
 }
 
 //SuccessStatus ...
@@ -39,9 +42,10 @@ func (vc StatusControl) FailedStatus() error {
 }
 
 // NewVerifyControl ...
-func NewVerifyControl(client *dclient.Client) *StatusControl {
+func NewVerifyControl(client *dclient.Client, eventGen event.Interface) *StatusControl {
 	return &StatusControl{
-		client: client,
+		client:   client,
+		eventGen: eventGen,
 	}
 }
 
@@ -76,7 +80,19 @@ func (vc StatusControl) setStatus(status string) error {
 		glog.V(4).Infof("failed to update annotation %s for deployment %s in namespace %s: %v", annWebhookStats, deployName, deployNamespace, err)
 		return err
 	}
+	// create event on kyverno deployment
+	createStatusUpdateEvent(status, vc.eventGen)
 	return nil
+}
+
+func createStatusUpdateEvent(status string, eventGen event.Interface) {
+	e := event.Info{}
+	e.Kind = "Deployment"
+	e.Namespace = "kyverno"
+	e.Name = "kyverno"
+	e.Reason = "Update"
+	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
+	eventGen.Add(e)
 }
 
 //IncrementAnnotation ...

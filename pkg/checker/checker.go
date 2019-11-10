@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -54,13 +55,13 @@ func checkIfPolicyWithMutateAndGenerateExists(pLister kyvernolister.ClusterPolic
 }
 
 //Run runs the checker and verify the resource update
-func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, client *dclient.Client, defaultResync time.Duration, deadline time.Duration, stopCh <-chan struct{}) {
+func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister,eventGen event.Interface, client *dclient.Client, defaultResync time.Duration, deadline time.Duration, stopCh <-chan struct{}) {
 	glog.V(2).Infof("starting default resync for webhook checker with resync time %d", defaultResync)
 	maxDeadline := deadline * time.Duration(MaxRetryCount)
 	ticker := time.NewTicker(defaultResync)
 	var statuscontrol StatusInterface
 	/// interface to update and increment kyverno webhook status via annotations
-	statuscontrol = NewVerifyControl(client)
+	statuscontrol = NewVerifyControl(client,eventGen)
 	// send the initial update status
 	if checkIfPolicyWithMutateAndGenerateExists(pLister) {
 		if err := statuscontrol.SuccessStatus(); err != nil {

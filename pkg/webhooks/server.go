@@ -208,7 +208,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
-	go ws.lastReqTime.Run(ws.pLister, ws.client, 60*time.Second, 60*time.Second, stopCh)
+	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, 60*time.Second, 60*time.Second, stopCh)
 }
 
 // Stop TLS server and returns control after the server is shut down
