@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	SaPrefix = "system:serviceaccounts:"
+	SaPrefix = "system:serviceaccount:"
 )
 
 // matchAdmissionInfo return true if the rule can be applied to the request

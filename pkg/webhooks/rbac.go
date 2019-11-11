@@ -57,20 +57,20 @@ func getRoleRefByRoleBindings(roleBindings *unstructured.UnstructuredList, userI
 			return nil, nil, fmt.Errorf("%s/%s/%s has no subjects field", rolebinding.GetKind(), rolebinding.GetNamespace(), rolebinding.GetName())
 		}
 
+		roleRef, ok := rb["roleRef"]
+		if !ok {
+			return nil, nil, fmt.Errorf("%s/%s/%s has no roleRef", rolebinding.GetKind(), rolebinding.GetNamespace(), rolebinding.GetName())
+		}
+
 		for _, subject := range subjects.([]map[string]interface{}) {
 			if !matchSubjectsMap(subject, userInfo) {
 				continue
 			}
 
-			roleRef, ok := subject["roleRef"]
-			if !ok {
-				return nil, nil, fmt.Errorf("%s/%s/%s has no roleRef", rolebinding.GetKind(), rolebinding.GetNamespace(), rolebinding.GetName())
-			}
-
 			roleRefMap := roleRef.(map[string]interface{})
 			switch roleRefMap["kind"] {
 			case "role":
-				roles = append(roles, rolebinding.GetNamespace()+":"+roleRefMap["name"].(string))
+				roles = append(roles, roleRefMap["namespace"].(string)+":"+roleRefMap["name"].(string))
 			case "clusterRole":
 				clusterRoles = append(clusterRoles, roleRefMap["name"].(string))
 			}
@@ -89,14 +89,14 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings *unstructured.Unstructu
 			return nil, fmt.Errorf("%s/%s has no subjects field", clusterRoleBinding.GetKind(), clusterRoleBinding.GetName())
 		}
 
+		roleRef, ok := crb["roleRef"]
+		if !ok {
+			return nil, fmt.Errorf("%s/%s has no roleRef", clusterRoleBinding.GetKind(), clusterRoleBinding.GetName())
+		}
+
 		for _, subject := range subjects.([]map[string]interface{}) {
 			if !matchSubjectsMap(subject, userInfo) {
 				continue
-			}
-
-			roleRef, ok := subject["roleRef"]
-			if !ok {
-				return nil, fmt.Errorf("%s/%s has no roleRef", clusterRoleBinding.GetKind(), clusterRoleBinding.GetName())
 			}
 
 			roleRefMap := roleRef.(map[string]interface{})
@@ -114,17 +114,11 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings *unstructured.Unstructu
 func matchSubjectsMap(subject map[string]interface{}, userInfo authenticationv1.UserInfo) bool {
 	// ServiceAccount
 	if isServiceaccountUserInfo(userInfo.Username) {
-		if matchServiceAccount(subject, userInfo) {
-			return true
-		}
+		return matchServiceAccount(subject, userInfo)
 	}
 
 	// User or Group
-	if matchUserOrGroup(subject, userInfo) {
-		return true
-	}
-
-	return false
+	return matchUserOrGroup(subject, userInfo)
 }
 
 func isServiceaccountUserInfo(username string) bool {
@@ -138,13 +132,31 @@ func isServiceaccountUserInfo(username string) bool {
 // serviceaccount represents as saPrefix:namespace:name in userInfo
 func matchServiceAccount(subject map[string]interface{}, userInfo authenticationv1.UserInfo) bool {
 	// checks if subject contains the serviceaccount info
-	sa := subject["kind"]
-	if sa.(string) != "ServiceAccount" {
-		glog.V(3).Infof("subject %v has no service account info", subject)
+	sa, ok := subject["kind"].(string)
+	if !ok {
+		glog.V(3).Infof("subject %v has wrong kind field", subject)
 		return false
 	}
 
-	subjectServiceAccount := subject["namespace"].(string) + ":" + subject["name"].(string)
+	if sa != "ServiceAccount" {
+		glog.V(3).Infof("subject %v has no ServiceAccount info", subject)
+		return false
+	}
+
+	namespace, ok := subject["namespace"].(string)
+	if !ok {
+		glog.V(3).Infof("subject %v has wrong namespace field", subject)
+		return false
+	}
+
+	_ = subject["name"]
+	name, ok := subject["name"].(string)
+	if !ok {
+		glog.V(3).Infof("subject %v has wrong name field", subject)
+		return false
+	}
+
+	subjectServiceAccount := namespace + ":" + name
 	if userInfo.Username[len(engine.SaPrefix):] != subjectServiceAccount {
 		glog.V(3).Infof("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(engine.SaPrefix):])
 		return false
