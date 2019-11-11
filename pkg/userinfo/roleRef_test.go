@@ -7,7 +7,8 @@ import (
 
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_isServiceaccountUserInfo(t *testing.T) {
@@ -37,46 +38,46 @@ func Test_matchServiceAccount_subject_variants(t *testing.T) {
 	}
 
 	tests := []struct {
-		subject  map[string]interface{}
+		subject  rbacv1.Subject
 		expected bool
 	}{
 		{
-			subject:  make(map[string]interface{}, 1),
+			subject:  rbacv1.Subject{},
 			expected: false,
 		},
 		{
-			subject: map[string]interface{}{
-				"kind": "serviceaccount",
+			subject: rbacv1.Subject{
+				Kind: "serviceaccount",
 			},
 			expected: false,
 		},
 		{
-			subject: map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"Namespace": "testnamespace",
+			subject: rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Namespace: "testnamespace",
 			},
 			expected: false,
 		},
 		{
-			subject: map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"namespace": 1,
+			subject: rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Namespace: "1",
 			},
 			expected: false,
 		},
 		{
-			subject: map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"namespace": "testnamespace",
-				"names":     "",
+			subject: rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Namespace: "testnamespace",
+				Name:      "",
 			},
 			expected: false,
 		},
 		{
-			subject: map[string]interface{}{
-				"kind":      "ServiceAccount",
-				"namespace": "testnamespace",
-				"name":      "testname",
+			subject: rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Namespace: "testnamespace",
+				Name:      "testname",
 			},
 			expected: false,
 		},
@@ -104,19 +105,19 @@ func Test_matchUserOrGroup(t *testing.T) {
 		Groups:   []string{"system:authenticated"},
 	}
 
-	userContext := map[string]interface{}{
-		"kind": "User",
-		"name": "system:kube-scheduler",
+	userContext := rbacv1.Subject{
+		Kind: "User",
+		Name: "system:kube-scheduler",
 	}
 
-	groupContext := map[string]interface{}{
-		"kind": "Group",
-		"name": "system:masters",
+	groupContext := rbacv1.Subject{
+		Kind: "Group",
+		Name: "system:masters",
 	}
 
-	fakegroupContext := map[string]interface{}{
-		"kind": "Group",
-		"name": "fakeGroup",
+	fakegroupContext := rbacv1.Subject{
+		Kind: "Group",
+		Name: "fakeGroup",
 	}
 
 	res := matchUserOrGroup(userContext, user)
@@ -142,15 +143,15 @@ func Test_matchSubjectsMap(t *testing.T) {
 		Groups:   []string{"system:masters", "system:authenticated"},
 	}
 
-	sasubject := map[string]interface{}{
-		"kind":      "ServiceAccount",
-		"namespace": "default",
-		"name":      "saconfig",
+	sasubject := rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Namespace: "default",
+		Name:      "saconfig",
 	}
 
-	groupsubject := map[string]interface{}{
-		"kind": "Group",
-		"name": "fakeGroup",
+	groupsubject := rbacv1.Subject{
+		Kind: "Group",
+		Name: "fakeGroup",
 	}
 
 	res := matchSubjectsMap(sasubject, sa)
@@ -164,45 +165,42 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 	flag.Set("v", "3")
-	list := &unstructured.UnstructuredList{
-		Object: map[string]interface{}{"kind": "List", "apiVersion": "v1"},
-		Items: []unstructured.Unstructured{
-			{
-				Object: map[string]interface{}{
-					"kind":       "RoleBinding",
-					"apiVersion": "rbac.authorization.k8s.io/v1",
-					"metadata":   map[string]interface{}{"name": "test1"},
-					"roleRef": map[string]interface{}{
-						"kind":      "role",
-						"name":      "myrole",
-						"namespace": "mynamespace",
-					},
-					"subjects": []map[string]interface{}{
-						{
-							"kind":      "ServiceAccount",
-							"name":      "saconfig",
-							"namespace": "default",
-						},
-					},
+
+	list := []*rbacv1.RoleBinding{
+		&rbacv1.RoleBinding{
+			metav1.TypeMeta{
+				Kind:       "RoleBinding",
+				APIVersion: "rbac.authorization.k8s.io/v1",
+			},
+			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
+			[]rbacv1.Subject{
+				rbacv1.Subject{
+					Kind:      "ServiceAccount",
+					Name:      "saconfig",
+					Namespace: "default",
 				},
 			},
-			{
-				Object: map[string]interface{}{
-					"kind":       "RoleBinding",
-					"apiVersion": "rbac.authorization.k8s.io/v1",
-					"metadata":   map[string]interface{}{"name": "test2"},
-					"roleRef": map[string]interface{}{
-						"kind": "clusterRole",
-						"name": "myclusterrole",
-					},
-					"subjects": []map[string]interface{}{
-						{
-							"kind":      "ServiceAccount",
-							"name":      "saconfig",
-							"namespace": "default",
-						},
-					},
+			rbacv1.RoleRef{
+				Kind: "role",
+				Name: "myrole",
+			},
+		},
+		&rbacv1.RoleBinding{
+			metav1.TypeMeta{
+				Kind:       "RoleBinding",
+				APIVersion: "rbac.authorization.k8s.io/v1",
+			},
+			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
+			[]rbacv1.Subject{
+				rbacv1.Subject{
+					Kind:      "ServiceAccount",
+					Name:      "saconfig",
+					Namespace: "default",
 				},
+			},
+			rbacv1.RoleRef{
+				Kind: "clusterRole",
+				Name: "myclusterrole",
 			},
 		},
 	}
@@ -220,42 +218,39 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 }
 
 func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
-	list := &unstructured.UnstructuredList{
-		Object: map[string]interface{}{"kind": "List", "apiVersion": "v1"},
-		Items: []unstructured.Unstructured{
-			{
-				Object: map[string]interface{}{
-					"kind":       "ClusterRoleBinding",
-					"apiVersion": "rbac.authorization.k8s.io/v1",
-					"metadata":   map[string]interface{}{"name": "test-1"},
-					"roleRef": map[string]interface{}{
-						"kind": "clusterRole",
-						"name": "fakeclusterrole",
-					},
-					"subjects": []map[string]interface{}{
-						{
-							"kind": "User",
-							"name": "kube-scheduler",
-						},
-					},
+	list := []*rbacv1.ClusterRoleBinding{
+		&rbacv1.ClusterRoleBinding{
+			metav1.TypeMeta{
+				Kind:       "ClusterRoleBinding",
+				APIVersion: "rbac.authorization.k8s.io/v1",
+			},
+			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
+			[]rbacv1.Subject{
+				rbacv1.Subject{
+					Kind: "User",
+					Name: "kube-scheduler",
 				},
 			},
-			{
-				Object: map[string]interface{}{
-					"kind":       "ClusterRoleBinding",
-					"apiVersion": "rbac.authorization.k8s.io/v1",
-					"metadata":   map[string]interface{}{"name": "test-2"},
-					"roleRef": map[string]interface{}{
-						"kind": "clusterRole",
-						"name": "myclusterrole",
-					},
-					"subjects": []map[string]interface{}{
-						{
-							"kind": "Group",
-							"name": "system:masters",
-						},
-					},
+			rbacv1.RoleRef{
+				Kind: "clusterRole",
+				Name: "fakeclusterrole",
+			},
+		},
+		&rbacv1.ClusterRoleBinding{
+			metav1.TypeMeta{
+				Kind:       "ClusterRoleBinding",
+				APIVersion: "rbac.authorization.k8s.io/v1",
+			},
+			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
+			[]rbacv1.Subject{
+				rbacv1.Subject{
+					Kind: "Group",
+					Name: "system:masters",
 				},
+			},
+			rbacv1.RoleRef{
+				Kind: "clusterRole",
+				Name: "myclusterrole",
 			},
 		},
 	}

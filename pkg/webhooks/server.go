@@ -24,6 +24,8 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	rbacinformer "k8s.io/client-go/informers/rbac/v1"
+	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -37,6 +39,8 @@ type WebhookServer struct {
 	pvLister                  kyvernolister.ClusterPolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
+	rbLister                  rbaclister.RoleBindingLister
+	crbLister                 rbaclister.ClusterRoleBindingLister
 	eventGen                  event.Interface
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
@@ -55,6 +59,8 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	rbInformer rbacinformer.RoleBindingInformer,
+	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
@@ -84,6 +90,8 @@ func NewWebhookServer(
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
+		rbLister:                  rbInformer.Lister(),
+		crbLister:                 crbInformer.Lister(),
 		cleanUp:                   cleanUp,
 	}
 	mux := http.NewServeMux()
@@ -158,7 +166,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.client, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
