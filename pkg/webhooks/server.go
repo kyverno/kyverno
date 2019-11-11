@@ -19,6 +19,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,6 +144,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	// TODO: this will be replaced by policy store lookup
 	policies, err := ws.pLister.List(labels.NewSelector())
 	if err != nil {
 		//TODO check if the CRD is created ?
@@ -151,11 +153,17 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	// TODO(shuting): continue apply policy if error getting roleRef?
-	roles, clusterRoles, err := getRoleRef(ws.client, request)
-	if err != nil {
-		glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
-			request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
+	var roles, clusterRoles []string
+
+	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
+	// getRoleRef only if policy has roles/clusterroles defined
+	if containRBACinfo(policies) {
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.client, request)
+		if err != nil {
+			// TODO(shuting): continue apply policy if error getting roleRef?
+			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
+		}
 	}
 
 	// MUTATION

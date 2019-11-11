@@ -1,4 +1,4 @@
-package webhooks
+package userinfo
 
 import (
 	"flag"
