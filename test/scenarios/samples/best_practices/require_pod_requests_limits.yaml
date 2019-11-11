@@ -5,14 +5,13 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: check-resource
+      policy: require-pod-requests-limits
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: myapp-pod
       rules:
-        - name: check-resource-request-limit
+        - name: validate-resources
           type: Validation
-          message: "Validation error: CPU and memory resource requests and limits are required\nValidation rule 'check-resource-request-limit' failed at path '/spec/containers/0/resources/limits/cpu/'."
           success: false 

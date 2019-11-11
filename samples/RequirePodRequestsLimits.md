@@ -12,11 +12,11 @@ If a namespace level request or limit is specified, defaults will automatically 
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: check-resource
+  name: require-pod-requests-limits
 spec:
   validationFailureAction: "audit"
   rules:
-  - name: check-resource-request-limit
+  - name: validate-resources
     match:
       resources:
         kinds:
