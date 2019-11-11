@@ -22,8 +22,8 @@ func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_validate_healthChecks.yaml")
 }
 
-func Test_generate_networkPolicy(t *testing.T) {
-	testScenario(t, "/test/scenarios/samples/best_practices/scenario_generate_networkPolicy.yaml")
+func Test_add_networkPolicy(t *testing.T) {
+	testScenario(t, "/test/scenarios/samples/best_practices/add_networkPolicy.yaml")
 }
 
 // namespace is blank, not "default" as testrunner evaulates the policyengine, but the "default" is added by kubeapiserver
