@@ -16,6 +16,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,12 +78,15 @@ type PolicyController struct {
 	configHandler config.Interface
 	// recieves stats and aggregates details
 	statusAggregator *PolicyStatusAggregator
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.Interface
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
-	configHandler config.Interface) (*PolicyController, error) {
+	configHandler config.Interface,
+	pMetaStore policystore.Interface) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -100,6 +104,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		queue:                     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		webhookRegistrationClient: webhookRegistrationClient,
 		configHandler:             configHandler,
+		pMetaStore:                pMetaStore,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
@@ -141,6 +146,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
 	glog.V(4).Infof("Adding Policy %s", p.Name)
+	// register with policy meta-store
+	pc.pMetaStore.Register(*p)
 	pc.enqueuePolicy(p)
 }
 
@@ -148,6 +155,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
+	// TODO: optimize this : policy meta-store
+	// Update policy-> (remove,add)
+	pc.pMetaStore.UnRegister(*oldP)
+	pc.pMetaStore.Register(*curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -166,6 +177,8 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 	glog.V(4).Infof("Deleting Policy %s", p.Name)
+	// Unregister from policy meta-store
+	pc.pMetaStore.UnRegister(*p)
 	pc.enqueuePolicy(p)
 }
 

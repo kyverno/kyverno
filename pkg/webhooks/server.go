@@ -19,6 +19,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystore"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -46,6 +47,8 @@ type WebhookServer struct {
 	cleanUp chan<- struct{}
 	// last request time
 	lastReqTime *checker.LastReqTime
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.Interface
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -60,6 +63,7 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
 	configHandler config.Interface,
+	pMetaStore policystore.Interface,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -87,6 +91,7 @@ func NewWebhookServer(
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
 		lastReqTime:               checker.NewLastReqTime(),
+		pMetaStore:                pMetaStore,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
