@@ -30,4 +30,4 @@ spec:
           containers:
           - name: "*"
             =(ports):
-            - hostPort: null
+              - X(hostPort): null
