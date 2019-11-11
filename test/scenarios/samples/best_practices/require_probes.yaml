@@ -5,14 +5,13 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-probes
+      policy: require-pod-probes
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: myapp-pod
       rules:
-        - name: check-probes
+        - name: validate-livenessProbe-readinessProbe
           type: Validation
-          message: "Validation error: Liveness and readiness probes are required\nValidation rule 'check-probes' failed at path '/spec/containers/0/livenessProbe/'."
           success: false 

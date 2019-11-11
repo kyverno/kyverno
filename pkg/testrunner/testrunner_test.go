@@ -101,7 +101,7 @@ func Test_require_pod_requests_limits(t *testing.T) {
 }
 
 func Test_require_probes(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_probes.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/require_probes.yaml")
 }
 
 func Test_validate_disallow_bind_mounts_fail(t *testing.T) {
