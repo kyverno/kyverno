@@ -28,12 +28,12 @@ func Test_generate_networkPolicy(t *testing.T) {
 
 // namespace is blank, not "default" as testrunner evaulates the policyengine, but the "default" is added by kubeapiserver
 
-func Test_validate_require_image_tag_not_latest_deny(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_valiadate_require_image_tag_not_latest_deny.yaml")
+func Test_validate_disallow_latest_tag(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag.yaml")
 }
 
 func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_valiadate_require_image_tag_not_latest_pass.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag_pass.yaml")
 }
 
 func Test_validate_disallow_automoutingapicred_pass(t *testing.T) {
