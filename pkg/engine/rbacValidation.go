@@ -98,6 +98,9 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	for _, subject := range ruleSubjects {
 		switch subject.Kind {
 		case "ServiceAccount":
+			if len(userInfo.Username) <= len(SaPrefix) {
+				continue
+			}
 			subjectServiceAccount := subject.Namespace + ":" + subject.Name
 			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
 				return true
@@ -108,5 +111,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 			}
 		}
 	}
+
 	return false
 }
