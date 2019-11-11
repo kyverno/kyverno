@@ -16,11 +16,6 @@ kind: ClusterPolicy
 metadata:
   name: disallow-root-user
   annotations:
-    policies.kyverno.io/category: Security
-    policies.kyverno.io/description: By default, processes in a container run as a 
-      root user (uid 0). To prevent potential compromise of container hosts, specify a 
-      least privileged user ID when building the container image and require that 
-      application containers run as non root users.
 spec:
   rules:
   - name: validate-runAsNonRoot

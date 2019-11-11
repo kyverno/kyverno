@@ -13,9 +13,6 @@ apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: known-ingress
-  annotations:
-    policies.kyverno.io/category: Ingress
-    policies.kyverno.io/description: 
 spec:
   rules:
   - name: known-ingress

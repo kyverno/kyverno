@@ -6,16 +6,16 @@ You can customize this policy to allow image registries that you trust.
 
 ## Policy YAML 
 
-[trusted_image_registries.yaml](best_practices/trusted_image_registries.yaml) 
+[restrict_image_registries.yaml](best_practices/restrict_image_registries.yaml) 
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: trusted-registries
+  name: restrict-image-registries
 spec:
   rules:
-  - name: trusted-registries
+  - name: validate-registries
     match:
       resources:
         kinds:

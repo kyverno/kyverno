@@ -1,21 +1,20 @@
 apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: trusted-registries
+  name: restrict-image-registries
   annotations:
     policies.kyverno.io/category: Image
     policies.kyverno.io/description: Images from unknown registries may not be scanned and secured. 
-      Requiring use of known registries helps reduce threat exposure. You can customize this policy 
-      to allow image registries that you trust.
+      Requiring use of known registries helps reduce threat exposure.
 spec:
   rules:
-  - name: trusted-registries
+  - name: validate-registries
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Deny untrusted registries"
+      message: "Unknown image registry"
       pattern:
         spec:
           containers:

@@ -47,7 +47,7 @@ These policies are highly recommended.
 9. [Disallow use of default namespace](DisallowDefaultNamespace.md)
 10. [Disallow latest image tag](DisallowLatestTag.md)
 11. [Disallow Helm Tiller](DisallowHelmTiller.md)
-12. [Restrict image registries](DisallowUnknownRegistries.md)
+12. [Restrict image registries](RestrictImageRegistries.md)
 13. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
 14. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
 15. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)

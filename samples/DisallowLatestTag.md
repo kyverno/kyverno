@@ -12,11 +12,6 @@ apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
-  annotations:
-    policies.kyverno.io/category: Image
-    policies.kyverno.io/description: The ':latest' tag is mutable and can lead to 
-      unexpected errors if the image changes. A best practice is to use an immutable 
-      tag that maps to a specific version of an application pod.
 spec:
   rules:
   - name: require-tag
