@@ -4,14 +4,13 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-node-port
+      policy: limit-nodeport
       resource:
         kind: Service
         apiVersion: v1
         namespace: ''
         name: "my-service"
       rules:
-        - name: disallow-node-port
+        - name: validate-nodeport
           type: Validation
-          message: "Validation error: Disallow service of type NodePort\nValidation rule 'disallow-node-port' failed at path '/spec/type/'."
           success: false

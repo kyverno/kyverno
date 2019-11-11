@@ -15,10 +15,10 @@ Although NodePort services can be useful, their use should be limited to service
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: disallow-node-port
+  name: limit-node-port
 spec:
   rules:
-  - name: disallow-node-port
+  - name: validate-node-port
     match:
       resources:
         kinds:
