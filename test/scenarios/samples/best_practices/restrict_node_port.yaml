@@ -1,10 +1,10 @@
 input:
-  policy: samples/best_practices/disallow_node_port.yaml
+  policy: samples/best_practices/restrict_node_port.yaml
   resource: test/resources/disallow_node_port.yaml
 expected:
   validation:
     policyresponse:
-      policy: limit-nodeport
+      policy: restrict-nodeport
       resource:
         kind: Service
         apiVersion: v1

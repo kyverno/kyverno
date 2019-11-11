@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: limit-nodeport
+  name: restrict-nodeport
   annotations:
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: A Kubernetes service of type NodePort uses a 
@@ -16,7 +16,7 @@ spec:
         kinds:
         - Service
     validate:
-      message: "Disallow service of type NodePort"
+      message: "Services of type NodePort are not allowed"
       pattern: 
         spec:
           type: "!NodePort"

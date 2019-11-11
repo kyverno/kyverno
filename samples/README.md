@@ -47,19 +47,19 @@ These policies are highly recommended.
 9. [Disallow use of default namespace](DisallowDefaultNamespace.md)
 10. [Disallow latest image tag](DisallowLatestTag.md)
 11. [Disallow Helm Tiller](DisallowHelmTiller.md)
-12. [Restrict image registries](RestrictImageRegistries.md)
-13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
-14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
-15. [Add default network policy](DefaultDenyAllIngress.md)
-16. [Add namespace resource quotas](AddNamespaceResourceQuota.md)
-17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
+12. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
+13. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
+14. [Add default network policy](DefaultDenyAllIngress.md)
+15. [Add namespace resource quotas](AddNamespaceResourceQuota.md)
+16. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
 
 ## Additional Policies
 
-The policies provide additional best practices and are worthy of close consideration. These policies may require workload specific changes. 
+The policies provide additional best practices and are worthy of close consideration. These policies may require specific changes for your workloads and environments. 
 
-18. [Limit use of `NodePort` services](LimitNodePort.md)
-19. [Limit automount of Service Account credentials](DisallowAutomountSACredentials.md)
-20. [Configure Linux Capabilities](AssignLinuxCapabilities.md)
-21. [Limit Kernel parameter access](ConfigureKernelParmeters.md)
+17. [Restrict image registries](RestrictImageRegistries.md)
+18. [Restrict `NodePort` services](RestrictNodePort.md)
+19. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
+20. [Restrict Linux Capabilities](RestrictLinuxCapabilities.md)
+21. [Restrict kernel parameter access](ConfigureKernelParmeters.md)
 22. [Restrict ingress classes](KnownIngressClass.md)
