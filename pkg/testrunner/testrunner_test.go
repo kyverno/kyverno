@@ -36,8 +36,8 @@ func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag_pass.yaml")
 }
 
-func Test_validate_disallow_automoutingapicred_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_automountingapicred.yaml")
+func Test_validate_restrict_automount_sa_token_pass(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/restrict_automount_sa_token.yaml")
 }
 
 func Test_validate_disallow_default_namespace(t *testing.T) {
