@@ -61,7 +61,7 @@ func Test_validate_require_namespace_quota(t *testing.T) {
 }
 
 func Test_validate_disallow_node_port(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_node_port.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_node_port.yaml")
 }
 
 func Test_validate_disallow_default_serviceaccount(t *testing.T) {

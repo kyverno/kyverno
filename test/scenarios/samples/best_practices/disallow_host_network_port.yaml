@@ -5,13 +5,16 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-host-network-hostport
+      policy: host-network-port
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: "nginx-host-network"
       rules:
-        - name: validate-host-network-port
+        - name: validate-host-network
           type: Validation
-          success: false   
+          success: true   
+        - name: validate-host-port
+          type: Validation
+          success: false             
