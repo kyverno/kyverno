@@ -48,10 +48,10 @@ These policies are highly recommended.
 10. [Disallow latest image tag](DisallowLatestTag.md)
 11. [Disallow Helm Tiller](DisallowHelmTiller.md)
 12. [Restrict image registries](RestrictImageRegistries.md)
-13. [Require namespace limits and quotas](RequireNSLimitsQuotas.md)
-14. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
-15. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
-16. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
+13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
+14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
+15. [Default deny all ingress traffic](DefaultDenyAllIngress.md)
+16. [Add namespace resource quotas](AddNamespaceResourceQuota.md)
 17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
 
 ## Additional Policies

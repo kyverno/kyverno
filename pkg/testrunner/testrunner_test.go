@@ -56,8 +56,8 @@ func Test_validate_ro_rootfs(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/require_ro_rootfs.yaml")
 }
 
-func Test_validate_require_namespace_quota(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_require_namespace_quota.yaml")
+func Test_add_ns_quota(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/add_ns_quota.yaml")
 }
 
 func Test_validate_disallow_node_port(t *testing.T) {
