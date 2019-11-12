@@ -1,34 +1,6 @@
 # Sample Policies
 
-Sample policies are designed to be applied to your Kubernetes clusters with minimal changes. To apply these policies to your cluster, install Kyverno and import the policies as follows:
-
-**Install Kyverno**
-
-````sh
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
-````
-<small>[(installation docs)](../documentation/installation.md)</small>
-
-**Apply Kyverno Policies**
-
-To start applying policies to your cluster, first clone the repo:
-
-````bash
-git clone https://github.com/nirmata/kyverno.git
-cd kyverno
-````
-
-Import best_practices from [here](best_pratices):
-
-````bash
-kubectl create -f samples/best_practices
-````
-
-Import addition policies from [here](more):
-
-````bash
-kubectl create -f samples/more/
-````
+Sample policies are designed to be applied to your Kubernetes clusters with minimal changes. 
 
 The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
 
@@ -62,3 +34,36 @@ The policies provide additional best practices and are worthy of close considera
 18. [Restrict `NodePort` services](RestrictNodePort.md)
 19. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
 20. [Restrict ingress classes](RestrictIngressClasses.md)
+
+## Applying the sample policies
+
+To apply these policies to your cluster, install Kyverno and import the policies as follows:
+
+**Install Kyverno**
+
+````sh
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+````
+<small>[(installation docs)](../documentation/installation.md)</small>
+
+**Apply Kyverno Policies**
+
+To start applying policies to your cluster, first clone the repo:
+
+````bash
+git clone https://github.com/nirmata/kyverno.git
+cd kyverno
+````
+
+Import best_practices from [here](best_pratices):
+
+````bash
+kubectl create -f samples/best_practices
+````
+
+Import addition policies from [here](more):
+
+````bash
+kubectl create -f samples/more/
+````
+
