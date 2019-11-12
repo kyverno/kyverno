@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: add-ns-quota
   annotations:
-    policies.kyverno.io/category: Isolation
+    policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: To limit the number of objects, as well as the 
       total amount of compute that may be consumed by a single namespace, create 
       a default resource quota for each namespace.

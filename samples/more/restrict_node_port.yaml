@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: restrict-nodeport
   annotations:
-    policies.kyverno.io/category: Security
+    policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: A Kubernetes service of type NodePort uses a 
       host port to receive traffic from any source. A 'NetworkPolicy' resource cannot be used 
       to control traffic to host ports. Although 'NodePort' services can be useful, their use 

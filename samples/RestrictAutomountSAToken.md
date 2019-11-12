@@ -4,7 +4,7 @@ Kubernetes automatically mounts service account credentials in each pod. The ser
 
 ## Policy YAML 
 
-[restrict_automount_sa_token.yaml](best_practices/restrict_automount_sa_token.yaml) 
+[restrict_automount_sa_token.yaml](more/restrict_automount_sa_token.yaml) 
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1

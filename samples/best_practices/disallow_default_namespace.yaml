@@ -2,7 +2,7 @@ apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: disallow-default-namespace
-  policies.kyverno.io/category: Isolation
+  policies.kyverno.io/category: Workload Isolation
   policies.kyverno.io/description: Kubernetes namespaces are an optional feature 
     that provide a way to segment and isolate cluster resources across multiple 
     applications and users. As a best practice, workloads should be isolated with 

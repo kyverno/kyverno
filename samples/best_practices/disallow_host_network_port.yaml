@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: host-network-port
   annotations:
-    policies.kyverno.io/category: Security
+    policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: Using 'hostPort' and 'hostNetwork' allows pods to share 
       the host network stack, allowing potential snooping of network traffic from an application pod.
 spec:

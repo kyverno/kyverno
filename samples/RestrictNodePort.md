@@ -8,7 +8,7 @@ Although NodePort services can be useful, their use should be limited to service
 
 ## Policy YAML
 
-[restrict_node_port.yaml](best_practices/restrict_node_port.yaml)
+[restrict_node_port.yaml](more/restrict_node_port.yaml)
 
 ````yaml
 

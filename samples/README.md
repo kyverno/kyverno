@@ -12,7 +12,7 @@ These policies are highly recommended.
 2. [Disallow privileged containers](DisallowPrivilegedContainers.md)
 3. [Disallow new capabilities](DisallowNewCapabilities.md)
 4. [Disallow kernel parameter changes](DisallowSysctls.md)
-5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowHostFS.md)
+5. [Disallow use of bind mounts (`hostPath` volumes)](DisallowBindMounts.md)
 6. [Disallow docker socket bind mount](DisallowDockerSockMount.md)
 7. [Disallow `hostNetwork` and `hostPort`](DisallowHostNetworkPort.md)
 8. [Disallow `hostPID` and `hostIPC`](DisallowHostPIDIPC.md)
@@ -22,13 +22,13 @@ These policies are highly recommended.
 12. [Require read-only root filesystem](RequireReadOnlyRootFS.md)
 13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
 14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
-15. [Add default network policy](DefaultDenyAllIngress.md)
+15. [Add default network policy](AddDefaultNetworkPolicy.md)
 16. [Add namespace resource quotas](AddNamespaceResourceQuota.md)
 17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
 
 ## Additional Policies
 
-The policies provide additional best practices and are worthy of close consideration. These policies may require specific changes for your workloads and environments. 
+These policies provide additional best practices and are worthy of close consideration. These policies may require specific changes for your workloads and environments. 
 
 17. [Restrict image registries](RestrictImageRegistries.md)
 18. [Restrict `NodePort` services](RestrictNodePort.md)

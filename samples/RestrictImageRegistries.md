@@ -6,7 +6,7 @@ You can customize this policy to allow image registries that you trust.
 
 ## Policy YAML 
 
-[restrict_image_registries.yaml](best_practices/restrict_image_registries.yaml) 
+[restrict_image_registries.yaml](more/restrict_image_registries.yaml) 
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1

@@ -3,7 +3,7 @@ kind: "ClusterPolicy"
 metadata: 
   name: "disallow-bind-mounts"
   annotations:
-    policies.kyverno.io/category: Data Protection
+    policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: The volume of type `hostPath` allows pods to use host bind 
       mounts (i.e. directories and volumes mounted to a host path) in containers. Using host 
       resources can be used to access shared data or escalate priviliges. Also, this couples pods 

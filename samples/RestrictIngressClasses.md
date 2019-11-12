@@ -4,7 +4,7 @@ It can be useful to restrict Ingress resources to a set of known ingress classes
 
 ## Policy YAML 
 
-[restrict_ingress_classes.yaml](best_practices/restrict_ingress_classes.yaml) 
+[restrict_ingress_classes.yaml](more/restrict_ingress_classes.yaml) 
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
