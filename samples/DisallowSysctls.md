@@ -9,7 +9,7 @@ The Sysctl interface allows modifications to kernel parameters at runtime. In a 
 
 ## Policy YAML
 
-[disallow_sysctl.yaml](best_practices/disallow_sysctl.yaml)
+[disallow_sysctls.yaml](best_practices/disallow_sysctls.yaml)
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
