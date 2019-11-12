@@ -49,11 +49,13 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 			continue
 		}
 
+		startTime := time.Now()
 		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
 			continue
 		}
+		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that

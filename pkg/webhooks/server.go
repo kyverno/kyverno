@@ -177,6 +177,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 
 	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
 	// getRoleRef only if policy has roles/clusterroles defined
+	startTime := time.Now()
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
@@ -185,6 +186,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
 		}
 	}
+	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// MUTATION
 	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
