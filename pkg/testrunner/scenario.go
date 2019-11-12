@@ -3,6 +3,7 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -133,25 +134,21 @@ func runScenario(t *testing.T, s *scenarioT) bool {
 }
 
 func runTestCase(t *testing.T, tc scaseT) bool {
-
-	// apply policy
-	// convert policy -> kyverno.Policy
 	policy := loadPolicy(t, tc.Input.Policy)
 	if policy == nil {
-		t.Error("Policy no loaded")
+		t.Error("Policy not loaded")
 		t.FailNow()
 	}
-	// convert resource -> unstructured.Unstructured
+
 	resource := loadPolicyResource(t, tc.Input.Resource)
 	if resource == nil {
-		t.Error("Resources no loaded")
+		t.Error("Resources not loaded")
 		t.FailNow()
 	}
 
 	var er engine.EngineResponse
-	// Mutation
-	er = engine.Mutate(*policy, *resource)
-	// validate te response
+
+	er = engine.Mutate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -161,9 +158,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	// Validation
-	er = engine.Validate(*policy, *resource)
-	// validate the response
+	er = engine.Validate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -201,8 +196,8 @@ func validateGeneratedResources(t *testing.T, client *client.Client, policy kyve
 }
 
 func validateResource(t *testing.T, responseResource unstructured.Unstructured, expectedResourceFile string) {
-	resourcePrint := func(obj unstructured.Unstructured) {
-		t.Log("-----patched resource----")
+	resourcePrint := func(obj unstructured.Unstructured, msg string) {
+		t.Logf("-----%s----", msg)
 		if data, err := obj.MarshalJSON(); err == nil {
 			t.Log(string(data))
 		}
@@ -218,8 +213,8 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 		return
 	}
 
-	resourcePrint(responseResource)
-	resourcePrint(*expectedResource)
+	resourcePrint(responseResource, "response resource")
+	resourcePrint(*expectedResource, "expected resource")
 	// compare the resources
 	if !reflect.DeepEqual(responseResource, *expectedResource) {
 		t.Error("failed: response resource returned does not match expected resource")
@@ -291,7 +286,8 @@ func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.Ru
 		t.Errorf("rule type: expected %s, recieved %s", expectedRule.Type, rule.Type)
 	}
 	// message
-	if rule.Message != expectedRule.Message {
+	// compare messages if expected rule message is not empty
+	if expectedRule.Message != "" && rule.Message != expectedRule.Message {
 		t.Errorf("rule message: expected %s, recieved %s", expectedRule.Message, rule.Message)
 	}
 	// //TODO patches
@@ -442,6 +438,9 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
+	flag.Set("logtostderr", "true")
+	// flag.Set("v", "8")
+
 	scenario, err := loadScenario(t, path)
 	if err != nil {
 		t.Error(err)

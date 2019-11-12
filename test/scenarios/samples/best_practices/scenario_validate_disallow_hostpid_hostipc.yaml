@@ -5,14 +5,13 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-hostpid-hostipc
+      policy: validate-host-pid-ipc
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: "nginx-with-hostpid"
       rules:
-        - name: validate-hostpid-hostipc
+        - name: validate-host-pid-ipc
           type: Validation
-          message: Validation rule 'validate-hostpid-hostipc' failed at '/spec/hostIPC/' for resource Pod//nginx-with-hostpid. Disallow use of host's pid namespace and host's ipc namespace.
           success: false   

@@ -14,9 +14,9 @@ expected:
       rules:
         - name: image-tag-notspecified
           type: Validation
-          message: "Validation rule 'image-tag-notspecified' succesfully validated"
+          message: "Validation rule 'image-tag-notspecified' succeeded."
           success: true
         - name: image-tag-not-latest
           type: Validation
-          message: "Validation rule 'image-tag-not-latest' failed at '/spec/containers/0/image/' for resource Pod//myapp-pod. Using 'latest' image tag is restricted. Set image tag to a specific version."
+          message: "Validation error: Using 'latest' image tag is restricted. Set image tag to a specific version\nValidation rule 'image-tag-not-latest' failed at path '/spec/containers/0/image/'."
           success: false   

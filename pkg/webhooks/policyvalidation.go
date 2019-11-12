@@ -27,7 +27,6 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-
 	if err := policyvalidate.Validate(*policy); err != nil {
 		admissionResp = &v1beta1.AdmissionResponse{
 			Allowed: false,

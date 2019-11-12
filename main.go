@@ -31,9 +31,6 @@ var (
 	filterK8Resources string
 )
 
-// TODO: tune resync time differently for each informer
-const defaultReSyncTime = 10 * time.Second
-
 func main() {
 	defer glog.Flush()
 	printVersionInfo()
@@ -155,16 +152,19 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-	if err := configData.Run(kubeInformer.Core().V1().ConfigMaps(), stopCh); err != nil {
-		glog.Fatalf("Unable loading dynamic configuration: %v\n", err)
+	if err := configData.Run(stopCh); err != nil {
+		glog.Fatalf("Unable to load dynamic configuration: %v\n", err)
 	}
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
 	go nsc.Run(1, stopCh)
 
-	//TODO add WG for the go routines?
-	server.RunAsync()
+	// verifys if the admission control is enabled and active
+	// resync: 60 seconds
+	// deadline: 60 seconds (send request)
+	// max deadline: deadline*3 (set the deployment annotation as false)
+	server.RunAsync(stopCh)
 
 	<-stopCh
 	disableProfiling(prof)

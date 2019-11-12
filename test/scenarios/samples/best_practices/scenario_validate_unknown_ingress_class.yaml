@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/known_ingress.yaml
+  resource: test/resources/ingress-haproxy.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: known-ingress
+      resource:
+        kind: Ingress
+        apiVersion: v1
+        namespace: ''
+        name: test-ingress
+      rules:
+        - name: known-ingress
+          type: Validation
+          message: "Validation error: Unknown ingress class\nValidation rule 'known-ingress' failed at path '/metadata/annotations/kubernetes.io/ingress.class/'."
+          success: false

@@ -21,10 +21,9 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Deny untrusted registries"
+      message: "Unknown image registry"
       pattern:
         spec:
           containers:
           - image: "k8s.gcr.io/* | gcr.io/*"
-
 ````

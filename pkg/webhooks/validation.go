@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// HandleValidation handles validating webhook admission request
+// handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,

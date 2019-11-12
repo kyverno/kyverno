@@ -1,13 +1,15 @@
 apiVersion: "kyverno.io/v1alpha1"
 kind: "ClusterPolicy"
 metadata: 
-  name: "annotate-emptydir"
+  name: "annotate-emptydir-hostpath"
   annotations:
     policies.kyverno.io/category: AutoScaling
-    policies.kyverno.io/description: 
+    policies.kyverno.io/description: The Kubernetes cluster autoscaler does not evict pods that 
+      use hostPath or emptyDir volumes. To allow eviction of these pods, the annotation 
+      cluster-autoscaler.kubernetes.io/safe-to-evict=true must be added to the pods. 
 spec: 
   rules: 
-  - name: "add-safe-to-evict-annotation"
+  - name: "empty-dir-add-safe-to-evict"
     match: 
       resources: 
         kinds: 
@@ -20,3 +22,17 @@ spec:
         spec:          
           volumes: 
           - (emptyDir): {}
+  - name: "host-path-add-safe-to-evict"
+    match: 
+      resources: 
+        kinds: 
+        - "Pod"
+    mutate: 
+      overlay:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+        spec:          
+          volumes: 
+          - (hostPath):
+              path: "*"

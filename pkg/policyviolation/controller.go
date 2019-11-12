@@ -269,7 +269,7 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 
 		for _, resource := range resources.Items {
 			glog.V(4).Infof("getting owners for %s/%s/%s\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-			owners := getOwners(pvc.client, resource)
+			owners := GetOwners(pvc.client, resource)
 			// owner of resource matches violation resourceSpec
 			// remove policy violation as the blocked request got created
 			if containsOwner(owners, curPv) {

@@ -9,15 +9,15 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
-func meetConditions(resource, overlay interface{}) (string, error) {
+func meetConditions(resource, overlay interface{}) (string, overlayError) {
 	return checkConditions(resource, overlay, "/")
 }
 
 // resource and overlay should be the same type
-func checkConditions(resource, overlay interface{}, path string) (string, error) {
+func checkConditions(resource, overlay interface{}, path string) (string, overlayError) {
 	// overlay has no anchor, return true
 	if !hasNestedAnchors(overlay) {
-		return "", nil
+		return "", overlayError{}
 	}
 
 	// resource item exists but has different type
@@ -26,10 +26,11 @@ func checkConditions(resource, overlay interface{}, path string) (string, error)
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
 		if hasNestedAnchors(overlay) {
 			glog.V(4).Infof("Found anchor on different types of element at path %s: overlay %T, resource %T", path, overlay, resource)
-			return path, fmt.Errorf("Found anchor on different types of element at path %s: overlay %T %v, resource %T %v", path, overlay, overlay, resource, resource)
+			return path, newOverlayError(conditionFailure,
+				fmt.Sprintf("Found anchor on different types of element at path %s: overlay %T %v, resource %T %v", path, overlay, overlay, resource, resource))
 
 		}
-		return "", nil
+		return "", overlayError{}
 	}
 
 	switch typedOverlay := overlay.(type) {
@@ -43,42 +44,43 @@ func checkConditions(resource, overlay interface{}, path string) (string, error)
 		// anchor on non map/array is invalid:
 		// - anchor defined on values
 		glog.Warningln("Found invalid conditional anchor: anchor defined on values")
-		return "", nil
+		return "", overlayError{}
 	}
 }
 
-func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}, path string) (string, error) {
+func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}, path string) (string, overlayError) {
 	anchors, overlayWithoutAnchor := getAnchorAndElementsFromMap(overlayMap)
 
 	// validate resource with conditions
-	if newPath, err := validateConditionAnchorMap(resourceMap, anchors, path); err != nil {
+	if newPath, err := validateConditionAnchorMap(resourceMap, anchors, path); !reflect.DeepEqual(err, overlayError{}) {
 		return newPath, err
 	}
 
 	// traverse overlay pattern to further validate conditions
-	if newPath, err := validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor, path); err != nil {
+	if newPath, err := validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor, path); !reflect.DeepEqual(err, overlayError{}) {
 		return newPath, err
 	}
 
 	// empty overlayMap
-	return "", nil
+	return "", overlayError{}
 }
 
-func checkConditionOnArray(resource, overlay []interface{}, path string) (string, error) {
+func checkConditionOnArray(resource, overlay []interface{}, path string) (string, overlayError) {
 	if 0 == len(overlay) {
 		glog.Infof("Mutate overlay pattern is empty, path %s", path)
-		return "", nil
+		return "", overlayError{}
 	}
 
 	if reflect.TypeOf(resource[0]) != reflect.TypeOf(overlay[0]) {
 		glog.V(4).Infof("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
-		return path, fmt.Errorf("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
+		return path, newOverlayError(conditionFailure,
+			fmt.Sprintf("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0]))
 	}
 
 	return checkConditionsOnArrayOfSameTypes(resource, overlay, path)
 }
 
-func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, path string) (string, error) {
+func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, path string) (string, overlayError) {
 	for key, overlayValue := range anchors {
 		// skip if key does not have condition anchor
 		if !anchor.IsConditionAnchor(key) {
@@ -91,25 +93,25 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 		if resourceValue, ok := resourceMap[noAnchorKey]; ok {
 			// compare entire resourceValue block
 			// return immediately on err since condition fails on this block
-			if newPath, err := compareOverlay(resourceValue, overlayValue, curPath); err != nil {
+			if newPath, err := compareOverlay(resourceValue, overlayValue, curPath); !reflect.DeepEqual(err, overlayError{}) {
 				return newPath, err
 			}
 		} else {
 			// noAnchorKey doesn't exist in resource
-			return curPath, fmt.Errorf("resource field %s is not present", noAnchorKey)
+			return curPath, newOverlayError(conditionNotPresent, fmt.Sprintf("resource field is not present %s", noAnchorKey))
 		}
 	}
-	return "", nil
+	return "", overlayError{}
 }
 
 // compareOverlay compare values in anchormap and resourcemap
 // i.e. check if B1 == B2
 // overlay - (A): B1
 // resource - A: B2
-func compareOverlay(resource, overlay interface{}, path string) (string, error) {
+func compareOverlay(resource, overlay interface{}, path string) (string, overlayError) {
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
-		glog.Errorf("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource)
-		return path, fmt.Errorf("")
+		glog.V(4).Infof("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource)
+		return path, newOverlayError(conditionFailure, fmt.Sprintf("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource))
 	}
 
 	switch typedOverlay := overlay.(type) {
@@ -120,9 +122,9 @@ func compareOverlay(resource, overlay interface{}, path string) (string, error) 
 			curPath := path + noAnchorKey + "/"
 			resourceVal, ok := typedResource[noAnchorKey]
 			if !ok {
-				return curPath, fmt.Errorf("Field %s is not present", noAnchorKey)
+				return curPath, newOverlayError(conditionFailure, fmt.Sprintf("field %s is not present", noAnchorKey))
 			}
-			if newPath, err := compareOverlay(resourceVal, overlayVal, curPath); err != nil {
+			if newPath, err := compareOverlay(resourceVal, overlayVal, curPath); !reflect.DeepEqual(err, overlayError{}) {
 				return newPath, err
 			}
 		}
@@ -130,7 +132,7 @@ func compareOverlay(resource, overlay interface{}, path string) (string, error) 
 		typedResource := resource.([]interface{})
 		for _, overlayElement := range typedOverlay {
 			for _, resourceElement := range typedResource {
-				if newPath, err := compareOverlay(resourceElement, overlayElement, path); err != nil {
+				if newPath, err := compareOverlay(resourceElement, overlayElement, path); !reflect.DeepEqual(err, overlayError{}) {
 					return newPath, err
 				}
 			}
@@ -138,17 +140,17 @@ func compareOverlay(resource, overlay interface{}, path string) (string, error) 
 	case string, float64, int, int64, bool, nil:
 		if !ValidateValueWithPattern(resource, overlay) {
 			glog.V(4).Infof("Mutate rule: failed validating value %v with overlay %v", resource, overlay)
-			return path, fmt.Errorf("failed validating value %v with overlay %v", resource, overlay)
+			return path, newOverlayError(conditionFailure, fmt.Sprintf("failed validating value %v with overlay %v", resource, overlay))
 		}
 	default:
-		return path, fmt.Errorf("overlay has unknown type %T, value %v", overlay, overlay)
+		return path, newOverlayError(conditionFailure, fmt.Sprintf("overlay has unknown type %T, value %v", overlay, overlay))
 	}
 
-	return "", nil
+	return "", overlayError{}
 }
 
 // validateNonAnchorOverlayMap validate anchor condition in overlay block without anchor
-func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]interface{}, path string) (string, error) {
+func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]interface{}, path string) (string, overlayError) {
 	// validate resource map (anchors could exist in resource)
 	for key, overlayValue := range overlayWithoutAnchor {
 		curPath := path + key + "/"
@@ -160,14 +162,14 @@ func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]in
 			// the above case should be allowed
 			continue
 		}
-		if newPath, err := checkConditions(resourceValue, overlayValue, curPath); err != nil {
+		if newPath, err := checkConditions(resourceValue, overlayValue, curPath); !reflect.DeepEqual(err, overlayError{}) {
 			return newPath, err
 		}
 	}
-	return "", nil
+	return "", overlayError{}
 }
 
-func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}, path string) (string, error) {
+func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}, path string) (string, overlayError) {
 	switch overlay[0].(type) {
 	case map[string]interface{}:
 		return checkConditionsOnArrayOfMaps(resource, overlay, path)
@@ -175,17 +177,17 @@ func checkConditionsOnArrayOfSameTypes(resource, overlay []interface{}, path str
 		for i, overlayElement := range overlay {
 			curPath := path + strconv.Itoa(i) + "/"
 			path, err := checkConditions(resource[i], overlayElement, curPath)
-			if err != nil {
+			if !reflect.DeepEqual(err, overlayError{}) {
 				return path, err
 			}
 		}
 	}
-	return "", nil
+	return "", overlayError{}
 }
 
-func checkConditionsOnArrayOfMaps(resource, overlay []interface{}, path string) (string, error) {
+func checkConditionsOnArrayOfMaps(resource, overlay []interface{}, path string) (string, overlayError) {
 	var newPath string
-	var err error
+	var err overlayError
 
 	for i, overlayElement := range overlay {
 		for _, resourceMap := range resource {
@@ -194,8 +196,8 @@ func checkConditionsOnArrayOfMaps(resource, overlay []interface{}, path string) 
 			// when resource has multiple same blocks of the overlay block
 			// return true if there is one resource block meet the overlay pattern
 			// reference: TestMeetConditions_AtleastOneExist
-			if err == nil {
-				return "", nil
+			if reflect.DeepEqual(err, overlayError{}) {
+				return "", overlayError{}
 			}
 		}
 	}
