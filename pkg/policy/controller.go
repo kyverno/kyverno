@@ -17,6 +17,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -79,14 +80,17 @@ type PolicyController struct {
 	// recieves stats and aggregates details
 	statusAggregator *PolicyStatusAggregator
 	// store to hold policy meta data for faster lookup
-	pMetaStore policystore.Interface
+	pMetaStore policystore.UpdateInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer, webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	configHandler config.Interface,
-	pMetaStore policystore.Interface) (*PolicyController, error) {
+	pvGenerator policyviolation.GeneratorInterface,
+	pMetaStore policystore.UpdateInterface) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -105,6 +109,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		webhookRegistrationClient: webhookRegistrationClient,
 		configHandler:             configHandler,
 		pMetaStore:                pMetaStore,
+		pvGenerator:               pvGenerator,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

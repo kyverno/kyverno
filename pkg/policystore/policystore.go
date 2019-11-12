@@ -4,59 +4,41 @@ import (
 	"sync"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 )
 
-type PolicyElement struct {
-	Name string
-	Rule string
-}
-
-//Operation defines the operation that a rule is performing
-// we can only have a single operation per rule
-type Operation string
-
-const (
-	//Mutation : mutation rules
-	Mutation Operation = "Mutation"
-	//Validation : validation rules
-	Validation Operation = "Validation"
-	//Generation : generation rules
-	Generation Operation = "Generation"
-)
-
-type policyMap map[PolicyElement]interface{}
+type policyMap map[string]interface{}
+type namespaceMap map[string]policyMap
+type kindMap map[string]namespaceMap
 
 //PolicyStore Store the meta-data information to faster lookup policies
 type PolicyStore struct {
-	data map[Operation]map[string]map[string]policyMap
-	mu   sync.RWMutex
+	data    map[string]namespaceMap
+	mu      sync.RWMutex
+	pLister kyvernolister.ClusterPolicyLister
 }
 
-type Interface interface {
+//UpdateInterface provides api to update policies
+type UpdateInterface interface {
 	// Register a new policy
 	Register(policy kyverno.ClusterPolicy)
 	// Remove policy information
 	UnRegister(policy kyverno.ClusterPolicy) error
+}
+
+//LookupInterface provides api to lookup policies
+type LookupInterface interface {
 	// Lookup based on kind and namespaces
-	LookUp(operation Operation, kind, namespace string) []PolicyElement
+	LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error)
 }
 
 // NewPolicyStore returns a new policy store
-func NewPolicyStore() *PolicyStore {
+func NewPolicyStore(pLister kyvernolister.ClusterPolicyLister) *PolicyStore {
 	ps := PolicyStore{
-		data: make(map[Operation]map[string]map[string]policyMap),
+		data:    make(kindMap),
+		pLister: pLister,
 	}
 	return &ps
-}
-
-func operation(rule kyverno.Rule) Operation {
-	if rule.HasMutate() {
-		return Mutation
-	} else if rule.HasValidate() {
-		return Validation
-	} else {
-		return Generation
-	}
 }
 
 //Register a new policy
@@ -66,13 +48,9 @@ func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
 	var pmap policyMap
 	// add an entry for each rule in policy
 	for _, rule := range policy.Spec.Rules {
-		// get operation
-		operation := operation(rule)
-		operationMap := ps.addOperation(operation)
-
 		//		rule.MatchResources.Kinds - List - mandatory - atleast on entry
 		for _, kind := range rule.MatchResources.Kinds {
-			kindMap := addKind(operationMap, kind)
+			kindMap := ps.addKind(kind)
 			// namespaces
 			if len(rule.MatchResources.Namespaces) == 0 {
 				// all namespaces - *
@@ -83,9 +61,24 @@ func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
 				}
 			}
 			// add policy to the pmap
-			addPolicyElement(pmap, policy.Name, rule.Name)
+			addPolicyElement(pmap, policy.Name)
 		}
 	}
+}
+
+//LookUp look up the resources
+func (ps *PolicyStore) LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error) {
+	ret := []kyverno.ClusterPolicy{}
+	// lookup meta-store
+	policyNames := ps.lookUp(kind, namespace)
+	for _, policyName := range policyNames {
+		policy, err := ps.pLister.Get(policyName)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, *policy)
+	}
+	return ret, nil
 }
 
 //UnRegister Remove policy information
@@ -93,12 +86,9 @@ func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	for _, rule := range policy.Spec.Rules {
-		// get operation
-		operation := operation(rule)
-		operationMap := ps.getOperation(operation)
 		for _, kind := range rule.MatchResources.Kinds {
 			// get kind Map
-			kindMap := getKind(operationMap, kind)
+			kindMap := ps.getKind(kind)
 			if kindMap == nil {
 				// kind does not exist
 				return nil
@@ -107,12 +97,12 @@ func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 				namespace := "*"
 				pmap := getNamespace(kindMap, namespace)
 				// remove element
-				delete(pmap, PolicyElement{Name: policy.Name, Rule: rule.Name})
+				delete(pmap, policy.Name)
 			} else {
 				for _, ns := range rule.MatchResources.Namespaces {
 					pmap := getNamespace(kindMap, ns)
 					// remove element
-					delete(pmap, PolicyElement{Name: policy.Name, Rule: rule.Name})
+					delete(pmap, policy.Name)
 				}
 			}
 		}
@@ -122,20 +112,15 @@ func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 
 //LookUp lookups up the policies for kind and namespace
 // returns a list of <policy, rule> that statisfy the filters
-func (ps *PolicyStore) LookUp(operation Operation, kind, namespace string) []PolicyElement {
+func (ps *PolicyStore) lookUp(kind, namespace string) []string {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 	var policyMap policyMap
-	var ret []PolicyElement
-	// operation
-	operationMap := ps.getOperation(operation)
-	if operationMap == nil {
-		return []PolicyElement{}
-	}
+	var ret []string
 	// kind
-	kindMap := getKind(operationMap, kind)
+	kindMap := ps.getKind(kind)
 	if kindMap == nil {
-		return []PolicyElement{}
+		return []string{}
 	}
 	// get namespace specific policies
 	policyMap = kindMap[namespace]
@@ -143,42 +128,41 @@ func (ps *PolicyStore) LookUp(operation Operation, kind, namespace string) []Pol
 	// get policies on all namespaces
 	policyMap = kindMap["*"]
 	ret = append(ret, transform(policyMap)...)
-	return ret
+	return unique(ret)
+}
+
+func unique(intSlice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
 
 // generates a copy
-func transform(pmap policyMap) []PolicyElement {
-	ret := []PolicyElement{}
+func transform(pmap policyMap) []string {
+	ret := []string{}
 	for k := range pmap {
 		ret = append(ret, k)
 	}
 	return ret
 }
 
-func (ps *PolicyStore) addOperation(operation Operation) map[string]map[string]policyMap {
-	operationMap, ok := ps.data[operation]
-	if ok {
-		return operationMap
-	}
-	ps.data[operation] = make(map[string]map[string]policyMap)
-	return ps.data[operation]
-}
-
-func (ps *PolicyStore) getOperation(operation Operation) map[string]map[string]policyMap {
-	return ps.data[operation]
-}
-
-func addKind(operationMap map[string]map[string]policyMap, kind string) map[string]policyMap {
-	val, ok := operationMap[kind]
+func (ps *PolicyStore) addKind(kind string) namespaceMap {
+	val, ok := ps.data[kind]
 	if ok {
 		return val
 	}
-	operationMap[kind] = make(map[string]policyMap)
-	return operationMap[kind]
+	ps.data[kind] = make(namespaceMap)
+	return ps.data[kind]
 }
 
-func getKind(operationMap map[string]map[string]policyMap, kind string) map[string]policyMap {
-	return operationMap[kind]
+func (ps *PolicyStore) getKind(kind string) namespaceMap {
+	return ps.data[kind]
 }
 
 func addNamespace(kindMap map[string]policyMap, namespace string) policyMap {
@@ -194,13 +178,10 @@ func getNamespace(kindMap map[string]policyMap, namespace string) policyMap {
 	return kindMap[namespace]
 }
 
-func addPolicyElement(pmap policyMap, name, rule string) {
+func addPolicyElement(pmap policyMap, name string) {
 	var emptyInterface interface{}
-	key := PolicyElement{
-		Name: name,
-		Rule: rule,
-	}
-	if _, ok := pmap[key]; !ok {
-		pmap[key] = emptyInterface
+
+	if _, ok := pmap[name]; !ok {
+		pmap[name] = emptyInterface
 	}
 }

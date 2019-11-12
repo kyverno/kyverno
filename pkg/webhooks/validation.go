@@ -1,13 +1,13 @@
 package webhooks
 
 import (
+	"time"
+
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -19,7 +19,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	var policyStats []policyctr.PolicyStat
-
+	evalTime := time.Now()
 	// gather stats from the engine response
 	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
@@ -71,7 +71,8 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// resource namespace is empty for the first CREATE operation
 	resource.SetNamespace(request.Namespace)
 
-	policies, err := ws.pLister.List(labels.NewSelector())
+	// lookup policies based on operation,kind, namespace
+	policies, err := ws.pMetaStore.LookUp(resource.GetKind(), resource.GetNamespace())
 	if err != nil {
 		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
@@ -82,15 +83,10 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
-
-		if !utils.ContainsString(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
-			continue
-		}
-
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		engineResponse := engine.Validate(*policy, *resource)
+		engineResponse := engine.Validate(policy, *resource)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -99,6 +95,9 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 			continue
 		}
 	}
+	glog.V(4).Infof("eval: %v %s/%s/%s %s", time.Since(evalTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
+	// report time
+	reportTime := time.Now()
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
@@ -107,15 +106,20 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// violations are created with resource owner(if exist) on "enforce"
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
-	if !isResponseSuccesful(engineResponses) && toBlockResource(engineResponses) {
-		policyviolation.CreatePVWhenBlocked(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses)
+	blocked := toBlockResource(engineResponses)
+	if !isResponseSuccesful(engineResponses) && blocked {
+		glog.V(4).Infof("resource %s/%s/%s is blocked\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		pvInfos := generatePV(engineResponses, blocked)
+		ws.pvGenerator.Add(pvInfos...)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
 	}
-
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-	policyviolation.CreatePV(ws.pvLister, ws.kyvernoClient, engineResponses)
+	pvInfos := generatePV(engineResponses, blocked)
+	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)
+	// report time end
+	glog.V(4).Infof("report: %v %s/%s/%s %s", time.Since(reportTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
 	return true, ""
 }

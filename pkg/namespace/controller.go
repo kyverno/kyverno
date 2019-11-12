@@ -7,10 +7,12 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -57,6 +59,10 @@ type NamespaceController struct {
 	rm resourceManager
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.LookupInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 //NewNamespaceController returns a new Controller to manage generation rules
@@ -67,15 +73,19 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
-	configHandler config.Interface) *NamespaceController {
-		//TODO: do we need to event recorder for this controller?
+	configHandler config.Interface,
+	pvGenerator policyviolation.GeneratorInterface,
+	pMetaStore policystore.LookupInterface) *NamespaceController {
+	//TODO: do we need to event recorder for this controller?
 	// create the controller
 	nsc := &NamespaceController{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		eventGen:          eventGen,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
 		configHandler: configHandler,
+		pMetaStore:    pMetaStore,
+		pvGenerator:   pvGenerator,
 	}
 
 	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

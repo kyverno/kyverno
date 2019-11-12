@@ -29,8 +29,6 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 			ViolatedRules: fRules,
 		},
 	}
-	//TODO: check if this can be removed or use unstructured?
-	// pv.Kind = "PolicyViolation"
 	pv.SetGenerateName("pv-")
 	return pv
 }
@@ -153,22 +151,11 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 
 //TODO: change the name
 func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.ClusterPolicyViolationLister, newPv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
-	// TODO: check for existing ov using label selectors on resource and policy
-	// TODO: there can be duplicates, as the labels have not been assigned to the policy violation yet
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
 	policyViolationSelector, err := converLabelToSelector(labelMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", newPv.Spec.Policy, err)
 	}
-
-	//TODO: sync the cache before reading from it ?
-	// check is this is needed ?
-	// stopCh := make(chan struct{}, 0)
-	// if !cache.WaitForCacheSync(stopCh, pvListerSynced) {
-	// 	//TODO: can this be handled or avoided ?
-	// 	glog.Info("unable to sync policy violation shared informer cache, might be out of sync")
-	// }
-
 	pvs, err := pvLister.List(policyViolationSelector)
 	if err != nil {
 		glog.Errorf("unable to list policy violations with label selector %v: %v", policyViolationSelector, err)
@@ -324,6 +311,5 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.Cl
 			return true
 		}
 	}
-
 	return false
 }

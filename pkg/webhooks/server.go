@@ -20,6 +20,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -48,7 +49,9 @@ type WebhookServer struct {
 	// last request time
 	lastReqTime *checker.LastReqTime
 	// store to hold policy meta data for faster lookup
-	pMetaStore policystore.Interface
+	pMetaStore policystore.LookupInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -63,7 +66,8 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
 	configHandler config.Interface,
-	pMetaStore policystore.Interface,
+	pMetaStore policystore.LookupInterface,
+	pvGenerator policyviolation.GeneratorInterface,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -91,6 +95,7 @@ func NewWebhookServer(
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
 		lastReqTime:               checker.NewLastReqTime(),
+		pvGenerator:               pvGenerator,
 		pMetaStore:                pMetaStore,
 	}
 	mux := http.NewServeMux()
@@ -112,6 +117,7 @@ func NewWebhookServer(
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
 	// for every request recieved on the ep update last request time,
 	// this is used to verify admission control
 	ws.lastReqTime.SetTime(time.Now())
@@ -119,6 +125,9 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if admissionReview == nil {
 		return
 	}
+	defer func() {
+		glog.V(4).Infof("request: %v %s/%s/%s", time.Since(startTime), admissionReview.Request.Kind, admissionReview.Request.Namespace, admissionReview.Request.Name)
+	}()
 
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,

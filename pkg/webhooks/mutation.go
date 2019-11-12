@@ -6,7 +6,6 @@ import (
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -61,7 +60,8 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 	//TODO: check if the name and namespace is also passed right in the resource?
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	policies, err := ws.pLister.List(labels.NewSelector())
+	// lookup policies based on operation,kind, namespace
+	policies, err := ws.pMetaStore.LookUp(resource.GetKind(), resource.GetNamespace())
 	if err != nil {
 		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
@@ -69,19 +69,13 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 		glog.Warning(err)
 		return true, nil, ""
 	}
-
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
-
-		// check if policy has a rule for the admission request kind
-		if !utils.ContainsString(getApplicableKindsForPolicy(policy), request.Kind.Kind) {
-			continue
-		}
 
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		// TODO: this can be
-		engineResponse := engine.Mutate(*policy, *resource)
+		engineResponse := engine.Mutate(policy, *resource)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -91,10 +85,7 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 		}
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
-
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
-		//TODO: check if there is an order to policy application on resource
-		// resource = &engineResponse.PatchedResource
 	}
 
 	// generate annotations
