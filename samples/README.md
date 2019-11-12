@@ -61,4 +61,4 @@ The policies provide additional best practices and are worthy of close considera
 17. [Restrict image registries](RestrictImageRegistries.md)
 18. [Restrict `NodePort` services](RestrictNodePort.md)
 19. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
-20. [Restrict ingress classes](KnownIngressClass.md)
+20. [Restrict ingress classes](RestrictIngressClasses.md)

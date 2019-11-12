@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/restrict_automount_sa_token.yaml
+  policy: samples/more/restrict_automount_sa_token.yaml
   resource: test/resources/disallow_automountingapicred.yaml
 expected:
   validation:

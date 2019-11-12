@@ -1,5 +1,5 @@
 input:
-  policy: samples/best_practices/restrict_node_port.yaml
+  policy: samples/more/restrict_node_port.yaml
   resource: test/resources/disallow_node_port.yaml
 expected:
   validation:

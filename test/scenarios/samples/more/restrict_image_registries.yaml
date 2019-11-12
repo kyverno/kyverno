@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/restrict_image_registries.yaml
+  policy: samples/more/restrict_image_registries.yaml
   resource: test/resources//trusted_image_registries.yaml
 expected:
   validation:

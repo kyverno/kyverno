@@ -1,18 +1,17 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/known_ingress.yaml
+  policy: samples/more/restrict_ingress_classes.yaml
   resource: test/resources/ingress-nginx.yaml
 expected:
   validation:
     policyresponse:
-      policy: known-ingress
+      policy: restrict-ingress-classes
       resource:
         kind: Ingress
         apiVersion: v1
         namespace: ''
         name: test-ingress
       rules:
-        - name: known-ingress
+        - name: validate-ingress
           type: Validation
-          message: Validation rule 'known-ingress' succeeded.
           success: true
