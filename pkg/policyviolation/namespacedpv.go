@@ -8,6 +8,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	labels "k8s.io/apimachinery/pkg/labels"
 )
@@ -29,6 +30,22 @@ func CreateNamespacePV(pvLister kyvernolister.NamespacedPolicyViolationLister, c
 		}
 	}
 
+	createNamespacedPV(pvLister, client, pvs)
+}
+
+// CreateNamespacedPVWhenBlocked creates pv on resource owner only when admission request is denied
+func CreateNamespacedPVWhenBlocked(pvLister kyvernolister.NamespacedPolicyViolationLister, client *kyvernoclient.Clientset,
+	dclient *dclient.Client, engineResponses []engine.EngineResponse) {
+	var pvs []kyverno.NamespacedPolicyViolation
+	for _, er := range engineResponses {
+		// child resource is not created in this case thus it won't have a name
+		glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
+		if pvList := buildNamespacedPVWithOwner(dclient, er); len(pvList) != 0 {
+			pvs = append(pvs, pvList...)
+			glog.V(3).Infof("Built policy violation for denied admission request %s/%s/%s",
+				er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
+		}
+	}
 	createNamespacedPV(pvLister, client, pvs)
 }
 
@@ -57,6 +74,29 @@ func buildNamespacedPolicyViolation(policy string, resource kyverno.ResourceSpec
 	// pv.SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("NamespacedPolicyViolation"))
 	pv.SetGenerateName("pv-")
 	return pv
+}
+
+func buildNamespacedPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.NamespacedPolicyViolation) {
+	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
+	violatedRules := newViolatedRules(er, msg)
+
+	// create violation on resource owner (if exist) when action is set to enforce
+	owners := GetOwners(dclient, er.PatchedResource)
+
+	// standaloneresource, set pvResourceSpec with resource itself
+	if len(owners) == 0 {
+		pvResourceSpec := kyverno.ResourceSpec{
+			Namespace: er.PolicyResponse.Resource.Namespace,
+			Kind:      er.PolicyResponse.Resource.Kind,
+			Name:      er.PolicyResponse.Resource.Name,
+		}
+		return append(pvs, buildNamespacedPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+	}
+
+	for _, owner := range owners {
+		pvs = append(pvs, buildNamespacedPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
+	}
+	return
 }
 
 func createNamespacedPV(pvLister kyvernolister.NamespacedPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.NamespacedPolicyViolation) {
