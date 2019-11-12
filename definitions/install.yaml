@@ -243,7 +243,7 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: policyviolations.kyverno.io
+  name: namespacedpolicyviolations.kyverno.io
 spec:
   group: kyverno.io
   versions:
@@ -252,9 +252,9 @@ spec:
       storage: true
   scope: Namespaced
   names:
-    kind: PolicyViolation
-    plural: policyviolations
-    singular: policyviolation
+    kind: NamespacedPolicyViolation
+    plural: namespacedpolicyviolations
+    singular: namespacedpolicyviolation
   subresources:
     status: {}
   validation:
