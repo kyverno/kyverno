@@ -7,7 +7,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	 "github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
 // for each policy-resource response
