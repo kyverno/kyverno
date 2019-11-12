@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.io/patches"
+	policyAnnotation = "policies.kyverno.patches"
 )
 
 type policyPatch struct {
@@ -30,7 +30,12 @@ type response struct {
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(annotations map[string]string, engineResponses []engine.EngineResponse) []byte {
+func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
+	var annotations map[string]string
+	if len(engineResponses) > 0 {
+		annotations = engineResponses[0].PatchedResource.GetAnnotations()
+	}
+
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
@@ -50,12 +55,21 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 			Value: string(value),
 		}
 	} else {
-		// insert 'policies.kyverno.io' entry in annotation map
-		annotations[policyAnnotation] = string(value)
-		patchResponse = response{
-			Op:    "add",
-			Path:  "/metadata/annotations",
-			Value: annotations,
+		// mutate rule has annotation patches
+		if len(annotations) > 0 {
+			patchResponse = response{
+				Op:    "add",
+				Path:  "/metadata/annotations/" + policyAnnotation,
+				Value: string(value),
+			}
+		} else {
+			// insert 'policies.kyverno.patches' entry in annotation map
+			annotations[policyAnnotation] = string(value)
+			patchResponse = response{
+				Op:    "add",
+				Path:  "/metadata/annotations",
+				Value: annotations,
+			}
 		}
 	}
 

@@ -99,7 +99,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest,
 	}
 
 	// generate annotations
-	if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponses); annPatches != nil {
+	if annPatches := generateAnnotationPatches(engineResponses); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
 

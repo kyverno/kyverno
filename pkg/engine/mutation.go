@@ -44,7 +44,7 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 		}
 
 		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
-			glog.Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
 			continue
 		}
