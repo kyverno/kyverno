@@ -17,3 +17,7 @@ expected:
           type: Mutation
           success: true
           message: "successfully processed overlay"
+        - name: host-path-add-safe-to-evict
+          type: Mutation
+          success: true
+          message: "successfully processed overlay"
