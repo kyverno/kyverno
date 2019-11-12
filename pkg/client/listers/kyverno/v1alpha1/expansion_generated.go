@@ -38,6 +38,7 @@ type PolicyViolationListerExpansion interface{}
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.
 type ClusterPolicyListerExpansion interface {
+	// TODO(shuting): change to getpolicyforclusterpolicyviolation?
 	GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error)
 	ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error)
 }
@@ -46,8 +47,16 @@ type ClusterPolicyListerExpansion interface {
 // PolicyViolationLister.
 type ClusterPolicyViolationListerExpansion interface {
 	// List lists all PolicyViolations in the indexer with GVK.
-	// List lists all PolicyViolations in the indexer with GVK.
 	ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicyViolation, err error)
+}
+
+// NamespacedPolicyViolationListerExpansion allows custom methods to be added to
+// NamespacedPolicyViolationLister.
+type NamespacedPolicyViolationListerExpansion interface{}
+
+// NamespacedPolicyViolationNamespaceListerExpansion allows custom methods to be added to
+// NamespacedPolicyViolationNamespaceLister.
+type NamespacedPolicyViolationNamespaceListerExpansion interface {
 }
 
 //ListResources is a wrapper to List and adds the resource kind information

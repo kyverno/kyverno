@@ -36,6 +36,10 @@ func (c *FakeKyvernoV1alpha1) ClusterPolicyViolations() v1alpha1.ClusterPolicyVi
 	return &FakeClusterPolicyViolations{c}
 }
 
+func (c *FakeKyvernoV1alpha1) NamespacedPolicyViolations(namespace string) v1alpha1.NamespacedPolicyViolationInterface {
+	return &FakeNamespacedPolicyViolations{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV1alpha1) RESTClient() rest.Interface {

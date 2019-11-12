@@ -36,6 +36,21 @@ type ClusterPolicyViolationList struct {
 	Items           []ClusterPolicyViolation `json:"items"`
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedPolicyViolation ...
+type NamespacedPolicyViolation PolicyViolation
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedPolicyViolationList ...
+type NamespacedPolicyViolationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedPolicyViolation `json:"items"`
+}
+
 // Policy contains rules to be applied to created resources
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
