@@ -10,7 +10,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-
 func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) {
 	// generate events
 	eventInfos := generateEvents(engineResponses)
