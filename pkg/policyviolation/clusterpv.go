@@ -20,7 +20,20 @@ import (
 	deployutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
-//CreateClusterPV creates policy violation resource based on the engine responses
+//BuildPolicyViolation returns an value of type PolicyViolation
+func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
+	pv := kyverno.ClusterPolicyViolation{
+		Spec: kyverno.PolicyViolationSpec{
+			Policy:        policy,
+			ResourceSpec:  resource,
+			ViolatedRules: fRules,
+		},
+	}
+	pv.SetGenerateName("pv-")
+	return pv
+}
+
+//CreatePV creates policy violation resource based on the engine responses
 func CreateClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
@@ -154,22 +167,11 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 
 //TODO: change the name
 func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvLister kyvernolister.ClusterPolicyViolationLister, newPv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
-	// TODO: check for existing pv using label selectors on resource and policy
-	// TODO: there can be duplicates, as the labels have not been assigned to the policy violation yet
 	labelMap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
 	policyViolationSelector, err := converLabelToSelector(labelMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", newPv.Spec.Policy, err)
 	}
-
-	//TODO: sync the cache before reading from it ?
-	// check is this is needed ?
-	// stopCh := make(chan struct{}, 0)
-	// if !cache.WaitForCacheSync(stopCh, pvListerSynced) {
-	// 	//TODO: can this be handled or avoided ?
-	// 	glog.Info("unable to sync policy violation shared informer cache, might be out of sync")
-	// }
-
 	pvs, err := pvLister.List(policyViolationSelector)
 	if err != nil {
 		glog.Errorf("unable to list policy violations with label selector %v: %v", policyViolationSelector, err)
@@ -325,6 +327,5 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.Cl
 			return true
 		}
 	}
-
 	return false
 }
