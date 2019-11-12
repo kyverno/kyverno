@@ -6,7 +6,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
-	clusterpv "github.com/nirmata/kyverno/pkg/clusterpolicyviolation"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
 // for each policy-resource response
@@ -19,7 +19,7 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []engine.EngineResp
 			reportEvents(eResponse, pc.eventGen)
 			// generate policy violation
 			// Only created on resource, not resource owners
-			clusterpv.CreateClusterPV(pc.pvLister, pc.kyvernoClient, engineResponses)
+			policyviolation.CreateClusterPV(pc.pvLister, pc.kyvernoClient, engineResponses)
 		} else {
 			// cleanup existing violations if any
 			// if there is any error in clean up, we dont re-queue the resource

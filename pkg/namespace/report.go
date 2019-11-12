@@ -6,7 +6,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
-	clusterpv "github.com/nirmata/kyverno/pkg/clusterpolicyviolation"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
 func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) {
@@ -21,7 +21,7 @@ func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) 
 		// failure - policy/rule failed to apply on the resource
 	}
 	// generate policy violation
-	clusterpv.CreateClusterPV(nsc.pvLister, nsc.kyvernoClient, engineResponses)
+	policyviolation.CreateClusterPV(nsc.pvLister, nsc.kyvernoClient, engineResponses)
 }
 
 //reportEvents generates events for the failed resources

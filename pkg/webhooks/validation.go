@@ -4,7 +4,7 @@ import (
 	"github.com/golang/glog"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
-	clusterpv "github.com/nirmata/kyverno/pkg/clusterpolicyviolation"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -108,7 +108,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
 	if !isResponseSuccesful(engineResponses) && toBlockResource(engineResponses) {
-		clusterpv.CreateClusterPVWhenBlocked(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses)
+		policyviolation.CreateClusterPVWhenBlocked(ws.pvLister, ws.kyvernoClient, ws.client, engineResponses)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
 	}
@@ -116,8 +116,11 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	if resource.GetNamespace() == "" {
-		clusterpv.CreateClusterPV(ws.pvLister, ws.kyvernoClient, engineResponses)
+		policyviolation.CreateClusterPV(ws.pvLister, ws.kyvernoClient, engineResponses)
+	} else {
+		policyviolation.CreateNamespacePV(ws.namespacepvLister, ws.kyvernoClient, engineResponses)
 	}
+
 	sendStat(false)
 	return true, ""
 }

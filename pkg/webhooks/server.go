@@ -34,8 +34,10 @@ type WebhookServer struct {
 	kyvernoClient             *kyvernoclient.Clientset
 	pLister                   kyvernolister.ClusterPolicyLister
 	pvLister                  kyvernolister.ClusterPolicyViolationLister
+	namespacepvLister         kyvernolister.NamespacedPolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
+	namespacepvListerSynced   cache.InformerSynced
 	eventGen                  event.Interface
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
@@ -56,6 +58,7 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	namespacepvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
@@ -79,8 +82,10 @@ func NewWebhookServer(
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
 		pvLister:                  pvInformer.Lister(),
+		namespacepvLister:         namespacepvInformer.Lister(),
 		pListerSynced:             pvInformer.Informer().HasSynced,
 		pvListerSynced:            pInformer.Informer().HasSynced,
+		namespacepvListerSynced:   namespacepvInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
