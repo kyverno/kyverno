@@ -11,6 +11,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,8 +122,12 @@ func (c *Client) PatchResource(kind string, namespace string, name string, patch
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(kind string, namespace string, listOption meta.ListOptions) (*unstructured.UnstructuredList, error) {
-	return c.getResourceInterface(kind, namespace).List(listOption)
+func (c *Client) ListResource(kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
+	options := meta.ListOptions{}
+	if lselector != nil {
+		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
+	}
+	return c.getResourceInterface(kind, namespace).List(options)
 }
 
 // DeleteResouce deletes the specified resource
