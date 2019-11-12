@@ -48,6 +48,13 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 		if !rule.HasValidate() {
 			continue
 		}
+
+		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
+			continue
+		}
+
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
