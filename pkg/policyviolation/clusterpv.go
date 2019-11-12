@@ -1,4 +1,4 @@
-package clusterpolicyviolation
+package policyviolation
 
 import (
 	"fmt"
@@ -80,7 +80,8 @@ func createClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client
 		// check if there was a previous policy voilation for policy & resource combination
 		curPv, err := getExistingPolicyViolationIfAny(nil, pvLister, newPv)
 		if err != nil {
-			glog.Error(err)
+			// TODO(shuting): remove
+			// glog.Error(err)
 			continue
 		}
 		if curPv == nil {
@@ -178,7 +179,7 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 	}
 	//TODO: ideally there should be only one policy violation returned
 	if len(pvs) > 1 {
-		glog.Errorf("more than one policy violation exists  with labels %v", labelMap)
+		glog.V(4).Infof("more than one policy violation exists  with labels %v", labelMap)
 		return nil, fmt.Errorf("more than one policy violation exists  with labels %v", labelMap)
 	}
 

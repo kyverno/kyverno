@@ -9,7 +9,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	clusterpv "github.com/nirmata/kyverno/pkg/clusterpolicyviolation"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -69,7 +69,7 @@ func getPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister, dclien
 	}
 	// get owners
 	// getOwners returns nil if there is any error
-	owners := clusterpv.GetOwners(dclient, *resource)
+	owners := policyviolation.GetOwners(dclient, *resource)
 	// as we can have multiple top level owners to a resource
 	// check if pv exists on each one
 	// does not check for cycles

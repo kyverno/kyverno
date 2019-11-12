@@ -1,4 +1,4 @@
-package clusterpolicyviolation
+package policyviolation
 
 import (
 	"fmt"

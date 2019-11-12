@@ -69,7 +69,6 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 			ViolatedRules: fRules,
 		},
 	}
-
 	pv.SetGenerateName("pv-")
 	return pv
 }
