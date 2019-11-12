@@ -31,7 +31,7 @@ spec:
       overlay:
         metadata:
           annotations:
-            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+            +(cluster-autoscaler.kubernetes.io/safe-to-evictt): "true"
         spec:          
           volumes: 
           - (hostPath):

@@ -62,9 +62,10 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 			ruleResponse, patchedResource = processOverlay(rule, resource)
 			if ruleResponse.Success == true && ruleResponse.Patches == nil {
 				// overlay pattern does not match the resource conditions
-				glog.Infof(ruleResponse.Message)
+				glog.V(4).Infof(ruleResponse.Message)
 				continue
 			}
+			glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
@@ -73,6 +74,7 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 		if rule.Mutation.Patches != nil {
 			var ruleResponse RuleResponse
 			ruleResponse, patchedResource = processPatches(rule, resource)
+			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
