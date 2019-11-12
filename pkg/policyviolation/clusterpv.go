@@ -130,7 +130,7 @@ func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 }
 
 func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.ClusterPolicyViolation) {
-	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Name)
+	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
 	violatedRules := newViolatedRules(er, msg)
 
 	// create violation on resource owner (if exist) when action is set to enforce
