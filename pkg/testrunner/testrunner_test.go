@@ -68,24 +68,12 @@ func Test_validate_disallow_default_serviceaccount(t *testing.T) {
 	testScenario(t, "test/scenarios/other/scenario_validate_disallow_default_serviceaccount.yaml")
 }
 
-func Test_validate_fsgroup(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/more/scenario_validate_fsgroup.yaml")
-}
-
 func Test_validate_selinux_context(t *testing.T) {
 	testScenario(t, "test/scenarios/other/scenario_validate_selinux_context.yaml")
 }
 
 func Test_validate_proc_mount(t *testing.T) {
 	testScenario(t, "test/scenarios/other/scenario_validate_default_proc_mount.yaml")
-}
-
-func Test_validate_container_capabilities(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/more/scenario_validate_container_capabilities.yaml")
-}
-
-func Test_validate_disallow_sysctl(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/more/scenario_validate_sysctl_configs.yaml")
 }
 
 func Test_validate_volume_whitelist(t *testing.T) {
@@ -116,8 +104,12 @@ func Test_validate_disallow_new_capabilities(t *testing.T) {
 	testScenario(t, "/test/scenarios/samples/best_practices/disallow_new_capabilities.yaml")
 }
 
+func Test_validate_disallow_sysctls(t *testing.T) {
+	testScenario(t, "/test/scenarios/samples/best_practices/disallow_new_capabilities.yaml")
+}
+
 func Test_validate_disallow_docker_sock_mount(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_docker_sock_mount.yaml")
+	testScenario(t, "test/scenarios/samples/best_practices/disallow_sysctls.yaml")
 }
 
 func Test_validate_disallow_helm_tiller(t *testing.T) {
