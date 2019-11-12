@@ -43,6 +43,30 @@ spec:
                     required:
                     - resources
                     properties:
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      clusterRoles:
+                        type: array
+                        items:
+                          type: string
+                      subjects:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - kind
+                          - name
+                          properties:
+                            kind:
+                              type: string
+                            apiGroup:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
                       resources:
                         type: object
                         required:
@@ -85,6 +109,30 @@ spec:
                     required:
                     - resources
                     properties:
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      clusterRoles:
+                        type: array
+                        items:
+                          type: string
+                      subjects:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - kind
+                          - name
+                          properties:
+                            kind:
+                              type: string
+                            apiGroup:
+                              type: string
+                            name:
+                              type: string
+                            Namespace:
+                              type: string
                       resources:
                         type: object
                         properties:
@@ -239,12 +287,3 @@ spec:
                         type: string
                       creationBlocked:
                         type: boolean
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: init-config
-  namespace: kyverno
-data:
-  # resource types to be skipped by kyverno policy engine
-  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
