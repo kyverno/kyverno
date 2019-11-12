@@ -1,4 +1,4 @@
-package policyviolation
+package clusterpolicyviolation
 
 import (
 	"fmt"
@@ -20,23 +20,8 @@ import (
 	deployutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
-//BuildPolicyViolation returns an value of type PolicyViolation
-func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
-	pv := kyverno.ClusterPolicyViolation{
-		Spec: kyverno.PolicyViolationSpec{
-			Policy:        policy,
-			ResourceSpec:  resource,
-			ViolatedRules: fRules,
-		},
-	}
-	//TODO: check if this can be removed or use unstructured?
-	// pv.Kind = "PolicyViolation"
-	pv.SetGenerateName("pv-")
-	return pv
-}
-
-//CreatePV creates policy violation resource based on the engine responses
-func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
+//CreateClusterPV creates policy violation resource based on the engine responses
+func CreateClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
 		// ignore creation of PV for resoruces that are yet to be assigned a name
@@ -53,11 +38,11 @@ func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 		}
 	}
 
-	createPV(pvLister, client, pvs)
+	createClusterPV(pvLister, client, pvs)
 }
 
 // CreatePVWhenBlocked creates pv on resource owner only when admission request is denied
-func CreatePVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
+func CreateClusterPVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
 	dclient *dclient.Client, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
@@ -69,10 +54,10 @@ func CreatePVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, cl
 				er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
 		}
 	}
-	createPV(pvLister, client, pvs)
+	createClusterPV(pvLister, client, pvs)
 }
 
-func createPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.ClusterPolicyViolation) {
+func createClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.ClusterPolicyViolation) {
 	if len(pvs) == 0 {
 		return
 	}
@@ -116,6 +101,21 @@ func createPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyver
 	}
 }
 
+//buildClusterPolicyViolation returns an value of type PolicyViolation
+func buildClusterPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
+	pv := kyverno.ClusterPolicyViolation{
+		Spec: kyverno.PolicyViolationSpec{
+			Policy:        policy,
+			ResourceSpec:  resource,
+			ViolatedRules: fRules,
+		},
+	}
+	//TODO: check if this can be removed or use unstructured?
+	// pv.Kind = "PolicyViolation"
+	pv.SetGenerateName("pv-")
+	return pv
+}
+
 func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 	pvResourceSpec := kyverno.ResourceSpec{
 		Kind:      er.PolicyResponse.Resource.Kind,
@@ -125,7 +125,7 @@ func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 
 	violatedRules := newViolatedRules(er, "")
 
-	return BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules)
+	return buildClusterPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules)
 }
 
 func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.ClusterPolicyViolation) {
@@ -142,11 +142,11 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 			Kind:      er.PolicyResponse.Resource.Kind,
 			Name:      er.PolicyResponse.Resource.Name,
 		}
-		return append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+		return append(pvs, buildClusterPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
 	}
 
 	for _, owner := range owners {
-		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
+		pvs = append(pvs, buildClusterPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
 	}
 	return
 }
