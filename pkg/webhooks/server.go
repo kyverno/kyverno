@@ -26,7 +26,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -183,16 +182,15 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	// TODO: this will be replaced by policy store lookup
-	policies, err := ws.pLister.List(labels.NewSelector())
+	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
+		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var roles, clusterRoles []string
 
-	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
 	// getRoleRef only if policy has roles/clusterroles defined
 	startTime := time.Now()
 	if containRBACinfo(policies) {
@@ -206,7 +204,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, roles, clusterRoles)
+	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -222,7 +220,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.HandleValidation(request, patchedResource, roles, clusterRoles)
+	ok, msg = ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
