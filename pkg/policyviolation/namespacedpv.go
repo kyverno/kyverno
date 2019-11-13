@@ -3,6 +3,7 @@ package policyviolation
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
@@ -69,7 +70,13 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 			ViolatedRules: fRules,
 		},
 	}
+
+	labelMap := map[string]string{
+		"policy":   policy,
+		"resource": strings.Join([]string{resource.Kind, resource.Namespace, resource.Name}, "."),
+	}
 	pv.SetGenerateName("pv-")
+	pv.SetLabels(labelMap)
 	return pv
 }
 

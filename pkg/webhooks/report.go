@@ -123,7 +123,7 @@ func buildPVInfo(er engine.EngineResponse, blocked bool) policyviolation.Info {
 }
 
 func buildViolatedRules(er engine.EngineResponse, blocked bool) []kyverno.ViolatedRule {
-	blockMsg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Name)
+	blockMsg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
 	var violatedRules []kyverno.ViolatedRule
 	// if resource was blocked we create dependent
 	dependant := kyverno.ManagedResourceSpec{
