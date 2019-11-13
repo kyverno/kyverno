@@ -96,7 +96,7 @@
 		},
 		{
 			"ImportPath": "github.com/go-openapi/jsonpointer",
-			"Rev": "v0.19.2"
+			"Rev": "v0.19.3"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/jsonreference",
@@ -108,7 +108,7 @@
 		},
 		{
 			"ImportPath": "github.com/go-openapi/swag",
-			"Rev": "v0.19.2"
+			"Rev": "v0.19.5"
 		},
 		{
 			"ImportPath": "github.com/gogo/protobuf",
@@ -128,11 +128,11 @@
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf",
-			"Rev": "v1.3.1"
+			"Rev": "v1.3.2"
 		},
 		{
 			"ImportPath": "github.com/google/btree",
-			"Rev": "4030bb1f1f0c"
+			"Rev": "v1.0.0"
 		},
 		{
 			"ImportPath": "github.com/google/go-cmp",
@@ -168,7 +168,7 @@
 		},
 		{
 			"ImportPath": "github.com/gregjones/httpcache",
-			"Rev": "787624de3eb7"
+			"Rev": "9cad4c3443a7"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/golang-lru",
@@ -184,7 +184,7 @@
 		},
 		{
 			"ImportPath": "github.com/json-iterator/go",
-			"Rev": "v1.1.7"
+			"Rev": "v1.1.8"
 		},
 		{
 			"ImportPath": "github.com/jstemmer/go-junit-report",
@@ -212,7 +212,7 @@
 		},
 		{
 			"ImportPath": "github.com/mailru/easyjson",
-			"Rev": "94de47d64c63"
+			"Rev": "b2ccc519800e"
 		},
 		{
 			"ImportPath": "github.com/modern-go/concurrent",
@@ -256,7 +256,7 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "v1.0.3"
+			"Rev": "v1.0.5"
 		},
 		{
 			"ImportPath": "github.com/stretchr/objx",
@@ -272,7 +272,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto",
-			"Rev": "e84da0312774"
+			"Rev": "60c769a6c586"
 		},
 		{
 			"ImportPath": "golang.org/x/exp",
@@ -284,7 +284,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/lint",
-			"Rev": "8f45f776aaf1"
+			"Rev": "5614ed5bae6f"
 		},
 		{
 			"ImportPath": "golang.org/x/mobile",
@@ -292,31 +292,35 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net",
-			"Rev": "cdfb69ac37fc"
+			"Rev": "13f9640d40b9"
 		},
 		{
 			"ImportPath": "golang.org/x/oauth2",
-			"Rev": "9f3314589c9a"
+			"Rev": "0f29369cfe45"
 		},
 		{
 			"ImportPath": "golang.org/x/sync",
-			"Rev": "42b317875d0f"
+			"Rev": "112230192c58"
 		},
 		{
 			"ImportPath": "golang.org/x/sys",
-			"Rev": "3b5209105503"
+			"Rev": "fde4db37ae7a"
 		},
 		{
 			"ImportPath": "golang.org/x/text",
-			"Rev": "e6919f6577db"
+			"Rev": "v0.3.2"
 		},
 		{
 			"ImportPath": "golang.org/x/time",
-			"Rev": "f51c12702a4d"
+			"Rev": "9d24e82272b4"
 		},
 		{
 			"ImportPath": "golang.org/x/tools",
-			"Rev": "6e04913cbbac"
+			"Rev": "65e3620a7ae7"
+		},
+		{
+			"ImportPath": "golang.org/x/xerrors",
+			"Rev": "a985d3407aa7"
 		},
 		{
 			"ImportPath": "gonum.org/v1/gonum",
@@ -352,7 +356,7 @@
 		},
 		{
 			"ImportPath": "gopkg.in/inf.v0",
-			"Rev": "v0.9.0"
+			"Rev": "v0.9.1"
 		},
 		{
 			"ImportPath": "gopkg.in/tomb.v1",
@@ -368,19 +372,19 @@
 		},
 		{
 			"ImportPath": "k8s.io/api",
-			"Rev": "816a9b7df678"
+			"Rev": "6d4d1612ba53"
 		},
 		{
 			"ImportPath": "k8s.io/apimachinery",
-			"Rev": "b1267f8c42b4"
+			"Rev": "dffb012825f2"
 		},
 		{
 			"ImportPath": "k8s.io/client-go",
-			"Rev": "14c42cd304d9"
+			"Rev": "3c0d1af94be5"
 		},
 		{
 			"ImportPath": "k8s.io/code-generator",
-			"Rev": "700b1226c0bd"
+			"Rev": "a9a0d9c0b3aa"
 		},
 		{
 			"ImportPath": "k8s.io/gengo",
@@ -392,11 +396,11 @@
 		},
 		{
 			"ImportPath": "k8s.io/kube-openapi",
-			"Rev": "743ec37842bf"
+			"Rev": "30be4d16710a"
 		},
 		{
 			"ImportPath": "k8s.io/utils",
-			"Rev": "8d271d903fe4"
+			"Rev": "2b95a09bc58d"
 		},
 		{
 			"ImportPath": "modernc.org/cc",

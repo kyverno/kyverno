@@ -24,6 +24,8 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/google/go-cmp/cmp"
+
 	"k8s.io/gengo/args"
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/parser"
@@ -154,6 +156,11 @@ func TestBuilder(t *testing.T) {
                 var (
 	                AnotherVar = Frobber{}
                 )
+
+				type Enumeration string
+				const (
+					EnumSymbol Enumeration = "enumSymbol"
+				)
                 `,
 		},
 	}
@@ -172,12 +179,17 @@ package o
 {{define "Var"}}{{$t := .Underlying}}var {{Name .}} {{Raw $t}} = {{Raw .}}
 
 {{end}}
+{{define "Const"}}{{$t := .Underlying}}const {{Name .}} {{Raw $t}} = {{Raw .}}
+
+{{end}}
 {{range $t := .}}{{if eq $t.Kind "Struct"}}{{template "Struct" $t}}{{end}}{{end}}
 {{range $t := .}}{{if eq $t.Kind "DeclarationOf"}}{{if eq $t.Underlying.Kind "Func"}}{{template "Func" $t}}{{end}}{{end}}{{end}}
-{{range $t := .}}{{if eq $t.Kind "DeclarationOf"}}{{if ne $t.Underlying.Kind "Func"}}{{template "Var" $t}}{{end}}{{end}}{{end}}`
+{{range $t := .}}{{if eq $t.Kind "DeclarationOf"}}{{if eq $t.Underlying.Kind "Struct"}}{{template "Var" $t}}{{end}}{{end}}{{end}}
+{{range $t := .}}{{if eq $t.Kind "DeclarationOf"}}{{if eq $t.Underlying.Kind "Alias"}}{{template "Const" $t}}{{end}}{{end}}{{end}}`
 
 	var expect = `
 package o
+
 
 
 
@@ -215,6 +227,9 @@ var FooAVar proto.Frobber = proto.AVar
 
 var FooAnotherVar proto.Frobber = proto.AnotherVar
 
+
+const FooEnumSymbol proto.Enumeration = proto.EnumSymbol
+
 `
 	testNamer := namer.NewPublicNamer(1, "proto")
 	rawNamer := namer.NewRawNamer("o", nil)
@@ -232,7 +247,8 @@ var FooAnotherVar proto.Frobber = proto.AnotherVar
 	buf := &bytes.Buffer{}
 	tmpl.Execute(buf, o)
 	if e, a := expect, buf.String(); e != a {
-		t.Errorf("Wanted, got:\n%v\n-----\n%v\n", e, a)
+		cmp.Diff(e, a)
+		t.Errorf("Wanted, got:\n%v\n-----\n%v\nDiff:\n%s", e, a, cmp.Diff(e, a))
 	}
 	if p := u.Package("base/foo/proto"); !p.HasImport("base/common/proto") {
 		t.Errorf("Unexpected lack of import line: %#v", p.Imports)

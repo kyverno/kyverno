@@ -18,16 +18,20 @@
 package madmin
 
 import (
-	"io"
+	"encoding/json"
 	"net/http"
 	"net/url"
 )
 
 // HelpConfigKV - return help for a given sub-system.
-func (adm *AdminClient) HelpConfigKV(subSys, key string) (io.ReadCloser, error) {
+func (adm *AdminClient) HelpConfigKV(subSys, key string, envOnly bool) (map[string]string, error) {
 	v := url.Values{}
 	v.Set("subSys", subSys)
 	v.Set("key", key)
+	if envOnly {
+		v.Set("env", "")
+	}
+
 	reqData := requestData{
 		relPath:     adminAPIPrefix + "/help-config-kv",
 		queryValues: v,
@@ -38,12 +42,17 @@ func (adm *AdminClient) HelpConfigKV(subSys, key string) (io.ReadCloser, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer closeResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		defer closeResponse(resp)
 		return nil, httpRespToErrorResponse(resp)
 	}
 
-	return resp.Body, nil
+	var help = make(map[string]string)
+	d := json.NewDecoder(resp.Body)
+	if err = d.Decode(&help); err != nil {
+		return nil, err
+	}
 
+	return help, nil
 }

@@ -63,7 +63,7 @@ func registerWebRouter(router *mux.Router) error {
 	// Initialize Web.
 	web := &webAPIHandlers{
 		ObjectAPI: newObjectLayerFn,
-		CacheAPI:  newCacheObjectsFn,
+		CacheAPI:  newCachedObjectLayerFn,
 	}
 
 	// Initialize a new json2 codec.

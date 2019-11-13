@@ -131,11 +131,8 @@ EXAMPLES:
 // Checks if endpoints are either available through environment
 // or command line, returns false if both fails.
 func endpointsPresent(ctx *cli.Context) bool {
-	_, ok := env.Lookup(config.EnvEndpoints)
-	if !ok {
-		ok = ctx.Args().Present()
-	}
-	return ok
+	endpoints := env.Get(config.EnvEndpoints, strings.Join(ctx.Args(), config.ValueSeparator))
+	return len(endpoints) != 0
 }
 
 func serverHandleCmdArgs(ctx *cli.Context) {
@@ -181,17 +178,105 @@ func serverHandleCmdArgs(ctx *cli.Context) {
 func serverHandleEnvVars() {
 	// Handle common environment variables.
 	handleCommonEnvVars()
+}
 
-	accessKey := env.Get(config.EnvAccessKey, "")
-	secretKey := env.Get(config.EnvSecretKey, "")
-	if accessKey != "" && secretKey != "" {
-		cred, err := auth.CreateCredentials(accessKey, secretKey)
+func newAllSubsystems() {
+	// Create new notification system and initialize notification targets
+	globalNotificationSys = NewNotificationSys(globalEndpoints)
+
+	// Create a new config system.
+	globalConfigSys = NewConfigSys()
+
+	// Create new IAM system.
+	globalIAMSys = NewIAMSys()
+
+	// Create new policy system.
+	globalPolicySys = NewPolicySys()
+
+	// Create new lifecycle system.
+	globalLifecycleSys = NewLifecycleSys()
+}
+
+func initSafeModeInit(buckets []BucketInfo) (err error) {
+	defer func() {
 		if err != nil {
-			logger.Fatal(config.ErrInvalidCredentials(err),
-				"Unable to validate credentials inherited from the shell environment")
+			switch err.(type) {
+			case config.Err:
+				return
+			}
+			// Enable logger
+			logger.Disable = false
+
+			// Prints the formatted startup message in safe mode operation.
+			printStartupSafeModeMessage(getAPIEndpoints(), err)
+
+			// Initialization returned error reaching safe mode and
+			// not proceeding waiting for admin action.
+			handleSignals()
 		}
-		globalActiveCred = cred
+	}()
+
+	newObject := newObjectLayerWithoutSafeModeFn()
+
+	// Calls New() for all sub-systems.
+	newAllSubsystems()
+
+	// Migrate all backend configs to encrypted backend, also handles rotation as well.
+	if err = handleEncryptedConfigBackend(newObject, true); err != nil {
+		return fmt.Errorf("Unable to handle encrypted backend for config, iam and policies: %v", err)
 	}
+
+	// ****  WARNING ****
+	// Migrating to encrypted backend should happen before initialization of any
+	// sub-systems, make sure that we do not move the above codeblock elsewhere.
+
+	// Validate and initialize all subsystems.
+	if err = initAllSubsystems(buckets, newObject); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func initAllSubsystems(buckets []BucketInfo, newObject ObjectLayer) (err error) {
+	// Initialize config system.
+	if err = globalConfigSys.Init(newObject); err != nil {
+		return fmt.Errorf("Unable to initialize config system: %w", err)
+	}
+
+	if err = globalNotificationSys.AddNotificationTargetsFromConfig(globalServerConfig); err != nil {
+		return fmt.Errorf("Unable to initialize notification target(s) from config: %w", err)
+	}
+
+	if globalEtcdClient != nil {
+		// ****  WARNING ****
+		// Migrating to encrypted backend on etcd should happen before initialization of
+		// IAM sub-systems, make sure that we do not move the above codeblock elsewhere.
+		if err = migrateIAMConfigsEtcdToEncrypted(globalEtcdClient); err != nil {
+			return fmt.Errorf("Unable to handle encrypted backend for iam and policies: %v", err)
+		}
+	}
+
+	if err = globalIAMSys.Init(newObject); err != nil {
+		return fmt.Errorf("Unable to initialize IAM system: %w", err)
+	}
+
+	// Initialize notification system.
+	if err = globalNotificationSys.Init(buckets, newObject); err != nil {
+		return fmt.Errorf("Unable to initialize notification system: %w", err)
+	}
+
+	// Initialize policy system.
+	if err = globalPolicySys.Init(buckets, newObject); err != nil {
+		return fmt.Errorf("Unable to initialize policy system; %w", err)
+	}
+
+	// Initialize lifecycle system.
+	if err = globalLifecycleSys.Init(buckets, newObject); err != nil {
+		return fmt.Errorf("Unable to initialize lifecycle system: %v", err)
+	}
+
+	return nil
 }
 
 // serverMain handler called for 'minio server' command.
@@ -209,6 +294,9 @@ func serverMain(ctx *cli.Context) {
 	// Handle all server command args.
 	serverHandleCmdArgs(ctx)
 
+	// Handle all server environment vars.
+	serverHandleEnvVars()
+
 	// Check and load TLS certificates.
 	var err error
 	globalPublicCerts, globalTLSCerts, globalIsSSL, err = getTLSConfig()
@@ -217,9 +305,6 @@ func serverMain(ctx *cli.Context) {
 	// Check and load Root CAs.
 	globalRootCAs, err = config.GetRootCAs(globalCertsCADir.Get())
 	logger.FatalIf(err, "Failed to read root CAs (%v)", err)
-
-	// Handle all server environment vars.
-	serverHandleEnvVars()
 
 	// Is distributed setup, error out if no certificates are found for HTTPS endpoints.
 	if globalIsDistXL {
@@ -262,7 +347,7 @@ func serverMain(ctx *cli.Context) {
 	if globalIsXL {
 		// Init global heal state
 		globalAllHealState = initHealState()
-		globalSweepHealState = initHealState()
+		globalBackgroundHealState = initHealState()
 	}
 
 	// Initialize globalConsoleSys system
@@ -292,83 +377,46 @@ func serverMain(ctx *cli.Context) {
 		globalTLSCerts.Stop()
 
 		globalHTTPServer.Shutdown()
-		logger.FatalIf(err, "Unable to initialize backend")
-	}
-
-	// Populate existing buckets to the etcd backend
-	if globalDNSConfig != nil {
-		initFederatorBackend(newObject)
+		logger.Fatal(err, "Unable to initialize backend")
 	}
 
 	// Re-enable logging
 	logger.Disable = false
 
-	// Create a new config system.
-	globalConfigSys = NewConfigSys()
-
-	// Initialize config system.
-	if err = globalConfigSys.Init(newObject); err != nil {
-		logger.Fatal(err, "Unable to initialize config system")
-	}
-
-	if globalCacheConfig.Enabled {
-		logger.StartupMessage(color.Red(color.Bold("Disk caching is recommended only for gateway deployments")))
-
-		// initialize the new disk cache objects.
-		globalCacheObjectAPI, err = newServerCacheObjects(context.Background(), globalCacheConfig)
-		logger.FatalIf(err, "Unable to initialize disk caching")
-	}
-
-	// Create new IAM system.
-	globalIAMSys = NewIAMSys()
-	if err = globalIAMSys.Init(newObject); err != nil {
-		logger.Fatal(err, "Unable to initialize IAM system")
-	}
+	// Once endpoints are finalized, initialize the new object api in safe mode.
+	globalObjLayerMutex.Lock()
+	globalSafeMode = true
+	globalObjectAPI = newObject
+	globalObjLayerMutex.Unlock()
 
 	buckets, err := newObject.ListBuckets(context.Background())
 	if err != nil {
-		logger.Fatal(err, "Unable to list buckets on your backend")
+		logger.Fatal(err, "Unable to list buckets")
 	}
 
-	// Create new policy system.
-	globalPolicySys = NewPolicySys()
-
-	// Initialize policy system.
-	if err = globalPolicySys.Init(buckets, newObject); err != nil {
-		logger.Fatal(err, "Unable to initialize policy system")
+	// Populate existing buckets to the etcd backend
+	if globalDNSConfig != nil {
+		initFederatorBackend(buckets, newObject)
 	}
 
-	// Create new lifecycle system.
-	globalLifecycleSys = NewLifecycleSys()
+	initSafeModeInit(buckets)
 
-	// Initialize lifecycle system.
-	if err = globalLifecycleSys.Init(buckets, newObject); err != nil {
-		logger.Fatal(err, "Unable to initialize lifecycle system")
+	if globalCacheConfig.Enabled {
+		msg := color.RedBold("Disk caching is disabled in 'server' mode, 'caching' is only supported in gateway deployments")
+		logger.StartupMessage(msg)
 	}
-
-	// Create new notification system.
-	globalNotificationSys = NewNotificationSys(globalServerConfig, globalEndpoints)
-
-	// Initialize notification system.
-	if err = globalNotificationSys.Init(buckets, newObject); err != nil {
-		logger.Fatal(err, "Unable to initialize notification system")
-	}
-
-	// Verify if object layer supports
-	// - encryption
-	// - compression
-	verifyObjectLayerFeatures("server", newObject)
 
 	initDailyLifecycle()
 
 	if globalIsXL {
 		initBackgroundHealing()
-		initDailyHeal()
-		initDailySweeper()
+		initLocalDisksAutoHeal()
+		initGlobalHeal()
 	}
 
+	// Disable safe mode operation, after all initialization is over.
 	globalObjLayerMutex.Lock()
-	globalObjectAPI = newObject
+	globalSafeMode = false
 	globalObjLayerMutex.Unlock()
 
 	// Prints the formatted startup message once object layer is initialized.
@@ -376,7 +424,7 @@ func serverMain(ctx *cli.Context) {
 
 	if globalActiveCred.Equal(auth.DefaultCredentials) {
 		msg := fmt.Sprintf("Detected default credentials '%s', please change the credentials immediately using 'MINIO_ACCESS_KEY' and 'MINIO_SECRET_KEY'", globalActiveCred)
-		logger.StartupMessage(color.Red(color.Bold(msg)))
+		logger.StartupMessage(color.RedBold(msg))
 	}
 
 	// Set uptime time after object layer has initialized.

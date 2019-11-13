@@ -958,11 +958,16 @@ package foo
 // +k8s:openapi-gen=true
 // +k8s:openapi-gen=x-kubernetes-type-tag:type_test
 type Blah struct {
-	// a member with a list type
+	// a member with a list type with two map keys
 	// +listType=map
 	// +listMapKey=port
 	// +listMapKey=protocol
 	WithListField []string
+
+	// another member with a list type with one map key
+	// +listType=map
+	// +listMapKey=port
+	WithListField2 []string
 }
 		`)
 	if callErr != nil {
@@ -991,7 +996,29 @@ Extensions: spec.Extensions{
 },
 },
 SchemaProps: spec.SchemaProps{
-Description: "a member with a list type",
+Description: "a member with a list type with two map keys",
+Type: []string{"array"},
+Items: &spec.SchemaOrArray{
+Schema: &spec.Schema{
+SchemaProps: spec.SchemaProps{
+Type: []string{"string"},
+Format: "",
+},
+},
+},
+},
+},
+"WithListField2": {
+VendorExtensible: spec.VendorExtensible{
+Extensions: spec.Extensions{
+"x-kubernetes-list-map-keys": []interface{}{
+"port",
+},
+"x-kubernetes-list-type": "map",
+},
+},
+SchemaProps: spec.SchemaProps{
+Description: "another member with a list type with one map key",
 Type: []string{"array"},
 Items: &spec.SchemaOrArray{
 Schema: &spec.Schema{
@@ -1004,7 +1031,7 @@ Format: "",
 },
 },
 },
-Required: []string{"WithListField"},
+Required: []string{"WithListField","WithListField2"},
 },
 VendorExtensible: spec.VendorExtensible{
 Extensions: spec.Extensions{

@@ -59,7 +59,7 @@ func TestJSONQueries(t *testing.T) {
 	var testTable = []struct {
 		name       string
 		query      string
-		requestXML []byte
+		requestXML []byte // override request XML
 		wantResult string
 	}{
 		{
@@ -166,11 +166,37 @@ func TestJSONQueries(t *testing.T) {
 			wantResult: `{"id":3,"title":"Second Record","desc":"another text","nested":[[2,3,4],[7,8.5,9]]}`,
 		},
 		{
+			name:       "indexed-list-match-equals-s-star",
+			query:      `SELECT s.* from s3object s WHERE (7,8.5,9) = s.nested[1]`,
+			wantResult: `{"id":3,"title":"Second Record","desc":"another text","nested":[[2,3,4],[7,8.5,9]]}`,
+		},
+		{
+			name:       "indexed-list-match-equals-s-index",
+			query:      `SELECT s.nested[1], s.nested[0] from s3object s WHERE (7,8.5,9) = s.nested[1]`,
+			wantResult: `{"_1":[7,8.5,9],"_2":[2,3,4]}`,
+		},
+		{
 			name:  "indexed-list-match-not-equals",
 			query: `SELECT * from s3object s WHERE (7,8.5,9) != s.nested[1]`,
 			wantResult: `{"id":0,"title":"Test Record","desc":"Some text","synonyms":["foo","bar","whatever"]}
 {"id":1,"title":"Second Record","desc":"another text","synonyms":["some","synonym","value"]}
 {"id":2,"title":"Second Record","desc":"another text","numbers":[2,3,4]}`,
+		},
+		{
+			name:       "indexed-list-square-bracket",
+			query:      `SELECT * from s3object s WHERE [7,8.5,9] = s.nested[1]`,
+			wantResult: `{"id":3,"title":"Second Record","desc":"another text","nested":[[2,3,4],[7,8.5,9]]}`,
+		},
+		{
+			name:       "indexed-list-square-bracket",
+			query:      `SELECT * from s3object s WHERE [7,8.5,9] IN s.nested`,
+			wantResult: `{"id":3,"title":"Second Record","desc":"another text","nested":[[2,3,4],[7,8.5,9]]}`,
+		},
+		{
+			name:  "indexed-list-square-bracket",
+			query: `SELECT * from s3object s WHERE id IN [3,2]`,
+			wantResult: `{"id":2,"title":"Second Record","desc":"another text","numbers":[2,3,4]}
+{"id":3,"title":"Second Record","desc":"another text","nested":[[2,3,4],[7,8.5,9]]}`,
 		},
 		{
 			name:       "index-wildcard-in",
@@ -215,6 +241,121 @@ func TestJSONQueries(t *testing.T) {
         <JSON>
             <Type>DOCUMENT</Type>
         </JSON>
+    </InputSerialization>
+    <OutputSerialization>
+        <JSON>
+        </JSON>
+    </OutputSerialization>
+    <RequestProgress>
+        <Enabled>FALSE</Enabled>
+    </RequestProgress>
+</SelectObjectContentRequest>`
+
+	for _, testCase := range testTable {
+		t.Run(testCase.name, func(t *testing.T) {
+			testReq := testCase.requestXML
+			if len(testReq) == 0 {
+				testReq = []byte(fmt.Sprintf(defRequest, testCase.query))
+			}
+			s3Select, err := NewS3Select(bytes.NewReader(testReq))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err = s3Select.Open(func(offset, length int64) (io.ReadCloser, error) {
+				return ioutil.NopCloser(bytes.NewBufferString(input)), nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			w := &testResponseWriter{}
+			s3Select.Evaluate(w)
+			s3Select.Close()
+			resp := http.Response{
+				StatusCode:    http.StatusOK,
+				Body:          ioutil.NopCloser(bytes.NewReader(w.response)),
+				ContentLength: int64(len(w.response)),
+			}
+			res, err := minio.NewSelectResults(&resp, "testbucket")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			got, err := ioutil.ReadAll(res)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			gotS := strings.TrimSpace(string(got))
+			if !reflect.DeepEqual(gotS, testCase.wantResult) {
+				t.Errorf("received response does not match with expected reply. Query: %s\ngot: %s\nwant:%s", testCase.query, gotS, testCase.wantResult)
+			}
+		})
+	}
+}
+
+func TestCSVQueries(t *testing.T) {
+	input := `id,time,num,num2,text
+1,2010-01-01T,7867786,4565.908123,"a text, with comma"
+2,2017-01-02T03:04Z,-5, 0.765111,
+`
+	var testTable = []struct {
+		name       string
+		query      string
+		requestXML []byte // override request XML
+		wantResult string
+	}{
+		{
+			name:       "select-all",
+			query:      `SELECT * from s3object AS s WHERE id = '1'`,
+			wantResult: `{"id":"1","time":"2010-01-01T","num":"7867786","num2":"4565.908123","text":"a text, with comma"}`,
+		},
+		{
+			name:       "select-all-2",
+			query:      `SELECT * from s3object s WHERE id = 2`,
+			wantResult: `{"id":"2","time":"2017-01-02T03:04Z","num":"-5","num2":" 0.765111","text":""}`,
+		},
+		{
+			name:       "select-text-convert",
+			query:      `SELECT CAST(text AS STRING) AS text from s3object s WHERE id = 1`,
+			wantResult: `{"text":"a text, with comma"}`,
+		},
+		{
+			name:       "select-text-direct",
+			query:      `SELECT text from s3object s WHERE id = 1`,
+			wantResult: `{"text":"a text, with comma"}`,
+		},
+		{
+			name:       "select-time-direct",
+			query:      `SELECT time from s3object s WHERE id = 2`,
+			wantResult: `{"time":"2017-01-02T03:04Z"}`,
+		},
+		{
+			name:       "select-int-direct",
+			query:      `SELECT num from s3object s WHERE id = 2`,
+			wantResult: `{"num":"-5"}`,
+		},
+		{
+			name:       "select-float-direct",
+			query:      `SELECT num2 from s3object s WHERE id = 2`,
+			wantResult: `{"num2":" 0.765111"}`,
+		},
+		{
+			name:       "select-float-by-val",
+			query:      `SELECT num2 from s3object s WHERE num2 = 0.765111`,
+			wantResult: `{"num2":" 0.765111"}`,
+		},
+	}
+
+	defRequest := `<?xml version="1.0" encoding="UTF-8"?>
+<SelectObjectContentRequest>
+    <Expression>%s</Expression>
+    <ExpressionType>SQL</ExpressionType>
+    <InputSerialization>
+        <CompressionType>NONE</CompressionType>
+        <CSV>
+            <FileHeaderInfo>USE</FileHeaderInfo>
+        </CSV>
     </InputSerialization>
     <OutputSerialization>
         <JSON>

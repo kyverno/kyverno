@@ -110,6 +110,7 @@ func goListDriver(cfg *Config, patterns ...string) (*driverResponse, error) {
 			sizeswg.Done()
 		}()
 	}
+	defer sizeswg.Wait()
 
 	// start fetching rootDirs
 	var info goInfo
@@ -127,6 +128,10 @@ func goListDriver(cfg *Config, patterns ...string) (*driverResponse, error) {
 		<-envReady
 		return &info
 	}
+
+	// Ensure that we don't leak goroutines: Load is synchronous, so callers will
+	// not expect it to access the fields of cfg after the call returns.
+	defer getGoInfo()
 
 	// always pass getGoInfo to golistDriver
 	golistDriver := func(cfg *Config, patterns ...string) (*driverResponse, error) {
@@ -265,10 +270,7 @@ func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDedu
 	if err != nil {
 		return err
 	}
-	if err := addNeededOverlayPackages(cfg, driver, response, needPkgs, getGoInfo); err != nil {
-		return err
-	}
-	return nil
+	return addNeededOverlayPackages(cfg, driver, response, needPkgs, getGoInfo)
 }
 
 func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, queries []string, goInfo func() *goInfo) error {
@@ -368,7 +370,8 @@ func adHocPackage(cfg *Config, driver driver, pattern, query string) (*driverRes
 	// Special case to handle issue #33482:
 	// If this is a file= query for ad-hoc packages where the file only exists on an overlay,
 	// and exists outside of a module, add the file in for the package.
-	if len(dirResponse.Packages) == 1 && (dirResponse.Packages[0].ID == "command-line-arguments" || dirResponse.Packages[0].PkgPath == filepath.ToSlash(query)) {
+	if len(dirResponse.Packages) == 1 && (dirResponse.Packages[0].ID == "command-line-arguments" ||
+		filepath.ToSlash(dirResponse.Packages[0].PkgPath) == filepath.ToSlash(query)) {
 		if len(dirResponse.Packages[0].GoFiles) == 0 {
 			filename := filepath.Join(pattern, filepath.Base(query)) // avoid recomputing abspath
 			// TODO(matloob): check if the file is outside of a root dir?
@@ -734,9 +737,9 @@ func golistDriver(cfg *Config, rootsDirs func() *goInfo, words ...string) (*driv
 	// go list uses the following identifiers in ImportPath and Imports:
 	//
 	// 	"p"			-- importable package or main (command)
-	//      "q.test"		-- q's test executable
+	// 	"q.test"		-- q's test executable
 	// 	"p [q.test]"		-- variant of p as built for q's test executable
-	//	"q_test [q.test]"	-- q's external test package
+	// 	"q_test [q.test]"	-- q's external test package
 	//
 	// The packages p that are built differently for a test q.test
 	// are q itself, plus any helpers used by the external test q_test,
@@ -1061,7 +1064,14 @@ func invokeGo(cfg *Config, args ...string) (*bytes.Buffer, error) {
 				// TODO(matloob): command-line-arguments isn't correct here.
 				"command-line-arguments", strings.Trim(stderr.String(), "\n"))
 			return bytes.NewBufferString(output), nil
+		}
 
+		// Another variation of the previous error
+		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "outside module root") {
+			output := fmt.Sprintf(`{"ImportPath": %q,"Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				// TODO(matloob): command-line-arguments isn't correct here.
+				"command-line-arguments", strings.Trim(stderr.String(), "\n"))
+			return bytes.NewBufferString(output), nil
 		}
 
 		// Workaround for an instance of golang.org/issue/26755: go list -e  will return a non-zero exit
