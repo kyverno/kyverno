@@ -15,44 +15,82 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func startResultResponse(response *EngineResponse, policy kyverno.ClusterPolicy, newR unstructured.Unstructured) {
+	// set policy information
+	response.PolicyResponse.Policy = policy.Name
+	// resource details
+	response.PolicyResponse.Resource.Name = newR.GetName()
+	response.PolicyResponse.Resource.Namespace = newR.GetNamespace()
+	response.PolicyResponse.Resource.Kind = newR.GetKind()
+	response.PolicyResponse.Resource.APIVersion = newR.GetAPIVersion()
+	response.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+
+}
+
+func endResultResponse(response *EngineResponse, startTime time.Time) {
+	response.PolicyResponse.ProcessingTime = time.Since(startTime)
+	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", response.PolicyResponse.Policy, response.PolicyResponse.ProcessingTime)
+	glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, response.PolicyResponse.Policy)
+}
+
+func incrementAppliedCount(response *EngineResponse) {
+	// rules applied succesfully count
+	response.PolicyResponse.RulesAppliedCount++
+}
+
 //Validate applies validation rules from policy on the resource
 func Validate(policyContext PolicyContext) (response EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
-	resource := policyContext.Resource
+	newR := policyContext.NewResource
+	oldR := policyContext.OldResource
+	admissionInfo := policyContext.AdmissionInfo
 
 	// policy information
-	func() {
-		// set policy information
-		response.PolicyResponse.Policy = policy.Name
-		// resource details
-		response.PolicyResponse.Resource.Name = resource.GetName()
-		response.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-		response.PolicyResponse.Resource.Kind = resource.GetKind()
-		response.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-		response.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
-	}()
-
 	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
-	defer func() {
-		response.PolicyResponse.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("Finished applying validation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
-		glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
-	}()
-	incrementAppliedRuleCount := func() {
-		// rules applied succesfully count
-		response.PolicyResponse.RulesAppliedCount++
-	}
 
+	// Process new & old resource
+	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
+		// Create Mode
+		// Operate on New Resource only
+		response := validate(policy, newR, admissionInfo)
+		startResultResponse(response, policy, newR)
+		defer endResultResponse(response, startTime)
+		// set PatchedResource with orgin resource if empty
+		// in order to create policy violation
+		if reflect.DeepEqual(response.PatchedResource, unstructured.Unstructured{}) {
+			response.PatchedResource = newR
+		}
+		return *response
+	}
+	// Update Mode
+	// Operate on New and Old Resource only
+	// New resource
+	oldResponse := validate(policy, oldR, admissionInfo)
+	newResponse := validate(policy, newR, admissionInfo)
+
+	// if the old and new response is same then return empty response
+	if !isSameResponse(oldResponse, newResponse) {
+		// there are changes send response
+		startResultResponse(newResponse, policy, newR)
+		defer endResultResponse(newResponse, startTime)
+		return *newResponse
+	}
+	// if there are no changes with old and new response then sent empty response
+	// skip processing
+	return EngineResponse{}
+}
+
+func validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo RequestInfo) *EngineResponse {
+	response := &EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
-
 		startTime := time.Now()
-		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+		if !matchAdmissionInfo(rule, admissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 			continue
 		}
 		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
@@ -67,18 +105,50 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 		}
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validatePatterns(resource, rule)
-			incrementAppliedRuleCount()
+			incrementAppliedCount(response)
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		}
 	}
-
-	// set PatchedResource with orgin resource if empty
-	// in order to create policy violation
-	if reflect.DeepEqual(response.PatchedResource, unstructured.Unstructured{}) {
-		response.PatchedResource = resource
-	}
-
 	return response
+}
+
+func isSameResponse(oldResponse, newResponse *EngineResponse) bool {
+	// if the respones are same then return true
+	return isSamePolicyResponse(oldResponse.PolicyResponse, newResponse.PolicyResponse)
+
+}
+
+func isSamePolicyResponse(oldPolicyRespone, newPolicyResponse PolicyResponse) bool {
+	// can skip policy and resource checks as they will be same
+	// compare rules
+	return isSameRules(oldPolicyRespone.Rules, newPolicyResponse.Rules)
+}
+
+func isSameRules(oldRules []RuleResponse, newRules []RuleResponse) bool {
+	if len(oldRules) != len(newRules) {
+		return false
+	}
+	// as the rules are always processed in order the indices wil be same
+	for idx, oldrule := range oldRules {
+		newrule := newRules[idx]
+		// Name
+		if oldrule.Name != newrule.Name {
+			return false
+		}
+		// Type
+		if oldrule.Type != newrule.Type {
+			return false
+		}
+		// Message
+		if oldrule.Message != newrule.Message {
+			return false
+		}
+		// skip patches
+		if oldrule.Success != newrule.Success {
+			return false
+		}
+	}
+	return true
 }
 
 // validatePatterns validate pattern and anyPattern

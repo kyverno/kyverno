@@ -1,6 +1,8 @@
 package webhooks
 
 import (
+	"reflect"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
@@ -8,7 +10,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // handleValidation handles validating webhook admission request
@@ -50,30 +51,17 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
 		}
 	}
 
-	resourceRaw := request.Object.Raw
-	if patchedResource != nil {
-		glog.V(4).Info("using patched resource from mutation to process validation rules")
-		resourceRaw = patchedResource
-	}
-	// convert RAW to unstructured
-	resource, err := engine.ConvertToUnstructured(resourceRaw)
+	// Get new and old resource
+	newR, oldR, err := extractResources(request)
 	if err != nil {
-		//TODO: skip applying the amiddions control ?
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
+		// as resource cannot be parsed, we skip processing
+		glog.Error(err)
 		return true, ""
 	}
-	//TODO: check if resource gvk is available in raw resource,
-	// if not then set it from the api request
-	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-
-	//TODO: check if the name is also passed right in the resource?
-	// all the patches to be applied on the resource
-	// explictly set resource namespace with request namespace
-	// resource namespace is empty for the first CREATE operation
-	resource.SetNamespace(request.Namespace)
 
 	policyContext := engine.PolicyContext{
-		Resource: *resource,
+		NewResource: newR,
+		OldResource: oldR,
 		AdmissionInfo: engine.RequestInfo{
 			Roles:             roles,
 			ClusterRoles:      clusterRoles,
@@ -88,14 +76,19 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
 		}
 
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
+			newR.GetKind(), newR.GetNamespace(), newR.GetName(), request.UID, request.Operation)
 
 		engineResponse := engine.Validate(policyContext)
+		if reflect.DeepEqual(engineResponse, engine.EngineResponse{}) {
+			// we get an empty response if old and new resources created the same response
+			// allow updates if resource update doesnt change the policy evaluation
+			continue
+		}
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
 		if !engineResponse.IsSuccesful() {
-			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
+			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, newR.GetNamespace(), newR.GetName())
 			continue
 		}
 	}

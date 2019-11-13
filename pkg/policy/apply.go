@@ -69,7 +69,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	sendStat(false)
 
 	//VALIDATION
-	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Resource: resource})
+	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
 	// gather stats
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -80,7 +80,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponse, error) {
-	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, Resource: resource})
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource})
 	if !engineResponse.IsSuccesful() {
 		glog.V(4).Infof("mutation had errors reporting them")
 		return engineResponse, nil
