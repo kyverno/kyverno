@@ -1,0 +1,16 @@
+input:
+  policy: samples/more/restrict_node_port.yaml
+  resource: test/resources/disallow_node_port.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: restrict-nodeport
+      resource:
+        kind: Service
+        apiVersion: v1
+        namespace: ''
+        name: "my-service"
+      rules:
+        - name: validate-nodeport
+          type: Validation
+          success: false

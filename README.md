@@ -6,9 +6,9 @@
 
 Kyverno is a policy engine designed for Kubernetes.
 
-Kubernetes supports declarative management of objects using configurations written in YAML or JSON. Often, parts of the configuration will need to vary based on the runtime environment. For portability, and for separation of concerns, its best to maintain environment specific configurations separately from workload configurations.
+Kubernetes supports declarative validation, mutation, and generation of resource configurations using policies written as Kubernetes resources. 
 
-Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
+Kyverno can be used to scan existing workloads for best practices, or can be used to enforce best practices by blocking or mutating API requests.Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
 
 Kyverno policies are Kubernetes resources that can be written in YAML or JSON. Kyverno policies can validate, mutate, and generate any Kubernetes resources.
 
@@ -115,29 +115,7 @@ spec:
 
 ### 4. More examples
 
-Refer to a list of curated of [kyverno policies](/samples/README.md) to follow kubernetes best practices.
-
-## License
-
-[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
-
-## Status
-
-*Kyverno is under active development and not ready for production use.  Key components and policy definitions are likely to change as we complete core features.*
-
-## Alternatives
-
-### Open Policy Agent
-
-[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language.
-
-### Polaris
-
-[Polaris](https://github.com/reactiveops/polaris) validates configurations for best practices. It includes several checks across health, networking, security, etc. Checks can be assigned a severity. A dashboard reports the overall score.
-
-### External configuration management tools
-
-Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
+Refer to a list of curated of ***[sample policies](/samples/README.md)*** that can be applied to your cluster.
 
 ## Documentation
 
@@ -149,15 +127,35 @@ Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used
 * [Testing Policies](documentation/testing-policies.md)
   * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
   * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
+* [Sample Policies](/samples/README.md)
+
+## License
+
+[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
+
+
+## Alternatives
+
+### Open Policy Agent
+
+[Open Policy Agent (OPA)](https://www.openpolicyagent.org/) is a general-purpose policy engine that can be used as a Kubernetes admission controller. It supports a large set of use cases. Policies are written using [Rego](https://www.openpolicyagent.org/docs/latest/how-do-i-write-policies#what-is-rego) a custom query language.
+
+### k-rail
+
+[k-rail](https://github.com/cruise-automation/k-rail/) provides several ready to use policies for security and multi-tenancy. The policies are written in Golang. Several of the [Kyverno sample policies](/samples/README.md) were inspired by k-rail policies.
+
+### Polaris
+
+[Polaris](https://github.com/reactiveops/polaris) validates configurations for best practices. It includes several checks across health, networking, security, etc. Checks can be assigned a severity. A dashboard reports the overall score.
+
+### External configuration management tools
+
+Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
+
 
 ## Roadmap
 
-Here are some the major features we plan on completing before a 1.0 release:
-
-* [Events](https://github.com/nirmata/kyverno/issues/14)
-* [Policy Violations](https://github.com/nirmata/kyverno/issues/24)
-* [Conditionals on existing resources](https://github.com/nirmata/kyverno/issues/57)
-* [Extend CLI to operate on cluster resources ](https://github.com/nirmata/kyverno/issues/164)
+See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](https://github.com/nirmata/kyverno/issues).
 
 ## Getting help
 
@@ -166,7 +164,7 @@ Here are some the major features we plan on completing before a 1.0 release:
 
 ## Contributing
 
-Welcome to our community and thanks for contributing!
+Thanks for your interest in contributing!
 
   * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
   * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.

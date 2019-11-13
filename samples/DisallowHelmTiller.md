@@ -4,14 +4,13 @@ Tiller has known security challenges. It requires adminstrative privileges and a
 
 ## Policy YAML 
 
+[disallow_helm_tiller.yaml](best_practices/disallow_helm_tiller.yaml) 
+
 ````yaml
 apiVersion : kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
   name: disallow-helm-tiller
-  annotations:
-    policies.kyverno.io/category: Security
-    policies.kyverno.io/description: 
 spec:
   rules:
   - name: validate-helm-tiller
