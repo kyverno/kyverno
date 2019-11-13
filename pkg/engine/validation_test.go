@@ -1542,7 +1542,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 
 func TestValidate_ServiceTest(t *testing.T) {
 	rawPolicy := []byte(`{
-		"apiVersion":"kyverno.nirmata.io/v1alpha1",
+		"apiVersion":"kyverno.nirmata.io/v1",
 		"kind":"ClusterPolicy",
 		"metadata":{
 			"name":"policy-service"
@@ -1635,7 +1635,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 
 func TestValidate_MapHasFloats(t *testing.T) {
 	rawPolicy := []byte(`{
-		"apiVersion":"kyverno.nirmata.io/v1alpha1",
+		"apiVersion":"kyverno.nirmata.io/v1",
 		"kind":"ClusterPolicy",
 		"metadata":{
 			"name":"policy-deployment-changed"
@@ -1733,7 +1733,7 @@ func TestValidate_MapHasFloats(t *testing.T) {
 func TestValidate_image_tag_fail(t *testing.T) {
 	// If image tag is latest then imagepull policy needs to be checked
 	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-image"
@@ -1831,7 +1831,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 func TestValidate_image_tag_pass(t *testing.T) {
 	// If image tag is latest then imagepull policy needs to be checked
 	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-image"
@@ -1929,7 +1929,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 func TestValidate_Fail_anyPattern(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-namespace"
@@ -2003,7 +2003,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 func TestValidate_host_network_port(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-host-network-port"
@@ -2085,7 +2085,7 @@ func TestValidate_host_network_port(t *testing.T) {
 func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-host-path"
@@ -2174,7 +2174,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "validate-host-path"
@@ -2262,7 +2262,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 func TestValidate_anchor_map_notfound(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -2331,7 +2331,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 func TestValidate_anchor_map_found_valid(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -2403,7 +2403,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "policy-secaas-k8s"
@@ -2476,7 +2476,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "policy-secaas-k8s"
@@ -2550,7 +2550,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 func TestValidate_AnchorList_fail(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "policy-secaas-k8s"
@@ -2624,7 +2624,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "policy-secaas-k8s"
@@ -2699,7 +2699,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "policy-secaas-k8s"
@@ -2772,7 +2772,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 func TestValidate_negationAnchor_deny(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "validate-host-path"
@@ -2859,7 +2859,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 func TestValidate_negationAnchor_pass(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "validate-host-path"

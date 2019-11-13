@@ -10,7 +10,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -27,7 +27,7 @@ const workQueueRetryLimit = 3
 //Generator creates PV
 type Generator struct {
 	dclient     *dclient.Client
-	pvInterface kyvernov1alpha1.KyvernoV1Interface
+	pvInterface kyvernov1.KyvernoV1Interface
 	pvLister    kyvernolister.ClusterPolicyViolationLister
 	nspvLister  kyvernolister.NamespacedPolicyViolationLister
 	queue       workqueue.RateLimitingInterface
@@ -237,7 +237,7 @@ func (gen *Generator) syncHandler(info Info) error {
 	return nil
 }
 
-func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1Interface) error {
+func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface) error {
 	for _, pv := range pvs {
 		if err := createPVNew(dclient, pv, pvLister, pvInterface); err != nil {
 			return err
@@ -246,7 +246,7 @@ func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvL
 	return nil
 }
 
-func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1Interface) error {
+func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface) error {
 	var err error
 	// PV already exists
 	ePV, err := getExistingPVIfAny(pvLister, pv)

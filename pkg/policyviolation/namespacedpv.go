@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -62,7 +62,7 @@ func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyver
 	return
 }
 
-func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.NamespacedPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1Interface, pvs []kyverno.NamespacedPolicyViolation) error {
+func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.NamespacedPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface, pvs []kyverno.NamespacedPolicyViolation) error {
 	for _, newPv := range pvs {
 		glog.V(4).Infof("creating namespaced policyViolation resource for policy %s and resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 		// check if there was a previous policy voilation for policy & resource combination
