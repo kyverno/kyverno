@@ -370,7 +370,7 @@ func UnstartedTestServer(t TestErrHandler, instanceType string) TestServer {
 	globalPolicySys = NewPolicySys()
 	globalPolicySys.Init(buckets, objLayer)
 
-	globalNotificationSys = NewNotificationSys(globalServerConfig, testServer.Disks)
+	globalNotificationSys = NewNotificationSys(testServer.Disks)
 	globalNotificationSys.Init(buckets, objLayer)
 
 	globalLifecycleSys = NewLifecycleSys()
@@ -519,12 +519,12 @@ func newTestConfig(bucketLocation string, obj ObjectLayer) (err error) {
 		return err
 	}
 
-	logger.Disable = true
-
 	globalActiveCred = auth.Credentials{
 		AccessKey: auth.DefaultAccessKey,
 		SecretKey: auth.DefaultSecretKey,
 	}
+
+	globalConfigEncrypted = true
 
 	// Set a default region.
 	config.SetRegion(globalServerConfig, bucketLocation)
@@ -1599,7 +1599,7 @@ func newTestObjectLayer(endpoints EndpointList) (newObject ObjectLayer, err erro
 		return NewFSObjectLayer(endpoints[0].Path)
 	}
 
-	_, err = waitForFormatXL(endpoints[0].IsLocal, endpoints, 1, 16)
+	format, err := waitForFormatXL(endpoints[0].IsLocal, endpoints, 1, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -1609,6 +1609,10 @@ func newTestObjectLayer(endpoints EndpointList) (newObject ObjectLayer, err erro
 		if err != nil && err != errDiskNotFound {
 			return nil, err
 		}
+	}
+
+	for i, disk := range storageDisks {
+		disk.SetDiskID(format.XL.Sets[0][i])
 	}
 
 	// Initialize list pool.
@@ -1632,7 +1636,10 @@ func newTestObjectLayer(endpoints EndpointList) (newObject ObjectLayer, err erro
 	globalIAMSys.Init(xl)
 
 	globalPolicySys = NewPolicySys()
-	globalNotificationSys = NewNotificationSys(globalServerConfig, endpoints)
+	globalPolicySys.Init(nil, xl)
+
+	globalNotificationSys = NewNotificationSys(endpoints)
+	globalNotificationSys.Init(nil, xl)
 
 	return xl, nil
 }
@@ -2164,8 +2171,18 @@ func registerAPIFunctions(muxRouter *mux.Router, objLayer ObjectLayer, apiFuncti
 	// to underlying cache layer to manage object layer operation and disk caching
 	// operation
 	api := objectAPIHandlers{
-		ObjectAPI:         newObjectLayerFn,
-		CacheAPI:          newCacheObjectsFn,
+		ObjectAPI: func() ObjectLayer {
+			if !globalSafeMode {
+				return globalObjectAPI
+			}
+			return nil
+		},
+		CacheAPI: func() CacheObjectLayer {
+			if !globalSafeMode {
+				return globalCacheObjectAPI
+			}
+			return nil
+		},
 		EncryptionEnabled: func() bool { return true },
 	}
 

@@ -69,11 +69,12 @@ func getPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister, dclien
 	}
 	// get owners
 	// getOwners returns nil if there is any error
-	owners := policyviolation.GetOwners(dclient, *resource)
+	owners := map[kyverno.ResourceSpec]interface{}{}
+	policyviolation.GetOwner(dclient, owners, *resource)
 	// as we can have multiple top level owners to a resource
 	// check if pv exists on each one
 	// does not check for cycles
-	for _, owner := range owners {
+	for owner := range owners {
 		pv, err := getPVOnResource(pvLister, policyName, owner.Kind, owner.Namespace, owner.Name)
 		if err != nil {
 			glog.Errorf("error while fetching resource owners: %v", err)
@@ -86,29 +87,23 @@ func getPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister, dclien
 
 // Wont do the claiming of objects, just lookup based on selectors and owner references
 func getPVOnResource(pvLister kyvernolister.ClusterPolicyViolationLister, policyName, kind, namespace, name string) (kyverno.ClusterPolicyViolation, error) {
-	resourceKey := kyverno.BuildResourceKey(kind, namespace, name)
-	labelMap := map[string]string{"policy": policyName, "resource": resourceKey}
-	pvSelector, err := converLabelToSelector(labelMap)
-	if err != nil {
-		glog.Errorf("failed to generate label sector for policy %s and resourcr %s", policyName, resourceKey)
-		return kyverno.ClusterPolicyViolation{}, fmt.Errorf("failed to generate label sector for policy %s and resourcr %s", policyName, resourceKey)
-	}
 
-	pvs, err := pvLister.List(pvSelector)
+	pvs, err := pvLister.List(labels.Everything())
 	if err != nil {
-		glog.Errorf("unable to list policy violations with label selector %v: %v", pvSelector, err)
+		glog.Errorf("unable to list policy violations : %v", err)
 		return kyverno.ClusterPolicyViolation{}, err
 	}
-	if len(pvs) > 1 {
-		glog.Errorf("more than one policy violation exists  with labels %v", labelMap)
-		return kyverno.ClusterPolicyViolation{}, fmt.Errorf("more than one policy violation exists  with labels %v", labelMap)
+
+	for _, pv := range pvs {
+		// find a policy on same resource and policy combination
+		if pv.Spec.Policy == policyName &&
+			pv.Spec.ResourceSpec.Kind == kind &&
+			pv.Spec.ResourceSpec.Namespace == namespace &&
+			pv.Spec.ResourceSpec.Name == name {
+			return *pv, nil
+		}
 	}
-	if len(pvs) == 0 {
-		glog.V(4).Infof("policy violation does not exist with labels %v", labelMap)
-		return kyverno.ClusterPolicyViolation{}, nil
-	}
-	// return a copy of pv
-	return *pvs[0], nil
+	return kyverno.ClusterPolicyViolation{}, nil
 }
 
 func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) {

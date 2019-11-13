@@ -430,6 +430,25 @@ func (client *peerRESTClient) PutBucketNotification(bucket string, rulesMap even
 	return nil
 }
 
+// PutBucketObjectLockConfig - PUT bucket object lock configuration.
+func (client *peerRESTClient) PutBucketObjectLockConfig(bucket string, retention Retention) error {
+	values := make(url.Values)
+	values.Set(peerRESTBucket, bucket)
+
+	var reader bytes.Buffer
+	err := gob.NewEncoder(&reader).Encode(&retention)
+	if err != nil {
+		return err
+	}
+
+	respBody, err := client.call(peerRESTMethodPutBucketObjectLockConfig, values, &reader, -1)
+	if err != nil {
+		return err
+	}
+	defer http.DrainBody(respBody)
+	return nil
+}
+
 // DeletePolicy - delete a specific canned policy.
 func (client *peerRESTClient) DeletePolicy(policyName string) (err error) {
 	values := make(url.Values)
@@ -693,19 +712,24 @@ func getRemoteHosts(endpoints EndpointList) []*xnet.Host {
 	var remoteHosts []*xnet.Host
 	for _, hostStr := range GetRemotePeers(endpoints) {
 		host, err := xnet.ParseHost(hostStr)
-		logger.FatalIf(err, "Unable to parse peer Host")
+		if err != nil {
+			logger.LogIf(context.Background(), err)
+			continue
+		}
 		remoteHosts = append(remoteHosts, host)
 	}
 
 	return remoteHosts
 }
 
-func getRestClients(peerHosts []*xnet.Host) []*peerRESTClient {
+func getRestClients(endpoints EndpointList) []*peerRESTClient {
+	peerHosts := getRemoteHosts(endpoints)
 	restClients := make([]*peerRESTClient, len(peerHosts))
 	for i, host := range peerHosts {
 		client, err := newPeerRESTClient(host)
 		if err != nil {
 			logger.LogIf(context.Background(), err)
+			continue
 		}
 		restClients[i] = client
 	}

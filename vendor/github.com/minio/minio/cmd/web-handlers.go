@@ -418,7 +418,8 @@ func (web *webAPIHandlers) ListObjects(r *http.Request, args *ListObjectsArgs, r
 		nextMarker := ""
 		// Fetch all the objects
 		for {
-			result, err := core.ListObjects(args.BucketName, args.Prefix, nextMarker, SlashSeparator, 1000)
+			result, err := core.ListObjects(args.BucketName, args.Prefix, nextMarker, SlashSeparator,
+				maxObjectList)
 			if err != nil {
 				return toJSONError(ctx, err, args.BucketName)
 			}
@@ -532,7 +533,7 @@ func (web *webAPIHandlers) ListObjects(r *http.Request, args *ListObjectsArgs, r
 	nextMarker := ""
 	// Fetch all the objects
 	for {
-		lo, err := listObjects(ctx, args.BucketName, args.Prefix, nextMarker, SlashSeparator, 1000)
+		lo, err := listObjects(ctx, args.BucketName, args.Prefix, nextMarker, SlashSeparator, maxObjectList)
 		if err != nil {
 			return &json2.Error{Message: err.Error()}
 		}
@@ -667,8 +668,8 @@ next:
 		// If not a directory, remove the object.
 		if !hasSuffix(objectName, SlashSeparator) && objectName != "" {
 			// Deny if WORM is enabled
-			if globalWORMEnabled {
-				if _, err = objectAPI.GetObjectInfo(ctx, args.BucketName, objectName, ObjectOptions{}); err == nil {
+			if retention, isWORMBucket := isWORMEnabled(args.BucketName); isWORMBucket {
+				if oi, err := objectAPI.GetObjectInfo(ctx, args.BucketName, objectName, ObjectOptions{}); err == nil && retention.Retain(oi.ModTime) {
 					return toJSONError(ctx, errMethodNotAllowed)
 				}
 			}
@@ -711,7 +712,7 @@ next:
 		marker := ""
 		for {
 			var lo ListObjectsInfo
-			lo, err = listObjects(ctx, args.BucketName, objectName, marker, "", 1000)
+			lo, err = listObjects(ctx, args.BucketName, objectName, marker, "", maxObjectList)
 			if err != nil {
 				break next
 			}
@@ -1028,8 +1029,8 @@ func (web *webAPIHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 	crypto.RemoveSensitiveEntries(metadata)
 
 	// Deny if WORM is enabled
-	if globalWORMEnabled {
-		if _, err = objectAPI.GetObjectInfo(ctx, bucket, object, opts); err == nil {
+	if retention, isWORMBucket := isWORMEnabled(bucket); isWORMBucket {
+		if oi, err := objectAPI.GetObjectInfo(ctx, bucket, object, opts); err == nil && retention.Retain(oi.ModTime) {
 			writeWebErrorResponse(w, errMethodNotAllowed)
 			return
 		}
@@ -1363,7 +1364,8 @@ func (web *webAPIHandlers) DownloadZip(w http.ResponseWriter, r *http.Request) {
 		// date to the response writer.
 		marker := ""
 		for {
-			lo, err := listObjects(ctx, args.BucketName, pathJoin(args.Prefix, object), marker, "", 1000)
+			lo, err := listObjects(ctx, args.BucketName, pathJoin(args.Prefix, object), marker, "",
+				maxObjectList)
 			if err != nil {
 				return
 			}

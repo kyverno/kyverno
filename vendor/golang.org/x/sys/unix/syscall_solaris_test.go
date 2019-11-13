@@ -52,11 +52,10 @@ func TestSelect(t *testing.T) {
 	}
 
 	rFdSet := &unix.FdSet{}
-	fd := rr.Fd()
-	// FD_SET(fd, rFdSet)
-	rFdSet.Bits[fd/unix.NFDBITS] |= (1 << (fd % unix.NFDBITS))
+	fd := int(rr.Fd())
+	rFdSet.Set(fd)
 
-	n, err = unix.Select(int(fd+1), rFdSet, nil, nil, nil)
+	n, err = unix.Select(fd+1, rFdSet, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}

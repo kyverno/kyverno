@@ -23,6 +23,31 @@ import (
 	xhttp "github.com/minio/minio/cmd/http"
 )
 
+func newObjectLayerWithoutSafeModeFn() ObjectLayer {
+	globalObjLayerMutex.Lock()
+	defer globalObjLayerMutex.Unlock()
+	return globalObjectAPI
+}
+
+func newObjectLayerFn() ObjectLayer {
+	globalObjLayerMutex.Lock()
+	defer globalObjLayerMutex.Unlock()
+	if globalSafeMode {
+		return nil
+	}
+	return globalObjectAPI
+}
+
+func newCachedObjectLayerFn() CacheObjectLayer {
+	globalObjLayerMutex.Lock()
+	defer globalObjLayerMutex.Unlock()
+
+	if globalSafeMode {
+		return nil
+	}
+	return globalCacheObjectAPI
+}
+
 // objectAPIHandler implements and provides http handlers for S3 API.
 type objectAPIHandlers struct {
 	ObjectAPI func() ObjectLayer
@@ -38,7 +63,7 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 	// Initialize API.
 	api := objectAPIHandlers{
 		ObjectAPI: newObjectLayerFn,
-		CacheAPI:  newCacheObjectsFn,
+		CacheAPI:  newCachedObjectLayerFn,
 		EncryptionEnabled: func() bool {
 			return encryptionEnabled
 		},
@@ -86,6 +111,14 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(collectAPIStats("putobject", httpTraceHdrs(api.PutObjectHandler)))
 		// DeleteObject
 		bucket.Methods(http.MethodDelete).Path("/{object:.+}").HandlerFunc(collectAPIStats("deleteobject", httpTraceAll(api.DeleteObjectHandler)))
+		// PutObjectLegalHold
+		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(httpTraceHdrs(api.PutObjectLegalHoldHandler)).Queries("legal-hold", "").Queries("versionId", "")
+		// GetObjectLegalHold
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(httpTraceHdrs(api.GetObjectLegalHoldHandler)).Queries("legal-hold", "").Queries("versionId", "")
+		// PutObjectRetention
+		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(httpTraceHdrs(api.PutObjectRetentionHandler)).Queries("retention", "").Queries("versionId", "")
+		// GetObjectRetention
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(httpTraceHdrs(api.GetObjectRetentionHandler)).Queries("retention", "").Queries("versionId", "")
 
 		/// Bucket operations
 		// GetBucketLocation
@@ -102,8 +135,6 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 		bucket.Methods(http.MethodGet).HandlerFunc(collectAPIStats("getbucketcors", httpTraceAll(api.GetBucketCorsHandler))).Queries("cors", "")
 		// GetBucketWebsiteHandler - this is a dummy call.
 		bucket.Methods(http.MethodGet).HandlerFunc(collectAPIStats("getbucketwebsite", httpTraceAll(api.GetBucketWebsiteHandler))).Queries("website", "")
-		// GetBucketVersioningHandler - this is a dummy call.
-		bucket.Methods(http.MethodGet).HandlerFunc(collectAPIStats("getbucketversion", httpTraceAll(api.GetBucketVersioningHandler))).Queries("versioning", "")
 		// GetBucketAccelerateHandler - this is a dummy call.
 		bucket.Methods(http.MethodGet).HandlerFunc(collectAPIStats("getbucketaccelerate", httpTraceAll(api.GetBucketAccelerateHandler))).Queries("accelerate", "")
 		// GetBucketRequestPaymentHandler - this is a dummy call.
@@ -121,6 +152,10 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 		// DeleteBucketTaggingHandler
 		bucket.Methods(http.MethodDelete).HandlerFunc(collectAPIStats("deletebuckettagging", httpTraceAll(api.DeleteBucketTaggingHandler))).Queries("tagging", "")
 
+		// GetBucketObjectLockConfig
+		bucket.Methods(http.MethodGet).HandlerFunc(httpTraceAll(api.GetBucketObjectLockConfigHandler)).Queries("object-lock", "")
+		// GetBucketVersioning
+		bucket.Methods(http.MethodGet).HandlerFunc(httpTraceAll(api.GetBucketVersioningHandler)).Queries("versioning", "")
 		// GetBucketNotification
 		bucket.Methods(http.MethodGet).HandlerFunc(collectAPIStats("getbucketnotification", httpTraceAll(api.GetBucketNotificationHandler))).Queries("notification", "")
 		// ListenBucketNotification
@@ -138,6 +173,10 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 		// PutBucketPolicy
 		bucket.Methods("PUT").HandlerFunc(collectAPIStats("putbucketpolicy", httpTraceAll(api.PutBucketPolicyHandler))).Queries("policy", "")
 
+		// PutBucketObjectLockConfig
+		bucket.Methods(http.MethodPut).HandlerFunc(httpTraceAll(api.PutBucketObjectLockConfigHandler)).Queries("object-lock", "")
+		// PutBucketVersioning
+		bucket.Methods(http.MethodPut).HandlerFunc(httpTraceAll(api.PutBucketVersioningHandler)).Queries("versioning", "")
 		// PutBucketNotification
 		bucket.Methods(http.MethodPut).HandlerFunc(collectAPIStats("putbucketnotification", httpTraceAll(api.PutBucketNotificationHandler))).Queries("notification", "")
 		// PutBucket
@@ -161,6 +200,8 @@ func registerAPIRouter(router *mux.Router, encryptionEnabled, allowSSEKMS bool) 
 	// ListBuckets
 	apiRouter.Methods(http.MethodGet).Path(SlashSeparator).HandlerFunc(collectAPIStats("listbuckets", httpTraceAll(api.ListBucketsHandler)))
 
-	// If none of the routes match.
-	apiRouter.NotFoundHandler = http.HandlerFunc(collectAPIStats("notfound", httpTraceAll(notFoundHandler)))
+	// If none of the routes match add default error handler routes
+	apiRouter.NotFoundHandler = http.HandlerFunc(collectAPIStats("notfound", httpTraceAll(errorResponseHandler)))
+	apiRouter.MethodNotAllowedHandler = http.HandlerFunc(collectAPIStats("methodnotallowed", httpTraceAll(errorResponseHandler)))
+
 }

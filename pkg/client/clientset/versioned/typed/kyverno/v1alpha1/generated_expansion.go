@@ -21,3 +21,5 @@ package v1alpha1
 type ClusterPolicyExpansion interface{}
 
 type ClusterPolicyViolationExpansion interface{}
+
+type NamespacedPolicyViolationExpansion interface{}
