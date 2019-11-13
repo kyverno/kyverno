@@ -98,22 +98,22 @@ func main() {
 	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps(), filterK8Resources)
 
 	// Policy meta-data store
-	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1alpha1().ClusterPolicies().Lister())
+	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1alpha1().ClusterPolicies())
+	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1().ClusterPolicies())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations().Lister())
+	pvgen := policyviolation.NewPVGenerator(pclient, client, pInformer.Kyverno().V1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1().NamespacedPolicyViolations().Lister())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, configData, pvgen, policyMetaStore)
+	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pInformer.Kyverno().V1().NamespacedPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, configData, pvgen, policyMetaStore)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -121,19 +121,19 @@ func main() {
 	// POLICY VIOLATION CONTROLLER
 	// policy violation cleanup if the corresponding resource is deleted
 	// status: lastUpdatTime
-	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations())
+	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating cluster policy violation controller: %v\n", err)
 	}
 
-	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations())
+	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(client, pclient, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().NamespacedPolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating namespaced policy violation controller: %v\n", err)
 	}
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, configData, pvgen, policyMetaStore)
+	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, configData, pvgen, policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := initTLSPemPair(clientConfig, client)
@@ -156,7 +156,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations(),
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pInformer.Kyverno().V1().NamespacedPolicyViolations(),
 		kubeInformer.Rbac().V1().RoleBindings(), kubeInformer.Rbac().V1().ClusterRoleBindings(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), configData, policyMetaStore, pvgen, cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)

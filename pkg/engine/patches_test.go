@@ -6,7 +6,7 @@ import (
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
 const endpointsDocument string = `{

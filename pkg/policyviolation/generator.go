@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,7 +27,7 @@ const workQueueRetryLimit = 3
 //Generator creates PV
 type Generator struct {
 	dclient     *dclient.Client
-	pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface
+	pvInterface kyvernov1alpha1.KyvernoV1Interface
 	pvLister    kyvernolister.ClusterPolicyViolationLister
 	nspvLister  kyvernolister.NamespacedPolicyViolationLister
 	queue       workqueue.RateLimitingInterface
@@ -97,7 +97,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
 	pvLister kyvernolister.ClusterPolicyViolationLister,
 	nspvLister kyvernolister.NamespacedPolicyViolationLister) *Generator {
 	gen := Generator{
-		pvInterface: client.KyvernoV1alpha1(),
+		pvInterface: client.KyvernoV1(),
 		dclient:     dclient,
 		pvLister:    pvLister,
 		nspvLister:  nspvLister,
@@ -237,7 +237,7 @@ func (gen *Generator) syncHandler(info Info) error {
 	return nil
 }
 
-func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
+func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1Interface) error {
 	for _, pv := range pvs {
 		if err := createPVNew(dclient, pv, pvLister, pvInterface); err != nil {
 			return err
@@ -246,7 +246,7 @@ func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvL
 	return nil
 }
 
-func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
+func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1Interface) error {
 	var err error
 	// PV already exists
 	ePV, err := getExistingPVIfAny(pvLister, pv)

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -266,7 +266,7 @@ func (fk *FakeLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterPol
 }
 
 func (fk *FakeLister) Get(name string) (*v1alpha1.ClusterPolicy, error) {
-	return fk.client.KyvernoV1alpha1().ClusterPolicies().Get(name, v1.GetOptions{})
+	return fk.client.KyvernoV1().ClusterPolicies().Get(name, v1.GetOptions{})
 }
 
 func (fk *FakeLister) GetPolicyForPolicyViolation(pv *v1alpha1.ClusterPolicyViolation) ([]*v1alpha1.ClusterPolicy, error) {
