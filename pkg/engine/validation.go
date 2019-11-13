@@ -74,6 +74,9 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 		// there are changes send response
 		startResultResponse(newResponse, policy, newR)
 		defer endResultResponse(newResponse, startTime)
+		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
+			newResponse.PatchedResource = newR
+		}
 		return *newResponse
 	}
 	// if there are no changes with old and new response then sent empty response

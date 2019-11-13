@@ -131,7 +131,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		DeleteFunc: pc.deletePolicyViolation,
 	})
 
-	pvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	nspvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addNamespacedPolicyViolation,
 		UpdateFunc: pc.updateNamespacedPolicyViolation,
 		DeleteFunc: pc.deleteNamespacedPolicyViolation,
@@ -146,7 +146,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.pvListerSynced = pvInformer.Informer().HasSynced
-	pc.nspvListerSynced = pvInformer.Informer().HasSynced
+	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
 
 	pc.mutationwebhookLister = webhookInformer.Lister()
 
@@ -394,7 +394,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Starting policy controller")
 	defer glog.Info("Shutting down policy controller")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced, pc.nspvListerSynced) {
 		return
 	}
 	for i := 0; i < workers; i++ {
