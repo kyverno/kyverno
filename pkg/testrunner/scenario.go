@@ -148,7 +148,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 
 	var er engine.EngineResponse
 
-	er = engine.Mutate(*policy, *resource)
+	er = engine.Mutate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -158,7 +158,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(*policy, *resource)
+	er = engine.Validate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 

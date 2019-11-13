@@ -4,13 +4,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponse) {
+func Mutate(policyContext PolicyContext) (response EngineResponse) {
 	startTime := time.Now()
+	policy := policyContext.Policy
+	resource := policyContext.Resource
+
 	// policy information
 	func() {
 		// set policy information
@@ -39,6 +41,15 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		if !rule.HasMutate() {
 			continue
 		}
+
+		startTime := time.Now()
+		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
+			continue
+		}
+		glog.V(4).Infof("Time: Mutate matchAdmissionInfo %v", time.Since(startTime))
+
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
@@ -53,9 +64,10 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 			ruleResponse, patchedResource = processOverlay(rule, resource)
 			if ruleResponse.Success == true && ruleResponse.Patches == nil {
 				// overlay pattern does not match the resource conditions
-				glog.Infof(ruleResponse.Message)
+				glog.V(4).Infof(ruleResponse.Message)
 				continue
 			}
+			glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
@@ -64,6 +76,7 @@ func Mutate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (r
 		if rule.Mutation.Patches != nil {
 			var ruleResponse RuleResponse
 			ruleResponse, patchedResource = processPatches(rule, resource)
+			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
