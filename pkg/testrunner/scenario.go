@@ -172,7 +172,13 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			er = engine.Generate(client, *policy, *resource)
+			policyContext := engine.PolicyContext{
+				NewResource: *resource,
+				Policy:      *policy,
+				Client:      client,
+			}
+
+			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			validateGeneratedResources(t, client, *policy, tc.Expected.Generation.GeneratedResources)

@@ -14,7 +14,11 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructured.Unstructured) (response EngineResponse) {
+func Generate(policyContext PolicyContext) (response EngineResponse) {
+	policy := policyContext.Policy
+	ns := policyContext.NewResource
+	client := policyContext.Client
+
 	startTime := time.Now()
 	// policy information
 	func() {
