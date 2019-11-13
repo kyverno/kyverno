@@ -44,6 +44,8 @@ func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructur
 		response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		incrementAppliedRuleCount()
 	}
+	// set resource in reponse
+	response.PatchedResource = ns
 	return response
 }
 
