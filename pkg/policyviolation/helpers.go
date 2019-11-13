@@ -3,10 +3,10 @@ package policyviolation
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,30 +28,6 @@ func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) 
 	}
 
 	return policyViolationSelector, nil
-}
-
-//GetOwners pass in unstr rather than using the client to get the unstr
-// as if name is empty then GetResource panic as it returns a list
-func GetOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
-	resourceOwners := unstr.GetOwnerReferences()
-	if len(resourceOwners) == 0 {
-		return []kyverno.ResourceSpec{kyverno.ResourceSpec{
-			Kind:      unstr.GetKind(),
-			Namespace: unstr.GetNamespace(),
-			Name:      unstr.GetName(),
-		}}
-	}
-	var owners []kyverno.ResourceSpec
-	for _, resourceOwner := range resourceOwners {
-		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
-		if err != nil {
-			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name, err)
-			return nil
-		}
-
-		owners = append(owners, GetOwners(dclient, *unstrParent)...)
-	}
-	return owners
 }
 
 func containsOwner(owners []kyverno.ResourceSpec, pvResourceSpec kyverno.ResourceSpec) bool {
@@ -87,11 +63,13 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, pvResourceSpec k
 		Name:      pvResourceSpec.Name,
 	}
 
+	start := time.Now()
 	deploy, err := client.Deployments(owner.Namespace).Get(owner.Name, metav1.GetOptions{})
 	if err != nil {
 		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)
 		return false
 	}
+	glog.V(4).Infof("Time getting deployment %v", time.Since(start))
 
 	// TODO(shuting): replace typed client AppsV1Interface
 	expectReplicaset, err := deployutil.GetNewReplicaSet(deploy, client)

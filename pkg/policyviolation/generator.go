@@ -339,7 +339,7 @@ func buildPVWithOwners(dclient *client.Client, info Info) []kyverno.ClusterPolic
 	var pvs []kyverno.ClusterPolicyViolation
 	// as its blocked resource, the violation is created on owner
 	ownerMap := map[kyverno.ResourceSpec]interface{}{}
-	getOwner(dclient, ownerMap, info.Resource)
+	GetOwner(dclient, ownerMap, info.Resource)
 
 	// standaloneresource, set pvResourceSpec with resource itself
 	if len(ownerMap) == 0 {
@@ -359,33 +359,8 @@ func buildPVWithOwners(dclient *client.Client, info Info) []kyverno.ClusterPolic
 	return pvs
 }
 
-//getOwners pass in unstr rather than using the client to get the unstr
-// as if name is empty then GetResource panic as it returns a list
-func getOwnersOld(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
-	resourceOwners := unstr.GetOwnerReferences()
-	if len(resourceOwners) == 0 {
-		return []kyverno.ResourceSpec{kyverno.ResourceSpec{
-			Kind:      unstr.GetKind(),
-			Namespace: unstr.GetNamespace(),
-			Name:      unstr.GetName(),
-		}}
-	}
-	var owners []kyverno.ResourceSpec
-	for _, resourceOwner := range resourceOwners {
-		// TODO(shuting): when owner is replicaset, the replicaset even not create, too fast
-		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
-		if err != nil {
-			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name, err)
-			return nil
-		}
-
-		owners = append(owners, GetOwners(dclient, *unstrParent)...)
-	}
-	return owners
-}
-
-// get owners of a resource by iterating over ownerReferences
-func getOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
+// GetOwner of a resource by iterating over ownerReferences
+func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
 	var emptyInterface interface{}
 	resourceSpec := kyverno.ResourceSpec{
 		Kind:      resource.GetKind(),
@@ -413,6 +388,6 @@ func getOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interfac
 			// as we want to process other owners
 			continue
 		}
-		getOwner(dclient, ownerMap, *owner)
+		GetOwner(dclient, ownerMap, *owner)
 	}
 }

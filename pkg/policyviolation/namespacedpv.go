@@ -44,7 +44,7 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyverno.NamespacedPolicyViolation) {
 	// create violation on resource owner (if exist) when action is set to enforce
 	ownerMap := map[kyverno.ResourceSpec]interface{}{}
-	getOwner(dclient, ownerMap, info.Resource)
+	GetOwner(dclient, ownerMap, info.Resource)
 
 	// standaloneresource, set pvResourceSpec with resource itself
 	if len(ownerMap) == 0 {

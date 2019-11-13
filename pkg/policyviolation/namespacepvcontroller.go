@@ -267,10 +267,10 @@ func (pvc *NamespacedPolicyViolationController) syncBlockedResource(curPv *kyver
 
 		for _, resource := range resources.Items {
 			glog.V(4).Infof("getting owners for %s/%s/%s\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-			owners := GetOwners(pvc.client, resource)
-			// owner of resource matches violation resourceSpec
+			owners := map[kyverno.ResourceSpec]interface{}{}
+			GetOwner(pvc.client, owners, resource) // owner of resource matches violation resourceSpec
 			// remove policy violation as the blocked request got created
-			if containsOwner(owners, curPv.Spec.ResourceSpec) {
+			if _, ok := owners[curPv.Spec.ResourceSpec]; ok {
 				// pod -> replicaset1; deploy -> replicaset2
 				// if replicaset1 == replicaset2, the pod is
 				// no longer an active child of deploy, skip removing pv

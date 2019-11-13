@@ -69,11 +69,12 @@ func getPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister, dclien
 	}
 	// get owners
 	// getOwners returns nil if there is any error
-	owners := policyviolation.GetOwners(dclient, *resource)
+	owners := map[kyverno.ResourceSpec]interface{}{}
+	policyviolation.GetOwner(dclient, owners, *resource)
 	// as we can have multiple top level owners to a resource
 	// check if pv exists on each one
 	// does not check for cycles
-	for _, owner := range owners {
+	for owner := range owners {
 		pv, err := getPVOnResource(pvLister, policyName, owner.Kind, owner.Namespace, owner.Name)
 		if err != nil {
 			glog.Errorf("error while fetching resource owners: %v", err)
