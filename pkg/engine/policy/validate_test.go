@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 
@@ -673,7 +673,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 func Test_Validate_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "container-security-context"
@@ -978,7 +978,7 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 func Test_Validate_ErrorFormat(t *testing.T) {
 	rawPolicy := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		   "name": "test-error-format"

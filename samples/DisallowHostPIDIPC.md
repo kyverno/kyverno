@@ -9,7 +9,7 @@ To avoid pod container from having visibility to host process space, validate th
 [disallow_host_pid_ipc.yaml](best_practices/disallow_host_pid_ipc.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-host-pid-ipc

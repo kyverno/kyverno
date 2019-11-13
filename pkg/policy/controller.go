@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -501,7 +501,7 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*k
 	// update status
 	newPolicy := p
 	newPolicy.Status = newStatus
-	_, err := pc.kyvernoClient.KyvernoV1alpha1().ClusterPolicies().UpdateStatus(newPolicy)
+	_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(newPolicy)
 	return err
 }
 
@@ -547,7 +547,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolic
 	}
 
 	canAdoptFunc := RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().ClusterPolicies().Get(p.Name, metav1.GetOptions{})
+		fresh, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Get(p.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -875,24 +875,24 @@ type RealPVControl struct {
 
 //PatchPolicyViolation patches the policy violation with the provided JSON Patch
 func (r RealPVControl) PatchPolicyViolation(name string, data []byte) error {
-	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Patch(name, types.JSONPatchType, data)
+	_, err := r.Client.KyvernoV1().ClusterPolicyViolations().Patch(name, types.JSONPatchType, data)
 	return err
 }
 
 //DeletePolicyViolation deletes the policy violation
 func (r RealPVControl) DeletePolicyViolation(name string) error {
-	return r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }
 
 //PatchNamespacedPolicyViolation patches the namespaced policy violation with the provided JSON Patch
 func (r RealPVControl) PatchNamespacedPolicyViolation(ns, name string, data []byte) error {
-	_, err := r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(ns).Patch(name, types.JSONPatchType, data)
+	_, err := r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Patch(name, types.JSONPatchType, data)
 	return err
 }
 
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
-	return r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
 }
 
 // RecheckDeletionTimestamp returns a CanAdopt() function to recheck deletion.

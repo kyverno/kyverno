@@ -8,7 +8,7 @@ A read-only root file system helps to enforce an immutable infrastructure strate
 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-ro-rootfs

@@ -7,7 +7,7 @@ All processes inside the pod can be made to run with specific user and groupID b
 [policy_validate_user_group_fsgroup_id.yaml](more/policy_validate_user_group_fsgroup_id.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-userid-groupid-fsgroup

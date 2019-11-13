@@ -53,7 +53,6 @@ type ClusterPolicyViolationListerExpansion interface {
 // NamespacedPolicyViolationListerExpansion allows custom methods to be added to
 // NamespacedPolicyViolationLister.
 type NamespacedPolicyViolationListerExpansion interface {
-	// ListResources(selector labels.Selector) (ret []*v1alpha1.NamespacedPolicyViolation, err error)
 }
 
 // NamespacedPolicyViolationNamespaceListerExpansion allows custom methods to be added to
@@ -80,19 +79,6 @@ func (pl *clusterPolicyLister) ListResources(selector labels.Selector) (ret []*v
 	}
 	return policies, err
 }
-
-// func (namespacepvl *namespacedPolicyViolationLister) ListResources(selector labels.Selector) (ret []*kyverno.NamespacedPolicyViolation, err error) {
-// 	namespacepvs, err := namespacepvl.List(selector)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	for index := range namespacepvs {
-// 		namespacepvs[index].SetGroupVersionKind(kyverno.SchemeGroupVersion.WithKind("NamespacedPolicyViolation"))
-// 	}
-
-// 	return namespacepvs, nil
-// }
 
 func (pl *clusterPolicyLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	if len(pv.Labels) == 0 {

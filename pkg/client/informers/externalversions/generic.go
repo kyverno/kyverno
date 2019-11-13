@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -52,13 +52,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=kyverno.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("clusterpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().ClusterPolicies().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("clusterpolicyviolations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().ClusterPolicyViolations().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("namespacedpolicyviolations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().NamespacedPolicyViolations().Informer()}, nil
+	// Group=kyverno.io, Version=v1
+	case v1.SchemeGroupVersion.WithResource("clusterpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicies().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("clusterpolicyviolations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicyViolations().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("namespacedpolicyviolations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().NamespacedPolicyViolations().Informer()}, nil
 
 	}
 

@@ -1,6 +1,6 @@
 package policy
 
-import kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+import kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 
 // reEvaulatePolicy checks if the policy needs to be re-evaulated
 // during re-evaulation we remove all the old policy violations and re-create new ones

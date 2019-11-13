@@ -5,8 +5,8 @@ import (
 	"reflect"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/policyviolation"

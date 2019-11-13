@@ -7,7 +7,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

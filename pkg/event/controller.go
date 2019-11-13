@@ -6,8 +6,8 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,8 +32,7 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client,
-	pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
+func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
 
 	gen := Generator{
 		client:   client,

@@ -8,11 +8,11 @@ import (
 
 	backoff "github.com/cenkalti/backoff"
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -332,13 +332,13 @@ type RealNamespacedPVControl struct {
 
 //UpdateStatusPolicyViolation updates the status for policy violation
 func (r RealNamespacedPVControl) UpdateStatusPolicyViolation(newPv *kyverno.NamespacedPolicyViolation) error {
-	_, err := r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(newPv.Namespace).UpdateStatus(newPv)
+	_, err := r.Client.KyvernoV1().NamespacedPolicyViolations(newPv.Namespace).UpdateStatus(newPv)
 	return err
 }
 
 //RemovePolicyViolation removes the policy violation
 func (r RealNamespacedPVControl) RemovePolicyViolation(ns, name string) error {
-	return r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
 }
 
 func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) error {

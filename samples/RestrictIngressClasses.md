@@ -7,7 +7,7 @@ It can be useful to restrict Ingress resources to a set of known ingress classes
 [restrict_ingress_classes.yaml](more/restrict_ingress_classes.yaml) 
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-ingress-classes

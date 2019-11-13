@@ -61,13 +61,13 @@ func NewFilteredNamespacedPolicyViolationInformer(client versioned.Interface, na
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().NamespacedPolicyViolations(namespace).List(options)
+				return client.KyvernoV1().NamespacedPolicyViolations(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().NamespacedPolicyViolations(namespace).Watch(options)
+				return client.KyvernoV1().NamespacedPolicyViolations(namespace).Watch(options)
 			},
 		},
 		&kyvernov1alpha1.NamespacedPolicyViolation{},

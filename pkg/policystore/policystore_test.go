@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	v1alpha1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -16,7 +16,7 @@ import (
 func Test_Operations(t *testing.T) {
 	rawPolicy1 := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "test-policy1"
@@ -92,7 +92,7 @@ func Test_Operations(t *testing.T) {
 
 	rawPolicy2 := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "test-policy2"
@@ -152,7 +152,7 @@ func Test_Operations(t *testing.T) {
 
 	rawPolicy3 := []byte(`
 	{
-		"apiVersion": "kyverno.io/v1alpha1",
+		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "test-policy3"
@@ -175,18 +175,18 @@ func Test_Operations(t *testing.T) {
 		  ]
 		}
 	  }`)
-	var policy1 v1alpha1.ClusterPolicy
+	var policy1 kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy1, &policy1)
-	var policy2 v1alpha1.ClusterPolicy
+	var policy2 kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy2, &policy2)
-	var policy3 v1alpha1.ClusterPolicy
+	var policy3 kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy3, &policy3)
-	scheme.Scheme.AddKnownTypes(v1alpha1.SchemeGroupVersion,
-		&v1alpha1.ClusterPolicy{},
+	scheme.Scheme.AddKnownTypes(kyverno.SchemeGroupVersion,
+		&kyverno.ClusterPolicy{},
 	)
 	var obj runtime.Object
 	var err error
-	var retPolicies []v1alpha1.ClusterPolicy
+	var retPolicies []kyverno.ClusterPolicy
 	polices := []runtime.Object{}
 	// list of runtime objects
 	decode := scheme.Codecs.UniversalDeserializer().Decode
@@ -221,7 +221,7 @@ func Test_Operations(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(retPolicies, []v1alpha1.ClusterPolicy{policy1, policy2}) {
+	if !reflect.DeepEqual(retPolicies, []kyverno.ClusterPolicy{policy1, policy2}) {
 		t.Error("not matching")
 	}
 
@@ -232,7 +232,7 @@ func Test_Operations(t *testing.T) {
 		t.Error(err)
 	}
 	// Lookup
-	if !reflect.DeepEqual(retPolicies, []v1alpha1.ClusterPolicy{policy2}) {
+	if !reflect.DeepEqual(retPolicies, []kyverno.ClusterPolicy{policy2}) {
 		t.Error("not matching")
 	}
 	// Add
@@ -242,7 +242,7 @@ func Test_Operations(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(retPolicies) != len([]v1alpha1.ClusterPolicy{policy1, policy2}) {
+	if len(retPolicies) != len([]kyverno.ClusterPolicy{policy1, policy2}) {
 		// checking length as the order of polcies might be different
 		t.Error("not matching")
 	}
@@ -251,7 +251,7 @@ func Test_Operations(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(retPolicies, []v1alpha1.ClusterPolicy{policy3}) {
+	if !reflect.DeepEqual(retPolicies, []kyverno.ClusterPolicy{policy3}) {
 		t.Error("not matching")
 	}
 
@@ -261,21 +261,21 @@ type FakeLister struct {
 	client *fake.Clientset
 }
 
-func (fk *FakeLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error) {
+func (fk *FakeLister) List(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
 	return nil, nil
 }
 
-func (fk *FakeLister) Get(name string) (*v1alpha1.ClusterPolicy, error) {
-	return fk.client.KyvernoV1alpha1().ClusterPolicies().Get(name, v1.GetOptions{})
+func (fk *FakeLister) Get(name string) (*kyverno.ClusterPolicy, error) {
+	return fk.client.KyvernoV1().ClusterPolicies().Get(name, v1.GetOptions{})
 }
 
-func (fk *FakeLister) GetPolicyForPolicyViolation(pv *v1alpha1.ClusterPolicyViolation) ([]*v1alpha1.ClusterPolicy, error) {
+func (fk *FakeLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	return nil, nil
 }
-func (fk *FakeLister) ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error) {
+func (fk *FakeLister) ListResources(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
 	return nil, nil
 }
 
-func (fk *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *v1alpha1.NamespacedPolicyViolation) ([]*v1alpha1.ClusterPolicy, error) {
+func (fk *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	return nil, nil
 }

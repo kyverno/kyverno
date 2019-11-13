@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

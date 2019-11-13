@@ -3,8 +3,8 @@ package policystore
 import (
 	"sync"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 )
 
 type policyMap map[string]interface{}
