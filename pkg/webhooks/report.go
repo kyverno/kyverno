@@ -102,10 +102,6 @@ func generatePV(ers []engine.EngineResponse, blocked bool) []policyviolation.Inf
 	// generate PV for each
 	for _, er := range ers {
 		// ignore creation of PV for resoruces that are yet to be assigned a name
-		if er.PolicyResponse.Resource.Name == "" {
-			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
-			continue
-		}
 		if er.IsSuccesful() {
 			continue
 		}
@@ -113,7 +109,7 @@ func generatePV(ers []engine.EngineResponse, blocked bool) []policyviolation.Inf
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er, blocked))
 	}
-	return nil
+	return pvInfos
 }
 
 func buildPVInfo(er engine.EngineResponse, blocked bool) policyviolation.Info {

@@ -62,7 +62,6 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
-
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are avialalbe
 	if !utils.CRDInstalled(client.DiscoveryClient) {
@@ -107,7 +106,7 @@ func main() {
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister())
+	pvgen := policyviolation.NewPVGenerator(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation

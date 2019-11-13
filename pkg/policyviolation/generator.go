@@ -92,11 +92,12 @@ type GeneratorInterface interface {
 }
 
 // NewPVGenerator returns a new instance of policy violation generator
-func NewPVGenerator(client *kyvernoclient.Clientset,
+func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
 	pvLister kyvernolister.ClusterPolicyViolationLister) *Generator {
 	gen := Generator{
 		pvInterface: client.KyvernoV1alpha1().ClusterPolicyViolations(),
 		pvLister:    pvLister,
+		dclient:     dclient,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:   NewDataStore(),
 	}
@@ -122,8 +123,8 @@ func (gen *Generator) Add(infos ...Info) {
 // Run starts the workers
 func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
-	glog.Info("Start policy violaion generator")
-	defer glog.Info("Shutting down event generator")
+	glog.Info("Start policy violation generator")
+	defer glog.Info("Shutting down policy violation generator")
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
@@ -195,6 +196,7 @@ func (gen *Generator) processNextWorkitem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
+	glog.V(4).Infof("recieved info:%v", info)
 	var pvs []kyverno.ClusterPolicyViolation
 	if !info.Blocked {
 		pvs = append(pvs, buildPV(info))
@@ -275,7 +277,6 @@ func buildPV(info Info) kyverno.ClusterPolicyViolation {
 		Name:      info.Resource.GetName(),
 	}, info.Rules,
 	)
-	pv.SetGenerateName("pv-")
 	return pv
 }
 
@@ -288,6 +289,7 @@ func buildPVObj(policyName string, resourceSpec kyverno.ResourceSpec, rules []ky
 			ViolatedRules: rules,
 		},
 	}
+	pv.SetGenerateName("pv-")
 	return pv
 }
 
