@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
-	fakekyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1/fake"
+	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	fakekyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,7 +71,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// KyvernoV1alpha1 retrieves the KyvernoV1alpha1Client
-func (c *Clientset) KyvernoV1alpha1() kyvernov1alpha1.KyvernoV1alpha1Interface {
-	return &fakekyvernov1alpha1.FakeKyvernoV1alpha1{Fake: &c.Fake}
+// KyvernoV1 retrieves the KyvernoV1Client
+func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
+	return &fakekyvernov1.FakeKyvernoV1{Fake: &c.Fake}
 }

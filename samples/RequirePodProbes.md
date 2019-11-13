@@ -9,7 +9,7 @@ For each pod, a periodic `livenessProbe` is performed by the kubelet to determin
 [require_probes.yaml](best_practices/require_probes.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-pod-probes

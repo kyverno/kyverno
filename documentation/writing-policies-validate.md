@@ -83,7 +83,7 @@ The following rule prevents the creation of Deployment, StatefuleSet and DaemonS
 
 ````yaml
 
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : validation-example
@@ -120,7 +120,7 @@ A variation of an anchor, is to check that in a list of elements at least one el
 For example, this pattern will check that at least one container has memory requests and limits defined and that the request is less than the limit:
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : validation-example2
@@ -156,7 +156,7 @@ The `anyPattern` tag can be used to check if any one of the patterns in the list
 <small>*Note: either one of `pattern` or `anyPattern` is allowed in a rule, they both can't be declared in the same rule.*</small>
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: check-container-security-context

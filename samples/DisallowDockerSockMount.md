@@ -9,7 +9,7 @@ to manage containers outside of Kubernetes, and hence should not be allowed.
 [disallow_docker_sock_mount.yaml](best_practices/disallow_docker_sock_mount.yaml) 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-docker-sock-mount

@@ -60,13 +60,13 @@ func NewFilteredClusterPolicyViolationInformer(client versioned.Interface, resyn
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().ClusterPolicyViolations().List(options)
+				return client.KyvernoV1().ClusterPolicyViolations().List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1alpha1().ClusterPolicyViolations().Watch(options)
+				return client.KyvernoV1().ClusterPolicyViolations().Watch(options)
 			},
 		},
 		&kyvernov1alpha1.ClusterPolicyViolation{},

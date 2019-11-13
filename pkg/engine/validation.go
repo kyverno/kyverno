@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -74,6 +74,9 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 		// there are changes send response
 		startResultResponse(newResponse, policy, newR)
 		defer endResultResponse(newResponse, startTime)
+		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
+			newResponse.PatchedResource = newR
+		}
 		return *newResponse
 	}
 	// if there are no changes with old and new response then sent empty response
