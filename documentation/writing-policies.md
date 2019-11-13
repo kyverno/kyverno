@@ -2,7 +2,15 @@
 
 # Writing Policies
 
-A Kyverno policy contains a set of rules. Each rule matches resources by kind, name, or selectors.
+The following picture shows the structure of a Kyverno Policy:
+
+![KyvernoPolicy](documentation/images/Kyverno-Policy-Structure.png)
+
+Each Kyverno policy contains one or more rules. Each rule has a match clause, an optional excludes clause, and a mutate, validate, or generate clause.
+
+When Kyverno receives an admission controller request, i.e. a validation or mutation webhook, it first checks to see if the resource and user information matches or should be excluded from processing. If both checks pass, then the rule logic to mutate, validate, or generate resources is applied.
+
+The following YAML provides an example for the match and validate clauses.
 
 ````yaml
 apiVersion : kyverno.io/v1alpha1
@@ -32,6 +40,14 @@ spec :
                   app: mongodb
               matchExpressions:
                   - {key: tier, operator: In, values: [database]}
+        # Optional, subjects to be matched
+        subjects:
+          kind: User
+          name: mary@somecorp.com
+        # Optional, roles to be matched
+        roles:
+        # Optional, clusterroles to be matched
+        clusterroles:
       # Resources that need to be excluded
       exclude: # Optional, resources to be excluded from evaulation
         resources:
@@ -46,6 +62,14 @@ spec :
                   app: mongodb
               matchExpressions:
                   - {key: tier, operator: In, values: [database]}
+        # Optional, subjects to be excluded
+        subjects:
+        # Optional, roles to be excluded
+        roles:
+        # Optional, clusterroles to be excluded
+        clusterroles:
+          - cluster-admin
+          - admin
     
      # Each rule can contain a single validate, mutate, or generate directive
      ...
@@ -53,10 +77,10 @@ spec :
 
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
-**Resource description:**
-* ```match``` is a required key that defines the parameters which identify the resources that need to matched
 
-* ```exclude``` is an option key to exclude resources from the application of the rule
+## Validation Failure Action
+
+The `validationFailureAction` attribute controls processing behaviors when the resource is not compliant with the policy. If the value is set to `enforce` resource creation or updates are blocked when the resource does not comply, and when the value is set to `audit` a policy violation is reported but the resource creation or update is allowed.
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
