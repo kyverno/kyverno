@@ -1,8 +1,10 @@
 package policyviolation
 
 import (
-	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -13,9 +15,9 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -28,6 +30,38 @@ type Generator struct {
 	pvInterface pvInterface.ClusterPolicyViolationInterface
 	pvLister    kyvernolister.ClusterPolicyViolationLister
 	queue       workqueue.RateLimitingInterface
+	dataStore   *dataStore
+}
+
+func NewDataStore() *dataStore {
+	ds := dataStore{
+		data: make(map[string]Info),
+	}
+	return &ds
+}
+
+type dataStore struct {
+	data map[string]Info
+	mu   sync.RWMutex
+}
+
+func (ds *dataStore) add(keyHash string, info Info) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+	// queue the key hash
+	ds.data[keyHash] = info
+}
+
+func (ds *dataStore) lookup(keyHash string) Info {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.data[keyHash]
+}
+
+func (ds *dataStore) delete(keyHash string) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+	delete(ds.data, keyHash)
 }
 
 //Info is a request to create PV
@@ -36,6 +70,18 @@ type Info struct {
 	PolicyName string
 	Resource   unstructured.Unstructured
 	Rules      []kyverno.ViolatedRule
+}
+
+func (i Info) toKey() string {
+	keys := []string{
+		strconv.FormatBool(i.Blocked),
+		i.PolicyName,
+		i.Resource.GetKind(),
+		i.Resource.GetNamespace(),
+		i.Resource.GetName(),
+		strconv.Itoa(len(i.Rules)),
+	}
+	return strings.Join(keys, "/")
 }
 
 // make the struct hashable
@@ -52,17 +98,18 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		pvInterface: client.KyvernoV1alpha1().ClusterPolicyViolations(),
 		pvLister:    pvLister,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:   NewDataStore(),
 	}
 	return &gen
 }
 
 func (gen *Generator) enqueue(info Info) {
-	key, err := cache.MetaNamespaceKeyFunc(info)
-	if err != nil {
-		glog.Error(err)
-		return
-	}
-	gen.queue.Add(key)
+	// add to data map
+	keyHash := info.toKey()
+	// add to
+	// queue the key hash
+	gen.dataStore.add(keyHash, info)
+	gen.queue.Add(keyHash)
 }
 
 //Add queues a policy violation create request
@@ -92,6 +139,7 @@ func (gen *Generator) runWorker() {
 func (gen *Generator) handleErr(err error, key interface{}) {
 	if err == nil {
 		gen.queue.Forget(key)
+		return
 	}
 
 	// retires requests if there is error
@@ -104,6 +152,11 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	}
 	gen.queue.Forget(key)
 	glog.Error(err)
+	// remove from data store
+	if keyHash, ok := key.(string); ok {
+		gen.dataStore.delete(keyHash)
+	}
+
 	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
@@ -115,14 +168,22 @@ func (gen *Generator) processNextWorkitem() bool {
 
 	err := func(obj interface{}) error {
 		defer gen.queue.Done(obj)
-		var key Info
+		var keyHash string
 		var ok bool
-		if key, ok = obj.(Info); !ok {
+		if keyHash, ok = obj.(string); !ok {
 			gen.queue.Forget(obj)
-			glog.Warningf("Expecting type info bt got %v\n", obj)
+			glog.Warningf("Expecting type string bt got %v\n", obj)
 			return nil
 		}
-		err := gen.syncHandler(key)
+		// lookup data store
+		info := gen.dataStore.lookup(keyHash)
+		if reflect.DeepEqual(info, Info{}) {
+			// empty key
+			gen.queue.Forget(obj)
+			glog.Warningf("Got empty key %v\n", obj)
+			return nil
+		}
+		err := gen.syncHandler(info)
 		gen.handleErr(err, obj)
 		return nil
 	}(obj)
@@ -187,29 +248,23 @@ func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.Clust
 	return nil
 }
 
-func getExistingPVIfAny(pvLister kyvernolister.ClusterPolicyViolationLister, pv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
-	labelMap := map[string]string{"policy": pv.Spec.Policy, "resource": pv.Spec.ResourceSpec.ToKey()}
-	pvSelector, err := converLabelToSelector(labelMap)
+func getExistingPVIfAny(pvLister kyvernolister.ClusterPolicyViolationLister, currpv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
+	pvs, err := pvLister.List(labels.Everything())
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", pv.Spec.Policy, err)
-	}
-	pvs, err := pvLister.List(pvSelector)
-	if err != nil {
-		glog.Errorf("unable to list policy violations with label selector %v: %v", pvSelector, err)
+		glog.Errorf("unable to list policy violations : %v", err)
 		return nil, err
 	}
 
-	if len(pvs) == 0 {
-		glog.Infof("policy violation does not exist with labels %v", labelMap)
-		return nil, nil
+	for _, pv := range pvs {
+		// find a policy on same resource and policy combination
+		if pv.Spec.Policy == currpv.Spec.Policy &&
+			pv.Spec.ResourceSpec.Kind == currpv.Spec.ResourceSpec.Kind &&
+			pv.Spec.ResourceSpec.Namespace == currpv.Spec.ResourceSpec.Namespace &&
+			pv.Spec.ResourceSpec.Name == currpv.Spec.ResourceSpec.Name {
+			return pv, nil
+		}
 	}
-
-	// There should be only one policy violation
-	if len(pvs) > 1 {
-		glog.Errorf("more than one policy violation exists  with labels %v", labelMap)
-	}
-	// return the first PV
-	return pvs[0], nil
+	return nil, nil
 }
 
 // build PV without owners

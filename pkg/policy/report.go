@@ -28,9 +28,11 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []engine.EngineResp
 
 func (pc *PolicyController) cleanUp(ers []engine.EngineResponse) {
 	for _, er := range ers {
-		if er.IsSuccesful() {
+		if !er.IsSuccesful() {
 			continue
 		}
+		// glog.Info(er.PolicyResponse)
+		// clean up after the policy has been corrected
 		pc.cleanUpPolicyViolation(er.PolicyResponse)
 	}
 }
