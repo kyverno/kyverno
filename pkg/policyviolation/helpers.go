@@ -34,9 +34,7 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 }
 
 //CreatePV creates policy violation resource based on the engine responses
-// func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
-//CreateClusterPV creates policy violation resource based on the engine responses
-func CreateClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
+func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
 		// ignore creation of PV for resoruces that are yet to be assigned a name
@@ -53,11 +51,11 @@ func CreateClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client
 		}
 	}
 
-	createClusterPV(pvLister, client, pvs)
+	createPV(pvLister, client, pvs)
 }
 
 // CreatePVWhenBlocked creates pv on resource owner only when admission request is denied
-func CreateClusterPVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
+func CreatePVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset,
 	dclient *dclient.Client, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
@@ -69,10 +67,10 @@ func CreateClusterPVWhenBlocked(pvLister kyvernolister.ClusterPolicyViolationLis
 				er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
 		}
 	}
-	createClusterPV(pvLister, client, pvs)
+	createPV(pvLister, client, pvs)
 }
 
-func createClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.ClusterPolicyViolation) {
+func createPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, pvs []kyverno.ClusterPolicyViolation) {
 	if len(pvs) == 0 {
 		return
 	}
@@ -82,8 +80,7 @@ func createClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client
 		// check if there was a previous policy voilation for policy & resource combination
 		curPv, err := getExistingPolicyViolationIfAny(nil, pvLister, newPv)
 		if err != nil {
-			// TODO(shuting): remove
-			// glog.Error(err)
+			glog.Error(err)
 			continue
 		}
 		if curPv == nil {
@@ -117,21 +114,6 @@ func createClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client
 	}
 }
 
-//buildClusterPolicyViolation returns an value of type PolicyViolation
-func buildClusterPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
-	pv := kyverno.ClusterPolicyViolation{
-		Spec: kyverno.PolicyViolationSpec{
-			Policy:        policy,
-			ResourceSpec:  resource,
-			ViolatedRules: fRules,
-		},
-	}
-	//TODO: check if this can be removed or use unstructured?
-	// pv.Kind = "PolicyViolation"
-	pv.SetGenerateName("pv-")
-	return pv
-}
-
 func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 	pvResourceSpec := kyverno.ResourceSpec{
 		Kind:      er.PolicyResponse.Resource.Kind,
@@ -141,11 +123,11 @@ func buildPVForPolicy(er engine.EngineResponse) kyverno.ClusterPolicyViolation {
 
 	violatedRules := newViolatedRules(er, "")
 
-	return buildClusterPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules)
+	return BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules)
 }
 
 func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []kyverno.ClusterPolicyViolation) {
-	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
+	msg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Name)
 	violatedRules := newViolatedRules(er, msg)
 
 	// create violation on resource owner (if exist) when action is set to enforce
@@ -158,11 +140,11 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 			Kind:      er.PolicyResponse.Resource.Kind,
 			Name:      er.PolicyResponse.Resource.Name,
 		}
-		return append(pvs, buildClusterPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+		return append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
 	}
 
 	for _, owner := range owners {
-		pvs = append(pvs, buildClusterPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
+		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
 	}
 	return
 }
@@ -181,7 +163,7 @@ func getExistingPolicyViolationIfAny(pvListerSynced cache.InformerSynced, pvList
 	}
 	//TODO: ideally there should be only one policy violation returned
 	if len(pvs) > 1 {
-		glog.V(4).Infof("more than one policy violation exists  with labels %v", labelMap)
+		glog.Errorf("more than one policy violation exists  with labels %v", labelMap)
 		return nil, fmt.Errorf("more than one policy violation exists  with labels %v", labelMap)
 	}
 
