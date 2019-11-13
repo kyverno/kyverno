@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -216,31 +217,60 @@ import _ "rsc.io/quote"
 
 }
 
-// Tests that -mod=vendor sort of works. Adapted from mod_getmode_vendor.txt.
-func TestModGetmodeVendor(t *testing.T) {
-	t.Skip("'go list -m -mod=vendor' currently not allowed: see golang.org/issue/34826")
+// Tests that -mod=vendor works. Adapted from mod_vendor_build.txt.
+func TestModVendorBuild(t *testing.T) {
 	mt := setup(t, `
 -- go.mod --
-module x
-
-require rsc.io/quote v1.5.2
+module m
+go 1.12
+require rsc.io/sampler v1.3.1
 -- x.go --
 package x
-import _ "rsc.io/quote"
+import _ "rsc.io/sampler"
 `, "")
 	defer mt.cleanup()
 
+	// Sanity-check the setup.
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", `pkg.*mod.*/sampler@.*$`)
+
+	// Populate vendor/ and clear out the mod cache so we can't cheat.
+	if _, err := mt.env.invokeGo("mod", "vendor"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mt.env.invokeGo("clean", "-modcache"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Clear out the resolver's cache, since we've changed the environment.
+	mt.resolver = &ModuleResolver{env: mt.env}
+	mt.env.GOFLAGS = "-mod=vendor"
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", `/vendor/`)
+}
+
+// Tests that -mod=vendor is auto-enabled only for go1.14 and higher.
+// Vaguely inspired by mod_vendor_auto.txt.
+func testModVendorAuto(t *testing.T, wantEnabled bool) {
+	mt := setup(t, `
+-- go.mod --
+module m
+go 1.14
+require rsc.io/sampler v1.3.1
+-- x.go --
+package x
+import _ "rsc.io/sampler"
+`, "")
+	defer mt.cleanup()
+
+	// Populate vendor/.
 	if _, err := mt.env.invokeGo("mod", "vendor"); err != nil {
 		t.Fatal(err)
 	}
 
-	mt.env.GOFLAGS = "-mod=vendor"
-	mt.assertModuleFoundInDir("rsc.io/quote", "quote", `/vendor/`)
-
-	mt.env.GOFLAGS = ""
-	// Clear out the resolver's cache, since we've changed the environment.
-	mt.resolver = &ModuleResolver{env: mt.env}
-	mt.assertModuleFoundInDir("rsc.io/quote", "quote", `pkg.*mod.*/quote@.*$`)
+	wantDir := `pkg.*mod.*/sampler@.*$`
+	if wantEnabled {
+		wantDir = `/vendor/`
+	}
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", wantDir)
 }
 
 // Tests that a module replace works. Adapted from mod_list.txt. We start with
@@ -623,6 +653,8 @@ func setup(t *testing.T, main, wd string) *modTest {
 		GOPROXY:     proxyDirToURL(proxyDir),
 		GOSUMDB:     "off",
 		WorkingDir:  filepath.Join(mainDir, wd),
+		Debug:       *testDebug,
+		Logf:        log.Printf,
 	}
 
 	// go mod download gets mad if we don't have a go.mod, so make sure we do.
@@ -798,6 +830,54 @@ func TestInvalidModCache(t *testing.T) {
 	}
 	resolver := &ModuleResolver{env: env}
 	resolver.scan(nil, true, nil)
+}
+
+func TestGetCandidatesRanking(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module example.com
+
+require rsc.io/quote v1.5.1
+
+-- rpackage/x.go --
+package rpackage
+import _ "rsc.io/quote"
+`, "")
+	defer mt.cleanup()
+
+	if _, err := mt.env.invokeGo("mod", "download", "rsc.io/quote/v2@v2.0.1"); err != nil {
+		t.Fatal(err)
+	}
+
+	type res struct {
+		name, path string
+	}
+	want := []res{
+		// Stdlib
+		{"bytes", "bytes"},
+		{"http", "net/http"},
+		// In scope modules
+		{"language", "golang.org/x/text/language"},
+		{"quote", "rsc.io/quote"},
+		{"rpackage", "example.com/rpackage"},
+		// Out of scope modules
+		{"quote", "rsc.io/quote/v2"},
+	}
+	candidates, err := getAllCandidates("foo.go", mt.env)
+	if err != nil {
+		t.Fatalf("getAllCandidates() = %v", err)
+	}
+	var got []res
+	for _, c := range candidates {
+		for _, w := range want {
+			if c.StmtInfo.ImportPath == w.path {
+				got = append(got, res{c.IdentName, c.StmtInfo.ImportPath})
+			}
+		}
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("wanted candidates in order %v, got %v", want, got)
+	}
 }
 
 func BenchmarkScanModCache(b *testing.B) {

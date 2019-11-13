@@ -252,12 +252,11 @@ func (fs *FSObjects) StorageInfo(ctx context.Context) StorageInfo {
 	if !fs.diskMount {
 		used = atomic.LoadUint64(&fs.totalUsed)
 	}
-	localPeer := GetLocalPeer(globalEndpoints)
 	storageInfo := StorageInfo{
 		Used:       []uint64{used},
 		Total:      []uint64{di.Total},
 		Available:  []uint64{di.Free},
-		MountPaths: []string{localPeer + fs.fsPath},
+		MountPaths: []string{fs.fsPath},
 	}
 	storageInfo.Backend.Type = BackendFS
 	return storageInfo
@@ -926,8 +925,8 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 	// Entire object was written to the temp location, now it's safe to rename it to the actual location.
 	fsNSObjPath := pathJoin(fs.fsPath, bucket, object)
 	// Deny if WORM is enabled
-	if globalWORMEnabled {
-		if _, err = fsStatFile(ctx, fsNSObjPath); err == nil {
+	if retention, isWORMBucket := isWORMEnabled(bucket); isWORMBucket {
+		if fi, err := fsStatFile(ctx, fsNSObjPath); err == nil && retention.Retain(fi.ModTime()) {
 			return ObjectInfo{}, ObjectAlreadyExists{Bucket: bucket, Object: object}
 		}
 	}

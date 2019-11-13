@@ -25,7 +25,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	"path"
 
 	"github.com/minio/minio/pkg/env"
 )
@@ -82,22 +82,21 @@ func GetRootCAs(certsCAsDir string) (*x509.CertPool, error) {
 
 	fis, err := ioutil.ReadDir(certsCAsDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil // Return success if CA's directory is missing.
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			// Return success if CA's directory is missing or permission denied.
+			err = nil
 		}
 		return rootCAs, err
 	}
 
 	// Load all custom CA files.
 	for _, fi := range fis {
-		// Only load regular files as public cert.
-		if fi.Mode().IsRegular() {
-			caCert, err := ioutil.ReadFile(filepath.Join(certsCAsDir, fi.Name()))
-			if err != nil {
-				return rootCAs, err
-			}
-			rootCAs.AppendCertsFromPEM(caCert)
+		caCert, err := ioutil.ReadFile(path.Join(certsCAsDir, fi.Name()))
+		if err != nil {
+			// ignore files which are not readable.
+			continue
 		}
+		rootCAs.AppendCertsFromPEM(caCert)
 	}
 	return rootCAs, nil
 }
@@ -119,8 +118,8 @@ func LoadX509KeyPair(certFile, keyFile string) (tls.Certificate, error) {
 		return tls.Certificate{}, ErrSSLUnexpectedData(nil).Msg("The private key contains additional data")
 	}
 	if x509.IsEncryptedPEMBlock(key) {
-		password, ok := env.Lookup(EnvCertPassword)
-		if !ok {
+		password := env.Get(EnvCertPassword, "")
+		if len(password) == 0 {
 			return tls.Certificate{}, ErrSSLNoPassword(nil)
 		}
 		decryptedKey, decErr := x509.DecryptPEMBlock(key, []byte(password))

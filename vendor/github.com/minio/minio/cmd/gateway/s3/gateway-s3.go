@@ -73,6 +73,7 @@ ENVIRONMENT VARIABLES:
      MINIO_CACHE_QUOTA: Maximum permitted usage of the cache in percentage (0-100).
 
   LOGGER:
+     MINIO_LOGGER_HTTP_STATE: Set this to "on" to enable HTTP logging target.
      MINIO_LOGGER_HTTP_ENDPOINT: HTTP endpoint URL to log all incoming requests.
 
 EXAMPLES:
@@ -89,6 +90,7 @@ EXAMPLES:
   3. Start minio gateway server for AWS S3 backend logging all requests to http endpoint.
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}Q3AM3UQ867SPQQA43P2F
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_LOGGER_HTTP_STATE{{.AssignmenOperator}}"on"
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_LOGGER_HTTP_ENDPOINT{{.AssignmentOperator}}"http://localhost:8000/"
      {{.Prompt}} {{.HelpName}} https://play.min.io:9000
 
@@ -261,7 +263,11 @@ func (g *S3) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) 
 
 	s := s3Objects{
 		Client: clnt,
+		HTTPClient: &http.Client{
+			Transport: minio.NewCustomHTTPTransport(),
+		},
 	}
+
 	// Enables single encryption of KMS is configured.
 	if minio.GlobalKMS != nil {
 		encS := s3EncObjects{s}
@@ -283,7 +289,8 @@ func (g *S3) Production() bool {
 // s3Objects implements gateway for MinIO and S3 compatible object storage servers.
 type s3Objects struct {
 	minio.GatewayUnsupported
-	Client *miniogo.Core
+	Client     *miniogo.Core
+	HTTPClient *http.Client
 }
 
 // Shutdown saves any gateway metadata to disk
@@ -294,6 +301,8 @@ func (l *s3Objects) Shutdown(ctx context.Context) error {
 
 // StorageInfo is not relevant to S3 backend.
 func (l *s3Objects) StorageInfo(ctx context.Context) (si minio.StorageInfo) {
+	si.Backend.Type = minio.BackendGateway
+	si.Backend.GatewayOnline = minio.IsBackendOnline(ctx, l.HTTPClient, l.Client.EndpointURL().String())
 	return si
 }
 

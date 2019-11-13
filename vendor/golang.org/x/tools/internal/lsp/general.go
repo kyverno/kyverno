@@ -80,6 +80,8 @@ func (s *Server) initialize(ctx context.Context, params *protocol.ParamInitia) (
 				TriggerCharacters: []string{"."},
 			},
 			DefinitionProvider:         true,
+			TypeDefinitionProvider:     true,
+			ImplementationProvider:     true,
 			DocumentFormattingProvider: true,
 			DocumentSymbolProvider:     true,
 			ExecuteCommandProvider: &protocol.ExecuteCommandOptions{
@@ -101,7 +103,6 @@ func (s *Server) initialize(ctx context.Context, params *protocol.ParamInitia) (
 					IncludeText: false,
 				},
 			},
-			TypeDefinitionProvider: true,
 			Workspace: &struct {
 				WorkspaceFolders *struct {
 					Supported           bool   "json:\"supported,omitempty\""
@@ -166,7 +167,7 @@ func (s *Server) initialized(ctx context.Context, params *protocol.InitializedPa
 	log.Print(ctx, buf.String())
 
 	for _, folder := range s.pendingFolders {
-		if err := s.addView(ctx, folder.Name, span.NewURI(folder.URI)); err != nil {
+		if _, err := s.addView(ctx, folder.Name, span.NewURI(folder.URI)); err != nil {
 			return err
 		}
 	}

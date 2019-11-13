@@ -12,6 +12,8 @@ Additionally `--config-dir` is now a legacy option which will is scheduled for r
 minio server /data
 ```
 
+MinIO also encrypts all the config, IAM and policies content with admin credentials.
+
 ### Certificate Directory
 
 TLS certificates by default are stored under ``${HOME}/.minio/certs`` directory. You need to place certificates here to enable `HTTPS` based access. Read more about [How to secure access to MinIO server with TLS](https://docs.min.io/docs/how-to-secure-access-to-minio-server-with-tls).
@@ -28,6 +30,33 @@ $ mc tree --files ~/.minio
 ```
 
 You can provide a custom certs directory using `--certs-dir` command line option.
+
+#### Credentials
+On MinIO admin credentials or root credentials are only allowed to be changed using ENVs namely `MINIO_ACCESS_KEY` and `MINIO_SECRET_KEY`. Using the combination of these two values MinIO encrypts the config stored at the backend.
+
+```
+export MINIO_ACCESS_KEY=minio
+export MINIO_SECRET_KEY=minio13
+minio server /data
+```
+
+##### Rotating encryption with new credentials
+
+Additionally if you wish to change the admin credentials, then MinIO will automatically detect this and re-encrypt with new credentials as shown below. For one time only special ENVs as shown below needs to be set for rotating the encryption config.
+
+> Old ENVs are never remembered in memory and are destroyed right after they are used to migrate your existing content with new credentials. You are safe to remove them after the server as successfully started, by restarting the services once again.
+
+```
+export MINIO_ACCESS_KEY=newminio
+export MINIO_SECRET_KEY=newminio123
+export MINIO_ACCESS_KEY_OLD=minio
+export MINIO_SECRET_KEY_OLD=minio123
+minio server /data
+```
+
+Once the migration is complete, server will automatically unset the `MINIO_ACCESS_KEY_OLD` and `MINIO_SECRET_KEY_OLD` with in the process namespace.
+
+> **NOTE: Make sure to remove `MINIO_ACCESS_KEY_OLD` and `MINIO_SECRET_KEY_OLD` in scripts or service files before next service restarts of the server to avoid double encryption of your existing contents.**
 
 #### Region
 | Field                     | Type     | Description                                                                                                                                                                             |

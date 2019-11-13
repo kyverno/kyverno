@@ -6,7 +6,9 @@ package packages_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"go/ast"
 	constantpkg "go/constant"
@@ -21,14 +23,32 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/packages/packagestest"
 	"golang.org/x/tools/internal/testenv"
 )
 
+// testCtx is canceled when the test binary is about to time out.
+//
+// If https://golang.org/issue/28135 is accepted, uses of this variable in test
+// functions should be replaced by t.Context().
+var testCtx = context.Background()
+
 func TestMain(m *testing.M) {
 	testenv.ExitIfSmallMachine()
+
+	timeoutFlag := flag.Lookup("test.timeout")
+	if timeoutFlag != nil {
+		if d := timeoutFlag.Value.(flag.Getter).Get().(time.Duration); d != 0 {
+			aBitShorter := d * 95 / 100
+			var cancel context.CancelFunc
+			testCtx, cancel = context.WithTimeout(testCtx, aBitShorter)
+			defer cancel()
+		}
+	}
+
 	os.Exit(m.Run())
 }
 
@@ -2342,14 +2362,8 @@ const A = 4
 	}
 }
 
-var race = false
-
 func TestIssue32814(t *testing.T) { packagestest.TestAll(t, testIssue32814) }
 func testIssue32814(t *testing.T, exporter packagestest.Exporter) {
-	if v := runtime.Version(); strings.Contains(v, "devel") && race {
-		t.Skip("golang.org/issue/31749: This test is broken on tip in race mode. Skip until it's fixed.")
-	}
-
 	exported := packagestest.Export(t, exporter, []packagestest.Module{{
 		Name:  "golang.org/fake",
 		Files: map[string]interface{}{}}})
@@ -2481,6 +2495,34 @@ func testImpliedLoadMode(t *testing.T, exporter packagestest.Exporter) {
 	// didn't add Imports.
 	if len(pkg.Imports) != 0 {
 		t.Fatalf("Package imports weren't requested but were returned: %v", pkg.Imports)
+	}
+}
+
+func TestIssue35331(t *testing.T) {
+	packagestest.TestAll(t, testIssue35331)
+}
+func testIssue35331(t *testing.T, exporter packagestest.Exporter) {
+	exported := packagestest.Export(t, exporter, []packagestest.Module{{
+		Name: "golang.org/fake",
+	}})
+	defer exported.Cleanup()
+
+	exported.Config.Mode = packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
+		packages.NeedImports | packages.NeedDeps | packages.NeedSyntax
+	exported.Config.Tests = false
+	pkgs, err := packages.Load(exported.Config, "strconv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("Expected 1 package, got %v", pkgs)
+	}
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		t.Fatalf("Expected no errors in package, got %v", pkg.Errors)
+	}
+	if len(pkg.Syntax) == 0 {
+		t.Fatalf("Expected syntax on package, got none.")
 	}
 }
 

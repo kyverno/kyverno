@@ -18,6 +18,7 @@ import (
 )
 
 const defaultMaxOpenFiles = 256
+const timeout = 5 * time.Second
 
 func TestLimitListener(t *testing.T) {
 	const max = 5
@@ -95,7 +96,7 @@ func TestLimitListenerError(t *testing.T) {
 	}()
 	select {
 	case <-donec:
-	case <-time.After(5 * time.Second):
+	case <-time.After(timeout):
 		t.Fatal("timeout. deadlock?")
 	}
 }
@@ -108,15 +109,15 @@ func TestLimitListenerClose(t *testing.T) {
 	defer ln.Close()
 	ln = LimitListener(ln, 1)
 
-	doneCh := make(chan struct{})
-	defer close(doneCh)
+	errCh := make(chan error)
 	go func() {
-		c, err := net.Dial("tcp", ln.Addr().String())
+		defer close(errCh)
+		c, err := net.DialTimeout("tcp", ln.Addr().String(), timeout)
 		if err != nil {
-			t.Fatal(err)
+			errCh <- err
+			return
 		}
-		defer c.Close()
-		<-doneCh
+		c.Close()
 	}()
 
 	c, err := ln.Accept()
@@ -124,6 +125,11 @@ func TestLimitListenerClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
+
+	err = <-errCh
+	if err != nil {
+		t.Fatalf("DialTimeout: %v", err)
+	}
 
 	acceptDone := make(chan struct{})
 	go func() {
@@ -141,7 +147,7 @@ func TestLimitListenerClose(t *testing.T) {
 
 	select {
 	case <-acceptDone:
-	case <-time.After(5 * time.Second):
+	case <-time.After(timeout):
 		t.Fatalf("Accept() still blocking")
 	}
 }

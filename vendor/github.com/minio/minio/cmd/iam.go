@@ -406,7 +406,7 @@ func (sys *IAMSys) Init(objAPI ObjectLayer) error {
 
 // DeletePolicy - deletes a canned policy from backend or etcd.
 func (sys *IAMSys) DeletePolicy(policyName string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -431,7 +431,7 @@ func (sys *IAMSys) DeletePolicy(policyName string) error {
 
 // InfoPolicy - expands the canned policy into its JSON structure.
 func (sys *IAMSys) InfoPolicy(policyName string) ([]byte, error) {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return nil, errServerNotInitialized
 	}
@@ -448,7 +448,7 @@ func (sys *IAMSys) InfoPolicy(policyName string) ([]byte, error) {
 
 // ListPolicies - lists all canned policies.
 func (sys *IAMSys) ListPolicies() (map[string][]byte, error) {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return nil, errServerNotInitialized
 	}
@@ -471,7 +471,7 @@ func (sys *IAMSys) ListPolicies() (map[string][]byte, error) {
 
 // SetPolicy - sets a new name policy.
 func (sys *IAMSys) SetPolicy(policyName string, p iampolicy.Policy) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -492,7 +492,7 @@ func (sys *IAMSys) SetPolicy(policyName string, p iampolicy.Policy) error {
 
 // DeleteUser - delete user (only for long-term users not STS users).
 func (sys *IAMSys) DeleteUser(accessKey string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -521,7 +521,7 @@ func (sys *IAMSys) DeleteUser(accessKey string) error {
 
 // SetTempUser - set temporary user credentials, these credentials have an expiry.
 func (sys *IAMSys) SetTempUser(accessKey string, cred auth.Credentials, policyName string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -561,7 +561,7 @@ func (sys *IAMSys) SetTempUser(accessKey string, cred auth.Credentials, policyNa
 
 // ListUsers - list all users.
 func (sys *IAMSys) ListUsers() (map[string]madmin.UserInfo, error) {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return nil, errServerNotInitialized
 	}
@@ -578,7 +578,12 @@ func (sys *IAMSys) ListUsers() (map[string]madmin.UserInfo, error) {
 	for k, v := range sys.iamUsersMap {
 		users[k] = madmin.UserInfo{
 			PolicyName: sys.iamUserPolicyMap[k].Policy,
-			Status:     madmin.AccountStatus(v.Status),
+			Status: func() madmin.AccountStatus {
+				if v.IsValid() {
+					return madmin.AccountEnabled
+				}
+				return madmin.AccountDisabled
+			}(),
 		}
 	}
 
@@ -587,7 +592,7 @@ func (sys *IAMSys) ListUsers() (map[string]madmin.UserInfo, error) {
 
 // GetUserInfo - get info on a user.
 func (sys *IAMSys) GetUserInfo(name string) (u madmin.UserInfo, err error) {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return u, errServerNotInitialized
 	}
@@ -609,15 +614,20 @@ func (sys *IAMSys) GetUserInfo(name string) (u madmin.UserInfo, err error) {
 
 	u = madmin.UserInfo{
 		PolicyName: sys.iamUserPolicyMap[name].Policy,
-		Status:     madmin.AccountStatus(creds.Status),
-		MemberOf:   sys.iamUserGroupMemberships[name].ToSlice(),
+		Status: func() madmin.AccountStatus {
+			if creds.IsValid() {
+				return madmin.AccountEnabled
+			}
+			return madmin.AccountDisabled
+		}(),
+		MemberOf: sys.iamUserGroupMemberships[name].ToSlice(),
 	}
 	return u, nil
 }
 
 // SetUserStatus - sets current user status, supports disabled or enabled.
 func (sys *IAMSys) SetUserStatus(accessKey string, status madmin.AccountStatus) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -653,7 +663,7 @@ func (sys *IAMSys) SetUserStatus(accessKey string, status madmin.AccountStatus) 
 
 // SetUser - set user credentials and policy.
 func (sys *IAMSys) SetUser(accessKey string, uinfo madmin.UserInfo) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -685,7 +695,7 @@ func (sys *IAMSys) SetUser(accessKey string, uinfo madmin.UserInfo) error {
 
 // SetUserSecretKey - sets user secret key
 func (sys *IAMSys) SetUserSecretKey(accessKey string, secretKey string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -724,7 +734,7 @@ func (sys *IAMSys) GetUser(accessKey string) (cred auth.Credentials, ok bool) {
 // AddUsersToGroup - adds users to a group, creating the group if
 // needed. No error if user(s) already are in the group.
 func (sys *IAMSys) AddUsersToGroup(group string, members []string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -782,7 +792,7 @@ func (sys *IAMSys) AddUsersToGroup(group string, members []string) error {
 // RemoveUsersFromGroup - remove users from group. If no users are
 // given, and the group is empty, deletes the group as well.
 func (sys *IAMSys) RemoveUsersFromGroup(group string, members []string) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -863,7 +873,7 @@ func (sys *IAMSys) RemoveUsersFromGroup(group string, members []string) error {
 
 // SetGroupStatus - enable/disabled a group
 func (sys *IAMSys) SetGroupStatus(group string, enabled bool) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -952,7 +962,7 @@ func (sys *IAMSys) ListGroups() (r []string, err error) {
 // PolicyDB. This function applies only long-term users. For STS
 // users, policy is set directly by called sys.policyDBSet().
 func (sys *IAMSys) PolicyDBSet(name, policy string, isGroup bool) error {
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -1007,7 +1017,7 @@ func (sys *IAMSys) PolicyDBGet(name string, isGroup bool) ([]string, error) {
 		return nil, errInvalidArgument
 	}
 
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return nil, errServerNotInitialized
 	}

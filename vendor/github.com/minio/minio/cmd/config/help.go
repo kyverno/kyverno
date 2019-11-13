@@ -16,31 +16,9 @@
 
 package config
 
-import (
-	"text/template"
-
-	"github.com/minio/minio/pkg/color"
-)
-
 // HelpKV - implements help messages for keys
 // with value as description of the keys.
 type HelpKV map[string]string
-
-// Help template used by all sub-systems
-const Help = `{{colorBlueBold "Key"}}{{"\t"}}{{colorBlueBold "Description"}}
-{{colorYellowBold "----"}}{{"\t"}}{{colorYellowBold "----"}}
-{{range $key, $value := .}}{{colorCyanBold $key}}{{ "\t" }}{{$value}}
-{{end}}`
-
-var funcMap = template.FuncMap{
-	"colorBlueBold":   color.BlueBold,
-	"colorYellowBold": color.YellowBold,
-	"colorCyanBold":   color.CyanBold,
-	"colorGreenBold":  color.GreenBold,
-}
-
-// HelpTemplate - captures config help template
-var HelpTemplate = template.Must(template.New("config-help").Funcs(funcMap).Parse(Help))
 
 // Region and Worm help is documented in default config
 var (
