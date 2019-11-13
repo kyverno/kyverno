@@ -106,6 +106,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// violations are created with resource owner(if exist) on "enforce"
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
+
 	blocked := toBlockResource(engineResponses)
 	if !isResponseSuccesful(engineResponses) && blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
@@ -116,6 +117,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	}
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
+
 	pvInfos := generatePV(engineResponses, blocked)
 	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)
