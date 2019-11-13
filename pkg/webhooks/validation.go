@@ -95,7 +95,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 			continue
 		}
 	}
-	glog.V(4).Infof("eval: %v %s/%s/%s %s", time.Since(evalTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
+	glog.V(4).Infof("eval: %v %s/%s/%s %v", time.Since(evalTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
 	// report time
 	reportTime := time.Now()
 	// ADD EVENTS
@@ -122,6 +122,6 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)
 	// report time end
-	glog.V(4).Infof("report: %v %s/%s/%s %s", time.Since(reportTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
+	glog.V(4).Infof("report: %v %s/%s/%s %v", time.Since(reportTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
 	return true, ""
 }
