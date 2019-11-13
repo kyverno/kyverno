@@ -19,7 +19,7 @@ func Test_Operations(t *testing.T) {
 		"apiVersion": "kyverno.io/v1alpha1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "test-policy"
+		  "name": "test-policy1"
 		},
 		"spec": {
 		  "rules": [
@@ -95,7 +95,7 @@ func Test_Operations(t *testing.T) {
 		"apiVersion": "kyverno.io/v1alpha1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "test-policy1"
+		  "name": "test-policy2"
 		},
 		"spec": {
 		  "rules": [
@@ -241,7 +241,9 @@ func Test_Operations(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(retPolicies, []v1alpha1.ClusterPolicy{policy1, policy2}) {
+
+	if len(retPolicies) != len([]v1alpha1.ClusterPolicy{policy1, policy2}) {
+		// checking length as the order of polcies might be different
 		t.Error("not matching")
 	}
 
