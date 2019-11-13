@@ -1,0 +1,23 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_default_namespace.yaml
+  resource: test/resources/disallow_default_namespace.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-default-namespace
+      resource:
+        kind: Pod
+        apiVersion: v1
+        # this is set to pass resource NS check
+        # actual valiation is defined through rule success=false
+        namespace: 'default'
+        name: myapp-pod
+      rules:
+        - name: validate-namespace
+          type: Validation
+          success: false
+        - name: require-namespace
+          type: Validation
+          success: true
+

@@ -5,23 +5,23 @@ Using `hostPort` and `hostNetwork` allows pods to share the host networking stac
 
 ## Policy YAML
 
-[disallow_host_network_hostport.yaml](best_practices/disallow_host_network_hostport.yaml)
+[disallow_host_network_port.yaml](best_practices/disallow_host_network_port.yaml)
 
 
 ````yaml
 apiVersion: kyverno.io/v1alpha1
 kind: ClusterPolicy
 metadata:
-  name: validate-host-network-hostport
+  name: disallow-host-network-port
 spec:
   rules:
-  - name: validate-host-network-hostport
+  - name: validate-host-network-port
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Defining hostNetwork and hostPort are not allowed"
+      message: "Using host networking is not allowed"
       pattern:
         spec:
           (hostNetwork): false

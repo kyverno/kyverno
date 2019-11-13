@@ -1,0 +1,17 @@
+# file path relative to project root
+input:  
+  policy: samples/best_practices/disallow_host_pid_ipc.yaml
+  resource: test/resources/disallow_hostpid_hostipc.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-host-pid-ipc
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "nginx-with-hostpid"
+      rules:
+        - name: validate-hostPID-hostIPC
+          type: Validation
+          success: false
