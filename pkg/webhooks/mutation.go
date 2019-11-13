@@ -64,7 +64,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 
 	var engineResponses []engine.EngineResponse
 	policyContext := engine.PolicyContext{
-		Resource: *resource,
+		NewResource: *resource,
 		AdmissionInfo: engine.RequestInfo{
 			Roles:             roles,
 			ClusterRoles:      clusterRoles,

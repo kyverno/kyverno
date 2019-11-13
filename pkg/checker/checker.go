@@ -29,7 +29,6 @@ func (t *LastReqTime) Time() time.Time {
 func (t *LastReqTime) SetTime(tm time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	glog.V(4).Info("updating last request time")
 	t.t = tm
 }
 
