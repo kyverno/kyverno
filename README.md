@@ -117,11 +117,6 @@ spec:
 
 Refer to a list of curated of ***[sample policies](/samples/README.md)*** that can be applied to your cluster.
 
-## License
-
-[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
-
-
 ## Documentation
 
 * [Getting Started](documentation/installation.md)
@@ -132,6 +127,11 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 * [Testing Policies](documentation/testing-policies.md)
   * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
   * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
+* [Sample Policies](/samples/README.md)
+
+## License
+
+[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
 
 
 ## Alternatives
@@ -142,7 +142,7 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 ### k-rail
 
-[k-rail](https://github.com/cruise-automation/k-rail/) provides several ready to use policies for security and multi-tenancy. The policies are written in Golang. Several of the [Kyverno sample policies](/samples/README.md were inspired by k-rail policies.
+[k-rail](https://github.com/cruise-automation/k-rail/) provides several ready to use policies for security and multi-tenancy. The policies are written in Golang. Several of the [Kyverno sample policies](/samples/README.md) were inspired by k-rail policies.
 
 ### Polaris
 
