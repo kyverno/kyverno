@@ -117,6 +117,7 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	}
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
+
 	pvInfos := generatePV(engineResponses, blocked)
 	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)

@@ -34,7 +34,7 @@ func BuildPolicyViolation(policy string, resource kyverno.ResourceSpec, fRules [
 }
 
 //CreatePV creates policy violation resource based on the engine responses
-func CreatePV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
+func CreateClusterPV(pvLister kyvernolister.ClusterPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
 	var pvs []kyverno.ClusterPolicyViolation
 	for _, er := range engineResponses {
 		// ignore creation of PV for resoruces that are yet to be assigned a name
