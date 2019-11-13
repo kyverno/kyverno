@@ -78,9 +78,6 @@ spec :
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
 
-## Validation Failure Action
-
-The `validationFailureAction` attribute controls processing behaviors when the resource is not compliant with the policy. If the value is set to `enforce` resource creation or updates are blocked when the resource does not comply, and when the value is set to `audit` a policy violation is reported but the resource creation or update is allowed.
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
