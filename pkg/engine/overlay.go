@@ -31,13 +31,6 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	// resource does not satisfy the overlay pattern, we don't apply this rule
 	if !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
-		// condition key is not present in the resource, don't apply this rule
-		// consider as success
-		case conditionNotPresent:
-			glog.Infof("Resource %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
-			response.Success = true
-			response.Message = overlayerr.ErrorMsg()
-			return response, resource
 		// conditions are not met, don't apply this rule
 		// consider as failure
 		case conditionFailure:
@@ -95,13 +88,8 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
 	if path, overlayerr := meetConditions(resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
-		switch overlayerr.statusCode {
-		// anchor key does not exist in the resource, skip applying policy
-		case conditionNotPresent:
-			glog.V(4).Infof("Mutate rule: policy not applied: %v at %s", overlayerr, path)
-			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("policy not applied: %v at %s", overlayerr.ErrorMsg(), path))
-		// anchor key is not satisfied in the resource, skip applying policy
-		case conditionFailure:
+		if overlayerr.statusCode == conditionFailure {
+			// anchor key is not satisfied in the resource, skip applying policy
 			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
 			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Conditions are not met at %s, %v", path, overlayerr))
 		}

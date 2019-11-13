@@ -22,9 +22,13 @@ import (
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
+	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	rbacinformer "k8s.io/client-go/informers/rbac/v1"
+	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -40,6 +44,8 @@ type WebhookServer struct {
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
 	namespacepvListerSynced   cache.InformerSynced
+	rbLister                  rbaclister.RoleBindingLister
+	crbLister                 rbaclister.ClusterRoleBindingLister
 	eventGen                  event.Interface
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
@@ -65,6 +71,8 @@ func NewWebhookServer(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	namespacepvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
+	rbInformer rbacinformer.RoleBindingInformer,
+	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
@@ -98,6 +106,8 @@ func NewWebhookServer(
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
+		rbLister:                  rbInformer.Lister(),
+		crbLister:                 crbInformer.Lister(),
 		cleanUp:                   cleanUp,
 		lastReqTime:               checker.NewLastReqTime(),
 		pvGenerator:               pvGenerator,
@@ -173,8 +183,30 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	// TODO: this will be replaced by policy store lookup
+	policies, err := ws.pLister.List(labels.NewSelector())
+	if err != nil {
+		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
+		return &v1beta1.AdmissionResponse{Allowed: true}
+	}
+
+	var roles, clusterRoles []string
+
+	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
+	// getRoleRef only if policy has roles/clusterroles defined
+	startTime := time.Now()
+	if containRBACinfo(policies) {
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		if err != nil {
+			// TODO(shuting): continue apply policy if error getting roleRef?
+			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
+		}
+	}
+	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
+
 	// MUTATION
-	ok, patches, msg := ws.handleMutation(request)
+	ok, patches, msg := ws.HandleMutation(request, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -190,7 +222,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.handleValidation(request, patchedResource)
+	ok, msg = ws.HandleValidation(request, patchedResource, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{

@@ -10,7 +10,7 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -70,12 +70,21 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 		return true, nil, ""
 	}
 	var engineResponses []engine.EngineResponse
-	for _, policy := range policies {
+	policyContext := engine.PolicyContext{
+		Resource: *resource,
+		AdmissionInfo: engine.RequestInfo{
+			Roles:             roles,
+			ClusterRoles:      clusterRoles,
+			AdmissionUserInfo: request.UserInfo},
+	}
 
+	for _, policy := range policies {
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
+
+		policyContext.Policy = policy
 		// TODO: this can be
-		engineResponse := engine.Mutate(policy, *resource)
+		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -89,7 +98,7 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 	}
 
 	// generate annotations
-	if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponses); annPatches != nil {
+	if annPatches := generateAnnotationPatches(engineResponses); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
 

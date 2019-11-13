@@ -6,7 +6,6 @@ type codeKey int
 
 const (
 	conditionFailure codeKey = iota
-	conditionNotPresent
 	overlayFailure
 )
 

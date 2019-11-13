@@ -13,6 +13,10 @@ expected:
         namespace: ''
         name: pod-with-hostpath
       rules:
+        - name: annotate-empty-dir
+          type: Mutation
+          success: true
+          message: "successfully processed overlay"
         - name: annotate-host-path
           type: Mutation
           success: true

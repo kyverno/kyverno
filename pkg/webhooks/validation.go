@@ -14,7 +14,7 @@ import (
 // handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, patchedResource []byte) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -81,12 +81,21 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 		return true, ""
 	}
 
+	policyContext := engine.PolicyContext{
+		Resource: *resource,
+		AdmissionInfo: engine.RequestInfo{
+			Roles:             roles,
+			ClusterRoles:      clusterRoles,
+			AdmissionUserInfo: request.UserInfo},
+	}
+
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
-		engineResponse := engine.Validate(policy, *resource)
+		policyContext.Policy = policy
+		engineResponse := engine.Validate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)

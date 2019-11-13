@@ -105,7 +105,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 	}
 	//TODO check if the kind information is present resource
 	// Process Mutation
-	engineResponse := engine.Mutate(*policy, *resource)
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 	if !engineResponse.IsSuccesful() {
 		glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
 		for _, r := range engineResponse.PolicyResponse.Rules {
@@ -115,7 +115,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 
 		// Process Validation
-		engineResponse := engine.Validate(*policy, *resource)
+		engineResponse := engine.Validate(engine.PolicyContext{Policy: *policy, Resource: *resource})
 
 		if !engineResponse.IsSuccesful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
