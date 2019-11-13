@@ -11,7 +11,9 @@ type PolicyContext struct {
 	// policy to be processed
 	Policy kyverno.ClusterPolicy
 	// resource to be processed
-	Resource      unstructured.Unstructured
+	NewResource unstructured.Unstructured
+	// old Resource - Update operations
+	OldResource   unstructured.Unstructured
 	AdmissionInfo RequestInfo
 }
 

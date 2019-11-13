@@ -11,7 +11,7 @@ import (
 func Mutate(policyContext PolicyContext) (response EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
-	resource := policyContext.Resource
+	resource := policyContext.NewResource
 
 	// policy information
 	func() {

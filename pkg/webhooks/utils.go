@@ -7,6 +7,9 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func isResponseSuccesful(engineReponses []engine.EngineResponse) bool {
@@ -108,4 +111,43 @@ func containRBACinfo(policies []kyverno.ClusterPolicy) bool {
 		}
 	}
 	return false
+}
+
+// extracts the new and old resource as unstructured
+func extractResources(request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+	var emptyResource unstructured.Unstructured
+	var err error
+	// New Resource
+	newRaw := request.Object.Raw
+	if newRaw == nil {
+		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
+	}
+	new, err := convertToUnstructured(newRaw)
+	if err != nil {
+		return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
+	}
+	new.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	new.SetNamespace(request.Namespace)
+	// Old Resource - Optional
+	oldRaw := request.OldObject.Raw
+	if oldRaw == nil {
+		return *new, emptyResource, nil
+	}
+	old, err := convertToUnstructured((oldRaw))
+	if err != nil {
+		return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
+	}
+	old.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	old.SetNamespace(request.Namespace)
+	return *new, *old, err
+}
+
+func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
+	}
+	return resource, nil
 }
