@@ -221,7 +221,12 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 	defer func() {
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	engineResponse := engine.Generate(client, p, resource)
+	policyContext := engine.PolicyContext{
+		NewResource: resource,
+		Policy:      p,
+		Client:      client,
+	}
+	engineResponse := engine.Generate(policyContext)
 	// gather stats
 	gatherStat(p.Name, engineResponse.PolicyResponse)
 	//send stats
