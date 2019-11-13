@@ -20,9 +20,9 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	}
 
 	// generate labels to match the policy from the spec, if not present
-	// if updatePolicyLabelIfNotDefined(pc.pvControl, nil) {
-	// 	return
-	// }
+	if updateLabels(pv) {
+		return
+	}
 
 	// If it has a ControllerRef, that's all that matters.
 	if controllerRef := metav1.GetControllerOf(pv); controllerRef != nil {
@@ -64,9 +64,9 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 	}
 
 	// generate labels to match the policy from the spec, if not present
-	// if updatePolicyLabelIfNotDefined(pc.pvControl, curPV) {
-	// 	return
-	// }
+	if updateLabels(curPV) {
+		return
+	}
 
 	curControllerRef := metav1.GetControllerOf(curPV)
 	oldControllerRef := metav1.GetControllerOf(oldPV)
@@ -139,6 +139,41 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 	}
 	glog.V(4).Infof("PolicyViolation %s deleted", pv.Name)
 	pc.enqueuePolicy(p)
+}
+
+func updateLabels(pv *kyverno.NamespacedPolicyViolation) bool {
+	if pv.Spec.Policy == "" {
+		glog.Error("policy not defined for violation")
+		// should be cleaned up
+		return false
+	}
+
+	labels := pv.GetLabels()
+	newLabels := labels
+	if newLabels == nil {
+		newLabels = make(map[string]string)
+	}
+
+	policy, ok := newLabels["policy"]
+	// key 'policy' does not present
+	// or policy name has changed
+	if !ok || policy != pv.Spec.Policy {
+		newLabels["policy"] = pv.Spec.Policy
+	}
+
+	resource, ok := newLabels["resource"]
+	// key 'resource' does not present
+	// or resource defined in policy has changed
+	if !ok || resource != pv.Spec.ResourceSpec.ToKey() {
+		newLabels["resource"] = pv.Spec.ResourceSpec.ToKey()
+	}
+
+	if !reflect.DeepEqual(labels, newLabels) {
+		pv.SetLabels(labels)
+		return true
+	}
+
+	return false
 }
 
 func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) []*kyverno.ClusterPolicy {
