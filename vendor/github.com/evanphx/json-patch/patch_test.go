@@ -477,3 +477,65 @@ func TestAllTest(t *testing.T) {
 		}
 	}
 }
+
+func TestAdd(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		key                    string
+		val                    lazyNode
+		arr                    partialArray
+		rejectNegativeIndicies bool
+		err                    string
+	}{
+		{
+			name: "should work",
+			key:  "0",
+			val:  lazyNode{},
+			arr:  partialArray{},
+		},
+		{
+			name: "index too large",
+			key:  "1",
+			val:  lazyNode{},
+			arr:  partialArray{},
+			err:  "Unable to access invalid index: 1: invalid index referenced",
+		},
+		{
+			name: "negative should work",
+			key:  "-1",
+			val:  lazyNode{},
+			arr:  partialArray{},
+		},
+		{
+			name: "negative too small",
+			key:  "-2",
+			val:  lazyNode{},
+			arr:  partialArray{},
+			err:  "Unable to access invalid index: -2: invalid index referenced",
+		},
+		{
+			name:                   "negative but negative disabled",
+			key:                    "-1",
+			val:                    lazyNode{},
+			arr:                    partialArray{},
+			rejectNegativeIndicies: true,
+			err:                    "Unable to access invalid index: -1: invalid index referenced",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			SupportNegativeIndices = !tc.rejectNegativeIndicies
+			key := tc.key
+			arr := &tc.arr
+			val := &tc.val
+			err := arr.add(key, val)
+			if err == nil && tc.err != "" {
+				t.Errorf("Expected error but got none! %v", tc.err)
+			} else if err != nil && tc.err == "" {
+				t.Errorf("Did not expect error but go: %v", err)
+			} else if err != nil && err.Error() != tc.err {
+				t.Errorf("Expected error %v but got error %v", tc.err, err)
+			}
+		})
+	}
+}

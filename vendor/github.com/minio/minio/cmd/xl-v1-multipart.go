@@ -761,8 +761,10 @@ func (xl xlObjects) CompleteMultipartUpload(ctx context.Context, bucket string, 
 
 	if xl.isObject(bucket, object) {
 		// Deny if WORM is enabled
-		if globalWORMEnabled {
-			return ObjectInfo{}, ObjectAlreadyExists{Bucket: bucket, Object: object}
+		if retention, isWORMBucket := isWORMEnabled(bucket); isWORMBucket {
+			if oi, err := xl.getObjectInfo(ctx, bucket, object); err == nil && retention.Retain(oi.ModTime) {
+				return ObjectInfo{}, ObjectAlreadyExists{Bucket: bucket, Object: object}
+			}
 		}
 
 		// Rename if an object already exists to temporary location.
@@ -839,12 +841,12 @@ func (xl xlObjects) AbortMultipartUpload(ctx context.Context, bucket, object, up
 	// get Quorum for this object
 	_, writeQuorum, err := objectQuorumFromMeta(ctx, xl, partsMetadata, errs)
 	if err != nil {
-		return toObjectErr(err, bucket, object)
+		return toObjectErr(err, bucket, object, uploadID)
 	}
 
 	// Cleanup all uploaded parts.
 	if err = xl.deleteObject(ctx, minioMetaMultipartBucket, uploadIDPath, writeQuorum, false); err != nil {
-		return toObjectErr(err, bucket, object)
+		return toObjectErr(err, bucket, object, uploadID)
 	}
 
 	// Successfully purged.

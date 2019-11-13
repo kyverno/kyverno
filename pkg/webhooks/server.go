@@ -19,12 +19,13 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -38,8 +39,10 @@ type WebhookServer struct {
 	kyvernoClient             *kyvernoclient.Clientset
 	pLister                   kyvernolister.ClusterPolicyLister
 	pvLister                  kyvernolister.ClusterPolicyViolationLister
+	namespacepvLister         kyvernolister.NamespacedPolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
+	namespacepvListerSynced   cache.InformerSynced
 	rbLister                  rbaclister.RoleBindingLister
 	crbLister                 rbaclister.ClusterRoleBindingLister
 	eventGen                  event.Interface
@@ -52,6 +55,10 @@ type WebhookServer struct {
 	cleanUp chan<- struct{}
 	// last request time
 	lastReqTime *checker.LastReqTime
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.LookupInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -62,12 +69,15 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	namespacepvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	policyStatus policy.PolicyStatusInterface,
 	configHandler config.Interface,
+	pMetaStore policystore.LookupInterface,
+	pvGenerator policyviolation.GeneratorInterface,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -87,8 +97,10 @@ func NewWebhookServer(
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
 		pvLister:                  pvInformer.Lister(),
+		namespacepvLister:         namespacepvInformer.Lister(),
 		pListerSynced:             pvInformer.Informer().HasSynced,
 		pvListerSynced:            pInformer.Informer().HasSynced,
+		namespacepvListerSynced:   namespacepvInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
@@ -97,6 +109,8 @@ func NewWebhookServer(
 		crbLister:                 crbInformer.Lister(),
 		cleanUp:                   cleanUp,
 		lastReqTime:               checker.NewLastReqTime(),
+		pvGenerator:               pvGenerator,
+		pMetaStore:                pMetaStore,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -117,6 +131,7 @@ func NewWebhookServer(
 
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
 	// for every request recieved on the ep update last request time,
 	// this is used to verify admission control
 	ws.lastReqTime.SetTime(time.Now())
@@ -124,6 +139,9 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if admissionReview == nil {
 		return
 	}
+	defer func() {
+		glog.V(4).Infof("request: %v %s/%s/%s", time.Since(startTime), admissionReview.Request.Kind, admissionReview.Request.Namespace, admissionReview.Request.Name)
+	}()
 
 	admissionReview.Response = &v1beta1.AdmissionResponse{
 		Allowed: true,
@@ -164,10 +182,8 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	// TODO: this will be replaced by policy store lookup
-	policies, err := ws.pLister.List(labels.NewSelector())
+	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
-		//TODO check if the CRD is created ?
 		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
 		return &v1beta1.AdmissionResponse{Allowed: true}
@@ -175,7 +191,6 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 
 	var roles, clusterRoles []string
 
-	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
 	// getRoleRef only if policy has roles/clusterroles defined
 	startTime := time.Now()
 	if containRBACinfo(policies) {

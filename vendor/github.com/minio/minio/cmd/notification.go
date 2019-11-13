@@ -628,6 +628,20 @@ func (sys *NotificationSys) ListenBucketNotification(ctx context.Context, bucket
 	}()
 }
 
+// AddNotificationTargetsFromConfig - adds notification targets from server config.
+func (sys *NotificationSys) AddNotificationTargetsFromConfig(cfg config.Config) error {
+	targetList, err := notify.GetNotificationTargets(cfg, GlobalServiceDoneCh, globalRootCAs)
+	if err != nil {
+		return err
+	}
+	for _, target := range targetList.Targets() {
+		if err = sys.targetList.Add(target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AddRemoteTarget - adds event rules map, HTTP/PeerRPC client target to bucket name.
 func (sys *NotificationSys) AddRemoteTarget(bucketName string, target event.Target, rulesMap event.RulesMap) error {
 	if err := sys.targetList.Add(target); err != nil {
@@ -684,7 +698,7 @@ func (sys *NotificationSys) initListeners(ctx context.Context, objAPI ObjectLaye
 
 	// Construct path to listener.json for the given bucket.
 	configFile := path.Join(bucketConfigPrefix, bucketName, bucketListenerConfig)
-	transactionConfigFile := configFile + ".transaction"
+	transactionConfigFile := configFile + "/transaction.lock"
 
 	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
 	// and configFile, take a transaction lock to avoid data race between readConfig()
@@ -775,6 +789,35 @@ func (sys *NotificationSys) load(buckets []BucketInfo, objAPI ObjectLayer) error
 	return nil
 }
 
+func (sys *NotificationSys) initBucketRetentionConfig(objAPI ObjectLayer) error {
+	buckets, err := objAPI.ListBuckets(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, bucket := range buckets {
+		ctx := logger.SetReqInfo(context.Background(), &logger.ReqInfo{BucketName: bucket.Name})
+		configFile := path.Join(bucketConfigPrefix, bucket.Name, objectLockConfig)
+		configData, err := readConfig(ctx, objAPI, configFile)
+		if err != nil {
+			if err == errConfigNotFound {
+				continue
+			}
+
+			return err
+		}
+
+		config, err := parseObjectLockConfig(bytes.NewReader(configData))
+		if err != nil {
+			return err
+		}
+
+		if config.Rule != nil {
+			globalBucketRetentionConfig.Set(bucket.Name, config.ToRetention())
+		}
+	}
+	return nil
+}
+
 // Init - initializes notification system from notification.xml and listener.json of all buckets.
 func (sys *NotificationSys) Init(buckets []BucketInfo, objAPI ObjectLayer) error {
 	if objAPI == nil {
@@ -794,7 +837,8 @@ func (sys *NotificationSys) Init(buckets []BucketInfo, objAPI ObjectLayer) error
 	//  - Read quorum is lost just after the initialization
 	//    of the object layer.
 	retryTimerCh := newRetryTimerSimple(doneCh)
-	for {
+	stop := false
+	for !stop {
 		select {
 		case <-retryTimerCh:
 			if err := sys.load(buckets, objAPI); err != nil {
@@ -802,6 +846,26 @@ func (sys *NotificationSys) Init(buckets []BucketInfo, objAPI ObjectLayer) error
 					strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
 					strings.Contains(err.Error(), InsufficientWriteQuorum{}.Error()) {
 					logger.Info("Waiting for notification subsystem to be initialized..")
+					continue
+				}
+				return err
+			}
+			stop = true
+		case <-globalOSSignalCh:
+			return fmt.Errorf("Initializing Notification sub-system gracefully stopped")
+		}
+	}
+
+	// Initializing bucket retention config needs a retry mechanism if
+	// read quorum is lost just after the initialization of the object layer.
+	for {
+		select {
+		case <-retryTimerCh:
+			if err := sys.initBucketRetentionConfig(objAPI); err != nil {
+				if err == errDiskNotFound ||
+					strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
+					strings.Contains(err.Error(), InsufficientWriteQuorum{}.Error()) {
+					logger.Info("Waiting for bucket retention configuration to be initialized..")
 					continue
 				}
 				return err
@@ -910,6 +974,25 @@ func (sys *NotificationSys) Send(args eventArgs) []event.TargetIDErr {
 
 	targetIDs := targetIDSet.ToSlice()
 	return sys.send(args.BucketName, args.ToEvent(), targetIDs...)
+}
+
+// PutBucketObjectLockConfig - put bucket object lock configuration to all peers.
+func (sys *NotificationSys) PutBucketObjectLockConfig(ctx context.Context, bucketName string, retention Retention) {
+	var wg sync.WaitGroup
+	for _, client := range sys.peerClients {
+		if client == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(client *peerRESTClient) {
+			defer wg.Done()
+			if err := client.PutBucketObjectLockConfig(bucketName, retention); err != nil {
+				logger.GetReqInfo(ctx).AppendTags("remotePeer", client.host.Name)
+				logger.LogIf(ctx, err)
+			}
+		}(client)
+	}
+	wg.Wait()
 }
 
 // NetReadPerfInfo - Network read performance information.
@@ -1098,21 +1181,13 @@ func (sys *NotificationSys) NetworkInfo() []madmin.ServerNetworkHardwareInfo {
 }
 
 // NewNotificationSys - creates new notification system object.
-func NewNotificationSys(cfg config.Config, endpoints EndpointList) *NotificationSys {
-	targetList, err := notify.GetNotificationTargets(cfg, GlobalServiceDoneCh, globalRootCAs)
-	if err != nil {
-		logger.FatalIf(err, "Unable to start notification sub system")
-	}
-
-	remoteHosts := getRemoteHosts(endpoints)
-	remoteClients := getRestClients(remoteHosts)
-
+func NewNotificationSys(endpoints EndpointList) *NotificationSys {
 	// bucketRulesMap/bucketRemoteTargetRulesMap are initialized by NotificationSys.Init()
 	return &NotificationSys{
-		targetList:                 targetList,
+		targetList:                 event.NewTargetList(),
 		bucketRulesMap:             make(map[string]event.RulesMap),
 		bucketRemoteTargetRulesMap: make(map[string]map[event.TargetID]event.RulesMap),
-		peerClients:                remoteClients,
+		peerClients:                getRestClients(endpoints),
 	}
 }
 
@@ -1264,7 +1339,7 @@ func SaveListener(objAPI ObjectLayer, bucketName string, eventNames []event.Name
 
 	// Construct path to listener.json for the given bucket.
 	configFile := path.Join(bucketConfigPrefix, bucketName, bucketListenerConfig)
-	transactionConfigFile := configFile + ".transaction"
+	transactionConfigFile := configFile + "/transaction.lock"
 
 	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
 	// and configFile, take a transaction lock to avoid data race between readConfig()
@@ -1315,7 +1390,7 @@ func RemoveListener(objAPI ObjectLayer, bucketName string, targetID event.Target
 
 	// Construct path to listener.json for the given bucket.
 	configFile := path.Join(bucketConfigPrefix, bucketName, bucketListenerConfig)
-	transactionConfigFile := configFile + ".transaction"
+	transactionConfigFile := configFile + "/transaction.lock"
 
 	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
 	// and configFile, take a transaction lock to avoid data race between readConfig()

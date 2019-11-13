@@ -274,11 +274,10 @@ func TestSelect(t *testing.T) {
 	}
 
 	rFdSet := &unix.FdSet{}
-	fd := rr.Fd()
-	// FD_SET(fd, rFdSet)
-	rFdSet.Bits[fd/unix.NFDBITS] |= (1 << (fd % unix.NFDBITS))
+	fd := int(rr.Fd())
+	rFdSet.Set(fd)
 
-	n, err = unix.Select(int(fd+1), rFdSet, nil, nil, nil)
+	n, err = unix.Select(fd+1, rFdSet, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Select: %v", err)
 	}
@@ -659,4 +658,46 @@ func openMountByID(mountID int) (f *os.File, err error) {
 		return nil, err
 	}
 	return nil, errors.New("mountID not found")
+}
+
+func TestEpoll(t *testing.T) {
+	efd, err := unix.EpollCreate1(unix.EPOLL_CLOEXEC)
+	if err != nil {
+		t.Fatalf("EpollCreate1: %v", err)
+	}
+	defer unix.Close(efd)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	defer w.Close()
+
+	fd := int(r.Fd())
+	ev := unix.EpollEvent{Events: unix.EPOLLIN, Fd: int32(fd)}
+
+	err = unix.EpollCtl(efd, unix.EPOLL_CTL_ADD, fd, &ev)
+	if err != nil {
+		t.Fatalf("EpollCtl: %v", err)
+	}
+
+	if _, err := w.Write([]byte("HELLO GOPHER")); err != nil {
+		t.Fatal(err)
+	}
+
+	events := make([]unix.EpollEvent, 128)
+	n, err := unix.EpollWait(efd, events, 1)
+	if err != nil {
+		t.Fatalf("EpollWait: %v", err)
+	}
+
+	if n != 1 {
+		t.Errorf("EpollWait: wrong number of events: got %v, expected 1", n)
+	}
+
+	got := int(events[0].Fd)
+	if got != fd {
+		t.Errorf("EpollWait: wrong Fd in event: got %v, expected %v", got, fd)
+	}
 }

@@ -6,10 +6,10 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -98,7 +98,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []e
 
 	// get all the policies that have a generate rule and resource description satifies the namespace
 	// apply policy on resource
-	policies := listpolicies(ns, nsc.pLister)
+	policies := listpolicies(ns, nsc.pMetaStore)
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		// pre-processing, check if the policy and resource version has been processed before
@@ -106,7 +106,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []e
 			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion())
 			continue
 		}
-		engineResponse := applyPolicy(nsc.client, ns, *policy, nsc.policyStatus)
+		engineResponse := applyPolicy(nsc.client, ns, policy, nsc.policyStatus)
 		engineResponses = append(engineResponses, engineResponse)
 
 		// post-processing, register the resource as processed
@@ -160,10 +160,10 @@ func (nsc *NamespaceController) processPolicy(policy *kyverno.ClusterPolicy) {
 	}
 }
 
-func listpolicies(ns unstructured.Unstructured, pLister kyvernolister.ClusterPolicyLister) []*kyverno.ClusterPolicy {
-	var filteredpolicies []*kyverno.ClusterPolicy
+func listpolicies(ns unstructured.Unstructured, pMetaStore policystore.LookupInterface) []kyverno.ClusterPolicy {
+	var filteredpolicies []kyverno.ClusterPolicy
 	glog.V(4).Infof("listing policies for namespace %s", ns.GetName())
-	policies, err := pLister.List(labels.NewSelector())
+	policies, err := pMetaStore.LookUp(ns.GetKind(), ns.GetNamespace())
 	if err != nil {
 		glog.Errorf("failed to get list policies: %v", err)
 		return nil

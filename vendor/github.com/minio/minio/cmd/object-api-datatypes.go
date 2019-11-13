@@ -34,6 +34,8 @@ const (
 	BackendFS
 	// Multi disk BackendErasure (single, distributed) backend.
 	BackendErasure
+	// Gateway backend.
+	BackendGateway
 	// Add your own backend.
 )
 
@@ -49,8 +51,11 @@ type StorageInfo struct {
 
 	// Backend type.
 	Backend struct {
-		// Represents various backend types, currently on FS and Erasure.
+		// Represents various backend types, currently on FS, Erasure and Gateway
 		Type BackendType
+
+		// Following fields are only meaningful if BackendType is Gateway.
+		GatewayOnline bool
 
 		// Following fields are only meaningful if BackendType is Erasure.
 		OnlineDisks      madmin.BackendDisks // Online disks during server startup.
@@ -220,12 +225,12 @@ type ListObjectsInfo struct {
 	// by max keys.
 	IsTruncated bool
 
-	// When response is truncated (the IsTruncated element value in the response
-	// is true), you can use the key name in this field as marker in the subsequent
+	// When response is truncated (the IsTruncated element value in the response is true),
+	// you can use the key name in this field as marker in the subsequent
 	// request to get next set of objects.
 	//
-	// NOTE: This element is returned only if you have delimiter request parameter
-	// specified.
+	// NOTE: AWS S3 returns NextMarker only if you have delimiter request parameter specified,
+	//       MinIO always returns NextMarker.
 	NextMarker string
 
 	// List of objects info for this request.

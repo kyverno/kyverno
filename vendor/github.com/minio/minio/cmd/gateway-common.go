@@ -17,13 +17,14 @@
 package cmd
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/minio/minio/cmd/config"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/env"
 	"github.com/minio/minio/pkg/hash"
 	xnet "github.com/minio/minio/pkg/net"
@@ -287,6 +288,28 @@ func ToMinioClientCompleteParts(parts []CompletePart) []minio.CompletePart {
 	return mparts
 }
 
+// IsBackendOnline - verifies if the backend is reachable
+// by performing a GET request on the URL. returns 'true'
+// if backend is reachable.
+func IsBackendOnline(ctx context.Context, clnt *http.Client, urlStr string) bool {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+
+	// never follow redirects
+	clnt.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
+	if err != nil {
+		return false
+	}
+	if _, err = clnt.Do(req); err != nil {
+		return !xnet.IsNetworkOrHostDown(err)
+	}
+	return true
+}
+
 // ErrorRespToObjectError converts MinIO errors to minio object layer errors.
 func ErrorRespToObjectError(err error, params ...string) error {
 	if err == nil {
@@ -373,22 +396,21 @@ func parseGatewaySSE(s string) (gatewaySSE, error) {
 }
 
 // handle gateway env vars
-func handleGatewayEnvVars() {
-	gwsseVal, ok := env.Lookup("MINIO_GATEWAY_SSE")
-	if ok {
+func gatewayHandleEnvVars() {
+	// Handle common env vars.
+	handleCommonEnvVars()
+
+	if !globalActiveCred.IsValid() {
+		logger.Fatal(config.ErrInvalidCredentials(nil),
+			"Unable to validate credentials inherited from the shell environment")
+	}
+
+	gwsseVal := env.Get("MINIO_GATEWAY_SSE", "")
+	if len(gwsseVal) != 0 {
 		var err error
 		GlobalGatewaySSE, err = parseGatewaySSE(gwsseVal)
 		if err != nil {
 			logger.Fatal(err, "Unable to parse MINIO_GATEWAY_SSE value (`%s`)", gwsseVal)
 		}
 	}
-
-	accessKey := env.Get(config.EnvAccessKey, "")
-	secretKey := env.Get(config.EnvSecretKey, "")
-	cred, err := auth.CreateCredentials(accessKey, secretKey)
-	if err != nil {
-		logger.Fatal(config.ErrInvalidCredentials(err),
-			"Unable to validate credentials inherited from the shell environment")
-	}
-	globalActiveCred = cred
 }

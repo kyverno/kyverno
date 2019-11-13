@@ -225,12 +225,12 @@ const (
 	createTagFactor       = 2.0
 	createTagSteps        = 9
 
-	// encryptedCheck* is configuration of poll for created volume to check
-	// it has not been silently removed by AWS.
+	// volumeCreate* is configuration of exponential backoff for created volume.
 	// On a random AWS account (shared among several developers) it took 4s on
-	// average.
-	encryptedCheckInterval = 1 * time.Second
-	encryptedCheckTimeout  = 30 * time.Second
+	// average, 8s max.
+	volumeCreateInitialDelay  = 5 * time.Second
+	volumeCreateBackoffFactor = 1.2
+	volumeCreateBackoffSteps  = 10
 
 	// Number of node names that can be added to a filter. The AWS limit is 200
 	// but we are using a lower limit on purpose
@@ -2400,19 +2400,17 @@ func (c *Cloud) CreateDisk(volumeOptions *VolumeOptions) (KubernetesVolumeID, er
 	}
 	volumeName := KubernetesVolumeID("aws://" + aws.StringValue(response.AvailabilityZone) + "/" + string(awsID))
 
-	// AWS has a bad habbit of reporting success when creating a volume with
-	// encryption keys that either don't exists or have wrong permissions.
-	// Such volume lives for couple of seconds and then it's silently deleted
-	// by AWS. There is no other check to ensure that given KMS key is correct,
-	// because Kubernetes may have limited permissions to the key.
-	if len(volumeOptions.KmsKeyID) > 0 {
-		err := c.waitUntilVolumeAvailable(volumeName)
-		if err != nil {
-			if isAWSErrorVolumeNotFound(err) {
-				err = fmt.Errorf("failed to create encrypted volume: the volume disappeared after creation, most likely due to inaccessible KMS encryption key")
-			}
-			return "", err
+	err = c.waitUntilVolumeAvailable(volumeName)
+	if err != nil {
+		// AWS has a bad habbit of reporting success when creating a volume with
+		// encryption keys that either don't exists or have wrong permissions.
+		// Such volume lives for couple of seconds and then it's silently deleted
+		// by AWS. There is no other check to ensure that given KMS key is correct,
+		// because Kubernetes may have limited permissions to the key.
+		if isAWSErrorVolumeNotFound(err) {
+			err = fmt.Errorf("failed to create encrypted volume: the volume disappeared after creation, most likely due to inaccessible KMS encryption key")
 		}
+		return "", err
 	}
 
 	return volumeName, nil
@@ -2424,8 +2422,13 @@ func (c *Cloud) waitUntilVolumeAvailable(volumeName KubernetesVolumeID) error {
 		// Unreachable code
 		return err
 	}
-
-	err = wait.Poll(encryptedCheckInterval, encryptedCheckTimeout, func() (done bool, err error) {
+	time.Sleep(5 * time.Second)
+	backoff := wait.Backoff{
+		Duration: volumeCreateInitialDelay,
+		Factor:   volumeCreateBackoffFactor,
+		Steps:    volumeCreateBackoffSteps,
+	}
+	err = wait.ExponentialBackoff(backoff, func() (done bool, err error) {
 		vol, err := disk.describeVolume()
 		if err != nil {
 			return true, err

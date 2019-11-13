@@ -16,7 +16,6 @@ import (
 	"testing"
 
 	"golang.org/x/tools/go/packages/packagestest"
-	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/tests"
 	"golang.org/x/tools/internal/span"
@@ -66,40 +65,16 @@ func (r *runner) RankCompletion(t *testing.T, src span.Span, test tests.Completi
 	//TODO: add command line completions tests when it works
 }
 
-func (r *runner) FoldingRange(t *testing.T, spn span.Span) {
-	//TODO: add command line folding range tests when it works
-}
-
 func (r *runner) Highlight(t *testing.T, name string, locations []span.Span) {
 	//TODO: add command line highlight tests when it works
-}
-
-func (r *runner) Reference(t *testing.T, src span.Span, itemList []span.Span) {
-	//TODO: add command line references tests when it works
 }
 
 func (r *runner) PrepareRename(t *testing.T, src span.Span, want *source.PrepareItem) {
 	//TODO: add command line prepare rename tests when it works
 }
 
-func (r *runner) Symbol(t *testing.T, uri span.URI, expectedSymbols []protocol.DocumentSymbol) {
-	//TODO: add command line symbol tests when it works
-}
-
-func (r *runner) SignatureHelp(t *testing.T, spn span.Span, expectedSignature *source.SignatureInformation) {
-	//TODO: add command line signature tests when it works
-}
-
-func (r *runner) Link(t *testing.T, uri span.URI, wantLinks []tests.Link) {
-	//TODO: add command line link tests when it works
-}
-
-func (r *runner) Import(t *testing.T, spn span.Span) {
-	//TODO: add command line imports tests when it works
-}
-
-func (r *runner) SuggestedFix(t *testing.T, spn span.Span) {
-	//TODO: add suggested fix tests when it works
+func (r *runner) Implementation(t *testing.T, spn span.Span, imp tests.Implementations) {
+	//TODO: add implements tests when it works
 }
 
 func CaptureStdOut(t testing.TB, f func()) string {

@@ -23,12 +23,18 @@ import (
 
 	"github.com/minio/minio-go/pkg/set"
 	"github.com/minio/minio/pkg/auth"
-	"github.com/minio/minio/pkg/color"
 	"github.com/minio/minio/pkg/env"
+	"github.com/minio/minio/pkg/madmin"
 )
 
 // Error config error type
 type Error string
+
+// Errorf - formats according to a format specifier and returns
+// the string as a value that satisfies error of type config.Error
+func Errorf(format string, a ...interface{}) error {
+	return Error(fmt.Sprintf(format, a...))
+}
 
 func (e Error) Error() string {
 	return string(e)
@@ -36,7 +42,7 @@ func (e Error) Error() string {
 
 // Default keys
 const (
-	Default = "_"
+	Default = madmin.Default
 	State   = "state"
 	Comment = "comment"
 
@@ -58,6 +64,7 @@ const (
 	WormSubSys            = "worm"
 	CacheSubSys           = "cache"
 	RegionSubSys          = "region"
+	EtcdSubSys            = "etcd"
 	StorageClassSubSys    = "storageclass"
 	CompressionSubSys     = "compression"
 	KmsVaultSubSys        = "kms_vault"
@@ -88,6 +95,7 @@ var SubSystems = set.CreateStringSet([]string{
 	CredentialsSubSys,
 	WormSubSys,
 	RegionSubSys,
+	EtcdSubSys,
 	CacheSubSys,
 	StorageClassSubSys,
 	CompressionSubSys,
@@ -114,6 +122,7 @@ var SubSystemsSingleTargets = set.CreateStringSet([]string{
 	CredentialsSubSys,
 	WormSubSys,
 	RegionSubSys,
+	EtcdSubSys,
 	CacheSubSys,
 	StorageClassSubSys,
 	CompressionSubSys,
@@ -125,13 +134,17 @@ var SubSystemsSingleTargets = set.CreateStringSet([]string{
 
 // Constant separators
 const (
-	SubSystemSeparator = `:`
-	KvSeparator        = `=`
-	KvSpaceSeparator   = ` `
-	KvComment          = `#`
-	KvNewline          = "\n"
-	KvDoubleQuote      = `"`
-	KvSingleQuote      = `'`
+	SubSystemSeparator = madmin.SubSystemSeparator
+	KvSeparator        = madmin.KvSeparator
+	KvSpaceSeparator   = madmin.KvSpaceSeparator
+	KvComment          = madmin.KvComment
+	KvNewline          = madmin.KvNewline
+	KvDoubleQuote      = madmin.KvDoubleQuote
+	KvSingleQuote      = madmin.KvSingleQuote
+
+	// Env prefix used for all envs in MinIO
+	EnvPrefix        = "MINIO_"
+	EnvWordDelimiter = `_`
 )
 
 // KVS - is a shorthand for some wrapper functions
@@ -141,10 +154,6 @@ type KVS map[string]string
 func (kvs KVS) String() string {
 	var s strings.Builder
 	for k, v := range kvs {
-		if k == Comment {
-			// Skip the comment, comment will be printed elsewhere.
-			continue
-		}
 		s.WriteString(k)
 		s.WriteString(KvSeparator)
 		s.WriteString(KvDoubleQuote)
@@ -167,20 +176,7 @@ func (c Config) String() string {
 	var s strings.Builder
 	for k, v := range c {
 		for target, kv := range v {
-			c, ok := kv[Comment]
-			if ok {
-				// For multiple comments split it correctly.
-				for _, c1 := range strings.Split(c, KvNewline) {
-					if c1 == "" {
-						continue
-					}
-					s.WriteString(color.YellowBold(KvComment))
-					s.WriteString(KvSpaceSeparator)
-					s.WriteString(color.BlueBold(strings.TrimSpace(c1)))
-					s.WriteString(KvNewline)
-				}
-			}
-			s.WriteString(color.CyanBold(k))
+			s.WriteString(k)
 			if target != Default {
 				s.WriteString(SubSystemSeparator)
 				s.WriteString(target)
@@ -307,7 +303,7 @@ func (c Config) GetKVS(s string) (map[string]KVS, error) {
 		}
 		kvs[inputs[0]], ok = c[subSystemValue[0]][subSystemValue[1]]
 		if !ok {
-			err := fmt.Sprintf("sub-system target '%s' doesn't exist, proceed to create a new one", s)
+			err := fmt.Sprintf("sub-system target '%s' doesn't exist", s)
 			return nil, Error(err)
 		}
 		return kvs, nil
@@ -377,7 +373,7 @@ func (c Config) Clone() Config {
 }
 
 // SetKVS - set specific key values per sub-system.
-func (c Config) SetKVS(s string, comment string, defaultKVS map[string]KVS) error {
+func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 	if len(s) == 0 {
 		return Error("input arguments cannot be empty")
 	}
@@ -388,11 +384,6 @@ func (c Config) SetKVS(s string, comment string, defaultKVS map[string]KVS) erro
 	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
 	if len(subSystemValue) == 0 {
 		return Error(fmt.Sprintf("invalid number of arguments %s", s))
-	}
-
-	if subSystemValue[0] == CredentialsSubSys {
-		return Error(fmt.Sprintf("changing '%s' sub-system values is not allowed, use ENVs instead",
-			subSystemValue[0]))
 	}
 
 	if !SubSystems.Contains(subSystemValue[0]) {
@@ -414,35 +405,25 @@ func (c Config) SetKVS(s string, comment string, defaultKVS map[string]KVS) erro
 			kvs[prevK] = strings.Join([]string{kvs[prevK], sanitizeValue(kv[0])}, KvSpaceSeparator)
 			continue
 		}
-		if len(kv[1]) == 0 {
-			err := fmt.Sprintf("value for key '%s' cannot be empty", kv[0])
-			return Error(err)
+		if len(kv) == 1 {
+			return Error(fmt.Sprintf("key '%s', cannot have empty value", kv[0]))
 		}
 		prevK = kv[0]
 		kvs[kv[0]] = sanitizeValue(kv[1])
 	}
 
+	tgt := Default
 	if len(subSystemValue) == 2 {
-		_, ok := c[subSystemValue[0]][subSystemValue[1]]
-		if !ok {
-			c[subSystemValue[0]][subSystemValue[1]] = defaultKVS[subSystemValue[0]]
-			// Add a comment since its a new target, this comment may be
-			// overridden if client supplied it.
-			if comment == "" {
-				comment = fmt.Sprintf("Settings for sub-system target %s:%s",
-					subSystemValue[0], subSystemValue[1])
-			}
-			c[subSystemValue[0]][subSystemValue[1]][Comment] = comment
-		}
+		tgt = subSystemValue[1]
+	}
+	_, ok := c[subSystemValue[0]][tgt]
+	if !ok {
+		c[subSystemValue[0]][tgt] = defaultKVS[subSystemValue[0]]
+		comment := fmt.Sprintf("Settings for sub-system target %s:%s", subSystemValue[0], tgt)
+		c[subSystemValue[0]][tgt][Comment] = comment
 	}
 
-	var commentKv bool
 	for k, v := range kvs {
-		if k == Comment {
-			// Set this to true to indicate comment was
-			// supplied by client and is going to be preserved.
-			commentKv = true
-		}
 		if len(subSystemValue) == 2 {
 			c[subSystemValue[0]][subSystemValue[1]][k] = v
 		} else {
@@ -450,15 +431,5 @@ func (c Config) SetKVS(s string, comment string, defaultKVS map[string]KVS) erro
 		}
 	}
 
-	// if client didn't supply the comment try to preserve
-	// the comment if any we found while parsing the incoming
-	// stream, if not preserve the default.
-	if !commentKv && comment != "" {
-		if len(subSystemValue) == 2 {
-			c[subSystemValue[0]][subSystemValue[1]][Comment] = comment
-		} else {
-			c[subSystemValue[0]][Default][Comment] = comment
-		}
-	}
 	return nil
 }

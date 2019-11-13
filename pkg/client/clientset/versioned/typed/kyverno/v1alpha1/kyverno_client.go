@@ -29,6 +29,7 @@ type KyvernoV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPoliciesGetter
 	ClusterPolicyViolationsGetter
+	NamespacedPolicyViolationsGetter
 }
 
 // KyvernoV1alpha1Client is used to interact with features provided by the kyverno.io group.
@@ -42,6 +43,10 @@ func (c *KyvernoV1alpha1Client) ClusterPolicies() ClusterPolicyInterface {
 
 func (c *KyvernoV1alpha1Client) ClusterPolicyViolations() ClusterPolicyViolationInterface {
 	return newClusterPolicyViolations(c)
+}
+
+func (c *KyvernoV1alpha1Client) NamespacedPolicyViolations(namespace string) NamespacedPolicyViolationInterface {
+	return newNamespacedPolicyViolations(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV1alpha1Client for the given config.

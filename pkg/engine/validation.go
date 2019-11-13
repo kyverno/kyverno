@@ -134,7 +134,6 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 		if len(errs) > 0 {
 			glog.V(4).Infof("none of anyPattern were processed: %v", errs)
 			response.Success = false
-			response.Success = false
 			var errorStr []string
 			for index, err := range errs {
 				glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)

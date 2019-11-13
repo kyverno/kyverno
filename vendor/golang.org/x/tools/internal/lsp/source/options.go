@@ -68,6 +68,7 @@ var (
 		},
 		ComputeEdits: myers.ComputeEdits,
 		Analyzers:    defaultAnalyzers,
+		GoDiff:       true,
 	}
 )
 
@@ -104,6 +105,11 @@ type Options struct {
 	ComputeEdits diff.ComputeEdits
 
 	Analyzers []*analysis.Analyzer
+
+	// LocalPrefix is used to specify goimports's -local behavior.
+	LocalPrefix string
+
+	VerboseOutput bool
 }
 
 type CompletionOptions struct {
@@ -119,7 +125,7 @@ type CompletionOptions struct {
 	// requests finish in a couple milliseconds, but in some cases deep
 	// completions can take much longer. As we use up our budget we
 	// dynamically reduce the search scope to ensure we return timely
-	// results.
+	// results. Zero means unlimited.
 	Budget time.Duration
 }
 
@@ -242,7 +248,7 @@ func (o *Options) set(name string, value interface{}) OptionResult {
 	case "hoverKind":
 		hoverKind, ok := value.(string)
 		if !ok {
-			result.errorf("Invalid type %T for string option %q", value, name)
+			result.errorf("invalid type %T for string option %q", value, name)
 			break
 		}
 		switch hoverKind {
@@ -276,6 +282,17 @@ func (o *Options) set(name string, value interface{}) OptionResult {
 
 	case "go-diff":
 		result.setBool(&o.GoDiff)
+
+	case "local":
+		localPrefix, ok := value.(string)
+		if !ok {
+			result.errorf("invalid type %T for string option %q", value, name)
+			break
+		}
+		o.LocalPrefix = localPrefix
+
+	case "verboseOutput":
+		result.setBool(&o.VerboseOutput)
 
 	// Deprecated settings.
 	case "wantSuggestedFixes":

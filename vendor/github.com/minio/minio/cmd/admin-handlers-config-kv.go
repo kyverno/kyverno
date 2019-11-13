@@ -19,23 +19,41 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/color"
 	"github.com/minio/minio/pkg/madmin"
 )
+
+func validateAdminReqConfigKV(ctx context.Context, w http.ResponseWriter, r *http.Request) ObjectLayer {
+	// Get current object layer instance.
+	objectAPI := newObjectLayerWithoutSafeModeFn()
+	if objectAPI == nil {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrServerNotInitialized), r.URL)
+		return nil
+	}
+
+	// Validate request signature.
+	adminAPIErr := checkAdminRequestAuthType(ctx, r, "")
+	if adminAPIErr != ErrNone {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(adminAPIErr), r.URL)
+		return nil
+	}
+
+	return objectAPI
+}
 
 // DelConfigKVHandler - DELETE /minio/admin/v2/del-config-kv
 func (a adminAPIHandlers) DelConfigKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "DelConfigKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
@@ -68,6 +86,10 @@ func (a adminAPIHandlers) DelConfigKVHandler(w http.ResponseWriter, r *http.Requ
 	oldCfg := cfg.Clone()
 	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
 	for scanner.Scan() {
+		// Skip any empty lines
+		if scanner.Text() == "" {
+			continue
+		}
 		if err = cfg.DelKVS(scanner.Text()); err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
@@ -88,7 +110,7 @@ func (a adminAPIHandlers) DelConfigKVHandler(w http.ResponseWriter, r *http.Requ
 func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "SetConfigKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
@@ -114,27 +136,29 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 	}
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
-		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-		return
+		// Config not found for some reason, allow things to continue
+		// by initializing a new fresh config in safe mode.
+		if err == errConfigNotFound && globalSafeMode {
+			cfg = newServerConfig()
+			err = nil
+		} else {
+			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+			return
+		}
 	}
 
 	defaultKVS := configDefaultKVS()
 	oldCfg := cfg.Clone()
 	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
-	var comment string
 	for scanner.Scan() {
-		if strings.HasPrefix(scanner.Text(), config.KvComment) {
-			// Join multiple comments for each newline, separated by ","
-			comments := []string{comment, strings.TrimPrefix(scanner.Text(), config.KvComment)}
-			comment = strings.Join(comments, config.KvNewline)
+		// Skip any empty lines
+		if scanner.Text() == "" {
 			continue
 		}
-		if err = cfg.SetKVS(scanner.Text(), comment, defaultKVS); err != nil {
+		if err = cfg.SetKVS(scanner.Text(), defaultKVS); err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
 		}
-		// Empty the comment for the next sub-system
-		comment = ""
 	}
 	if err = scanner.Err(); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
@@ -157,51 +181,55 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
+
+	// Make sure to write backend is encrypted
+	if globalConfigEncrypted {
+		saveConfig(context.Background(), objectAPI, backendEncryptedFile, backendEncryptedMigrationComplete)
+	}
 }
 
 // GetConfigKVHandler - GET /minio/admin/v2/get-config-kv?key={key}
 func (a adminAPIHandlers) GetConfigKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "GetConfigKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
 
+	cfg := globalServerConfig
+	if globalSafeMode {
+		var err error
+		cfg, err = getValidConfig(objectAPI)
+		if err != nil {
+			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+			return
+		}
+	}
+
 	vars := mux.Vars(r)
-	var body strings.Builder
-	if vars["key"] != "" {
-		kvs, err := globalServerConfig.GetKVS(vars["key"])
+	var buf = &bytes.Buffer{}
+	key := vars["key"]
+	if key != "" {
+		kvs, err := cfg.GetKVS(key)
 		if err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
 		}
 		for k, kv := range kvs {
-			c, ok := kv[config.Comment]
-			if ok {
-				// For multiple comments split it correctly.
-				for _, c1 := range strings.Split(c, config.KvNewline) {
-					if c1 == "" {
-						continue
-					}
-					body.WriteString(color.YellowBold(config.KvComment))
-					body.WriteString(config.KvSpaceSeparator)
-					body.WriteString(color.BlueBold(strings.TrimSpace(c1)))
-					body.WriteString(config.KvNewline)
-				}
-			}
-			body.WriteString(color.CyanBold(k))
-			body.WriteString(config.KvSpaceSeparator)
-			body.WriteString(kv.String())
+			buf.WriteString(k)
+			buf.WriteString(config.KvSpaceSeparator)
+			buf.WriteString(kv.String())
 			if len(kvs) > 1 {
-				body.WriteString(config.KvNewline)
+				buf.WriteString(config.KvNewline)
 			}
 		}
 	} else {
-		body.WriteString(globalServerConfig.String())
+		buf.WriteString(cfg.String())
 	}
+
 	password := globalActiveCred.SecretKey
-	econfigData, err := madmin.EncryptData(password, []byte(body.String()))
+	econfigData, err := madmin.EncryptData(password, buf.Bytes())
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
@@ -213,7 +241,7 @@ func (a adminAPIHandlers) GetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 func (a adminAPIHandlers) ClearConfigHistoryKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "ClearConfigHistoryKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
@@ -225,7 +253,7 @@ func (a adminAPIHandlers) ClearConfigHistoryKVHandler(w http.ResponseWriter, r *
 		return
 	}
 	if restoreID == "all" {
-		chEntries, err := listServerConfigHistory(ctx, objectAPI)
+		chEntries, err := listServerConfigHistory(ctx, objectAPI, false, -1)
 		if err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
@@ -248,7 +276,7 @@ func (a adminAPIHandlers) ClearConfigHistoryKVHandler(w http.ResponseWriter, r *
 func (a adminAPIHandlers) RestoreConfigHistoryKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "RestoreConfigHistoryKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
@@ -268,25 +296,29 @@ func (a adminAPIHandlers) RestoreConfigHistoryKVHandler(w http.ResponseWriter, r
 
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
-		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-		return
+		// Config not found for some reason, allow things to continue
+		// by initializing a new fresh config in safe mode.
+		if err == errConfigNotFound && globalSafeMode {
+			cfg = newServerConfig()
+			err = nil
+		} else {
+			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+			return
+		}
 	}
 
 	defaultKVS := configDefaultKVS()
 	oldCfg := cfg.Clone()
 	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
-	var comment string
 	for scanner.Scan() {
-		if strings.HasPrefix(scanner.Text(), config.KvComment) {
-			// Join multiple comments for each newline, separated by "\n"
-			comment = strings.Join([]string{comment, scanner.Text()}, config.KvNewline)
+		// Skip any empty lines
+		if scanner.Text() == "" {
 			continue
 		}
-		if err = cfg.SetKVS(scanner.Text(), comment, defaultKVS); err != nil {
+		if err = cfg.SetKVS(scanner.Text(), defaultKVS); err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
 		}
-		comment = ""
 	}
 	if err = scanner.Err(); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
@@ -310,12 +342,19 @@ func (a adminAPIHandlers) RestoreConfigHistoryKVHandler(w http.ResponseWriter, r
 func (a adminAPIHandlers) ListConfigHistoryKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "ListConfigHistoryKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
 
-	chEntries, err := listServerConfigHistory(ctx, objectAPI)
+	vars := mux.Vars(r)
+	count, err := strconv.Atoi(vars["count"])
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	chEntries, err := listServerConfigHistory(ctx, objectAPI, true, count)
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
@@ -327,37 +366,47 @@ func (a adminAPIHandlers) ListConfigHistoryKVHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	writeSuccessResponseJSON(w, data)
+	password := globalActiveCred.SecretKey
+	econfigData, err := madmin.EncryptData(password, data)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	writeSuccessResponseJSON(w, econfigData)
 }
 
 // HelpConfigKVHandler - GET /minio/admin/v2/help-config-kv?subSys={subSys}&key={key}
 func (a adminAPIHandlers) HelpConfigKVHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "HelpConfigKVHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
 
 	vars := mux.Vars(r)
+
 	subSys := vars["subSys"]
 	key := vars["key"]
 
-	rd, err := GetHelp(subSys, key)
+	_, envOnly := r.URL.Query()["env"]
+
+	rd, err := GetHelp(subSys, key, envOnly)
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	io.Copy(w, rd)
+	json.NewEncoder(w).Encode(rd)
 	w.(http.Flusher).Flush()
 }
 
-// SetConfigHandler - PUT /minio/admin/v1/config
+// SetConfigHandler - PUT /minio/admin/v2/config
 func (a adminAPIHandlers) SetConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "SetConfigHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}
@@ -399,16 +448,21 @@ func (a adminAPIHandlers) SetConfigHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Make sure to write backend is encrypted
+	if globalConfigEncrypted {
+		saveConfig(context.Background(), objectAPI, backendEncryptedFile, backendEncryptedMigrationComplete)
+	}
+
 	// Reply to the client before restarting minio server.
 	writeSuccessResponseHeadersOnly(w)
 }
 
-// GetConfigHandler - GET /minio/admin/v1/config
+// GetConfigHandler - GET /minio/admin/v2/config
 // Get config.json of this minio setup.
 func (a adminAPIHandlers) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r, w, "GetConfigHandler")
 
-	objectAPI := validateAdminReq(ctx, w, r)
+	objectAPI := validateAdminReqConfigKV(ctx, w, r)
 	if objectAPI == nil {
 		return
 	}

@@ -3269,7 +3269,7 @@ func TestConfigureServer(t *testing.T) {
 			tlsConfig: &tls.Config{
 				CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384},
 			},
-			wantErr: "is missing an HTTP/2-required AES_128_GCM_SHA256 cipher.",
+			wantErr: "is missing an HTTP/2-required",
 		},
 		{
 			name: "required after bad",
