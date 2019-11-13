@@ -7,13 +7,13 @@ import (
 	"github.com/golang/glog"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
@@ -107,7 +107,7 @@ func main() {
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister())
+	pvgen := policyviolation.NewPVGenerator(pclient, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations().Lister())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -152,7 +152,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), configData,  policyMetaStore, pvgen,cleanUp)
+	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), configData, policyMetaStore, pvgen, cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}

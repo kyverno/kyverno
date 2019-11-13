@@ -8,7 +8,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	pvInterface "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
+	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -25,8 +25,9 @@ const workQueueRetryLimit = 3
 //Generator creates PV
 type Generator struct {
 	dclient     *dclient.Client
-	pvInterface pvInterface.ClusterPolicyViolationInterface
+	pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface
 	pvLister    kyvernolister.ClusterPolicyViolationLister
+	nspvLister  kyvernolister.NamespacedPolicyViolationLister
 	queue       workqueue.RateLimitingInterface
 }
 
@@ -47,10 +48,12 @@ type GeneratorInterface interface {
 
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset,
-	pvLister kyvernolister.ClusterPolicyViolationLister) *Generator {
+	pvLister kyvernolister.ClusterPolicyViolationLister,
+	nspvLister kyvernolister.NamespacedPolicyViolationLister) *Generator {
 	gen := Generator{
-		pvInterface: client.KyvernoV1alpha1().ClusterPolicyViolations(),
+		pvInterface: client.KyvernoV1alpha1(),
 		pvLister:    pvLister,
+		nspvLister:  nspvLister,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 	}
 	return &gen
@@ -134,26 +137,40 @@ func (gen *Generator) processNextWorkitem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	var pvs []kyverno.ClusterPolicyViolation
-	if !info.Blocked {
-		pvs = append(pvs, buildPV(info))
-	} else {
-		// blocked
-		// get owners
-		pvs = buildPVWithOwners(gen.dclient, info)
+	// cluster policy violations
+	if info.Resource.GetNamespace() == "" {
+		var pvs []kyverno.ClusterPolicyViolation
+		if !info.Blocked {
+			pvs = append(pvs, buildPV(info))
+		} else {
+			// blocked
+			// get owners
+			pvs = buildPVWithOwners(gen.dclient, info)
+		}
+		// create policy violation
+		createPVS(pvs, gen.pvLister, gen.pvInterface)
+		return nil
 	}
-	// create policy violation
-	createPVS(pvs, gen.pvLister, gen.pvInterface)
+
+	// namespaced policy violations
+	var pvs []kyverno.NamespacedPolicyViolation
+	if !info.Blocked {
+		pvs = append(pvs, buildNamespacedPV(info))
+	} else {
+		pvs = buildNamespacedPVWithOwner(gen.dclient, info)
+	}
+
+	createNamespacedPV(gen.nspvLister, gen.pvInterface, pvs)
 	return nil
 }
 
-func createPVS(pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface pvInterface.ClusterPolicyViolationInterface) {
+func createPVS(pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) {
 	for _, pv := range pvs {
 		createPVNew(pv, pvLister, pvInterface)
 	}
 }
 
-func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface pvInterface.ClusterPolicyViolationInterface) error {
+func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
 	var err error
 	// PV already exists
 	ePV, err := getExistingPVIfAny(pvLister, pv)
@@ -164,7 +181,7 @@ func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.Clust
 	if ePV == nil {
 		// Create a New PV
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", pv.Spec.Policy, pv.Spec.ResourceSpec.Kind, pv.Spec.ResourceSpec.Namespace, pv.Spec.ResourceSpec.Name)
-		_, err = pvInterface.Create(&pv)
+		_, err = pvInterface.ClusterPolicyViolations().Create(&pv)
 		if err != nil {
 			glog.Error(err)
 			return err
@@ -178,7 +195,7 @@ func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.Clust
 		return nil
 	}
 
-	_, err = pvInterface.Update(&pv)
+	_, err = pvInterface.ClusterPolicyViolations().Update(&pv)
 	if err != nil {
 		glog.Error(err)
 		return err

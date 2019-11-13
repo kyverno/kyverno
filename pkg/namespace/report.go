@@ -35,10 +35,6 @@ func generatePVs(ers []engine.EngineResponse) []policyviolation.Info {
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}
 
-	// TODO(shuting):
-	// // generate policy violation
-	// policyviolation.CreateClusterPV(nsc.pvLister, nsc.kyvernoClient, engineResponses)
-
 	return pvInfos
 }
 
