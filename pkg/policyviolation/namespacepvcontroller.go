@@ -191,12 +191,12 @@ func (pvc *NamespacedPolicyViolationController) syncPolicyViolation(key string) 
 	}()
 
 	// tags: NAMESPACE/NAME
-	tags := strings.Split(key, "/")
-	if len(tags) != 2 {
-		return fmt.Errorf("error sync namespaced policy violation key %v", key)
+	ns, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return fmt.Errorf("error getting namespaced policy violation key %v", key)
 	}
 
-	policyViolation, err := pvc.nspvLister.NamespacedPolicyViolations(tags[0]).Get(tags[1])
+	policyViolation, err := pvc.nspvLister.NamespacedPolicyViolations(ns).Get(name)
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("PolicyViolation %v has been deleted", key)
 		return nil

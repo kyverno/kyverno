@@ -3,53 +3,14 @@ package policyviolation
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	engine "github.com/nirmata/kyverno/pkg/engine"
 	labels "k8s.io/apimachinery/pkg/labels"
 )
-
-func CreateNamespacePV(pvLister kyvernolister.NamespacedPolicyViolationLister, client *kyvernoclient.Clientset, engineResponses []engine.EngineResponse) {
-	// var pvs []kyverno.NamespacedPolicyViolation
-	// for _, er := range engineResponses {
-	// 	// ignore creation of PV for resoruces that are yet to be assigned a name
-	// 	if er.PolicyResponse.Resource.Name == "" {
-	// 		glog.V(4).Infof("resource %v, has not been assigned a name, not creating a namespace policy violation for it", er.PolicyResponse.Resource)
-	// 		continue
-	// 	}
-
-	// 	if !er.IsSuccesful() {
-	// 		glog.V(4).Infof("Building namespace policy violation for engine response %v", er)
-	// 		if pv := buildNamespacedPVForPolicy(er); !reflect.DeepEqual(pv, kyverno.NamespacedPolicyViolation{}) {
-	// 			pvs = append(pvs, pv)
-	// 		}
-	// 	}
-	// }
-
-	// createNamespacedPV(pvLister, client, pvs)
-}
-
-// CreateNamespacedPVWhenBlocked creates pv on resource owner only when admission request is denied
-func CreateNamespacedPVWhenBlocked(pvLister kyvernolister.NamespacedPolicyViolationLister, client *kyvernoclient.Clientset,
-	dclient *dclient.Client, engineResponses []engine.EngineResponse) {
-	// var pvs []kyverno.NamespacedPolicyViolation
-	// for _, er := range engineResponses {
-	// 	// child resource is not created in this case thus it won't have a name
-	// 	glog.V(4).Infof("Building policy violation for denied admission request, engineResponse: %v", er)
-	// 	if pvList := buildNamespacedPVWithOwner(dclient, er); len(pvList) != 0 {
-	// 		pvs = append(pvs, pvList...)
-	// 		glog.V(3).Infof("Built policy violation for denied admission request %s/%s/%s",
-	// 			er.PatchedResource.GetKind(), er.PatchedResource.GetNamespace(), er.PatchedResource.GetName())
-	// 	}
-	// }
-	// createNamespacedPV(pvLister, client, pvs)
-}
 
 func buildNamespacedPV(info Info) kyverno.NamespacedPolicyViolation {
 	return buildNamespacedPVObj(info.PolicyName,
@@ -73,7 +34,7 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 
 	labelMap := map[string]string{
 		"policy":   policy,
-		"resource": strings.Join([]string{resource.Kind, resource.Namespace, resource.Name}, "."),
+		"resource": resource.ToKey(),
 	}
 	pv.SetGenerateName("pv-")
 	pv.SetLabels(labelMap)

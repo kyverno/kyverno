@@ -94,7 +94,7 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 	if labelChanged || controllerRefChanged {
 		ps := pc.getPolicyForNamespacedPolicyViolation(curPV)
 		if len(ps) == 0 {
-			// there is no cluster policy for this violation, so we can delete this cluster policy violation
+			// there is no namespaced policy for this violation, so we can delete this cluster policy violation
 			glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", curPV.Name)
 			if err := pc.pvControl.DeletePolicyViolation(curPV.Name); err != nil {
 				glog.Errorf("Failed to deleted policy violation %s: %v", curPV.Name, err)
