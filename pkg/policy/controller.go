@@ -131,6 +131,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 		DeleteFunc: pc.deletePolicyViolation,
 	})
 
+	pvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addNamespacedPolicyViolation,
+		UpdateFunc: pc.updateNamespacedPolicyViolation,
+		DeleteFunc: pc.deleteNamespacedPolicyViolation,
+	})
+
 	pc.enqueuePolicy = pc.enqueue
 	pc.syncHandler = pc.syncPolicy
 

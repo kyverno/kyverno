@@ -38,8 +38,8 @@ type PolicyViolationListerExpansion interface{}
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.
 type ClusterPolicyListerExpansion interface {
-	// TODO(shuting): change to getpolicyforclusterpolicyviolation?
 	GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error)
+	GetPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) ([]*kyverno.ClusterPolicy, error)
 	ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error)
 }
 
@@ -126,6 +126,44 @@ func (pl *clusterPolicyLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPo
 
 	if len(policies) == 0 {
 		return nil, fmt.Errorf("could not find Policy set for PolicyViolation %s with labels: %v", pv.Name, pv.Labels)
+	}
+
+	return policies, nil
+
+}
+
+func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
+	if len(pv.Labels) == 0 {
+		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
+	}
+
+	pList, err := pl.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var policies []*kyverno.ClusterPolicy
+	for _, p := range pList {
+		policyLabelmap := map[string]string{"policy": p.Name}
+
+		ls := &metav1.LabelSelector{}
+		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(ls)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label selector: %v", err)
+		}
+		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
+		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
+			continue
+		}
+		policies = append(policies, p)
+	}
+
+	if len(policies) == 0 {
+		return nil, fmt.Errorf("could not find Policy set for Namespaced policy Violation %s with labels: %v", pv.Name, pv.Labels)
 	}
 
 	return policies, nil
