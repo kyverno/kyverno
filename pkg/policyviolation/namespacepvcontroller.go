@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	backoff "github.com/cenkalti/backoff"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -20,47 +21,37 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
 
-const (
-	// maxRetries is the number of times a PolicyViolation will be retried before it is dropped out of the queue.
-	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the times
-	// a deployment is going to be requeued:
-	//
-	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
-	maxRetries = 15
-)
-
-var controllerKind = kyverno.SchemeGroupVersion.WithKind("ClusterPolicyViolation")
+var nspvcontrollerKind = kyverno.SchemeGroupVersion.WithKind("NamespacedPolicyViolation")
 
 // PolicyViolationController manages the policy violation resource
 // - sync the lastupdate time
 // - check if the resource is active
-type PolicyViolationController struct {
+type NamespacedPolicyViolationController struct {
 	client                 *client.Client
 	kyvernoClient          *kyvernoclient.Clientset
 	eventRecorder          record.EventRecorder
 	syncHandler            func(pKey string) error
-	enqueuePolicyViolation func(policy *kyverno.ClusterPolicyViolation)
+	enqueuePolicyViolation func(policy *kyverno.NamespacedPolicyViolation)
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
-	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.ClusterPolicyViolationLister
+	// nspvLister can list/get policy violation from the shared informer's store
+	nspvLister kyvernolister.NamespacedPolicyViolationLister
 	// pLister can list/get policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 	// pvListerSynced retrns true if the Policy store has been synced at least once
-	pvListerSynced cache.InformerSynced
+	nspvListerSynced cache.InformerSynced
 	//pvControl is used for updating status/cleanup policy violation
-	pvControl PVControlInterface
+	pvControl NamespacedPVControlInterface
 }
 
 //NewPolicyViolationController creates a new NewPolicyViolationController
-func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.ClusterPolicyViolationInformer) (*PolicyViolationController, error) {
+func NewNamespacedPolicyViolationController(client *client.Client, kyvernoClient *kyvernoclient.Clientset, pInformer kyvernoinformer.ClusterPolicyInformer, pvInformer kyvernoinformer.NamespacedPolicyViolationInformer) (*NamespacedPolicyViolationController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -70,13 +61,13 @@ func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoc
 	}
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
-	pvc := PolicyViolationController{
+	pvc := NamespacedPolicyViolationController{
 		kyvernoClient: kyvernoClient,
 		client:        client,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policyviolation_controller"}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policyviolation"),
+		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "ns_policyviolation_controller"}),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ns_policyviolation"),
 	}
-	pvc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pvc.eventRecorder}
+	pvc.pvControl = RealNamespacedPVControl{Client: kyvernoClient, Recorder: pvc.eventRecorder}
 	pvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pvc.addPolicyViolation,
 		UpdateFunc: pvc.updatePolicyViolation,
@@ -87,48 +78,48 @@ func NewPolicyViolationController(client *client.Client, kyvernoClient *kyvernoc
 	pvc.syncHandler = pvc.syncPolicyViolation
 
 	pvc.pLister = pInformer.Lister()
-	pvc.pvLister = pvInformer.Lister()
+	pvc.nspvLister = pvInformer.Lister()
 	pvc.pListerSynced = pInformer.Informer().HasSynced
-	pvc.pvListerSynced = pvInformer.Informer().HasSynced
+	pvc.nspvListerSynced = pvInformer.Informer().HasSynced
 
 	return &pvc, nil
 }
 
-func (pvc *PolicyViolationController) addPolicyViolation(obj interface{}) {
-	pv := obj.(*kyverno.ClusterPolicyViolation)
-	glog.V(4).Infof("Adding PolicyViolation %s", pv.Name)
+func (pvc *NamespacedPolicyViolationController) addPolicyViolation(obj interface{}) {
+	pv := obj.(*kyverno.NamespacedPolicyViolation)
+	glog.V(4).Infof("Adding Namespaced Policy Violation %s", pv.Name)
 	pvc.enqueuePolicyViolation(pv)
 }
 
-func (pvc *PolicyViolationController) updatePolicyViolation(old, cur interface{}) {
-	oldPv := old.(*kyverno.ClusterPolicyViolation)
-	curPv := cur.(*kyverno.ClusterPolicyViolation)
-	glog.V(4).Infof("Updating Policy Violation %s", oldPv.Name)
+func (pvc *NamespacedPolicyViolationController) updatePolicyViolation(old, cur interface{}) {
+	oldPv := old.(*kyverno.NamespacedPolicyViolation)
+	curPv := cur.(*kyverno.NamespacedPolicyViolation)
+	glog.V(4).Infof("Updating Namespaced Policy Violation %s", oldPv.Name)
 	if err := pvc.syncLastUpdateTimeStatus(curPv, oldPv); err != nil {
-		glog.Errorf("Failed to update lastUpdateTime in PolicyViolation %s status: %v", curPv.Name, err)
+		glog.Errorf("Failed to update lastUpdateTime in NamespacedPolicyViolation %s status: %v", curPv.Name, err)
 	}
 	pvc.enqueuePolicyViolation(curPv)
 }
 
-func (pvc *PolicyViolationController) deletePolicyViolation(obj interface{}) {
-	pv, ok := obj.(*kyverno.ClusterPolicyViolation)
+func (pvc *NamespacedPolicyViolationController) deletePolicyViolation(obj interface{}) {
+	pv, ok := obj.(*kyverno.NamespacedPolicyViolation)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		pv, ok = tombstone.Obj.(*kyverno.ClusterPolicyViolation)
+		pv, ok = tombstone.Obj.(*kyverno.NamespacedPolicyViolation)
 		if !ok {
-			glog.Info(fmt.Errorf("Tombstone contained object that is not a PolicyViolation %#v", obj))
+			glog.Info(fmt.Errorf("Tombstone contained object that is not a NamespacedPolicyViolation %#v", obj))
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting PolicyViolation %s", pv.Name)
+	glog.V(4).Infof("Deleting NamespacedPolicyViolation %s", pv.Name)
 	pvc.enqueuePolicyViolation(pv)
 }
 
-func (pvc *PolicyViolationController) enqueue(policyViolation *kyverno.ClusterPolicyViolation) {
+func (pvc *NamespacedPolicyViolationController) enqueue(policyViolation *kyverno.NamespacedPolicyViolation) {
 	key, err := cache.MetaNamespaceKeyFunc(policyViolation)
 	if err != nil {
 		glog.Error(err)
@@ -138,15 +129,15 @@ func (pvc *PolicyViolationController) enqueue(policyViolation *kyverno.ClusterPo
 }
 
 // Run begins watching and syncing.
-func (pvc *PolicyViolationController) Run(workers int, stopCh <-chan struct{}) {
+func (pvc *NamespacedPolicyViolationController) Run(workers int, stopCh <-chan struct{}) {
 
 	defer utilruntime.HandleCrash()
 	defer pvc.queue.ShutDown()
 
-	glog.Info("Starting policyviolation controller")
-	defer glog.Info("Shutting down policyviolation controller")
+	glog.Info("Starting Namespaced policyviolation controller")
+	defer glog.Info("Shutting down Namespaced policyviolation controller")
 
-	if !cache.WaitForCacheSync(stopCh, pvc.pListerSynced, pvc.pvListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pvc.pListerSynced, pvc.nspvListerSynced) {
 		return
 	}
 	for i := 0; i < workers; i++ {
@@ -157,12 +148,12 @@ func (pvc *PolicyViolationController) Run(workers int, stopCh <-chan struct{}) {
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
-func (pvc *PolicyViolationController) worker() {
+func (pvc *NamespacedPolicyViolationController) worker() {
 	for pvc.processNextWorkItem() {
 	}
 }
 
-func (pvc *PolicyViolationController) processNextWorkItem() bool {
+func (pvc *NamespacedPolicyViolationController) processNextWorkItem() bool {
 	key, quit := pvc.queue.Get()
 	if quit {
 		return false
@@ -175,7 +166,7 @@ func (pvc *PolicyViolationController) processNextWorkItem() bool {
 	return true
 }
 
-func (pvc *PolicyViolationController) handleErr(err error, key interface{}) {
+func (pvc *NamespacedPolicyViolationController) handleErr(err error, key interface{}) {
 	if err == nil {
 		pvc.queue.Forget(key)
 		return
@@ -192,13 +183,20 @@ func (pvc *PolicyViolationController) handleErr(err error, key interface{}) {
 	pvc.queue.Forget(key)
 }
 
-func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
+func (pvc *NamespacedPolicyViolationController) syncPolicyViolation(key string) error {
 	startTime := time.Now()
 	glog.V(4).Infof("Started syncing policy violation %q (%v)", key, startTime)
 	defer func() {
 		glog.V(4).Infof("Finished syncing policy violation %q (%v)", key, time.Since(startTime))
 	}()
-	policyViolation, err := pvc.pvLister.Get(key)
+
+	// tags: NAMESPACE/NAME
+	tags := strings.Split(key, "/")
+	if len(tags) != 2 {
+		return fmt.Errorf("error sync namespaced policy violation key %v", key)
+	}
+
+	policyViolation, err := pvc.nspvLister.NamespacedPolicyViolations(tags[0]).Get(tags[1])
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("PolicyViolation %v has been deleted", key)
 		return nil
@@ -224,17 +222,17 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	return pvc.syncStatusOnly(pv)
 }
 
-func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterPolicyViolation) error {
+func (pvc *NamespacedPolicyViolationController) syncActiveResource(curPv *kyverno.NamespacedPolicyViolation) error {
 	// check if the resource is active or not ?
 	rspec := curPv.Spec.ResourceSpec
 	// get resource
-	_, err := pvc.client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+	err := retryGetResource(pvc.client, rspec)
 	if errors.IsNotFound(err) {
 		// TODO: does it help to retry?
 		// resource is not found
 		// remove the violation
 
-		if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
+		if err := pvc.pvControl.RemovePolicyViolation(curPv.Namespace, curPv.Name); err != nil {
 			glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
 			return err
 		}
@@ -257,7 +255,7 @@ func (pvc *PolicyViolationController) syncActiveResource(curPv *kyverno.ClusterP
 
 // syncBlockedResource remove inactive policy violation
 // when rejected resource created in the cluster
-func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.ClusterPolicyViolation) error {
+func (pvc *NamespacedPolicyViolationController) syncBlockedResource(curPv *kyverno.NamespacedPolicyViolation) error {
 	for _, violatedRule := range curPv.Spec.ViolatedRules {
 		if reflect.DeepEqual(violatedRule.ManagedResource, kyverno.ManagedResourceSpec{}) {
 			continue
@@ -282,7 +280,7 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 				}
 
 				// resource created, remove policy violation
-				if err := pvc.pvControl.RemovePolicyViolation(curPv.Name); err != nil {
+				if err := pvc.pvControl.RemovePolicyViolation(curPv.Namespace, curPv.Name); err != nil {
 					glog.Infof("unable to delete the policy violation %s: %v", curPv.Name, err)
 					return err
 				}
@@ -296,7 +294,7 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 
 //syncStatusOnly updates the policyviolation status subresource
 // status:
-func (pvc *PolicyViolationController) syncStatusOnly(curPv *kyverno.ClusterPolicyViolation) error {
+func (pvc *NamespacedPolicyViolationController) syncStatusOnly(curPv *kyverno.NamespacedPolicyViolation) error {
 	// newStatus := calculateStatus(pv)
 	return nil
 }
@@ -304,9 +302,9 @@ func (pvc *PolicyViolationController) syncStatusOnly(curPv *kyverno.ClusterPolic
 //TODO: think this through again
 //syncLastUpdateTimeStatus updates the policyviolation lastUpdateTime if anything in ViolationSpec changed
 // 		- lastUpdateTime : (time stamp when the policy violation changed)
-func (pvc *PolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.ClusterPolicyViolation, oldPv *kyverno.ClusterPolicyViolation) error {
+func (pvc *NamespacedPolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.NamespacedPolicyViolation, oldPv *kyverno.NamespacedPolicyViolation) error {
 	// check if there is any change in policy violation information
-	if !updated(curPv, oldPv) {
+	if !updatedNamespaced(curPv, oldPv) {
 		return nil
 	}
 	// update the lastUpdateTime
@@ -316,29 +314,56 @@ func (pvc *PolicyViolationController) syncLastUpdateTimeStatus(curPv *kyverno.Cl
 	return pvc.pvControl.UpdateStatusPolicyViolation(newPolicyViolation)
 }
 
-func updated(curPv *kyverno.ClusterPolicyViolation, oldPv *kyverno.ClusterPolicyViolation) bool {
+func updatedNamespaced(curPv *kyverno.NamespacedPolicyViolation, oldPv *kyverno.NamespacedPolicyViolation) bool {
 	return !reflect.DeepEqual(curPv.Spec, oldPv.Spec)
 	//TODO check if owner reference changed, then should we update the lastUpdateTime as well ?
 }
 
-type PVControlInterface interface {
-	UpdateStatusPolicyViolation(newPv *kyverno.ClusterPolicyViolation) error
-	RemovePolicyViolation(name string) error
+type NamespacedPVControlInterface interface {
+	UpdateStatusPolicyViolation(newPv *kyverno.NamespacedPolicyViolation) error
+	RemovePolicyViolation(ns, name string) error
 }
 
-// RealPVControl is the default implementation of PVControlInterface.
-type RealPVControl struct {
+// RealNamespacedPVControl is the default implementation of NamespacedPVControlInterface.
+type RealNamespacedPVControl struct {
 	Client   kyvernoclient.Interface
 	Recorder record.EventRecorder
 }
 
 //UpdateStatusPolicyViolation updates the status for policy violation
-func (r RealPVControl) UpdateStatusPolicyViolation(newPv *kyverno.ClusterPolicyViolation) error {
-	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().UpdateStatus(newPv)
+func (r RealNamespacedPVControl) UpdateStatusPolicyViolation(newPv *kyverno.NamespacedPolicyViolation) error {
+	_, err := r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(newPv.Namespace).UpdateStatus(newPv)
 	return err
 }
 
 //RemovePolicyViolation removes the policy violation
-func (r RealPVControl) RemovePolicyViolation(name string) error {
-	return r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
+func (r RealNamespacedPVControl) RemovePolicyViolation(ns, name string) error {
+	return r.Client.KyvernoV1alpha1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+}
+
+func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) error {
+	var i int
+	getResource := func() error {
+		_, err := client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+		glog.V(5).Infof("retry %v getting %s/%s/%s", i, rspec.Kind, rspec.Namespace, rspec.Name)
+		i++
+		return err
+	}
+
+	exbackoff := &backoff.ExponentialBackOff{
+		InitialInterval:     500 * time.Millisecond,
+		RandomizationFactor: 0.5,
+		Multiplier:          1.5,
+		MaxInterval:         time.Second,
+		MaxElapsedTime:      3 * time.Second,
+		Clock:               backoff.SystemClock,
+	}
+
+	exbackoff.Reset()
+	err := backoff.Retry(getResource, exbackoff)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
