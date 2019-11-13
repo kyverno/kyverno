@@ -43,10 +43,11 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 
 func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyverno.NamespacedPolicyViolation) {
 	// create violation on resource owner (if exist) when action is set to enforce
-	owners := getOwnersOld(dclient, info.Resource)
+	ownerMap := map[kyverno.ResourceSpec]interface{}{}
+	getOwner(dclient, ownerMap, info.Resource)
 
 	// standaloneresource, set pvResourceSpec with resource itself
-	if len(owners) == 0 {
+	if len(ownerMap) == 0 {
 		pvResourceSpec := kyverno.ResourceSpec{
 			Namespace: info.Resource.GetNamespace(),
 			Kind:      info.Resource.GetKind(),
@@ -55,7 +56,7 @@ func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyver
 		return append(pvs, buildNamespacedPVObj(info.PolicyName, pvResourceSpec, info.Rules))
 	}
 
-	for _, owner := range owners {
+	for owner := range ownerMap {
 		pvs = append(pvs, buildNamespacedPVObj(info.PolicyName, owner, info.Rules))
 	}
 	return

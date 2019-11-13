@@ -93,6 +93,7 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, pvResourceSpec k
 		return false
 	}
 
+	// TODO(shuting): replace typed client AppsV1Interface
 	expectReplicaset, err := deployutil.GetNewReplicaSet(deploy, client)
 	if err != nil {
 		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)

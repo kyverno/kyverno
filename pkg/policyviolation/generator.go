@@ -324,6 +324,12 @@ func buildPVObj(policyName string, resourceSpec kyverno.ResourceSpec, rules []ky
 			ViolatedRules: rules,
 		},
 	}
+
+	labelMap := map[string]string{
+		"policy":   policyName,
+		"resource": resourceSpec.ToKey(),
+	}
+	pv.SetLabels(labelMap)
 	pv.SetGenerateName("pv-")
 	return pv
 }
@@ -334,6 +340,17 @@ func buildPVWithOwners(dclient *client.Client, info Info) []kyverno.ClusterPolic
 	// as its blocked resource, the violation is created on owner
 	ownerMap := map[kyverno.ResourceSpec]interface{}{}
 	getOwner(dclient, ownerMap, info.Resource)
+
+	// standaloneresource, set pvResourceSpec with resource itself
+	if len(ownerMap) == 0 {
+		pvResourceSpec := kyverno.ResourceSpec{
+			Namespace: info.Resource.GetNamespace(),
+			Kind:      info.Resource.GetKind(),
+			Name:      info.Resource.GetName(),
+		}
+		return append(pvs, buildPVObj(info.PolicyName, pvResourceSpec, info.Rules))
+	}
+
 	// Generate owner on all owners
 	for owner := range ownerMap {
 		pv := buildPVObj(info.PolicyName, owner, info.Rules)
