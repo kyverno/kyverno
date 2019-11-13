@@ -57,11 +57,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 		return true, nil, ""
 	}
 
-	//TODO: check if resource gvk is available in raw resource,
-	//TODO: check if the name and namespace is also passed right in the resource?
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-
 	var engineResponses []engine.EngineResponse
 	policyContext := engine.PolicyContext{
 		NewResource: *resource,

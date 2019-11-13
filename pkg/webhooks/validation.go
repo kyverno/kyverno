@@ -66,12 +66,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			ClusterRoles:      clusterRoles,
 			AdmissionUserInfo: request.UserInfo},
 	}
-
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			newR.GetKind(), newR.GetNamespace(), newR.GetName(), request.UID, request.Operation)
-
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, engine.EngineResponse{}) {
@@ -87,7 +85,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			continue
 		}
 	}
-	glog.V(4).Infof("eval: %v %s/%s/%s %v", time.Since(evalTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
+	glog.V(4).Infof("eval: %v %s/%s/%s ", time.Since(evalTime), request.Kind, request.Namespace, request.Name)
 	// report time
 	reportTime := time.Now()
 	// ADD EVENTS
@@ -114,6 +112,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)
 	// report time end
-	glog.V(4).Infof("report: %v %s/%s/%s %v", time.Since(reportTime), request.Kind, request.Namespace, request.Name, toBlockResource(engineResponses))
+	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
 	return true, ""
 }
