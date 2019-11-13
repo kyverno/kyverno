@@ -93,11 +93,12 @@ type GeneratorInterface interface {
 }
 
 // NewPVGenerator returns a new instance of policy violation generator
-func NewPVGenerator(client *kyvernoclient.Clientset,
+func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
 	pvLister kyvernolister.ClusterPolicyViolationLister,
 	nspvLister kyvernolister.NamespacedPolicyViolationLister) *Generator {
 	gen := Generator{
 		pvInterface: client.KyvernoV1alpha1(),
+		dclient:     dclient,
 		pvLister:    pvLister,
 		nspvLister:  nspvLister,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
@@ -210,7 +211,10 @@ func (gen *Generator) syncHandler(info Info) error {
 			pvs = buildPVWithOwners(gen.dclient, info)
 		}
 		// create policy violation
-		createPVS(pvs, gen.pvLister, gen.pvInterface)
+		if err := createPVS(gen.dclient, pvs, gen.pvLister, gen.pvInterface); err != nil {
+			return err
+		}
+
 		glog.V(3).Infof("Created cluster policy violation policy=%s, resource=%s/%s/%s",
 			info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 		return nil
@@ -224,19 +228,25 @@ func (gen *Generator) syncHandler(info Info) error {
 		pvs = buildNamespacedPVWithOwner(gen.dclient, info)
 	}
 
-	createNamespacedPV(gen.nspvLister, gen.pvInterface, pvs)
+	if err := createNamespacedPV(gen.dclient, gen.nspvLister, gen.pvInterface, pvs); err != nil {
+		return err
+	}
+
 	glog.V(3).Infof("Created namespaced policy violation policy=%s, resource=%s/%s/%s",
 		info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 	return nil
 }
 
-func createPVS(pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) {
+func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
 	for _, pv := range pvs {
-		createPVNew(pv, pvLister, pvInterface)
+		if err := createPVNew(dclient, pv, pvLister, pvInterface); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
+func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1alpha1.KyvernoV1alpha1Interface) error {
 	var err error
 	// PV already exists
 	ePV, err := getExistingPVIfAny(pvLister, pv)
@@ -247,6 +257,11 @@ func createPVNew(pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.Clust
 	if ePV == nil {
 		// Create a New PV
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", pv.Spec.Policy, pv.Spec.ResourceSpec.Kind, pv.Spec.ResourceSpec.Namespace, pv.Spec.ResourceSpec.Name)
+		err := retryGetResource(dclient, pv.Spec.ResourceSpec)
+		if err != nil {
+			return err
+		}
+
 		_, err = pvInterface.ClusterPolicyViolations().Create(&pv)
 		if err != nil {
 			glog.Error(err)

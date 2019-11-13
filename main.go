@@ -106,7 +106,7 @@ func main() {
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations().Lister())
+	pvgen := policyviolation.NewPVGenerator(pclient, client, pInformer.Kyverno().V1alpha1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations().Lister())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation

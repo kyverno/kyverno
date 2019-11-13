@@ -226,7 +226,7 @@ func (pvc *NamespacedPolicyViolationController) syncActiveResource(curPv *kyvern
 	// check if the resource is active or not ?
 	rspec := curPv.Spec.ResourceSpec
 	// get resource
-	err := retryGetResource(pvc.client, rspec)
+	_, err := pvc.client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
 	if errors.IsNotFound(err) {
 		// TODO: does it help to retry?
 		// resource is not found
