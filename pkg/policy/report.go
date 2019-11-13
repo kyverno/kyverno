@@ -9,20 +9,24 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (pc *PolicyController) report(engineResponses []engine.EngineResponse) {
-	// generate events
-	// generate policy violations
-	for _, policyInfo := range engineResponses {
-		// events
-		// success - policy applied on resource
-		// failure - policy/rule failed to apply on the resource
-		reportEvents(policyInfo, pc.eventGen)
-		// policy violations
-		// failure - policy/rule failed to apply on the resource
+// for each policy-resource response
+// - has violation -> report
+// - no violation -> cleanup policy violations(resource or resource owner)
+func (pc *PolicyController) cleanupAndReport(engineResponses []engine.EngineResponse) {
+	for _, eResponse := range engineResponses {
+		if !eResponse.IsSuccesful() {
+			// failure - policy/rule failed to apply on the resource
+			reportEvents(eResponse, pc.eventGen)
+			// generate policy violation
+			// Only created on resource, not resource owners
+			policyviolation.CreatePV(pc.pvLister, pc.kyvernoClient, engineResponses)
+		} else {
+			// cleanup existing violations if any
+			// if there is any error in clean up, we dont re-queue the resource
+			// it will be re-tried in the next controller cache resync
+			pc.cleanUpPolicyViolation(eResponse.PolicyResponse)
+		}
 	}
-
-	// generate policy violation
-	policyviolation.CreatePV(pc.pvLister, pc.kyvernoClient, engineResponses)
 }
 
 //reportEvents generates events for the failed resources

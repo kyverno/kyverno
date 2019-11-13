@@ -133,7 +133,7 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 	violatedRules := newViolatedRules(er, msg)
 
 	// create violation on resource owner (if exist) when action is set to enforce
-	owners := getOwners(dclient, er.PatchedResource)
+	owners := GetOwners(dclient, er.PatchedResource)
 
 	// standaloneresource, set pvResourceSpec with resource itself
 	if len(owners) == 0 {
@@ -146,13 +146,7 @@ func buildPVWithOwner(dclient *dclient.Client, er engine.EngineResponse) (pvs []
 	}
 
 	for _, owner := range owners {
-		// resource has owner, set pvResourceSpec with owner info
-		pvResourceSpec := kyverno.ResourceSpec{
-			Namespace: owner.namespace,
-			Kind:      owner.kind,
-			Name:      owner.name,
-		}
-		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, pvResourceSpec, violatedRules))
+		pvs = append(pvs, BuildPolicyViolation(er.PolicyResponse.Policy, owner, violatedRules))
 	}
 	return
 }
@@ -208,32 +202,18 @@ func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) 
 	return policyViolationSelector, nil
 }
 
-type pvResourceOwner struct {
-	kind      string
-	namespace string
-	name      string
-}
-
-func (o pvResourceOwner) toKey() string {
-	if o.namespace == "" {
-		return o.kind + "." + o.name
-	}
-	return o.kind + "." + o.namespace + "." + o.name
-}
-
-// pass in unstr rather than using the client to get the unstr
+//GetOwners pass in unstr rather than using the client to get the unstr
 // as if name is empty then GetResource panic as it returns a list
-func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvResourceOwner {
+func GetOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
 	resourceOwners := unstr.GetOwnerReferences()
 	if len(resourceOwners) == 0 {
-		return []pvResourceOwner{pvResourceOwner{
-			kind:      unstr.GetKind(),
-			namespace: unstr.GetNamespace(),
-			name:      unstr.GetName(),
+		return []kyverno.ResourceSpec{kyverno.ResourceSpec{
+			Kind:      unstr.GetKind(),
+			Namespace: unstr.GetNamespace(),
+			Name:      unstr.GetName(),
 		}}
 	}
-
-	var owners []pvResourceOwner
+	var owners []kyverno.ResourceSpec
 	for _, resourceOwner := range resourceOwners {
 		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
 		if err != nil {
@@ -241,7 +221,7 @@ func getOwners(dclient *dclient.Client, unstr unstructured.Unstructured) []pvRes
 			return nil
 		}
 
-		owners = append(owners, getOwners(dclient, *unstrParent)...)
+		owners = append(owners, GetOwners(dclient, *unstrParent)...)
 	}
 	return owners
 }
@@ -274,11 +254,11 @@ func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyv
 	return
 }
 
-func containsOwner(owners []pvResourceOwner, pv *kyverno.ClusterPolicyViolation) bool {
-	curOwner := pvResourceOwner{
-		kind:      pv.Spec.ResourceSpec.Kind,
-		name:      pv.Spec.ResourceSpec.Name,
-		namespace: pv.Spec.ResourceSpec.Namespace,
+func containsOwner(owners []kyverno.ResourceSpec, pv *kyverno.ClusterPolicyViolation) bool {
+	curOwner := kyverno.ResourceSpec{
+		Kind:      pv.Spec.ResourceSpec.Kind,
+		Namespace: pv.Spec.ResourceSpec.Namespace,
+		Name:      pv.Spec.ResourceSpec.Name,
 	}
 
 	for _, targetOwner := range owners {
@@ -301,26 +281,26 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.Cl
 		return false
 	}
 
-	owner := pvResourceOwner{
-		kind:      curPv.Spec.ResourceSpec.Kind,
-		namespace: curPv.Spec.ResourceSpec.Namespace,
-		name:      curPv.Spec.ResourceSpec.Name,
+	owner := kyverno.ResourceSpec{
+		Kind:      curPv.Spec.ResourceSpec.Kind,
+		Namespace: curPv.Spec.ResourceSpec.Namespace,
+		Name:      curPv.Spec.ResourceSpec.Name,
 	}
 
-	deploy, err := client.Deployments(owner.namespace).Get(owner.name, metav1.GetOptions{})
+	deploy, err := client.Deployments(owner.Namespace).Get(owner.Name, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		glog.Errorf("failed to get resourceOwner deployment %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)
 		return false
 	}
 
 	expectReplicaset, err := deployutil.GetNewReplicaSet(deploy, client)
 	if err != nil {
-		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.kind, owner.namespace, owner.name, err)
+		glog.Errorf("failed to get replicaset owned by %s/%s/%s: %v", owner.Kind, owner.Namespace, owner.Name, err)
 		return false
 	}
 
 	if reflect.DeepEqual(expectReplicaset, v1.ReplicaSet{}) {
-		glog.V(2).Infof("no replicaset found for deploy %s/%s/%s", owner.namespace, owner.kind, owner.name)
+		glog.V(2).Infof("no replicaset found for deploy %s/%s/%s", owner.Namespace, owner.Kind, owner.Name)
 		return false
 	}
 	var actualReplicaset *v1.ReplicaSet
