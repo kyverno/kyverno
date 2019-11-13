@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -14,7 +15,8 @@ import (
 // handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, patchedResource []byte) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
+	policies []v1alpha1.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -71,22 +73,19 @@ func (ws *WebhookServer) handleValidation(request *v1beta1.AdmissionRequest, pat
 	// resource namespace is empty for the first CREATE operation
 	resource.SetNamespace(request.Namespace)
 
-	// lookup policies based on operation,kind, namespace
-	policies, err := ws.pMetaStore.LookUp(resource.GetKind(), resource.GetNamespace())
-	if err != nil {
-		//TODO check if the CRD is created ?
-		// Unable to connect to policy Lister to access policies
-		glog.Error("Unable to connect to policy controller to access policies. Validation Rules are NOT being applied")
-		glog.Warning(err)
-		return true, ""
+	policyContext := engine.PolicyContext{
+		Resource: *resource,
+		AdmissionInfo: engine.RequestInfo{
+			Roles:             roles,
+			ClusterRoles:      clusterRoles,
+			AdmissionUserInfo: request.UserInfo},
 	}
-
 	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
-
-		engineResponse := engine.Validate(policy, *resource)
+		policyContext.Policy = policy
+		engineResponse := engine.Validate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)

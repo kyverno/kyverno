@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -10,7 +11,8 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest,
+	policies []v1alpha1.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -56,26 +58,23 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 		return true, nil, ""
 	}
 
-	//TODO: check if resource gvk is available in raw resource,
-	//TODO: check if the name and namespace is also passed right in the resource?
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	// lookup policies based on operation,kind, namespace
-	policies, err := ws.pMetaStore.LookUp(resource.GetKind(), resource.GetNamespace())
-	if err != nil {
-		//TODO check if the CRD is created ?
-		// Unable to connect to policy Lister to access policies
-		glog.Errorln("Unable to connect to policy controller to access policies. Mutation Rules are NOT being applied")
-		glog.Warning(err)
-		return true, nil, ""
-	}
 	var engineResponses []engine.EngineResponse
-	for _, policy := range policies {
+	policyContext := engine.PolicyContext{
+		Resource: *resource,
+		AdmissionInfo: engine.RequestInfo{
+			Roles:             roles,
+			ClusterRoles:      clusterRoles,
+			AdmissionUserInfo: request.UserInfo},
+	}
 
+	for _, policy := range policies {
+		policyContext.Policy = policy
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		// TODO: this can be
-		engineResponse := engine.Mutate(policy, *resource)
+		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -89,7 +88,7 @@ func (ws *WebhookServer) handleMutation(request *v1beta1.AdmissionRequest) (bool
 	}
 
 	// generate annotations
-	if annPatches := generateAnnotationPatches(resource.GetAnnotations(), engineResponses); annPatches != nil {
+	if annPatches := generateAnnotationPatches(engineResponses); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
 

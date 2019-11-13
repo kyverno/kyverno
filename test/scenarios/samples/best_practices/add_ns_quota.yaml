@@ -1,0 +1,21 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/add_ns_quota.yaml
+  resource: test/resources/require_namespace_quota.yaml
+expected:
+  generation:
+    generatedResources:
+      - name: default-resourcequota
+        kind: ResourceQuota
+        namespace: test-namespace-quota
+    policyresponse:
+      policy: add-ns-quota
+      resource:
+        kind: Namespace
+        apiVersion: v1
+        namespace: ''
+        name: test-namespace-quota
+      rules:
+        - name: generate-resourcequota
+          type: Generation
+          success: true

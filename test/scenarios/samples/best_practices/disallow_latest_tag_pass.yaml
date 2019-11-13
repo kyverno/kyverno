@@ -1,0 +1,20 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_latest_tag.yaml
+  resource: test/resources/pod_with_version_tag.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-latest-tag
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: require-image-tag
+          type: Validation
+          success: true    
+        - name: validate-image-tag
+          type: Validation
+          success: true  

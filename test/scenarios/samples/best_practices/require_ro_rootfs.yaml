@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/require_ro_rootfs.yaml
+  resource: test/resources/require_readonly_rootfilesystem.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: require-ro-rootfs
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "ghost-with-readonly-rootfilesystem"
+      rules:
+        - name: validate-readOnlyRootFilesystem
+          type: Validation
+          success: false

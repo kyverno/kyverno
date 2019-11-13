@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: add-ns-quota
+  annotations:
+    policies.kyverno.io/category: Workload Isolation
+    policies.kyverno.io/description: To limit the number of objects, as well as the 
+      total amount of compute that may be consumed by a single namespace, create 
+      a default resource quota for each namespace.
+spec:
+  rules:
+  - name: generate-resourcequota
+    match:
+      resources:
+        kinds:
+        - Namespace
+    generate:
+      kind: ResourceQuota
+      name: "default-resourcequota"
+      data:
+        spec:
+          hard:
+            requests.cpu: '4'
+            requests.memory: '16Gi'
+            limits.cpu: '4'
+            limits.memory: '16Gi'

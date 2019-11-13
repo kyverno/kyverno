@@ -1,0 +1,18 @@
+
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_sysctls.yaml
+  resource: test/resources/resource_validate_sysctl_configs.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-sysctls
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: nginx
+      rules:
+        - name: validate-sysctls
+          type: Validation
+          success: false

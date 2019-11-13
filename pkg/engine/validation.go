@@ -16,8 +16,11 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (response EngineResponse) {
+func Validate(policyContext PolicyContext) (response EngineResponse) {
 	startTime := time.Now()
+	policy := policyContext.Policy
+	resource := policyContext.Resource
+
 	// policy information
 	func() {
 		// set policy information
@@ -45,6 +48,15 @@ func Validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) 
 		if !rule.HasValidate() {
 			continue
 		}
+
+		startTime := time.Now()
+		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
+			continue
+		}
+		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
+
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
