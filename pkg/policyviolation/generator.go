@@ -1,6 +1,7 @@
 package policyviolation
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -252,20 +253,20 @@ func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLi
 	ePV, err := getExistingPVIfAny(pvLister, pv)
 	if err != nil {
 		glog.Error(err)
-		return err
+		return fmt.Errorf("failed to get existing pv on resource '%s': %v", pv.Spec.ResourceSpec.ToKey(), err)
 	}
 	if ePV == nil {
 		// Create a New PV
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", pv.Spec.Policy, pv.Spec.ResourceSpec.Kind, pv.Spec.ResourceSpec.Namespace, pv.Spec.ResourceSpec.Name)
 		err := retryGetResource(dclient, pv.Spec.ResourceSpec)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", pv.Name, pv.Spec.Policy, err)
 		}
 
 		_, err = pvInterface.ClusterPolicyViolations().Create(&pv)
 		if err != nil {
 			glog.Error(err)
-			return err
+			return fmt.Errorf("failed to create cluster policy violation: %v", err)
 		}
 		glog.Infof("policy violation created for resource %v", pv.Spec.ResourceSpec)
 		return nil
@@ -276,10 +277,11 @@ func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLi
 		return nil
 	}
 
+	pv.SetName(ePV.Name)
 	_, err = pvInterface.ClusterPolicyViolations().Update(&pv)
 	if err != nil {
 		glog.Error(err)
-		return err
+		return fmt.Errorf("failed to update cluster polciy violation: %v", err)
 	}
 	glog.Infof("policy violation updated for resource %v", pv.Spec.ResourceSpec)
 	return nil
