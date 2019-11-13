@@ -275,3 +275,7 @@ func (fk *FakeLister) GetPolicyForPolicyViolation(pv *v1alpha1.ClusterPolicyViol
 func (fk *FakeLister) ListResources(selector labels.Selector) (ret []*v1alpha1.ClusterPolicy, err error) {
 	return nil, nil
 }
+
+func (fk *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *v1alpha1.NamespacedPolicyViolation) ([]*v1alpha1.ClusterPolicy, error) {
+	return nil, nil
+}
