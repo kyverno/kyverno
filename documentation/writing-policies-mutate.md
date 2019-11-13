@@ -23,7 +23,7 @@ With Kyverno, the add and replace have the same behavior i.e. both operations wi
 This patch adds an init container to all deployments.
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy-v1
@@ -47,7 +47,7 @@ spec :
 Here is the example of a patch that removes a label from the secret:
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy-remove-label
@@ -75,7 +75,7 @@ The overlay cannot be used to delete values in a resource: use **patches** for t
 The following mutation overlay will add (or replace) the memory request and limit to 10Gi for every Pod with a label ```memory: high```:
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy-change-memory-limit
@@ -108,7 +108,7 @@ spec :
 Applying overlays to a list type is fairly straightforward: new items will be added to the list, unless they already exist. For example, the next overlay will add IP "192.168.10.172" to all addresses in all Endpoints:
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: policy-endpoints
@@ -151,7 +151,7 @@ A `conditional anchor` evaluates to `true` if the anchor tag exists and if the v
  For example, this overlay will add or replace the value 6443 for the port field, for all ports with a name value that starts with "secure":
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy-set-port
@@ -181,7 +181,7 @@ An `add anchor` is processed as part of applying the mutation. Typically, every 
 For example, this overlay will set the port to 6443, if a port is not already defined:
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy-set-port

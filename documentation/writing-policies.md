@@ -5,7 +5,7 @@
 A Kyverno policy contains a set of rules. Each rule matches resources by kind, name, or selectors.
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : policy

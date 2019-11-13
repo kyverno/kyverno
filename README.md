@@ -27,7 +27,7 @@ Policy enforcement is captured using Kubernetes events. Kyverno also reports pol
 This policy requires that all pods have CPU and memory resource requests and limits:
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: check-cpu-memory
@@ -61,7 +61,7 @@ spec:
 This policy sets the imagePullPolicy to Always if the image tag is latest:
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: set-image-pull-policy
@@ -89,7 +89,7 @@ spec:
 This policy sets the Zookeeper and Kafka connection strings for all namespaces with a label key 'kafka'.
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: "zk-kafka-address"
