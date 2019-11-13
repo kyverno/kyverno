@@ -7,7 +7,7 @@ Kubernetes namespaces are an optional feature that provide a way to segment and 
 [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-default-namespace

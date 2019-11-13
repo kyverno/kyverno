@@ -9,7 +9,7 @@ A default `NetworkPolicy` should be configured for each namespace to default den
 [add_network_policy.yaml](best_practices/add_network_policy.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: add-networkpolicy

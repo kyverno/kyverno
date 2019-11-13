@@ -12,7 +12,7 @@ Although NodePort services can be useful, their use should be limited to service
 
 ````yaml
 
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-node-port

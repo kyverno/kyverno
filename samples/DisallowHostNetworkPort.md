@@ -9,7 +9,7 @@ Using `hostPort` and `hostNetwork` allows pods to share the host networking stac
 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-host-network-port

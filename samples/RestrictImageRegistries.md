@@ -9,7 +9,7 @@ You can customize this policy to allow image registries that you trust.
 [restrict_image_registries.yaml](more/restrict_image_registries.yaml) 
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-image-registries

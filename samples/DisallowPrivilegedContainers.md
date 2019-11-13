@@ -9,7 +9,7 @@ To disallow privileged containers and privilege escalation, run pod containers w
 [disallow_privileged.yaml](best_practices/disallow_privileged.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-privileged

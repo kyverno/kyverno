@@ -8,7 +8,7 @@ The `:latest` tag is mutable and can lead to unexpected errors if the upstream i
 
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag

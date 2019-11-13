@@ -11,7 +11,7 @@ By default, all processes in a container run as the root user (uid 0). To preven
 [disallow_root_user.yaml](best_practices/disallow_root_user.yaml) 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-root-user

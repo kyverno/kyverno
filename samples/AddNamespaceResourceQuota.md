@@ -11,7 +11,7 @@ To limit the number of resources like CPU and memory, as well as objects that ma
 [add_ns_quota.yaml](best_practices/add_ns_quota.yaml) 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: add-ns-quota
