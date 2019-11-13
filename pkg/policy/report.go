@@ -31,7 +31,9 @@ func (pc *PolicyController) cleanUp(ers []engine.EngineResponse) {
 		if !er.IsSuccesful() {
 			continue
 		}
-		// glog.Info(er.PolicyResponse)
+		if len(er.PolicyResponse.Rules) == 0 {
+			continue
+		}
 		// clean up after the policy has been corrected
 		pc.cleanUpPolicyViolation(er.PolicyResponse)
 	}
