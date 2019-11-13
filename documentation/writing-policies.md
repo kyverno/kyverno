@@ -4,7 +4,7 @@
 
 The following picture shows the structure of a Kyverno Policy:
 
-![KyvernoPolicy](documentation/images/Kyverno-Policy-Structure.png)
+![KyvernoPolicy](images/Kyverno-Policy-Structure.png)
 
 Each Kyverno policy contains one or more rules. Each rule has a match clause, an optional excludes clause, and a mutate, validate, or generate clause.
 
