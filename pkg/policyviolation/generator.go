@@ -175,7 +175,7 @@ func (gen *Generator) processNextWorkitem() bool {
 		var ok bool
 		if keyHash, ok = obj.(string); !ok {
 			gen.queue.Forget(obj)
-			glog.Warningf("Expecting type string bt got %v\n", obj)
+			glog.Warningf("Expecting type string but got %v\n", obj)
 			return nil
 		}
 		// lookup data store
@@ -211,6 +211,8 @@ func (gen *Generator) syncHandler(info Info) error {
 		}
 		// create policy violation
 		createPVS(pvs, gen.pvLister, gen.pvInterface)
+		glog.V(3).Infof("Created cluster policy violation policy=%s, resource=%s/%s/%s",
+			info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 		return nil
 	}
 
@@ -223,6 +225,8 @@ func (gen *Generator) syncHandler(info Info) error {
 	}
 
 	createNamespacedPV(gen.nspvLister, gen.pvInterface, pvs)
+	glog.V(3).Infof("Created namespaced policy violation policy=%s, resource=%s/%s/%s",
+		info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 	return nil
 }
 
@@ -321,6 +325,31 @@ func buildPVWithOwners(dclient *client.Client, info Info) []kyverno.ClusterPolic
 		pvs = append(pvs, pv)
 	}
 	return pvs
+}
+
+//getOwners pass in unstr rather than using the client to get the unstr
+// as if name is empty then GetResource panic as it returns a list
+func getOwnersOld(dclient *dclient.Client, unstr unstructured.Unstructured) []kyverno.ResourceSpec {
+	resourceOwners := unstr.GetOwnerReferences()
+	if len(resourceOwners) == 0 {
+		return []kyverno.ResourceSpec{kyverno.ResourceSpec{
+			Kind:      unstr.GetKind(),
+			Namespace: unstr.GetNamespace(),
+			Name:      unstr.GetName(),
+		}}
+	}
+	var owners []kyverno.ResourceSpec
+	for _, resourceOwner := range resourceOwners {
+		// TODO(shuting): when owner is replicaset, the replicaset even not create, too fast
+		unstrParent, err := dclient.GetResource(resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name)
+		if err != nil {
+			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", resourceOwner.Kind, unstr.GetNamespace(), resourceOwner.Name, err)
+			return nil
+		}
+
+		owners = append(owners, GetOwners(dclient, *unstrParent)...)
+	}
+	return owners
 }
 
 // get owners of a resource by iterating over ownerReferences

@@ -257,11 +257,11 @@ func newViolatedRules(er engine.EngineResponse, msg string) (violatedRules []kyv
 	return
 }
 
-func containsOwner(owners []kyverno.ResourceSpec, pv *kyverno.ClusterPolicyViolation) bool {
+func containsOwner(owners []kyverno.ResourceSpec, pvResourceSpec kyverno.ResourceSpec) bool {
 	curOwner := kyverno.ResourceSpec{
-		Kind:      pv.Spec.ResourceSpec.Kind,
-		Namespace: pv.Spec.ResourceSpec.Namespace,
-		Name:      pv.Spec.ResourceSpec.Name,
+		Kind:      pvResourceSpec.Kind,
+		Namespace: pvResourceSpec.Namespace,
+		Name:      pvResourceSpec.Name,
 	}
 
 	for _, targetOwner := range owners {
@@ -274,20 +274,20 @@ func containsOwner(owners []kyverno.ResourceSpec, pv *kyverno.ClusterPolicyViola
 
 // validDependantForDeployment checks if resource (pod) matches the intent of the given deployment
 // explicitly handles deployment-replicaset-pod relationship
-func validDependantForDeployment(client appsv1.AppsV1Interface, curPv kyverno.ClusterPolicyViolation, resource unstructured.Unstructured) bool {
+func validDependantForDeployment(client appsv1.AppsV1Interface, pvResourceSpec kyverno.ResourceSpec, resource unstructured.Unstructured) bool {
 	if resource.GetKind() != "Pod" {
 		return false
 	}
 
 	// only handles deploymeny-replicaset-pod relationship
-	if curPv.Spec.ResourceSpec.Kind != "Deployment" {
+	if pvResourceSpec.Kind != "Deployment" {
 		return false
 	}
 
 	owner := kyverno.ResourceSpec{
-		Kind:      curPv.Spec.ResourceSpec.Kind,
-		Namespace: curPv.Spec.ResourceSpec.Namespace,
-		Name:      curPv.Spec.ResourceSpec.Name,
+		Kind:      pvResourceSpec.Kind,
+		Namespace: pvResourceSpec.Namespace,
+		Name:      pvResourceSpec.Name,
 	}
 
 	deploy, err := client.Deployments(owner.Namespace).Get(owner.Name, metav1.GetOptions{})

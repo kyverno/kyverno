@@ -123,7 +123,12 @@ func main() {
 	// status: lastUpdatTime
 	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().ClusterPolicyViolations())
 	if err != nil {
-		glog.Fatalf("error creating policy violation controller: %v\n", err)
+		glog.Fatalf("error creating cluster policy violation controller: %v\n", err)
+	}
+
+	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(client, pclient, pInformer.Kyverno().V1alpha1().ClusterPolicies(), pInformer.Kyverno().V1alpha1().NamespacedPolicyViolations())
+	if err != nil {
+		glog.Fatalf("error creating namespaced policy violation controller: %v\n", err)
 	}
 
 	// GENERATE CONTROLLER
@@ -163,6 +168,7 @@ func main() {
 	}
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
+	go nspvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
 	go nsc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
