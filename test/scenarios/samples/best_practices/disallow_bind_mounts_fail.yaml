@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_bind_mounts.yaml
+  resource: test/resources/disallow_host_filesystem.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-bind-mounts
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: image-with-hostpath
+      rules:
+        - name: validate-hostPath
+          type: Validation
+          success: false

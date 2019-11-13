@@ -1,0 +1,22 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/add_network_policy.yaml
+  resource: test/resources/require_default_network_policy.yaml
+expected:
+  generation:
+    generatedResources:
+      - name: default-deny-ingress
+        kind: NetworkPolicy
+        namespace: devtest
+    policyresponse:
+      policy: add-networkpolicy
+      resource:
+        kind: Namespace
+        apiVersion: v1
+        namespace: ''
+        name: devtest
+      rules:
+        - name: default-deny-ingress
+          type: Generation
+          success: true
+          message: created resource NetworkPolicy/devtest/default-deny-ingress

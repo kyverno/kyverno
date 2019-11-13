@@ -1,0 +1,20 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_host_network_port.yaml
+  resource: test/resources/disallow_host_network_hostport.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: host-network-port
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "nginx-host-network"
+      rules:
+        - name: validate-host-network
+          type: Validation
+          success: true   
+        - name: validate-host-port
+          type: Validation
+          success: false             

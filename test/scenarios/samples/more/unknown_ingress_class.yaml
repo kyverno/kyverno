@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/more/restrict_ingress_classes.yaml
+  resource: test/resources/ingress-haproxy.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: restrict-ingress-classes
+      resource:
+        kind: Ingress
+        apiVersion: v1
+        namespace: ''
+        name: test-ingress
+      rules:
+        - name: validate-ingress
+          type: Validation
+          success: false
