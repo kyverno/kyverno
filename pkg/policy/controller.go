@@ -546,7 +546,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolic
 		return nil, nil, err
 	}
 
-	canAdoptPVFunc := RecheckDeletionTimestamp(func(ns string) (metav1.Object, error) {
+	canAdoptFunc := RecheckDeletionTimestamp(func() (metav1.Object, error) {
 		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().ClusterPolicies().Get(p.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
@@ -557,7 +557,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolic
 		return fresh, nil
 	})
 
-	cm := NewPolicyViolationControllerRefManager(pc.pvControl, p, policySelector, controllerKind, canAdoptPVFunc)
+	cm := NewPolicyViolationControllerRefManager(pc.pvControl, p, policySelector, controllerKind, canAdoptFunc)
 	claimedPVList, err := cm.claimPolicyViolations(pvList)
 	if err != nil {
 		return nil, nil, err
@@ -570,18 +570,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolic
 		return nil, nil, err
 	}
 
-	canAdoptNSPVFunc := RecheckDeletionTimestamp(func(ns string) (metav1.Object, error) {
-		fresh, err := pc.kyvernoClient.KyvernoV1alpha1().NamespacedPolicyViolations(ns).Get(p.Name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if fresh.UID != p.UID {
-			return nil, fmt.Errorf("original Policy %v is gone: got uid %v, wanted %v", p.Name, fresh.UID, p.UID)
-		}
-		return fresh, nil
-	})
-
-	nscm := NewPolicyViolationControllerRefManager(pc.pvControl, p, policySelector, controllerKind, canAdoptNSPVFunc)
+	nscm := NewPolicyViolationControllerRefManager(pc.pvControl, p, policySelector, controllerKind, canAdoptFunc)
 	claimedNSPVList, err := nscm.claimPolicyViolations(nspvList)
 	if err != nil {
 		return nil, nil, err
@@ -646,8 +635,8 @@ func (m *PolicyViolationControllerRefManager) adoptPolicyViolation(pv interface{
 		pvuid = typedPV.UID
 	}
 
-	if err := m.CanAdopt(ns); err != nil {
-		return fmt.Errorf("can't adopt PolicyViolation %v (%v): %v", pvname, pvuid, err)
+	if err := m.CanAdopt(); err != nil {
+		return fmt.Errorf("can't adopt %T name=%s, namespace=%s (%v): %v", pv, pvname, ns, pvuid, err)
 	}
 	// Note that ValidateOwnerReferences() will reject this patch if another
 	// OwnerReference exists with controller=true.
@@ -778,7 +767,7 @@ func NewPolicyViolationControllerRefManager(
 	controller metav1.Object,
 	selector labels.Selector,
 	controllerKind schema.GroupVersionKind,
-	canAdopt func(ns string) error,
+	canAdopt func() error,
 ) *PolicyViolationControllerRefManager {
 
 	m := PolicyViolationControllerRefManager{
@@ -799,14 +788,14 @@ type BaseControllerRefManager struct {
 	Selector     labels.Selector
 	canAdoptErr  error
 	canAdoptOnce sync.Once
-	CanAdoptFunc func(ns string) error
+	CanAdoptFunc func() error
 }
 
 //CanAdopt ...
-func (m *BaseControllerRefManager) CanAdopt(ns string) error {
+func (m *BaseControllerRefManager) CanAdopt() error {
 	m.canAdoptOnce.Do(func() {
 		if m.CanAdoptFunc != nil {
-			m.canAdoptErr = m.CanAdoptFunc(ns)
+			m.canAdoptErr = m.CanAdoptFunc()
 		}
 	})
 	return m.canAdoptErr
@@ -910,9 +899,9 @@ func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
 //
 // The CanAdopt() function calls getObject() to fetch the latest value,
 // and denies adoption attempts if that object has a non-nil DeletionTimestamp.
-func RecheckDeletionTimestamp(getObject func(ns string) (metav1.Object, error)) func(ns string) error {
-	return func(ns string) error {
-		obj, err := getObject(ns)
+func RecheckDeletionTimestamp(getObject func() (metav1.Object, error)) func() error {
+	return func() error {
+		obj, err := getObject()
 		if err != nil {
 			return fmt.Errorf("can't recheck DeletionTimestamp: %v", err)
 		}
