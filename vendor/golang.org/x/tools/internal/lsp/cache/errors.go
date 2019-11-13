@@ -3,22 +3,22 @@ package cache
 import (
 	"bytes"
 	"context"
-	"go/ast"
 	"go/scanner"
 	"go/token"
 	"go/types"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/lsp/telemetry"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
 	errors "golang.org/x/xerrors"
 )
 
-func sourceError(ctx context.Context, pkg *pkg, e interface{}) (*source.Error, error) {
+func sourceError(ctx context.Context, fset *token.FileSet, pkg *pkg, e interface{}) (*source.Error, error) {
 	var (
 		spn           span.Span
 		err           error
@@ -27,7 +27,6 @@ func sourceError(ctx context.Context, pkg *pkg, e interface{}) (*source.Error, e
 		fixes         []source.SuggestedFix
 		related       []source.RelatedInformation
 	)
-	fset := pkg.view.session.cache.fset
 	switch e := e.(type) {
 	case packages.Error:
 		if e.Pos == "" {
@@ -43,7 +42,8 @@ func sourceError(ctx context.Context, pkg *pkg, e interface{}) (*source.Error, e
 		kind = source.ParseError
 		spn, err = scannerErrorRange(ctx, fset, pkg, e.Pos)
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "no span for scanner.Error pos", err, telemetry.Package.Of(pkg.ID()))
+			spn = span.Parse(e.Pos.String())
 		}
 
 	case scanner.ErrorList:
@@ -55,13 +55,16 @@ func sourceError(ctx context.Context, pkg *pkg, e interface{}) (*source.Error, e
 		kind = source.ParseError
 		spn, err = scannerErrorRange(ctx, fset, pkg, e[0].Pos)
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "no span for scanner.Error pos", err, telemetry.Package.Of(pkg.ID()))
+			spn = span.Parse(e[0].Pos.String())
 		}
-
 	case types.Error:
 		msg = e.Msg
 		kind = source.TypeError
 		spn, err = typeErrorRange(ctx, fset, pkg, e.Pos)
+		if err != nil {
+			return nil, err
+		}
 
 	case *analysis.Diagnostic:
 		spn, err = span.NewRange(fset, e.Pos, e.End).Span()
@@ -160,27 +163,21 @@ func typeErrorRange(ctx context.Context, fset *token.FileSet, pkg *pkg, pos toke
 		return span.Span{}, err
 	}
 	posn := fset.Position(pos)
-	ph, _, err := pkg.FindFile(ctx, span.FileURI(posn.Filename))
+	ph, _, err := findFileInPackage(ctx, span.FileURI(posn.Filename), pkg)
 	if err != nil {
-		return span.Span{}, err
+		return spn, nil // ignore errors
 	}
-	file, m, _, err := ph.Cached(ctx)
+	_, m, _, err := ph.Cached()
 	if err != nil {
-		return span.Span{}, err
-	}
-	path, _ := astutil.PathEnclosingInterval(file, pos, pos)
-	if len(path) > 0 {
-		if s, err := span.NewRange(fset, path[0].Pos(), path[0].End()).Span(); err == nil {
-			return s, nil
-		}
+		return spn, nil
 	}
 	s, err := spn.WithOffset(m.Converter)
 	if err != nil {
-		return span.Span{}, err
+		return spn, nil // ignore errors
 	}
 	data, _, err := ph.File().Read(ctx)
 	if err != nil {
-		return span.Span{}, err
+		return spn, nil // ignore errors
 	}
 	start := s.Start()
 	offset := start.Offset()
@@ -193,11 +190,11 @@ func typeErrorRange(ctx context.Context, fset *token.FileSet, pkg *pkg, pos toke
 }
 
 func scannerErrorRange(ctx context.Context, fset *token.FileSet, pkg *pkg, posn token.Position) (span.Span, error) {
-	ph, _, err := pkg.FindFile(ctx, span.FileURI(posn.Filename))
+	ph, _, err := findFileInPackage(ctx, span.FileURI(posn.Filename), pkg)
 	if err != nil {
 		return span.Span{}, err
 	}
-	file, _, _, err := ph.Cached(ctx)
+	file, _, _, err := ph.Cached()
 	if err != nil {
 		return span.Span{}, err
 	}
@@ -206,26 +203,17 @@ func scannerErrorRange(ctx context.Context, fset *token.FileSet, pkg *pkg, posn 
 		return span.Span{}, errors.Errorf("no token.File for %s", ph.File().Identity().URI)
 	}
 	pos := tok.Pos(posn.Offset)
-	path, _ := astutil.PathEnclosingInterval(file, pos, pos)
-	if len(path) > 0 {
-		switch n := path[0].(type) {
-		case *ast.BadDecl, *ast.BadExpr, *ast.BadStmt:
-			if s, err := span.NewRange(fset, n.Pos(), n.End()).Span(); err == nil {
-				return s, nil
-			}
-		}
-	}
 	return span.NewRange(fset, pos, pos).Span()
 }
 
 // spanToRange converts a span.Span to a protocol.Range,
 // assuming that the span belongs to the package whose diagnostics are being computed.
 func spanToRange(ctx context.Context, pkg *pkg, spn span.Span) (protocol.Range, error) {
-	ph, _, err := pkg.FindFile(ctx, spn.URI())
+	ph, _, err := findFileInPackage(ctx, spn.URI(), pkg)
 	if err != nil {
 		return protocol.Range{}, err
 	}
-	_, m, _, err := ph.Cached(ctx)
+	_, m, _, err := ph.Cached()
 	if err != nil {
 		return protocol.Range{}, err
 	}

@@ -349,33 +349,35 @@ func TestTransportAbortClosesPipes(t *testing.T) {
 	defer st.Close()
 	defer close(shutdown) // we must shutdown before st.Close() to avoid hanging
 
-	done := make(chan struct{})
-	requestMade := make(chan struct{})
+	errCh := make(chan error)
 	go func() {
-		defer close(done)
+		defer close(errCh)
 		tr := &Transport{TLSClientConfig: tlsConfigInsecure}
 		req, err := http.NewRequest("GET", st.ts.URL, nil)
 		if err != nil {
-			t.Fatal(err)
+			errCh <- err
+			return
 		}
 		res, err := tr.RoundTrip(req)
 		if err != nil {
-			t.Fatal(err)
+			errCh <- err
+			return
 		}
 		defer res.Body.Close()
-		close(requestMade)
+		st.closeConn()
 		_, err = ioutil.ReadAll(res.Body)
 		if err == nil {
-			t.Error("expected error from res.Body.Read")
+			errCh <- errors.New("expected error from res.Body.Read")
+			return
 		}
 	}()
 
-	<-requestMade
-	// Now force the serve loop to end, via closing the connection.
-	st.closeConn()
-	// deadlock? that's a bug.
 	select {
-	case <-done:
+	case err := <-errCh:
+		if err != nil {
+			t.Fatal(err)
+		}
+	// deadlock? that's a bug.
 	case <-time.After(3 * time.Second):
 		t.Fatal("timeout")
 	}

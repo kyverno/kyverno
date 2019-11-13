@@ -47,7 +47,7 @@ func SignatureHelp(ctx context.Context, view View, f File, pos protocol.Position
 	if err != nil {
 		return nil, err
 	}
-	file, m, _, err := ph.Cached(ctx)
+	file, m, _, err := ph.Cached()
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +121,11 @@ FindCall:
 		comment *ast.CommentGroup
 	)
 	if obj != nil {
-		node, err := objToNode(ctx, pkg, obj)
+		node, err := objToNode(ctx, view, pkg, obj)
 		if err != nil {
 			return nil, err
 		}
-		rng, err := objToMappedRange(ctx, pkg, obj)
+		rng, err := objToMappedRange(ctx, view, pkg, obj)
 		if err != nil {
 			return nil, err
 		}

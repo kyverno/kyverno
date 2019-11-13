@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -15,8 +15,7 @@ import (
 // handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
-	policies []v1alpha1.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -105,7 +104,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
 	// violations are created with resource owner(if exist) on "enforce"
 	// and if there are any then we dont block the resource creation
 	// Even if one the policy being applied
-	if !isResponseSuccesful(engineResponses) && toBlockResource(engineResponses) {
+
+	blocked := toBlockResource(engineResponses)
+	if !isResponseSuccesful(engineResponses) && blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		pvInfos := generatePV(engineResponses, true)
 		ws.pvGenerator.Add(pvInfos...)
@@ -114,7 +115,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest,
 	}
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-	pvInfos := generatePV(engineResponses, false)
+
+	pvInfos := generatePV(engineResponses, blocked)
 	ws.pvGenerator.Add(pvInfos...)
 	sendStat(false)
 	// report time end

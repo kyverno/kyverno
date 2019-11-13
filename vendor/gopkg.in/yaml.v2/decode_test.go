@@ -848,6 +848,7 @@ var unmarshalErrorTests = []struct {
 	{"a:\n- b: *,", "yaml: line 2: did not find expected alphabetic or numeric character"},
 	{"a: *b\n", "yaml: unknown anchor 'b' referenced"},
 	{"a: &a\n  b: *a\n", "yaml: anchor 'a' value contains itself"},
+	{"a: &x null\n<<:\n- *x\nb: &x {}\n", `yaml: map merge requires map or sequence of maps as the value`}, // Issue #529.
 	{"value: -", "yaml: block sequence entries are not allowed in this context"},
 	{"a: !!binary ==", "yaml: !!binary value contains invalid base64 data"},
 	{"{[.]}", `yaml: invalid map key: \[\]interface \{\}\{"\."\}`},
@@ -874,6 +875,13 @@ func (s *S) TestUnmarshalErrors(c *C) {
 		var value interface{}
 		err := yaml.Unmarshal([]byte(item.data), &value)
 		c.Assert(err, ErrorMatches, item.error, Commentf("Partial unmarshal: %#v", value))
+
+		if strings.Contains(item.data, ":") {
+			// Repeat test with typed value.
+			var value map[string]interface{}
+			err := yaml.Unmarshal([]byte(item.data), &value)
+			c.Assert(err, ErrorMatches, item.error, Commentf("Partial unmarshal: %#v", value))
+		}
 	}
 }
 

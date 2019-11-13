@@ -39,8 +39,10 @@ type WebhookServer struct {
 	kyvernoClient             *kyvernoclient.Clientset
 	pLister                   kyvernolister.ClusterPolicyLister
 	pvLister                  kyvernolister.ClusterPolicyViolationLister
+	namespacepvLister         kyvernolister.NamespacedPolicyViolationLister
 	pListerSynced             cache.InformerSynced
 	pvListerSynced            cache.InformerSynced
+	namespacepvListerSynced   cache.InformerSynced
 	rbLister                  rbaclister.RoleBindingLister
 	crbLister                 rbaclister.ClusterRoleBindingLister
 	eventGen                  event.Interface
@@ -67,6 +69,7 @@ func NewWebhookServer(
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	namespacepvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
@@ -94,8 +97,10 @@ func NewWebhookServer(
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
 		pvLister:                  pvInformer.Lister(),
+		namespacepvLister:         namespacepvInformer.Lister(),
 		pListerSynced:             pvInformer.Informer().HasSynced,
 		pvListerSynced:            pInformer.Informer().HasSynced,
+		namespacepvListerSynced:   namespacepvInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
@@ -179,13 +184,13 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
+		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var roles, clusterRoles []string
 
-	// TODO(shuting): replace containRBACinfo after policy cache lookup is introduced
 	// getRoleRef only if policy has roles/clusterroles defined
 	startTime := time.Now()
 	if containRBACinfo(policies) {

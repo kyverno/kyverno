@@ -2,7 +2,7 @@ package webhooks
 
 import (
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -11,8 +11,7 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest,
-	policies []v1alpha1.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -70,9 +69,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest,
 	}
 
 	for _, policy := range policies {
-		policyContext.Policy = policy
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
+
+		policyContext.Policy = policy
 		// TODO: this can be
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)

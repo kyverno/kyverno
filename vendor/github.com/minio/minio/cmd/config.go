@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +34,8 @@ import (
 const (
 	minioConfigPrefix = "config"
 
+	kvPrefix = ".kv"
+
 	// Captures all the previous SetKV operations and allows rollback.
 	minioConfigHistoryPrefix = minioConfigPrefix + "/history"
 
@@ -45,21 +46,41 @@ const (
 	minioConfigBackupFile = minioConfigFile + ".backup"
 )
 
-func listServerConfigHistory(ctx context.Context, objAPI ObjectLayer) ([]madmin.ConfigHistoryEntry, error) {
+func listServerConfigHistory(ctx context.Context, objAPI ObjectLayer, withData bool, count int) (
+	[]madmin.ConfigHistoryEntry, error) {
+
 	var configHistory []madmin.ConfigHistoryEntry
 
 	// List all kvs
 	marker := ""
 	for {
-		res, err := objAPI.ListObjects(ctx, minioMetaBucket, minioConfigHistoryPrefix, marker, "", 1000)
+		res, err := objAPI.ListObjects(ctx, minioMetaBucket, minioConfigHistoryPrefix, marker, "", maxObjectList)
 		if err != nil {
 			return nil, err
 		}
 		for _, obj := range res.Objects {
-			configHistory = append(configHistory, madmin.ConfigHistoryEntry{
-				RestoreID:  path.Base(obj.Name),
+			cfgEntry := madmin.ConfigHistoryEntry{
+				RestoreID:  strings.TrimSuffix(path.Base(obj.Name), kvPrefix),
 				CreateTime: obj.ModTime, // ModTime is createTime for config history entries.
-			})
+			}
+			if withData {
+				data, err := readConfig(ctx, objAPI, obj.Name)
+				if err != nil {
+					return nil, err
+				}
+				if globalConfigEncrypted {
+					data, err = madmin.DecryptData(globalActiveCred.String(), bytes.NewReader(data))
+					if err != nil {
+						return nil, err
+					}
+				}
+				cfgEntry.Data = string(data)
+			}
+			configHistory = append(configHistory, cfgEntry)
+			count--
+			if count == 0 {
+				break
+			}
 		}
 		if !res.IsTruncated {
 			// We are done here
@@ -74,18 +95,35 @@ func listServerConfigHistory(ctx context.Context, objAPI ObjectLayer) ([]madmin.
 }
 
 func delServerConfigHistory(ctx context.Context, objAPI ObjectLayer, uuidKV string) error {
-	historyFile := pathJoin(minioConfigHistoryPrefix, uuidKV)
+	historyFile := pathJoin(minioConfigHistoryPrefix, uuidKV+kvPrefix)
 	return objAPI.DeleteObject(ctx, minioMetaBucket, historyFile)
 }
 
 func readServerConfigHistory(ctx context.Context, objAPI ObjectLayer, uuidKV string) ([]byte, error) {
-	historyFile := pathJoin(minioConfigHistoryPrefix, uuidKV)
-	return readConfig(ctx, objAPI, historyFile)
+	historyFile := pathJoin(minioConfigHistoryPrefix, uuidKV+kvPrefix)
+	data, err := readConfig(ctx, objAPI, historyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if globalConfigEncrypted {
+		data, err = madmin.DecryptData(globalActiveCred.String(), bytes.NewReader(data))
+	}
+
+	return data, err
 }
 
 func saveServerConfigHistory(ctx context.Context, objAPI ObjectLayer, kv []byte) error {
-	uuidKV := mustGetUUID() + ".kv"
+	uuidKV := mustGetUUID() + kvPrefix
 	historyFile := pathJoin(minioConfigHistoryPrefix, uuidKV)
+
+	var err error
+	if globalConfigEncrypted {
+		kv, err = madmin.EncryptData(globalActiveCred.String(), kv)
+		if err != nil {
+			return err
+		}
+	}
 
 	// Save the new config KV settings into the history path.
 	return saveConfig(ctx, objAPI, historyFile, kv)
@@ -108,18 +146,35 @@ func saveServerConfig(ctx context.Context, objAPI ObjectLayer, config interface{
 		if err != nil && err != errConfigNotFound {
 			return err
 		}
-		// Current config not found, so nothing to backup.
-		freshConfig = true
+		if err == errConfigNotFound {
+			// Current config not found, so nothing to backup.
+			freshConfig = true
+		}
+		// Do not need to decrypt oldData since we are going to
+		// save it anyway if freshConfig is false.
 	} else {
 		oldData, err = json.Marshal(oldConfig)
 		if err != nil {
 			return err
+		}
+		if globalConfigEncrypted {
+			oldData, err = madmin.EncryptData(globalActiveCred.String(), oldData)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	// No need to take backups for fresh setups.
 	if !freshConfig {
 		if err = saveConfig(ctx, objAPI, backupConfigFile, oldData); err != nil {
+			return err
+		}
+	}
+
+	if globalConfigEncrypted {
+		data, err = madmin.EncryptData(globalActiveCred.String(), data)
+		if err != nil {
 			return err
 		}
 	}
@@ -135,8 +190,14 @@ func readServerConfig(ctx context.Context, objAPI ObjectLayer) (config.Config, e
 		return nil, err
 	}
 
-	if runtime.GOOS == "windows" {
-		configData = bytes.Replace(configData, []byte("\r\n"), []byte("\n"), -1)
+	if globalConfigEncrypted {
+		configData, err = madmin.DecryptData(globalActiveCred.String(), bytes.NewReader(configData))
+		if err != nil {
+			if err == madmin.ErrMaliciousData {
+				return nil, config.ErrInvalidCredentialsBackendEncrypted(nil)
+			}
+			return nil, err
+		}
 	}
 
 	var config = config.New()
@@ -194,7 +255,8 @@ func (sys *ConfigSys) Init(objAPI ObjectLayer) error {
 		select {
 		case <-retryTimerCh:
 			if err := initConfig(objAPI); err != nil {
-				if strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
+				if err == errDiskNotFound ||
+					strings.Contains(err.Error(), InsufficientReadQuorum{}.Error()) ||
 					strings.Contains(err.Error(), InsufficientWriteQuorum{}.Error()) {
 					logger.Info("Waiting for configuration to be initialized..")
 					continue
@@ -224,6 +286,19 @@ func initConfig(objAPI ObjectLayer) error {
 			return err
 		}
 	}
+
+	// Construct path to config/transaction.lock for locking
+	transactionConfigPrefix := minioConfigPrefix + "/transaction.lock"
+
+	// Hold lock only by one server and let that server alone migrate
+	// all the config as necessary, this is to ensure that
+	// redundant locks are not held for each migration - this allows
+	// for a more predictable behavior while debugging.
+	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, transactionConfigPrefix)
+	if err := objLock.GetLock(globalOperationTimeout); err != nil {
+		return err
+	}
+	defer objLock.Unlock()
 
 	// Migrates ${HOME}/.minio/config.json or config.json.deprecated
 	// to '<export_path>/.minio.sys/config/config.json'

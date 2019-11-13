@@ -548,6 +548,10 @@ func (b *Builder) findTypesIn(pkgPath importPathString, u *types.Universe) error
 		if ok && !tv.IsField() {
 			b.addVariable(*u, nil, tv)
 		}
+		tconst, ok := obj.(*tc.Const)
+		if ok {
+			b.addConstant(*u, nil, tconst)
+		}
 	}
 
 	importedPkgs := []string{}
@@ -810,6 +814,17 @@ func (b *Builder) addVariable(u types.Universe, useName *types.Name, in *tc.Var)
 		name = *useName
 	}
 	out := u.Variable(name)
+	out.Kind = types.DeclarationOf
+	out.Underlying = b.walkType(u, nil, in.Type())
+	return out
+}
+
+func (b *Builder) addConstant(u types.Universe, useName *types.Name, in *tc.Const) *types.Type {
+	name := tcVarNameToName(in.String())
+	if useName != nil {
+		name = *useName
+	}
+	out := u.Constant(name)
 	out.Kind = types.DeclarationOf
 	out.Underlying = b.walkType(u, nil, in.Type())
 	return out
