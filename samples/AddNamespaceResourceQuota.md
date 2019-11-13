@@ -30,6 +30,6 @@ spec:
           hard:
             requests.cpu: '4'
             requests.memory: '16Gi'
-            limits.cpu: $(../../requests/cpu)
-            limits.memory: $(../../requests/memory)
+            limits.cpu: '4'
+            limits.memory: '16Gi'
 ````
