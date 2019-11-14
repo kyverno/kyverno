@@ -31,8 +31,12 @@ type response struct {
 
 func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 	var annotations map[string]string
-	if len(engineResponses) > 0 {
-		annotations = engineResponses[0].PatchedResource.GetAnnotations()
+
+	for _, er := range engineResponses {
+		if ann := er.PatchedResource.GetAnnotations(); ann != nil {
+			annotations = ann
+			break
+		}
 	}
 
 	if annotations == nil {
@@ -104,7 +108,7 @@ func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []by
 
 	// return nil if there's no patches
 	// otherwise result = null, len(result) = 4
-	if policyPatches == nil {
+	if len(policyPatches) == 0 {
 		return nil
 	}
 

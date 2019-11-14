@@ -59,6 +59,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	resource.SetNamespace(request.Namespace)
 	var engineResponses []engine.EngineResponse
 	policyContext := engine.PolicyContext{
 		NewResource: *resource,
@@ -103,6 +104,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	}
 
 	sendStat(true)
-	glog.Errorf("Failed to mutate the resource\n")
+	glog.Errorf("Failed to mutate the resource, %s\n", getErrorMsg(engineResponses))
 	return false, nil, getErrorMsg(engineResponses)
 }
