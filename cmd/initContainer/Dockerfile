@@ -1,3 +1,3 @@
 FROM scratch
-ADD kyvernoPre /kyvernoPre
-ENTRYPOINT ["/kyvernoPre"]
+ADD kyvernopre /kyvernopre
+ENTRYPOINT ["/kyvernopre"]
