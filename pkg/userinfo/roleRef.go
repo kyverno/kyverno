@@ -13,6 +13,11 @@ import (
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 )
 
+const (
+	clusterrolekind = "ClusterRole"
+	rolekind        = "Role"
+)
+
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.NewSelector())
@@ -49,11 +54,10 @@ func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authe
 				continue
 			}
 
-			// roleRefMap := roleRef.(map[string]interface{})
 			switch rolebinding.RoleRef.Kind {
-			case "role":
+			case rolekind:
 				roles = append(roles, rolebinding.Namespace+":"+rolebinding.RoleRef.Name)
-			case "clusterRole":
+			case clusterrolekind:
 				clusterRoles = append(clusterRoles, rolebinding.RoleRef.Name)
 			}
 		}
@@ -70,7 +74,7 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 				continue
 			}
 
-			if clusterRoleBinding.RoleRef.Kind == "clusterRole" {
+			if clusterRoleBinding.RoleRef.Kind == clusterrolekind {
 				clusterRoles = append(clusterRoles, clusterRoleBinding.RoleRef.Name)
 			}
 		}
@@ -80,7 +84,7 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 
 // matchSubjectsMap checks if userInfo found in subject
 // return true directly if found a match
-// subject["kind"] can only be ServiceAccount, User and Group
+// subject.kind can only be ServiceAccount, User and Group
 func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	// ServiceAccount
 	if isServiceaccountUserInfo(userInfo.Username) {
