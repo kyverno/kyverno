@@ -241,7 +241,7 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 
 	// skip processing namespace if its been filtered
 	// exclude the filtered resources
-	if nsc.configHandler.ToFilter("Namespace", "", namespace.Name) {
+	if nsc.configHandler.ToFilter("", namespace.Name, "") {
 		//TODO: improve the text
 		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil
