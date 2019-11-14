@@ -149,7 +149,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		glog.Warningf("Error syncing policy violation %v: %v", key, err)
+		glog.V(4).Infof("Error syncing policy violation %v: %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)

@@ -77,7 +77,7 @@ func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.Namespac
 				glog.V(4).Infof("creating new namespaced policy violation for policy %s & resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 
 				if err := retryGetResource(dclient, newPv.Spec.ResourceSpec); err != nil {
-					return fmt.Errorf("failed to get resource for policy violation '%s': %v", curPv.Name, err)
+					return fmt.Errorf("failed to get resource for policy violation on resource '%s': %v", newPv.Spec.ResourceSpec.ToKey(), err)
 				}
 
 				if _, err := pvInterface.NamespacedPolicyViolations(newPv.Spec.ResourceSpec.Namespace).Create(&newPv); err != nil {

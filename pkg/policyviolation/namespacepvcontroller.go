@@ -187,7 +187,7 @@ func (pvc *NamespacedPolicyViolationController) syncPolicyViolation(key string) 
 	startTime := time.Now()
 	glog.V(4).Infof("Started syncing policy violation %q (%v)", key, startTime)
 	defer func() {
-		glog.V(4).Infof("Finished syncing policy violation %q (%v)", key, time.Since(startTime))
+		glog.V(4).Infof("Finished syncing namespaced policy violation %q (%v)", key, time.Since(startTime))
 	}()
 
 	// tags: NAMESPACE/NAME
