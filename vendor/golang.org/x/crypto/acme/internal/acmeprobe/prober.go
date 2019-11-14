@@ -213,6 +213,9 @@ func (p *prober) runOrder(ctx context.Context, identifiers []acme.AuthzID) {
 
 func (p *prober) runPreauthz(ctx context.Context, identifiers []acme.AuthzID) {
 	dir, err := p.client.Discover(ctx)
+	if err != nil {
+		log.Fatalf("Discover: %v", err)
+	}
 	if dir.AuthzURL == "" {
 		log.Fatal("CA does not support pre-authorization")
 	}

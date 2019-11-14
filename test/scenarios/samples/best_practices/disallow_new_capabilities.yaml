@@ -1,0 +1,17 @@
+# file path relative to project root
+input:  
+  policy: samples/best_practices/disallow_new_capabilities.yaml
+  resource: test/resources/disallow_new_capabilities.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-new-capabilities
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: "add-new-capabilities"
+      rules:
+        - name: validate-add-capabilities
+          type: Validation
+          success: false

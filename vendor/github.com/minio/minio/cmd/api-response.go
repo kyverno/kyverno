@@ -34,9 +34,9 @@ import (
 
 const (
 	timeFormatAMZLong = "2006-01-02T15:04:05.000Z" // Reply date format with nanosecond precision.
-	maxObjectList     = 1000                       // Limit number of objects in a listObjectsResponse.
-	maxUploadsList    = 1000                       // Limit number of uploads in a listUploadsResponse.
-	maxPartsList      = 1000                       // Limit number of parts in a listPartsResponse.
+	maxObjectList     = 10000                      // Limit number of objects in a listObjectsResponse.
+	maxUploadsList    = 10000                      // Limit number of uploads in a listUploadsResponse.
+	maxPartsList      = 10000                      // Limit number of parts in a listPartsResponse.
 )
 
 // LocationResponse - format for location response.
@@ -692,6 +692,11 @@ func writeErrorResponse(ctx context.Context, w http.ResponseWriter, err APIError
 
 func writeErrorResponseHeadersOnly(w http.ResponseWriter, err APIError) {
 	writeResponse(w, err.HTTPStatusCode, nil, mimeNone)
+}
+
+func writeErrorResponseString(ctx context.Context, w http.ResponseWriter, err APIError, reqURL *url.URL) {
+	// Generate string error response.
+	writeResponse(w, err.HTTPStatusCode, []byte(err.Description), mimeNone)
 }
 
 // writeErrorResponseJSON - writes error response in JSON format;

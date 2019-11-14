@@ -212,6 +212,10 @@ func TestMemLSConfirm(t *testing.T) {
 		Duration:  infiniteTimeout,
 		ZeroDepth: false,
 	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
 	tweedle, err := m.Create(now, LockDetails{
 		Root:      "/tweedle",
 		Duration:  infiniteTimeout,

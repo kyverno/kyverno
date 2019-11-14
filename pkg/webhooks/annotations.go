@@ -3,14 +3,13 @@ package webhooks
 import (
 	"encoding/json"
 
-	"github.com/nirmata/kyverno/pkg/engine"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/engine"
 )
 
 const (
-	policyAnnotation = "policies.kyverno.io/patches"
+	policyAnnotation = "policies.kyverno.patches"
 )
 
 type policyPatch struct {
@@ -30,7 +29,16 @@ type response struct {
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(annotations map[string]string, engineResponses []engine.EngineResponse) []byte {
+func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
+	var annotations map[string]string
+
+	for _, er := range engineResponses {
+		if ann := er.PatchedResource.GetAnnotations(); ann != nil {
+			annotations = ann
+			break
+		}
+	}
+
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
@@ -50,12 +58,21 @@ func generateAnnotationPatches(annotations map[string]string, engineResponses []
 			Value: string(value),
 		}
 	} else {
-		// insert 'policies.kyverno.io' entry in annotation map
-		annotations[policyAnnotation] = string(value)
-		patchResponse = response{
-			Op:    "add",
-			Path:  "/metadata/annotations",
-			Value: annotations,
+		// mutate rule has annotation patches
+		if len(annotations) > 0 {
+			patchResponse = response{
+				Op:    "add",
+				Path:  "/metadata/annotations/" + policyAnnotation,
+				Value: string(value),
+			}
+		} else {
+			// insert 'policies.kyverno.patches' entry in annotation map
+			annotations[policyAnnotation] = string(value)
+			patchResponse = response{
+				Op:    "add",
+				Path:  "/metadata/annotations",
+				Value: annotations,
+			}
 		}
 	}
 
@@ -91,7 +108,7 @@ func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []by
 
 	// return nil if there's no patches
 	// otherwise result = null, len(result) = 4
-	if policyPatches == nil {
+	if len(policyPatches) == 0 {
 		return nil
 	}
 

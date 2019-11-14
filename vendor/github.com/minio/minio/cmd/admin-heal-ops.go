@@ -53,6 +53,10 @@ const (
 	// time-duration to keep heal sequence state after it
 	// completes.
 	keepHealSeqStateDuration = time.Minute * 10
+
+	// nopHeal is a no operating healing action to
+	// wait for the current healing operation to finish
+	nopHeal = ""
 )
 
 var (
@@ -548,7 +552,7 @@ func (h *healSequence) queueHealTask(path string, healType madmin.HealItemType) 
 	var respCh = make(chan healResult)
 	defer close(respCh)
 	// Send heal request
-	globalBackgroundHealing.queueHealTask(healTask{path: path, responseCh: respCh, opts: h.settings})
+	globalBackgroundHealRoutine.queueHealTask(healTask{path: path, responseCh: respCh, opts: h.settings})
 	// Wait for answer and push result to the client
 	res := <-respCh
 	if !h.reportProgress {
@@ -587,6 +591,8 @@ func (h *healSequence) healItemsFromSourceCh() error {
 
 		var itemType madmin.HealItemType
 		switch {
+		case path == nopHeal:
+			continue
 		case path == SlashSeparator:
 			itemType = madmin.HealItemMetadata
 		case !strings.Contains(path, SlashSeparator):
@@ -654,7 +660,7 @@ func (h *healSequence) traverseAndHeal() {
 func (h *healSequence) healMinioSysMeta(metaPrefix string) func() error {
 	return func() error {
 		// Get current object layer instance.
-		objectAPI := newObjectLayerFn()
+		objectAPI := newObjectLayerWithoutSafeModeFn()
 		if objectAPI == nil {
 			return errServerNotInitialized
 		}
@@ -686,7 +692,7 @@ func (h *healSequence) healDiskFormat() error {
 	}
 
 	// Get current object layer instance.
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -706,7 +712,7 @@ func (h *healSequence) healBuckets() error {
 	}
 
 	// Get current object layer instance.
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -728,7 +734,7 @@ func (h *healSequence) healBuckets() error {
 // healBucket - traverses and heals given bucket
 func (h *healSequence) healBucket(bucket string) error {
 	// Get current object layer instance.
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}
@@ -765,7 +771,7 @@ func (h *healSequence) healObject(bucket, object string) error {
 	}
 
 	// Get current object layer instance.
-	objectAPI := newObjectLayerFn()
+	objectAPI := newObjectLayerWithoutSafeModeFn()
 	if objectAPI == nil {
 		return errServerNotInitialized
 	}

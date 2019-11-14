@@ -65,6 +65,13 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
 		return err
 	}
+
+	// create Verify mutating webhook configuration resource
+	// that is used to check if admission control is enabled or not
+	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -174,6 +181,36 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 	} else {
 		// clientConfig - service
 		config = wrc.contructPolicyMutatingWebhookConfig(caData)
+	}
+
+	// create mutating webhook configuration resource
+	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+		return err
+	}
+
+	glog.V(4).Infof("created Mutating Webhook Configuration %s ", config.Name)
+	return nil
+}
+
+func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration() error {
+	var caData []byte
+	var config *admregapi.MutatingWebhookConfiguration
+
+	// read CA data from
+	// 1) secret(config)
+	// 2) kubeconfig
+	if caData = wrc.readCaData(); caData == nil {
+		return errors.New("Unable to extract CA data from configuration")
+	}
+
+	// if serverIP is specified we assume its debug mode
+	if wrc.serverIP != "" {
+		// debug mode
+		// clientConfig - URL
+		config = wrc.constructDebugVerifyMutatingWebhookConfig(caData)
+	} else {
+		// clientConfig - service
+		config = wrc.constructVerifyMutatingWebhookConfig(caData)
 	}
 
 	// create mutating webhook configuration resource

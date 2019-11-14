@@ -6,24 +6,25 @@ To avoid pod container from having visibility to host process space, validate th
 
 ## Policy YAML 
 
-[disallow_hostpid_hostipc.yaml](best_practices/disallow_hostpid_hostipc.yaml)
+[disallow_host_pid_ipc.yaml](best_practices/disallow_host_pid_ipc.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-hostpid-hostipc
+  name: disallow-host-pid-ipc
 spec:
+  validationFailureAction: audit
   rules:
-  - name: validate-hostpid-hostipc
+  - name: validate-hostPID-hostIPC
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Disallow use of host's pid namespace and host's ipc namespace"
+      message: "Use of host PID and IPC namespaces is not allowed"
       pattern:
         spec:
-          (hostPID): "!true"
-          hostIPC: false
+          =(hostPID): "false"
+          =(hostIPC): "false"
 ````

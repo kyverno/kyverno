@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
 )
 
 type snapshot struct {
@@ -79,11 +81,11 @@ func (s *snapshot) addPackage(cph *checkPackageHandle) {
 	s.packages[cph.packageKey()] = cph
 }
 
-func (s *snapshot) getPackages(uri span.URI, m source.ParseMode) (cphs []source.CheckPackageHandle) {
+func (s *snapshot) getPackages(uri source.FileURI, m source.ParseMode) (cphs []source.CheckPackageHandle) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if ids, ok := s.ids[uri]; ok {
+	if ids, ok := s.ids[uri.URI()]; ok {
 		for _, id := range ids {
 			key := packageKey{
 				id:   id,
@@ -98,6 +100,53 @@ func (s *snapshot) getPackages(uri span.URI, m source.ParseMode) (cphs []source.
 	return cphs
 }
 
+func (s *snapshot) KnownPackages(ctx context.Context) []source.Package {
+	// TODO(matloob): This function exists because KnownImportPaths can't
+	// determine the import paths of all packages. Remove this function
+	// if KnownImportPaths gains that ability. That could happen if
+	// go list or go packages provide that information.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var results []source.Package
+	for _, cph := range s.packages {
+		// Check the package now if it's not checked yet.
+		// TODO(matloob): is this too slow?
+		pkg, err := cph.check(ctx)
+		if err != nil {
+			log.Error(ctx, fmt.Sprintf("cph.Check of %v", cph.m.pkgPath), err)
+			continue
+		}
+		results = append(results, pkg)
+	}
+
+	return results
+}
+
+func (s *snapshot) KnownImportPaths() map[string]source.Package {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	results := map[string]source.Package{}
+	for _, cph := range s.packages {
+		cachedPkg, err := cph.cached()
+		if err != nil {
+			continue
+		}
+		for importPath, newPkg := range cachedPkg.imports {
+			if oldPkg, ok := results[string(importPath)]; ok {
+				// Using the same trick as NarrowestPackageHandle, prefer non-variants.
+				if len(newPkg.files) < len(oldPkg.(*pkg).files) {
+					results[string(importPath)] = newPkg
+				}
+			} else {
+				results[string(importPath)] = newPkg
+			}
+		}
+	}
+	return results
+}
+
 func (s *snapshot) getPackage(id packageID, m source.ParseMode) *checkPackageHandle {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -107,6 +156,19 @@ func (s *snapshot) getPackage(id packageID, m source.ParseMode) *checkPackageHan
 		mode: m,
 	}
 	return s.packages[key]
+}
+
+func (s *snapshot) getActionHandles(id packageID, m source.ParseMode) []*actionHandle {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var acts []*actionHandle
+	for k, v := range s.actions {
+		if k.pkg.id == id && k.pkg.mode == m {
+			acts = append(acts, v)
+		}
+	}
+	return acts
 }
 
 func (s *snapshot) getAction(id packageID, m source.ParseMode, a *analysis.Analyzer) *actionHandle {
@@ -141,6 +203,8 @@ func (s *snapshot) addAction(ah *actionHandle) {
 }
 
 func (s *snapshot) getMetadataForURI(uri span.URI) (metadata []*metadata) {
+	// TODO(matloob): uri can be a file or directory. Should we update the mappings
+	// to map directories to their contained packages?
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -303,6 +367,9 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 		ids[id] = struct{}{}
 	}
 
+	// Get the original FileHandle for the URI, if it exists.
+	originalFH := v.snapshot.getFile(f.URI())
+
 	switch changeType {
 	case protocol.Created:
 		// If this is a file we don't yet know about,
@@ -321,6 +388,8 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 				}
 			}
 		}
+		// If a file has been explicitly created, make sure that its original file handle is nil.
+		originalFH = nil
 	}
 
 	if len(ids) == 0 {
@@ -331,9 +400,6 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 	for id := range ids {
 		v.snapshot.reverseDependencies(id, withoutTypes, map[packageID]struct{}{})
 	}
-
-	// Get the original FileHandle for the URI, if it exists.
-	originalFH := v.snapshot.getFile(f.URI())
 
 	// Make sure to clear out the content if there has been a deletion.
 	if changeType == protocol.Deleted {

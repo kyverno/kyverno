@@ -6,16 +6,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	v1Informer "k8s.io/client-go/informers/core/v1"
@@ -57,6 +59,10 @@ type NamespaceController struct {
 	rm resourceManager
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.LookupInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 //NewNamespaceController returns a new Controller to manage generation rules
@@ -67,15 +73,19 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
-	configHandler config.Interface) *NamespaceController {
-		//TODO: do we need to event recorder for this controller?
+	configHandler config.Interface,
+	pvGenerator policyviolation.GeneratorInterface,
+	pMetaStore policystore.LookupInterface) *NamespaceController {
+	//TODO: do we need to event recorder for this controller?
 	// create the controller
 	nsc := &NamespaceController{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		eventGen:          eventGen,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
 		configHandler: configHandler,
+		pMetaStore:    pMetaStore,
+		pvGenerator:   pvGenerator,
 	}
 
 	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -231,7 +241,7 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 
 	// skip processing namespace if its been filtered
 	// exclude the filtered resources
-	if nsc.configHandler.ToFilter("Namespace", "", namespace.Name) {
+	if nsc.configHandler.ToFilter("", namespace.Name, "") {
 		//TODO: improve the text
 		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil

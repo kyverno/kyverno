@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,7 +14,11 @@ import (
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructured.Unstructured) (response EngineResponse) {
+func Generate(policyContext PolicyContext) (response EngineResponse) {
+	policy := policyContext.Policy
+	ns := policyContext.NewResource
+	client := policyContext.Client
+
 	startTime := time.Now()
 	// policy information
 	func() {
@@ -44,6 +48,8 @@ func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructur
 		response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		incrementAppliedRuleCount()
 	}
+	// set resource in reponse
+	response.PatchedResource = ns
 	return response
 }
 

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +105,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 	}
 	//TODO check if the kind information is present resource
 	// Process Mutation
-	engineResponse := engine.Mutate(*policy, *resource)
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
 	if !engineResponse.IsSuccesful() {
 		glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
 		for _, r := range engineResponse.PolicyResponse.Rules {
@@ -115,7 +115,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 
 		// Process Validation
-		engineResponse := engine.Validate(*policy, *resource)
+		engineResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
 
 		if !engineResponse.IsSuccesful() {
 			glog.Infof("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)

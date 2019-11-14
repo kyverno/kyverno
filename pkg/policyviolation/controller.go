@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -196,7 +195,7 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	startTime := time.Now()
 	glog.V(4).Infof("Started syncing policy violation %q (%v)", key, startTime)
 	defer func() {
-		glog.V(4).Infof("Finished syncing policy violation %q (%v)", key, time.Since(startTime))
+		glog.V(4).Infof("Finished syncing cluster policy violation %q (%v)", key, time.Since(startTime))
 	}()
 	policyViolation, err := pvc.pvLister.Get(key)
 	if errors.IsNotFound(err) {
@@ -269,14 +268,15 @@ func (pvc *PolicyViolationController) syncBlockedResource(curPv *kyverno.Cluster
 
 		for _, resource := range resources.Items {
 			glog.V(4).Infof("getting owners for %s/%s/%s\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-			owners := getOwners(pvc.client, resource)
+			owners := map[kyverno.ResourceSpec]interface{}{}
+			GetOwner(pvc.client, owners, resource)
 			// owner of resource matches violation resourceSpec
 			// remove policy violation as the blocked request got created
-			if containsOwner(owners, curPv) {
+			if _, ok := owners[curPv.Spec.ResourceSpec]; ok {
 				// pod -> replicaset1; deploy -> replicaset2
 				// if replicaset1 == replicaset2, the pod is
 				// no longer an active child of deploy, skip removing pv
-				if !validDependantForDeployment(pvc.client.GetAppsV1Interface(), *curPv, resource) {
+				if !validDependantForDeployment(pvc.client.GetAppsV1Interface(), curPv.Spec.ResourceSpec, resource) {
 					glog.V(4).Infof("")
 					continue
 				}
@@ -334,11 +334,11 @@ type RealPVControl struct {
 
 //UpdateStatusPolicyViolation updates the status for policy violation
 func (r RealPVControl) UpdateStatusPolicyViolation(newPv *kyverno.ClusterPolicyViolation) error {
-	_, err := r.Client.KyvernoV1alpha1().ClusterPolicyViolations().UpdateStatus(newPv)
+	_, err := r.Client.KyvernoV1().ClusterPolicyViolations().UpdateStatus(newPv)
 	return err
 }
 
 //RemovePolicyViolation removes the policy violation
 func (r RealPVControl) RemovePolicyViolation(name string) error {
-	return r.Client.KyvernoV1alpha1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }

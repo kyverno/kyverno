@@ -184,7 +184,11 @@ var (
 	// Time when object layer was initialized on start up.
 	globalBootTime time.Time
 
-	globalActiveCred  auth.Credentials
+	globalActiveCred auth.Credentials
+
+	// Indicates if config is to be encrypted
+	globalConfigEncrypted bool
+
 	globalPublicCerts []*x509.Certificate
 
 	globalDomainNames []string      // Root domains for virtual host style requests
@@ -197,6 +201,8 @@ var (
 
 	// Is worm enabled
 	globalWORMEnabled bool
+
+	globalBucketRetentionConfig = newBucketRetentionConfig()
 
 	// Disk cache drives
 	globalCacheConfig cache.Config
@@ -244,10 +250,16 @@ var (
 	// GlobalGatewaySSE sse options
 	GlobalGatewaySSE gatewaySSE
 
+	globalAllHealState *allHealState
+
 	// The always present healing routine ready to heal objects
-	globalBackgroundHealing *healRoutine
-	globalAllHealState      *allHealState
-	globalSweepHealState    *allHealState
+	globalBackgroundHealRoutine *healRoutine
+	globalBackgroundHealState   *allHealState
+
+	// Only enabled when one of the sub-systems fail
+	// to initialize, this allows for administrators to
+	// fix the system.
+	globalSafeMode bool
 
 	// Add new variable global values here.
 )

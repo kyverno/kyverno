@@ -10,11 +10,11 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"strconv"
 	"strings"
 	"time"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/internal/imports"
 	"golang.org/x/tools/internal/lsp/fuzzy"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/snippet"
@@ -221,6 +221,12 @@ type compLitInfo struct {
 	maybeInFieldName bool
 }
 
+type importInfo struct {
+	importPath string
+	name       string
+	pkg        Package
+}
+
 type methodSetKey struct {
 	typ         types.Type
 	addressable bool
@@ -284,7 +290,7 @@ func (c *completer) getSurrounding() *Selection {
 
 // found adds a candidate completion. We will also search through the object's
 // members for more candidates.
-func (c *completer) found(obj types.Object, score float64, imp *imports.ImportInfo) {
+func (c *completer) found(obj types.Object, score float64, imp *importInfo) {
 	if obj.Pkg() != nil && obj.Pkg() != c.pkg.GetTypes() && !obj.Exported() {
 		// obj is not accessible because it lives in another package and is not
 		// exported. Don't treat it as a completion candidate.
@@ -325,7 +331,7 @@ func (c *completer) found(obj types.Object, score float64, imp *imports.ImportIn
 	} else if isTypeName(obj) {
 		// If obj is a *types.TypeName that didn't otherwise match, check
 		// if a literal object of this type makes a good candidate.
-		c.literal(obj.Type())
+		c.literal(obj.Type(), imp)
 	}
 
 	// Favor shallow matches by lowering weight according to depth.
@@ -350,7 +356,7 @@ func (c *completer) found(obj types.Object, score float64, imp *imports.ImportIn
 		}
 	}
 
-	c.deepSearch(obj)
+	c.deepSearch(obj, imp)
 }
 
 // candidate represents a completion candidate.
@@ -370,7 +376,7 @@ type candidate struct {
 
 	// imp is the import that needs to be added to this package in order
 	// for this candidate to be valid. nil if no import needed.
-	imp *imports.ImportInfo
+	imp *importInfo
 }
 
 // ErrIsDefinition is an error that informs the user they got no
@@ -416,7 +422,7 @@ func Completion(ctx context.Context, view View, f File, pos protocol.Position, o
 	if err != nil {
 		return nil, nil, err
 	}
-	file, m, _, err := ph.Cached(ctx)
+	file, m, _, err := ph.Cached()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -570,28 +576,56 @@ func (c *completer) selector(sel *ast.SelectorExpr) error {
 	// Is sel a qualified identifier?
 	if id, ok := sel.X.(*ast.Ident); ok {
 		if pkgname, ok := c.pkg.GetTypesInfo().Uses[id].(*types.PkgName); ok {
-			c.packageMembers(pkgname)
+			c.packageMembers(pkgname.Imported(), nil)
 			return nil
 		}
 	}
 
 	// Invariant: sel is a true selector.
 	tv, ok := c.pkg.GetTypesInfo().Types[sel.X]
-	if !ok {
-		return errors.Errorf("cannot resolve %s", sel.X)
+	if ok {
+		return c.methodsAndFields(tv.Type, tv.Addressable(), nil)
 	}
 
-	return c.methodsAndFields(tv.Type, tv.Addressable())
+	// Try unimported packages.
+	if id, ok := sel.X.(*ast.Ident); ok {
+		pkgExports, err := PackageExports(c.ctx, c.view, id.Name, c.filename)
+		if err != nil {
+			return err
+		}
+		known := c.snapshot.KnownImportPaths()
+		for _, pkgExport := range pkgExports {
+			// If we've seen this import path, use the fully-typed version.
+			if knownPkg, ok := known[pkgExport.Fix.StmtInfo.ImportPath]; ok {
+				c.packageMembers(knownPkg.GetTypes(), &importInfo{
+					importPath: pkgExport.Fix.StmtInfo.ImportPath,
+					name:       pkgExport.Fix.StmtInfo.Name,
+					pkg:        knownPkg,
+				})
+				continue
+			}
+
+			// Otherwise, continue with untyped proposals.
+			pkg := types.NewPackage(pkgExport.Fix.StmtInfo.ImportPath, pkgExport.Fix.IdentName)
+			for _, export := range pkgExport.Exports {
+				c.found(types.NewVar(0, pkg, export, nil), 0.07, &importInfo{
+					importPath: pkgExport.Fix.StmtInfo.ImportPath,
+					name:       pkgExport.Fix.StmtInfo.Name,
+				})
+			}
+		}
+	}
+	return nil
 }
 
-func (c *completer) packageMembers(pkg *types.PkgName) {
-	scope := pkg.Imported().Scope()
+func (c *completer) packageMembers(pkg *types.Package, imp *importInfo) {
+	scope := pkg.Scope()
 	for _, name := range scope.Names() {
-		c.found(scope.Lookup(name), stdScore, nil)
+		c.found(scope.Lookup(name), stdScore, imp)
 	}
 }
 
-func (c *completer) methodsAndFields(typ types.Type, addressable bool) error {
+func (c *completer) methodsAndFields(typ types.Type, addressable bool, imp *importInfo) error {
 	mset := c.methodSetCache[methodSetKey{typ, addressable}]
 	if mset == nil {
 		if addressable && !types.IsInterface(typ) && !isPointer(typ) {
@@ -605,12 +639,12 @@ func (c *completer) methodsAndFields(typ types.Type, addressable bool) error {
 	}
 
 	for i := 0; i < mset.Len(); i++ {
-		c.found(mset.At(i).Obj(), stdScore, nil)
+		c.found(mset.At(i).Obj(), stdScore, imp)
 	}
 
 	// Add fields of T.
 	for _, f := range fieldSelections(typ) {
-		c.found(f, stdScore, nil)
+		c.found(f, stdScore, imp)
 	}
 	return nil
 }
@@ -681,6 +715,28 @@ func (c *completer) lexical() error {
 		}
 	}
 
+	if c.expectedType.objType != nil {
+		if named, _ := deref(c.expectedType.objType).(*types.Named); named != nil {
+			// If we expected a named type, check the type's package for
+			// completion items. This is useful when the current file hasn't
+			// imported the type's package yet.
+
+			if named.Obj() != nil && named.Obj().Pkg() != nil {
+				pkg := named.Obj().Pkg()
+
+				// Make sure the package name isn't already in use by another
+				// object, and that this file doesn't import the package yet.
+				if _, ok := seen[pkg.Name()]; !ok && pkg != c.pkg.GetTypes() && !alreadyImports(c.file, pkg.Path()) {
+					seen[pkg.Name()] = struct{}{}
+					obj := types.NewPkgName(0, nil, pkg.Name(), pkg)
+					c.found(obj, stdScore, &importInfo{
+						importPath: pkg.Path(),
+					})
+				}
+			}
+		}
+	}
+
 	if c.opts.Unimported {
 		// Suggest packages that have not been imported yet.
 		pkgs, err := CandidateImports(c.ctx, c.view, c.filename)
@@ -696,23 +752,45 @@ func (c *completer) lexical() error {
 				// multiple packages of the same name as completion suggestions, since
 				// only one will be chosen.
 				obj := types.NewPkgName(0, nil, pkg.IdentName, types.NewPackage(pkg.StmtInfo.ImportPath, pkg.IdentName))
-				c.found(obj, score, &pkg.StmtInfo)
+				c.found(obj, score, &importInfo{
+					importPath: pkg.StmtInfo.ImportPath,
+					name:       pkg.StmtInfo.Name,
+				})
 			}
 		}
 	}
 
 	if c.expectedType.objType != nil {
 		// If we have an expected type and it is _not_ a named type, see
-		// if an object literal makes a good candidate. Named types are
-		// handled during the normal lexical object search. For example,
-		// if our expected type is "[]int", this will add a candidate of
+		// if an object literal makes a good candidate. For example, if
+		// our expected type is "[]int", this will add a candidate of
 		// "[]int{}".
 		if _, named := deref(c.expectedType.objType).(*types.Named); !named {
-			c.literal(c.expectedType.objType)
+			c.literal(c.expectedType.objType, nil)
 		}
 	}
 
 	return nil
+}
+
+// alreadyImports reports whether f has an import with the specified path.
+func alreadyImports(f *ast.File, path string) bool {
+	for _, s := range f.Imports {
+		if importPath(s) == path {
+			return true
+		}
+	}
+	return false
+}
+
+// importPath returns the unquoted import path of s,
+// or "" if the path is not properly quoted.
+func importPath(s *ast.ImportSpec) string {
+	t, err := strconv.Unquote(s.Path.Value)
+	if err != nil {
+		return ""
+	}
+	return t
 }
 
 func nodeContains(n ast.Node, pos token.Pos) bool {
@@ -989,14 +1067,15 @@ type typeNameInference struct {
 
 	// assertableFrom is a type that must be assertable to our candidate type.
 	assertableFrom types.Type
+
+	// wantComparable is true if we want a comparable type.
+	wantComparable bool
 }
 
 // expectedType returns information about the expected type for an expression at
 // the query position.
-func expectedType(c *completer) typeInference {
-	inf := typeInference{
-		typeName: expectTypeName(c),
-	}
+func expectedType(c *completer) (inf typeInference) {
+	inf.typeName = expectTypeName(c)
 
 	if c.enclosingCompositeLiteral != nil {
 		inf.objType = c.expectedCompositeLiteralType()
@@ -1041,17 +1120,75 @@ Nodes:
 
 				if tv, ok := c.pkg.GetTypesInfo().Types[node.Fun]; ok {
 					if sig, ok := tv.Type.(*types.Signature); ok {
-						if sig.Params().Len() == 0 {
+						numParams := sig.Params().Len()
+						if numParams == 0 {
 							return inf
 						}
-						i := indexExprAtPos(c.pos, node.Args)
-						// Make sure not to run past the end of expected parameters.
-						if i >= sig.Params().Len() {
-							i = sig.Params().Len() - 1
+
+						var (
+							exprIdx         = indexExprAtPos(c.pos, node.Args)
+							isLastParam     = exprIdx == numParams-1
+							beyondLastParam = exprIdx >= numParams
+						)
+
+						if sig.Variadic() {
+							// If we are beyond the last param or we are the last
+							// param w/ further expressions, we expect a single
+							// variadic item.
+							if beyondLastParam || isLastParam && len(node.Args) > numParams {
+								inf.objType = sig.Params().At(numParams - 1).Type().(*types.Slice).Elem()
+								break Nodes
+							}
+
+							// Otherwise if we are at the last param then we are
+							// completing the variadic positition (i.e. we expect a
+							// slice type []T or an individual item T).
+							if isLastParam {
+								inf.variadic = true
+							}
 						}
-						inf.objType = sig.Params().At(i).Type()
-						inf.variadic = sig.Variadic() && i == sig.Params().Len()-1
+
+						// Make sure not to run past the end of expected parameters.
+						if beyondLastParam {
+							inf.objType = sig.Params().At(numParams - 1).Type()
+						} else {
+							inf.objType = sig.Params().At(exprIdx).Type()
+						}
+
 						break Nodes
+					}
+				}
+
+				if funIdent, ok := node.Fun.(*ast.Ident); ok {
+					switch c.pkg.GetTypesInfo().ObjectOf(funIdent) {
+					case types.Universe.Lookup("append"):
+						defer func() {
+							exprIdx := indexExprAtPos(c.pos, node.Args)
+
+							// Check if we are completing the variadic append()
+							// param. We defer this since we don't want to inherit
+							// variadicity from the next node.
+							inf.variadic = exprIdx == 1 && len(node.Args) <= 2
+
+							// If we are completing an individual element of the
+							// variadic param, "deslice" the expected type.
+							if !inf.variadic && exprIdx > 0 {
+								if slice, ok := inf.objType.(*types.Slice); ok {
+									inf.objType = slice.Elem()
+								}
+							}
+						}()
+
+						// The expected type of append() arguments is the expected
+						// type of the append() call itself. For example:
+						//
+						// var foo []int
+						// foo = append(<>)
+						//
+						// To find the expected type at <> we "skip" the append()
+						// node and get the expected type one level up, which is
+						// []int.
+						continue Nodes
 					}
 				}
 			}
@@ -1165,6 +1302,12 @@ func (ti typeInference) applyTypeNameModifiers(typ types.Type) types.Type {
 	return typ
 }
 
+// matchesVariadic returns true if we are completing a variadic
+// parameter and candType is a compatible slice type.
+func (ti typeInference) matchesVariadic(candType types.Type) bool {
+	return ti.variadic && types.AssignableTo(ti.objType, candType)
+}
+
 // findSwitchStmt returns an *ast.CaseClause's corresponding *ast.SwitchStmt or
 // *ast.TypeSwitchStmt. path should start from the case clause's first ancestor.
 func findSwitchStmt(path []ast.Node, pos token.Pos, c *ast.CaseClause) ast.Stmt {
@@ -1205,6 +1348,7 @@ func breaksExpectedTypeInference(n ast.Node) bool {
 func expectTypeName(c *completer) typeNameInference {
 	var (
 		wantTypeName   bool
+		wantComparable bool
 		modifiers      []typeModifier
 		assertableFrom types.Type
 	)
@@ -1280,6 +1424,16 @@ Nodes:
 
 				break Nodes
 			}
+		case *ast.MapType:
+			wantTypeName = true
+			if n.Key != nil {
+				wantComparable = n.Key.Pos() <= c.pos && c.pos <= n.Key.End()
+			} else {
+				// If the key is empty, assume we are completing the key if
+				// pos is directly after the "map[".
+				wantComparable = c.pos == n.Pos()+token.Pos(len("map["))
+			}
+			break Nodes
 		default:
 			if breaksExpectedTypeInference(p) {
 				return typeNameInference{}
@@ -1289,6 +1443,7 @@ Nodes:
 
 	return typeNameInference{
 		wantTypeName:   wantTypeName,
+		wantComparable: wantComparable,
 		modifiers:      modifiers,
 		assertableFrom: assertableFrom,
 	}
@@ -1311,6 +1466,9 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 	}
 
 	objType := cand.obj.Type()
+	if objType == nil {
+		return true
+	}
 
 	// Default to invoking *types.Func candidates. This is so function
 	// completions in an empty statement (or other cases with no expected type)
@@ -1331,7 +1489,15 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 					// Check that their constant kind (bool|int|float|complex|string) matches.
 					// This doesn't take into account the constant value, so there will be some
 					// false positives due to integer sign and overflow.
-					return candBasic.Info()&types.IsConstType == wantBasic.Info()&types.IsConstType
+					if candBasic.Info()&types.IsConstType == wantBasic.Info()&types.IsConstType {
+						// Lower candidate score if the types are not identical.
+						// This avoids ranking untyped integer constants above
+						// candidates with an exact type match.
+						if !types.Identical(candType, c.expectedType.objType) {
+							cand.score /= 2
+						}
+						return true
+					}
 				}
 				return false
 			}
@@ -1358,6 +1524,13 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 			cand.expandFuncCall = true
 			return true
 		}
+	}
+
+	// When completing the variadic parameter, say objType matches if
+	// []objType matches. This is because you can use []T or T for the
+	// variadic parameter.
+	if c.expectedType.variadic && typeMatches(types.NewSlice(objType)) {
+		return true
 	}
 
 	if c.expectedType.convertibleTo != nil {
@@ -1387,6 +1560,10 @@ func (c *completer) matchingTypeName(cand *candidate) bool {
 				return false
 			}
 		}
+	}
+
+	if c.expectedType.typeName.wantComparable && !types.Comparable(actual) {
+		return false
 	}
 
 	// We can expect a type name and have an expected type in cases like:

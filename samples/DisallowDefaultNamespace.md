@@ -1,29 +1,29 @@
 # Disallow use of default namespace
 
-Kubernetes namespaces provide a way to segment and isolate cluster resources across multiple applictaions and users. It is recommended that each workload be isolated in its own namespace and that use of the default namespace be not allowed.
+Kubernetes namespaces are an optional feature that provide a way to segment and isolate cluster resources across multiple applications and users. As a best practice, workloads should be isolated with namespaces. Namespaces should be required and the default (empty) namespace should not be used.
 
 ## Policy YAML 
 
 [disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-namespace
+  name: disallow-default-namespace
 spec:
   rules:
-  - name: check-default-namespace
+  - name: validate-namespace
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Using 'default' namespace is restricted"
+      message: "Using 'default' namespace is not allowed"
       pattern:
         metadata:
           namespace: "!default"
-  - name: check-namespace-exist
+  - name: require-namespace
     match:
       resources:
         kinds:

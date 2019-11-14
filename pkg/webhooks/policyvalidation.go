@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +27,6 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-
 	if err := policyvalidate.Validate(*policy); err != nil {
 		admissionResp = &v1beta1.AdmissionResponse{
 			Allowed: false,

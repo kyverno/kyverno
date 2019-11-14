@@ -1,0 +1,18 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_root_user.yaml
+  resource: test/resources/deny_runasrootuser.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-root-user
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: check-root-user
+      rules:
+        - name: validate-runAsNonRoot
+          type: Validation
+          success: true
+

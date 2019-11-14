@@ -9,14 +9,14 @@ If a namespace level request or limit is specified, defaults will automatically 
 [require_pod_requests_limits.yaml](best_practices/require_pod_requests_limits.yaml)
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-resource
+  name: require-pod-requests-limits
 spec:
   validationFailureAction: "audit"
   rules:
-  - name: check-resource-request-limit
+  - name: validate-resources
     match:
       resources:
         kinds:

@@ -90,7 +90,7 @@ func prepareAdminXLTestBed() (*adminXLTestBed, error) {
 	globalPolicySys = NewPolicySys()
 	globalPolicySys.Init(buckets, objLayer)
 
-	globalNotificationSys = NewNotificationSys(globalServerConfig, globalEndpoints)
+	globalNotificationSys = NewNotificationSys(globalEndpoints)
 	globalNotificationSys.Init(buckets, objLayer)
 
 	// Setup admin mgmt REST API handlers.
@@ -184,7 +184,7 @@ func testServiceSignalReceiver(cmd cmdType, t *testing.T) {
 func getServiceCmdRequest(cmd cmdType, cred auth.Credentials) (*http.Request, error) {
 	queryVal := url.Values{}
 	queryVal.Set("action", string(cmd.toServiceAction()))
-	resource := adminAPIPathPrefix + "/service?" + queryVal.Encode()
+	resource := adminPathPrefix + adminAPIVersionPrefix + "/service?" + queryVal.Encode()
 	req, err := newTestRequest(http.MethodPost, resource, 0, nil)
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ func buildAdminRequest(queryVal url.Values, method, path string,
 	contentLength int64, bodySeeker io.ReadSeeker) (*http.Request, error) {
 
 	req, err := newTestRequest(method,
-		adminAPIPathPrefix+path+"?"+queryVal.Encode(),
+		adminPathPrefix+adminAPIVersionPrefix+path+"?"+queryVal.Encode(),
 		contentLength, bodySeeker)
 	if err != nil {
 		return nil, err

@@ -7,7 +7,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,7 +69,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	sendStat(false)
 
 	//VALIDATION
-	engineResponse = engine.Validate(policy, resource)
+	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
 	// gather stats
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -80,7 +80,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponse, error) {
-	engineResponse := engine.Mutate(policy, resource)
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource})
 	if !engineResponse.IsSuccesful() {
 		glog.V(4).Infof("mutation had errors reporting them")
 		return engineResponse, nil

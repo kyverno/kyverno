@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -38,6 +39,7 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/event"
 	"github.com/minio/minio/pkg/event/target"
+	"github.com/minio/minio/pkg/madmin"
 	xnet "github.com/minio/minio/pkg/net"
 	"github.com/minio/minio/pkg/quick"
 )
@@ -445,7 +447,7 @@ func migrateV5ToV6() error {
 
 	if cv5.Logger.ElasticSearch.URL != "" {
 		var url *xnet.URL
-		url, err = xnet.ParseURL(cv5.Logger.ElasticSearch.URL)
+		url, err = xnet.ParseHTTPURL(cv5.Logger.ElasticSearch.URL)
 		if err != nil {
 			return err
 		}
@@ -2425,11 +2427,6 @@ func migrateConfigToMinioSys(objAPI ObjectLayer) (err error) {
 	// Construct path to config.json for the given bucket.
 	configFile := path.Join(minioConfigPrefix, minioConfigFile)
 
-	// Verify if config was already available in .minio.sys in which case, nothing more to be done.
-	if err = checkConfig(context.Background(), objAPI, configFile); err != errConfigNotFound {
-		return err
-	}
-
 	defer func() {
 		if err == nil {
 			if globalEtcdClient != nil {
@@ -2441,17 +2438,6 @@ func migrateConfigToMinioSys(objAPI ObjectLayer) (err error) {
 			}
 		}
 	}()
-
-	transactionConfigFile := configFile + ".transaction"
-
-	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
-	// and configFile, take a transaction lock to avoid data race between readConfig()
-	// and saveConfig().
-	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, transactionConfigFile)
-	if err = objLock.GetLock(globalOperationTimeout); err != nil {
-		return err
-	}
-	defer objLock.Unlock()
 
 	// Verify if backend already has the file (after holding lock)
 	if err = checkConfig(context.Background(), objAPI, configFile); err != errConfigNotFound {
@@ -2485,6 +2471,7 @@ func migrateConfigToMinioSys(objAPI ObjectLayer) (err error) {
 
 // Migrates '.minio.sys/config.json' to v33.
 func migrateMinioSysConfig(objAPI ObjectLayer) error {
+	// Construct path to config.json for the given bucket.
 	configFile := path.Join(minioConfigPrefix, minioConfigFile)
 
 	// Check if the config version is latest, if not migrate.
@@ -2495,18 +2482,6 @@ func migrateMinioSysConfig(objAPI ObjectLayer) error {
 	if ok {
 		return nil
 	}
-
-	// Construct path to config.json for the given bucket.
-	transactionConfigFile := configFile + ".transaction"
-
-	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
-	// and configFile, take a transaction lock to avoid data race between readConfig()
-	// and saveConfig().
-	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, transactionConfigFile)
-	if err := objLock.GetLock(globalOperationTimeout); err != nil {
-		return err
-	}
-	defer objLock.Unlock()
 
 	if err := migrateV27ToV28MinioSys(objAPI); err != nil {
 		return err
@@ -2530,6 +2505,16 @@ func checkConfigVersion(objAPI ObjectLayer, configFile string, version string) (
 	data, err := readConfig(context.Background(), objAPI, configFile)
 	if err != nil {
 		return false, nil, err
+	}
+
+	if globalConfigEncrypted {
+		data, err = madmin.DecryptData(globalActiveCred.String(), bytes.NewReader(data))
+		if err != nil {
+			if err == madmin.ErrMaliciousData {
+				return false, nil, config.ErrInvalidCredentialsBackendEncrypted(nil)
+			}
+			return false, nil, err
+		}
 	}
 
 	var versionConfig struct {
@@ -2563,12 +2548,7 @@ func migrateV27ToV28MinioSys(objAPI ObjectLayer) error {
 	cfg.Version = "28"
 	cfg.KMS = crypto.KMSConfig{}
 
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from ‘27’ to ‘28’. %v", err)
 	}
 
@@ -2595,12 +2575,7 @@ func migrateV28ToV29MinioSys(objAPI ObjectLayer) error {
 	}
 
 	cfg.Version = "29"
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from ‘28’ to ‘29’. %v", err)
 	}
 
@@ -2632,12 +2607,7 @@ func migrateV29ToV30MinioSys(objAPI ObjectLayer) error {
 	cfg.Compression.Extensions = strings.Split(compress.DefaultExtensions, config.ValueSeparator)
 	cfg.Compression.MimeTypes = strings.Split(compress.DefaultMimeTypes, config.ValueSeparator)
 
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from ‘29’ to ‘30’. %v", err)
 	}
 
@@ -2672,12 +2642,7 @@ func migrateV30ToV31MinioSys(objAPI ObjectLayer) error {
 		AuthToken: "",
 	}
 
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from ‘30’ to ‘31’. %v", err)
 	}
 
@@ -2707,12 +2672,7 @@ func migrateV31ToV32MinioSys(objAPI ObjectLayer) error {
 	cfg.Notify.NSQ = make(map[string]target.NSQArgs)
 	cfg.Notify.NSQ["1"] = target.NSQArgs{}
 
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from ‘31’ to ‘32’. %v", err)
 	}
 
@@ -2740,12 +2700,7 @@ func migrateV32ToV33MinioSys(objAPI ObjectLayer) error {
 
 	cfg.Version = "33"
 
-	data, err = json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	if err = saveConfig(context.Background(), objAPI, configFile, data); err != nil {
+	if err = saveServerConfig(context.Background(), objAPI, cfg, nil); err != nil {
 		return fmt.Errorf("Failed to migrate config from  32  to  33 . %v", err)
 	}
 
@@ -2822,18 +2777,6 @@ func migrateMinioSysConfigToKV(objAPI ObjectLayer) error {
 	for k, args := range cfg.Notify.Webhook {
 		notify.SetNotifyWebhook(newCfg, k, args)
 	}
-
-	// Construct path to config.json for the given bucket.
-	transactionConfigFile := configFile + ".transaction"
-
-	// As object layer's GetObject() and PutObject() take respective lock on minioMetaBucket
-	// and configFile, take a transaction lock to avoid data race between readConfig()
-	// and saveConfig().
-	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, transactionConfigFile)
-	if err = objLock.GetLock(globalOperationTimeout); err != nil {
-		return err
-	}
-	defer objLock.Unlock()
 
 	if err = saveServerConfig(context.Background(), objAPI, newCfg, cfg); err != nil {
 		return err

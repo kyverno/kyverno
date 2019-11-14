@@ -12,8 +12,10 @@ import (
 	"go/token"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/imports"
@@ -22,6 +24,7 @@ import (
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/tag"
 	"golang.org/x/tools/internal/xcontext"
 	errors "golang.org/x/xerrors"
 )
@@ -59,7 +62,8 @@ type view struct {
 	// TODO(suzmue): the state cached in the process env is specific to each view,
 	// however, there is state that can be shared between views that is not currently
 	// cached, like the module cache.
-	processEnv *imports.ProcessEnv
+	processEnv       *imports.ProcessEnv
+	cacheRefreshTime time.Time
 
 	// modFileVersions stores the last seen versions of the module files that are used
 	// by processEnvs resolver.
@@ -100,8 +104,26 @@ func (v *view) Options() source.Options {
 	return v.options
 }
 
-func (v *view) SetOptions(options source.Options) {
-	v.options = options
+func minorOptionsChange(a, b source.Options) bool {
+	// Check if any of the settings that modify our understanding of files have been changed
+	if !reflect.DeepEqual(a.Env, b.Env) {
+		return false
+	}
+	if !reflect.DeepEqual(a.BuildFlags, b.BuildFlags) {
+		return false
+	}
+	// the rest of the options are benign
+	return true
+}
+
+func (v *view) SetOptions(ctx context.Context, options source.Options) (source.View, error) {
+	// no need to rebuild the view if the options were not materially changed
+	if minorOptionsChange(v.options, options) {
+		v.options = options
+		return v, nil
+	}
+	newView, err := v.session.updateView(ctx, v, options)
+	return newView, err
 }
 
 // Config returns the configuration used for the view's interaction with the
@@ -125,7 +147,9 @@ func (v *view) Config(ctx context.Context) *packages.Config {
 			panic("go/packages must not be used to parse files")
 		},
 		Logf: func(format string, args ...interface{}) {
-			log.Print(ctx, fmt.Sprintf(format, args...))
+			if v.options.VerboseOutput {
+				log.Print(ctx, fmt.Sprintf(format, args...))
+			}
 		},
 		Tests: true,
 	}
@@ -142,12 +166,8 @@ func (v *view) RunProcessEnvFunc(ctx context.Context, fn func(*imports.Options) 
 	}
 
 	// Before running the user provided function, clear caches in the resolver.
-	if r, ok := v.processEnv.GetResolver().(*imports.ModuleResolver); ok {
-		if v.modFilesChanged() {
-			r.ClearForNewMod()
-		} else {
-			r.ClearForNewScan()
-		}
+	if v.modFilesChanged() {
+		v.processEnv.GetResolver().(*imports.ModuleResolver).ClearForNewMod()
 	}
 
 	// Run the user function.
@@ -155,10 +175,26 @@ func (v *view) RunProcessEnvFunc(ctx context.Context, fn func(*imports.Options) 
 	if err := fn(opts); err != nil {
 		return err
 	}
+	if v.cacheRefreshTime.IsZero() {
+		v.cacheRefreshTime = time.Now()
+	}
 
 	// If applicable, store the file versions of the 'go.mod' files that are
 	// looked at by the resolver.
 	v.storeModFileVersions()
+
+	if time.Since(v.cacheRefreshTime) > 30*time.Second {
+		go func() {
+			v.mu.Lock()
+			defer v.mu.Unlock()
+
+			log.Print(context.Background(), "background imports cache refresh starting")
+			v.processEnv.GetResolver().ClearForNewScan()
+			_, err := imports.GetAllCandidates("", opts)
+			v.cacheRefreshTime = time.Now()
+			log.Print(context.Background(), "background refresh finished with err: ", tag.Of("err", err))
+		}()
+	}
 
 	return nil
 }
@@ -170,7 +206,8 @@ func (v *view) buildProcessEnv(ctx context.Context) (*imports.ProcessEnv, error)
 		Logf: func(format string, args ...interface{}) {
 			log.Print(ctx, fmt.Sprintf(format, args...))
 		},
-		Debug: true,
+		LocalPrefix: v.options.LocalPrefix,
+		Debug:       v.options.VerboseOutput,
 	}
 	for _, kv := range cfg.Env {
 		split := strings.Split(kv, "=")
@@ -416,6 +453,14 @@ func (v *view) openFiles(ctx context.Context, uris []span.URI) (results []source
 		}
 	}
 	return results
+}
+
+func (v *view) FindFileInPackage(ctx context.Context, uri span.URI, pkg source.Package) (source.ParseGoHandle, source.Package, error) {
+	// Special case for ignored files.
+	if v.Ignore(uri) {
+		return v.findIgnoredFile(ctx, uri)
+	}
+	return findFileInPackage(ctx, uri, pkg)
 }
 
 type debugView struct{ *view }

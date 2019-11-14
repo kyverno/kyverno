@@ -4,36 +4,37 @@ The `:latest` tag is mutable and can lead to unexpected errors if the upstream i
 
 ## Policy YAML 
 
-[require_image_tag_not_latest.yaml](best_practices/require_image_tag_not_latest.yaml)
+[disallow_latest_tag.yaml](best_practices/disallow_latest_tag.yaml)
 
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-image-tag
+  name: disallow-latest-tag
 spec:
   rules:
-  - name: image-tag-notspecified
+  - name: require-tag
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Image tag not specified"  
+      message: "An image tag is required"  
       pattern:
         spec:
           containers:
           - image: "*:*"
-  - name: image-tag-not-latest
+  - name: validate-tag
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Using 'latest' image tag is restricted. Set image tag to a specific version"
+      message: "Using a mutable image tag e.g. 'latest' is not allowed"
       pattern:
         spec:
           containers:
           - image: "!*:latest"
+
 ````

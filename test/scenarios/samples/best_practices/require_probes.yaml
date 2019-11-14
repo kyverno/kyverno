@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/require_probes.yaml
+  resource: test/resources/require_probes.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: require-pod-probes
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: validate-livenessProbe-readinessProbe
+          type: Validation
+          success: false 

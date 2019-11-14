@@ -29,6 +29,8 @@ type ConfigData struct {
 	mux sync.RWMutex
 	// configuration data
 	filters []k8Resource
+	// hasynced
+	cmListerSycned cache.InformerSynced
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -55,8 +57,9 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		glog.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
-		client: rclient,
-		cmName: os.Getenv(cmNameEnv),
+		client:         rclient,
+		cmName:         os.Getenv(cmNameEnv),
+		cmListerSycned: cmInformer.Informer().HasSynced,
 	}
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
@@ -73,9 +76,9 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	return &cd
 }
 
-func (cd *ConfigData) Run(cmInformer informers.ConfigMapInformer, stopCh <-chan struct{}) error {
+func (cd *ConfigData) Run(stopCh <-chan struct{}) error {
 	// wait for cache to populate first time
-	if !cache.WaitForCacheSync(stopCh, cmInformer.Informer().HasSynced) {
+	if !cache.WaitForCacheSync(stopCh, cd.cmListerSycned) {
 		return fmt.Errorf("Configuration: Failed to sync informer cache")
 	}
 	return nil
@@ -123,18 +126,18 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 
 func (cd *ConfigData) load(cm v1.ConfigMap) {
 	if cm.Data == nil {
-		glog.Infof("Configuration: No data defined in ConfigMap %s", cm.Name)
+		glog.V(4).Infof("Configuration: No data defined in ConfigMap %s", cm.Name)
 		return
 	}
 	// get resource filters
 	filters, ok := cm.Data["resourceFilters"]
 	if !ok {
-		glog.Infof("Configuration: No resourceFilters defined in ConfigMap %s", cm.Name)
+		glog.V(4).Infof("Configuration: No resourceFilters defined in ConfigMap %s", cm.Name)
 		return
 	}
 	// filters is a string
 	if filters == "" {
-		glog.Infof("Configuration: resourceFilters is empty in ConfigMap %s", cm.Name)
+		glog.V(4).Infof("Configuration: resourceFilters is empty in ConfigMap %s", cm.Name)
 		return
 	}
 	// parse and load the configuration
@@ -143,7 +146,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 
 	newFilters := parseKinds(filters)
 	if reflect.DeepEqual(newFilters, cd.filters) {
-		glog.Infof("Configuration: resourceFilters did not change in ConfigMap %s", cm.Name)
+		glog.V(4).Infof("Configuration: resourceFilters did not change in ConfigMap %s", cm.Name)
 		return
 	}
 	glog.V(4).Infof("Configuration: Old resource filters %v", cd.filters)
