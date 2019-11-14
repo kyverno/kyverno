@@ -42,7 +42,7 @@ spec :
                   - {key: tier, operator: In, values: [database]}
         # Optional, subjects to be matched
         subjects:
-          kind: User
+        - kind: User
           name: mary@somecorp.com
         # Optional, roles to be matched
         roles:
