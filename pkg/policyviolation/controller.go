@@ -195,7 +195,7 @@ func (pvc *PolicyViolationController) syncPolicyViolation(key string) error {
 	startTime := time.Now()
 	glog.V(4).Infof("Started syncing policy violation %q (%v)", key, startTime)
 	defer func() {
-		glog.V(4).Infof("Finished syncing policy violation %q (%v)", key, time.Since(startTime))
+		glog.V(4).Infof("Finished syncing cluster policy violation %q (%v)", key, time.Since(startTime))
 	}()
 	policyViolation, err := pvc.pvLister.Get(key)
 	if errors.IsNotFound(err) {

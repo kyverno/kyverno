@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -34,7 +33,7 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 		response.PolicyResponse.RulesAppliedCount++
 	}
 
-	var patchedResource unstructured.Unstructured
+	patchedResource := policyContext.NewResource
 
 	for _, rule := range policy.Spec.Rules {
 		//TODO: to be checked before calling the resources as well
@@ -61,13 +60,15 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse RuleResponse
-			ruleResponse, patchedResource = processOverlay(rule, resource)
+			ruleResponse, patchedResource = processOverlay(rule, patchedResource)
 			if ruleResponse.Success == true && ruleResponse.Patches == nil {
 				// overlay pattern does not match the resource conditions
 				glog.V(4).Infof(ruleResponse.Message)
 				continue
+			} else if ruleResponse.Success == true {
+				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
-			glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
@@ -75,7 +76,7 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 		// Process Patches
 		if rule.Mutation.Patches != nil {
 			var ruleResponse RuleResponse
-			ruleResponse, patchedResource = processPatches(rule, resource)
+			ruleResponse, patchedResource = processPatches(rule, patchedResource)
 			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()

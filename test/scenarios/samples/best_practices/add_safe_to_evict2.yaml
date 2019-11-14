@@ -17,7 +17,3 @@ expected:
           type: Mutation
           success: true
           message: "successfully processed overlay"
-        - name: annotate-host-path
-          type: Mutation
-          success: true
-          message: "successfully processed overlay"

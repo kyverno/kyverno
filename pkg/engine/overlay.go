@@ -53,6 +53,11 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		}
 	}
 
+	if len(patches) == 0 {
+		response.Success = true
+		return response, resource
+	}
+
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
@@ -65,11 +70,13 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	var patchResource []byte
 	patchResource, err = ApplyPatches(resourceRaw, patches)
 	if err != nil {
-		glog.Info("failed to apply patch")
+		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
+		glog.V(2).Info(msg)
 		response.Success = false
-		response.Message = fmt.Sprintf("failed to apply JSON patches: %v", err)
+		response.Message = msg
 		return response, resource
 	}
+
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
