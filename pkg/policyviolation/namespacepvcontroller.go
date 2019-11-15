@@ -209,13 +209,12 @@ func (pvc *NamespacedPolicyViolationController) syncPolicyViolation(key string) 
 	// Deep-copy otherwise we are mutating our cache.
 	// TODO: Deep-copy only when needed.
 	pv := policyViolation.DeepCopy()
-	// TODO: Update Status to update ObserverdGeneration
-	// TODO: check if the policy violation refers to a resource thats active ? // done by policy controller
-	// TODO: remove the PV, if the corresponding policy is not present
-	// TODO: additional check on deleted webhook for a resource, to delete a policy violation it has a policy violation
-	// list the resource with label selectors, but this can be expensive for each delete request of a resource
 	if err := pvc.syncActiveResource(pv); err != nil {
 		glog.V(4).Infof("not syncing policy violation status")
+		return err
+	}
+	// cleanup pv with dependant
+	if err := pvc.syncBlockedResource(pv); err != nil {
 		return err
 	}
 
@@ -243,13 +242,6 @@ func (pvc *NamespacedPolicyViolationController) syncActiveResource(curPv *kyvern
 		glog.V(4).Infof("error while retrieved resource %s/%s/%s: %v", rspec.Kind, curPv.Namespace, rspec.Name, err)
 		return err
 	}
-
-	// cleanup pv with dependant
-	if err := pvc.syncBlockedResource(curPv); err != nil {
-		return err
-	}
-
-	//TODO- if the policy is not present, remove the policy violation
 	return nil
 }
 

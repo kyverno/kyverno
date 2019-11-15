@@ -130,7 +130,7 @@ func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyve
 
 func getExistingNamespacedPVIfAny(nspvLister kyvernolister.NamespacedPolicyViolationLister, newPv kyverno.NamespacedPolicyViolation) (kyverno.NamespacedPolicyViolation, error) {
 	// TODO(shuting): list pvs by labels
-	pvs, err := nspvLister.List(labels.NewSelector())
+	pvs, err := nspvLister.NamespacedPolicyViolations(newPv.GetNamespace()).List(labels.NewSelector())
 	if err != nil {
 		return kyverno.NamespacedPolicyViolation{}, fmt.Errorf("failed to list namespaced policy violations err: %v", err)
 	}
