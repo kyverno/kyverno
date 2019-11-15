@@ -13,6 +13,8 @@ spec:
     kind: ClusterPolicy
     plural: clusterpolicies
     singular: clusterpolicy
+    shortNames:
+    - pol
   subresources:
     status: {}
   validation:
@@ -238,6 +240,8 @@ spec:
     kind: ClusterPolicyViolation
     plural: clusterpolicyviolations
     singular: clusterpolicyviolation
+    shortNames:
+    - cpolv
   subresources:
     status: {}
   additionalPrinterColumns:
@@ -316,6 +320,8 @@ spec:
     kind: NamespacedPolicyViolation
     plural: namespacedpolicyviolations
     singular: namespacedpolicyviolation
+    shortNames:
+    - npolv
   subresources:
     status: {}
   additionalPrinterColumns:
