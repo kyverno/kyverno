@@ -39,8 +39,6 @@ type NamespaceController struct {
 
 	//nsLister provides expansion to the namespace lister to inject GVK for the resource
 	nsLister NamespaceListerExpansion
-	// nLsister can list/get namespaces from the shared informer's store
-	// nsLister v1CoreLister.NamespaceLister
 	// nsListerSynced returns true if the Namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store

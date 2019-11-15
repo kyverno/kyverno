@@ -12,12 +12,29 @@ import (
 	labels "k8s.io/apimachinery/pkg/labels"
 )
 
+func (gen *Generator) createNamespacedPV(info Info) error {
+	// namespaced policy violations
+	var pvs []kyverno.NamespacedPolicyViolation
+	if !info.Blocked {
+		pvs = append(pvs, buildNamespacedPV(info))
+	} else {
+		pvs = buildNamespacedPVWithOwner(gen.dclient, info)
+	}
+
+	if err := createNamespacedPV(info.Resource.GetNamespace(), gen.dclient, gen.nspvLister, gen.pvInterface, pvs); err != nil {
+		return err
+	}
+
+	glog.V(3).Infof("Created namespaced policy violation policy=%s, resource=%s/%s/%s",
+		info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
+	return nil
+}
+
 func buildNamespacedPV(info Info) kyverno.NamespacedPolicyViolation {
 	return buildNamespacedPVObj(info.PolicyName,
 		kyverno.ResourceSpec{
-			Kind:      info.Resource.GetKind(),
-			Namespace: info.Resource.GetNamespace(),
-			Name:      info.Resource.GetName(),
+			Kind: info.Resource.GetKind(),
+			Name: info.Resource.GetName(),
 		},
 		info.Rules)
 }
@@ -49,9 +66,8 @@ func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyver
 	// standaloneresource, set pvResourceSpec with resource itself
 	if len(ownerMap) == 0 {
 		pvResourceSpec := kyverno.ResourceSpec{
-			Namespace: info.Resource.GetNamespace(),
-			Kind:      info.Resource.GetKind(),
-			Name:      info.Resource.GetName(),
+			Kind: info.Resource.GetKind(),
+			Name: info.Resource.GetName(),
 		}
 		return append(pvs, buildNamespacedPVObj(info.PolicyName, pvResourceSpec, info.Rules))
 	}
@@ -62,7 +78,7 @@ func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyver
 	return
 }
 
-func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.NamespacedPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface, pvs []kyverno.NamespacedPolicyViolation) error {
+func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyvernolister.NamespacedPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface, pvs []kyverno.NamespacedPolicyViolation) error {
 	for _, newPv := range pvs {
 		glog.V(4).Infof("creating namespaced policyViolation resource for policy %s and resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 		// check if there was a previous policy voilation for policy & resource combination
@@ -76,11 +92,11 @@ func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.Namespac
 			if reflect.DeepEqual(curPv, kyverno.NamespacedPolicyViolation{}) {
 				glog.V(4).Infof("creating new namespaced policy violation for policy %s & resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 
-				if err := retryGetResource(dclient, newPv.Spec.ResourceSpec); err != nil {
+				if err := retryGetResource(newPv.Namespace, dclient, newPv.Spec.ResourceSpec); err != nil {
 					return fmt.Errorf("failed to get resource for policy violation on resource '%s': %v", newPv.Spec.ResourceSpec.ToKey(), err)
 				}
 
-				if _, err := pvInterface.NamespacedPolicyViolations(newPv.Spec.ResourceSpec.Namespace).Create(&newPv); err != nil {
+				if _, err := pvInterface.NamespacedPolicyViolations(namespace).Create(&newPv); err != nil {
 					return fmt.Errorf("failed to create namespaced policy violation: %v", err)
 				}
 
@@ -104,7 +120,7 @@ func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.Namespac
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.ToKey())
 		//TODO: using a generic name, but would it be helpful to have naming convention for policy violations
 		// as we can only have one policy violation for each (policy + resource) combination
-		if _, err = pvInterface.NamespacedPolicyViolations(newPv.Spec.ResourceSpec.Namespace).Update(&newPv); err != nil {
+		if _, err = pvInterface.NamespacedPolicyViolations(namespace).Update(&newPv); err != nil {
 			return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 		}
 		glog.Infof("namespaced policy violation updated for resource %s", newPv.Spec.ResourceSpec.ToKey())
