@@ -181,7 +181,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				},
 			},
 			rbacv1.RoleRef{
-				Kind: "role",
+				Kind: rolekind,
 				Name: "myrole",
 			},
 		},
@@ -199,7 +199,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				},
 			},
 			rbacv1.RoleRef{
-				Kind: "clusterRole",
+				Kind: clusterrolekind,
 				Name: "myclusterrole",
 			},
 		},
@@ -232,7 +232,7 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 				},
 			},
 			rbacv1.RoleRef{
-				Kind: "clusterRole",
+				Kind: clusterrolekind,
 				Name: "fakeclusterrole",
 			},
 		},
@@ -249,7 +249,7 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 				},
 			},
 			rbacv1.RoleRef{
-				Kind: "clusterRole",
+				Kind: clusterrolekind,
 				Name: "myclusterrole",
 			},
 		},
