@@ -331,8 +331,8 @@ func buildPVObj(policyName string, resourceSpec kyverno.ResourceSpec, rules []ky
 		"policy":   policyName,
 		"resource": resourceSpec.ToKey(),
 	}
+	pv.SetGenerateName(fmt.Sprintf("%s-", policyName))
 	pv.SetLabels(labelMap)
-	pv.SetGenerateName("pv-")
 	return pv
 }
 
