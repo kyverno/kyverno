@@ -74,10 +74,7 @@ func main() {
 	}
 
 	// WERBHOOK REGISTRATION CLIENT
-	webhookRegistrationClient, err := webhookconfig.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
-	if err != nil {
-		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
-	}
+	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -90,7 +87,6 @@ func main() {
 	// watches namespace resource
 	// - cache resync time: 10 seconds
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
-
 	// Configuration Data
 	// dyamically load the configuration from configMap
 	// - resource filters
@@ -113,7 +109,17 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pInformer.Kyverno().V1().NamespacedPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, configData, pvgen, policyMetaStore)
+	pc, err := policy.NewPolicyController(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().NamespacedPolicyViolations(),
+		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
+		webhookRegistrationClient,
+		configData,
+		egen,
+		pvgen,
+		policyMetaStore)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}

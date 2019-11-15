@@ -28,9 +28,9 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	webhookinformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	mconfiginformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	webhooklister "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	mconfiglister "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -71,10 +71,12 @@ type PolicyController struct {
 	pListerSynced cache.InformerSynced
 	// pvListerSynced returns true if the Policy store has been synced at least once
 	pvListerSynced cache.InformerSynced
-	// pvListerSynced returns true if the Policy store has been synced at least once
+	// pvListerSynced returns true if the Policy Violation store has been synced at least once
 	nspvListerSynced cache.InformerSynced
-	// mutationwebhookLister can list/get mutatingwebhookconfigurations
-	mutationwebhookLister webhooklister.MutatingWebhookConfigurationLister
+	// mwebhookconfigSynced returns true if the Mutating Webhook Config store has been synced at least once
+	mwebhookconfigSynced cache.InformerSynced
+	// list/get mutatingwebhookconfigurations
+	mWebhookConfigLister mconfiglister.MutatingWebhookConfigurationLister
 	// WebhookRegistrationClient
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// Resource manager, manages the mapping for already processed resource
@@ -90,10 +92,15 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer, nspvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
-	eventGen event.Interface, webhookInformer webhookinformer.MutatingWebhookConfigurationInformer,
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient, configHandler config.Interface,
+func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
+	client *client.Client,
+	pInformer kyvernoinformer.ClusterPolicyInformer,
+	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	nspvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
+	mconfigwebhookinformer mconfiginformer.MutatingWebhookConfigurationInformer,
+	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	configHandler config.Interface,
+	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	pMetaStore policystore.UpdateInterface) (*PolicyController, error) {
 	// Event broad caster
@@ -147,9 +154,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset, client *client.
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.pvListerSynced = pvInformer.Informer().HasSynced
 	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
-
-	pc.mutationwebhookLister = webhookInformer.Lister()
-
+	pc.mwebhookconfigSynced = mconfigwebhookinformer.Informer().HasSynced
+	pc.mWebhookConfigLister = mconfigwebhookinformer.Lister()
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
@@ -394,7 +400,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Starting policy controller")
 	defer glog.Info("Shutting down policy controller")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced, pc.nspvListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced, pc.nspvListerSynced, pc.mwebhookconfigSynced) {
 		return
 	}
 	for i := 0; i < workers; i++ {
