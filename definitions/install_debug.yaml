@@ -240,6 +240,19 @@ spec:
     singular: clusterpolicyviolation
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
@@ -305,6 +318,19 @@ spec:
     singular: namespacedpolicyviolation
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
