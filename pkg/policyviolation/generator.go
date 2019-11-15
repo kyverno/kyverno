@@ -12,16 +12,13 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
-
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -32,20 +29,13 @@ const workQueueRetryLimit = 3
 type Generator struct {
 	dclient     *dclient.Client
 	pvInterface kyvernov1.KyvernoV1Interface
-	// get/list cluster policy violation
-	pvLister kyvernolister.ClusterPolicyViolationLister
-	// get/ist namespaced policy violation
-	nspvLister kyvernolister.NamespacedPolicyViolationLister
-	// returns true if the cluster policy store has been synced at least once
-	pvSynced cache.InformerSynced
-	// returns true if the namespaced cluster policy store has been synced at at least once
-	nspvSynced cache.InformerSynced
-	queue      workqueue.RateLimitingInterface
-	dataStore  *dataStore
+	pvLister    kyvernolister.ClusterPolicyViolationLister
+	nspvLister  kyvernolister.NamespacedPolicyViolationLister
+	queue       workqueue.RateLimitingInterface
+	dataStore   *dataStore
 }
 
-//NewDataStore returns an instance of data store
-func newDataStore() *dataStore {
+func NewDataStore() *dataStore {
 	ds := dataStore{
 		data: make(map[string]Info),
 	}
@@ -105,17 +95,15 @@ type GeneratorInterface interface {
 
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.NamespacedPolicyViolationInformer) *Generator {
+	pvLister kyvernolister.ClusterPolicyViolationLister,
+	nspvLister kyvernolister.NamespacedPolicyViolationLister) *Generator {
 	gen := Generator{
 		pvInterface: client.KyvernoV1(),
 		dclient:     dclient,
-		pvLister:    pvInformer.Lister(),
-		pvSynced:    pvInformer.Informer().HasSynced,
-		nspvLister:  nspvInformer.Lister(),
-		nspvSynced:  nspvInformer.Informer().HasSynced,
+		pvLister:    pvLister,
+		nspvLister:  nspvLister,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:   newDataStore(),
+		dataStore:   NewDataStore(),
 	}
 	return &gen
 }
@@ -141,10 +129,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	glog.Info("Start policy violation generator")
 	defer glog.Info("Shutting down policy violation generator")
-
-	if !cache.WaitForCacheSync(stopCh, gen.pvSynced, gen.nspvSynced) {
-		glog.Error("event generator: failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)

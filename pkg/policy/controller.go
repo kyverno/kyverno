@@ -395,7 +395,6 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	defer glog.Info("Shutting down policy controller")
 
 	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.pvListerSynced, pc.nspvListerSynced) {
-		glog.Info("failed to sync informer cache")
 		return
 	}
 	for i := 0; i < workers; i++ {

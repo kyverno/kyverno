@@ -76,12 +76,12 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	return &cd
 }
 
-//Run checks syncing
-func (cd *ConfigData) Run(stopCh <-chan struct{}) {
+func (cd *ConfigData) Run(stopCh <-chan struct{}) error {
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, cd.cmListerSycned) {
-		glog.Error("configuration: failed to sync informer cache")
+		return fmt.Errorf("Configuration: Failed to sync informer cache")
 	}
+	return nil
 }
 
 func (cd *ConfigData) addCM(obj interface{}) {
