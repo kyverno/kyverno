@@ -24,3 +24,21 @@ spec:
             requests.memory: '16Gi'
             limits.cpu: '4'
             limits.memory: '16Gi'
+  - name: generate-limitrange
+    match:
+      resources:
+        kinds:
+        - Namespace
+    generate:
+      kind: LimitRange
+      name: "default-limitrange"
+      data:
+        spec:
+          limits:
+          - default:
+              cpu: 500m
+              memory: 1Gi
+            defaultRequest:
+              cpu: 200m
+              memory: 256Mi
+            type: Container

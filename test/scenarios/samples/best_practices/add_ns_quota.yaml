@@ -19,3 +19,6 @@ expected:
         - name: generate-resourcequota
           type: Generation
           success: true
+        - name: generate-limitrange
+          type: Generation
+          success: true
