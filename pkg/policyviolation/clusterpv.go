@@ -46,7 +46,7 @@ func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLi
 	ePV, err := getExistingPVIfAny(pvLister, pv)
 	if err != nil {
 		glog.Error(err)
-		return fmt.Errorf("failed to get existing pv on resource '%s': %v", pv.Spec.ResourceSpec.ToKey(), err)
+		return fmt.Errorf("failed to get existing pv on resource '%s' in namespace : %v", pv.Spec.ResourceSpec.ToKey(), pv.Namespace, err)
 	}
 	if ePV == nil {
 		// Create a New PV
