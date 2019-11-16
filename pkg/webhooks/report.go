@@ -21,6 +21,11 @@ func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []ev
 				// dont create events on success
 				continue
 			}
+			// default behavior is audit
+			reason := event.PolicyViolation
+			if er.PolicyResponse.ValidationFailureAction == Enforce {
+				reason = event.RequestBlocked
+			}
 			failedRules := er.GetFailedRules()
 			filedRulesStr := strings.Join(failedRules, ";")
 			if onUpdate {
@@ -32,7 +37,7 @@ func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []ev
 					er.PolicyResponse.Resource.APIVersion,
 					er.PolicyResponse.Resource.Namespace,
 					er.PolicyResponse.Resource.Name,
-					event.RequestBlocked.String(),
+					reason.String(),
 					event.FPolicyApplyBlockUpdate,
 					filedRulesStr,
 					er.PolicyResponse.Policy,
@@ -46,7 +51,7 @@ func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []ev
 					kyverno.SchemeGroupVersion.String(),
 					"",
 					er.PolicyResponse.Policy,
-					event.RequestBlocked.String(),
+					reason.String(),
 					event.FPolicyBlockResourceUpdate,
 					er.PolicyResponse.Resource.Namespace+"/"+er.PolicyResponse.Resource.Name,
 					filedRulesStr,

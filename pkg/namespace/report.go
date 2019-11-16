@@ -89,7 +89,7 @@ func generateEventsPerEr(er engine.EngineResponse) []event.Info {
 		e.Namespace = "" // event generate on namespace resource
 		e.Name = er.PolicyResponse.Resource.Name
 		e.Reason = "Failure"
-		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' failed to apply. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
+		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' not satisfied. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
 		eventInfos = append(eventInfos, e)
 	}
 	if er.IsSuccesful() {
@@ -102,6 +102,6 @@ func generateEventsPerEr(er engine.EngineResponse) []event.Info {
 	e.Namespace = ""
 	e.Name = er.PolicyResponse.Policy
 	e.Reason = "Failure"
-	e.Message = fmt.Sprintf("failed to apply policy '%s' rules '%v' on resource '%s/%s/%s'", er.PolicyResponse.Policy, er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+	e.Message = fmt.Sprintf("policy '%s' rules '%v' on resource '%s/%s/%s' not stasified", er.PolicyResponse.Policy, er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 	return eventInfos
 }
