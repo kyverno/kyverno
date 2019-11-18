@@ -3,8 +3,11 @@ package policystore
 import (
 	"sync"
 
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 type policyMap map[string]interface{}
@@ -13,9 +16,12 @@ type kindMap map[string]namespaceMap
 
 //PolicyStore Store the meta-data information to faster lookup policies
 type PolicyStore struct {
-	data    map[string]namespaceMap
-	mu      sync.RWMutex
+	data map[string]namespaceMap
+	mu   sync.RWMutex
+	// list/get cluster policy
 	pLister kyvernolister.ClusterPolicyLister
+	// returns true if the cluster policy store has been synced at least once
+	pSynched cache.InformerSynced
 }
 
 //UpdateInterface provides api to update policies
@@ -33,12 +39,20 @@ type LookupInterface interface {
 }
 
 // NewPolicyStore returns a new policy store
-func NewPolicyStore(pLister kyvernolister.ClusterPolicyLister) *PolicyStore {
+func NewPolicyStore(pInformer kyvernoinformer.ClusterPolicyInformer) *PolicyStore {
 	ps := PolicyStore{
-		data:    make(kindMap),
-		pLister: pLister,
+		data:     make(kindMap),
+		pLister:  pInformer.Lister(),
+		pSynched: pInformer.Informer().HasSynced,
 	}
 	return &ps
+}
+
+//Run checks syncing
+func (ps *PolicyStore) Run(stopCh <-chan struct{}) {
+	if !cache.WaitForCacheSync(stopCh, ps.pSynched) {
+		glog.Error("policy meta store: failed to sync informer cache")
+	}
 }
 
 //Register a new policy
