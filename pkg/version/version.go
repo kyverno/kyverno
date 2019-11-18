@@ -1,24 +1,20 @@
 package version
 
+import (
+	"github.com/golang/glog"
+)
+
 // These fields are set during an official build
+// Global vars set from command-line arguments
 var (
 	BuildVersion = "--"
 	BuildHash    = "--"
 	BuildTime    = "--"
 )
 
-// VersionInfo gets json info about the agent version
-type VersionInfo struct {
-	BuildVersion string
-	BuildHash    string
-	BuildTime    string
-}
-
-// GetVersion gets the current agent version
-func GetVersion() *VersionInfo {
-	return &VersionInfo{
-		BuildVersion: BuildVersion,
-		BuildHash:    BuildHash,
-		BuildTime:    BuildTime,
-	}
+//PrintVersionInfo displays the kyverno version - git version
+func PrintVersionInfo() {
+	glog.Infof("Kyverno version: %s\n", BuildVersion)
+	glog.Infof("Kyverno BuildHash: %s\n", BuildHash)
+	glog.Infof("Kyverno BuildTime: %s\n", BuildTime)
 }

@@ -34,18 +34,24 @@ import (
 // WebhookServer contains configured TLS server with MutationWebhook.
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
-	server                    http.Server
-	client                    *client.Client
-	kyvernoClient             *kyvernoclient.Clientset
-	pLister                   kyvernolister.ClusterPolicyLister
-	pvLister                  kyvernolister.ClusterPolicyViolationLister
-	namespacepvLister         kyvernolister.NamespacedPolicyViolationLister
-	pListerSynced             cache.InformerSynced
-	pvListerSynced            cache.InformerSynced
-	namespacepvListerSynced   cache.InformerSynced
-	rbLister                  rbaclister.RoleBindingLister
-	crbLister                 rbaclister.ClusterRoleBindingLister
-	eventGen                  event.Interface
+	server        http.Server
+	client        *client.Client
+	kyvernoClient *kyvernoclient.Clientset
+	// list/get cluster policy resource
+	pLister kyvernolister.ClusterPolicyLister
+	// returns true if the cluster policy store has synced atleast
+	pSynced cache.InformerSynced
+	// list/get role binding resource
+	rbLister rbaclister.RoleBindingLister
+	// return true if role bining store has synced atleast once
+	rbSynced cache.InformerSynced
+	// list/get cluster role binding resource
+	crbLister rbaclister.ClusterRoleBindingLister
+	// return true if cluster role binding store has synced atleast once
+	crbSynced cache.InformerSynced
+	// generate events
+	eventGen event.Interface
+	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
 	policyStatus policy.PolicyStatusInterface
@@ -68,8 +74,6 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	namespacepvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
@@ -96,17 +100,15 @@ func NewWebhookServer(
 		client:                    client,
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
-		pvLister:                  pvInformer.Lister(),
-		namespacepvLister:         namespacepvInformer.Lister(),
-		pListerSynced:             pvInformer.Informer().HasSynced,
-		pvListerSynced:            pInformer.Informer().HasSynced,
-		namespacepvListerSynced:   namespacepvInformer.Informer().HasSynced,
+		pSynced:                   pInformer.Informer().HasSynced,
+		rbLister:                  rbInformer.Lister(),
+		rbSynced:                  rbInformer.Informer().HasSynced,
+		crbLister:                 crbInformer.Lister(),
+		crbSynced:                 crbInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
-		rbLister:                  rbInformer.Lister(),
-		crbLister:                 crbInformer.Lister(),
 		cleanUp:                   cleanUp,
 		lastReqTime:               checker.NewLastReqTime(),
 		pvGenerator:               pvGenerator,
@@ -246,6 +248,10 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
+	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced) {
+		glog.Error("webhook: failed to sync informer cache")
+	}
+
 	go func(ws *WebhookServer) {
 		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
@@ -261,17 +267,17 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 }
 
 // Stop TLS server and returns control after the server is shut down
-func (ws *WebhookServer) Stop() {
-	err := ws.server.Shutdown(context.Background())
+func (ws *WebhookServer) Stop(ctx context.Context) {
+	// cleanUp
+	// remove the static webhookconfigurations
+	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
+	// shutdown http.Server with context timeout
+	err := ws.server.Shutdown(ctx)
 	if err != nil {
 		// Error from closing listeners, or context timeout:
 		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
-	// cleanUp
-	// remove the static webhookconfigurations for policy CRD
-	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
-
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body
