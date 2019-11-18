@@ -67,7 +67,7 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig()
 		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
 	}
 	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
-	err = wrc.registrationClient.MutatingWebhookConfigurations().Delete(mutatingConfig, &v1.DeleteOptions{})
+	err = wrc.client.DeleteResouce(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		glog.V(4).Infof("verify webhook configuration %s, does not exits. not deleting", mutatingConfig)
 	} else if err != nil {

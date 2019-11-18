@@ -6,41 +6,38 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	admregclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
+)
+
+const (
+	MutatingWebhookConfigurationKind   string = "MutatingWebhookConfiguration"
+	ValidatingWebhookConfigurationKind string = "ValidatingWebhookConfiguration"
 )
 
 // WebhookRegistrationClient is client for registration webhooks on cluster
 type WebhookRegistrationClient struct {
-	registrationClient *admregclient.AdmissionregistrationV1beta1Client
-	client             *client.Client
-	clientConfig       *rest.Config
+	client       *client.Client
+	clientConfig *rest.Config
 	// serverIP should be used if running Kyverno out of clutser
 	serverIP       string
 	timeoutSeconds int32
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
-func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client, serverIP string, webhookTimeout int32) (*WebhookRegistrationClient, error) {
-	registrationClient, err := admregclient.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	glog.V(4).Infof("Registering webhook client using serverIP %s\n", serverIP)
-
+func NewWebhookRegistrationClient(
+	clientConfig *rest.Config,
+	client *client.Client,
+	serverIP string,
+	webhookTimeout int32) *WebhookRegistrationClient {
 	return &WebhookRegistrationClient{
-		registrationClient: registrationClient,
-		client:             client,
-		clientConfig:       clientConfig,
-		serverIP:           serverIP,
-		timeoutSeconds:     webhookTimeout,
-	}, nil
+		clientConfig:   clientConfig,
+		client:         client,
+		serverIP:       serverIP,
+		timeoutSeconds: webhookTimeout,
+	}
 }
 
 // Register creates admission webhooks configs on cluster
@@ -106,8 +103,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		// clientConfig - service
 		config = wrc.constructMutatingWebhookConfig(caData)
 	}
-
-	_, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config)
+	_, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		glog.V(4).Infof("resource mutating webhook configuration %s, already exists. not creating one", config.Name)
 		return nil
@@ -117,18 +113,6 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		return err
 	}
 	return nil
-}
-
-//GetResourceMutatingWebhookConfiguration returns the MutatingWebhookConfiguration
-func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfiguration() (*admregapi.MutatingWebhookConfiguration, error) {
-	var name string
-	if wrc.serverIP != "" {
-		name = config.MutatingWebhookConfigurationDebugName
-	} else {
-		name = config.MutatingWebhookConfigurationName
-	}
-
-	return wrc.registrationClient.MutatingWebhookConfigurations().Get(name, v1.GetOptions{})
 }
 
 //registerPolicyValidatingWebhookConfiguration create a Validating webhook configuration for Policy CRD
@@ -154,7 +138,7 @@ func (wrc *WebhookRegistrationClient) createPolicyValidatingWebhookConfiguration
 	}
 
 	// create validating webhook configuration resource
-	if _, err := wrc.registrationClient.ValidatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -184,7 +168,7 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -214,7 +198,7 @@ func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 

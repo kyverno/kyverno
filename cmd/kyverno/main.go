@@ -135,10 +135,10 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().NamespacedPolicyViolations(),
-		egen,
 		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
 		webhookRegistrationClient,
 		configData,
+		egen,
 		pvgen,
 		policyMetaStore)
 	if err != nil {

@@ -9,6 +9,17 @@ import (
 func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 	removeWebhookConfig := func() error {
 		var err error
+		// check informer cache
+		configName := pc.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
+		config, err := pc.mWebhookConfigLister.Get(configName)
+		if err != nil {
+			glog.V(4).Infof("failed to list mutating webhook config: %v", err)
+			return err
+		}
+		if config == nil {
+			// as no resource is found
+			return nil
+		}
 		err = pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 		if err != nil {
 			return err
@@ -30,7 +41,7 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 		return removeWebhookConfig()
 	}
 
-	// if there are policies, check if they contain mutating or validating rule
+	// if polices only have generate rules, we dont need the webhook
 	if !hasMutateOrValidatePolicies(policies) {
 		glog.V(4).Info("no policies with mutating or validating webhook configurations, remove resource webhook configuration if one exists")
 		return removeWebhookConfig()
@@ -42,6 +53,17 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 func (pc *PolicyController) createResourceMutatingWebhookConfigurationIfRequired(policy kyverno.ClusterPolicy) error {
 	// if the policy contains mutating & validation rules and it config does not exist we create one
 	if policy.HasMutateOrValidate() {
+		// check cache
+		configName := pc.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
+		config, err := pc.mWebhookConfigLister.Get(configName)
+		if err != nil {
+			glog.V(4).Infof("failed to list mutating webhook configuration: %v", err)
+			return err
+		}
+		if config != nil {
+			// mutating webhoook configuration already exists
+			return nil
+		}
 		if err := pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
 			return err
 		}
