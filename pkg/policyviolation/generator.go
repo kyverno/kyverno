@@ -143,7 +143,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer glog.Info("Shutting down policy violation generator")
 
 	if !cache.WaitForCacheSync(stopCh, gen.pvSynced, gen.nspvSynced) {
-		glog.Error("event generator: failed to sync informer cache")
+		glog.Error("policy violation generator: failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
