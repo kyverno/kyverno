@@ -1,6 +1,6 @@
 # Configure namespace limits and quotas
 
-To limit the number of resources like CPU and memory, as well as objects that may be consumed by workloads in a namespace, it is important to configure resource limits and quotas for each namespace. 
+To limit the number of resources like CPU and memory, as well as objects that may be consumed by workloads in a namespace, it is important to configure resource limits and quotas for each namespace. The generated default limitrange sets the default quotas for a container.
 
 ## Additional Information
 
@@ -32,4 +32,22 @@ spec:
             requests.memory: '16Gi'
             limits.cpu: '4'
             limits.memory: '16Gi'
+  - name: generate-limitrange
+    match:
+      resources:
+        kinds:
+        - Namespace
+    generate:
+      kind: LimitRange
+      name: "default-limitrange"
+      data:
+        spec:
+          limits:
+          - default:
+              cpu: 500m
+              memory: 1Gi
+            defaultRequest:
+              cpu: 200m
+              memory: 256Mi
+            type: Container
 ````
