@@ -261,17 +261,17 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 }
 
 // Stop TLS server and returns control after the server is shut down
-func (ws *WebhookServer) Stop() {
-	err := ws.server.Shutdown(context.Background())
+func (ws *WebhookServer) Stop(ctx context.Context) {
+	// cleanUp
+	// remove the static webhookconfigurations
+	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
+	// shutdown http.Server with context timeout
+	err := ws.server.Shutdown(ctx)
 	if err != nil {
 		// Error from closing listeners, or context timeout:
 		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
-	// cleanUp
-	// remove the static webhookconfigurations for policy CRD
-	ws.webhookRegistrationClient.RemovePolicyWebhookConfigurations(ws.cleanUp)
-
 }
 
 // bodyToAdmissionReview creates AdmissionReview object from request body

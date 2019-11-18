@@ -1,9 +1,5 @@
 Use these scripts to prepare the controller for work.
-All these scripts should be launched from the root folder of the project, for example:
-`scripts/compile-image.sh`
-
-### compile-image.sh ###
-Compiles the project to go executable, generates docker image and pushes it to the repo. Has no arguments.
+All these scripts should be launched from the root folder of the project.
 
 ### generate-server-cert.sh ###
 Generates TLS certificate and key that used by webhook server. Example:
@@ -19,10 +15,8 @@ Prepares controller for free (local) or in-cluster use. Uses `generate-server-ce
 * `--serverIp` means the same as for `generate-server-cert.sh`
 Examples:
 `scripts/deploy-controller.sh --service=my-kyverno --namespace=my_namespace --serverIp=192.168.10.117` - deploy controller to the cluster with master node '192.168.10.117' to the namespace 'my_namespace' as a service 'my-kyverno'
-`scripts/deploy-controller.sh --service=localhost --serverIp=192.168.10.117` - deploy controller locally for usage in cluster with mnaster node at '192.168.10.117'
+`scripts/deploy-controller.sh --service=localhost --serverIp=192.168.10.117` - deploy controller locally for usage in cluster with master node at '192.168.10.117'
 
-### test-web-hook.sh ###
-Quickly creates and deletes test config map. If your webhook server is running, you should see the corresponding output from it. Use this script after `deploy-controller.sh`.
 
 ### update-codegen.sh ###
 Generates additional code for controller object. You should resolve all dependencies before using it, see main Readme for details.
