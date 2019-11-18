@@ -1,6 +1,12 @@
 package config
 
-import "flag"
+import (
+	"flag"
+
+	"github.com/golang/glog"
+	rest "k8s.io/client-go/rest"
+	clientcmd "k8s.io/client-go/tools/clientcmd"
+)
 
 const (
 	// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -69,4 +75,14 @@ func LogDefaultFlags() {
 	flag.Set("logtostderr", "true")
 	flag.Set("stderrthreshold", "WARNING")
 	flag.Set("v", "2")
+}
+
+//CreateClientConfig creates client config
+func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
+	if kubeconfig == "" {
+		glog.Info("Using in-cluster configuration")
+		return rest.InClusterConfig()
+	}
+	glog.Infof("Using configuration from '%s'", kubeconfig)
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

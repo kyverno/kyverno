@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -8,17 +9,18 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 var (
@@ -34,15 +36,14 @@ var (
 
 func main() {
 	defer glog.Flush()
-	printVersionInfo()
-	// profile cpu and memory consuption
-	prof = enableProfiling(cpu, memory)
+	version.PrintVersionInfo()
+
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
-	// SIGINT & SIGTERM channel
-	stopCh := signals.SetupSignalHandler()
+	//  handle os signals
+	stopCh := signal.SetupSignalHandler()
 	// CLIENT CONFIG
-	clientConfig, err := createClientConfig(kubeconfig)
+	clientConfig, err := config.CreateClientConfig(kubeconfig)
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
@@ -58,7 +59,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig)
+	client, err := dclient.NewClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
@@ -179,7 +180,7 @@ func main() {
 		policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
-	tlsPair, err := initTLSPemPair(clientConfig, client)
+	tlsPair, err := client.InitTLSPemPair(clientConfig)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -236,22 +237,23 @@ func main() {
 	server.RunAsync(stopCh)
 
 	<-stopCh
-	disableProfiling(prof)
-	server.Stop()
+
+	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
+	// adding a threshold will handle zombie connections
+	// adjust the context deadline to 5 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+	// cleanup webhookconfigurations followed by webhook shutdown
+	server.Stop(ctx)
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp
+	glog.Info("successful shutdown of kyverno controller")
 }
 
 func init() {
-	// profiling feature gate
-	// cpu and memory profiling cannot be enabled at same time
-	// if both cpu and memory are enabled
-	// by default is to profile cpu
-	flag.BoolVar(&cpu, "cpu", false, "cpu profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
-	flag.BoolVar(&memory, "memory", false, "memory profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
-	//TODO: this has been added to backward support command line arguments
-	// will be removed in future and the configuration will be set only via configmaps
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
