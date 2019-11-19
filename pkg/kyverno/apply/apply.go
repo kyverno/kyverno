@@ -122,7 +122,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 			for _, r := range engineResponse.PolicyResponse.Rules {
 				glog.Warning(r.Message)
 			}
-			return patchedResource, fmt.Errorf("Failed to apply policy %s on resource %s/%s", policy.Name, rname, rns)
+			return patchedResource, fmt.Errorf("policy %s on resource %s/%s not satisfied", policy.Name, rname, rns)
 		} else if len(engineResponse.PolicyResponse.Rules) > 0 {
 			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 		}

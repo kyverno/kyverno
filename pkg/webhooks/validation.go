@@ -88,9 +88,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	glog.V(4).Infof("eval: %v %s/%s/%s ", time.Since(evalTime), request.Kind, request.Namespace, request.Name)
 	// report time
 	reportTime := time.Now()
-	// ADD EVENTS
-	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
-	ws.eventGen.Add(events...)
 
 	// If Validation fails then reject the request
 	// violations are created with resource owner(if exist) on "enforce"
@@ -102,6 +99,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
 		pvInfos := generatePV(engineResponses, true)
 		ws.pvGenerator.Add(pvInfos...)
+		// ADD EVENTS
+		events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
+		ws.eventGen.Add(events...)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
 	}
@@ -110,6 +110,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 
 	pvInfos := generatePV(engineResponses, blocked)
 	ws.pvGenerator.Add(pvInfos...)
+	// ADD EVENTS
+	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
+	ws.eventGen.Add(events...)
 	sendStat(false)
 	// report time end
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
