@@ -118,11 +118,18 @@ func generatePV(ers []engine.EngineResponse, blocked bool) []policyviolation.Inf
 }
 
 func buildPVInfo(er engine.EngineResponse, blocked bool) policyviolation.Info {
+	mode := false
+	if er.PolicyResponse.ValidationFailureAction == Enforce {
+		mode = true
+	}
+
+	// set Info.Blocked to true only if both the request is blocked
+	// as well as the policy is set to enforce
 	info := policyviolation.Info{
-		Blocked:    blocked,
+		Blocked:    mode == blocked,
 		PolicyName: er.PolicyResponse.Policy,
 		Resource:   er.PatchedResource,
-		Rules:      buildViolatedRules(er, blocked),
+		Rules:      buildViolatedRules(er, mode == blocked),
 	}
 	return info
 }
