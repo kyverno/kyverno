@@ -71,7 +71,7 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 
 	configName := wrc.GetResourceMutatingWebhookConfigName()
 	// delete webhook configuration
-	err := wrc.client.DeleteResouce(MutatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		glog.V(4).Infof("resource webhook configuration %s does not exits, so not deleting", configName)
 		return nil

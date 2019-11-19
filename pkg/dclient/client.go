@@ -131,7 +131,7 @@ func (c *Client) ListResource(kind string, namespace string, lselector *meta.Lab
 }
 
 // DeleteResouce deletes the specified resource
-func (c *Client) DeleteResouce(kind string, namespace string, name string, dryRun bool) error {
+func (c *Client) DeleteResource(kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}

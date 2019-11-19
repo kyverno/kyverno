@@ -75,14 +75,11 @@ func main() {
 	}
 
 	// WERBHOOK REGISTRATION CLIENT
-	webhookRegistrationClient, err := webhookconfig.NewWebhookRegistrationClient(
+	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
 		clientConfig,
 		client,
 		serverIP,
 		int32(webhookTimeout))
-	if err != nil {
-		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
-	}
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:

@@ -82,7 +82,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 
 	for _, csr := range csrList.Items {
 		if csr.GetName() == req.ObjectMeta.Name {
-			err := c.DeleteResouce(CSRs, "", csr.GetName(), false)
+			err := c.DeleteResource(CSRs, "", csr.GetName(), false)
 			if err != nil {
 				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
 			}
