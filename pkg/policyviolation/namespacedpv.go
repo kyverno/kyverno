@@ -97,8 +97,9 @@ func createNamespacedPV(dclient *dclient.Client, pvLister kyvernolister.Namespac
 			continue
 		}
 
-		// set newPv name with curPv, as we are updating the resource itself
+		// set newPv Name/ResourceVersion with curPv, as we are updating the resource itself
 		newPv.SetName(curPv.Name)
+		newPv.SetResourceVersion(curPv.ResourceVersion)
 
 		// spec changed so update the policyviolation
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.ToKey())
