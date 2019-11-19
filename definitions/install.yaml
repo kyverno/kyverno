@@ -410,6 +410,9 @@ spec:
         app: kyverno
     spec:
       serviceAccountName: kyverno-service-account
+      initContainers:
+        - name: kyverno-pre
+          image: nirmata/kyvernopre:latest
       containers:
         - name: kyverno
           image: nirmata/kyverno:latest

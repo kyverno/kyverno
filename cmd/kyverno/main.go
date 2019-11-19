@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -8,17 +9,18 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 var (
@@ -34,15 +36,14 @@ var (
 
 func main() {
 	defer glog.Flush()
-	printVersionInfo()
-	// profile cpu and memory consuption
-	prof = enableProfiling(cpu, memory)
+	version.PrintVersionInfo()
+
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
-	// SIGINT & SIGTERM channel
-	stopCh := signals.SetupSignalHandler()
+	//  handle os signals
+	stopCh := signal.SetupSignalHandler()
 	// CLIENT CONFIG
-	clientConfig, err := createClientConfig(kubeconfig)
+	clientConfig, err := config.CreateClientConfig(kubeconfig)
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %v\n", err)
 	}
@@ -58,7 +59,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig)
+	client, err := dclient.NewClient(clientConfig)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
@@ -74,7 +75,11 @@ func main() {
 	}
 
 	// WERBHOOK REGISTRATION CLIENT
-	webhookRegistrationClient, err := webhookconfig.NewWebhookRegistrationClient(clientConfig, client, serverIP, int32(webhookTimeout))
+	webhookRegistrationClient, err := webhookconfig.NewWebhookRegistrationClient(
+		clientConfig,
+		client,
+		serverIP,
+		int32(webhookTimeout))
 	if err != nil {
 		glog.Fatalf("Unable to register admission webhooks on cluster: %v\n", err)
 	}
@@ -84,36 +89,58 @@ func main() {
 	//		- Policy
 	//		- PolicyVolation
 	// - cache resync time: 10 seconds
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, 10*time.Second)
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(
+		pclient,
+		10*time.Second)
 
 	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
 	// - cache resync time: 10 seconds
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second)
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
+		kubeClient,
+		10*time.Second)
 
 	// Configuration Data
 	// dyamically load the configuration from configMap
 	// - resource filters
 	// if the configMap is update, the configuration will be updated :D
-	configData := config.NewConfigData(kubeClient, kubeInformer.Core().V1().ConfigMaps(), filterK8Resources)
+	configData := config.NewConfigData(
+		kubeClient,
+		kubeInformer.Core().V1().ConfigMaps(),
+		filterK8Resources)
 
 	// Policy meta-data store
-	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies().Lister())
+	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies())
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	egen := event.NewEventGenerator(client, pInformer.Kyverno().V1().ClusterPolicies())
+	egen := event.NewEventGenerator(
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient, client, pInformer.Kyverno().V1().ClusterPolicyViolations().Lister(), pInformer.Kyverno().V1().NamespacedPolicyViolations().Lister())
+	pvgen := policyviolation.NewPVGenerator(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().NamespacedPolicyViolations())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: recieves stats when a policy is applied
 	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient, client, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pInformer.Kyverno().V1().NamespacedPolicyViolations(), egen, kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(), webhookRegistrationClient, configData, pvgen, policyMetaStore)
+	pc, err := policy.NewPolicyController(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().NamespacedPolicyViolations(),
+		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
+		webhookRegistrationClient,
+		configData,
+		egen,
+		pvgen,
+		policyMetaStore)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -121,22 +148,39 @@ func main() {
 	// POLICY VIOLATION CONTROLLER
 	// policy violation cleanup if the corresponding resource is deleted
 	// status: lastUpdatTime
-	pvc, err := policyviolation.NewPolicyViolationController(client, pclient, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations())
+	pvc, err := policyviolation.NewPolicyViolationController(
+		client,
+		pclient,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().ClusterPolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating cluster policy violation controller: %v\n", err)
 	}
 
-	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(client, pclient, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().NamespacedPolicyViolations())
+	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(
+		client,
+		pclient,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().NamespacedPolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating namespaced policy violation controller: %v\n", err)
 	}
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(pclient, client, kubeInformer.Core().V1().Namespaces(), pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pc.GetPolicyStatusAggregator(), egen, configData, pvgen, policyMetaStore)
+	nsc := namespace.NewNamespaceController(
+		pclient,
+		client,
+		kubeInformer.Core().V1().Namespaces(),
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pc.GetPolicyStatusAggregator(),
+		egen,
+		configData,
+		pvgen,
+		policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
-	tlsPair, err := initTLSPemPair(clientConfig, client)
+	tlsPair, err := client.InitTLSPemPair(clientConfig)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -156,17 +200,29 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	server, err := webhooks.NewWebhookServer(pclient, client, tlsPair, pInformer.Kyverno().V1().ClusterPolicies(), pInformer.Kyverno().V1().ClusterPolicyViolations(), pInformer.Kyverno().V1().NamespacedPolicyViolations(),
-		kubeInformer.Rbac().V1().RoleBindings(), kubeInformer.Rbac().V1().ClusterRoleBindings(), egen, webhookRegistrationClient, pc.GetPolicyStatusAggregator(), configData, policyMetaStore, pvgen, cleanUp)
+	server, err := webhooks.NewWebhookServer(
+		pclient,
+		client,
+		tlsPair,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		kubeInformer.Rbac().V1().RoleBindings(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings(),
+		egen,
+		webhookRegistrationClient,
+		pc.GetPolicyStatusAggregator(),
+		configData,
+		policyMetaStore,
+		pvgen,
+		cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-	if err := configData.Run(stopCh); err != nil {
-		glog.Fatalf("Unable to load dynamic configuration: %v\n", err)
-	}
+
+	go configData.Run(stopCh)
+	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
 	go pvc.Run(1, stopCh)
 	go nspvc.Run(1, stopCh)
@@ -181,22 +237,23 @@ func main() {
 	server.RunAsync(stopCh)
 
 	<-stopCh
-	disableProfiling(prof)
-	server.Stop()
+
+	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
+	// adding a threshold will handle zombie connections
+	// adjust the context deadline to 5 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+	// cleanup webhookconfigurations followed by webhook shutdown
+	server.Stop(ctx)
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp
+	glog.Info("successful shutdown of kyverno controller")
 }
 
 func init() {
-	// profiling feature gate
-	// cpu and memory profiling cannot be enabled at same time
-	// if both cpu and memory are enabled
-	// by default is to profile cpu
-	flag.BoolVar(&cpu, "cpu", false, "cpu profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
-	flag.BoolVar(&memory, "memory", false, "memory profilling feature gate, default to false || cpu and memory profiling cannot be enabled at the same time")
-	//TODO: this has been added to backward support command line arguments
-	// will be removed in future and the configuration will be set only via configmaps
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")

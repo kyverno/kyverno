@@ -39,14 +39,12 @@ type NamespaceController struct {
 
 	//nsLister provides expansion to the namespace lister to inject GVK for the resource
 	nsLister NamespaceListerExpansion
-	// nsListerSynced returns true if the Namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
+	// nsSynced returns true if the Namespace store has been synced at least once
+	nsSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
-	// pvListerSynced retrns true if the Policy store has been synced at least once
-	pvListerSynced cache.InformerSynced
-	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.ClusterPolicyViolationLister
+	// pSynced retrns true if the Policy store has been synced at least once
+	pSynced cache.InformerSynced
 	// API to send policy stats for aggregation
 	policyStatus policy.PolicyStatusInterface
 	// eventGen provides interface to generate evenets
@@ -68,7 +66,6 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	nsInformer v1Informer.NamespaceInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
 	configHandler config.Interface,
@@ -101,10 +98,9 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.syncHandler = nsc.syncNamespace
 
 	nsc.nsLister = NewNamespaceLister(nsInformer.Lister())
-	nsc.nsListerSynced = nsInformer.Informer().HasSynced
+	nsc.nsSynced = nsInformer.Informer().HasSynced
 	nsc.pLister = pInformer.Lister()
-	nsc.pvListerSynced = pInformer.Informer().HasSynced
-	nsc.pvLister = pvInformer.Lister()
+	nsc.pSynced = pInformer.Informer().HasSynced
 	nsc.policyStatus = policyStatus
 
 	// resource manager
@@ -172,7 +168,8 @@ func (nsc *NamespaceController) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Starting namespace controller")
 	defer glog.Info("Shutting down namespace controller")
 
-	if ok := cache.WaitForCacheSync(stopCh, nsc.nsListerSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, nsc.nsSynced, nsc.pSynced); !ok {
+		glog.Error("namespace generator: failed to sync cache")
 		return
 	}
 

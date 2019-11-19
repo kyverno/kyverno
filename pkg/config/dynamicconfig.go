@@ -30,7 +30,7 @@ type ConfigData struct {
 	// configuration data
 	filters []k8Resource
 	// hasynced
-	cmListerSycned cache.InformerSynced
+	cmSycned cache.InformerSynced
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -57,9 +57,9 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		glog.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
-		client:         rclient,
-		cmName:         os.Getenv(cmNameEnv),
-		cmListerSycned: cmInformer.Informer().HasSynced,
+		client:   rclient,
+		cmName:   os.Getenv(cmNameEnv),
+		cmSycned: cmInformer.Informer().HasSynced,
 	}
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
@@ -76,12 +76,12 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	return &cd
 }
 
-func (cd *ConfigData) Run(stopCh <-chan struct{}) error {
+//Run checks syncing
+func (cd *ConfigData) Run(stopCh <-chan struct{}) {
 	// wait for cache to populate first time
-	if !cache.WaitForCacheSync(stopCh, cd.cmListerSycned) {
-		return fmt.Errorf("Configuration: Failed to sync informer cache")
+	if !cache.WaitForCacheSync(stopCh, cd.cmSycned) {
+		glog.Error("configuration: failed to sync informer cache")
 	}
-	return nil
 }
 
 func (cd *ConfigData) addCM(obj interface{}) {

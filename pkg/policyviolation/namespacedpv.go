@@ -53,7 +53,7 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 		"policy":   policy,
 		"resource": resource.ToKey(),
 	}
-	pv.SetGenerateName("pv-")
+	pv.SetGenerateName(fmt.Sprintf("%s-", policy))
 	pv.SetLabels(labelMap)
 	return pv
 }
