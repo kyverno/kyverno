@@ -277,7 +277,9 @@ func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLi
 		return nil
 	}
 
+	// set newPv Name/ResourceVersion with curPv, as we are updating the resource itself
 	pv.SetName(ePV.Name)
+	pv.SetResourceVersion(ePV.ResourceVersion)
 	_, err = pvInterface.ClusterPolicyViolations().Update(&pv)
 	if err != nil {
 		glog.Error(err)
