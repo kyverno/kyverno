@@ -181,7 +181,8 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
-			validateGeneratedResources(t, client, *policy, tc.Expected.Generation.GeneratedResources)
+			// Expected generate resource will be in same namesapces as resource
+			validateGeneratedResources(t, client, *policy, resource.GetName(), tc.Expected.Generation.GeneratedResources)
 		}
 	}
 	return true
@@ -191,12 +192,12 @@ func createNamespace(client *client.Client, ns *unstructured.Unstructured) error
 	_, err := client.CreateResource("Namespace", "", ns, false)
 	return err
 }
-func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, expected []kyverno.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
-		if _, err := client.GetResource(resource.Kind, resource.Namespace, resource.Name); err != nil {
-			t.Errorf("generated resource %s/%s/%s not found. %v", resource.Kind, resource.Namespace, resource.Name, err)
+		if _, err := client.GetResource(resource.Kind, namespace, resource.Name); err != nil {
+			t.Errorf("generated resource %s/%s/%s not found. %v", resource.Kind, namespace, resource.Name, err)
 		}
 	}
 }

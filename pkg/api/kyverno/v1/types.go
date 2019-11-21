@@ -188,9 +188,8 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	Kind      string `json:"kind"`
-	Namespace string `json:"namespace,omitempty"`
-	Name      string `json:"name"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
 }
 
 // ViolatedRule stores the information regarding the rule
@@ -201,9 +200,10 @@ type ViolatedRule struct {
 	ManagedResource ManagedResourceSpec `json:"managedResource,omitempty"`
 }
 
+// ManagedResourceSpec is used when the violations is created on resource owner
+// to determing the kind of child resource that caused the violation
 type ManagedResourceSpec struct {
 	Kind            string `json:"kind,omitempty"`
-	Namespace       string `json:"namespace,omitempty"`
 	CreationBlocked bool   `json:"creationBlocked,omitempty"`
 }
 
@@ -212,5 +212,4 @@ type ManagedResourceSpec struct {
 //		LastUpdateTime : the time the polivy violation was updated
 type PolicyViolationStatus struct {
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
-	//TODO: having user information regarding the owner of resource can be helpful
 }
