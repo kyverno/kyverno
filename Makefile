@@ -20,7 +20,7 @@ TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 KYVERNO_PATH:= cmd/kyverno
 build:
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 ##################################
 # INIT CONTAINER 
