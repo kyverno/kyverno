@@ -492,7 +492,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	engineResponses := pc.processExistingResources(*p)
 	// report errors
 	pc.cleanupAndReport(engineResponses)
-	// fetch the policy again via the aggreagator to remain consistent
+	// sync active
 	return pc.syncStatusOnly(p, pvList, nspvList)
 }
 

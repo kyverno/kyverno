@@ -261,8 +261,6 @@ spec:
                   type: string
                 name:
                   type: string
-                namespace:
-                  type: string
             rules:
               type: array
               items:
@@ -282,8 +280,6 @@ spec:
                     type: object
                     properties:
                       kind:
-                        type: string
-                      namespace:
                         type: string
                       creationBlocked:
                         type: boolean
@@ -326,8 +322,6 @@ spec:
                   type: string
                 name:
                   type: string
-                namespace:
-                  type: string
             rules:
               type: array
               items:
@@ -347,8 +341,6 @@ spec:
                     type: object
                     properties:
                       kind:
-                        type: string
-                      namespace:
                         type: string
                       creationBlocked:
                         type: boolean

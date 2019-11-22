@@ -74,7 +74,7 @@ func TestCRUDResource(t *testing.T) {
 		t.Errorf("ListResource not working: %s", err)
 	}
 	// DeleteResouce
-	err = f.client.DeleteResouce("thekind", "ns-foo", "name-bar", false)
+	err = f.client.DeleteResource("thekind", "ns-foo", "name-bar", false)
 	if err != nil {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}

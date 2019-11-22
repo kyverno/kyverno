@@ -94,7 +94,7 @@ func removeWebhookIfExists(client *client.Client, kind string, name string) erro
 		return err
 	}
 	// Delete resource
-	err = client.DeleteResouce(kind, "", name, false)
+	err = client.DeleteResource(kind, "", name, false)
 	if err != nil {
 		glog.Errorf("failed to delete resource %s(%s)", name, kind)
 		return err
