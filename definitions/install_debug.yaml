@@ -13,6 +13,8 @@ spec:
     kind: ClusterPolicy
     plural: clusterpolicies
     singular: clusterpolicy
+    shortNames:
+    - pol
   subresources:
     status: {}
   validation:
@@ -238,8 +240,23 @@ spec:
     kind: ClusterPolicyViolation
     plural: clusterpolicyviolations
     singular: clusterpolicyviolation
+    shortNames:
+    - cpolv
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
@@ -299,8 +316,23 @@ spec:
     kind: NamespacedPolicyViolation
     plural: namespacedpolicyviolations
     singular: namespacedpolicyviolation
+    shortNames:
+    - npolv
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
