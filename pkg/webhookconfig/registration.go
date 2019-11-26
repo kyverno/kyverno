@@ -65,6 +65,17 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	// webhook configurations are created dynamically based on the policy resources
 	wrc.removeWebhookConfigurations()
 
+	// create Verify mutating webhook configuration resource
+	// that is used to check if admission control is enabled or not
+	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+		return err
+	}
+
+	if err := wrc.waitForWebhookSuccess(); err != nil {
+		return fmt.Errorf("inactive webhook, not registering webhookconfigurations for policy: %v", err)
+	}
+	glog.V(4).Infof("webhook is active, registering policy webhookcofigurations")
+
 	// Static Webhook configuration on Policy CRD
 	// create Policy CRD validating webhook configuration resource
 	// used for validating Policy CR
@@ -74,12 +85,6 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	// create Policy CRD validating webhook configuration resource
 	// used for defauling values in Policy CR
 	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
-		return err
-	}
-
-	// create Verify mutating webhook configuration resource
-	// that is used to check if admission control is enabled or not
-	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
 		return err
 	}
 
@@ -125,8 +130,9 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 // Mutationg webhook is be used for Mutating & Validating purpose
 func (wrc *WebhookRegistrationClient) createResourceMutatingWebhookConfiguration() error {
 	if err := wrc.waitForWebhookSuccess(); err != nil {
-		return fmt.Errorf("inactive webhook: %v", err)
+		return fmt.Errorf("inactive webhook, not registering webhookconfiguration for resource: %v", err)
 	}
+	glog.V(4).Infof("webhook is active, registering resource mutating webhookcofigurations")
 
 	var caData []byte
 	var config *admregapi.MutatingWebhookConfiguration
@@ -342,7 +348,7 @@ func (wrc *WebhookRegistrationClient) waitForWebhookSuccess() error {
 	return wait.ExponentialBackoff(backoff, func() (bool, error) {
 		timeDiff := time.Since(wrc.LastReqTime.Time())
 		if timeDiff < checker.DefaultDeadline {
-			glog.Infof("Verified webhook status, creating resource mutating webhook configuration")
+			glog.Infof("Verified webhook status, creating webhook configuration")
 			return true, nil
 		}
 		glog.V(4).Infof("webhook is inactive, retrying #%d", count)
