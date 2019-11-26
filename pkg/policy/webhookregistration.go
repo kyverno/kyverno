@@ -50,27 +50,6 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 	return nil
 }
 
-func (pc *PolicyController) createResourceMutatingWebhookConfigurationIfRequired(policy kyverno.ClusterPolicy) error {
-	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
-		// check cache
-		configName := pc.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
-		config, err := pc.mWebhookConfigLister.Get(configName)
-		if err != nil {
-			glog.V(4).Infof("failed to list mutating webhook configuration: %v", err)
-			return err
-		}
-		if config != nil {
-			// mutating webhoook configuration already exists
-			return nil
-		}
-		if err := pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func hasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
 	for _, policy := range policies {
 		if (*policy).HasMutateOrValidate() {

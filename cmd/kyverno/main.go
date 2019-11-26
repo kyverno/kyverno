@@ -74,10 +74,18 @@ func main() {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
 
+	// KUBERNETES RESOURCES INFORMER
+	// watches namespace resource
+	// - cache resync time: 10 seconds
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
+		kubeClient,
+		10*time.Second)
+
 	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
 		clientConfig,
 		client,
+		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
 		serverIP,
 		int32(webhookTimeout))
 
@@ -88,13 +96,6 @@ func main() {
 	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(
 		pclient,
-		10*time.Second)
-
-	// KUBERNETES RESOURCES INFORMER
-	// watches namespace resource
-	// - cache resync time: 10 seconds
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
-		kubeClient,
 		10*time.Second)
 
 	// Configuration Data
@@ -183,9 +184,9 @@ func main() {
 	}
 
 	// WEBHOOK REGISTRATION
-	// - validationwebhookconfiguration (Policy)
-	// - mutatingwebhookconfiguration (All resources)
-	// webhook confgiuration is also generated dynamically in the policy controller
+	// - mutating,validatingwebhookconfiguration (Policy)
+	// - verifymutatingwebhookconfiguration (Kyverno Deployment)
+	// resource webhook confgiuration is generated dynamically in the webhook server and policy controller
 	// based on the policy resources created
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)

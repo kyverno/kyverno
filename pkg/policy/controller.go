@@ -475,7 +475,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	if err := pc.createResourceMutatingWebhookConfigurationIfRequired(*policy); err != nil {
+	if err := pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfigurationIfRequired(*policy); err != nil {
 		glog.V(4).Infof("failed to create resource mutating webhook configurations, policies wont be applied on resources: %v", err)
 		glog.Errorln(err)
 	}
