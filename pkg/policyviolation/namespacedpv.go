@@ -92,7 +92,7 @@ func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyve
 			if reflect.DeepEqual(curPv, kyverno.NamespacedPolicyViolation{}) {
 				glog.V(4).Infof("creating new namespaced policy violation for policy %s & resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 
-				if err := retryGetResource(newPv.Namespace, dclient, newPv.Spec.ResourceSpec); err != nil {
+				if err := retryGetResource(namespace, dclient, newPv.Spec.ResourceSpec); err != nil {
 					return fmt.Errorf("failed to get resource for policy violation on resource '%s': %v", newPv.Spec.ResourceSpec.ToKey(), err)
 				}
 
