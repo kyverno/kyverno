@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	backoff "github.com/cenkalti/backoff"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -331,31 +330,4 @@ func (r RealNamespacedPVControl) UpdateStatusPolicyViolation(newPv *kyverno.Name
 //RemovePolicyViolation removes the policy violation
 func (r RealNamespacedPVControl) RemovePolicyViolation(ns, name string) error {
 	return r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
-}
-
-func retryGetResource(namespace string, client *client.Client, rspec kyverno.ResourceSpec) error {
-	var i int
-	getResource := func() error {
-		_, err := client.GetResource(rspec.Kind, namespace, rspec.Name)
-		glog.V(5).Infof("retry %v getting %s/%s/%s", i, rspec.Kind, namespace, rspec.Name)
-		i++
-		return err
-	}
-
-	exbackoff := &backoff.ExponentialBackOff{
-		InitialInterval:     500 * time.Millisecond,
-		RandomizationFactor: 0.5,
-		Multiplier:          1.5,
-		MaxInterval:         time.Second,
-		MaxElapsedTime:      3 * time.Second,
-		Clock:               backoff.SystemClock,
-	}
-
-	exbackoff.Reset()
-	err := backoff.Retry(getResource, exbackoff)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

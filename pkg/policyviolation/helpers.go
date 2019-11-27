@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -89,36 +88,4 @@ func validDependantForDeployment(client appsv1.AppsV1Interface, pvResourceSpec k
 		}
 	}
 	return false
-}
-
-// GetOwner of a resource by iterating over ownerReferences
-func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
-	var emptyInterface interface{}
-	resourceSpec := kyverno.ResourceSpec{
-		Kind: resource.GetKind(),
-		Name: resource.GetName(),
-	}
-	if _, ok := ownerMap[resourceSpec]; ok {
-		// owner seen before
-		// breaking loop
-		return
-	}
-	rOwners := resource.GetOwnerReferences()
-	// if there are no resource owners then its top level resource
-	if len(rOwners) == 0 {
-		// add resource to map
-		ownerMap[resourceSpec] = emptyInterface
-		return
-	}
-	for _, rOwner := range rOwners {
-		// lookup resource via client
-		// owner has to be in same namespace
-		owner, err := dclient.GetResource(rOwner.Kind, resource.GetNamespace(), rOwner.Name)
-		if err != nil {
-			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", rOwner.Kind, resource.GetNamespace(), rOwner.Name, err)
-			// as we want to process other owners
-			continue
-		}
-		GetOwner(dclient, ownerMap, *owner)
-	}
 }
