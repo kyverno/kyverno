@@ -21,7 +21,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse engine.PolicyRespon
 
 	// there can be multiple violations as a resource can have multiple owners
 	if pResponse.Resource.Namespace == "" {
-		pvs, err := getClusterPVs(pc.pvLister, pc.client, pResponse.Policy, pResponse.Resource.Kind, pResponse.Resource.Name)
+		pvs, err := getClusterPVs(pc.cpvLister, pc.client, pResponse.Policy, pResponse.Resource.Kind, pResponse.Resource.Name)
 		if err != nil {
 			glog.Errorf("failed to cleanUp violations: %v", err)
 			return
@@ -32,7 +32,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse engine.PolicyRespon
 				continue
 			}
 			glog.V(4).Infof("cleanup cluster violation %s on %s", pv.Name, pv.Spec.ResourceSpec.ToKey())
-			if err := pc.pvControl.DeletePolicyViolation(pv.Name); err != nil {
+			if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
 				glog.Errorf("failed to delete cluster policy violation %s on %s: %v", pv.Name, pv.Spec.ResourceSpec.ToKey(), err)
 				continue
 			}
