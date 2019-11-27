@@ -40,7 +40,6 @@ func TestMaxTriesHappy(t *testing.T) {
 	if d == Stop {
 		t.Error("returned Stop after reset")
 	}
-
 }
 
 func TestMaxTriesZero(t *testing.T) {

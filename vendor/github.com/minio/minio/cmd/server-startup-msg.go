@@ -158,7 +158,6 @@ func stripStandardPorts(apiEndpoints []string) (newAPIEndpoints []string) {
 	for i, apiEndpoint := range apiEndpoints {
 		u, err := xnet.ParseHTTPURL(apiEndpoint)
 		if err != nil {
-			newAPIEndpoints[i] = apiEndpoint
 			continue
 		}
 		if globalMinioHost == "" && isNotIPv4(u.Host) {
@@ -199,6 +198,10 @@ func printServerCommonMsg(apiEndpoints []string) {
 
 // Prints bucket notification configurations.
 func printEventNotifiers() {
+	if globalNotificationSys == nil {
+		return
+	}
+
 	arns := globalNotificationSys.GetARNList()
 	if len(arns) == 0 {
 		return

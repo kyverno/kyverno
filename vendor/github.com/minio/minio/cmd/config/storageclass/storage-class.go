@@ -59,10 +59,18 @@ const (
 // DefaultKVS - default storage class config
 var (
 	DefaultKVS = config.KVS{
-		config.State:   config.StateOff,
-		config.Comment: "This is a default StorageClass configuration, only applicable in erasure coded setups",
-		ClassStandard:  "",
-		ClassRRS:       "EC:2",
+		config.KV{
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   ClassStandard,
+			Value: "",
+		},
+		config.KV{
+			Key:   ClassRRS,
+			Value: "EC:2",
+		},
 	}
 )
 
@@ -222,6 +230,9 @@ func LookupConfig(kvs config.KVS, drivesPerSet int) (cfg Config, err error) {
 
 	stateBool, err := config.ParseBool(env.Get(EnvStorageClass, kvs.Get(config.State)))
 	if err != nil {
+		if kvs.Empty() {
+			return cfg, nil
+		}
 		return cfg, err
 	}
 	ssc := env.Get(StandardEnv, kvs.Get(ClassStandard))

@@ -15,11 +15,10 @@ import (
 	"time"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/imports"
 	"golang.org/x/tools/internal/lsp/fuzzy"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/snippet"
-	"golang.org/x/tools/internal/span"
-	"golang.org/x/tools/internal/telemetry/log"
 	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
@@ -132,9 +131,6 @@ type completer struct {
 
 	qf   types.Qualifier
 	opts CompletionOptions
-
-	// view is the View associated with this completion request.
-	view View
 
 	// ctx is the context associated with this completion request.
 	ctx context.Context
@@ -258,11 +254,8 @@ func (c *completer) setSurrounding(ident *ast.Ident) {
 	c.surrounding = &Selection{
 		content: ident.Name,
 		cursor:  c.pos,
-		mappedRange: mappedRange{
-			// Overwrite the prefix only.
-			spanRange: span.NewRange(c.view.Session().Cache().FileSet(), ident.Pos(), c.pos),
-			m:         c.mapper,
-		},
+		// Overwrite the prefix only.
+		mappedRange: newMappedRange(c.snapshot.View().Session().Cache().FileSet(), c.mapper, ident.Pos(), ident.End()),
 	}
 
 	if c.opts.FuzzyMatching {
@@ -277,12 +270,9 @@ func (c *completer) setSurrounding(ident *ast.Ident) {
 func (c *completer) getSurrounding() *Selection {
 	if c.surrounding == nil {
 		c.surrounding = &Selection{
-			content: "",
-			cursor:  c.pos,
-			mappedRange: mappedRange{
-				spanRange: span.NewRange(c.view.Session().Cache().FileSet(), c.pos, c.pos),
-				m:         c.mapper,
-			},
+			content:     "",
+			cursor:      c.pos,
+			mappedRange: newMappedRange(c.snapshot.View().Session().Cache().FileSet(), c.mapper, c.pos, c.pos),
 		}
 	}
 	return c.surrounding
@@ -350,8 +340,6 @@ func (c *completer) found(obj types.Object, score float64, imp *importInfo) {
 		if !c.inDeepCompletion() || c.deepState.isHighScore(cand.score) {
 			if item, err := c.item(cand); err == nil {
 				c.items = append(c.items, item)
-			} else {
-				log.Error(c.ctx, "error generating completion item", err)
 			}
 		}
 	}
@@ -400,13 +388,14 @@ func (e ErrIsDefinition) Error() string {
 // The selection is computed based on the preceding identifier and can be used by
 // the client to score the quality of the completion. For instance, some clients
 // may tolerate imperfect matches as valid completion results, since users may make typos.
-func Completion(ctx context.Context, view View, f File, pos protocol.Position, opts CompletionOptions) ([]CompletionItem, *Selection, error) {
+func Completion(ctx context.Context, snapshot Snapshot, f File, pos protocol.Position, opts CompletionOptions) ([]CompletionItem, *Selection, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Completion")
 	defer done()
 
 	startTime := time.Now()
 
-	snapshot, cphs, err := view.CheckPackageHandles(ctx, f)
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -455,7 +444,6 @@ func Completion(ctx context.Context, view View, f File, pos protocol.Position, o
 		pkg:                       pkg,
 		snapshot:                  snapshot,
 		qf:                        qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo()),
-		view:                      view,
 		ctx:                       ctx,
 		filename:                  f.URI().Filename(),
 		file:                      file,
@@ -589,7 +577,7 @@ func (c *completer) selector(sel *ast.SelectorExpr) error {
 
 	// Try unimported packages.
 	if id, ok := sel.X.(*ast.Ident); ok {
-		pkgExports, err := PackageExports(c.ctx, c.view, id.Name, c.filename)
+		pkgExports, err := PackageExports(c.ctx, c.snapshot.View(), id.Name, c.filename)
 		if err != nil {
 			return err
 		}
@@ -729,9 +717,13 @@ func (c *completer) lexical() error {
 				if _, ok := seen[pkg.Name()]; !ok && pkg != c.pkg.GetTypes() && !alreadyImports(c.file, pkg.Path()) {
 					seen[pkg.Name()] = struct{}{}
 					obj := types.NewPkgName(0, nil, pkg.Name(), pkg)
-					c.found(obj, stdScore, &importInfo{
+					imp := &importInfo{
 						importPath: pkg.Path(),
-					})
+					}
+					if imports.ImportPathToAssumedName(pkg.Path()) != pkg.Name() {
+						imp.name = pkg.Name()
+					}
+					c.found(obj, stdScore, imp)
 				}
 			}
 		}
@@ -739,7 +731,7 @@ func (c *completer) lexical() error {
 
 	if c.opts.Unimported {
 		// Suggest packages that have not been imported yet.
-		pkgs, err := CandidateImports(c.ctx, c.view, c.filename)
+		pkgs, err := CandidateImports(c.ctx, c.snapshot.View(), c.filename)
 		if err != nil {
 			return err
 		}
@@ -1465,8 +1457,8 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 		return false
 	}
 
-	objType := cand.obj.Type()
-	if objType == nil {
+	candType := cand.obj.Type()
+	if candType == nil {
 		return true
 	}
 
@@ -1475,17 +1467,20 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 	// are invoked by default.
 	cand.expandFuncCall = isFunc(cand.obj)
 
-	typeMatches := func(candType types.Type) bool {
+	typeMatches := func(expType, candType types.Type) bool {
+		if expType == nil {
+			return false
+		}
+
 		// Take into account any type modifiers on the expected type.
 		candType = c.expectedType.applyTypeModifiers(candType)
 
-		if c.expectedType.objType != nil {
-			wantType := types.Default(c.expectedType.objType)
-
-			// Handle untyped values specially since AssignableTo gives false negatives
-			// for them (see https://golang.org/issue/32146).
-			if candBasic, ok := candType.(*types.Basic); ok && candBasic.Info()&types.IsUntyped > 0 {
-				if wantBasic, ok := wantType.Underlying().(*types.Basic); ok {
+		// Handle untyped values specially since AssignableTo gives false negatives
+		// for them (see https://golang.org/issue/32146).
+		if candBasic, ok := candType.Underlying().(*types.Basic); ok {
+			if wantBasic, ok := expType.Underlying().(*types.Basic); ok {
+				// Make sure at least one of them is untyped.
+				if isUntyped(candType) || isUntyped(expType) {
 					// Check that their constant kind (bool|int|float|complex|string) matches.
 					// This doesn't take into account the constant value, so there will be some
 					// false positives due to integer sign and overflow.
@@ -1493,32 +1488,29 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 						// Lower candidate score if the types are not identical.
 						// This avoids ranking untyped integer constants above
 						// candidates with an exact type match.
-						if !types.Identical(candType, c.expectedType.objType) {
+						if !types.Identical(candType, expType) {
 							cand.score /= 2
 						}
 						return true
 					}
 				}
-				return false
 			}
-
-			// AssignableTo covers the case where the types are equal, but also handles
-			// cases like assigning a concrete type to an interface type.
-			return types.AssignableTo(candType, wantType)
 		}
 
-		return false
+		// AssignableTo covers the case where the types are equal, but also handles
+		// cases like assigning a concrete type to an interface type.
+		return types.AssignableTo(candType, expType)
 	}
 
-	if typeMatches(objType) {
+	if typeMatches(c.expectedType.objType, candType) {
 		// If obj's type matches, we don't want to expand to an invocation of obj.
 		cand.expandFuncCall = false
 		return true
 	}
 
 	// Try using a function's return type as its type.
-	if sig, ok := objType.Underlying().(*types.Signature); ok && sig.Results().Len() == 1 {
-		if typeMatches(sig.Results().At(0).Type()) {
+	if sig, ok := candType.Underlying().(*types.Signature); ok && sig.Results().Len() == 1 {
+		if typeMatches(c.expectedType.objType, sig.Results().At(0).Type()) {
 			// If obj's return value matches the expected type, we need to invoke obj
 			// in the completion.
 			cand.expandFuncCall = true
@@ -1526,15 +1518,16 @@ func (c *completer) matchingCandidate(cand *candidate) bool {
 		}
 	}
 
-	// When completing the variadic parameter, say objType matches if
-	// []objType matches. This is because you can use []T or T for the
-	// variadic parameter.
-	if c.expectedType.variadic && typeMatches(types.NewSlice(objType)) {
-		return true
+	// When completing the variadic parameter, if the expected type is
+	// []T then check candType against T.
+	if c.expectedType.variadic {
+		if slice, ok := c.expectedType.objType.(*types.Slice); ok && typeMatches(slice.Elem(), candType) {
+			return true
+		}
 	}
 
 	if c.expectedType.convertibleTo != nil {
-		return types.ConvertibleTo(objType, c.expectedType.convertibleTo)
+		return types.ConvertibleTo(candType, c.expectedType.convertibleTo)
 	}
 
 	return false

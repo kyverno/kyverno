@@ -41,14 +41,9 @@ type PrepareItem struct {
 	Text  string
 }
 
-func PrepareRename(ctx context.Context, view View, f File, pos protocol.Position) (*PrepareItem, error) {
+func (i *IdentifierInfo) PrepareRename(ctx context.Context) (*PrepareItem, error) {
 	ctx, done := trace.StartSpan(ctx, "source.PrepareRename")
 	defer done()
-
-	i, err := Identifier(ctx, view, f, pos)
-	if err != nil {
-		return nil, err
-	}
 
 	// TODO(rstambler): We should handle this in a better way.
 	// If the object declaration is nil, assume it is an import spec.
@@ -59,7 +54,16 @@ func PrepareRename(ctx context.Context, view View, f File, pos protocol.Position
 		if err != nil {
 			return nil, err
 		}
-		i = ident
+		rng, err := ident.mappedRange.Range()
+		if err != nil {
+			return nil, err
+		}
+		// We're not really renaming the import path.
+		rng.End = rng.Start
+		return &PrepareItem{
+			Range: rng,
+			Text:  ident.Name,
+		}, nil
 	}
 
 	// Do not rename builtin identifiers.
@@ -77,7 +81,7 @@ func PrepareRename(ctx context.Context, view View, f File, pos protocol.Position
 }
 
 // Rename returns a map of TextEdits for each file modified when renaming a given identifier within a package.
-func (i *IdentifierInfo) Rename(ctx context.Context, view View, newName string) (map[span.URI][]protocol.TextEdit, error) {
+func (i *IdentifierInfo) Rename(ctx context.Context, newName string) (map[span.URI][]protocol.TextEdit, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Rename")
 	defer done()
 
@@ -90,7 +94,7 @@ func (i *IdentifierInfo) Rename(ctx context.Context, view View, newName string) 
 		if err != nil {
 			return nil, err
 		}
-		return ident.Rename(ctx, view, newName)
+		return ident.Rename(ctx, newName)
 	}
 	if i.Name == newName {
 		return nil, errors.Errorf("old and new names are the same: %s", newName)
@@ -117,7 +121,7 @@ func (i *IdentifierInfo) Rename(ctx context.Context, view View, newName string) 
 
 	r := renamer{
 		ctx:          ctx,
-		fset:         view.Session().Cache().FileSet(),
+		fset:         i.Snapshot.View().Session().Cache().FileSet(),
 		refs:         refs,
 		objsToUpdate: make(map[types.Object]bool),
 		from:         i.Name,
@@ -147,7 +151,7 @@ func (i *IdentifierInfo) Rename(ctx context.Context, view View, newName string) 
 	for uri, edits := range changes {
 		// These edits should really be associated with FileHandles for maximal correctness.
 		// For now, this is good enough.
-		f, err := view.GetFile(ctx, uri)
+		f, err := i.Snapshot.View().GetFile(ctx, uri)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +177,7 @@ func (i *IdentifierInfo) Rename(ctx context.Context, view View, newName string) 
 	return result, nil
 }
 
-// getPkgName gets the pkg name associated with an identifer representing
+// getPkgName gets the pkg name associated with an identifier representing
 // the import path in an import spec.
 func (i *IdentifierInfo) getPkgName(ctx context.Context) (*IdentifierInfo, error) {
 	ph, err := i.pkg.File(i.URI())
@@ -218,21 +222,20 @@ func getPkgNameIdentifier(ctx context.Context, ident *IdentifierInfo, pkgName *t
 		wasImplicit: true,
 	}
 	var err error
-	if decl.mappedRange, err = objToMappedRange(ctx, ident.Snapshot.View(), ident.pkg, decl.obj); err != nil {
+	if decl.mappedRange, err = objToMappedRange(ident.Snapshot.View(), ident.pkg, decl.obj); err != nil {
 		return nil, err
 	}
-	if decl.node, err = objToNode(ctx, ident.Snapshot.View(), ident.pkg, decl.obj); err != nil {
+	if decl.node, err = objToNode(ident.Snapshot.View(), ident.pkg, decl.obj); err != nil {
 		return nil, err
 	}
 	return &IdentifierInfo{
-		Snapshot:         ident.Snapshot,
-		Name:             pkgName.Name(),
-		mappedRange:      decl.mappedRange,
-		File:             ident.File,
-		Declaration:      decl,
-		pkg:              ident.pkg,
-		wasEmbeddedField: false,
-		qf:               ident.qf,
+		Snapshot:    ident.Snapshot,
+		Name:        pkgName.Name(),
+		mappedRange: decl.mappedRange,
+		File:        ident.File,
+		Declaration: decl,
+		pkg:         ident.pkg,
+		qf:          ident.qf,
 	}, nil
 }
 

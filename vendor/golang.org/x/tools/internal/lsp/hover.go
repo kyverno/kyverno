@@ -17,12 +17,16 @@ import (
 
 func (s *Server) hover(ctx context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	ident, err := source.Identifier(ctx, view, f, params.Position)
+	ident, err := source.Identifier(ctx, snapshot, f, params.Position)
 	if err != nil {
 		return nil, nil
 	}
@@ -37,7 +41,7 @@ func (s *Server) hover(ctx context.Context, params *protocol.HoverParams) (*prot
 	contents := s.toProtocolHoverContents(ctx, hover, view.Options())
 	return &protocol.Hover{
 		Contents: contents,
-		Range:    &rng,
+		Range:    rng,
 	}, nil
 }
 

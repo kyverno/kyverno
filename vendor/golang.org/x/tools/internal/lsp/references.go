@@ -16,13 +16,17 @@ import (
 
 func (s *Server) references(ctx context.Context, params *protocol.ReferenceParams) ([]protocol.Location, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
 	// Find all references to the identifier at the position.
-	ident, err := source.Identifier(ctx, view, f, params.Position)
+	ident, err := source.Identifier(ctx, snapshot, f, params.Position)
 	if err != nil {
 		return nil, err
 	}

@@ -20,9 +20,23 @@ import "github.com/minio/minio/cmd/config"
 
 // Help template for OpenID identity feature.
 var (
-	Help = config.HelpKV{
-		ConfigURL:      `OpenID discovery documented endpoint. eg: "https://accounts.google.com/.well-known/openid-configuration"`,
-		config.State:   "Indicates if OpenID identity is enabled or not",
-		config.Comment: "A comment to describe the OpenID identity setting",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         ConfigURL,
+			Description: `OpenID discovery documented endpoint. eg: "https://accounts.google.com/.well-known/openid-configuration"`,
+			Type:        "url",
+		},
+		config.HelpKV{
+			Key:         ClaimPrefix,
+			Description: `OpenID JWT claim namespace prefix. eg: "customer"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: "A comment to describe the OpenID identity setting",
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

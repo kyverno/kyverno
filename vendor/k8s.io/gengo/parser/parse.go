@@ -782,7 +782,10 @@ func (b *Builder) walkType(u types.Universe, useName *types.Name, in tc.Type) *t
 				if out.Methods == nil {
 					out.Methods = map[string]*types.Type{}
 				}
-				out.Methods[t.Method(i).Name()] = b.walkType(u, nil, t.Method(i).Type())
+				method := t.Method(i)
+				mt := b.walkType(u, nil, method.Type())
+				mt.CommentLines = splitLines(b.priorCommentLines(method.Pos(), 1).Text())
+				out.Methods[method.Name()] = mt
 			}
 		}
 		return out

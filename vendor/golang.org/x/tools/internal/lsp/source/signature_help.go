@@ -27,11 +27,12 @@ type ParameterInformation struct {
 	Label string
 }
 
-func SignatureHelp(ctx context.Context, view View, f File, pos protocol.Position) (*SignatureInformation, error) {
+func SignatureHelp(ctx context.Context, snapshot Snapshot, f File, pos protocol.Position) (*SignatureInformation, error) {
 	ctx, done := trace.StartSpan(ctx, "source.SignatureHelp")
 	defer done()
 
-	_, cphs, err := view.CheckPackageHandles(ctx, f)
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ FindCall:
 
 	// Handle builtin functions separately.
 	if obj, ok := obj.(*types.Builtin); ok {
-		return builtinSignature(ctx, view, callExpr, obj.Name(), rng.Start)
+		return builtinSignature(ctx, snapshot.View(), callExpr, obj.Name(), rng.Start)
 	}
 
 	// Get the type information for the function being called.
@@ -112,7 +113,7 @@ FindCall:
 	}
 
 	qf := qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo())
-	params := formatParams(sig.Params(), sig.Variadic(), qf)
+	params := formatParams(snapshot, pkg, sig, qf)
 	results, writeResultParens := formatResults(sig.Results(), qf)
 	activeParam := activeParameter(callExpr, sig.Params().Len(), sig.Variadic(), rng.Start)
 
@@ -121,11 +122,11 @@ FindCall:
 		comment *ast.CommentGroup
 	)
 	if obj != nil {
-		node, err := objToNode(ctx, view, pkg, obj)
+		node, err := objToNode(snapshot.View(), pkg, obj)
 		if err != nil {
 			return nil, err
 		}
-		rng, err := objToMappedRange(ctx, view, pkg, obj)
+		rng, err := objToMappedRange(snapshot.View(), pkg, obj)
 		if err != nil {
 			return nil, err
 		}

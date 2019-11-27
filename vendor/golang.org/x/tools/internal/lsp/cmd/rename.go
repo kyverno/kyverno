@@ -23,8 +23,9 @@ import (
 
 // rename implements the rename verb for gopls.
 type rename struct {
-	Diff  bool `flag:"d" help:"display diffs instead of rewriting files"`
-	Write bool `flag:"w" help:"write result to (source) file instead of stdout"`
+	Diff     bool `flag:"d" help:"display diffs instead of rewriting files"`
+	Write    bool `flag:"w" help:"write result to (source) file instead of stdout"`
+	Preserve bool `flag:"preserve" help:"preserve original files"`
 
 	app *Application
 }
@@ -64,57 +65,55 @@ func (r *rename) Run(ctx context.Context, args ...string) error {
 	if file.err != nil {
 		return file.err
 	}
-
 	loc, err := file.mapper.Location(from)
 	if err != nil {
 		return err
 	}
-
 	p := protocol.RenameParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: loc.URI},
 		Position:     loc.Range.Start,
 		NewName:      args[1],
 	}
-	we, err := conn.Rename(ctx, &p)
+	edit, err := conn.Rename(ctx, &p)
 	if err != nil {
 		return err
 	}
-
-	// Make output order predictable
-	var keys []string
-	for u := range *we.Changes {
-		keys = append(keys, u)
+	var orderedURIs []string
+	edits := map[span.URI][]protocol.TextEdit{}
+	for _, c := range edit.DocumentChanges {
+		uri := span.URI(c.TextDocument.URI)
+		edits[uri] = append(edits[uri], c.Edits...)
+		orderedURIs = append(orderedURIs, c.TextDocument.URI)
 	}
-	sort.Strings(keys)
-	changeCount := len(keys)
+	sort.Strings(orderedURIs)
+	changeCount := len(orderedURIs)
 
-	for _, u := range keys {
-		edits := (*we.Changes)[u]
-		uri := span.NewURI(u)
+	for _, u := range orderedURIs {
+		uri := span.URI(u)
 		cmdFile := conn.AddFile(ctx, uri)
 		filename := cmdFile.uri.Filename()
 
 		// convert LSP-style edits to []diff.TextEdit cuz Spans are handy
-		renameEdits, err := source.FromProtocolEdits(cmdFile.mapper, edits)
+		renameEdits, err := source.FromProtocolEdits(cmdFile.mapper, edits[uri])
 		if err != nil {
 			return errors.Errorf("%v: %v", edits, err)
 		}
-
 		newContent := diff.ApplyEdits(string(cmdFile.mapper.Content), renameEdits)
 
 		switch {
 		case r.Write:
 			fmt.Fprintln(os.Stderr, filename)
-			err := os.Rename(filename, filename+".orig")
-			if err != nil {
-				return errors.Errorf("%v: %v", edits, err)
+			if r.Preserve {
+				if err := os.Rename(filename, filename+".orig"); err != nil {
+					return errors.Errorf("%v: %v", edits, err)
+				}
 			}
 			ioutil.WriteFile(filename, []byte(newContent), 0644)
 		case r.Diff:
 			diffs := diff.ToUnified(filename+".orig", filename, string(cmdFile.mapper.Content), renameEdits)
 			fmt.Print(diffs)
 		default:
-			if len(keys) > 1 {
+			if len(orderedURIs) > 1 {
 				fmt.Printf("%s:\n", filepath.Base(filename))
 			}
 			fmt.Print(string(newContent))

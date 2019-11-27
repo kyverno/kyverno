@@ -17,7 +17,6 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -28,6 +27,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
+	iampolicy "github.com/minio/minio/pkg/iam/policy"
 	"github.com/minio/minio/pkg/madmin"
 )
 
@@ -40,7 +40,7 @@ func validateAdminReqConfigKV(ctx context.Context, w http.ResponseWriter, r *htt
 	}
 
 	// Validate request signature.
-	adminAPIErr := checkAdminRequestAuthType(ctx, r, "")
+	_, adminAPIErr := checkAdminRequestAuthType(ctx, r, iampolicy.ConfigUpdateAdminAction, "")
 	if adminAPIErr != ErrNone {
 		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(adminAPIErr), r.URL)
 		return nil
@@ -77,30 +77,19 @@ func (a adminAPIHandlers) DelConfigKVHandler(w http.ResponseWriter, r *http.Requ
 		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrAdminConfigBadJSON), r.URL)
 		return
 	}
+
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	oldCfg := cfg.Clone()
-	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
-	for scanner.Scan() {
-		// Skip any empty lines
-		if scanner.Text() == "" {
-			continue
-		}
-		if err = cfg.DelKVS(scanner.Text()); err != nil {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
-	}
-	if err = scanner.Err(); err != nil {
+	if err = cfg.DelFrom(bytes.NewReader(kvBytes)); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	if err = saveServerConfig(ctx, objectAPI, cfg, oldCfg); err != nil {
+	if err = saveServerConfig(ctx, objectAPI, cfg); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -134,33 +123,9 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrAdminConfigBadJSON), r.URL)
 		return
 	}
+
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
-		// Config not found for some reason, allow things to continue
-		// by initializing a new fresh config in safe mode.
-		if err == errConfigNotFound && globalSafeMode {
-			cfg = newServerConfig()
-			err = nil
-		} else {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
-	}
-
-	defaultKVS := configDefaultKVS()
-	oldCfg := cfg.Clone()
-	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
-	for scanner.Scan() {
-		// Skip any empty lines
-		if scanner.Text() == "" {
-			continue
-		}
-		if err = cfg.SetKVS(scanner.Text(), defaultKVS); err != nil {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
-	}
-	if err = scanner.Err(); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -171,7 +136,7 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Update the actual server config on disk.
-	if err = saveServerConfig(ctx, objectAPI, cfg, oldCfg); err != nil {
+	if err = saveServerConfig(ctx, objectAPI, cfg); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -186,6 +151,8 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 	if globalConfigEncrypted {
 		saveConfig(context.Background(), objectAPI, backendEncryptedFile, backendEncryptedMigrationComplete)
 	}
+
+	writeSuccessResponseHeadersOnly(w)
 }
 
 // GetConfigKVHandler - GET /minio/admin/v2/get-config-kv?key={key}
@@ -209,23 +176,10 @@ func (a adminAPIHandlers) GetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 
 	vars := mux.Vars(r)
 	var buf = &bytes.Buffer{}
-	key := vars["key"]
-	if key != "" {
-		kvs, err := cfg.GetKVS(key)
-		if err != nil {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
-		for k, kv := range kvs {
-			buf.WriteString(k)
-			buf.WriteString(config.KvSpaceSeparator)
-			buf.WriteString(kv.String())
-			if len(kvs) > 1 {
-				buf.WriteString(config.KvNewline)
-			}
-		}
-	} else {
-		buf.WriteString(cfg.String())
+	cw := config.NewConfigWriteTo(cfg, vars["key"])
+	if _, err := cw.WriteTo(buf); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
 	}
 
 	password := globalActiveCred.SecretKey
@@ -296,31 +250,11 @@ func (a adminAPIHandlers) RestoreConfigHistoryKVHandler(w http.ResponseWriter, r
 
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
-		// Config not found for some reason, allow things to continue
-		// by initializing a new fresh config in safe mode.
-		if err == errConfigNotFound && globalSafeMode {
-			cfg = newServerConfig()
-			err = nil
-		} else {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
 	}
 
-	defaultKVS := configDefaultKVS()
-	oldCfg := cfg.Clone()
-	scanner := bufio.NewScanner(bytes.NewReader(kvBytes))
-	for scanner.Scan() {
-		// Skip any empty lines
-		if scanner.Text() == "" {
-			continue
-		}
-		if err = cfg.SetKVS(scanner.Text(), defaultKVS); err != nil {
-			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
-			return
-		}
-	}
-	if err = scanner.Err(); err != nil {
+	if _, err = cfg.ReadFrom(bytes.NewReader(kvBytes)); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -330,7 +264,7 @@ func (a adminAPIHandlers) RestoreConfigHistoryKVHandler(w http.ResponseWriter, r
 		return
 	}
 
-	if err = saveServerConfig(ctx, objectAPI, cfg, oldCfg); err != nil {
+	if err = saveServerConfig(ctx, objectAPI, cfg); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -424,17 +358,16 @@ func (a adminAPIHandlers) SetConfigHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	password := globalActiveCred.SecretKey
-	configBytes, err := madmin.DecryptData(password, io.LimitReader(r.Body, r.ContentLength))
+	kvBytes, err := madmin.DecryptData(password, io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
 		logger.LogIf(ctx, err, logger.Application)
 		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrAdminConfigBadJSON), r.URL)
 		return
 	}
 
-	var cfg config.Config
-	if err = json.Unmarshal(configBytes, &cfg); err != nil {
-		logger.LogIf(ctx, err)
-		writeCustomErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrAdminConfigBadJSON), err.Error(), r.URL)
+	cfg := newServerConfig()
+	if _, err = cfg.ReadFrom(bytes.NewReader(kvBytes)); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
@@ -443,7 +376,14 @@ func (a adminAPIHandlers) SetConfigHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err = saveServerConfig(ctx, objectAPI, cfg, nil); err != nil {
+	// Update the actual server config on disk.
+	if err = saveServerConfig(ctx, objectAPI, cfg); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	// Write to the config input KV to history.
+	if err = saveServerConfigHistory(ctx, objectAPI, kvBytes); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -453,7 +393,6 @@ func (a adminAPIHandlers) SetConfigHandler(w http.ResponseWriter, r *http.Reques
 		saveConfig(context.Background(), objectAPI, backendEncryptedFile, backendEncryptedMigrationComplete)
 	}
 
-	// Reply to the client before restarting minio server.
 	writeSuccessResponseHeadersOnly(w)
 }
 
@@ -467,20 +406,21 @@ func (a adminAPIHandlers) GetConfigHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	config, err := readServerConfig(ctx, objectAPI)
+	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
-	configData, err := json.MarshalIndent(config, "", "\t")
-	if err != nil {
+	var buf = &bytes.Buffer{}
+	cw := config.NewConfigWriteTo(cfg, "")
+	if _, err = cw.WriteTo(buf); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
 	password := globalActiveCred.SecretKey
-	econfigData, err := madmin.EncryptData(password, configData)
+	econfigData, err := madmin.EncryptData(password, buf.Bytes())
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return

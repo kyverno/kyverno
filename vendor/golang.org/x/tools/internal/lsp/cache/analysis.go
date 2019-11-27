@@ -76,9 +76,9 @@ type packageFactKey struct {
 }
 
 func (s *snapshot) actionHandle(ctx context.Context, id packageID, mode source.ParseMode, a *analysis.Analyzer) (*actionHandle, error) {
-	ah := s.getAction(id, mode, a)
-	if ah != nil {
-		return ah, nil
+	act := s.getActionHandle(id, mode, a)
+	if act != nil {
+		return act, nil
 	}
 	cph := s.getPackage(id, mode)
 	if cph == nil {
@@ -91,7 +91,7 @@ func (s *snapshot) actionHandle(ctx context.Context, id packageID, mode source.P
 	if err != nil {
 		return nil, err
 	}
-	ah = &actionHandle{
+	act = &actionHandle{
 		analyzer: a,
 		pkg:      pkg,
 	}
@@ -104,20 +104,26 @@ func (s *snapshot) actionHandle(ctx context.Context, id packageID, mode source.P
 		}
 		deps = append(deps, reqActionHandle)
 	}
-	// An analysis that consumes/produces facts
-	// must run on the package's dependencies too.
-	if len(a.FactTypes) > 0 {
-		importIDs := make([]string, 0, len(cph.m.deps))
-		for _, importID := range cph.m.deps {
-			importIDs = append(importIDs, string(importID))
-		}
-		sort.Strings(importIDs) // for determinism
-		for _, importID := range importIDs {
-			depActionHandle, err := s.actionHandle(ctx, packageID(importID), source.ParseExported, a)
-			if err != nil {
-				return nil, err
+
+	// TODO(golang/go#35089): Re-enable this when we doesn't use ParseExported
+	// mode for dependencies. In the meantime, disable analysis for dependencies,
+	// since we don't get anything useful out of it.
+	if false {
+		// An analysis that consumes/produces facts
+		// must run on the package's dependencies too.
+		if len(a.FactTypes) > 0 {
+			importIDs := make([]string, 0, len(cph.m.deps))
+			for _, importID := range cph.m.deps {
+				importIDs = append(importIDs, string(importID))
 			}
-			deps = append(deps, depActionHandle)
+			sort.Strings(importIDs) // for determinism
+			for _, importID := range importIDs {
+				depActionHandle, err := s.actionHandle(ctx, packageID(importID), source.ParseExported, a)
+				if err != nil {
+					return nil, err
+				}
+				deps = append(deps, depActionHandle)
+			}
 		}
 	}
 
@@ -133,10 +139,10 @@ func (s *snapshot) actionHandle(ctx context.Context, id packageID, mode source.P
 		}
 		return runAnalysis(ctx, fset, a, pkg, results)
 	})
-	ah.handle = h
+	act.handle = h
 
-	s.addAction(ah)
-	return ah, nil
+	s.addActionHandle(act)
+	return act, nil
 }
 
 func (act *actionHandle) analyze(ctx context.Context) ([]*source.Error, interface{}, error) {
@@ -157,11 +163,11 @@ func (act *actionHandle) analyze(ctx context.Context) ([]*source.Error, interfac
 func (act *actionHandle) cached() ([]*source.Error, interface{}, error) {
 	v := act.handle.Cached()
 	if v == nil {
-		return nil, nil, errors.Errorf("no analyses for %s", act.pkg.ID())
+		return nil, nil, errors.Errorf("no cached analyses for %s", act.pkg.ID())
 	}
 	data, ok := v.(*actionData)
 	if !ok {
-		return nil, nil, errors.Errorf("unexpected type for %s:%s", act.pkg.ID(), act.analyzer.Name)
+		return nil, nil, errors.Errorf("unexpected type for cached analysis %s:%s", act.pkg.ID(), act.analyzer.Name)
 	}
 	if data == nil {
 		return nil, nil, errors.Errorf("unexpected nil cached analysis for %s:%s", act.pkg.ID(), act.analyzer.Name)

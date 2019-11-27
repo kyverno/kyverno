@@ -25,6 +25,8 @@ import (
 	"github.com/minio/minio/cmd/config/cache"
 	"github.com/minio/minio/cmd/config/compress"
 	"github.com/minio/minio/cmd/config/etcd"
+	xetcd "github.com/minio/minio/cmd/config/etcd"
+	"github.com/minio/minio/cmd/config/etcd/dns"
 	xldap "github.com/minio/minio/cmd/config/identity/ldap"
 	"github.com/minio/minio/cmd/config/identity/openid"
 	"github.com/minio/minio/cmd/config/notify"
@@ -34,9 +36,156 @@ import (
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/cmd/logger/target/http"
-	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/env"
 )
+
+func init() {
+	var kvs = map[string]config.KVS{
+		config.EtcdSubSys:           etcd.DefaultKVS,
+		config.CacheSubSys:          cache.DefaultKVS,
+		config.CompressionSubSys:    compress.DefaultKVS,
+		config.StorageClassSubSys:   storageclass.DefaultKVS,
+		config.IdentityLDAPSubSys:   xldap.DefaultKVS,
+		config.IdentityOpenIDSubSys: openid.DefaultKVS,
+		config.PolicyOPASubSys:      opa.DefaultKVS,
+		config.RegionSubSys:         config.DefaultRegionKVS,
+		config.CredentialsSubSys:    config.DefaultCredentialKVS,
+		config.KmsVaultSubSys:       crypto.DefaultKVS,
+		config.LoggerWebhookSubSys:  logger.DefaultKVS,
+		config.AuditWebhookSubSys:   logger.DefaultAuditKVS,
+	}
+	for k, v := range notify.DefaultNotificationKVS {
+		kvs[k] = v
+	}
+	config.RegisterDefaultKVS(kvs)
+
+	// Captures help for each sub-system
+	var helpSubSys = config.HelpKVS{
+		config.HelpKV{
+			Key:         config.RegionSubSys,
+			Description: "Configure to describe the physical location of the server",
+		},
+		config.HelpKV{
+			Key:         config.StorageClassSubSys,
+			Description: "Configure to control data and parity per object",
+		},
+		config.HelpKV{
+			Key:         config.CacheSubSys,
+			Description: "Configure to enable edge caching",
+		},
+		config.HelpKV{
+			Key:         config.CompressionSubSys,
+			Description: "Configure to enable streaming on disk compression",
+		},
+		config.HelpKV{
+			Key:         config.EtcdSubSys,
+			Description: "Configure to enable 'etcd' configuration",
+		},
+		config.HelpKV{
+			Key:         config.IdentityOpenIDSubSys,
+			Description: "Configure to enable OpenID SSO support",
+		},
+		config.HelpKV{
+			Key:         config.IdentityLDAPSubSys,
+			Description: "Configure to enable LDAP SSO support",
+		},
+		config.HelpKV{
+			Key:         config.PolicyOPASubSys,
+			Description: "Configure to enable external OPA policy support",
+		},
+		config.HelpKV{
+			Key:         config.KmsVaultSubSys,
+			Description: "Configure to enable Vault based external KMS",
+		},
+		config.HelpKV{
+			Key:             config.LoggerWebhookSubSys,
+			Description:     "Configure to enable Webhook based logger",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.AuditWebhookSubSys,
+			Description:     "Configure to enable Webhook based audit logger",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyWebhookSubSys,
+			Description:     "Configure to publish events to Webhook target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyAMQPSubSys,
+			Description:     "Configure to publish events to AMQP target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyKafkaSubSys,
+			Description:     "Configure to publish events to Kafka target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyMQTTSubSys,
+			Description:     "Configure to publish events to MQTT target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyNATSSubSys,
+			Description:     "Configure to publish events to NATS target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyNSQSubSys,
+			Description:     "Configure to publish events to NSQ target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyMySQLSubSys,
+			Description:     "Configure to publish events to MySQL target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyPostgresSubSys,
+			Description:     "Configure to publish events to Postgres target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyRedisSubSys,
+			Description:     "Configure to publish events to Redis target",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyESSubSys,
+			Description:     "Configure to publish events to Elasticsearch target",
+			MultipleTargets: true,
+		},
+	}
+
+	var helpMap = map[string]config.HelpKVS{
+		"":                          helpSubSys, // Help for all sub-systems.
+		config.RegionSubSys:         config.RegionHelp,
+		config.EtcdSubSys:           etcd.Help,
+		config.CacheSubSys:          cache.Help,
+		config.CompressionSubSys:    compress.Help,
+		config.StorageClassSubSys:   storageclass.Help,
+		config.IdentityOpenIDSubSys: openid.Help,
+		config.IdentityLDAPSubSys:   xldap.Help,
+		config.PolicyOPASubSys:      opa.Help,
+		config.KmsVaultSubSys:       crypto.Help,
+		config.LoggerWebhookSubSys:  logger.Help,
+		config.AuditWebhookSubSys:   logger.HelpAudit,
+		config.NotifyAMQPSubSys:     notify.HelpAMQP,
+		config.NotifyKafkaSubSys:    notify.HelpKafka,
+		config.NotifyMQTTSubSys:     notify.HelpMQTT,
+		config.NotifyNATSSubSys:     notify.HelpNATS,
+		config.NotifyNSQSubSys:      notify.HelpNSQ,
+		config.NotifyMySQLSubSys:    notify.HelpMySQL,
+		config.NotifyPostgresSubSys: notify.HelpPostgres,
+		config.NotifyRedisSubSys:    notify.HelpRedis,
+		config.NotifyWebhookSubSys:  notify.HelpWebhook,
+		config.NotifyESSubSys:       notify.HelpES,
+	}
+
+	config.RegisterHelpSubSys(helpMap)
+}
 
 var (
 	// globalServerConfig server config.
@@ -56,10 +205,6 @@ func validateConfig(s config.Config) error {
 	}
 
 	if _, err := config.LookupRegion(s[config.RegionSubSys][config.Default]); err != nil {
-		return err
-	}
-
-	if _, err := config.LookupWorm(s[config.WormSubSys][config.Default]); err != nil {
 		return err
 	}
 
@@ -138,18 +283,18 @@ func lookupConfigs(s config.Config) (err error) {
 		}
 	}
 
-	etcdCfg, err := etcd.LookupConfig(s[config.EtcdSubSys][config.Default], globalRootCAs)
+	etcdCfg, err := xetcd.LookupConfig(s[config.EtcdSubSys][config.Default], globalRootCAs)
 	if err != nil {
 		return config.Errorf("Unable to initialize etcd config: %s", err)
 	}
 
-	globalEtcdClient, err = etcd.New(etcdCfg)
+	globalEtcdClient, err = xetcd.New(etcdCfg)
 	if err != nil {
 		return config.Errorf("Unable to initialize etcd config: %s", err)
 	}
 
 	if len(globalDomainNames) != 0 && !globalDomainIPs.IsEmpty() && globalEtcdClient != nil {
-		globalDNSConfig, err = dns.NewCoreDNS(globalEtcdClient,
+		globalDNSConfig, err = dns.NewCoreDNS(etcdCfg.Config,
 			dns.DomainNames(globalDomainNames),
 			dns.DomainIPs(globalDomainIPs),
 			dns.DomainPort(globalMinioPort),
@@ -165,7 +310,7 @@ func lookupConfigs(s config.Config) (err error) {
 		return config.Errorf("Invalid region configuration: %s", err)
 	}
 
-	globalWORMEnabled, err = config.LookupWorm(s[config.WormSubSys][config.Default])
+	globalWORMEnabled, err = config.LookupWorm()
 	if err != nil {
 		return config.Errorf("Invalid worm configuration: %s", err)
 
@@ -260,115 +405,69 @@ func lookupConfigs(s config.Config) (err error) {
 	return nil
 }
 
-var helpMap = map[string]config.HelpKV{
-	config.RegionSubSys:          config.RegionHelp,
-	config.WormSubSys:            config.WormHelp,
-	config.EtcdSubSys:            etcd.Help,
-	config.CacheSubSys:           cache.Help,
-	config.CompressionSubSys:     compress.Help,
-	config.StorageClassSubSys:    storageclass.Help,
-	config.IdentityOpenIDSubSys:  openid.Help,
-	config.IdentityLDAPSubSys:    xldap.Help,
-	config.PolicyOPASubSys:       opa.Help,
-	config.KmsVaultSubSys:        crypto.Help,
-	config.LoggerHTTPSubSys:      logger.Help,
-	config.LoggerHTTPAuditSubSys: logger.HelpAudit,
-	config.NotifyAMQPSubSys:      notify.HelpAMQP,
-	config.NotifyKafkaSubSys:     notify.HelpKafka,
-	config.NotifyMQTTSubSys:      notify.HelpMQTT,
-	config.NotifyNATSSubSys:      notify.HelpNATS,
-	config.NotifyNSQSubSys:       notify.HelpNSQ,
-	config.NotifyMySQLSubSys:     notify.HelpMySQL,
-	config.NotifyPostgresSubSys:  notify.HelpPostgres,
-	config.NotifyRedisSubSys:     notify.HelpRedis,
-	config.NotifyWebhookSubSys:   notify.HelpWebhook,
-	config.NotifyESSubSys:        notify.HelpES,
+// Help - return sub-system level help
+type Help struct {
+	SubSys          string         `json:"subSys"`
+	Description     string         `json:"description"`
+	MultipleTargets bool           `json:"multipleTargets"`
+	KeysHelp        config.HelpKVS `json:"keysHelp"`
 }
 
 // GetHelp - returns help for sub-sys, a key for a sub-system or all the help.
-func GetHelp(subSys, key string, envOnly bool) (config.HelpKV, error) {
+func GetHelp(subSys, key string, envOnly bool) (Help, error) {
 	if len(subSys) == 0 {
-		return nil, config.Error("no help available for empty sub-system inputs")
+		return Help{KeysHelp: config.HelpSubSysMap[subSys]}, nil
 	}
 	subSystemValue := strings.SplitN(subSys, config.SubSystemSeparator, 2)
 	if len(subSystemValue) == 0 {
-		return nil, config.Errorf("invalid number of arguments %s", subSys)
+		return Help{}, config.Errorf("invalid number of arguments %s", subSys)
 	}
 
-	if !config.SubSystems.Contains(subSystemValue[0]) {
-		return nil, config.Errorf("unknown sub-system %s", subSys)
+	subSys = subSystemValue[0]
+
+	subSysHelp, ok := config.HelpSubSysMap[""].Lookup(subSys)
+	if !ok {
+		return Help{}, config.Errorf("unknown sub-system %s", subSys)
 	}
 
-	help := helpMap[subSystemValue[0]]
+	h, ok := config.HelpSubSysMap[subSys]
+	if !ok {
+		return Help{}, config.Errorf("unknown sub-system %s", subSys)
+	}
 	if key != "" {
-		value, ok := help[key]
+		value, ok := h.Lookup(key)
 		if !ok {
-			return nil, config.Errorf("unknown key %s for sub-system %s", key, subSys)
+			return Help{}, config.Errorf("unknown key %s for sub-system %s", key, subSys)
 		}
-		help = config.HelpKV{
-			key: value,
-		}
+		h = config.HelpKVS{value}
 	}
 
-	envHelp := config.HelpKV{}
+	envHelp := config.HelpKVS{}
 	if envOnly {
-		for k, v := range help {
+		for _, hkv := range h {
 			envK := config.EnvPrefix + strings.Join([]string{
-				strings.ToTitle(subSys), strings.ToTitle(k),
+				strings.ToTitle(subSys), strings.ToTitle(hkv.Key),
 			}, config.EnvWordDelimiter)
-			envHelp[envK] = v
+			envHelp = append(envHelp, config.HelpKV{
+				Key:         envK,
+				Description: hkv.Description,
+				Optional:    hkv.Optional,
+				Type:        hkv.Type,
+			})
 		}
-		help = envHelp
+		h = envHelp
 	}
 
-	return help, nil
-}
-
-func configDefaultKVS() map[string]config.KVS {
-	m := make(map[string]config.KVS)
-	for k, tgt := range newServerConfig() {
-		m[k] = tgt[config.Default]
-	}
-	return m
+	return Help{
+		SubSys:          subSys,
+		Description:     subSysHelp.Description,
+		MultipleTargets: subSysHelp.MultipleTargets,
+		KeysHelp:        h,
+	}, nil
 }
 
 func newServerConfig() config.Config {
-	srvCfg := config.New()
-	for k := range srvCfg {
-		// Initialize with default KVS
-		switch k {
-		case config.EtcdSubSys:
-			srvCfg[k][config.Default] = etcd.DefaultKVS
-		case config.CacheSubSys:
-			srvCfg[k][config.Default] = cache.DefaultKVS
-		case config.CompressionSubSys:
-			srvCfg[k][config.Default] = compress.DefaultKVS
-		case config.StorageClassSubSys:
-			srvCfg[k][config.Default] = storageclass.DefaultKVS
-		case config.IdentityLDAPSubSys:
-			srvCfg[k][config.Default] = xldap.DefaultKVS
-		case config.IdentityOpenIDSubSys:
-			srvCfg[k][config.Default] = openid.DefaultKVS
-		case config.PolicyOPASubSys:
-			srvCfg[k][config.Default] = opa.DefaultKVS
-		case config.WormSubSys:
-			srvCfg[k][config.Default] = config.DefaultWormKVS
-		case config.RegionSubSys:
-			srvCfg[k][config.Default] = config.DefaultRegionKVS
-		case config.CredentialsSubSys:
-			srvCfg[k][config.Default] = config.DefaultCredentialKVS
-		case config.KmsVaultSubSys:
-			srvCfg[k][config.Default] = crypto.DefaultKVS
-		case config.LoggerHTTPSubSys:
-			srvCfg[k][config.Default] = logger.DefaultKVS
-		case config.LoggerHTTPAuditSubSys:
-			srvCfg[k][config.Default] = logger.DefaultAuditKVS
-		}
-	}
-	for k, v := range notify.DefaultNotificationKVS {
-		srvCfg[k][config.Default] = v
-	}
-	return srvCfg
+	return config.New()
 }
 
 // newSrvConfig - initialize a new server config, saves env parameters if
@@ -388,24 +487,11 @@ func newSrvConfig(objAPI ObjectLayer) error {
 	globalServerConfigMu.Unlock()
 
 	// Save config into file.
-	return saveServerConfig(context.Background(), objAPI, globalServerConfig, nil)
+	return saveServerConfig(context.Background(), objAPI, globalServerConfig)
 }
 
 func getValidConfig(objAPI ObjectLayer) (config.Config, error) {
-	srvCfg, err := readServerConfig(context.Background(), objAPI)
-	if err != nil {
-		return nil, err
-	}
-	defaultKVS := configDefaultKVS()
-	for _, k := range config.SubSystems.ToSlice() {
-		_, ok := srvCfg[k][config.Default]
-		if !ok {
-			// Populate default configs for any new
-			// sub-systems added automatically.
-			srvCfg[k][config.Default] = defaultKVS[k]
-		}
-	}
-	return srvCfg, nil
+	return readServerConfig(context.Background(), objAPI)
 }
 
 // loadConfig - loads a new config from disk, overrides params

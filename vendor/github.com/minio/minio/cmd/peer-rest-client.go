@@ -100,7 +100,7 @@ func (client *peerRESTClient) Close() error {
 }
 
 // GetLocksResp stores various info from the client for each lock that is requested.
-type GetLocksResp map[string][]lockRequesterInfo
+type GetLocksResp []map[string][]lockRequesterInfo
 
 // NetReadPerfInfo - fetch network read performance information for a remote node.
 func (client *peerRESTClient) NetReadPerfInfo(size int64) (info ServerNetReadPerfInfo, err error) {
@@ -354,6 +354,18 @@ func (client *peerRESTClient) RemoveBucketPolicy(bucket string) error {
 	values := make(url.Values)
 	values.Set(peerRESTBucket, bucket)
 	respBody, err := client.call(peerRESTMethodBucketPolicyRemove, values, nil, -1)
+	if err != nil {
+		return err
+	}
+	defer http.DrainBody(respBody)
+	return nil
+}
+
+// RemoveBucketObjectLockConfig - Remove bucket object lock config on the peer node.
+func (client *peerRESTClient) RemoveBucketObjectLockConfig(bucket string) error {
+	values := make(url.Values)
+	values.Set(peerRESTBucket, bucket)
+	respBody, err := client.call(peerRESTMethodBucketObjectLockConfigRemove, values, nil, -1)
 	if err != nil {
 		return err
 	}
@@ -708,9 +720,9 @@ func (client *peerRESTClient) ConsoleLog(logCh chan interface{}, doneCh chan str
 	}()
 }
 
-func getRemoteHosts(endpoints EndpointList) []*xnet.Host {
+func getRemoteHosts(endpointZones EndpointZones) []*xnet.Host {
 	var remoteHosts []*xnet.Host
-	for _, hostStr := range GetRemotePeers(endpoints) {
+	for _, hostStr := range GetRemotePeers(endpointZones) {
 		host, err := xnet.ParseHost(hostStr)
 		if err != nil {
 			logger.LogIf(context.Background(), err)
@@ -722,7 +734,7 @@ func getRemoteHosts(endpoints EndpointList) []*xnet.Host {
 	return remoteHosts
 }
 
-func getRestClients(endpoints EndpointList) []*peerRESTClient {
+func getRestClients(endpoints EndpointZones) []*peerRESTClient {
 	peerHosts := getRemoteHosts(endpoints)
 	restClients := make([]*peerRESTClient, len(peerHosts))
 	for i, host := range peerHosts {
@@ -759,10 +771,10 @@ func newPeerRESTClient(peer *xnet.Host) (*peerRESTClient, error) {
 		}
 	}
 
-	restClient, err := rest.NewClient(serverURL, tlsConfig, rest.DefaultRESTTimeout, newAuthToken)
-
+	trFn := newCustomHTTPTransport(tlsConfig, rest.DefaultRESTTimeout, rest.DefaultRESTTimeout)
+	restClient, err := rest.NewClient(serverURL, trFn, newAuthToken)
 	if err != nil {
-		return &peerRESTClient{host: peer, restClient: restClient, connected: 0}, err
+		return nil, err
 	}
 
 	return &peerRESTClient{host: peer, restClient: restClient, connected: 1}, nil

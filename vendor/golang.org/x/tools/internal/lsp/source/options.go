@@ -104,7 +104,7 @@ type Options struct {
 
 	ComputeEdits diff.ComputeEdits
 
-	Analyzers []*analysis.Analyzer
+	Analyzers map[string]*analysis.Analyzer
 
 	// LocalPrefix is used to specify goimports's -local behavior.
 	LocalPrefix string
@@ -183,7 +183,7 @@ func SetOptions(options *Options, opts interface{}) OptionResults {
 
 func (o *Options) ForClientCapabilities(caps protocol.ClientCapabilities) {
 	// Check if the client supports snippets in completion items.
-	if c := caps.TextDocument.Completion; c != nil && c.CompletionItem != nil && c.CompletionItem.SnippetSupport {
+	if c := caps.TextDocument.Completion; c.CompletionItem.SnippetSupport {
 		o.InsertTextFormat = protocol.SnippetTextFormat
 	}
 	// Check if the client supports configuration messages.
@@ -192,13 +192,12 @@ func (o *Options) ForClientCapabilities(caps protocol.ClientCapabilities) {
 	o.DynamicWatchedFilesSupported = caps.Workspace.DidChangeWatchedFiles.DynamicRegistration
 
 	// Check which types of content format are supported by this client.
-	if hover := caps.TextDocument.Hover; hover != nil && len(hover.ContentFormat) > 0 {
+	if hover := caps.TextDocument.Hover; len(hover.ContentFormat) > 0 {
 		o.PreferredContentFormat = hover.ContentFormat[0]
 	}
 	// Check if the client supports only line folding.
-	if fr := caps.TextDocument.FoldingRange; fr != nil {
-		o.LineFoldingOnly = fr.LineFoldingOnly
-	}
+	fr := caps.TextDocument.FoldingRange
+	o.LineFoldingOnly = fr.LineFoldingOnly
 }
 
 func (o *Options) set(name string, value interface{}) OptionResult {
@@ -339,30 +338,31 @@ func (r *OptionResult) setBool(b *bool) {
 	}
 }
 
-var defaultAnalyzers = []*analysis.Analyzer{
+var defaultAnalyzers = map[string]*analysis.Analyzer{
 	// The traditional vet suite:
-	asmdecl.Analyzer,
-	assign.Analyzer,
-	atomic.Analyzer,
-	atomicalign.Analyzer,
-	bools.Analyzer,
-	buildtag.Analyzer,
-	cgocall.Analyzer,
-	composite.Analyzer,
-	copylock.Analyzer,
-	httpresponse.Analyzer,
-	loopclosure.Analyzer,
-	lostcancel.Analyzer,
-	nilfunc.Analyzer,
-	printf.Analyzer,
-	shift.Analyzer,
-	stdmethods.Analyzer,
-	structtag.Analyzer,
-	tests.Analyzer,
-	unmarshal.Analyzer,
-	unreachable.Analyzer,
-	unsafeptr.Analyzer,
-	unusedresult.Analyzer,
+	asmdecl.Analyzer.Name:      asmdecl.Analyzer,
+	assign.Analyzer.Name:       assign.Analyzer,
+	atomic.Analyzer.Name:       atomic.Analyzer,
+	atomicalign.Analyzer.Name:  atomicalign.Analyzer,
+	bools.Analyzer.Name:        bools.Analyzer,
+	buildtag.Analyzer.Name:     buildtag.Analyzer,
+	cgocall.Analyzer.Name:      cgocall.Analyzer,
+	composite.Analyzer.Name:    composite.Analyzer,
+	copylock.Analyzer.Name:     copylock.Analyzer,
+	httpresponse.Analyzer.Name: httpresponse.Analyzer,
+	loopclosure.Analyzer.Name:  loopclosure.Analyzer,
+	lostcancel.Analyzer.Name:   lostcancel.Analyzer,
+	nilfunc.Analyzer.Name:      nilfunc.Analyzer,
+	printf.Analyzer.Name:       printf.Analyzer,
+	shift.Analyzer.Name:        shift.Analyzer,
+	stdmethods.Analyzer.Name:   stdmethods.Analyzer,
+	structtag.Analyzer.Name:    structtag.Analyzer,
+	tests.Analyzer.Name:        tests.Analyzer,
+	unmarshal.Analyzer.Name:    unmarshal.Analyzer,
+	unreachable.Analyzer.Name:  unreachable.Analyzer,
+	unsafeptr.Analyzer.Name:    unsafeptr.Analyzer,
+	unusedresult.Analyzer.Name: unusedresult.Analyzer,
+
 	// Non-vet analyzers
-	sortslice.Analyzer,
+	sortslice.Analyzer.Name: sortslice.Analyzer,
 }

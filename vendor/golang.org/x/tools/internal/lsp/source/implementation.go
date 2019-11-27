@@ -12,31 +12,32 @@ package source
 import (
 	"context"
 	"fmt"
+	"go/token"
 	"go/types"
-	"sort"
 
 	"golang.org/x/tools/go/types/typeutil"
 	"golang.org/x/tools/internal/lsp/protocol"
+	"golang.org/x/tools/internal/lsp/telemetry"
+	"golang.org/x/tools/internal/telemetry/log"
 )
 
-func Implementation(ctx context.Context, view View, f File, position protocol.Position) ([]protocol.Location, error) {
-	// Find all references to the identifier at the position.
-	ident, err := Identifier(ctx, view, f, position)
-	if err != nil {
-		return nil, err
-	}
+func (i *IdentifierInfo) Implementation(ctx context.Context) ([]protocol.Location, error) {
+	ctx = telemetry.Package.With(ctx, i.pkg.ID())
 
-	res, err := ident.implementations(ctx)
+	res, err := i.implementations(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var objs []types.Object
-	pkgs := map[types.Object]Package{}
+	pkgs := map[token.Pos]Package{}
 
 	if res.toMethod != nil {
 		// If we looked up a method, results are in toMethod.
 		for _, s := range res.toMethod {
+			if pkgs[s.Obj().Pos()] != nil {
+				continue
+			}
 			// Determine package of receiver.
 			recv := s.Recv()
 			if p, ok := recv.(*types.Pointer); ok {
@@ -44,7 +45,7 @@ func Implementation(ctx context.Context, view View, f File, position protocol.Po
 			}
 			if n, ok := recv.(*types.Named); ok {
 				pkg := res.pkgs[n]
-				pkgs[s.Obj()] = pkg
+				pkgs[s.Obj().Pos()] = pkg
 			}
 			// Add object to objs.
 			objs = append(objs, s.Obj())
@@ -57,61 +58,49 @@ func Implementation(ctx context.Context, view View, f File, position protocol.Po
 				t = p.Elem()
 			}
 			if n, ok := t.(*types.Named); ok {
+				if pkgs[n.Obj().Pos()] != nil {
+					continue
+				}
 				pkg := res.pkgs[n]
+				pkgs[n.Obj().Pos()] = pkg
 				objs = append(objs, n.Obj())
-				pkgs[n.Obj()] = pkg
 			}
 		}
 	}
 
 	var locations []protocol.Location
-
 	for _, obj := range objs {
-		pkg := pkgs[obj]
-		if pkgs[obj] == nil || len(pkg.Files()) == 0 {
+		pkg := pkgs[obj.Pos()]
+		if pkgs[obj.Pos()] == nil || len(pkg.CompiledGoFiles()) == 0 {
 			continue
 		}
-		// Search for the identifier in each of the package's files.
-		var ident *IdentifierInfo
-
-		fset := view.Session().Cache().FileSet()
-		file := fset.File(obj.Pos())
-		var containingFile FileHandle
-		for _, f := range pkg.Files() {
-			if f.File().Identity().URI.Filename() == file.Name() {
-				containingFile = f.File()
-			}
-		}
-		if containingFile == nil {
-			return nil, fmt.Errorf("Failed to find file %q in package %v", file.Name(), pkg.PkgPath())
-		}
-
-		uri := containingFile.Identity().URI
-		ph, _, err := view.FindFileInPackage(ctx, uri, pkgs[obj])
+		file, _, err := i.Snapshot.View().FindPosInPackage(pkgs[obj.Pos()], obj.Pos())
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "Error getting file for object", err)
+			continue
 		}
-		astFile, _, _, err := ph.Cached()
+		ident, err := findIdentifier(i.Snapshot, pkg, file, obj.Pos())
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "Error getting ident for object", err)
+			continue
 		}
-		ident, err = findIdentifier(ctx, view.Snapshot(), pkg, astFile, obj.Pos())
-		if err != nil {
-			return nil, err
-		}
-
 		decRange, err := ident.Declaration.Range()
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "Error getting range for object", err)
+			continue
+		}
+		// Do not add interface itself to the list.
+		if ident.Declaration.spanRange == i.Declaration.spanRange {
+			continue
 		}
 		locations = append(locations, protocol.Location{
 			URI:   protocol.NewURI(ident.Declaration.URI()),
 			Range: decRange,
 		})
 	}
-
 	return locations, nil
 }
+
 func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult, error) {
 	var T types.Type
 	var method *types.Func
@@ -148,7 +137,6 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 			}
 		}
 	}
-
 	allNamed = append(allNamed, types.Universe.Lookup("error").Type().(*types.Named))
 
 	var msets typeutil.MethodSetCache
@@ -197,12 +185,6 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 			}
 		}
 	}
-
-	// Sort types (arbitrarily) to ensure test determinism.
-	sort.Sort(typesByString(to))
-	sort.Sort(typesByString(from))
-	sort.Sort(typesByString(fromPtr))
-
 	var toMethod []*types.Selection // contain nils
 	if method != nil {
 		for _, t := range to {
@@ -210,7 +192,6 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 				types.NewMethodSet(t).Lookup(method.Pkg(), method.Name()))
 		}
 	}
-
 	return implementsResult{pkgs, to, from, fromPtr, toMethod}, nil
 }
 
@@ -222,9 +203,3 @@ type implementsResult struct {
 	fromPtr  []types.Type // named interfaces assignable only from *T
 	toMethod []*types.Selection
 }
-
-type typesByString []types.Type
-
-func (p typesByString) Len() int           { return len(p) }
-func (p typesByString) Less(i, j int) bool { return p[i].String() < p[j].String() }
-func (p typesByString) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

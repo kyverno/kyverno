@@ -22,21 +22,16 @@ func (s *Server) changeFolders(ctx context.Context, event protocol.WorkspaceFold
 			return errors.Errorf("view %s for %v not found", folder.Name, folder.URI)
 		}
 	}
-
-	for _, folder := range event.Added {
-		if _, err := s.addView(ctx, folder.Name, span.NewURI(folder.URI)); err != nil {
-			return err
-		}
-	}
+	s.addFolders(ctx, event.Added)
 	return nil
 }
 
-func (s *Server) addView(ctx context.Context, name string, uri span.URI) (source.View, error) {
+func (s *Server) addView(ctx context.Context, name string, uri span.URI) (source.View, []source.CheckPackageHandle, error) {
 	s.stateMu.Lock()
 	state := s.state
 	s.stateMu.Unlock()
 	if state < serverInitialized {
-		return nil, errors.Errorf("addView called before server initialized")
+		return nil, nil, errors.Errorf("addView called before server initialized")
 	}
 
 	options := s.session.Options()

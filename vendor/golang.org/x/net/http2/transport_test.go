@@ -4483,3 +4483,41 @@ func testTransportBodyLargerThanSpecifiedContentLength(t *testing.T, body *chunk
 		t.Fatalf("expected %v, got %v", errReqBodyTooLong, err)
 	}
 }
+
+func TestClientConnTooIdle(t *testing.T) {
+	tests := []struct {
+		cc   func() *ClientConn
+		want bool
+	}{
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 5 * time.Second, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			true,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 5 * time.Second, lastIdle: time.Time{}}
+			},
+			false,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 60 * time.Second, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			false,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 0, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			false,
+		},
+	}
+	for i, tt := range tests {
+		got := tt.cc().tooIdleLocked()
+		if got != tt.want {
+			t.Errorf("%d. got %v; want %v", i, got, tt.want)
+		}
+	}
+}

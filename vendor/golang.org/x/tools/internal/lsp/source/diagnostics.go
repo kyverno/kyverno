@@ -14,10 +14,10 @@ import (
 	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/telemetry/log"
 	"golang.org/x/tools/internal/telemetry/trace"
+	errors "golang.org/x/xerrors"
 )
 
 type Diagnostic struct {
-	URI      span.URI
 	Range    protocol.Range
 	Message  string
 	Source   string
@@ -39,11 +39,12 @@ type RelatedInformation struct {
 	Message string
 }
 
-func Diagnostics(ctx context.Context, view View, f File, disabledAnalyses map[string]struct{}) (map[span.URI][]Diagnostic, string, error) {
+func Diagnostics(ctx context.Context, snapshot Snapshot, f File, withAnalysis bool, disabledAnalyses map[string]struct{}) (map[FileIdentity][]Diagnostic, string, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Diagnostics", telemetry.File.Of(f.URI()))
 	defer done()
 
-	snapshot, cphs, err := view.CheckPackageHandles(ctx, f)
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
 	if err != nil {
 		return nil, "", err
 	}
@@ -51,12 +52,11 @@ func Diagnostics(ctx context.Context, view View, f File, disabledAnalyses map[st
 	if err != nil {
 		return nil, "", err
 	}
-
 	// If we are missing dependencies, it may because the user's workspace is
 	// not correctly configured. Report errors, if possible.
 	var warningMsg string
 	if len(cph.MissingDependencies()) > 0 {
-		warningMsg, err = checkCommonErrors(ctx, view, f.URI())
+		warningMsg, err = checkCommonErrors(ctx, snapshot.View(), f.URI())
 		if err != nil {
 			log.Error(ctx, "error checking common errors", err, telemetry.File.Of(f.URI))
 		}
@@ -64,41 +64,41 @@ func Diagnostics(ctx context.Context, view View, f File, disabledAnalyses map[st
 	pkg, err := cph.Check(ctx)
 	if err != nil {
 		log.Error(ctx, "no package for file", err)
-		return singleDiagnostic(f.URI(), "%s is not part of a package", f.URI()), "", nil
+		return singleDiagnostic(fh.Identity(), "%s is not part of a package", f.URI()), "", nil
 	}
-
 	// Prepare the reports we will send for the files in this package.
-	reports := make(map[span.URI][]Diagnostic)
-	for _, fh := range pkg.Files() {
-		clearReports(view, reports, fh.File().Identity().URI)
+	reports := make(map[FileIdentity][]Diagnostic)
+	for _, fh := range pkg.CompiledGoFiles() {
+		clearReports(snapshot, reports, fh.File().Identity())
 	}
-
 	// Prepare any additional reports for the errors in this package.
-	for _, err := range pkg.GetErrors() {
-		if err.Kind != ListError {
+	for _, e := range pkg.GetErrors() {
+		if e.Kind != ListError {
 			continue
 		}
-		clearReports(view, reports, err.URI)
+		clearReports(snapshot, reports, e.File)
 	}
-
 	// Run diagnostics for the package that this URI belongs to.
-	if !diagnostics(ctx, view, pkg, reports) {
+	if !diagnostics(ctx, snapshot, pkg, reports) && withAnalysis {
 		// If we don't have any list, parse, or type errors, run analyses.
 		if err := analyses(ctx, snapshot, cph, disabledAnalyses, reports); err != nil {
 			log.Error(ctx, "failed to run analyses", err, telemetry.File.Of(f.URI()))
 		}
 	}
 	// Updates to the diagnostics for this package may need to be propagated.
-	revDeps := view.GetActiveReverseDeps(ctx, f)
-	for _, cph := range revDeps {
+	for _, id := range snapshot.GetReverseDependencies(pkg.ID()) {
+		cph, err := snapshot.PackageHandle(ctx, id)
+		if err != nil {
+			return nil, warningMsg, err
+		}
 		pkg, err := cph.Check(ctx)
 		if err != nil {
 			return nil, warningMsg, err
 		}
-		for _, fh := range pkg.Files() {
-			clearReports(view, reports, fh.File().Identity().URI)
+		for _, fh := range pkg.CompiledGoFiles() {
+			clearReports(snapshot, reports, fh.File().Identity())
 		}
-		diagnostics(ctx, view, pkg, reports)
+		diagnostics(ctx, snapshot, pkg, reports)
 	}
 	return reports, warningMsg, nil
 }
@@ -107,24 +107,24 @@ type diagnosticSet struct {
 	listErrors, parseErrors, typeErrors []*Diagnostic
 }
 
-func diagnostics(ctx context.Context, view View, pkg Package, reports map[span.URI][]Diagnostic) bool {
+func diagnostics(ctx context.Context, snapshot Snapshot, pkg Package, reports map[FileIdentity][]Diagnostic) bool {
 	ctx, done := trace.StartSpan(ctx, "source.diagnostics", telemetry.Package.Of(pkg.ID()))
+	_ = ctx // circumvent SA4006
 	defer done()
 
-	diagSets := make(map[span.URI]*diagnosticSet)
-	for _, err := range pkg.GetErrors() {
+	diagSets := make(map[FileIdentity]*diagnosticSet)
+	for _, e := range pkg.GetErrors() {
 		diag := &Diagnostic{
-			URI:      err.URI,
-			Message:  err.Message,
-			Range:    err.Range,
+			Message:  e.Message,
+			Range:    e.Range,
 			Severity: protocol.SeverityError,
 		}
-		set, ok := diagSets[diag.URI]
+		set, ok := diagSets[e.File]
 		if !ok {
 			set = &diagnosticSet{}
-			diagSets[diag.URI] = set
+			diagSets[e.File] = set
 		}
-		switch err.Kind {
+		switch e.Kind {
 		case ParseError:
 			set.parseErrors = append(set.parseErrors, diag)
 			diag.Source = "syntax"
@@ -137,7 +137,7 @@ func diagnostics(ctx context.Context, view View, pkg Package, reports map[span.U
 		}
 	}
 	var nonEmptyDiagnostics bool // track if we actually send non-empty diagnostics
-	for uri, set := range diagSets {
+	for fileID, set := range diagSets {
 		// Don't report type errors if there are parse errors or list errors.
 		diags := set.typeErrors
 		if len(set.parseErrors) > 0 {
@@ -148,16 +148,12 @@ func diagnostics(ctx context.Context, view View, pkg Package, reports map[span.U
 		if len(diags) > 0 {
 			nonEmptyDiagnostics = true
 		}
-		for _, diag := range diags {
-			if _, ok := reports[uri]; ok {
-				reports[uri] = append(reports[uri], *diag)
-			}
-		}
+		addReports(ctx, reports, snapshot, fileID, diags...)
 	}
 	return nonEmptyDiagnostics
 }
 
-func analyses(ctx context.Context, snapshot Snapshot, cph CheckPackageHandle, disabledAnalyses map[string]struct{}, reports map[span.URI][]Diagnostic) error {
+func analyses(ctx context.Context, snapshot Snapshot, cph CheckPackageHandle, disabledAnalyses map[string]struct{}, reports map[FileIdentity][]Diagnostic) error {
 	var analyzers []*analysis.Analyzer
 	for _, a := range snapshot.View().Options().Analyzers {
 		if _, ok := disabledAnalyses[a.Name]; ok {
@@ -180,8 +176,7 @@ func analyses(ctx context.Context, snapshot Snapshot, cph CheckPackageHandle, di
 		if onlyDeletions(e.SuggestedFixes) {
 			tags = append(tags, protocol.Unnecessary)
 		}
-		addReport(snapshot.View(), reports, Diagnostic{
-			URI:            e.URI,
+		addReports(ctx, reports, snapshot, e.File, &Diagnostic{
 			Range:          e.Range,
 			Message:        e.Message,
 			Source:         e.Category,
@@ -194,31 +189,39 @@ func analyses(ctx context.Context, snapshot Snapshot, cph CheckPackageHandle, di
 	return nil
 }
 
-func clearReports(v View, reports map[span.URI][]Diagnostic, uri span.URI) {
-	if v.Ignore(uri) {
+func clearReports(snapshot Snapshot, reports map[FileIdentity][]Diagnostic, fileID FileIdentity) {
+	if snapshot.View().Ignore(fileID.URI) {
 		return
 	}
-	reports[uri] = []Diagnostic{}
+	reports[fileID] = []Diagnostic{}
 }
 
-func addReport(v View, reports map[span.URI][]Diagnostic, diagnostic Diagnostic) {
-	if v.Ignore(diagnostic.URI) {
-		return
+func addReports(ctx context.Context, reports map[FileIdentity][]Diagnostic, snapshot Snapshot, fileID FileIdentity, diagnostics ...*Diagnostic) error {
+	if snapshot.View().Ignore(fileID.URI) {
+		return nil
 	}
-	if _, ok := reports[diagnostic.URI]; ok {
-		reports[diagnostic.URI] = append(reports[diagnostic.URI], diagnostic)
+	if _, ok := reports[fileID]; !ok {
+		return errors.Errorf("diagnostics for unexpected file %s", fileID.URI)
 	}
+	for _, diag := range diagnostics {
+		if diag == nil {
+			continue
+		}
+		reports[fileID] = append(reports[fileID], *diag)
+	}
+	return nil
 }
 
-func singleDiagnostic(uri span.URI, format string, a ...interface{}) map[span.URI][]Diagnostic {
-	return map[span.URI][]Diagnostic{
-		uri: []Diagnostic{{
-			Source:   "LSP",
-			URI:      uri,
-			Range:    protocol.Range{},
-			Message:  fmt.Sprintf(format, a...),
-			Severity: protocol.SeverityError,
-		}},
+func singleDiagnostic(fileID FileIdentity, format string, a ...interface{}) map[FileIdentity][]Diagnostic {
+	return map[FileIdentity][]Diagnostic{
+		fileID: []Diagnostic{
+			{
+				Source:   "gopls",
+				Range:    protocol.Range{},
+				Message:  fmt.Sprintf(format, a...),
+				Severity: protocol.SeverityError,
+			},
+		},
 	}
 }
 

@@ -78,15 +78,38 @@ const (
 // DefaultKVS - default config for LDAP config
 var (
 	DefaultKVS = config.KVS{
-		config.State:       config.StateOff,
-		config.Comment:     "This is a default LDAP configuration",
-		ServerAddr:         "",
-		STSExpiry:          "1h",
-		UsernameFormat:     "",
-		GroupSearchFilter:  "",
-		GroupNameAttribute: "",
-		GroupSearchBaseDN:  "",
-		TLSSkipVerify:      config.StateOff,
+		config.KV{
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   ServerAddr,
+			Value: "",
+		},
+		config.KV{
+			Key:   STSExpiry,
+			Value: "1h",
+		},
+		config.KV{
+			Key:   UsernameFormat,
+			Value: "",
+		},
+		config.KV{
+			Key:   GroupSearchFilter,
+			Value: "",
+		},
+		config.KV{
+			Key:   GroupNameAttribute,
+			Value: "",
+		},
+		config.KV{
+			Key:   GroupSearchBaseDN,
+			Value: "",
+		},
+		config.KV{
+			Key:   TLSSkipVerify,
+			Value: config.StateOff,
+		},
 	}
 )
 
@@ -115,6 +138,9 @@ func Lookup(kvs config.KVS, rootCAs *x509.CertPool) (l Config, err error) {
 	}
 	stateBool, err := config.ParseBool(env.Get(EnvLDAPState, kvs.Get(config.State)))
 	if err != nil {
+		if kvs.Empty() {
+			return l, nil
+		}
 		return l, err
 	}
 	ldapServer := env.Get(EnvServerAddr, kvs.Get(ServerAddr))

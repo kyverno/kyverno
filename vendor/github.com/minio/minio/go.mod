@@ -11,6 +11,7 @@ require (
 	github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20190307165228-86c17b95fcd5
 	github.com/aws/aws-sdk-go v1.20.21
 	github.com/bcicen/jstream v0.0.0-20190220045926-16c1f8af81c2
+	github.com/beevik/ntp v0.2.0
 	github.com/cheggaaa/pb v1.0.28
 	github.com/coredns/coredns v1.4.0
 	github.com/coreos/etcd v3.3.12+incompatible
@@ -38,7 +39,6 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/miekg/dns v1.1.8
 	github.com/minio/cli v1.22.0
-	github.com/minio/dsync/v2 v2.0.0
 	github.com/minio/gokrb5/v7 v7.2.5
 	github.com/minio/hdfs/v3 v3.0.1
 	github.com/minio/highwayhash v1.0.0
@@ -50,7 +50,8 @@ require (
 	github.com/minio/sha256-simd v0.1.1
 	github.com/minio/sio v0.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nats-io/nats.go v1.8.0
+	github.com/nats-io/nats-server/v2 v2.1.2
+	github.com/nats-io/nats.go v1.9.1
 	github.com/nats-io/stan.go v0.4.5
 	github.com/ncw/directio v1.0.5
 	github.com/nsqio/go-nsq v1.0.7

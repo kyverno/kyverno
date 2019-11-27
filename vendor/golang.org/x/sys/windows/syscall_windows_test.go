@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -375,5 +376,31 @@ func TestGetDiskFreeSpaceEx(t *testing.T) {
 	}
 	if totalNumberOfFreeBytes == 0 {
 		t.Errorf("totalNumberOfFreeBytes: got 0; want > 0")
+	}
+}
+
+func TestGetPreferredUILanguages(t *testing.T) {
+	tab := map[string]func(flags uint32) ([]string, error){
+		"GetProcessPreferredUILanguages": windows.GetProcessPreferredUILanguages,
+		"GetThreadPreferredUILanguages":  windows.GetThreadPreferredUILanguages,
+		"GetUserPreferredUILanguages":    windows.GetUserPreferredUILanguages,
+		"GetSystemPreferredUILanguages":  windows.GetSystemPreferredUILanguages,
+	}
+	for fName, f := range tab {
+		lang, err := f(windows.MUI_LANGUAGE_ID)
+		if err != nil {
+			t.Errorf(`failed to call %v(MUI_LANGUAGE_ID): %v`, fName, err)
+		}
+		for _, l := range lang {
+			_, err := strconv.ParseUint(l, 16, 16)
+			if err != nil {
+				t.Errorf(`%v(MUI_LANGUAGE_ID) returned unexpected LANGID: %v`, fName, l)
+			}
+		}
+
+		lang, err = f(windows.MUI_LANGUAGE_NAME)
+		if err != nil {
+			t.Errorf(`failed to call %v(MUI_LANGUAGE_NAME): %v`, fName, err)
+		}
 	}
 }

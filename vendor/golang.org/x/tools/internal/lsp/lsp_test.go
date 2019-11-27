@@ -53,17 +53,15 @@ func testLSP(t *testing.T, exporter packagestest.Exporter) {
 	options := tests.DefaultOptions()
 	session.SetOptions(options)
 	options.Env = data.Config.Env
-	_, err := session.NewView(ctx, viewName, span.FileURI(data.Config.Dir), options)
-	if err != nil {
+	if _, _, err := session.NewView(ctx, viewName, span.FileURI(data.Config.Dir), options); err != nil {
 		t.Fatal(err)
 	}
 	for filename, content := range data.Config.Overlay {
-		session.SetOverlay(span.FileURI(filename), source.DetectLanguage("", filename), content)
+		session.SetOverlay(span.FileURI(filename), source.DetectLanguage("", filename), -1, content)
 	}
 	r := &runner{
 		server: &Server{
-			session:     session,
-			undelivered: make(map[span.URI][]source.Diagnostic),
+			session: session,
 		},
 		data: data,
 		ctx:  ctx,
@@ -79,11 +77,12 @@ func (r *runner) Diagnostics(t *testing.T, uri span.URI, want []source.Diagnosti
 	if err != nil {
 		t.Fatalf("no file for %s: %v", f, err)
 	}
-	results, _, err := source.Diagnostics(r.ctx, v, f, nil)
+	identity := v.Snapshot().Handle(r.ctx, f).Identity()
+	results, _, err := source.Diagnostics(r.ctx, v.Snapshot(), f, true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := results[uri]
+	got := results[identity]
 	// A special case to test that there are no diagnostics for a file.
 	if len(want) == 1 && want[0].Source == "no_diagnostics" {
 		if len(got) != 0 {
@@ -91,20 +90,23 @@ func (r *runner) Diagnostics(t *testing.T, uri span.URI, want []source.Diagnosti
 		}
 		return
 	}
-	if diff := tests.DiffDiagnostics(want, got); diff != "" {
+	if diff := tests.DiffDiagnostics(uri, want, got); diff != "" {
 		t.Error(diff)
 	}
 }
 
 func (r *runner) FoldingRanges(t *testing.T, spn span.Span) {
 	uri := spn.URI()
-	view := r.server.session.ViewOf(uri)
+	view, err := r.server.session.ViewOf(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
 	original := view.Options()
 	modified := original
 
 	// Test all folding ranges.
 	modified.LineFoldingOnly = false
-	view, err := view.SetOptions(r.ctx, modified)
+	view, err = view.SetOptions(r.ctx, modified)
 	if err != nil {
 		t.Error(err)
 		return
@@ -310,17 +312,14 @@ func (r *runner) Import(t *testing.T, spn span.Span) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var edits []protocol.TextEdit
-	for _, a := range actions {
-		if a.Title == "Organize Imports" {
-			edits = (*a.Edit.Changes)[string(uri)]
+	got := string(m.Content)
+	if len(actions) > 0 {
+		res, err := applyWorkspaceEdits(r, actions[0].Edit)
+		if err != nil {
+			t.Fatal(err)
 		}
+		got = res[uri]
 	}
-	sedits, err := source.FromProtocolEdits(m, edits)
-	if err != nil {
-		t.Error(err)
-	}
-	got := diff.ApplyEdits(string(m.Content), sedits)
 	if goimported != got {
 		t.Errorf("import failed for %s, expected:\n%v\ngot:\n%v", filename, goimported, got)
 	}
@@ -329,12 +328,17 @@ func (r *runner) Import(t *testing.T, spn span.Span) {
 func (r *runner) SuggestedFix(t *testing.T, spn span.Span) {
 	uri := spn.URI()
 	filename := uri.Filename()
-	view := r.server.session.ViewOf(uri)
+	view, err := r.server.session.ViewOf(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
 	f, err := view.GetFile(r.ctx, uri)
 	if err != nil {
 		t.Fatal(err)
 	}
-	diagnostics, _, err := source.Diagnostics(r.ctx, view, f, nil)
+	snapshot := view.Snapshot()
+	fileID := snapshot.Handle(r.ctx, f).Identity()
+	diagnostics, _, err := source.Diagnostics(r.ctx, snapshot, f, true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,28 +348,24 @@ func (r *runner) SuggestedFix(t *testing.T, spn span.Span) {
 		},
 		Context: protocol.CodeActionContext{
 			Only:        []protocol.CodeActionKind{protocol.QuickFix},
-			Diagnostics: toProtocolDiagnostics(r.ctx, diagnostics[uri]),
+			Diagnostics: toProtocolDiagnostics(r.ctx, diagnostics[fileID]),
 		},
 	})
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
-	m, err := r.data.Mapper(f.URI())
+	// TODO: This test should probably be able to handle multiple code actions.
+	if len(actions) == 0 {
+		t.Fatal("no code actions returned")
+	}
+	if len(actions) > 1 {
+		t.Fatal("expected only 1 code action")
+	}
+	res, err := applyWorkspaceEdits(r, actions[0].Edit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var edits []protocol.TextEdit
-	for _, a := range actions {
-		if a.Title == "Remove" {
-			edits = (*a.Edit.Changes)[string(uri)]
-		}
-	}
-	sedits, err := source.FromProtocolEdits(m, edits)
-	if err != nil {
-		t.Error(err)
-	}
-	got := diff.ApplyEdits(string(m.Content), sedits)
+	got := res[uri]
 	fixed := string(r.data.Golden("suggestedfix", filename, func() ([]byte, error) {
 		return []byte(got), nil
 	}))
@@ -413,7 +413,9 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 	if len(locs) != 1 {
 		t.Errorf("got %d locations for definition, expected 1", len(locs))
 	}
+	didSomething := false
 	if hover != nil {
+		didSomething = true
 		tag := fmt.Sprintf("%s-hover", d.Name)
 		expectHover := string(r.data.Golden(tag, d.Src.URI().Filename(), func() ([]byte, error) {
 			return []byte(hover.Contents.Value), nil
@@ -421,7 +423,9 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 		if hover.Contents.Value != expectHover {
 			t.Errorf("for %v got %q want %q", d.Src, hover.Contents.Value, expectHover)
 		}
-	} else if !d.OnlyHover {
+	}
+	if !d.OnlyHover {
+		didSomething = true
 		locURI := span.NewURI(locs[0].URI)
 		lm, err := r.data.Mapper(locURI)
 		if err != nil {
@@ -432,7 +436,8 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 		} else if def != d.Def {
 			t.Errorf("for %v got %v want %v", d.Src, def, d.Def)
 		}
-	} else {
+	}
+	if !didSomething {
 		t.Errorf("no tests ran for %s", d.Src.URI())
 	}
 }
@@ -461,21 +466,35 @@ func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementat
 	if len(locs) != len(m.Implementations) {
 		t.Fatalf("got %d locations for implementation, expected %d", len(locs), len(m.Implementations))
 	}
+
+	var results []span.Span
 	for i := range locs {
 		locURI := span.NewURI(locs[i].URI)
 		lm, err := r.data.Mapper(locURI)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if imp, err := lm.Span(locs[i]); err != nil {
+		imp, err := lm.Span(locs[i])
+		if err != nil {
 			t.Fatalf("failed for %v: %v", locs[i], err)
-		} else if imp != m.Implementations[i] {
-			t.Errorf("for %dth implementation of %v got %v want %v", i, m.Src, imp, m.Implementations[i])
+		}
+		results = append(results, imp)
+	}
+	// Sort results and expected to make tests deterministic.
+	sort.SliceStable(results, func(i, j int) bool {
+		return span.Compare(results[i], results[j]) == -1
+	})
+	sort.SliceStable(m.Implementations, func(i, j int) bool {
+		return span.Compare(m.Implementations[i], m.Implementations[j]) == -1
+	})
+	for i := range results {
+		if results[i] != m.Implementations[i] {
+			t.Errorf("for %dth implementation of %v got %v want %v", i, m.Src, results[i], m.Implementations[i])
 		}
 	}
 }
 
-func (r *runner) Highlight(t *testing.T, name string, locations []span.Span) {
+func (r *runner) Highlight(t *testing.T, src span.Span, locations []span.Span) {
 	m, err := r.data.Mapper(locations[0].URI())
 	if err != nil {
 		t.Fatal(err)
@@ -496,7 +515,7 @@ func (r *runner) Highlight(t *testing.T, name string, locations []span.Span) {
 		t.Fatal(err)
 	}
 	if len(highlights) != len(locations) {
-		t.Fatalf("got %d highlights for %s, expected %d", len(highlights), name, len(locations))
+		t.Fatalf("got %d highlights for highlight at %v:%v:%v, expected %d", len(highlights), src.URI().Filename(), src.Start().Line(), src.Start().Column(), len(locations))
 	}
 	for i := range highlights {
 		if h, err := m.RangeSpan(highlights[i].Range); err != nil {
@@ -563,7 +582,7 @@ func (r *runner) Rename(t *testing.T, spn span.Span, newText string) {
 		t.Fatalf("failed for %v: %v", spn, err)
 	}
 
-	workspaceEdits, err := r.server.Rename(r.ctx, &protocol.RenameParams{
+	wedit, err := r.server.Rename(r.ctx, &protocol.RenameParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: protocol.NewURI(uri),
 		},
@@ -579,33 +598,26 @@ func (r *runner) Rename(t *testing.T, spn span.Span, newText string) {
 		}
 		return
 	}
-
-	var res []string
-	for uri, edits := range *workspaceEdits.Changes {
-		m, err := r.data.Mapper(span.URI(uri))
-		if err != nil {
-			t.Fatal(err)
-		}
-		sedits, err := source.FromProtocolEdits(m, edits)
-		if err != nil {
-			t.Error(err)
-		}
-		filename := filepath.Base(m.URI.Filename())
-		contents := applyEdits(string(m.Content), sedits)
-		if len(*workspaceEdits.Changes) > 1 {
-			contents = fmt.Sprintf("%s:\n%s", filename, contents)
-		}
-		res = append(res, contents)
+	res, err := applyWorkspaceEdits(r, *wedit)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	// Sort on filename
-	sort.Strings(res)
+	var orderedURIs []string
+	for uri := range res {
+		orderedURIs = append(orderedURIs, string(uri))
+	}
+	sort.Strings(orderedURIs)
 
 	var got string
-	for i, val := range res {
+	for i := 0; i < len(res); i++ {
 		if i != 0 {
 			got += "\n"
 		}
+		uri := span.URI(orderedURIs[i])
+		if len(res) > 1 {
+			got += filepath.Base(uri.Filename()) + ":\n"
+		}
+		val := res[uri]
 		got += val
 	}
 
@@ -639,15 +651,46 @@ func (r *runner) PrepareRename(t *testing.T, src span.Span, want *source.Prepare
 		t.Errorf("prepare rename failed for %v: got error: %v", src, err)
 		return
 	}
-	if got == nil {
+	// we all love typed nils
+	if got == nil || got.(*protocol.Range) == nil {
 		if want.Text != "" { // expected an ident.
 			t.Errorf("prepare rename failed for %v: got nil", src)
 		}
 		return
 	}
-	if protocol.CompareRange(*got, want.Range) != 0 {
-		t.Errorf("prepare rename failed: incorrect range got %v want %v", *got, want.Range)
+	xx, ok := got.(*protocol.Range)
+	if !ok {
+		t.Fatalf("got %T, wanted Range", got)
 	}
+	if xx.Start == xx.End {
+		// Special case for 0-length ranges. Marks can't specify a 0-length range,
+		// so just compare the start.
+		if xx.Start != want.Range.Start {
+			t.Errorf("prepare rename failed: incorrect point, got %v want %v", xx.Start, want.Range.Start)
+		}
+	} else {
+		if protocol.CompareRange(*xx, want.Range) != 0 {
+			t.Errorf("prepare rename failed: incorrect range got %v want %v", *xx, want.Range)
+		}
+	}
+}
+
+func applyWorkspaceEdits(r *runner, wedit protocol.WorkspaceEdit) (map[span.URI]string, error) {
+	res := map[span.URI]string{}
+	for _, docEdits := range wedit.DocumentChanges {
+		uri := span.URI(docEdits.TextDocument.URI)
+		m, err := r.data.Mapper(uri)
+		if err != nil {
+			return nil, err
+		}
+		res[uri] = string(m.Content)
+		sedits, err := source.FromProtocolEdits(m, docEdits.Edits)
+		if err != nil {
+			return nil, err
+		}
+		res[uri] = applyEdits(res[uri], sedits)
+	}
+	return res, nil
 }
 
 func applyEdits(contents string, edits []diff.TextEdit) string {
@@ -675,7 +718,6 @@ func (r *runner) Symbols(t *testing.T, uri span.URI, expectedSymbols []protocol.
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if len(symbols) != len(expectedSymbols) {
 		t.Errorf("want %d top-level symbols in %v, got %d", len(expectedSymbols), uri, len(symbols))
 		return

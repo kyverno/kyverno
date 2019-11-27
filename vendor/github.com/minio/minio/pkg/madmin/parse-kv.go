@@ -20,22 +20,77 @@ package madmin
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"strings"
-
-	"github.com/minio/minio/pkg/color"
+	"unicode"
 )
 
-// KVS each sub-system key, value
-type KVS map[string]string
+// KV - is a shorthand of each key value.
+type KV struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// KVS - is a shorthand for some wrapper functions
+// to operate on list of key values.
+type KVS []KV
+
+// Empty - return if kv is empty
+func (kvs KVS) Empty() bool {
+	return len(kvs) == 0
+}
+
+// Get - returns the value of a key, if not found returns empty.
+func (kvs KVS) Get(key string) string {
+	v, ok := kvs.Lookup(key)
+	if ok {
+		return v
+	}
+	return ""
+}
+
+// Lookup - lookup a key in a list of KVS
+func (kvs KVS) Lookup(key string) (string, bool) {
+	for _, kv := range kvs {
+		if kv.Key == key {
+			return kv.Value, true
+		}
+	}
+	return "", false
+}
 
 // Targets sub-system targets
 type Targets map[string]map[string]KVS
 
 const (
+	stateKey   = "state"
 	commentKey = "comment"
 )
+
+func (kvs KVS) String() string {
+	var s strings.Builder
+	for _, kv := range kvs {
+		// Do not need to print state
+		if kv.Key == stateKey {
+			continue
+		}
+		if kv.Key == commentKey && kv.Value == "" {
+			continue
+		}
+		s.WriteString(kv.Key)
+		s.WriteString(KvSeparator)
+		spc := hasSpace(kv.Value)
+		if spc {
+			s.WriteString(KvDoubleQuote)
+		}
+		s.WriteString(kv.Value)
+		if spc {
+			s.WriteString(KvDoubleQuote)
+		}
+		s.WriteString(KvSpaceSeparator)
+	}
+	return s.String()
+}
 
 // Count - returns total numbers of target
 func (t Targets) Count() int {
@@ -48,46 +103,29 @@ func (t Targets) Count() int {
 	return count
 }
 
+func hasSpace(s string) bool {
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			return true
+		}
+	}
+	return false
+}
+
 func (t Targets) String() string {
 	var s strings.Builder
 	count := t.Count()
 	for subSys, targetKV := range t {
 		for target, kv := range targetKV {
 			count--
-			c := kv[commentKey]
-			data, err := base64.RawStdEncoding.DecodeString(c)
-			if err == nil {
-				c = string(data)
-			}
-			for _, c1 := range strings.Split(c, KvNewline) {
-				if c1 == "" {
-					continue
-				}
-				s.WriteString(color.YellowBold(KvComment))
-				s.WriteString(KvSpaceSeparator)
-				s.WriteString(color.BlueBold(strings.TrimSpace(c1)))
-				s.WriteString(KvNewline)
-			}
 			s.WriteString(subSys)
 			if target != Default {
 				s.WriteString(SubSystemSeparator)
 				s.WriteString(target)
 			}
 			s.WriteString(KvSpaceSeparator)
-			for k, v := range kv {
-				// Comment is already printed, do not print it here.
-				if k == commentKey {
-					continue
-				}
-				s.WriteString(k)
-				s.WriteString(KvSeparator)
-				s.WriteString(KvDoubleQuote)
-				s.WriteString(v)
-				s.WriteString(KvDoubleQuote)
-				s.WriteString(KvSpaceSeparator)
-			}
+			s.WriteString(kv.String())
 			if (len(t) > 1 || len(targetKV) > 1) && count > 0 {
-				s.WriteString(KvNewline)
 				s.WriteString(KvNewline)
 			}
 		}
@@ -100,7 +138,6 @@ const (
 	SubSystemSeparator = `:`
 	KvSeparator        = `=`
 	KvSpaceSeparator   = ` `
-	KvComment          = `#`
 	KvNewline          = "\n"
 	KvDoubleQuote      = `"`
 	KvSingleQuote      = `'`
@@ -131,14 +168,20 @@ func convertTargets(s string, targets Targets) error {
 			continue
 		}
 		if len(kv) == 1 && prevK != "" {
-			kvs[prevK] = strings.Join([]string{kvs[prevK], sanitizeValue(kv[0])}, KvSpaceSeparator)
+			kvs = append(kvs, KV{
+				Key:   prevK,
+				Value: strings.Join([]string{kvs.Get(prevK), sanitizeValue(kv[0])}, KvSpaceSeparator),
+			})
 			continue
 		}
 		if len(kv) == 1 {
 			return fmt.Errorf("value for key '%s' cannot be empty", kv[0])
 		}
 		prevK = kv[0]
-		kvs[kv[0]] = sanitizeValue(kv[1])
+		kvs = append(kvs, KV{
+			Key:   kv[0],
+			Value: sanitizeValue(kv[1]),
+		})
 	}
 
 	_, ok := targets[subSystemValue[0]]

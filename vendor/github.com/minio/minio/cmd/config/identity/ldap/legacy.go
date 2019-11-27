@@ -20,19 +20,38 @@ import "github.com/minio/minio/cmd/config"
 
 // SetIdentityLDAP - One time migration code needed, for migrating from older config to new for LDAPConfig.
 func SetIdentityLDAP(s config.Config, ldapArgs Config) {
+	if !ldapArgs.Enabled {
+		// ldap not enabled no need to preserve it in new settings.
+		return
+	}
 	s[config.IdentityLDAPSubSys][config.Default] = config.KVS{
-		config.State: func() string {
-			if !ldapArgs.Enabled {
-				return config.StateOff
-			}
-			return config.StateOn
-		}(),
-		config.Comment:     "Settings for LDAP, after migrating config",
-		ServerAddr:         ldapArgs.ServerAddr,
-		STSExpiry:          ldapArgs.STSExpiryDuration,
-		UsernameFormat:     ldapArgs.UsernameFormat,
-		GroupSearchFilter:  ldapArgs.GroupSearchFilter,
-		GroupNameAttribute: ldapArgs.GroupNameAttribute,
-		GroupSearchBaseDN:  ldapArgs.GroupSearchBaseDN,
+		config.KV{
+			Key:   config.State,
+			Value: config.StateOn,
+		},
+		config.KV{
+			Key:   ServerAddr,
+			Value: ldapArgs.ServerAddr,
+		},
+		config.KV{
+			Key:   STSExpiry,
+			Value: ldapArgs.STSExpiryDuration,
+		},
+		config.KV{
+			Key:   UsernameFormat,
+			Value: ldapArgs.UsernameFormat,
+		},
+		config.KV{
+			Key:   GroupSearchFilter,
+			Value: ldapArgs.GroupSearchFilter,
+		},
+		config.KV{
+			Key:   GroupNameAttribute,
+			Value: ldapArgs.GroupNameAttribute,
+		},
+		config.KV{
+			Key:   GroupSearchBaseDN,
+			Value: ldapArgs.GroupSearchBaseDN,
+		},
 	}
 }

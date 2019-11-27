@@ -22,7 +22,10 @@ import (
 
 func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -41,8 +44,11 @@ func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLink
 				log.Error(ctx, "cannot unquote import path", err, tag.Of("Path", n.Path.Value))
 				return false
 			}
+			if target == "" {
+				return false
+			}
 			target = "https://godoc.org/" + target
-			l, err := toProtocolLink(view, m, target, n.Pos(), n.End())
+			l, err := toProtocolLink(view, m, target, n.Path.Pos()+1, n.Path.End()-1)
 			if err != nil {
 				log.Error(ctx, "cannot initialize DocumentLink", err, tag.Of("Path", n.Path.Value))
 				return false

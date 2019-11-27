@@ -5,9 +5,11 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
 	"go/types"
 	"path/filepath"
@@ -26,6 +28,18 @@ type mappedRange struct {
 	// protocolRange is the result of converting the spanRange using the mapper.
 	// It is computed on-demand.
 	protocolRange *protocol.Range
+}
+
+func newMappedRange(fset *token.FileSet, m *protocol.ColumnMapper, start, end token.Pos) mappedRange {
+	return mappedRange{
+		spanRange: span.Range{
+			FileSet:   fset,
+			Start:     start,
+			End:       end,
+			Converter: m.Converter,
+		},
+		m: m,
+	}
 }
 
 func (s mappedRange) Range() (protocol.Range, error) {
@@ -62,7 +76,7 @@ func NarrowestCheckPackageHandle(handles []CheckPackageHandle) (CheckPackageHand
 	}
 	result := handles[0]
 	for _, handle := range handles[1:] {
-		if result == nil || len(handle.Files()) < len(result.Files()) {
+		if result == nil || len(handle.CompiledGoFiles()) < len(result.CompiledGoFiles()) {
 			result = handle
 		}
 	}
@@ -82,7 +96,7 @@ func WidestCheckPackageHandle(handles []CheckPackageHandle) (CheckPackageHandle,
 	}
 	result := handles[0]
 	for _, handle := range handles[1:] {
-		if result == nil || len(handle.Files()) > len(result.Files()) {
+		if result == nil || len(handle.CompiledGoFiles()) > len(result.CompiledGoFiles()) {
 			result = handle
 		}
 	}
@@ -120,14 +134,14 @@ func IsGenerated(ctx context.Context, view View, uri span.URI) bool {
 }
 
 func nodeToProtocolRange(ctx context.Context, view View, m *protocol.ColumnMapper, n ast.Node) (protocol.Range, error) {
-	mrng, err := nodeToMappedRange(ctx, view, m, n)
+	mrng, err := nodeToMappedRange(view, m, n)
 	if err != nil {
 		return protocol.Range{}, err
 	}
 	return mrng.Range()
 }
 
-func objToMappedRange(ctx context.Context, v View, pkg Package, obj types.Object) (mappedRange, error) {
+func objToMappedRange(v View, pkg Package, obj types.Object) (mappedRange, error) {
 	if pkgName, ok := obj.(*types.PkgName); ok {
 		// An imported Go package has a package-local, unqualified name.
 		// When the name matches the imported package name, there is no
@@ -138,51 +152,39 @@ func objToMappedRange(ctx context.Context, v View, pkg Package, obj types.Object
 		// 		import a "go/ast"  	// name "a" does not match package name
 		//
 		// When the identifier does not appear in the source, have the range
-		// of the object be the point at the beginning of the declaration.
+		// of the object be the import path, including quotes.
 		if pkgName.Imported().Name() == pkgName.Name() {
-			return nameToMappedRange(ctx, v, pkg, obj.Pos(), "")
+			return posToMappedRange(v, pkg, obj.Pos(), obj.Pos()+token.Pos(len(pkgName.Imported().Path())+2))
 		}
 	}
-	return nameToMappedRange(ctx, v, pkg, obj.Pos(), obj.Name())
+	return nameToMappedRange(v, pkg, obj.Pos(), obj.Name())
 }
 
-func nameToMappedRange(ctx context.Context, v View, pkg Package, pos token.Pos, name string) (mappedRange, error) {
-	return posToMappedRange(ctx, v, pkg, pos, pos+token.Pos(len(name)))
+func nameToMappedRange(v View, pkg Package, pos token.Pos, name string) (mappedRange, error) {
+	return posToMappedRange(v, pkg, pos, pos+token.Pos(len(name)))
 }
 
-func nodeToMappedRange(ctx context.Context, view View, m *protocol.ColumnMapper, n ast.Node) (mappedRange, error) {
-	return posToRange(ctx, view, m, n.Pos(), n.End())
+func nodeToMappedRange(view View, m *protocol.ColumnMapper, n ast.Node) (mappedRange, error) {
+	return posToRange(view, m, n.Pos(), n.End())
 }
 
-func posToMappedRange(ctx context.Context, v View, pkg Package, pos, end token.Pos) (mappedRange, error) {
-	m, err := posToMapper(ctx, v, pkg, pos)
+func posToMappedRange(v View, pkg Package, pos, end token.Pos) (mappedRange, error) {
+	logicalFilename := v.Session().Cache().FileSet().File(pos).Position(pos).Filename
+	m, err := v.FindMapperInPackage(pkg, span.FileURI(logicalFilename))
 	if err != nil {
 		return mappedRange{}, err
 	}
-	return posToRange(ctx, v, m, pos, end)
+	return posToRange(v, m, pos, end)
 }
 
-func posToRange(ctx context.Context, view View, m *protocol.ColumnMapper, pos, end token.Pos) (mappedRange, error) {
+func posToRange(view View, m *protocol.ColumnMapper, pos, end token.Pos) (mappedRange, error) {
 	if !pos.IsValid() {
 		return mappedRange{}, errors.Errorf("invalid position for %v", pos)
 	}
 	if !end.IsValid() {
 		return mappedRange{}, errors.Errorf("invalid position for %v", end)
 	}
-	return mappedRange{
-		m:         m,
-		spanRange: span.NewRange(view.Session().Cache().FileSet(), pos, end),
-	}, nil
-}
-
-func posToMapper(ctx context.Context, v View, pkg Package, pos token.Pos) (*protocol.ColumnMapper, error) {
-	posn := v.Session().Cache().FileSet().Position(pos)
-	ph, _, err := v.FindFileInPackage(ctx, span.FileURI(posn.Filename), pkg)
-	if err != nil {
-		return nil, err
-	}
-	_, m, _, err := ph.Cached()
-	return m, err
+	return newMappedRange(view.Session().Cache().FileSet(), m, pos, end), nil
 }
 
 // Matches cgo generated comment as well as the proposed standard:
@@ -340,6 +342,13 @@ func isEmptyInterface(T types.Type) bool {
 	return intf != nil && intf.NumMethods() == 0
 }
 
+func isUntyped(T types.Type) bool {
+	if basic, ok := T.(*types.Basic); ok {
+		return basic.Info()&types.IsUntyped > 0
+	}
+	return false
+}
+
 // isSelector returns the enclosing *ast.SelectorExpr when pos is in the
 // selector.
 func enclosingSelector(path []ast.Node, pos token.Pos) *ast.SelectorExpr {
@@ -381,14 +390,28 @@ func typeConversion(call *ast.CallExpr, info *types.Info) types.Type {
 	return nil
 }
 
-func formatParams(tup *types.Tuple, variadic bool, qf types.Qualifier) []string {
-	params := make([]string, 0, tup.Len())
-	for i := 0; i < tup.Len(); i++ {
-		el := tup.At(i)
-		typ := types.TypeString(el.Type(), qf)
+// fieldsAccessible returns whether s has at least one field accessible by p.
+func fieldsAccessible(s *types.Struct, p *types.Package) bool {
+	for i := 0; i < s.NumFields(); i++ {
+		f := s.Field(i)
+		if f.Exported() || f.Pkg() == p {
+			return true
+		}
+	}
+	return false
+}
+
+func formatParams(s Snapshot, pkg Package, sig *types.Signature, qf types.Qualifier) []string {
+	params := make([]string, 0, sig.Params().Len())
+	for i := 0; i < sig.Params().Len(); i++ {
+		el := sig.Params().At(i)
+		typ, err := formatFieldType(s, pkg, el, qf)
+		if err != nil {
+			typ = types.TypeString(el.Type(), qf)
+		}
 
 		// Handle a variadic parameter (can only be the final parameter).
-		if variadic && i == tup.Len()-1 {
+		if sig.Variadic() && i == sig.Params().Len()-1 {
 			typ = strings.Replace(typ, "[]", "...", 1)
 		}
 
@@ -399,6 +422,30 @@ func formatParams(tup *types.Tuple, variadic bool, qf types.Qualifier) []string 
 		}
 	}
 	return params
+}
+
+func formatFieldType(s Snapshot, srcpkg Package, obj types.Object, qf types.Qualifier) (string, error) {
+	file, pkg, err := s.View().FindPosInPackage(srcpkg, obj.Pos())
+	if err != nil {
+		return "", err
+	}
+	ident, err := findIdentifier(s, pkg, file, obj.Pos())
+	if err != nil {
+		return "", err
+	}
+	if i := ident.ident; i == nil || i.Obj == nil || i.Obj.Decl == nil {
+		return "", errors.Errorf("no object for ident %v", i.Name)
+	}
+	f, ok := ident.ident.Obj.Decl.(*ast.Field)
+	if !ok {
+		return "", errors.Errorf("ident %s is not a field type", ident.Name)
+	}
+	var typeNameBuf bytes.Buffer
+	fset := s.View().Session().Cache().FileSet()
+	if err := printer.Fprint(&typeNameBuf, fset, f.Type); err != nil {
+		return "", err
+	}
+	return typeNameBuf.String(), nil
 }
 
 func formatResults(tup *types.Tuple, qf types.Qualifier) ([]string, bool) {
