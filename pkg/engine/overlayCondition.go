@@ -98,7 +98,7 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 			}
 		} else {
 			// noAnchorKey doesn't exist in resource
-			continue
+			return curPath, newOverlayError(conditionNotPresent, fmt.Sprintf("resource field is not present %s", noAnchorKey))
 		}
 	}
 	return "", overlayError{}

@@ -1,22 +1,15 @@
 # file path is relative to project root
 input:
   policy: samples/best_practices/add_safe_to_evict.yaml
-  resource: test/resources/pod_with_latest_tag.yaml
+  resource: test/resources/pod-with-default-volume.yaml
 expected:
   mutation:
-    patchedresource: test/output/pod-without-volumes.yaml
+    patchedresource: test/resources/pod-with-default-volume.yaml
     policyresponse:
       policy: add-safe-to-evict
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
-        name: myapp-pod
+        name: pod-with-default-volume
       rules:
-        - name: annotate-empty-dir
-          type: Mutation
-          success: false
-        - name: annotate-host-path
-          type: Mutation
-          success: false
-          message: "Conditions are not met at /spec/volumes/, [overlayError:0] Found anchor on different types of element at path /spec/volumes/: overlay []interface {} [map[(hostPath):map[path:*]]], resource <nil> <nil>"
