@@ -156,11 +156,13 @@ func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]in
 		curPath := path + key + "/"
 		resourceValue, ok := resourceMap[key]
 		if !ok {
-			// policy: 		"(image)": "*:latest",
-			//				"imagePullPolicy": "IfNotPresent",
-			// resource:	"(image)": "*:latest",
-			// the above case should be allowed
-			continue
+			if !hasNestedAnchors(overlayValue) {
+				// policy: 		"(image)": "*:latest",
+				//				"imagePullPolicy": "IfNotPresent",
+				// resource:	"(image)": "*:latest",
+				// the above case should be allowed
+				continue
+			}
 		}
 		if newPath, err := checkConditions(resourceValue, overlayValue, curPath); !reflect.DeepEqual(err, overlayError{}) {
 			return newPath, err
