@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -71,7 +72,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	patchResource, err = ApplyPatches(resourceRaw, patches)
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
-		glog.V(2).Info(msg)
+		glog.V(2).Infof("%s, patches=%s", msg, string(JoinPatches(patches)))
 		response.Success = false
 		response.Message = msg
 		return response, resource
@@ -333,10 +334,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 		path = path[:len(path)-1]
 	}
 
-	if path == "" {
-		path = "/"
-	}
-
+	path = preparePath(path)
 	value := prepareJSONValue(overlay)
 	patchStr := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value": %s }`, op, path, value)
 
@@ -348,6 +346,20 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	}
 
 	return []byte(patchStr), nil
+}
+
+func preparePath(path string) string {
+	if path == "" {
+		path = "/"
+	}
+
+	annPath := "/metadata/annotations/"
+	// escape slash in annotation patch
+	if strings.Contains(path, annPath) {
+		p := path[len(annPath):]
+		path = annPath + strings.ReplaceAll(p, "/", "~1")
+	}
+	return path
 }
 
 // converts overlay to JSON string to be inserted into the JSON Patch
