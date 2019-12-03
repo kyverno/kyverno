@@ -118,8 +118,7 @@ func (pc *PolicyController) getPolicyForClusterPolicyViolation(pv *kyverno.Clust
 	}
 	return policies
 }
-func (pc *PolicyController) getClusterPolicyViolationForPolicy(policy *kyverno.ClusterPolicy) ([]*kyverno.ClusterPolicyViolation, error) {
-	policySelector, err := buildPolicyLabel(policy.Name)
+func (pc *PolicyController) getClusterPolicyViolationForPolicy(policy string) ([]*kyverno.ClusterPolicyViolation, error) {
 	if err != nil {
 		return nil, err
 	}

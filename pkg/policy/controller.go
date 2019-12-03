@@ -278,11 +278,11 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if errors.IsNotFound(err) {
 		glog.V(2).Infof("Policy %v has been deleted", key)
 		// delete cluster policy violation
-		if err := pc.deleteClusterPolicyViolations(policy); err != nil {
+		if err := pc.deleteClusterPolicyViolations(key); err != nil {
 			return err
 		}
 		// delete namespaced policy violation
-		if err := pc.deleteNamespacedPolicyViolations(policy); err != nil {
+		if err := pc.deleteNamespacedPolicyViolations(key); err != nil {
 			return err
 		}
 		// remove the recorded stats for the policy
@@ -306,12 +306,12 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	// cluster policy violations
-	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
+	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy.Name)
 	if err != nil {
 		return err
 	}
 	// namespaced policy violation
-	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
+	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy.Name)
 	if err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	return pc.syncStatusOnly(policy, cpvList, nspvList)
 }
 
-func (pc *PolicyController) deleteClusterPolicyViolations(policy *kyverno.ClusterPolicy) error {
+func (pc *PolicyController) deleteClusterPolicyViolations(policy string) error {
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
 	if err != nil {
 		return err
@@ -337,7 +337,7 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy *kyverno.Cluste
 	return nil
 }
 
-func (pc *PolicyController) deleteNamespacedPolicyViolations(policy *kyverno.ClusterPolicy) error {
+func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) error {
 	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
 	if err != nil {
 		return err
@@ -383,8 +383,8 @@ func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno
 	return status
 }
 
-func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy *kyverno.ClusterPolicy) ([]*kyverno.NamespacedPolicyViolation, error) {
-	policySelector, err := buildPolicyLabel(policy.Name)
+func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy string) ([]*kyverno.NamespacedPolicyViolation, error) {
+	policySelector, err := buildPolicyLabel(policy)
 	if err != nil {
 		return nil, err
 	}

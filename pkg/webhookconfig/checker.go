@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -57,8 +58,9 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 	}
 }
 
-func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig() {
-	// Muating webhook configuration
+func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
+	defer wg.Done()
+	// Mutating webhook configuration
 	var err error
 	var mutatingConfig string
 	if wrc.serverIP != "" {

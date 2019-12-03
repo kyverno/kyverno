@@ -41,7 +41,7 @@ func (pvb *pvBuilder) buildPolicyViolations(owners []kyverno.ResourceSpec, info 
 		// there are resource owners
 		// generate PV on them
 		for _, resource := range owners {
-			pv := pvb.build(info.PolicyName, resource.Kind, resource.Namespace, resource.Kind, info.Rules)
+			pv := pvb.build(info.PolicyName, resource.Kind, resource.Namespace, resource.Name, info.Rules)
 			pvs = append(pvs, *pv)
 		}
 	} else {
@@ -69,6 +69,9 @@ func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyvern
 		"resource": pv.Spec.ToKey(),
 	}
 	pv.SetLabels(labelMap)
+	if namespace != "" {
+		pv.SetNamespace(namespace)
+	}
 	pv.SetGenerateName(fmt.Sprintf("%s-", policy))
 	return pv
 }

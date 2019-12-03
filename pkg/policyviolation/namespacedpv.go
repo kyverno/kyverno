@@ -71,8 +71,8 @@ func (nspv *namespacedPV) getExisting(newPv kyverno.NamespacedPolicyViolation) (
 
 func (nspv *namespacedPV) createPV(newPv *kyverno.NamespacedPolicyViolation) error {
 	var err error
-	glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Name)
-	obj, err := retryGetResource(newPv.Namespace, nspv.dclient, newPv.Spec.ResourceSpec)
+	glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Namespace, newPv.Spec.ResourceSpec.Name)
+	obj, err := retryGetResource(nspv.dclient, newPv.Spec.ResourceSpec)
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
 	}

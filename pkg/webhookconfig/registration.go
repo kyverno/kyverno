@@ -219,13 +219,14 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(4)
 	// mutating and validating webhook configuration for Kubernetes resources
 	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	// mutating and validating webhook configurtion for Policy CRD resource
 	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
 	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
 
+	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 	// wait for the removal go routines to return
 	wg.Wait()
 }

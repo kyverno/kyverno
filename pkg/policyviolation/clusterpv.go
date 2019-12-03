@@ -72,7 +72,7 @@ func (cpv *clusterPV) getExisting(newPv kyverno.ClusterPolicyViolation) (*kyvern
 func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 	var err error
 	glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Name)
-	obj, err := retryGetResource(newPv.Namespace, cpv.dclient, newPv.Spec.ResourceSpec)
+	obj, err := retryGetResource(cpv.dclient, newPv.Spec.ResourceSpec)
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
 	}

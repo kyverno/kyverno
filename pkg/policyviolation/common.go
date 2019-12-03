@@ -25,13 +25,13 @@ func createOwnerReference(resource *unstructured.Unstructured) metav1.OwnerRefer
 	return ownerRef
 }
 
-func retryGetResource(namespace string, client *client.Client, rspec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
+func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
 	var i int
 	var obj *unstructured.Unstructured
 	var err error
 	getResource := func() error {
-		obj, err = client.GetResource(rspec.Kind, namespace, rspec.Name)
-		glog.V(5).Infof("retry %v getting %s/%s/%s", i, rspec.Kind, namespace, rspec.Name)
+		obj, err = client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+		glog.V(4).Infof("retry %v getting %s/%s/%s", i, rspec.Kind, rspec.Namespace, rspec.Name)
 		i++
 		return err
 	}
@@ -69,8 +69,9 @@ func GetOwners(dclient *client.Client, resource unstructured.Unstructured) []kyv
 func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
 	var emptyInterface interface{}
 	resourceSpec := kyverno.ResourceSpec{
-		Kind: resource.GetKind(),
-		Name: resource.GetName(),
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
 	}
 	if _, ok := ownerMap[resourceSpec]; ok {
 		// owner seen before
