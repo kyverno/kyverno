@@ -2,20 +2,14 @@ package webhookconfig
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/checker"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	mconfiginformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
-	mconfiglister "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -28,29 +22,22 @@ const (
 type WebhookRegistrationClient struct {
 	client       *client.Client
 	clientConfig *rest.Config
-	// list/get mutatingwebhookconfigurations
-	mWebhookConfigLister mconfiglister.MutatingWebhookConfigurationLister
 	// serverIP should be used if running Kyverno out of clutser
 	serverIP       string
 	timeoutSeconds int32
-
-	LastReqTime *checker.LastReqTime
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
 func NewWebhookRegistrationClient(
 	clientConfig *rest.Config,
 	client *client.Client,
-	mconfigwebhookinformer mconfiginformer.MutatingWebhookConfigurationInformer,
 	serverIP string,
 	webhookTimeout int32) *WebhookRegistrationClient {
 	return &WebhookRegistrationClient{
-		clientConfig:         clientConfig,
-		client:               client,
-		mWebhookConfigLister: mconfigwebhookinformer.Lister(),
-		serverIP:             serverIP,
-		timeoutSeconds:       webhookTimeout,
-		LastReqTime:          checker.NewLastReqTime(),
+		clientConfig:   clientConfig,
+		client:         client,
+		serverIP:       serverIP,
+		timeoutSeconds: webhookTimeout,
 	}
 }
 
@@ -70,11 +57,6 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
 		return err
 	}
-
-	if err := wrc.waitForWebhookSuccess(); err != nil {
-		return fmt.Errorf("inactive webhook, not registering webhookconfigurations for policy: %v", err)
-	}
-	glog.V(4).Infof("webhook is active, registering policy webhookcofigurations")
 
 	// Static Webhook configuration on Policy CRD
 	// create Policy CRD validating webhook configuration resource
@@ -100,40 +82,10 @@ func (wrc *WebhookRegistrationClient) RemoveWebhookConfigurations(cleanUp chan<-
 	close(cleanUp)
 }
 
-// CreateResourceMutatingWebhookConfigurationIfRequired creates a Mutatingwebhookconfiguration for all resource types
-// if there's no mutatingwebhookcfg for existing policy
-func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfigurationIfRequired(policy kyverno.ClusterPolicy) error {
-	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
-		// check cache
-		configName := wrc.GetResourceMutatingWebhookConfigName()
-		config, err := wrc.mWebhookConfigLister.Get(configName)
-		if !errorsapi.IsNotFound(err) {
-			glog.V(4).Infof("failed to list mutating webhook configuration: %v", err)
-			return err
-		}
-
-		if config != nil {
-			// mutating webhoook configuration already exists
-			return nil
-		}
-
-		if err := wrc.createResourceMutatingWebhookConfiguration(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 //CreateResourceMutatingWebhookConfiguration create a Mutatingwebhookconfiguration resource for all resource type
 // used to forward request to kyverno webhooks to apply policeis
 // Mutationg webhook is be used for Mutating & Validating purpose
-func (wrc *WebhookRegistrationClient) createResourceMutatingWebhookConfiguration() error {
-	if err := wrc.waitForWebhookSuccess(); err != nil {
-		return fmt.Errorf("inactive webhook, not registering webhookconfiguration for resource: %v", err)
-	}
-	glog.V(4).Infof("webhook is active, registering resource mutating webhookcofigurations")
-
+func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration() error {
 	var caData []byte
 	var config *admregapi.MutatingWebhookConfiguration
 
@@ -330,29 +282,4 @@ func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration
 	} else {
 		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", validatingConfig)
 	}
-}
-
-// waitForWebhookSuccess checks webhook status by checking the
-// LastReqTime set in webhook server, returns immediately if active
-// if not, then waits for webhook to be active, times out in 60s
-func (wrc *WebhookRegistrationClient) waitForWebhookSuccess() error {
-	// as default timeout for webhook checker is set to 60s
-	// resource webhook creation times out in a cycle of(60s) webhook checker
-	backoff := wait.Backoff{
-		Duration: time.Second,
-		Factor:   2,
-		Steps:    7,
-	}
-
-	count := 0
-	return wait.ExponentialBackoff(backoff, func() (bool, error) {
-		timeDiff := time.Since(wrc.LastReqTime.Time())
-		if timeDiff < checker.DefaultDeadline {
-			glog.Infof("Verified webhook status, creating webhook configuration")
-			return true, nil
-		}
-		glog.V(4).Infof("webhook is inactive, retrying #%d", count)
-		count++
-		return false, nil
-	})
 }

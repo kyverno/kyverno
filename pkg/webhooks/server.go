@@ -21,6 +21,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcewebhookwatcher"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
@@ -64,7 +65,8 @@ type WebhookServer struct {
 	// store to hold policy meta data for faster lookup
 	pMetaStore policystore.LookupInterface
 	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
+	pvGenerator            policyviolation.GeneratorInterface
+	resourceWebhookWatcher *resourcewebhookwatcher.ResourceWebhookWatcher
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -82,6 +84,8 @@ func NewWebhookServer(
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
+	resourceWebhookWatcher *resourcewebhookwatcher.ResourceWebhookWatcher,
+	lastReqTime *checker.LastReqTime,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -96,7 +100,6 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-
 		client:                    client,
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
@@ -110,9 +113,10 @@ func NewWebhookServer(
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
-		lastReqTime:               webhookRegistrationClient.LastReqTime,
+		lastReqTime:               lastReqTime,
 		pvGenerator:               pvGenerator,
 		pMetaStore:                pMetaStore,
+		resourceWebhookWatcher:    resourceWebhookWatcher,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
