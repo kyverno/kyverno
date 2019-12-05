@@ -18,7 +18,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"github.com/nirmata/kyverno/pkg/resourcewebhookwatcher"
+	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +82,7 @@ type PolicyController struct {
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
-	resourceWebhookWatcher *resourcewebhookwatcher.ResourceWebhookWatcher
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher
 }
 
 // NewPolicyController create a new PolicyController
@@ -95,7 +95,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	pMetaStore policystore.UpdateInterface,
-	resourceWebhookWatcher *resourcewebhookwatcher.ResourceWebhookWatcher) (*PolicyController, error) {
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)

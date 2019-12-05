@@ -1,11 +1,10 @@
-package resourcewebhookwatcher
+package webhookconfig
 
 import (
 	"time"
 
 	"github.com/golang/glog"
 	checker "github.com/nirmata/kyverno/pkg/checker"
-	webhookconfig "github.com/nirmata/kyverno/pkg/webhookconfig"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	mconfiginformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	mconfiglister "k8s.io/client-go/listers/admissionregistration/v1beta1"
@@ -13,22 +12,22 @@ import (
 )
 
 type ResourceWebhookWatcher struct {
-	lastReqTime *checker.LastReqTime
+	LastReqTime *checker.LastReqTime
 	// ch holds the requests to create resource mutatingwebhookconfiguration
 	ch                   chan bool
 	mwebhookconfigSynced cache.InformerSynced
 	// list/get mutatingwebhookconfigurations
 	mWebhookConfigLister      mconfiglister.MutatingWebhookConfigurationLister
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+	webhookRegistrationClient *WebhookRegistrationClient
 }
 
 func NewResourceWebhookWatcher(
 	lastReqTime *checker.LastReqTime,
 	mconfigwebhookinformer mconfiginformer.MutatingWebhookConfigurationInformer,
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	webhookRegistrationClient *WebhookRegistrationClient,
 ) *ResourceWebhookWatcher {
 	return &ResourceWebhookWatcher{
-		lastReqTime:               lastReqTime,
+		LastReqTime:               lastReqTime,
 		ch:                        make(chan bool),
 		mwebhookconfigSynced:      mconfigwebhookinformer.Informer().HasSynced,
 		mWebhookConfigLister:      mconfigwebhookinformer.Lister(),
@@ -59,7 +58,7 @@ func (rww *ResourceWebhookWatcher) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-rww.ch:
-			timeDiff := time.Since(rww.lastReqTime.Time())
+			timeDiff := time.Since(rww.LastReqTime.Time())
 			if timeDiff < checker.DefaultDeadline {
 				glog.V(3).Info("Verified webhook status, creating webhook configuration")
 				go createWebhook()
@@ -94,5 +93,26 @@ func (rww *ResourceWebhookWatcher) createResourceMutatingWebhookConfigurationIfR
 		return err
 	}
 	glog.V(3).Info("Successfully created mutating webhook configuration for resources")
+	return nil
+}
+
+func (rww *ResourceWebhookWatcher) RemoveResourceWebhookConfiguration() error {
+	var err error
+	// check informer cache
+	configName := rww.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
+	config, err := rww.mWebhookConfigLister.Get(configName)
+	if err != nil {
+		glog.V(4).Infof("failed to list mutating webhook config: %v", err)
+		return err
+	}
+	if config == nil {
+		// as no resource is found
+		return nil
+	}
+	err = rww.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
+	if err != nil {
+		return err
+	}
+	glog.V(3).Info("removed resource webhook configuration")
 	return nil
 }

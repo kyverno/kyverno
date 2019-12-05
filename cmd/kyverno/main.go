@@ -16,7 +16,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"github.com/nirmata/kyverno/pkg/resourcewebhookwatcher"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/version"
@@ -92,7 +91,7 @@ func main() {
 
 	// Resource Mutating Webhook Watcher
 	lastReqTime := checker.NewLastReqTime()
-	rWebhookWatcher := resourcewebhookwatcher.NewResourceWebhookWatcher(
+	rWebhookWatcher := webhookconfig.NewResourceWebhookWatcher(
 		lastReqTime,
 		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
 		webhookRegistrationClient,
@@ -220,7 +219,6 @@ func main() {
 		policyMetaStore,
 		pvgen,
 		rWebhookWatcher,
-		lastReqTime,
 		cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
