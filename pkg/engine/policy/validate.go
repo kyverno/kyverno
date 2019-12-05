@@ -178,7 +178,7 @@ func validateSubjects(subjects []rbacv1.Subject) error {
 	for _, subject := range subjects {
 		if subject.Kind == "ServiceAccount" {
 			if subject.Namespace == "" {
-				return fmt.Errorf("role %s in subject expects a namespace", subject.Name)
+				return fmt.Errorf("service account %s in subject expects a namespace", subject.Name)
 			}
 		}
 	}
