@@ -62,7 +62,7 @@ func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
 }
 
 func generateDebugWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
-	sideEffect := admregapi.SideEffectClassSome
+	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	return admregapi.Webhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
@@ -73,7 +73,6 @@ func generateDebugWebhook(name, url string, caData []byte, validate bool, timeou
 		Rules: []admregapi.RuleWithOperations{
 			admregapi.RuleWithOperations{
 				Operations: operationTypes,
-
 				Rule: admregapi.Rule{
 					APIGroups: []string{
 						apiGroups,
@@ -87,12 +86,13 @@ func generateDebugWebhook(name, url string, caData []byte, validate bool, timeou
 				},
 			},
 		},
-		TimeoutSeconds: &timeoutSeconds,
+		AdmissionReviewVersions: []string{"v1beta1"},
+		TimeoutSeconds:          &timeoutSeconds,
 	}
 }
 
 func generateWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
-	sideEffect := admregapi.SideEffectClassSome
+	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	return admregapi.Webhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
@@ -120,6 +120,7 @@ func generateWebhook(name, servicePath string, caData []byte, validation bool, t
 				},
 			},
 		},
-		TimeoutSeconds: &timeoutSeconds,
+		AdmissionReviewVersions: []string{"v1beta1"},
+		TimeoutSeconds:          &timeoutSeconds,
 	}
 }
