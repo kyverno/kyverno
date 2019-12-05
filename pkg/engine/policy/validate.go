@@ -169,14 +169,14 @@ func validateRoles(roles []string) error {
 	return nil
 }
 
-// a namespace should be set in kind ServiceAccount / Role of a subject
+// a namespace should be set in kind ServiceAccount of a subject
 func validateSubjects(subjects []rbacv1.Subject) error {
 	if len(subjects) == 0 {
 		return nil
 	}
 
 	for _, subject := range subjects {
-		if subject.Kind == "ServiceAccount" || subject.Kind == "Role" {
+		if subject.Kind == "ServiceAccount" {
 			if subject.Namespace == "" {
 				return fmt.Errorf("role %s in subject expects a namespace", subject.Name)
 			}
