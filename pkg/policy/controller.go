@@ -82,7 +82,7 @@ type PolicyController struct {
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 }
 
 // NewPolicyController create a new PolicyController
@@ -95,7 +95,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	pMetaStore policystore.UpdateInterface,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher) (*PolicyController, error) {
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)

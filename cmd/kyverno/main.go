@@ -91,7 +91,7 @@ func main() {
 
 	// Resource Mutating Webhook Watcher
 	lastReqTime := checker.NewLastReqTime()
-	rWebhookWatcher := webhookconfig.NewResourceWebhookWatcher(
+	rWebhookWatcher := webhookconfig.NewResourceWebhookRegister(
 		lastReqTime,
 		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
 		webhookRegistrationClient,

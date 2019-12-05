@@ -65,7 +65,7 @@ type WebhookServer struct {
 	pMetaStore policystore.LookupInterface
 	// policy violation generator
 	pvGenerator            policyviolation.GeneratorInterface
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -83,7 +83,7 @@ func NewWebhookServer(
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookWatcher,
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
