@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -52,8 +51,6 @@ func NewClient(config *rest.Config) (*Client, error) {
 		kclient:      kclient,
 	}
 	// Set discovery client
-	//
-
 	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
@@ -70,10 +67,6 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 		return nil, err
 	}
 	return &deploy, nil
-}
-
-func (c *Client) GetAppsV1Interface() appsv1.AppsV1Interface {
-	return c.kclient.AppsV1()
 }
 
 //GetEventsInterface provides typed interface for events
@@ -115,7 +108,7 @@ func (c *Client) GetResource(kind string, namespace string, name string, subreso
 	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
-//Patch
+//PatchResource patches the resource
 func (c *Client) PatchResource(kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
 	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
@@ -130,7 +123,7 @@ func (c *Client) ListResource(kind string, namespace string, lselector *meta.Lab
 	return c.getResourceInterface(kind, namespace).List(options)
 }
 
-// DeleteResouce deletes the specified resource
+// DeleteResource deletes the specified resource
 func (c *Client) DeleteResource(kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
