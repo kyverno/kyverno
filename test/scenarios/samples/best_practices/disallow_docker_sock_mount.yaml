@@ -14,5 +14,5 @@ expected:
       rules:
         - name: validate-docker-sock-mount
           type: Validation
-          message: "Validation error: Use of the Docker Unix socket is not allowed\nValidation rule 'validate-docker-sock-mount' failed at path '/spec/volumes/'."
+          message: "Validation error: Use of the Docker Unix socket is not allowed; Validation rule 'validate-docker-sock-mount' failed at path '/spec/volumes/'"
           success: false
