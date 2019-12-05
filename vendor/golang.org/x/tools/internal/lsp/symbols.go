@@ -9,7 +9,9 @@ import (
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/lsp/telemetry"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
 	"golang.org/x/tools/internal/telemetry/trace"
 )
 
@@ -18,10 +20,19 @@ func (s *Server) documentSymbol(ctx context.Context, params *protocol.DocumentSy
 	defer done()
 
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	return source.DocumentSymbols(ctx, view, f)
+	symbols, err := source.DocumentSymbols(ctx, snapshot, f)
+	if err != nil {
+		log.Error(ctx, "DocumentSymbols failed", err, telemetry.URI.Of(uri))
+		return []protocol.DocumentSymbol{}, nil
+	}
+	return symbols, nil
 }

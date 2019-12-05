@@ -323,6 +323,14 @@ func TestJWSEncodeJSONCustom(t *testing.T) {
 		// printf 'testsig' | b64raw
 		testsig = "dGVzdHNpZw"
 
+		// the example P256 curve point from https://tools.ietf.org/html/rfc7515#appendix-A.3.1
+		// encoded as ASN.1…
+		es256stdsig = "MEUCIA7RIVN5Y2xIPC9/FVgH1AKjsigDOvl8fheBmsMWnqZlAiEA" +
+			"xQoH04w8cOXY8S2vCEpUgKZlkMXyk1Cajz9/ioOjVNU"
+		// …and RFC7518 (https://tools.ietf.org/html/rfc7518#section-3.4)
+		es256jwsig = "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw" +
+			"5djxLa8ISlSApmWQxfKTUJqPP3-Kg6NU1Q"
+
 		// printf '{"alg":"ES256","jwk":{"crv":"P-256","kty":"EC","x":<testKeyECPubY>,"y":<testKeyECPubY>},"nonce":"nonce","url":"url"}' | b64raw
 		es256phead = "eyJhbGciOiJFUzI1NiIsImp3ayI6eyJjcnYiOiJQLTI1NiIsImt0" +
 			"eSI6IkVDIiwieCI6IjVsaEV1ZzV4SzR4QkRaMm5BYmF4THRhTGl2" +
@@ -345,19 +353,25 @@ func TestJWSEncodeJSONCustom(t *testing.T) {
 	)
 
 	tt := []struct {
-		alg, phead string
-		pub        crypto.PublicKey
+		alg, phead    string
+		pub           crypto.PublicKey
+		stdsig, jwsig string
 	}{
-		{"ES256", es256phead, testKeyEC.Public()},
-		{"RS256", rs256phead, testKey.Public()},
+		{"ES256", es256phead, testKeyEC.Public(), es256stdsig, es256jwsig},
+		{"RS256", rs256phead, testKey.Public(), testsig, testsig},
 	}
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.alg, func(t *testing.T) {
+			stdsig, err := base64.RawStdEncoding.DecodeString(tc.stdsig)
+			if err != nil {
+				t.Errorf("couldn't decode test vector: %v", err)
+			}
 			signer := &customTestSigner{
-				sig: []byte("testsig"),
+				sig: stdsig,
 				pub: tc.pub,
 			}
+
 			b, err := jwsEncodeJSON(claims, signer, noKeyID, "nonce", "url")
 			if err != nil {
 				t.Fatal(err)
@@ -372,8 +386,8 @@ func TestJWSEncodeJSONCustom(t *testing.T) {
 			if j.Payload != payload {
 				t.Errorf("j.Payload = %q\nwant %q", j.Payload, payload)
 			}
-			if j.Signature != testsig {
-				t.Errorf("j.Signature = %q\nwant %q", j.Signature, testsig)
+			if j.Signature != tc.jwsig {
+				t.Errorf("j.Signature = %q\nwant %q", j.Signature, tc.jwsig)
 			}
 		})
 	}

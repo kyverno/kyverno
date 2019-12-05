@@ -31,8 +31,21 @@ type HoverInformation struct {
 	// FullDocumentation is the symbol's full documentation.
 	FullDocumentation string `json:"fullDocumentation"`
 
+	// pkgPath holds the package path of the hovered symbol.
+	pkgPath string
+
+	// symbolName holds the symbol name without any package prefix.
+	symbolName string
+
 	source  interface{}
 	comment *ast.CommentGroup
+}
+
+func (h *HoverInformation) DocumentationLink(options Options) string {
+	if h.symbolName == "" || h.pkgPath == "" || options.LinkTarget == "" {
+		return ""
+	}
+	return fmt.Sprintf("[%s on %s](https://%s/%s#%s)", h.symbolName, options.LinkTarget, options.LinkTarget, h.pkgPath, h.symbolName)
 }
 
 func (i *IdentifierInfo) Hover(ctx context.Context) (*HoverInformation, error) {
@@ -54,11 +67,17 @@ func (i *IdentifierInfo) Hover(ctx context.Context) (*HoverInformation, error) {
 	case types.Object:
 		h.Signature = objectString(x, i.qf)
 	}
-
-	// Set the documentation.
-	if i.Declaration.obj != nil {
-		h.SingleLine = objectString(i.Declaration.obj, i.qf)
+	if obj := i.Declaration.obj; obj != nil {
+		// Only show the documentation links for symbols in the package scope.
+		// TODO(https://golang.org/issue/34240): Handle other symbols.
+		if obj.Exported() && obj.Parent() == obj.Pkg().Scope() {
+			h.pkgPath = obj.Pkg().Path()
+			h.symbolName = obj.Name()
+		}
+		// Set the documentation.
+		h.SingleLine = objectString(obj, i.qf)
 	}
+
 	if h.comment != nil {
 		h.FullDocumentation = h.comment.Text()
 		h.Synopsis = doc.Synopsis(h.FullDocumentation)
@@ -128,7 +147,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*HoverI
 	// If we have a field or method.
 	switch obj.(type) {
 	case *types.Var, *types.Const, *types.Func:
-		return formatVar(spec, obj)
+		return formatVar(spec, obj, node), nil
 	}
 	// Handle types.
 	switch spec := spec.(type) {
@@ -147,7 +166,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*HoverI
 	return nil, errors.Errorf("unable to format spec %v (%T)", spec, spec)
 }
 
-func formatVar(node ast.Spec, obj types.Object) (*HoverInformation, error) {
+func formatVar(node ast.Spec, obj types.Object, decl *ast.GenDecl) *HoverInformation {
 	var fieldList *ast.FieldList
 	if spec, ok := node.(*ast.TypeSpec); ok {
 		switch t := spec.Type.(type) {
@@ -164,13 +183,19 @@ func formatVar(node ast.Spec, obj types.Object) (*HoverInformation, error) {
 			field := fieldList.List[i]
 			if field.Pos() <= obj.Pos() && obj.Pos() <= field.End() {
 				if field.Doc.Text() != "" {
-					return &HoverInformation{source: obj, comment: field.Doc}, nil
+					return &HoverInformation{source: obj, comment: field.Doc}
 				} else if field.Comment.Text() != "" {
-					return &HoverInformation{source: obj, comment: field.Comment}, nil
+					return &HoverInformation{source: obj, comment: field.Comment}
 				}
 			}
 		}
 	}
+	// If we have a package level variable that does have a
+	// comment group attached to it but not in the ast.spec.
+	if decl.Doc.Text() != "" {
+		return &HoverInformation{source: obj, comment: decl.Doc}
+	}
+
 	// If we weren't able to find documentation for the object.
-	return &HoverInformation{source: obj}, nil
+	return &HoverInformation{source: obj}
 }

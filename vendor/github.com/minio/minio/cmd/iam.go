@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/minio/minio-go/v6/pkg/set"
+	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
 	iampolicy "github.com/minio/minio/pkg/iam/policy"
@@ -338,7 +339,7 @@ func (sys *IAMSys) Load() error {
 func (sys *IAMSys) doIAMConfigMigration(objAPI ObjectLayer) error {
 	// Take IAM configuration migration lock
 	lockPath := iamConfigPrefix + "/migration.lock"
-	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, lockPath)
+	objLock := objAPI.NewNSLock(context.Background(), minioMetaBucket, lockPath)
 	if err := objLock.GetLock(globalOperationTimeout); err != nil {
 		return err
 	}
@@ -651,7 +652,12 @@ func (sys *IAMSys) SetUserStatus(accessKey string, status madmin.AccountStatus) 
 	uinfo := newUserIdentity(auth.Credentials{
 		AccessKey: accessKey,
 		SecretKey: cred.SecretKey,
-		Status:    string(status),
+		Status: func() string {
+			if status == madmin.AccountEnabled {
+				return config.EnableOn
+			}
+			return config.EnableOff
+		}(),
 	})
 	if err := sys.store.saveUserIdentity(accessKey, false, uinfo); err != nil {
 		return err

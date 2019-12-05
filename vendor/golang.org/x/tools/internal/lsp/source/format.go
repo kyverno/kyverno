@@ -8,9 +8,11 @@ package source
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
+	"go/scanner"
 	"go/token"
 
 	"golang.org/x/tools/internal/imports"
@@ -22,32 +24,21 @@ import (
 )
 
 // Format formats a file with a given range.
-func Format(ctx context.Context, view View, f File) ([]protocol.TextEdit, error) {
+func Format(ctx context.Context, snapshot Snapshot, f File) ([]protocol.TextEdit, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Format")
 	defer done()
 
-	snapshot, cphs, err := view.CheckPackageHandles(ctx, f)
+	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting file for Format: %v", err)
 	}
-	cph, err := NarrowestCheckPackageHandle(cphs)
-	if err != nil {
-		return nil, err
-	}
-	pkg, err := cph.Check(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ph, err := pkg.File(f.URI())
-	if err != nil {
-		return nil, err
-	}
+
 	// Be extra careful that the file's ParseMode is correct,
 	// otherwise we might replace the user's code with a trimmed AST.
-	if ph.Mode() != ParseFull {
-		return nil, errors.Errorf("%s was parsed in the incorrect mode", ph.File().Identity().URI)
+	if pgh.Mode() != ParseFull {
+		return nil, errors.Errorf("%s was parsed in the incorrect mode", pgh.File().Identity().URI)
 	}
-	file, m, _, err := ph.Parse(ctx)
+	file, m, _, err := pgh.Parse(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +51,10 @@ func Format(ctx context.Context, view View, f File) ([]protocol.TextEdit, error)
 		if err != nil {
 			return nil, err
 		}
-		return computeTextEdits(ctx, view, ph.File(), m, string(formatted))
+		return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, string(formatted))
 	}
 
-	fset := view.Session().Cache().FileSet()
+	fset := snapshot.View().Session().Cache().FileSet()
 	buf := &bytes.Buffer{}
 
 	// format.Node changes slightly from one release to another, so the version
@@ -73,7 +64,7 @@ func Format(ctx context.Context, view View, f File) ([]protocol.TextEdit, error)
 	if err := format.Node(buf, fset, file); err != nil {
 		return nil, err
 	}
-	return computeTextEdits(ctx, view, ph.File(), m, buf.String())
+	return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, buf.String())
 }
 
 func formatSource(ctx context.Context, s Snapshot, f File) ([]byte, error) {
@@ -96,35 +87,17 @@ type ImportFix struct {
 // In addition to returning the result of applying all edits,
 // it returns a list of fixes that could be applied to the file, with the
 // corresponding TextEdits that would be needed to apply that fix.
-func AllImportsFixes(ctx context.Context, view View, f File) (allFixEdits []protocol.TextEdit, editsPerFix []*ImportFix, err error) {
+func AllImportsFixes(ctx context.Context, snapshot Snapshot, f File) (allFixEdits []protocol.TextEdit, editsPerFix []*ImportFix, err error) {
 	ctx, done := trace.StartSpan(ctx, "source.AllImportsFixes")
 	defer done()
 
-	_, cphs, err := view.CheckPackageHandles(ctx, f)
+	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
 	if err != nil {
-		return nil, nil, err
-	}
-	cph, err := NarrowestCheckPackageHandle(cphs)
-	if err != nil {
-		return nil, nil, err
-	}
-	pkg, err := cph.Check(ctx)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("getting file for AllImportsFixes: %v", err)
 	}
 	if hasListErrors(pkg) {
 		return nil, nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
 	}
-	var ph ParseGoHandle
-	for _, h := range pkg.Files() {
-		if h.File().Identity().URI == f.URI() {
-			ph = h
-		}
-	}
-	if ph == nil {
-		return nil, nil, errors.Errorf("no ParseGoHandle for %s", f.URI())
-	}
-
 	options := &imports.Options{
 		// Defaults.
 		AllErrors:  true,
@@ -134,8 +107,8 @@ func AllImportsFixes(ctx context.Context, view View, f File) (allFixEdits []prot
 		TabIndent:  true,
 		TabWidth:   8,
 	}
-	err = view.RunProcessEnvFunc(ctx, func(opts *imports.Options) error {
-		allFixEdits, editsPerFix, err = computeImportEdits(ctx, view, ph, opts)
+	err = snapshot.View().RunProcessEnvFunc(ctx, func(opts *imports.Options) error {
+		allFixEdits, editsPerFix, err = computeImportEdits(ctx, snapshot.View(), pgh, opts)
 		return err
 	}, options)
 	if err != nil {
@@ -219,6 +192,7 @@ func computeFixEdits(view View, ph ParseGoHandle, options *imports.Options, orig
 	}
 	fixedFset := token.NewFileSet()
 	fixedAST, err := parser.ParseFile(fixedFset, filename, fixedData, parser.ImportsOnly)
+	// Any error here prevents us from computing the edits.
 	if err != nil {
 		return nil, err
 	}
@@ -236,13 +210,17 @@ func computeFixEdits(view View, ph ParseGoHandle, options *imports.Options, orig
 	// first non-imports decl. We know the imports code will insert
 	// somewhere before that.
 	if origImportOffset == 0 || fixedImportsOffset == 0 {
-		left = trimToFirstNonImport(view.Session().Cache().FileSet(), origAST, origData)
+		left, _ = trimToFirstNonImport(view.Session().Cache().FileSet(), origAST, origData, nil)
 		// We need the whole AST here, not just the ImportsOnly AST we parsed above.
 		fixedAST, err = parser.ParseFile(fixedFset, filename, fixedData, 0)
-		if err != nil {
+		if fixedAST == nil {
 			return nil, err
 		}
-		right = trimToFirstNonImport(fixedFset, fixedAST, fixedData)
+		var ok bool
+		right, ok = trimToFirstNonImport(fixedFset, fixedAST, fixedData, err)
+		if !ok {
+			return nil, errors.Errorf("error %v detected in the import block", err)
+		}
 		// We're now working with a prefix of the original file, so we can
 		// use the original converter, and there is no offset on the edits.
 		converter = origMapper.Converter
@@ -279,15 +257,20 @@ func trimToImports(fset *token.FileSet, f *ast.File, src []byte) ([]byte, int) {
 	if firstImport == nil {
 		return nil, 0
 	}
+	tok := fset.File(f.Pos())
 	start := firstImport.Pos()
-	end := fset.File(f.Pos()).LineStart(fset.Position(lastImport.End()).Line + 1)
+	end := lastImport.End()
+	if tok.LineCount() > fset.Position(end).Line {
+		end = fset.File(f.Pos()).LineStart(fset.Position(lastImport.End()).Line + 1)
+	}
+
 	startLineOffset := fset.Position(start).Line - 1 // lines are 1-indexed.
 	return src[fset.Position(firstImport.Pos()).Offset:fset.Position(end).Offset], startLineOffset
 }
 
 // trimToFirstNonImport returns src from the beginning to the first non-import
 // declaration, or the end of the file if there is no such decl.
-func trimToFirstNonImport(fset *token.FileSet, f *ast.File, src []byte) []byte {
+func trimToFirstNonImport(fset *token.FileSet, f *ast.File, src []byte, err error) ([]byte, bool) {
 	var firstDecl ast.Decl
 	for _, decl := range f.Decls {
 		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.IMPORT {
@@ -296,12 +279,32 @@ func trimToFirstNonImport(fset *token.FileSet, f *ast.File, src []byte) []byte {
 		firstDecl = decl
 		break
 	}
-
+	tok := fset.File(f.Pos())
+	if tok == nil {
+		return nil, false
+	}
 	end := f.End()
 	if firstDecl != nil {
-		end = fset.File(f.Pos()).LineStart(fset.Position(firstDecl.Pos()).Line - 1)
+		if firstDeclLine := fset.Position(firstDecl.Pos()).Line; firstDeclLine > 1 {
+			end = tok.LineStart(firstDeclLine - 1)
+		}
 	}
-	return src[0:fset.Position(end).Offset]
+	// Any errors in the file must be after the part of the file that we care about.
+	switch err := err.(type) {
+	case *scanner.Error:
+		pos := tok.Pos(err.Pos.Offset)
+		if pos <= end {
+			return nil, false
+		}
+	case scanner.ErrorList:
+		if err.Len() > 0 {
+			pos := tok.Pos(err[0].Pos.Offset)
+			if pos <= end {
+				return nil, false
+			}
+		}
+	}
+	return src[0:fset.Position(end).Offset], true
 }
 
 // CandidateImports returns every import that could be added to filename.
@@ -357,8 +360,8 @@ func PackageExports(ctx context.Context, view View, pkg, filename string) ([]imp
 
 // hasParseErrors returns true if the given file has parse errors.
 func hasParseErrors(pkg Package, uri span.URI) bool {
-	for _, err := range pkg.GetErrors() {
-		if err.URI == uri && err.Kind == ParseError {
+	for _, e := range pkg.GetErrors() {
+		if e.File.URI == uri && e.Kind == ParseError {
 			return true
 		}
 	}

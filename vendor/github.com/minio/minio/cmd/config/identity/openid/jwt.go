@@ -28,6 +28,7 @@ import (
 
 	jwtgo "github.com/dgrijalva/jwt-go"
 	"github.com/minio/minio/cmd/config"
+	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/env"
 	xnet "github.com/minio/minio/pkg/net"
 )
@@ -41,6 +42,7 @@ type Config struct {
 	URL          *xnet.URL `json:"url,omitempty"`
 	ClaimPrefix  string    `json:"claimPrefix,omitempty"`
 	DiscoveryDoc DiscoveryDoc
+	ClientID     string
 	publicKeys   map[string]crypto.PublicKey
 	transport    *http.Transport
 	closeRespFn  func(io.ReadCloser)
@@ -107,41 +109,58 @@ type JWT struct {
 	Config
 }
 
-func expToInt64(expI interface{}) (expAt int64, err error) {
-	switch exp := expI.(type) {
-	case float64:
-		expAt = int64(exp)
-	case int64:
-		expAt = exp
-	case json.Number:
-		expAt, err = exp.Int64()
-		if err != nil {
-			return 0, err
-		}
-	default:
-		return 0, ErrInvalidDuration
-	}
-	return expAt, nil
-}
-
 // GetDefaultExpiration - returns the expiration seconds expected.
 func GetDefaultExpiration(dsecs string) (time.Duration, error) {
 	defaultExpiryDuration := time.Duration(60) * time.Minute // Defaults to 1hr.
 	if dsecs != "" {
 		expirySecs, err := strconv.ParseInt(dsecs, 10, 64)
 		if err != nil {
-			return 0, ErrInvalidDuration
+			return 0, auth.ErrInvalidDuration
 		}
+
 		// The duration, in seconds, of the role session.
 		// The value can range from 900 seconds (15 minutes)
 		// to 12 hours.
 		if expirySecs < 900 || expirySecs > 43200 {
-			return 0, ErrInvalidDuration
+			return 0, auth.ErrInvalidDuration
 		}
 
 		defaultExpiryDuration = time.Duration(expirySecs) * time.Second
 	}
 	return defaultExpiryDuration, nil
+}
+
+func updateClaimsExpiry(dsecs string, claims map[string]interface{}) error {
+	expStr := claims["exp"]
+	if expStr == "" {
+		return ErrTokenExpired
+	}
+
+	// No custom duration requested, the claims can be used as is.
+	if dsecs == "" {
+		return nil
+	}
+
+	expAt, err := auth.ExpToInt64(expStr)
+	if err != nil {
+		return err
+	}
+
+	defaultExpiryDuration, err := GetDefaultExpiration(dsecs)
+	if err != nil {
+		return err
+	}
+
+	// Verify if JWT expiry is lesser than default expiry duration,
+	// if that is the case then set the default expiration to be
+	// from the JWT expiry claim.
+	if time.Unix(expAt, 0).UTC().Sub(time.Now().UTC()) < defaultExpiryDuration {
+		defaultExpiryDuration = time.Unix(expAt, 0).UTC().Sub(time.Now().UTC())
+	} // else honor the specified expiry duration.
+
+	expiry := time.Now().UTC().Add(defaultExpiryDuration).Unix()
+	claims["exp"] = strconv.FormatInt(expiry, 10) // update with new expiry.
+	return nil
 }
 
 // Validate - validates the access token.
@@ -173,23 +192,8 @@ func (p *JWT) Validate(token, dsecs string) (map[string]interface{}, error) {
 		return nil, ErrTokenExpired
 	}
 
-	expAt, err := expToInt64(claims["exp"])
-	if err != nil {
+	if err = updateClaimsExpiry(dsecs, claims); err != nil {
 		return nil, err
-	}
-
-	defaultExpiryDuration, err := GetDefaultExpiration(dsecs)
-	if err != nil {
-		return nil, err
-	}
-
-	if time.Unix(expAt, 0).UTC().Sub(time.Now().UTC()) < defaultExpiryDuration {
-		defaultExpiryDuration = time.Unix(expAt, 0).UTC().Sub(time.Now().UTC())
-	}
-
-	expiry := time.Now().UTC().Add(defaultExpiryDuration).Unix()
-	if expAt < expiry {
-		claims["exp"] = strconv.FormatInt(expAt, 64)
 	}
 
 	return claims, nil
@@ -206,8 +210,9 @@ const (
 	JwksURL     = "jwks_url"
 	ConfigURL   = "config_url"
 	ClaimPrefix = "claim_prefix"
+	ClientID    = "client_id"
 
-	EnvIdentityOpenIDState       = "MINIO_IDENTITY_OPENID_STATE"
+	EnvIdentityOpenIDClientID    = "MINIO_IDENTITY_OPENID_CLIENT_ID"
 	EnvIdentityOpenIDJWKSURL     = "MINIO_IDENTITY_OPENID_JWKS_URL"
 	EnvIdentityOpenIDURL         = "MINIO_IDENTITY_OPENID_CONFIG_URL"
 	EnvIdentityOpenIDClaimPrefix = "MINIO_IDENTITY_OPENID_CLAIM_PREFIX"
@@ -258,38 +263,50 @@ func parseDiscoveryDoc(u *xnet.URL, transport *http.Transport, closeRespFn func(
 // DefaultKVS - default config for OpenID config
 var (
 	DefaultKVS = config.KVS{
-		config.State:   config.StateOff,
-		config.Comment: "This is a default OpenID configuration",
-		JwksURL:        "",
-		ConfigURL:      "",
-		ClaimPrefix:    "",
+		config.KV{
+			Key:   ConfigURL,
+			Value: "",
+		},
+		config.KV{
+			Key:   ClientID,
+			Value: "",
+		},
+		config.KV{
+			Key:   ClaimPrefix,
+			Value: "",
+		},
+		config.KV{
+			Key:   JwksURL,
+			Value: "",
+		},
 	}
 )
 
-// LookupConfig lookup jwks from config, override with any ENVs.
-func LookupConfig(kv config.KVS, transport *http.Transport, closeRespFn func(io.ReadCloser)) (c Config, err error) {
-	if err = config.CheckValidKeys(config.IdentityOpenIDSubSys, kv, DefaultKVS); err != nil {
-		return c, err
-	}
+// Enabled returns if jwks is enabled.
+func Enabled(kvs config.KVS) bool {
+	return kvs.Get(JwksURL) != ""
+}
 
-	stateBool, err := config.ParseBool(env.Get(EnvIdentityOpenIDState, kv.Get(config.State)))
-	if err != nil {
+// LookupConfig lookup jwks from config, override with any ENVs.
+func LookupConfig(kvs config.KVS, transport *http.Transport, closeRespFn func(io.ReadCloser)) (c Config, err error) {
+	if err = config.CheckValidKeys(config.IdentityOpenIDSubSys, kvs, DefaultKVS); err != nil {
 		return c, err
 	}
 
 	jwksURL := env.Get(EnvIamJwksURL, "") // Legacy
 	if jwksURL == "" {
-		jwksURL = env.Get(EnvIdentityOpenIDJWKSURL, kv.Get(JwksURL))
+		jwksURL = env.Get(EnvIdentityOpenIDJWKSURL, kvs.Get(JwksURL))
 	}
 
 	c = Config{
-		ClaimPrefix: env.Get(EnvIdentityOpenIDClaimPrefix, kv.Get(ClaimPrefix)),
+		ClaimPrefix: env.Get(EnvIdentityOpenIDClaimPrefix, kvs.Get(ClaimPrefix)),
 		publicKeys:  make(map[string]crypto.PublicKey),
+		ClientID:    env.Get(EnvIdentityOpenIDClientID, kvs.Get(ClientID)),
 		transport:   transport,
 		closeRespFn: closeRespFn,
 	}
 
-	configURL := env.Get(EnvIdentityOpenIDURL, kv.Get(ConfigURL))
+	configURL := env.Get(EnvIdentityOpenIDURL, kvs.Get(ConfigURL))
 	if configURL != "" {
 		c.URL, err = xnet.ParseHTTPURL(configURL)
 		if err != nil {
@@ -305,12 +322,6 @@ func LookupConfig(kv config.KVS, transport *http.Transport, closeRespFn func(io.
 		jwksURL = c.DiscoveryDoc.JwksURI
 	}
 
-	if stateBool {
-		// This check is needed to ensure that empty Jwks urls are not allowed.
-		if jwksURL == "" {
-			return c, config.Error("'config_url' must be set to a proper OpenID discovery document URL")
-		}
-	}
 	if jwksURL == "" {
 		return c, nil
 	}

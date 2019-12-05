@@ -283,7 +283,8 @@ struct my_epoll_event {
 	// padding is not specified in linux/eventpoll.h but added to conform to the
 	// alignment requirements of EABI
 	int32_t padFd;
-#elif defined(__powerpc64__) || defined(__s390x__) || defined(__sparc__) || defined(__riscv)
+#elif defined(__powerpc64__) || defined(__s390x__) || defined(__sparc__) || defined(__riscv) \
+		|| (defined(__mips__) && _MIPS_SIM == _MIPS_SIM_ABI64)
 	int32_t _padFd;
 #endif
 	int32_t fd;
@@ -438,6 +439,20 @@ type Flock_t C.struct_flock
 type FscryptPolicy C.struct_fscrypt_policy
 
 type FscryptKey C.struct_fscrypt_key
+
+type FscryptPolicyV1 C.struct_fscrypt_policy_v1
+
+type FscryptPolicyV2 C.struct_fscrypt_policy_v2
+
+type FscryptGetPolicyExArg C.struct_fscrypt_get_policy_ex_arg
+
+type FscryptKeySpecifier C.struct_fscrypt_key_specifier
+
+type FscryptAddKeyArg C.struct_fscrypt_add_key_arg
+
+type FscryptRemoveKeyArg C.struct_fscrypt_remove_key_arg
+
+type FscryptGetKeyStatusArg C.struct_fscrypt_get_key_status_arg
 
 // Structure for Keyctl
 

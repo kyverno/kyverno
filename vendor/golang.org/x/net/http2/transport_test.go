@@ -832,6 +832,10 @@ func testTransportReqBodyAfterResponse(t *testing.T, status int) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		defer close(clientDone)
 
 		var n int64 // atomic
@@ -2693,6 +2697,10 @@ func testTransportUsesGoAwayDebugError(t *testing.T, failMidBody bool) {
 			ct.fr.WriteGoAway(5, ErrCodeNo, []byte(goAwayDebugData))
 			ct.fr.WriteGoAway(5, goAwayErrCode, nil)
 			ct.sc.(*net.TCPConn).CloseWrite()
+			if runtime.GOOS == "plan9" {
+				// CloseWrite not supported on Plan 9; Issue 17906
+				ct.sc.(*net.TCPConn).Close()
+			}
 			<-clientDone
 			return nil
 		}
@@ -2821,6 +2829,10 @@ func TestTransportAdjustsFlowControl(t *testing.T) {
 
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		defer close(clientDone)
 
 		req, _ := http.NewRequest("POST", "https://dummy.tld/", struct{ io.Reader }{io.LimitReader(neverEnding('A'), bodySize)})
@@ -3449,6 +3461,10 @@ func TestTransportRetryAfterRefusedStream(t *testing.T) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		defer close(clientDone)
 		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
 		resp, err := ct.tr.RoundTrip(req)
@@ -3515,6 +3531,10 @@ func TestTransportRetryHasLimit(t *testing.T) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		defer close(clientDone)
 		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
 		resp, err := ct.tr.RoundTrip(req)
@@ -3563,6 +3583,10 @@ func TestTransportResponseDataBeforeHeaders(t *testing.T) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		req := httptest.NewRequest("GET", "https://dummy.tld/", nil)
 		// First request is normal to ensure the check is per stream and not per connection.
 		_, err := ct.tr.RoundTrip(req)
@@ -3675,6 +3699,10 @@ func TestTransportRequestsStallAtServerLimit(t *testing.T) {
 			wg.Wait()
 			close(clientDone)
 			ct.cc.(*net.TCPConn).CloseWrite()
+			if runtime.GOOS == "plan9" {
+				// CloseWrite not supported on Plan 9; Issue 17906
+				ct.cc.(*net.TCPConn).Close()
+			}
 		}()
 		for k := 0; k < maxConcurrent+2; k++ {
 			wg.Add(1)
@@ -4295,6 +4323,10 @@ func testTransportBodyReadError(t *testing.T, body []byte) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		defer close(clientDone)
 
 		checkNoStreams := func() error {
@@ -4383,6 +4415,10 @@ func TestTransportBodyEagerEndStream(t *testing.T) {
 	ct := newClientTester(t)
 	ct.client = func() error {
 		defer ct.cc.(*net.TCPConn).CloseWrite()
+		if runtime.GOOS == "plan9" {
+			// CloseWrite not supported on Plan 9; Issue 17906
+			defer ct.cc.(*net.TCPConn).Close()
+		}
 		body := strings.NewReader(reqBody)
 		req, err := http.NewRequest("PUT", "https://dummy.tld/", body)
 		if err != nil {
@@ -4481,5 +4517,43 @@ func testTransportBodyLargerThanSpecifiedContentLength(t *testing.T, body *chunk
 	_, err := tr.RoundTrip(req)
 	if err != errReqBodyTooLong {
 		t.Fatalf("expected %v, got %v", errReqBodyTooLong, err)
+	}
+}
+
+func TestClientConnTooIdle(t *testing.T) {
+	tests := []struct {
+		cc   func() *ClientConn
+		want bool
+	}{
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 5 * time.Second, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			true,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 5 * time.Second, lastIdle: time.Time{}}
+			},
+			false,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 60 * time.Second, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			false,
+		},
+		{
+			func() *ClientConn {
+				return &ClientConn{idleTimeout: 0, lastIdle: time.Now().Add(-10 * time.Second)}
+			},
+			false,
+		},
+	}
+	for i, tt := range tests {
+		got := tt.cc().tooIdleLocked()
+		if got != tt.want {
+			t.Errorf("%d. got %v; want %v", i, got, tt.want)
+		}
 	}
 }

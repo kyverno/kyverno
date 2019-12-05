@@ -49,7 +49,7 @@ func (r *runner) UnimportedCompletion(t *testing.T, src span.Span, test tests.Co
 		got = tests.FilterBuiltins(got)
 	}
 	want := expected(t, test, items)
-	if diff := tests.CheckCompletionOrder(want, got); diff != "" {
+	if diff := tests.CheckCompletionOrder(want, got, false); diff != "" {
 		t.Errorf("%s: %s", src, diff)
 	}
 }
@@ -101,7 +101,7 @@ func (r *runner) RankCompletion(t *testing.T, src span.Span, test tests.Completi
 		Deep:          true,
 	})
 	want := expected(t, test, items)
-	if msg := tests.CheckCompletionOrder(want, got); msg != "" {
+	if msg := tests.CheckCompletionOrder(want, got, true); msg != "" {
 		t.Errorf("%s: %s", src, msg)
 	}
 }
@@ -120,12 +120,15 @@ func expected(t *testing.T, test tests.Completion, items tests.CompletionItems) 
 func (r *runner) callCompletion(t *testing.T, src span.Span, options source.CompletionOptions) []protocol.CompletionItem {
 	t.Helper()
 
-	view := r.server.session.ViewOf(src.URI())
+	view, err := r.server.session.ViewOf(src.URI())
+	if err != nil {
+		t.Fatal(err)
+	}
 	original := view.Options()
 	modified := original
 	modified.InsertTextFormat = protocol.SnippetTextFormat
 	modified.Completion = options
-	view, err := view.SetOptions(r.ctx, modified)
+	view, err = view.SetOptions(r.ctx, modified)
 	if err != nil {
 		t.Error(err)
 		return nil
