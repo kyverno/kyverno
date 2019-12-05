@@ -112,6 +112,10 @@ func Test_add_safe_to_evict_annotation2(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/add_safe_to_evict2.yaml")
 }
 
+func Test_add_safe_to_evict_annotation3(t *testing.T) {
+	testScenario(t, "test/scenarios/samples/best_practices/add_safe_to_evict3.yaml")
+}
+
 func Test_validate_restrict_automount_sa_token_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/more/restrict_automount_sa_token.yaml")
 }

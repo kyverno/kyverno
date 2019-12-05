@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -31,6 +32,12 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	// resource does not satisfy the overlay pattern, we don't apply this rule
 	if !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
+		// condition key is not present in the resource, don't apply this rule
+		// consider as success
+		case conditionNotPresent:
+			glog.V(3).Infof("Resource %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			response.Success = true
+			return response, resource
 		// conditions are not met, don't apply this rule
 		// consider as failure
 		case conditionFailure:
@@ -71,7 +78,7 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	patchResource, err = ApplyPatches(resourceRaw, patches)
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
-		glog.V(2).Info(msg)
+		glog.V(2).Infof("%s, patches=%s", msg, string(JoinPatches(patches)))
 		response.Success = false
 		response.Message = msg
 		return response, resource
@@ -95,7 +102,13 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
 	if path, overlayerr := meetConditions(resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
-		if overlayerr.statusCode == conditionFailure {
+		switch overlayerr.statusCode {
+		// anchor key does not exist in the resource, skip applying policy
+		case conditionNotPresent:
+			glog.V(4).Infof("Mutate rule: skip applying policy: %v at %s", overlayerr, path)
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("policy not applied: %v at %s", overlayerr.ErrorMsg(), path))
+		// anchor key is not satisfied in the resource, skip applying policy
+		case conditionFailure:
 			// anchor key is not satisfied in the resource, skip applying policy
 			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
 			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Conditions are not met at %s, %v", path, overlayerr))
@@ -333,10 +346,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 		path = path[:len(path)-1]
 	}
 
-	if path == "" {
-		path = "/"
-	}
-
+	path = preparePath(path)
 	value := prepareJSONValue(overlay)
 	patchStr := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value": %s }`, op, path, value)
 
@@ -348,6 +358,20 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	}
 
 	return []byte(patchStr), nil
+}
+
+func preparePath(path string) string {
+	if path == "" {
+		path = "/"
+	}
+
+	annPath := "/metadata/annotations/"
+	// escape slash in annotation patch
+	if strings.Contains(path, annPath) {
+		p := path[len(annPath):]
+		path = annPath + strings.ReplaceAll(p, "/", "~1")
+	}
+	return path
 }
 
 // converts overlay to JSON string to be inserted into the JSON Patch
