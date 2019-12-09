@@ -28,7 +28,7 @@ This policy requires that all pods have CPU and memory resource requests and lim
 
 ````yaml
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: check-cpu-memory
 spec:
@@ -62,7 +62,7 @@ This policy sets the imagePullPolicy to Always if the image tag is latest:
 
 ````yaml
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: set-image-pull-policy
 spec:
@@ -90,7 +90,7 @@ This policy sets the Zookeeper and Kafka connection strings for all namespaces w
 
 ````yaml
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: "zk-kafka-address"
 spec:
