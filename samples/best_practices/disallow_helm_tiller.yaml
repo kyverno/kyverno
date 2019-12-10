@@ -4,8 +4,7 @@ metadata:
   name: disallow-helm-tiller
   annotations:
     policies.kyverno.io/category: Security
-    policies.kyverno.io/description: Tiller has known security challenges. It requires adminstrative privileges and acts as a shared 
-    resource accessible to any authenticated user. Tiller can lead to privilge escalation as restricted users can impact other users.
+    policies.kyverno.io/description: Tiller has known security challenges. It requires adminstrative privileges and acts as a shared     resource accessible to any authenticated user. Tiller can lead to privilge escalation as restricted users can impact other users.
 spec:
   rules:
   - name: validate-helm-tiller
