@@ -35,15 +35,14 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		// condition key is not present in the resource, don't apply this rule
 		// consider as success
 		case conditionNotPresent:
-			glog.V(3).Infof("Resource %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			response.Success = true
 			return response, resource
 		// conditions are not met, don't apply this rule
-		// consider as failure
 		case conditionFailure:
-			glog.Errorf("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			//TODO: send zero response and not consider this as applied?
-			response.Success = false
+			response.Success = true
 			response.Message = overlayerr.ErrorMsg()
 			return response, resource
 		// rule application failed
@@ -106,12 +105,12 @@ func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayErro
 		// anchor key does not exist in the resource, skip applying policy
 		case conditionNotPresent:
 			glog.V(4).Infof("Mutate rule: skip applying policy: %v at %s", overlayerr, path)
-			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("policy not applied: %v at %s", overlayerr.ErrorMsg(), path))
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, condition tag not present: %v at %s", overlayerr.ErrorMsg(), path))
 		// anchor key is not satisfied in the resource, skip applying policy
 		case conditionFailure:
 			// anchor key is not satisfied in the resource, skip applying policy
 			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
-			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Conditions are not met at %s, %v", path, overlayerr))
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, conditions are not met at %s, %v", path, overlayerr))
 		}
 	}
 
