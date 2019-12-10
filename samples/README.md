@@ -34,6 +34,7 @@ These policies provide additional best practices and are worthy of close conside
 18. [Restrict `NodePort` services](RestrictNodePort.md)
 19. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
 20. [Restrict ingress classes](RestrictIngressClasses.md)
+21. [Restrict User Group](CheckUserGroup.md)
 
 ## Applying the sample policies
 

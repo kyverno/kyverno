@@ -19,7 +19,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Deny automounting API credentials"
+      message: "Auto-mounting of Service Account tokens is not allowed"
       pattern:
         spec:
           automountServiceAccountToken: false
