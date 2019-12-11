@@ -10,7 +10,6 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
 )
 
 //ClusterPV ...
@@ -52,7 +51,15 @@ func (cpv *clusterPV) create(pv kyverno.PolicyViolation) error {
 }
 
 func (cpv *clusterPV) getExisting(newPv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
-	pvs, err := cpv.cpvLister.List(labels.Everything())
+	var err error
+	// use labels
+	policyLabelmap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
+	ls, err := converLabelToSelector(policyLabelmap)
+	if err != nil {
+		return nil, err
+	}
+
+	pvs, err := cpv.cpvLister.List(ls)
 	if err != nil {
 		glog.Errorf("unable to list cluster policy violations : %v", err)
 		return nil, err
@@ -99,6 +106,7 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	}
 	// set name
 	newPv.SetName(oldPv.Name)
+	newPv.SetResourceVersion(oldPv.ResourceVersion)
 
 	// update resource
 	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Update(newPv)

@@ -1,6 +1,7 @@
 package policyviolation
 
 import (
+	"fmt"
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
@@ -9,6 +10,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func createOwnerReference(resource *unstructured.Unstructured) metav1.OwnerReference {
@@ -96,4 +98,19 @@ func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interfac
 		}
 		GetOwner(dclient, ownerMap, *owner)
 	}
+}
+
+func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) {
+	ls := &metav1.LabelSelector{}
+	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	policyViolationSelector, err := metav1.LabelSelectorAsSelector(ls)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label selector: %v", err)
+	}
+
+	return policyViolationSelector, nil
 }

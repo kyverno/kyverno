@@ -10,7 +10,6 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
 )
 
 //NamespacedPV ...
@@ -52,7 +51,14 @@ func (nspv *namespacedPV) create(pv kyverno.PolicyViolation) error {
 }
 
 func (nspv *namespacedPV) getExisting(newPv kyverno.NamespacedPolicyViolation) (*kyverno.NamespacedPolicyViolation, error) {
-	pvs, err := nspv.nspvLister.NamespacedPolicyViolations(newPv.GetNamespace()).List(labels.NewSelector())
+	var err error
+	// use labels
+	policyLabelmap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
+	ls, err := converLabelToSelector(policyLabelmap)
+	if err != nil {
+		return nil, err
+	}
+	pvs, err := nspv.nspvLister.NamespacedPolicyViolations(newPv.GetNamespace()).List(ls)
 	if err != nil {
 		glog.Errorf("unable to list namespaced policy violations : %v", err)
 		return nil, err
@@ -99,9 +105,9 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.NamespacedPolicyViolati
 	}
 	// set name
 	newPv.SetName(oldPv.Name)
-
+	newPv.SetResourceVersion(oldPv.ResourceVersion)
 	// update resource
-	_, err = nspv.kyvernoInterface.NamespacedPolicyViolations(newPv.GetNamespace()).Create(newPv)
+	_, err = nspv.kyvernoInterface.NamespacedPolicyViolations(newPv.GetNamespace()).Update(newPv)
 	if err != nil {
 		return fmt.Errorf("failed to update namespaced polciy violation: %v", err)
 	}
