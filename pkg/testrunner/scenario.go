@@ -367,12 +367,11 @@ func loadResource(t *testing.T, path string) []*unstructured.Unstructured {
 	rBytes := bytes.Split(data, []byte("---"))
 	for _, r := range rBytes {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
-		obj, gvk, err := decode(r, nil, nil)
+		obj, _, err := decode(r, nil, nil)
 		if err != nil {
 			t.Logf("failed to decode resource: %v", err)
 			continue
 		}
-		glog.Info(gvk)
 
 		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 		if err != nil {

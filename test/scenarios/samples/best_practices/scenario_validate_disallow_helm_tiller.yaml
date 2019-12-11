@@ -12,5 +12,5 @@ expected:
       rules:
         - name: validate-helm-tiller
           type: Validation
-          message: "Validation error: Helm Tiller is not allowed\nValidation rule 'validate-helm-tiller' failed at path '/spec/containers/0/image/'."
+          message: "Validation error: Helm Tiller is not allowed; Validation rule 'validate-helm-tiller' failed at path '/spec/containers/0/image/'"
           success: false
