@@ -12,6 +12,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -44,6 +45,7 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 	policy := policyContext.Policy
 	newR := policyContext.NewResource
 	oldR := policyContext.OldResource
+	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
 
 	// policy information
@@ -53,7 +55,7 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
 		// Create Mode
 		// Operate on New Resource only
-		response := validate(policy, newR, admissionInfo)
+		response := validate(ctx, policy, newR, admissionInfo)
 		startResultResponse(response, policy, newR)
 		defer endResultResponse(response, startTime)
 		// set PatchedResource with orgin resource if empty
@@ -66,8 +68,8 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 	// Update Mode
 	// Operate on New and Old Resource only
 	// New resource
-	oldResponse := validate(policy, oldR, admissionInfo)
-	newResponse := validate(policy, newR, admissionInfo)
+	oldResponse := validate(ctx, policy, oldR, admissionInfo)
+	newResponse := validate(ctx, policy, newR, admissionInfo)
 
 	// if the old and new response is same then return empty response
 	if !isSameResponse(oldResponse, newResponse) {
@@ -84,7 +86,7 @@ func Validate(policyContext PolicyContext) (response EngineResponse) {
 	return EngineResponse{}
 }
 
-func validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo RequestInfo) *EngineResponse {
+func validate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo RequestInfo) *EngineResponse {
 	response := &EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
@@ -107,7 +109,7 @@ func validate(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 			continue
 		}
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validatePatterns(resource, rule)
+			ruleResponse := validatePatterns(ctx, resource, rule)
 			incrementAppliedCount(response)
 			response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		}
@@ -155,7 +157,7 @@ func isSameRules(oldRules []RuleResponse, newRules []RuleResponse) bool {
 }
 
 // validatePatterns validate pattern and anyPattern
-func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (response RuleResponse) {
+func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (response RuleResponse) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
 	response.Name = rule.Name
@@ -167,7 +169,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 
 	// either pattern or anyPattern can be specified in Validation rule
 	if rule.Validation.Pattern != nil {
-		path, err := validateResourceWithPattern(resource.Object, rule.Validation.Pattern)
+		path, err := validateResourceWithPattern(ctx, resource.Object, rule.Validation.Pattern)
 		if err != nil {
 			// rule application failed
 			glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
@@ -188,7 +190,7 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 		var errs []error
 		var failedPaths []string
 		for index, pattern := range rule.Validation.AnyPattern {
-			path, err := validateResourceWithPattern(resource.Object, pattern)
+			path, err := validateResourceWithPattern(ctx, resource.Object, pattern)
 			if err == nil {
 				// this pattern was succesfully validated
 				glog.V(4).Infof("anyPattern %v succesfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
@@ -224,14 +226,14 @@ func validatePatterns(resource unstructured.Unstructured, rule kyverno.Rule) (re
 // validateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
 //TODO: for failure, we return the path at which it failed along with error
-func validateResourceWithPattern(resource, pattern interface{}) (string, error) {
-	return validateResourceElement(resource, pattern, pattern, "/")
+func validateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, error) {
+	return validateResourceElement(ctx, resource, pattern, pattern, "/")
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
-func validateResourceElement(resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
+func validateResourceElement(ctx context.EvalInterface, resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
 	var err error
 	switch typedPatternElement := patternElement.(type) {
 	// map
@@ -242,7 +244,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
 
-		return validateMap(typedResourceElement, typedPatternElement, originPattern, path)
+		return validateMap(ctx, typedResourceElement, typedPatternElement, originPattern, path)
 	// array
 	case []interface{}:
 		typedResourceElement, ok := resourceElement.([]interface{})
@@ -251,7 +253,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 
-		return validateArray(typedResourceElement, typedPatternElement, originPattern, path)
+		return validateArray(ctx, typedResourceElement, typedPatternElement, originPattern, path)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
@@ -276,7 +278,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+func validateMap(ctx context.EvalInterface, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
@@ -289,7 +291,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 		// - Existance
 		// - Equality
 		handler := CreateElementHandler(key, patternElement, path)
-		handlerPath, err := handler.Handle(resourceMap, origPattern)
+		handlerPath, err := handler.Handle(ctx, resourceMap, origPattern)
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
@@ -305,7 +307,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 	for key, resourceElement := range resources {
 		// get handler for resources in the pattern
 		handler := CreateElementHandler(key, resourceElement, path)
-		handlerPath, err := handler.Handle(resourceMap, origPattern)
+		handlerPath, err := handler.Handle(ctx, resourceMap, origPattern)
 		if err != nil {
 			return handlerPath, err
 		}
@@ -313,7 +315,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 	return "", nil
 }
 
-func validateArray(resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
+func validateArray(ctx context.EvalInterface, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
 
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
@@ -323,7 +325,7 @@ func validateArray(resourceArray, patternArray []interface{}, originPattern inte
 	case map[string]interface{}:
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
-		path, err := validateArrayOfMaps(resourceArray, typedPatternElement, originPattern, path)
+		path, err := validateArrayOfMaps(ctx, resourceArray, typedPatternElement, originPattern, path)
 		if err != nil {
 			return path, err
 		}
@@ -331,7 +333,7 @@ func validateArray(resourceArray, patternArray []interface{}, originPattern inte
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		for i, patternElement := range patternArray {
 			currentPath := path + strconv.Itoa(i) + "/"
-			path, err := validateResourceElement(resourceArray[i], patternElement, originPattern, currentPath)
+			path, err := validateResourceElement(ctx, resourceArray[i], patternElement, originPattern, currentPath)
 			if err != nil {
 				return path, err
 			}
@@ -454,12 +456,12 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
-func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+func validateArrayOfMaps(ctx context.EvalInterface, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
 	for i, resourceElement := range resourceMapArray {
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
 		currentPath := path + strconv.Itoa(i) + "/"
-		returnpath, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
+		returnpath, err := validateResourceElement(ctx, resourceElement, patternMap, originPattern, currentPath)
 		if err != nil {
 			return returnpath, err
 		}

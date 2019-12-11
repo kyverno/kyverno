@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -153,9 +154,10 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rul
 
 //checkResource checks if the config is present in th eresource
 func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
-
+	// pass empty context
+	ctx := context.NewContext()
 	// we are checking if config is a subset of resource with default pattern
-	path, err := validateResourceWithPattern(resource.Object, config)
+	path, err := validateResourceWithPattern(ctx, resource.Object, config)
 	if err != nil {
 		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
 		return false, err

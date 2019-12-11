@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -57,10 +58,15 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		glog.Error(err)
 		return true, ""
 	}
+	// build context
+	ctx := context.NewContext()
+	// load incoming resource into the context
+	ctx.Add("resource", request.Object.Raw)
 
 	policyContext := engine.PolicyContext{
 		NewResource: newR,
 		OldResource: oldR,
+		Context:     ctx,
 		AdmissionInfo: engine.RequestInfo{
 			Roles:             roles,
 			ClusterRoles:      clusterRoles,
