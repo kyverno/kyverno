@@ -722,6 +722,18 @@ var unmarshalTests = []struct {
 		"a: 5.5\n",
 		&struct{ A jsonNumberT }{"5.5"},
 	},
+	{
+		`
+a:
+  b
+b:
+  ? a
+  : a`,
+		&M{"a": "b",
+			"b": M{
+				"a": "a",
+			}},
+	},
 }
 
 type M map[interface{}]interface{}
@@ -855,6 +867,7 @@ var unmarshalErrorTests = []struct {
 	{"{{.}}", `yaml: invalid map key: map\[interface\ \{\}\]interface \{\}\{".":interface \{\}\(nil\)\}`},
 	{"b: *a\na: &a {c: 1}", `yaml: unknown anchor 'a' referenced`},
 	{"%TAG !%79! tag:yaml.org,2002:\n---\nv: !%79!int '1'", "yaml: did not find expected whitespace"},
+	{"a:\n  1:\nb\n  2:", ".*could not find expected ':'"},
 	{
 		"a: &a [00,00,00,00,00,00,00,00,00]\n" +
 		"b: &b [*a,*a,*a,*a,*a,*a,*a,*a,*a]\n" +

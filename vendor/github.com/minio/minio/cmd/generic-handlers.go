@@ -25,10 +25,10 @@ import (
 	"github.com/minio/minio-go/v6/pkg/set"
 
 	humanize "github.com/dustin/go-humanize"
+	"github.com/minio/minio/cmd/config/etcd/dns"
 	"github.com/minio/minio/cmd/crypto"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/handlers"
 	"github.com/rs/cors"
 )
@@ -102,7 +102,7 @@ func isHTTPHeaderSizeTooLarge(header http.Header) bool {
 		length := len(key) + len(header.Get(key))
 		size += length
 		for _, prefix := range userMetadataKeyPrefixes {
-			if strings.HasPrefix(key, prefix) {
+			if hasPrefix(key, prefix) {
 				usersize += length
 				break
 			}
@@ -141,7 +141,7 @@ func (h reservedMetadataHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 // and must not set by clients
 func containsReservedMetadata(header http.Header) bool {
 	for key := range header {
-		if strings.HasPrefix(key, ReservedMetadataPrefix) {
+		if hasPrefix(key, ReservedMetadataPrefix) {
 			return true
 		}
 	}
@@ -152,6 +152,7 @@ func containsReservedMetadata(header http.Header) bool {
 const (
 	minioReservedBucket     = "minio"
 	minioReservedBucketPath = SlashSeparator + minioReservedBucket
+	loginPathPrefix         = SlashSeparator + "login"
 )
 
 // Adds redirect rules for incoming requests.
@@ -277,6 +278,16 @@ func (h cacheControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // API requests.
 func isAdminReq(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, adminPathPrefix)
+}
+
+// guessIsLoginSTSReq - returns true if incoming request is Login STS user
+func guessIsLoginSTSReq(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+	return strings.HasPrefix(req.URL.Path, loginPathPrefix) ||
+		(req.Method == http.MethodPost && req.URL.Path == SlashSeparator &&
+			getRequestAuthType(req) == authTypeSTS)
 }
 
 // Adds verification for incoming paths.
@@ -608,7 +619,7 @@ type bucketForwardingHandler struct {
 func (f bucketForwardingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if globalDNSConfig == nil || len(globalDomainNames) == 0 ||
 		guessIsHealthCheckReq(r) || guessIsMetricsReq(r) ||
-		guessIsRPCReq(r) || isAdminReq(r) {
+		guessIsRPCReq(r) || guessIsLoginSTSReq(r) || isAdminReq(r) {
 		f.handler.ServeHTTP(w, r)
 		return
 	}

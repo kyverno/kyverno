@@ -39,7 +39,7 @@ const (
 	ElasticQueueDir   = "queue_dir"
 	ElasticQueueLimit = "queue_limit"
 
-	EnvElasticState      = "MINIO_NOTIFY_ELASTICSEARCH_STATE"
+	EnvElasticEnable     = "MINIO_NOTIFY_ELASTICSEARCH_ENABLE"
 	EnvElasticFormat     = "MINIO_NOTIFY_ELASTICSEARCH_FORMAT"
 	EnvElasticURL        = "MINIO_NOTIFY_ELASTICSEARCH_URL"
 	EnvElasticIndex      = "MINIO_NOTIFY_ELASTICSEARCH_INDEX"
@@ -146,7 +146,6 @@ func (target *ElasticsearchTarget) send(eventData event.Event) error {
 		} else {
 			err = update()
 		}
-
 		return err
 	}
 

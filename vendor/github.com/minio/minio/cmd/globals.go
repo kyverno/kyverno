@@ -27,6 +27,7 @@ import (
 	humanize "github.com/dustin/go-humanize"
 	"github.com/minio/minio/cmd/config/cache"
 	"github.com/minio/minio/cmd/config/compress"
+	"github.com/minio/minio/cmd/config/etcd/dns"
 	xldap "github.com/minio/minio/cmd/config/identity/ldap"
 	"github.com/minio/minio/cmd/config/identity/openid"
 	"github.com/minio/minio/cmd/config/policy/opa"
@@ -35,7 +36,6 @@ import (
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/certs"
-	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/pubsub"
 )
 
@@ -103,9 +103,6 @@ var globalCLIContext = struct {
 }{}
 
 var (
-	// Indicates the total number of erasure coded sets configured.
-	globalXLSetCount int
-
 	// Indicates set drive count.
 	globalXLSetDriveCount int
 
@@ -129,9 +126,6 @@ var (
 
 	// This flag is set to 'us-east-1' by default
 	globalServerRegion = globalMinioDefaultRegion
-
-	// Maximum size of internal objects parts
-	globalPutPartSize = int64(64 * 1024 * 1024)
 
 	// MinIO local server address (in `host:port` format)
 	globalMinioAddr = ""
@@ -173,7 +167,7 @@ var (
 	// registered listeners
 	globalConsoleSys *HTTPConsoleLoggerSys
 
-	globalEndpoints EndpointList
+	globalEndpoints EndpointZones
 
 	// Global server's network statistics
 	globalConnStats = newConnStats()
@@ -202,7 +196,7 @@ var (
 	// Is worm enabled
 	globalWORMEnabled bool
 
-	globalBucketRetentionConfig = newBucketRetentionConfig()
+	globalBucketObjectLockConfig = newBucketObjectLockConfig()
 
 	// Disk cache drives
 	globalCacheConfig cache.Config
@@ -214,7 +208,7 @@ var (
 	globalEtcdClient *etcd.Client
 
 	// Allocated DNS config wrapper over etcd client.
-	globalDNSConfig dns.Config
+	globalDNSConfig *dns.CoreDNS
 
 	// Default usage check interval value.
 	globalDefaultUsageCheckInterval = 12 * time.Hour // 12 hours

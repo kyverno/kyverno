@@ -4,13 +4,15 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.37.2
-	github.com/Azure/azure-sdk-for-go v33.4.0+incompatible
-	github.com/Azure/go-autorest v11.7.0+incompatible
+	github.com/Azure/azure-pipeline-go v0.2.1
+	github.com/Azure/azure-storage-blob-go v0.8.0
+	github.com/Shopify/sarama v1.24.1
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/alecthomas/participle v0.2.1
 	github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20190307165228-86c17b95fcd5
 	github.com/aws/aws-sdk-go v1.20.21
 	github.com/bcicen/jstream v0.0.0-20190220045926-16c1f8af81c2
+	github.com/beevik/ntp v0.2.0
 	github.com/cheggaaa/pb v1.0.28
 	github.com/coredns/coredns v1.4.0
 	github.com/coreos/etcd v3.3.12+incompatible
@@ -36,9 +38,9 @@ require (
 	github.com/klauspost/reedsolomon v1.9.3
 	github.com/kurin/blazer v0.5.4-0.20190613185654-cf2f27cc0be3
 	github.com/lib/pq v1.0.0
+	github.com/mattn/go-ieproxy v0.0.0-20190805055040-f9202b1cfdeb // indirect; Pinned for FreeBSD support.
 	github.com/miekg/dns v1.1.8
 	github.com/minio/cli v1.22.0
-	github.com/minio/dsync/v2 v2.0.0
 	github.com/minio/gokrb5/v7 v7.2.5
 	github.com/minio/hdfs/v3 v3.0.1
 	github.com/minio/highwayhash v1.0.0
@@ -50,7 +52,8 @@ require (
 	github.com/minio/sha256-simd v0.1.1
 	github.com/minio/sio v0.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nats-io/nats.go v1.8.0
+	github.com/nats-io/nats-server/v2 v2.1.2
+	github.com/nats-io/nats.go v1.9.1
 	github.com/nats-io/stan.go v0.4.5
 	github.com/ncw/directio v1.0.5
 	github.com/nsqio/go-nsq v1.0.7
@@ -69,7 +72,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190923035154-9ee001bba392
 	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69
 	google.golang.org/api v0.4.0
-	gopkg.in/Shopify/sarama.v1 v1.20.0
 	gopkg.in/ldap.v3 v3.0.3
 	gopkg.in/olivere/elastic.v5 v5.0.80
 	gopkg.in/yaml.v2 v2.2.2

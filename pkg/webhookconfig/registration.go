@@ -52,6 +52,12 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	// webhook configurations are created dynamically based on the policy resources
 	wrc.removeWebhookConfigurations()
 
+	// create Verify mutating webhook configuration resource
+	// that is used to check if admission control is enabled or not
+	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+		return err
+	}
+
 	// Static Webhook configuration on Policy CRD
 	// create Policy CRD validating webhook configuration resource
 	// used for validating Policy CR
@@ -61,12 +67,6 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	// create Policy CRD validating webhook configuration resource
 	// used for defauling values in Policy CR
 	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
-		return err
-	}
-
-	// create Verify mutating webhook configuration resource
-	// that is used to check if admission control is enabled or not
-	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
 		return err
 	}
 
@@ -219,12 +219,14 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(4)
 	// mutating and validating webhook configuration for Kubernetes resources
 	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	// mutating and validating webhook configurtion for Policy CRD resource
 	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
 	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
+	// mutating webhook configuration for verifying webhook
+	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 
 	// wait for the removal go routines to return
 	wg.Wait()

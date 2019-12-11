@@ -17,7 +17,10 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -49,6 +52,13 @@ const (
 	diskMinTotalSpace = diskMinFreeSpace      // Min 900MiB total space.
 	maxAllowedIOError = 5
 	readBlockSize     = 4 * humanize.MiByte // Default read block size 4MiB.
+
+	// On regular files bigger than this;
+	readAheadSize = 16 << 20
+	// Read this many buffers ahead.
+	readAheadBuffers = 4
+	// Size of each buffer.
+	readAheadBufSize = 1 << 20
 )
 
 // isValidVolname verifies a volname name in accordance with object
@@ -79,7 +89,8 @@ type posix struct {
 
 	diskID string
 
-	formatFileInfo os.FileInfo
+	formatFileInfo  os.FileInfo
+	formatLastCheck time.Time
 	// Disk usage metrics
 	stopUsageCh chan struct{}
 
@@ -146,12 +157,15 @@ func getValidPath(path string) (string, error) {
 	}
 
 	// check if backend is writable.
-	file, err := os.Create(pathJoin(path, ".writable-check.tmp"))
+	var rnd [8]byte
+	_, _ = rand.Read(rnd[:])
+	fn := pathJoin(path, ".writable-check-"+hex.EncodeToString(rnd[:])+".tmp")
+	file, err := os.Create(fn)
 	if err != nil {
 		return path, err
 	}
-	defer os.Remove(pathJoin(path, ".writable-check.tmp"))
 	file.Close()
+	os.Remove(fn)
 
 	return path, nil
 }
@@ -378,8 +392,23 @@ func (s *posix) getVolDir(volume string) (string, error) {
 func (s *posix) getDiskID() (string, error) {
 	s.RLock()
 	diskID := s.diskID
+	fileInfo := s.formatFileInfo
+	lastCheck := s.formatLastCheck
 	s.RUnlock()
 
+	// check if we have a valid disk ID that is less than 1 second old.
+	if fileInfo != nil && diskID != "" && time.Now().Before(lastCheck.Add(time.Second)) {
+		return diskID, nil
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	// If somebody else updated the disk ID and changed the time, return what they got.
+	if !s.formatLastCheck.Equal(lastCheck) {
+		// Somebody else got the lock first.
+		return diskID, nil
+	}
 	formatFile := pathJoin(s.diskPath, minioMetaBucket, formatConfigFile)
 	fi, err := os.Stat(formatFile)
 	if err != nil {
@@ -387,13 +416,12 @@ func (s *posix) getDiskID() (string, error) {
 		return "", err
 	}
 
-	if xioutil.SameFile(fi, s.formatFileInfo) {
+	if xioutil.SameFile(fi, fileInfo) {
 		// If the file has not changed, just return the cached diskID information.
+		s.formatLastCheck = time.Now()
 		return diskID, nil
 	}
 
-	s.Lock()
-	defer s.Unlock()
 	b, err := ioutil.ReadFile(formatFile)
 	if err != nil {
 		return "", err
@@ -405,6 +433,7 @@ func (s *posix) getDiskID() (string, error) {
 	}
 	s.diskID = format.XL.This
 	s.formatFileInfo = fi
+	s.formatLastCheck = time.Now()
 	return s.diskID, nil
 }
 
@@ -414,12 +443,12 @@ func (s *posix) diskUsage(doneCh chan struct{}) {
 	defer ticker.Stop()
 
 	usageFn := func(ctx context.Context, entry string) error {
-		if globalHTTPServer != nil {
+		if httpServer := newHTTPServerFn(); httpServer != nil {
 			// Wait at max 1 minute for an inprogress request
 			// before proceeding to count the usage.
 			waitCount := 60
 			// Any requests in progress, delay the usage.
-			for globalHTTPServer.GetRequestCount() > 0 && waitCount > 0 {
+			for httpServer.GetRequestCount() > 0 && waitCount > 0 {
 				waitCount--
 				time.Sleep(1 * time.Second)
 			}
@@ -456,12 +485,12 @@ func (s *posix) diskUsage(doneCh chan struct{}) {
 		case <-time.After(globalUsageCheckInterval):
 			var usage uint64
 			usageFn = func(ctx context.Context, entry string) error {
-				if globalHTTPServer != nil {
+				if httpServer := newHTTPServerFn(); httpServer != nil {
 					// Wait at max 1 minute for an inprogress request
 					// before proceeding to count the usage.
 					waitCount := 60
 					// Any requests in progress, delay the usage.
-					for globalHTTPServer.GetRequestCount() > 0 && waitCount > 0 {
+					for httpServer.GetRequestCount() > 0 && waitCount > 0 {
 						waitCount--
 						time.Sleep(1 * time.Second)
 					}
@@ -1112,8 +1141,13 @@ func (s *posix) ReadFileStream(volume, path string, offset, length int64) (io.Re
 		io.Reader
 		io.Closer
 	}{Reader: io.LimitReader(file, length), Closer: file}
+	if length >= readAheadSize {
+		return readahead.NewReadCloserSize(r, readAheadBuffers, readAheadBufSize)
+	}
 
-	return readahead.NewReadCloser(r), nil
+	// Just add a small 64k buffer.
+	r.Reader = bufio.NewReaderSize(r.Reader, 64<<10)
+	return r, nil
 }
 
 // CreateFile - creates the file.

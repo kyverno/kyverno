@@ -64,7 +64,8 @@ type WebhookServer struct {
 	// store to hold policy meta data for faster lookup
 	pMetaStore policystore.LookupInterface
 	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
+	pvGenerator            policyviolation.GeneratorInterface
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -82,6 +83,7 @@ func NewWebhookServer(
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -96,7 +98,6 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-
 		client:                    client,
 		kyvernoClient:             kyvernoClient,
 		pLister:                   pInformer.Lister(),
@@ -110,9 +111,10 @@ func NewWebhookServer(
 		policyStatus:              policyStatus,
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
-		lastReqTime:               checker.NewLastReqTime(),
+		lastReqTime:               resourceWebhookWatcher.LastReqTime,
 		pvGenerator:               pvGenerator,
 		pMetaStore:                pMetaStore,
+		resourceWebhookWatcher:    resourceWebhookWatcher,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -263,7 +265,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
-	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, 60*time.Second, 60*time.Second, stopCh)
+	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
 }
 
 // Stop TLS server and returns control after the server is shut down

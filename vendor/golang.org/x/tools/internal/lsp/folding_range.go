@@ -10,12 +10,16 @@ import (
 
 func (s *Server) foldingRange(ctx context.Context, params *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	ranges, err := source.FoldingRange(ctx, view, f, view.Options().LineFoldingOnly)
+	ranges, err := source.FoldingRange(ctx, snapshot, f, view.Options().LineFoldingOnly)
 	if err != nil {
 		return nil, err
 	}

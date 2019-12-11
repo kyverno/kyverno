@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -74,12 +75,27 @@ func main() {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
 
+	// KUBERNETES RESOURCES INFORMER
+	// watches namespace resource
+	// - cache resync time: 10 seconds
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
+		kubeClient,
+		10*time.Second)
+
 	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
 		clientConfig,
 		client,
 		serverIP,
 		int32(webhookTimeout))
+
+	// Resource Mutating Webhook Watcher
+	lastReqTime := checker.NewLastReqTime()
+	rWebhookWatcher := webhookconfig.NewResourceWebhookRegister(
+		lastReqTime,
+		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
+		webhookRegistrationClient,
+	)
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -88,13 +104,6 @@ func main() {
 	// - cache resync time: 10 seconds
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(
 		pclient,
-		10*time.Second)
-
-	// KUBERNETES RESOURCES INFORMER
-	// watches namespace resource
-	// - cache resync time: 10 seconds
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
-		kubeClient,
 		10*time.Second)
 
 	// Configuration Data
@@ -132,12 +141,11 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().NamespacedPolicyViolations(),
-		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
-		webhookRegistrationClient,
 		configData,
 		egen,
 		pvgen,
-		policyMetaStore)
+		policyMetaStore,
+		rWebhookWatcher)
 	if err != nil {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
@@ -183,9 +191,9 @@ func main() {
 	}
 
 	// WEBHOOK REGISTRATION
-	// - validationwebhookconfiguration (Policy)
-	// - mutatingwebhookconfiguration (All resources)
-	// webhook confgiuration is also generated dynamically in the policy controller
+	// - mutating,validatingwebhookconfiguration (Policy)
+	// - verifymutatingwebhookconfiguration (Kyverno Deployment)
+	// resource webhook confgiuration is generated dynamically in the webhook server and policy controller
 	// based on the policy resources created
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
@@ -210,6 +218,7 @@ func main() {
 		configData,
 		policyMetaStore,
 		pvgen,
+		rWebhookWatcher,
 		cleanUp)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
@@ -218,6 +227,7 @@ func main() {
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 
+	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)

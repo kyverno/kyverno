@@ -23,33 +23,34 @@ import "github.com/minio/minio/pkg/auth"
 
 // SetCredentials - One time migration code needed, for migrating from older config to new for server credentials.
 func SetCredentials(c Config, cred auth.Credentials) {
+	creds, err := auth.CreateCredentials(cred.AccessKey, cred.SecretKey)
+	if err != nil {
+		return
+	}
+	if !creds.IsValid() {
+		return
+	}
 	c[CredentialsSubSys][Default] = KVS{
-		State:     StateOn,
-		Comment:   "Settings for credentials, after migrating config",
-		AccessKey: cred.AccessKey,
-		SecretKey: cred.SecretKey,
+		KV{
+			Key:   AccessKey,
+			Value: cred.AccessKey,
+		},
+		KV{
+			Key:   SecretKey,
+			Value: cred.SecretKey,
+		},
 	}
 }
 
 // SetRegion - One time migration code needed, for migrating from older config to new for server Region.
 func SetRegion(c Config, name string) {
-	c[RegionSubSys][Default] = KVS{
-		RegionName: name,
-		State:      StateOn,
-		Comment:    "Settings for Region, after migrating config",
+	if name == "" {
+		return
 	}
-}
-
-// SetWorm - One time migration code needed, for migrating from older config to new for Worm mode.
-func SetWorm(c Config, b bool) {
-	// Set the new value.
-	c[WormSubSys][Default] = KVS{
-		State: func() string {
-			if b {
-				return StateOn
-			}
-			return StateOff
-		}(),
-		Comment: "Settings for WORM, after migrating config",
+	c[RegionSubSys][Default] = KVS{
+		KV{
+			Key:   RegionName,
+			Value: name,
+		},
 	}
 }

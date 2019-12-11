@@ -9,6 +9,9 @@ import (
 	"go/ast"
 	"go/types"
 
+	"golang.org/x/tools/go/types/objectpath"
+	"golang.org/x/tools/internal/lsp/telemetry"
+	"golang.org/x/tools/internal/telemetry/log"
 	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
@@ -55,7 +58,7 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 		if obj == nil || !sameObj(obj, i.Declaration.obj) {
 			continue
 		}
-		rng, err := posToMappedRange(ctx, i.Snapshot.View(), i.pkg, ident.Pos(), ident.End())
+		rng, err := posToMappedRange(i.Snapshot.View(), i.pkg, ident.Pos(), ident.End())
 		if err != nil {
 			return nil, err
 		}
@@ -69,29 +72,64 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 			mappedRange:   rng,
 		}}, references...)
 	}
-	for ident, obj := range info.Uses {
-		if obj == nil || !sameObj(obj, i.Declaration.obj) {
-			continue
+	var searchpkgs []Package
+	if i.Declaration.obj.Exported() {
+		// Only search all packages if the identifier is exported.
+		for _, id := range i.Snapshot.GetReverseDependencies(i.pkg.ID()) {
+			ph, err := i.Snapshot.PackageHandle(ctx, id)
+			if err != nil {
+				log.Error(ctx, "References: no CheckPackageHandle", err, telemetry.Package.Of(id))
+				continue
+			}
+			pkg, err := ph.Check(ctx)
+			if err != nil {
+				log.Error(ctx, "References: no Package", err, telemetry.Package.Of(id))
+				continue
+			}
+			searchpkgs = append(searchpkgs, pkg)
 		}
-		rng, err := posToMappedRange(ctx, i.Snapshot.View(), i.pkg, ident.Pos(), ident.End())
-		if err != nil {
-			return nil, err
+	}
+	// Add the package in which the identifier is declared.
+	searchpkgs = append(searchpkgs, i.pkg)
+	for _, pkg := range searchpkgs {
+		for ident, obj := range pkg.GetTypesInfo().Uses {
+			if obj == nil || !(sameObj(obj, i.Declaration.obj)) {
+				continue
+			}
+			rng, err := posToMappedRange(i.Snapshot.View(), pkg, ident.Pos(), ident.End())
+			if err != nil {
+				return nil, err
+			}
+			references = append(references, &ReferenceInfo{
+				Name:        ident.Name,
+				ident:       ident,
+				pkg:         i.pkg,
+				obj:         obj,
+				mappedRange: rng,
+			})
 		}
-		references = append(references, &ReferenceInfo{
-			Name:        ident.Name,
-			ident:       ident,
-			pkg:         i.pkg,
-			obj:         obj,
-			mappedRange: rng,
-		})
 	}
 	return references, nil
 }
 
 // sameObj returns true if obj is the same as declObj.
-// Objects are the same if they have the some Pos and Name.
+// Objects are the same if either they have they have objectpaths
+// and their objectpath and package are the same; or if they don't
+// have object paths and they have the same Pos and Name.
 func sameObj(obj, declObj types.Object) bool {
 	// TODO(suzmue): support the case where an identifier may have two different
 	// declaration positions.
-	return obj.Pos() == declObj.Pos() && obj.Name() == declObj.Name()
+	if obj.Pkg() == nil || declObj.Pkg() == nil {
+		if obj.Pkg() != declObj.Pkg() {
+			return false
+		}
+	} else if obj.Pkg().Path() != declObj.Pkg().Path() {
+		return false
+	}
+	objPath, operr := objectpath.For(obj)
+	declObjPath, doperr := objectpath.For(declObj)
+	if operr != nil || doperr != nil {
+		return obj.Pos() == declObj.Pos() && obj.Name() == declObj.Name()
+	}
+	return objPath == declObjPath
 }

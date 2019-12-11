@@ -45,13 +45,13 @@ var (
 	ErrInvalidCacheDrivesValue = newErrFn(
 		"Invalid cache drive value",
 		"Please check the value in this ENV variable",
-		"MINIO_CACHE_DRIVES: Mounted drives or directories are delimited by `;`",
+		"MINIO_CACHE_DRIVES: Mounted drives or directories are delimited by `,`",
 	)
 
 	ErrInvalidCacheExcludesValue = newErrFn(
 		"Invalid cache excludes value",
 		"Please check the passed value",
-		"MINIO_CACHE_EXCLUDE: Cache exclusion patterns are delimited by `;`",
+		"MINIO_CACHE_EXCLUDE: Cache exclusion patterns are delimited by `,`",
 	)
 
 	ErrInvalidCacheExpiryValue = newErrFn(
@@ -93,8 +93,7 @@ var (
 	ErrInvalidCredentials = newErrFn(
 		"Invalid credentials",
 		"Please provide correct credentials",
-		`Access key length should be between minimum 3 characters in length.
-Secret key should be in between 8 and 40 characters`,
+		`Access key length should be at least 3, and secret key length at least 8 characters`,
 	)
 
 	ErrEnvCredentialsMissingGateway = newErrFn(

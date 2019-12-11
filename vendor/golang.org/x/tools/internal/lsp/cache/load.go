@@ -20,20 +20,19 @@ import (
 )
 
 type metadata struct {
-	id          packageID
-	pkgPath     packagePath
-	name        string
-	files       []span.URI
-	typesSizes  types.Sizes
-	errors      []packages.Error
-	deps        []packageID
-	missingDeps map[packagePath]struct{}
+	id              packageID
+	pkgPath         packagePath
+	name            string
+	goFiles         []span.URI
+	compiledGoFiles []span.URI
+	typesSizes      types.Sizes
+	errors          []packages.Error
+	deps            []packageID
+	missingDeps     map[packagePath]struct{}
 
 	// config is the *packages.Config associated with the loaded package.
 	config *packages.Config
 }
-
-var errNoPackagesFound = errors.New("no packages found for query")
 
 func (s *snapshot) load(ctx context.Context, scope source.Scope) ([]*metadata, error) {
 	uri := scope.URI()
@@ -66,54 +65,13 @@ func (s *snapshot) load(ctx context.Context, scope source.Scope) ([]*metadata, e
 	log.Print(ctx, "go/packages.Load", tag.Of("packages", len(pkgs)))
 	if len(pkgs) == 0 {
 		if err == nil {
-			err = errNoPackagesFound
+			err = errors.Errorf("no packages found for query %s", query)
 		}
 	}
 	if err != nil {
 		return nil, err
 	}
-	m, prevMissingImports, err := s.updateMetadata(ctx, scope, pkgs, cfg)
-	if err != nil {
-		return nil, err
-	}
-	meta, err := validateMetadata(ctx, m, prevMissingImports)
-	if err != nil {
-		return nil, err
-	}
-	return meta, nil
-}
-
-func validateMetadata(ctx context.Context, metadata []*metadata, prevMissingImports map[packageID]map[packagePath]struct{}) ([]*metadata, error) {
-	// If we saw incorrect metadata for this package previously, don't bother rechecking it.
-	for _, m := range metadata {
-		if len(m.missingDeps) > 0 {
-			prev, ok := prevMissingImports[m.id]
-			// There are missing imports that we previously hadn't seen before.
-			if !ok {
-				return metadata, nil
-			}
-			// The set of missing imports has changed.
-			if !sameSet(prev, m.missingDeps) {
-				return metadata, nil
-			}
-		} else {
-			// There are no missing imports.
-			return metadata, nil
-		}
-	}
-	return nil, nil
-}
-
-func sameSet(x, y map[packagePath]struct{}) bool {
-	if len(x) != len(y) {
-		return false
-	}
-	for k := range x {
-		if _, ok := y[k]; !ok {
-			return false
-		}
-	}
-	return true
+	return s.updateMetadata(ctx, scope, pkgs, cfg)
 }
 
 // shouldLoad reparses a file's package and import declarations to
@@ -138,48 +96,31 @@ func (c *cache) shouldLoad(ctx context.Context, s *snapshot, originalFH, current
 	if original.Name.Name != current.Name.Name {
 		return true
 	}
-	// If the package's imports have changed, re-run `go list`.
-	if len(original.Imports) != len(current.Imports) {
+	// If the package's imports have increased, definitely re-run `go list`.
+	if len(original.Imports) < len(current.Imports) {
 		return true
 	}
-	for i, importSpec := range original.Imports {
-		// TODO: Handle the case where the imports have just been re-ordered.
-		if importSpec.Path.Value != current.Imports[i].Path.Value {
+	importSet := make(map[string]struct{})
+	for _, importSpec := range original.Imports {
+		importSet[importSpec.Path.Value] = struct{}{}
+	}
+	// If any of the current imports were not in the original imports.
+	for _, importSpec := range current.Imports {
+		if _, ok := importSet[importSpec.Path.Value]; !ok {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *snapshot) updateMetadata(ctx context.Context, uri source.Scope, pkgs []*packages.Package, cfg *packages.Config) ([]*metadata, map[packageID]map[packagePath]struct{}, error) {
-	// Clear metadata since we are re-running go/packages.
-	var m []*metadata
-	switch uri.(type) {
-	case source.FileURI:
-		m = s.getMetadataForURI(uri.URI())
-	case source.DirectoryURI:
-		for _, pkg := range pkgs {
-			if pkgMetadata := s.getMetadata(packageID(pkg.ID)); pkgMetadata != nil {
-				m = append(m, pkgMetadata)
-			}
-		}
-	default:
-		panic(fmt.Errorf("unsupported Scope type %T", uri))
-	}
-	prevMissingImports := make(map[packageID]map[packagePath]struct{})
-	for _, m := range m {
-		if len(m.missingDeps) > 0 {
-			prevMissingImports[m.id] = m.missingDeps
-		}
-	}
-
+func (s *snapshot) updateMetadata(ctx context.Context, uri source.Scope, pkgs []*packages.Package, cfg *packages.Config) ([]*metadata, error) {
 	var results []*metadata
 	for _, pkg := range pkgs {
 		log.Print(ctx, "go/packages.Load", tag.Of("package", pkg.PkgPath), tag.Of("files", pkg.CompiledGoFiles))
 
 		// Set the metadata for this package.
 		if err := s.updateImports(ctx, packagePath(pkg.PkgPath), pkg, cfg, map[packageID]struct{}{}); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		m := s.getMetadata(packageID(pkg.ID))
 		if m != nil {
@@ -191,9 +132,9 @@ func (s *snapshot) updateMetadata(ctx context.Context, uri source.Scope, pkgs []
 	s.clearAndRebuildImportGraph()
 
 	if len(results) == 0 {
-		return nil, nil, errors.Errorf("no metadata for %s", uri)
+		return nil, errors.Errorf("no metadata for %s", uri)
 	}
-	return results, prevMissingImports, nil
+	return results, nil
 }
 
 func (s *snapshot) updateImports(ctx context.Context, pkgPath packagePath, pkg *packages.Package, cfg *packages.Config, seen map[packageID]struct{}) error {
@@ -210,14 +151,19 @@ func (s *snapshot) updateImports(ctx context.Context, pkgPath packagePath, pkg *
 		errors:     pkg.Errors,
 		config:     cfg,
 	}
-	seen[id] = struct{}{}
+
 	for _, filename := range pkg.CompiledGoFiles {
 		uri := span.FileURI(filename)
-		m.files = append(m.files, uri)
-
+		m.compiledGoFiles = append(m.compiledGoFiles, uri)
+		s.addID(uri, m.id)
+	}
+	for _, filename := range pkg.GoFiles {
+		uri := span.FileURI(filename)
+		m.goFiles = append(m.goFiles, uri)
 		s.addID(uri, m.id)
 	}
 
+	seen[id] = struct{}{}
 	copied := make(map[packageID]struct{})
 	for k, v := range seen {
 		copied[k] = v

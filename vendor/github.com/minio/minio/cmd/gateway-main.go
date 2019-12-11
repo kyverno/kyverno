@@ -118,6 +118,9 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// Handle common command args.
 	handleCommonCmdArgs(ctx)
 
+	// Initialize all help
+	initHelp()
+
 	// Get port to listen on from gateway address
 	globalMinioHost, globalMinioPort = mustSplitHostPort(globalCLIContext.Addr)
 
@@ -142,10 +145,11 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// Set system resources to maximum.
 	logger.LogIf(context.Background(), setMaxResources())
 
-	initNSLock(false) // Enable local namespace lock.
-
 	// Set when gateway is enabled
 	globalIsGateway = true
+
+	// Initialize globalConsoleSys system
+	globalConsoleSys = NewConsoleLogger(context.Background(), globalEndpoints)
 
 	enableConfigOps := gatewayName == "nas"
 
@@ -173,8 +177,6 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		registerSTSRouter(router)
 	}
 
-	// Initialize globalConsoleSys system
-	globalConsoleSys = NewConsoleLogger(context.Background(), globalEndpoints)
 	enableIAMOps := globalEtcdClient != nil
 
 	// Enable IAM admin APIs if etcd is enabled, if not just enable basic
@@ -204,11 +206,15 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		getCert = globalTLSCerts.GetCertificate
 	}
 
-	globalHTTPServer = xhttp.NewServer([]string{globalCLIContext.Addr},
+	httpServer := xhttp.NewServer([]string{globalCLIContext.Addr},
 		criticalErrorHandler{registerHandlers(router, globalHandlers...)}, getCert)
 	go func() {
-		globalHTTPServerErrorCh <- globalHTTPServer.Start()
+		globalHTTPServerErrorCh <- httpServer.Start()
 	}()
+
+	globalObjLayerMutex.Lock()
+	globalHTTPServer = httpServer
+	globalObjLayerMutex.Unlock()
 
 	signal.Notify(globalOSSignalCh, os.Interrupt, syscall.SIGTERM)
 
@@ -220,6 +226,8 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		globalHTTPServer.Shutdown()
 		logger.FatalIf(err, "Unable to initialize gateway backend")
 	}
+
+	newObject = NewGatewayLayerWithLocker(newObject)
 
 	// Re-enable logging
 	logger.Disable = false
@@ -292,6 +300,11 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 	// - compression
 	verifyObjectLayerFeatures("gateway "+gatewayName, newObject)
 
+	// Disable safe mode operation, after all initialization is over.
+	globalObjLayerMutex.Lock()
+	globalSafeMode = false
+	globalObjLayerMutex.Unlock()
+
 	// Prints the formatted startup message once object layer is initialized.
 	if !globalCLIContext.Quiet {
 		mode := globalMinioModeGatewayPrefix + gatewayName
@@ -306,11 +319,6 @@ func StartGateway(ctx *cli.Context, gw Gateway) {
 		// Print gateway startup message.
 		printGatewayStartupMessage(getAPIEndpoints(), gatewayName)
 	}
-
-	// Disable safe mode operation, after all initialization is over.
-	globalObjLayerMutex.Lock()
-	globalSafeMode = false
-	globalObjLayerMutex.Unlock()
 
 	// Set uptime time after object layer has initialized.
 	globalBootTime = UTCNow()
