@@ -26,11 +26,10 @@ func newPvBuilder(dclient *client.Client) *pvBuilder {
 	return &pvb
 }
 func (pvb *pvBuilder) generate(info Info) []kyverno.PolicyViolation {
-	// https://github.com/nirmata/kyverno/issues/535
 	var owners []kyverno.ResourceSpec
 	// get the owners if the resource is blocked or
-	// the resource does not have a name assigned yet(uses generateName)
-	if info.Blocked || info.Resource.GetName() == "" {
+	// TODO:  https://github.com/nirmata/kyverno/issues/535
+	if info.Blocked {
 		// get resource owners
 		owners = GetOwners(pvb.dclient, info.Resource)
 	}
