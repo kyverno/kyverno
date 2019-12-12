@@ -8,6 +8,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
+//SubstituteVariables substitutes the JMESPATH with variable substitution
+// supported substitutions
+// - no operator + variable(string,object)
+// unsupported substitutions
+// - operator + variable(object) -> as we dont support operators with object types
 func SubstituteVariables(ctx context.EvalInterface, pattern interface{}) interface{} {
 	// var err error
 	switch typedPattern := pattern.(type) {
@@ -16,7 +21,7 @@ func SubstituteVariables(ctx context.EvalInterface, pattern interface{}) interfa
 	case []interface{}:
 		return substituteArray(ctx, typedPattern)
 	case string:
-		// variable substitution is for strings
+		// variable substitution
 		return substituteValue(ctx, typedPattern)
 	default:
 		return pattern
@@ -38,6 +43,7 @@ func substituteArray(ctx context.EvalInterface, patternList []interface{}) []int
 	}
 	return patternList
 }
+
 func substituteValue(ctx context.EvalInterface, valuePattern string) interface{} {
 	// patterns supported
 	// - operator + string
@@ -57,7 +63,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 	case string:
 		return string(operatorVariable) + value.(string)
 	default:
-		glog.V(4).Info("cannot user operator with object variables")
+		glog.Infof("cannot user operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
 		var emptyInterface interface{}
 		return emptyInterface
 	}

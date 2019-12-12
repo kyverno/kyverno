@@ -2,6 +2,7 @@ package variables
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -29,6 +30,8 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	}
 	`)
 
+	resultMap := []byte(`{"spec":{"name":"temp"}}`)
+
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
 	json.Unmarshal(resourceRaw, &resource)
@@ -37,8 +40,13 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
 
 func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
@@ -62,6 +70,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 		}
 	}
 	`)
+	resultMap := []byte(`{"spec":{"name":"!temp"}}`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
@@ -71,8 +80,15 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resultRaw))
+	t.Log(string(resultMap))
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
 
 func Test_variableSubstitutionValueFail(t *testing.T) {
@@ -96,6 +112,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 		}
 	}
 	`)
+	resultMap := []byte(`{"spec":{"name":null}}`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
@@ -105,8 +122,15 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resultRaw))
+	t.Log(string(resultMap))
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
 
 func Test_variableSubstitutionObject(t *testing.T) {
@@ -135,6 +159,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 		}
 	}
 	`)
+	resultMap := []byte(`{"spec":{"variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
@@ -144,8 +169,15 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resultRaw))
+	t.Log(string(resultMap))
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
 
 func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
@@ -175,6 +207,8 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	}
 	`)
 
+	resultMap := []byte(`{"spec":{"variable":null}}`)
+
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
 	json.Unmarshal(resourceRaw, &resource)
@@ -183,8 +217,15 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resultRaw))
+	t.Log(string(resultMap))
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
 
 func Test_variableSubstitutionMultipleObject(t *testing.T) {
@@ -215,6 +256,8 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	}
 	`)
 
+	resultMap := []byte(`{"spec":{"var":"temp1","variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
+
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
 	json.Unmarshal(resourceRaw, &resource)
@@ -223,6 +266,13 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	ctx := context.NewContext()
 	ctx.Add("resource", resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
-	t.Log(value)
-	t.Fail()
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resultRaw))
+	t.Log(string(resultMap))
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Error("result does not match")
+	}
 }
