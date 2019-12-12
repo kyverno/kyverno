@@ -14,7 +14,7 @@ import (
 
 func (gen *Generator) createNamespacedPV(info Info) error {
 	// namespaced policy violations
-	var pvs []kyverno.NamespacedPolicyViolation
+	var pvs []kyverno.PolicyViolation
 	if !info.Blocked {
 		pvs = append(pvs, buildNamespacedPV(info))
 	} else {
@@ -30,7 +30,7 @@ func (gen *Generator) createNamespacedPV(info Info) error {
 	return nil
 }
 
-func buildNamespacedPV(info Info) kyverno.NamespacedPolicyViolation {
+func buildNamespacedPV(info Info) kyverno.PolicyViolation {
 	return buildNamespacedPVObj(info.PolicyName,
 		kyverno.ResourceSpec{
 			Kind: info.Resource.GetKind(),
@@ -40,8 +40,8 @@ func buildNamespacedPV(info Info) kyverno.NamespacedPolicyViolation {
 }
 
 //buildNamespacedPVObj returns an value of type PolicyViolation
-func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.NamespacedPolicyViolation {
-	pv := kyverno.NamespacedPolicyViolation{
+func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules []kyverno.ViolatedRule) kyverno.PolicyViolation {
+	pv := kyverno.PolicyViolation{
 		Spec: kyverno.PolicyViolationSpec{
 			Policy:        policy,
 			ResourceSpec:  resource,
@@ -58,7 +58,7 @@ func buildNamespacedPVObj(policy string, resource kyverno.ResourceSpec, fRules [
 	return pv
 }
 
-func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyverno.NamespacedPolicyViolation) {
+func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyverno.PolicyViolation) {
 	// create violation on resource owner (if exist) when action is set to enforce
 	ownerMap := map[kyverno.ResourceSpec]interface{}{}
 	GetOwner(dclient, ownerMap, info.Resource)
@@ -78,7 +78,7 @@ func buildNamespacedPVWithOwner(dclient *dclient.Client, info Info) (pvs []kyver
 	return
 }
 
-func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyvernolister.NamespacedPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface, pvs []kyverno.NamespacedPolicyViolation) error {
+func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyvernolister.PolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface, pvs []kyverno.PolicyViolation) error {
 	for _, newPv := range pvs {
 		glog.V(4).Infof("creating namespaced policyViolation resource for policy %s and resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 		// check if there was a previous policy voilation for policy & resource combination
@@ -87,16 +87,16 @@ func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyve
 			return fmt.Errorf("failed to get existing namespaced pv on resource '%s': %v", newPv.Spec.ResourceSpec.ToKey(), err)
 		}
 
-		if reflect.DeepEqual(curPv, kyverno.NamespacedPolicyViolation{}) {
+		if reflect.DeepEqual(curPv, kyverno.PolicyViolation{}) {
 			// no existing policy violation, create a new one
-			if reflect.DeepEqual(curPv, kyverno.NamespacedPolicyViolation{}) {
+			if reflect.DeepEqual(curPv, kyverno.PolicyViolation{}) {
 				glog.V(4).Infof("creating new namespaced policy violation for policy %s & resource %s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.ToKey())
 
 				if err := retryGetResource(namespace, dclient, newPv.Spec.ResourceSpec); err != nil {
 					return fmt.Errorf("failed to get resource for policy violation on resource '%s': %v", newPv.Spec.ResourceSpec.ToKey(), err)
 				}
 
-				if _, err := pvInterface.NamespacedPolicyViolations(namespace).Create(&newPv); err != nil {
+				if _, err := pvInterface.PolicyViolations(namespace).Create(&newPv); err != nil {
 					return fmt.Errorf("failed to create namespaced policy violation: %v", err)
 				}
 
@@ -120,7 +120,7 @@ func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyve
 		glog.V(4).Infof("creating new policy violation for policy %s & resource %s", curPv.Spec.Policy, curPv.Spec.ResourceSpec.ToKey())
 		//TODO: using a generic name, but would it be helpful to have naming convention for policy violations
 		// as we can only have one policy violation for each (policy + resource) combination
-		if _, err = pvInterface.NamespacedPolicyViolations(namespace).Update(&newPv); err != nil {
+		if _, err = pvInterface.PolicyViolations(namespace).Update(&newPv); err != nil {
 			return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 		}
 		glog.Infof("namespaced policy violation updated for resource %s", newPv.Spec.ResourceSpec.ToKey())
@@ -128,11 +128,11 @@ func createNamespacedPV(namespace string, dclient *dclient.Client, pvLister kyve
 	return nil
 }
 
-func getExistingNamespacedPVIfAny(nspvLister kyvernolister.NamespacedPolicyViolationLister, newPv kyverno.NamespacedPolicyViolation) (kyverno.NamespacedPolicyViolation, error) {
+func getExistingNamespacedPVIfAny(nspvLister kyvernolister.PolicyViolationLister, newPv kyverno.PolicyViolation) (kyverno.PolicyViolation, error) {
 	// TODO(shuting): list pvs by labels
-	pvs, err := nspvLister.NamespacedPolicyViolations(newPv.GetNamespace()).List(labels.NewSelector())
+	pvs, err := nspvLister.PolicyViolations(newPv.GetNamespace()).List(labels.NewSelector())
 	if err != nil {
-		return kyverno.NamespacedPolicyViolation{}, fmt.Errorf("failed to list namespaced policy violations err: %v", err)
+		return kyverno.PolicyViolation{}, fmt.Errorf("failed to list namespaced policy violations err: %v", err)
 	}
 
 	for _, pv := range pvs {
@@ -141,5 +141,5 @@ func getExistingNamespacedPVIfAny(nspvLister kyvernolister.NamespacedPolicyViola
 		}
 	}
 
-	return kyverno.NamespacedPolicyViolation{}, nil
+	return kyverno.PolicyViolation{}, nil
 }

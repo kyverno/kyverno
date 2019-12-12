@@ -33,7 +33,7 @@ type Generator struct {
 	// get/list cluster policy violation
 	pvLister kyvernolister.ClusterPolicyViolationLister
 	// get/ist namespaced policy violation
-	nspvLister kyvernolister.NamespacedPolicyViolationLister
+	nspvLister kyvernolister.PolicyViolationLister
 	// returns true if the cluster policy store has been synced at least once
 	pvSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
@@ -104,7 +104,7 @@ type GeneratorInterface interface {
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.NamespacedPolicyViolationInformer) *Generator {
+	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
 	gen := Generator{
 		pvInterface: client.KyvernoV1(),
 		dclient:     dclient,

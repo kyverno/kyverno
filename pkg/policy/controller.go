@@ -64,7 +64,7 @@ type PolicyController struct {
 	// pvLister can list/get policy violation from the shared informer's store
 	pvLister kyvernolister.ClusterPolicyViolationLister
 	// nspvLister can list/get namespaced policy violation from the shared informer's store
-	nspvLister kyvernolister.NamespacedPolicyViolationLister
+	nspvLister kyvernolister.PolicyViolationLister
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 	// pvListerSynced returns true if the Policy store has been synced at least once
@@ -90,7 +90,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.NamespacedPolicyViolationInformer,
+	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
@@ -490,7 +490,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 //syncStatusOnly updates the policy status subresource
 // status:
 // 		- violations : (count of the resources that violate this policy )
-func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.NamespacedPolicyViolation) error {
+func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.PolicyViolation) error {
 	newStatus := pc.calculateStatus(p.Name, pvList, nspvList)
 	if reflect.DeepEqual(newStatus, p.Status) {
 		// no update to status
@@ -503,7 +503,7 @@ func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*k
 	return err
 }
 
-func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.NamespacedPolicyViolation) kyverno.PolicyStatus {
+func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
 	violationCount := len(pvList) + len(nspvList)
 	status := kyverno.PolicyStatus{
 		ViolationCount: violationCount,
@@ -522,7 +522,7 @@ func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno
 	return status
 }
 
-func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolicy) ([]*kyverno.ClusterPolicyViolation, []*kyverno.NamespacedPolicyViolation, error) {
+func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolicy) ([]*kyverno.ClusterPolicyViolation, []*kyverno.PolicyViolation, error) {
 	policyLabelmap := map[string]string{"policy": p.Name}
 	//NOt using a field selector, as the match function will have to cash the runtime.object
 	// to get the field, while it can get labels directly, saves the cast effort
@@ -573,7 +573,7 @@ func (pc *PolicyController) getPolicyViolationsForPolicy(p *kyverno.ClusterPolic
 	if err != nil {
 		return nil, nil, err
 	}
-	claimedNSPVs := claimedNSPVList.([]*kyverno.NamespacedPolicyViolation)
+	claimedNSPVs := claimedNSPVList.([]*kyverno.PolicyViolation)
 
 	return claimedPVs, claimedNSPVs, nil
 }
@@ -606,8 +606,8 @@ func (m *PolicyViolationControllerRefManager) claimPolicyViolations(sets interfa
 		return claimed, utilerrors.NewAggregate(errlist)
 	}
 
-	var claimed []*kyverno.NamespacedPolicyViolation
-	for _, pv := range sets.([]*kyverno.NamespacedPolicyViolation) {
+	var claimed []*kyverno.PolicyViolation
+	for _, pv := range sets.([]*kyverno.PolicyViolation) {
 		ok, err := m.ClaimObject(pv, match, adopt, release)
 		if err != nil {
 			errlist = append(errlist, err)
@@ -627,7 +627,7 @@ func (m *PolicyViolationControllerRefManager) adoptPolicyViolation(pv interface{
 	case *kyverno.ClusterPolicyViolation:
 		pvname = typedPV.Name
 		pvuid = typedPV.UID
-	case *kyverno.NamespacedPolicyViolation:
+	case *kyverno.PolicyViolation:
 		ns = typedPV.Namespace
 		pvname = typedPV.Name
 		pvuid = typedPV.UID
@@ -691,7 +691,7 @@ func (m *PolicyViolationControllerRefManager) releasePolicyViolation(pv interfac
 	switch typedPV := pv.(type) {
 	case *kyverno.ClusterPolicyViolation:
 		pvname = typedPV.Name
-	case *kyverno.NamespacedPolicyViolation:
+	case *kyverno.PolicyViolation:
 		ns = typedPV.Namespace
 		pvname = typedPV.Name
 	}
@@ -884,13 +884,13 @@ func (r RealPVControl) DeletePolicyViolation(name string) error {
 
 //PatchNamespacedPolicyViolation patches the namespaced policy violation with the provided JSON Patch
 func (r RealPVControl) PatchNamespacedPolicyViolation(ns, name string, data []byte) error {
-	_, err := r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Patch(name, types.JSONPatchType, data)
+	_, err := r.Client.KyvernoV1().PolicyViolations(ns).Patch(name, types.JSONPatchType, data)
 	return err
 }
 
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
-	return r.Client.KyvernoV1().NamespacedPolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
 }
 
 // RecheckDeletionTimestamp returns a CanAdopt() function to recheck deletion.
