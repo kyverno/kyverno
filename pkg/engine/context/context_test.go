@@ -1,6 +1,7 @@
 package context
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -39,6 +40,8 @@ func Test_Add(t *testing.T) {
 	 }
 			`)
 
+	expectedResult := "my-namespace"
+
 	var err error
 	ctx := NewContext()
 	ctx.Add("resource", rawResource)
@@ -47,5 +50,9 @@ func Test_Add(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	t.Log(expectedResult)
 	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
 }

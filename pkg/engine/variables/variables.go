@@ -68,6 +68,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 		return emptyInterface
 	}
 }
+
 func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	var emptyInterface interface{}
 	// extract variable {{<variable>}}
