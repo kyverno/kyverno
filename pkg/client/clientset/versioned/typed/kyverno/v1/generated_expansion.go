@@ -22,4 +22,4 @@ type ClusterPolicyExpansion interface{}
 
 type ClusterPolicyViolationExpansion interface{}
 
-type NamespacedPolicyViolationExpansion interface{}
+type PolicyViolationExpansion interface{}

@@ -28,8 +28,8 @@ type Interface interface {
 	ClusterPolicies() ClusterPolicyInformer
 	// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
 	ClusterPolicyViolations() ClusterPolicyViolationInformer
-	// NamespacedPolicyViolations returns a NamespacedPolicyViolationInformer.
-	NamespacedPolicyViolations() NamespacedPolicyViolationInformer
+	// PolicyViolations returns a PolicyViolationInformer.
+	PolicyViolations() PolicyViolationInformer
 }
 
 type version struct {
@@ -53,7 +53,7 @@ func (v *version) ClusterPolicyViolations() ClusterPolicyViolationInformer {
 	return &clusterPolicyViolationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// NamespacedPolicyViolations returns a NamespacedPolicyViolationInformer.
-func (v *version) NamespacedPolicyViolations() NamespacedPolicyViolationInformer {
-	return &namespacedPolicyViolationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PolicyViolations returns a PolicyViolationInformer.
+func (v *version) PolicyViolations() PolicyViolationInformer {
+	return &policyViolationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

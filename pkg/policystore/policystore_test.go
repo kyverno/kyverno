@@ -294,7 +294,7 @@ func (fl *FakeLister) ListResources(selector labels.Selector) (ret []*kyverno.Cl
 	return nil, nil
 }
 
-func (fl *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
+func (fl *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	return nil, nil
 }
 

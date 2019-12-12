@@ -29,16 +29,12 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		// &Policy{},
-		// &PolicyList{},
-		// &PolicyViolation{},
-		// &PolicyViolationList{},
 		&ClusterPolicy{},
 		&ClusterPolicyList{},
 		&ClusterPolicyViolation{},
 		&ClusterPolicyViolationList{},
-		&NamespacedPolicyViolation{},
-		&NamespacedPolicyViolationList{},
+		&PolicyViolation{},
+		&PolicyViolationList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

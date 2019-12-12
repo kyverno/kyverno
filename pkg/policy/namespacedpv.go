@@ -10,7 +10,7 @@ import (
 )
 
 func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
-	pv := obj.(*kyverno.NamespacedPolicyViolation)
+	pv := obj.(*kyverno.PolicyViolation)
 
 	if pv.DeletionTimestamp != nil {
 		// On a restart of the controller manager, it's possible for an object to
@@ -55,8 +55,8 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 }
 
 func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}) {
-	curPV := cur.(*kyverno.NamespacedPolicyViolation)
-	oldPV := old.(*kyverno.NamespacedPolicyViolation)
+	curPV := cur.(*kyverno.PolicyViolation)
+	oldPV := old.(*kyverno.PolicyViolation)
 	if curPV.ResourceVersion == oldPV.ResourceVersion {
 		// Periodic resync will send update events for all known Policy Violation.
 		// Two different versions of the same replica set will always have different RVs.
@@ -111,7 +111,7 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 }
 
 func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
-	pv, ok := obj.(*kyverno.NamespacedPolicyViolation)
+	pv, ok := obj.(*kyverno.PolicyViolation)
 	// When a delete is dropped, the relist will notice a PolicyViolation in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
 	// the deleted key/value. Note that this value might be stale. If the PolicyViolation
@@ -122,7 +122,7 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 			glog.Infof("Couldn't get object from tombstone %#v", obj)
 			return
 		}
-		pv, ok = tombstone.Obj.(*kyverno.NamespacedPolicyViolation)
+		pv, ok = tombstone.Obj.(*kyverno.PolicyViolation)
 		if !ok {
 			glog.Infof("Couldn't get object from tombstone %#v", obj)
 			return
@@ -141,7 +141,7 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 	pc.enqueuePolicy(p)
 }
 
-func updateLabels(pv *kyverno.NamespacedPolicyViolation) bool {
+func updateLabels(pv *kyverno.PolicyViolation) bool {
 	if pv.Spec.Policy == "" {
 		glog.Error("policy not defined for violation")
 		// should be cleaned up
@@ -176,7 +176,7 @@ func updateLabels(pv *kyverno.NamespacedPolicyViolation) bool {
 	return false
 }
 
-func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) []*kyverno.ClusterPolicy {
+func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.PolicyViolation) []*kyverno.ClusterPolicy {
 	policies, err := pc.pLister.GetPolicyForNamespacedPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
 		return nil

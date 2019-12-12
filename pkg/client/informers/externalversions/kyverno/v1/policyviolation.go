@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// NamespacedPolicyViolationInformer provides access to a shared informer and lister for
-// NamespacedPolicyViolations.
-type NamespacedPolicyViolationInformer interface {
+// PolicyViolationInformer provides access to a shared informer and lister for
+// PolicyViolations.
+type PolicyViolationInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.NamespacedPolicyViolationLister
+	Lister() v1.PolicyViolationLister
 }
 
-type namespacedPolicyViolationInformer struct {
+type policyViolationInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewNamespacedPolicyViolationInformer constructs a new informer for NamespacedPolicyViolation type.
+// NewPolicyViolationInformer constructs a new informer for PolicyViolation type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewNamespacedPolicyViolationInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredNamespacedPolicyViolationInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPolicyViolationInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPolicyViolationInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredNamespacedPolicyViolationInformer constructs a new informer for NamespacedPolicyViolation type.
+// NewFilteredPolicyViolationInformer constructs a new informer for PolicyViolation type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredNamespacedPolicyViolationInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPolicyViolationInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().NamespacedPolicyViolations(namespace).List(options)
+				return client.KyvernoV1().PolicyViolations(namespace).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().NamespacedPolicyViolations(namespace).Watch(options)
+				return client.KyvernoV1().PolicyViolations(namespace).Watch(options)
 			},
 		},
-		&kyvernov1.NamespacedPolicyViolation{},
+		&kyvernov1.PolicyViolation{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *namespacedPolicyViolationInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredNamespacedPolicyViolationInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *policyViolationInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPolicyViolationInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *namespacedPolicyViolationInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1.NamespacedPolicyViolation{}, f.defaultInformer)
+func (f *policyViolationInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kyvernov1.PolicyViolation{}, f.defaultInformer)
 }
 
-func (f *namespacedPolicyViolationInformer) Lister() v1.NamespacedPolicyViolationLister {
-	return v1.NewNamespacedPolicyViolationLister(f.Informer().GetIndexer())
+func (f *policyViolationInformer) Lister() v1.PolicyViolationLister {
+	return v1.NewPolicyViolationLister(f.Informer().GetIndexer())
 }
