@@ -257,6 +257,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -333,6 +336,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
