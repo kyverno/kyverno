@@ -129,7 +129,7 @@ func main() {
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().NamespacedPolicyViolations())
+		pInformer.Kyverno().V1().PolicyViolations())
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -140,7 +140,7 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().NamespacedPolicyViolations(),
+		pInformer.Kyverno().V1().PolicyViolations(),
 		configData,
 		egen,
 		pvgen,
@@ -166,7 +166,7 @@ func main() {
 		client,
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().NamespacedPolicyViolations())
+		pInformer.Kyverno().V1().PolicyViolations())
 	if err != nil {
 		glog.Fatalf("error creating namespaced policy violation controller: %v\n", err)
 	}

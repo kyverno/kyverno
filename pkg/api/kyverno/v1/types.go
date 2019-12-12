@@ -25,8 +25,8 @@ type ClusterPolicyList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterPolicyViolation ...
-type ClusterPolicyViolation PolicyViolation
+// ClusterPolicyViolation represents cluster-wide violations
+type ClusterPolicyViolation PolicyViolationTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -40,16 +40,16 @@ type ClusterPolicyViolationList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NamespacedPolicyViolation ...
-type NamespacedPolicyViolation PolicyViolation
+// PolicyViolation represents namespaced violations
+type PolicyViolation PolicyViolationTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NamespacedPolicyViolationList ...
-type NamespacedPolicyViolationList struct {
+// PolicyViolationList ...
+type PolicyViolationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []NamespacedPolicyViolation `json:"items"`
+	Items           []PolicyViolation `json:"items"`
 }
 
 // Policy contains rules to be applied to created resources
@@ -172,7 +172,7 @@ type RuleStats struct {
 // PolicyList is a list of Policy resources
 
 // PolicyViolation stores the information regarinding the resources for which a policy failed to apply
-type PolicyViolation struct {
+type PolicyViolationTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              PolicyViolationSpec   `json:"spec"`

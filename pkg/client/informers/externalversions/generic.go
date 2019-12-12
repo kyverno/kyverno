@@ -57,8 +57,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicies().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("clusterpolicyviolations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicyViolations().Informer()}, nil
-	case v1.SchemeGroupVersion.WithResource("namespacedpolicyviolations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().NamespacedPolicyViolations().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("policyviolations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().PolicyViolations().Informer()}, nil
 
 	}
 
