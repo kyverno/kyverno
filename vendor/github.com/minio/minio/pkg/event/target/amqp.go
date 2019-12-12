@@ -68,7 +68,7 @@ const (
 	AmqpArguments         = "arguments"
 	AmqpPublishingHeaders = "publishing_headers"
 
-	EnvAMQPState             = "MINIO_NOTIFY_AMQP_STATE"
+	EnvAMQPEnable            = "MINIO_NOTIFY_AMQP_ENABLE"
 	EnvAMQPURL               = "MINIO_NOTIFY_AMQP_URL"
 	EnvAMQPExchange          = "MINIO_NOTIFY_AMQP_EXCHANGE"
 	EnvAMQPRoutingKey        = "MINIO_NOTIFY_AMQP_ROUTING_KEY"
@@ -119,6 +119,18 @@ type AMQPTarget struct {
 // ID - returns TargetID.
 func (target *AMQPTarget) ID() event.TargetID {
 	return target.id
+}
+
+// IsActive - Return true if target is up and active
+func (target *AMQPTarget) IsActive() (bool, error) {
+	ch, err := target.channel()
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		ch.Close()
+	}()
+	return true, nil
 }
 
 func (target *AMQPTarget) channel() (*amqp.Channel, error) {

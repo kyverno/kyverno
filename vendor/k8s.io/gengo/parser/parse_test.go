@@ -343,6 +343,39 @@ func TestParseSecondClosestCommentLines(t *testing.T) {
 	}
 }
 
+func TestParseMethodCommentLines(t *testing.T) {
+	const fileName = "base/foo/proto/foo.go"
+	testCases := []struct {
+		testFile file
+		expected []string
+	}{
+		{
+			testFile: file{
+				path: fileName, contents: `
+				    package foo
+
+                    type Blah struct {
+	                    a int
+                    }
+
+                    // BlahFunc's CommentLines.
+                    // Another line.
+                    func (b *Blah) BlahFunc() {}
+                    `},
+			expected: []string{"BlahFunc's CommentLines.", "Another line."},
+		},
+	}
+	for _, test := range testCases {
+		_, u, o := construct(t, []file{test.testFile}, namer.NewPublicNamer(0))
+		t.Logf("%#v", o)
+		blahT := u.Type(types.Name{Package: "base/foo/proto", Name: "Blah"})
+		blahM := blahT.Methods["BlahFunc"]
+		if e, a := test.expected, blahM.CommentLines; !reflect.DeepEqual(e, a) {
+			t.Errorf("struct method comment wrong, wanted %q, got %q", e, a)
+		}
+	}
+}
+
 func TestTypeKindParse(t *testing.T) {
 	var testFiles = []file{
 		{path: "a/foo.go", contents: "package a\ntype Test string\n"},

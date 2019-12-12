@@ -6,6 +6,7 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"go/ast"
 	"go/token"
 	"regexp"
@@ -22,12 +23,18 @@ import (
 
 func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
 	fh := view.Snapshot().Handle(ctx, f)
+	if fh.Identity().Kind == source.Mod {
+		return nil, nil
+	}
 	file, m, _, err := view.Session().Cache().ParseGoHandle(fh, source.ParseFull).Parse(ctx)
 	if err != nil {
 		return nil, err
@@ -41,8 +48,11 @@ func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLink
 				log.Error(ctx, "cannot unquote import path", err, tag.Of("Path", n.Path.Value))
 				return false
 			}
-			target = "https://godoc.org/" + target
-			l, err := toProtocolLink(view, m, target, n.Pos(), n.End())
+			if target == "" {
+				return false
+			}
+			target = fmt.Sprintf("https://%s/%s", view.Options().LinkTarget, target)
+			l, err := toProtocolLink(view, m, target, n.Path.Pos()+1, n.Path.End()-1)
 			if err != nil {
 				log.Error(ctx, "cannot initialize DocumentLink", err, tag.Of("Path", n.Path.Value))
 				return false
@@ -84,12 +94,14 @@ func findLinksInString(src string, pos token.Pos, view source.View, mapper *prot
 	if err != nil {
 		return nil, errors.Errorf("cannot create regexp for links: %s", err.Error())
 	}
-	for _, urlIndex := range re.FindAllIndex([]byte(src), -1) {
+	indexUrl := re.FindAllIndex([]byte(src), -1)
+	for _, urlIndex := range indexUrl {
+		var target string
 		start := urlIndex[0]
 		end := urlIndex[1]
 		startPos := token.Pos(int(pos) + start)
 		endPos := token.Pos(int(pos) + end)
-		target := src[start:end]
+		target = src[start:end]
 		l, err := toProtocolLink(view, mapper, target, startPos, endPos)
 		if err != nil {
 			return nil, err
@@ -99,7 +111,7 @@ func findLinksInString(src string, pos token.Pos, view source.View, mapper *prot
 	return links, nil
 }
 
-const urlRegexpString = "(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?"
+const urlRegexpString = "((http|ftp|https)://)?([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?"
 
 var (
 	urlRegexp  *regexp.Regexp

@@ -18,17 +18,54 @@ package ldap
 
 import "github.com/minio/minio/cmd/config"
 
-// Help template for Ldap identity feature.
+// Help template for LDAP identity feature.
 var (
-	Help = config.HelpKV{
-		ServerAddr:         `(Required) AD/LDAP server address eg: "myldapserver.com:636"`,
-		UsernameFormat:     `(Required) AD/LDAP format of full username DN eg: "uid={username},cn=accounts,dc=myldapserver,dc=com"`,
-		GroupSearchFilter:  `Search filter to find groups of a user (optional) eg: "(&(objectclass=groupOfNames)(member={usernamedn}))"`,
-		GroupNameAttribute: `Attribute of search results to use as group name (optional) eg: "cn"`,
-		GroupSearchBaseDN:  `Base DN in AD/LDAP hierarchy to use in search requests (optional) eg: "dc=myldapserver,dc=com"`,
-		STSExpiry:          `AD/LDAP STS credentials validity duration (optional) eg: "1h"`,
-		TLSSkipVerify:      "Set this to 'on', to disable client verification of server certificates",
-		config.State:       "(Required) Enable or disable LDAP/AD identity",
-		config.Comment:     "A comment to describe the LDAP/AD identity setting",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         ServerAddr,
+			Description: `AD/LDAP server address e.g. "myldapserver.com:636"`,
+			Type:        "address",
+		},
+		config.HelpKV{
+			Key:         UsernameFormat,
+			Description: `username bind DNs e.g. "uid=%s,cn=accounts,dc=myldapserver,dc=com"`,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         GroupSearchFilter,
+			Description: `search filter for groups e.g. "(&(objectclass=groupOfNames)(memberUid=%s))"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         GroupNameAttribute,
+			Description: `search attribute for group name e.g. "cn"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         GroupSearchBaseDN,
+			Description: `group search base DNs e.g. "dc=myldapserver,dc=com"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         STSExpiry,
+			Description: `temporary credentials validity duration in s,m,h,d. Default is "1h"`,
+			Optional:    true,
+			Type:        "duration",
+		},
+		config.HelpKV{
+			Key:         TLSSkipVerify,
+			Description: `trust server TLS without verification, defaults to "on" (verify)`,
+			Optional:    true,
+			Type:        "on|off",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: config.DefaultComment,
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

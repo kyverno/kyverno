@@ -16,12 +16,19 @@ import (
 
 func (s *Server) signatureHelp(ctx context.Context, params *protocol.SignatureHelpParams) (*protocol.SignatureHelp, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	info, err := source.SignatureHelp(ctx, view, f, params.Position)
+	if f.Kind() != source.Go {
+		return nil, nil
+	}
+	info, err := source.SignatureHelp(ctx, snapshot, f, params.Position)
 	if err != nil {
 		log.Print(ctx, "no signature help", tag.Of("At", params.Position), tag.Of("Failure", err))
 		return nil, nil

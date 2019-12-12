@@ -6,32 +6,28 @@ package cmdtest
 
 import (
 	"fmt"
-	"golang.org/x/tools/internal/lsp/cmd"
-	"golang.org/x/tools/internal/tool"
+	"sort"
 	"testing"
 
 	"golang.org/x/tools/internal/span"
 )
 
 func (r *runner) References(t *testing.T, spn span.Span, itemList []span.Span) {
-	var expect string
+	var itemStrings []string
 	for _, i := range itemList {
-		expect += fmt.Sprintln(i)
+		itemStrings = append(itemStrings, fmt.Sprint(i))
 	}
+	sort.Strings(itemStrings)
+	var expect string
+	for _, i := range itemStrings {
+		expect += i + "\n"
+	}
+	expect = r.Normalize(expect)
 
 	uri := spn.URI()
 	filename := uri.Filename()
 	target := filename + fmt.Sprintf(":%v:%v", spn.Start().Line(), spn.Start().Column())
-
-	app := cmd.New("gopls-test", r.data.Config.Dir, r.data.Config.Env, r.options)
-	got := CaptureStdOut(t, func() {
-		err := tool.Run(r.ctx, app, append([]string{"-remote=internal", "references"}, target))
-		if err != nil {
-			fmt.Println(spn.Start().Line())
-			fmt.Println(err)
-		}
-	})
-
+	got, _ := r.NormalizeGoplsCmd(t, "references", "-d", target)
 	if expect != got {
 		t.Errorf("references failed for %s expected:\n%s\ngot:\n%s", target, expect, got)
 	}

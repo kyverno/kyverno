@@ -19,6 +19,7 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/gob"
 	"encoding/hex"
@@ -30,6 +31,7 @@ import (
 	"sync/atomic"
 
 	"github.com/minio/minio/cmd/http"
+	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/cmd/rest"
 	xnet "github.com/minio/minio/pkg/net"
 )
@@ -143,6 +145,28 @@ func (client *storageRESTClient) String() string {
 // IsOnline - returns whether RPC client failed to connect or not.
 func (client *storageRESTClient) IsOnline() bool {
 	return atomic.LoadInt32(&client.connected) == 1
+}
+
+func (client *storageRESTClient) CrawlAndGetDataUsage(endCh <-chan struct{}) (DataUsageInfo, error) {
+	respBody, err := client.call(storageRESTMethodCrawlAndGetDataUsage, nil, nil, -1)
+	defer http.DrainBody(respBody)
+	if err != nil {
+		return DataUsageInfo{}, err
+	}
+	reader := bufio.NewReader(respBody)
+	for {
+		b, err := reader.ReadByte()
+		if err != nil {
+			return DataUsageInfo{}, err
+		}
+		if b != ' ' {
+			reader.UnreadByte()
+			break
+		}
+	}
+	var usageInfo DataUsageInfo
+	err = gob.NewDecoder(reader).Decode(&usageInfo)
+	return usageInfo, err
 }
 
 // LastError - returns the network error if any.
@@ -446,19 +470,9 @@ func (client *storageRESTClient) Close() error {
 }
 
 // Returns a storage rest client.
-func newStorageRESTClient(endpoint Endpoint) (*storageRESTClient, error) {
-	host, err := xnet.ParseHost(endpoint.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	scheme := "http"
-	if globalIsSSL {
-		scheme = "https"
-	}
-
+func newStorageRESTClient(endpoint Endpoint) *storageRESTClient {
 	serverURL := &url.URL{
-		Scheme: scheme,
+		Scheme: endpoint.Scheme,
 		Host:   endpoint.Host,
 		Path:   path.Join(storageRESTPrefix, endpoint.Path, storageRESTVersion),
 	}
@@ -466,16 +480,17 @@ func newStorageRESTClient(endpoint Endpoint) (*storageRESTClient, error) {
 	var tlsConfig *tls.Config
 	if globalIsSSL {
 		tlsConfig = &tls.Config{
-			ServerName: host.Name,
+			ServerName: endpoint.Hostname(),
 			RootCAs:    globalRootCAs,
 			NextProtos: []string{"http/1.1"}, // Force http1.1
 		}
 	}
 
-	restClient, err := rest.NewClient(serverURL, tlsConfig, rest.DefaultRESTTimeout, newAuthToken)
+	trFn := newCustomHTTPTransport(tlsConfig, rest.DefaultRESTTimeout, rest.DefaultRESTTimeout)
+	restClient, err := rest.NewClient(serverURL, trFn, newAuthToken)
 	if err != nil {
-		return nil, err
+		logger.LogIf(context.Background(), err)
+		return &storageRESTClient{endpoint: endpoint, restClient: restClient, connected: 0}
 	}
-	client := &storageRESTClient{endpoint: endpoint, restClient: restClient, connected: 1}
-	return client, nil
+	return &storageRESTClient{endpoint: endpoint, restClient: restClient, connected: 1}
 }

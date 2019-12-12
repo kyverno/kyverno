@@ -6,8 +6,7 @@
 
 // Web server tree:
 //
-//	http://godoc/		main landing page
-//	http://godoc/doc/	serve from $GOROOT/doc - spec, mem, etc.
+//	http://godoc/		redirect to /pkg/
 //	http://godoc/src/	serve files from $GOROOT/src; .go gets pretty-printed
 //	http://godoc/cmd/	serve documentation about commands
 //	http://godoc/pkg/	serve documentation about packages
@@ -160,12 +159,6 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if certInit != nil {
-		certInit()
-	}
-
-	playEnabled = *showPlayground
-
 	// Check usage.
 	if flag.NArg() > 0 {
 		fmt.Fprintln(os.Stderr, `Unexpected arguments. Use "go doc" for command-line help output instead. For example, "go doc fmt.Printf".`)
@@ -222,10 +215,10 @@ func main() {
 		// This may fail if module downloading is disallowed (GOPROXY=off) or due to
 		// limited connectivity, in which case we print errors to stderr and show
 		// documentation only for packages that are available.
-		fillModuleCache(os.Stderr)
+		fillModuleCache(os.Stderr, goModFile)
 
 		// Determine modules in the build list.
-		mods, err := buildList()
+		mods, err := buildList(goModFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to determine the build list of the main module: %v", err)
 			os.Exit(1)
@@ -276,7 +269,9 @@ func main() {
 		corpus.IndexFullText = false
 	}
 	corpus.IndexFiles = *indexFiles
-	corpus.IndexDirectory = indexDirectoryDefault
+	corpus.IndexDirectory = func(dir string) bool {
+		return dir != "/pkg" && !strings.HasPrefix(dir, "/pkg/")
+	}
 	corpus.IndexThrottle = *indexThrottle
 	corpus.IndexInterval = *indexInterval
 	if *writeIndex || *urlFlag != "" {
@@ -362,20 +357,9 @@ func main() {
 		go analysis.Run(pointerAnalysis, &corpus.Analysis)
 	}
 
-	if runHTTPS != nil {
-		go func() {
-			if err := runHTTPS(handler); err != nil {
-				log.Fatalf("ListenAndServe TLS: %v", err)
-			}
-		}()
-	}
-
 	// Start http server.
 	if *verbose {
 		log.Println("starting HTTP server")
-	}
-	if wrapHTTPMux != nil {
-		handler = wrapHTTPMux(handler)
 	}
 	if err := http.ListenAndServe(*httpAddr, handler); err != nil {
 		log.Fatalf("ListenAndServe %s: %v", *httpAddr, err)
@@ -414,7 +398,12 @@ func goMod() (string, error) {
 // It should only be used when operating in module mode.
 //
 // See https://golang.org/cmd/go/#hdr-Download_modules_to_local_cache.
-func fillModuleCache(w io.Writer) {
+func fillModuleCache(w io.Writer, goMod string) {
+	if goMod == os.DevNull {
+		// No module requirements, nothing to do.
+		return
+	}
+
 	cmd := exec.Command("go", "mod", "download", "-json")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -452,7 +441,12 @@ func fillModuleCache(w io.Writer) {
 // in module mode.
 //
 // See https://golang.org/cmd/go/#hdr-The_main_module_and_the_build_list.
-func buildList() ([]mod, error) {
+func buildList(goMod string) ([]mod, error) {
+	if goMod == os.DevNull {
+		// Empty build list.
+		return nil, nil
+	}
+
 	out, err := exec.Command("go", "list", "-m", "-json", "all").Output()
 	if ee := (*exec.ExitError)(nil); xerrors.As(err, &ee) {
 		return nil, fmt.Errorf("go command exited unsuccessfully: %v\n%s", ee.ProcessState.String(), ee.Stderr)
@@ -514,11 +508,3 @@ func (moduleFS) RootType(path string) vfs.RootType {
 	}
 }
 func (fs moduleFS) String() string { return "module(" + fs.FileSystem.String() + ")" }
-
-// Hooks that are set non-nil in autocert.go if the "autocert" build tag
-// is used.
-var (
-	certInit    func()
-	runHTTPS    func(http.Handler) error
-	wrapHTTPMux func(http.Handler) http.Handler
-)

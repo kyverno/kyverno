@@ -100,11 +100,11 @@
 		},
 		{
 			"ImportPath": "github.com/go-openapi/jsonreference",
-			"Rev": "v0.19.2"
+			"Rev": "v0.19.3"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/spec",
-			"Rev": "v0.19.2"
+			"Rev": "v0.19.3"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/swag",
@@ -212,7 +212,7 @@
 		},
 		{
 			"ImportPath": "github.com/mailru/easyjson",
-			"Rev": "b2ccc519800e"
+			"Rev": "v0.7.0"
 		},
 		{
 			"ImportPath": "github.com/modern-go/concurrent",
@@ -264,7 +264,7 @@
 		},
 		{
 			"ImportPath": "github.com/stretchr/testify",
-			"Rev": "v1.3.0"
+			"Rev": "v1.4.0"
 		},
 		{
 			"ImportPath": "go.opencensus.io",
@@ -372,19 +372,19 @@
 		},
 		{
 			"ImportPath": "k8s.io/api",
-			"Rev": "6d4d1612ba53"
+			"Rev": "v0.17.0"
 		},
 		{
 			"ImportPath": "k8s.io/apimachinery",
-			"Rev": "dffb012825f2"
+			"Rev": "v0.17.0"
 		},
 		{
 			"ImportPath": "k8s.io/client-go",
-			"Rev": "3c0d1af94be5"
+			"Rev": "v0.17.0"
 		},
 		{
 			"ImportPath": "k8s.io/code-generator",
-			"Rev": "a9a0d9c0b3aa"
+			"Rev": "v0.17.0"
 		},
 		{
 			"ImportPath": "k8s.io/gengo",
@@ -400,7 +400,7 @@
 		},
 		{
 			"ImportPath": "k8s.io/utils",
-			"Rev": "2b95a09bc58d"
+			"Rev": "e782cd3c129f"
 		},
 		{
 			"ImportPath": "modernc.org/cc",

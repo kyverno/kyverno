@@ -70,6 +70,7 @@ Using the above `access_token` we can perform an STS request to MinIO to get tem
 MinIO server expects environment variable for OpenID configuration url as `MINIO_IDENTITY_OPENID_CONFIG_URL`, this environment variable takes a single entry.
 ```
 export MINIO_IDENTITY_OPENID_CONFIG_URL=https://localhost:9443/oauth2/oidcdiscovery/.well-known/openid-configuration
+export MINIO_IDENTITY_OPENID_CLIENT_ID="843351d4-1080-11ea-aa20-271ecba3924a"
 minio server /mnt/data
 ```
 

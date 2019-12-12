@@ -81,7 +81,7 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 	exp := time.Duration(59) * time.Second
 	claimSet := &ClaimSet{
 		Issuer:       fmt.Sprintf("urn:atlassian:connect:clientid:%s", js.conf.ClientID),
-		Subject:      fmt.Sprintf("urn:atlassian:connect:userkey:%s", js.conf.Subject),
+		Subject:      fmt.Sprintf("urn:atlassian:connect:useraccountid:%s", js.conf.Subject),
 		InstalledURL: js.conf.BaseURL,
 		AuthURL:      js.conf.Endpoint.AuthURL,
 		IssuedAt:     time.Now().Unix(),
