@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"gotest.tools/assert"
 )
 
@@ -243,41 +244,13 @@ func TestGetNumberAndStringPartsFromPattern_Empty(t *testing.T) {
 }
 
 func TestValidateNumber_EqualTwoFloats(t *testing.T) {
-	assert.Assert(t, validateNumber(7.0, 7.000, Equal))
+	assert.Assert(t, validateNumber(7.0, 7.000, operator.Equal))
 }
 
 func TestValidateNumber_LessFloatAndInt(t *testing.T) {
-	assert.Assert(t, validateNumber(7, 7.00001, Less))
-	assert.Assert(t, validateNumber(7, 7.00001, NotEqual))
+	assert.Assert(t, validateNumber(7, 7.00001, operator.Less))
+	assert.Assert(t, validateNumber(7, 7.00001, operator.NotEqual))
 
-	assert.Assert(t, !validateNumber(7, 7.0000, NotEqual))
-	assert.Assert(t, !validateNumber(6, 6.000000001, More))
-}
-
-func TestValidateNumberWithStr_Equal(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr("1024Gi", "1024", "Gi", Equal))
-}
-
-func TestValidateNumberWithStr_More(t *testing.T) {
-	assert.Assert(t, !validateNumberWithStr("512Gi", "1024", "Gi", More))
-}
-
-func TestValidateNumberWithStr_MoreAndWildCard(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr("2048Gi", "1024", "G?", More))
-}
-
-func TestValidateNumberWithStr_NoStr(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr(2048, "1024", "", More))
-}
-
-func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
-	assert.Equal(t, getOperatorFromStringPattern("f"), Equal)
-}
-
-func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
-	assert.Equal(t, getOperatorFromStringPattern(""), Equal)
-}
-
-func TestGetOperatorFromStringPattern_OnlyOperator(t *testing.T) {
-	assert.Equal(t, getOperatorFromStringPattern(">="), MoreEqual)
+	assert.Assert(t, !validateNumber(7, 7.0000, operator.NotEqual))
+	assert.Assert(t, !validateNumber(6, 6.000000001, operator.More))
 }

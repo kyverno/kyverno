@@ -14,7 +14,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -280,7 +280,7 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 }
 
 func isStringIsReference(str string) bool {
-	if len(str) < len(referenceSign) {
+	if len(str) < len(operator.ReferenceSign) {
 		return false
 	}
 

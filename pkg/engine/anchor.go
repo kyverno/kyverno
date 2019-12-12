@@ -6,12 +6,11 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
 //ValidationHandler for element processes
 type ValidationHandler interface {
-	Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error)
+	Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error)
 }
 
 //CreateElementHandler factory to process elements
@@ -47,7 +46,7 @@ type NegationHandler struct {
 }
 
 //Handle process negation handler
-func (nh NegationHandler) Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+func (nh NegationHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	anchorKey := removeAnchor(nh.anchor)
 	currentPath := nh.path + anchorKey + "/"
 	// if anchor is present in the resource then fail
@@ -76,13 +75,13 @@ type EqualityHandler struct {
 }
 
 //Handle processed condition anchor
-func (eh EqualityHandler) Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+func (eh EqualityHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	anchorKey := removeAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := validateResourceElement(ctx, value, eh.pattern, originPattern, currentPath)
+		returnPath, err := validateResourceElement(value, eh.pattern, originPattern, currentPath)
 		if err != nil {
 			return returnPath, err
 		}
@@ -108,14 +107,14 @@ type DefaultHandler struct {
 }
 
 //Handle process non anchor element
-func (dh DefaultHandler) Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+func (dh DefaultHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	currentPath := dh.path + dh.element + "/"
 	if dh.pattern == "*" && resourceMap[dh.element] != nil {
 		return "", nil
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
 		return dh.path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
 	} else {
-		path, err := validateResourceElement(ctx, resourceMap[dh.element], dh.pattern, originPattern, currentPath)
+		path, err := validateResourceElement(resourceMap[dh.element], dh.pattern, originPattern, currentPath)
 		if err != nil {
 			return path, err
 		}
@@ -140,13 +139,13 @@ type ConditionAnchorHandler struct {
 }
 
 //Handle processed condition anchor
-func (ch ConditionAnchorHandler) Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+func (ch ConditionAnchorHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	anchorKey := removeAnchor(ch.anchor)
 	currentPath := ch.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := validateResourceElement(ctx, value, ch.pattern, originPattern, currentPath)
+		returnPath, err := validateResourceElement(value, ch.pattern, originPattern, currentPath)
 		if err != nil {
 			return returnPath, err
 		}
@@ -173,7 +172,7 @@ type ExistanceHandler struct {
 }
 
 //Handle processes the existence anchor handler
-func (eh ExistanceHandler) Handle(ctx context.EvalInterface, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+func (eh ExistanceHandler) Handle(resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
 	// skip is used by existance anchor to not process further if condition is not satisfied
 	anchorKey := removeAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
@@ -192,7 +191,7 @@ func (eh ExistanceHandler) Handle(ctx context.EvalInterface, resourceMap map[str
 			if !ok {
 				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
 			}
-			return validateExistenceListResource(ctx, typedResource, typedPatternMap, originPattern, currentPath)
+			return validateExistenceListResource(typedResource, typedPatternMap, originPattern, currentPath)
 		default:
 			glog.Error("Invalid type: Existance ^ () anchor can be used only on list/array type resource")
 			return currentPath, fmt.Errorf("Invalid resource type %T: Existance ^ () anchor can be used only on list/array type resource", value)
@@ -201,12 +200,12 @@ func (eh ExistanceHandler) Handle(ctx context.EvalInterface, resourceMap map[str
 	return "", nil
 }
 
-func validateExistenceListResource(ctx context.EvalInterface, resourceList []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+func validateExistenceListResource(resourceList []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
 	// the idea is atleast on the elements in the array should satisfy the pattern
 	// if non satisfy then throw an error
 	for i, resourceElement := range resourceList {
 		currentPath := path + strconv.Itoa(i) + "/"
-		_, err := validateResourceElement(ctx, resourceElement, patternMap, originPattern, currentPath)
+		_, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
 		if err == nil {
 			// condition is satisfied, dont check further
 			glog.V(4).Infof("Existence check satisfied at path %s, for pattern %v", currentPath, patternMap)

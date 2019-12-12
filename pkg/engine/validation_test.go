@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"gotest.tools/assert"
 )
 
@@ -13,8 +15,8 @@ func TestValidateString_AsteriskTest(t *testing.T) {
 	value := "anything"
 	empty := ""
 
-	assert.Assert(t, validateString(value, pattern, Equal))
-	assert.Assert(t, validateString(empty, pattern, Equal))
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(empty, pattern, operator.Equal))
 }
 
 func TestValidateString_LeftAsteriskTest(t *testing.T) {
@@ -22,32 +24,32 @@ func TestValidateString_LeftAsteriskTest(t *testing.T) {
 	value := "leftright"
 	right := "right"
 
-	assert.Assert(t, validateString(value, pattern, Equal))
-	assert.Assert(t, validateString(right, pattern, Equal))
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(right, pattern, operator.Equal))
 
 	value = "leftmiddle"
 	middle := "middle"
 
-	assert.Assert(t, !validateString(value, pattern, Equal))
-	assert.Assert(t, !validateString(middle, pattern, Equal))
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
+	assert.Assert(t, !validateString(middle, pattern, operator.Equal))
 }
 
 func TestValidateString_MiddleAsteriskTest(t *testing.T) {
 	pattern := "ab*ba"
 	value := "abbeba"
-	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
 
 	value = "abbca"
-	assert.Assert(t, !validateString(value, pattern, Equal))
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
 }
 
 func TestValidateString_QuestionMark(t *testing.T) {
 	pattern := "ab?ba"
 	value := "abbba"
-	assert.Assert(t, validateString(value, pattern, Equal))
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
 
 	value = "abbbba"
-	assert.Assert(t, !validateString(value, pattern, Equal))
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
 }
 
 func TestSkipArrayObject_OneAnchor(t *testing.T) {
@@ -973,6 +975,37 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	json.Unmarshal(rawMap, &resource)
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	assert.Equal(t, path, "")
+	assert.NilError(t, err)
+}
+
+func Test_Variable(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}	`)
+	patternMap := []byte(`
+	{
+		"spec": {
+			"name": "$(temp)"
+		}
+	}
+	`)
+	var pattern, resource interface{}
+	json.Unmarshal(patternMap, &pattern)
+	json.Unmarshal(resourceRaw, &resource)
+
+	// context
+	ctx := context.NewContext()
+	ctx.Add("resource", resourceRaw)
+	path, err := validateResourceWithPattern(ctx, resource, pattern)
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }

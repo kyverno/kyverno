@@ -9,28 +9,8 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
-
-// Operator is string alias that represents selection operators enum
-type Operator string
-
-const (
-	// Equal stands for ==
-	Equal Operator = ""
-	// MoreEqual stands for >=
-	MoreEqual Operator = ">="
-	// LessEqual stands for <=
-	LessEqual Operator = "<="
-	// NotEqual stands for !
-	NotEqual Operator = "!"
-	// More stands for >
-	More Operator = ">"
-	// Less stands for <
-	Less Operator = "<"
-)
-
-const relativePrefix Operator = "./"
-const referenceSign Operator = "$()"
 
 // ValidateValueWithPattern validates value with operators and wildcards
 func ValidateValueWithPattern(value, pattern interface{}) bool {
@@ -179,7 +159,7 @@ func validateValueWithStringPatterns(value interface{}, pattern string) bool {
 // Handler for single pattern value during validation process
 // Detects if pattern has a number
 func validateValueWithStringPattern(value interface{}, pattern string) bool {
-	operator := getOperatorFromStringPattern(pattern)
+	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
@@ -191,8 +171,8 @@ func validateValueWithStringPattern(value interface{}, pattern string) bool {
 }
 
 // Handler for string values
-func validateString(value interface{}, pattern string, operator Operator) bool {
-	if NotEqual == operator || Equal == operator {
+func validateString(value interface{}, pattern string, operatorVariable operator.Operator) bool {
+	if operator.NotEqual == operatorVariable || operator.Equal == operatorVariable {
 		strValue, ok := value.(string)
 		if !ok {
 			glog.Warningf("Expected string, found %T\n", value)
@@ -201,7 +181,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 
 		wildcardResult := wildcard.Match(pattern, strValue)
 
-		if NotEqual == operator {
+		if operator.NotEqual == operatorVariable {
 			return !wildcardResult
 		}
 
@@ -213,7 +193,7 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 }
 
 // validateNumberWithStr applies wildcard to suffix and operator to numerical part
-func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
+func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator operator.Operator) bool {
 	// pattern has suffix
 	if "" != patternStr {
 		typedValue, ok := value.(string)
@@ -235,7 +215,7 @@ func validateNumberWithStr(value interface{}, patternNumber, patternStr string, 
 }
 
 // validateNumber compares two numbers with operator
-func validateNumber(value, pattern interface{}, operator Operator) bool {
+func validateNumber(value, pattern interface{}, operatorVariable operator.Operator) bool {
 	floatPattern, err := convertToFloat(pattern)
 	if err != nil {
 		return false
@@ -246,51 +226,22 @@ func validateNumber(value, pattern interface{}, operator Operator) bool {
 		return false
 	}
 
-	switch operator {
-	case Equal:
+	switch operatorVariable {
+	case operator.Equal:
 		return floatValue == floatPattern
-	case NotEqual:
+	case operator.NotEqual:
 		return floatValue != floatPattern
-	case More:
+	case operator.More:
 		return floatValue > floatPattern
-	case MoreEqual:
+	case operator.MoreEqual:
 		return floatValue >= floatPattern
-	case Less:
+	case operator.Less:
 		return floatValue < floatPattern
-	case LessEqual:
+	case operator.LessEqual:
 		return floatValue <= floatPattern
 	}
 
 	return false
-}
-
-// getOperatorFromStringPattern parses opeartor from pattern
-func getOperatorFromStringPattern(pattern string) Operator {
-	if len(pattern) < 2 {
-		return Equal
-	}
-
-	if pattern[:len(MoreEqual)] == string(MoreEqual) {
-		return MoreEqual
-	}
-
-	if pattern[:len(LessEqual)] == string(LessEqual) {
-		return LessEqual
-	}
-
-	if pattern[:len(More)] == string(More) {
-		return More
-	}
-
-	if pattern[:len(Less)] == string(Less) {
-		return Less
-	}
-
-	if pattern[:len(NotEqual)] == string(NotEqual) {
-		return NotEqual
-	}
-
-	return Equal
 }
 
 // detects numerical and string parts in pattern and returns them

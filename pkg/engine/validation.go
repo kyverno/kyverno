@@ -13,6 +13,8 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -227,13 +229,17 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 // It assumes that validation is started from root, so "/" is passed
 //TODO: for failure, we return the path at which it failed along with error
 func validateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, error) {
-	return validateResourceElement(ctx, resource, pattern, pattern, "/")
+	// first pass we substitute all the JMESPATH substitution for the variable
+	// variable: {{<JMESPATH>}}
+	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
+	pattern = variables.SubstituteVariables(ctx, pattern)
+	return validateResourceElement(resource, pattern, pattern, "/")
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
-func validateResourceElement(ctx context.EvalInterface, resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
+func validateResourceElement(resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
 	var err error
 	switch typedPatternElement := patternElement.(type) {
 	// map
@@ -244,7 +250,7 @@ func validateResourceElement(ctx context.EvalInterface, resourceElement, pattern
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
 
-		return validateMap(ctx, typedResourceElement, typedPatternElement, originPattern, path)
+		return validateMap(typedResourceElement, typedPatternElement, originPattern, path)
 	// array
 	case []interface{}:
 		typedResourceElement, ok := resourceElement.([]interface{})
@@ -253,7 +259,7 @@ func validateResourceElement(ctx context.EvalInterface, resourceElement, pattern
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 
-		return validateArray(ctx, typedResourceElement, typedPatternElement, originPattern, path)
+		return validateArray(typedResourceElement, typedPatternElement, originPattern, path)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
@@ -278,7 +284,7 @@ func validateResourceElement(ctx context.EvalInterface, resourceElement, pattern
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(ctx context.EvalInterface, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
@@ -291,7 +297,7 @@ func validateMap(ctx context.EvalInterface, resourceMap, patternMap map[string]i
 		// - Existance
 		// - Equality
 		handler := CreateElementHandler(key, patternElement, path)
-		handlerPath, err := handler.Handle(ctx, resourceMap, origPattern)
+		handlerPath, err := handler.Handle(resourceMap, origPattern)
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
@@ -307,7 +313,7 @@ func validateMap(ctx context.EvalInterface, resourceMap, patternMap map[string]i
 	for key, resourceElement := range resources {
 		// get handler for resources in the pattern
 		handler := CreateElementHandler(key, resourceElement, path)
-		handlerPath, err := handler.Handle(ctx, resourceMap, origPattern)
+		handlerPath, err := handler.Handle(resourceMap, origPattern)
 		if err != nil {
 			return handlerPath, err
 		}
@@ -315,7 +321,7 @@ func validateMap(ctx context.EvalInterface, resourceMap, patternMap map[string]i
 	return "", nil
 }
 
-func validateArray(ctx context.EvalInterface, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
+func validateArray(resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
 
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
@@ -325,7 +331,7 @@ func validateArray(ctx context.EvalInterface, resourceArray, patternArray []inte
 	case map[string]interface{}:
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
-		path, err := validateArrayOfMaps(ctx, resourceArray, typedPatternElement, originPattern, path)
+		path, err := validateArrayOfMaps(resourceArray, typedPatternElement, originPattern, path)
 		if err != nil {
 			return path, err
 		}
@@ -333,7 +339,7 @@ func validateArray(ctx context.EvalInterface, resourceArray, patternArray []inte
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		for i, patternElement := range patternArray {
 			currentPath := path + strconv.Itoa(i) + "/"
-			path, err := validateResourceElement(ctx, resourceArray[i], patternElement, originPattern, currentPath)
+			path, err := validateResourceElement(resourceArray[i], patternElement, originPattern, currentPath)
 			if err != nil {
 				return path, err
 			}
@@ -348,13 +354,17 @@ func actualizePattern(origPattern interface{}, referencePattern, absolutePath st
 
 	referencePattern = strings.Trim(referencePattern, "$()")
 
-	operator := getOperatorFromStringPattern(referencePattern)
-	referencePattern = referencePattern[len(operator):]
+	operatorVariable := operator.GetOperatorFromStringPattern(referencePattern)
+	referencePattern = referencePattern[len(operatorVariable):]
 
 	if len(referencePattern) == 0 {
 		return nil, errors.New("Expected path. Found empty reference")
 	}
-
+	// Check for variables
+	// substitute it from Context
+	// remove abosolute path
+	// {{ }}
+	// value :=
 	actualPath := FormAbsolutePath(referencePattern, absolutePath)
 
 	valFromReference, err := getValueFromReference(origPattern, actualPath)
@@ -362,15 +372,15 @@ func actualizePattern(origPattern interface{}, referencePattern, absolutePath st
 		return err, nil
 	}
 	//TODO validate this
-	if operator == Equal { //if operator does not exist return raw value
+	if operatorVariable == operator.Equal { //if operator does not exist return raw value
 		return valFromReference, nil
 	}
 
-	foundValue, err = valFromReferenceToString(valFromReference, string(operator))
+	foundValue, err = valFromReferenceToString(valFromReference, string(operatorVariable))
 	if err != nil {
 		return "", err
 	}
-	return string(operator) + foundValue.(string), nil
+	return string(operatorVariable) + foundValue.(string), nil
 }
 
 //Parse value to string
@@ -456,12 +466,12 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
-func validateArrayOfMaps(ctx context.EvalInterface, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
 	for i, resourceElement := range resourceMapArray {
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
 		currentPath := path + strconv.Itoa(i) + "/"
-		returnpath, err := validateResourceElement(ctx, resourceElement, patternMap, originPattern, currentPath)
+		returnpath, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
 		if err != nil {
 			return returnpath, err
 		}
