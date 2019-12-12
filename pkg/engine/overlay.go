@@ -15,17 +15,19 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/validate"
 )
 
 // processOverlay processes validation patterns on the resource
-func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
+func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
-	response.Name = rule.Name
-	response.Type = Mutation.String()
+	resp.Name = rule.Name
+	resp.Type = Mutation.String()
 	defer func() {
-		response.RuleStats.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("finished applying overlay rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
+		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
 
 	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
@@ -36,41 +38,41 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		// consider as success
 		case conditionNotPresent:
 			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
-			response.Success = true
-			return response, resource
+			resp.Success = true
+			return resp, resource
 		// conditions are not met, don't apply this rule
 		case conditionFailure:
 			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			//TODO: send zero response and not consider this as applied?
-			response.Success = true
-			response.Message = overlayerr.ErrorMsg()
-			return response, resource
+			resp.Success = true
+			resp.Message = overlayerr.ErrorMsg()
+			return resp, resource
 		// rule application failed
 		case overlayFailure:
 			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), rule.Name)
-			response.Success = false
-			response.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
-			return response, resource
+			resp.Success = false
+			resp.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
+			return resp, resource
 		default:
 			glog.Errorf("Resource %s/%s/%s: Unknown type of error: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.Error())
-			response.Success = false
-			response.Message = fmt.Sprintf("Unknown type of error: %v", overlayerr.Error())
-			return response, resource
+			resp.Success = false
+			resp.Message = fmt.Sprintf("Unknown type of error: %v", overlayerr.Error())
+			return resp, resource
 		}
 	}
 
 	if len(patches) == 0 {
-		response.Success = true
-		return response, resource
+		resp.Success = true
+		return resp, resource
 	}
 
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		response.Success = false
+		resp.Success = false
 		glog.Infof("unable to marshall resource: %v", err)
-		response.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
-		return response, resource
+		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
 	}
 
 	var patchResource []byte
@@ -78,25 +80,25 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
 		glog.V(2).Infof("%s, patches=%s", msg, string(JoinPatches(patches)))
-		response.Success = false
-		response.Message = msg
-		return response, resource
+		resp.Success = false
+		resp.Message = msg
+		return resp, resource
 	}
 
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
-		response.Success = false
-		response.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
-		return response, resource
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
 	}
 
 	// rule application succesfuly
-	response.Success = true
-	response.Message = fmt.Sprintf("successfully processed overlay")
-	response.Patches = patches
+	resp.Success = true
+	resp.Message = fmt.Sprintf("successfully processed overlay")
+	resp.Patches = patches
 	// apply the patches to the resource
-	return response, patchedResource
+	return resp, patchedResource
 }
 
 func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
@@ -463,4 +465,22 @@ func hasNestedAnchors(overlay interface{}) bool {
 	default:
 		return false
 	}
+}
+
+// Checks if array object matches anchors. If not - skip - return true
+func skipArrayObject(object, anchors map[string]interface{}) bool {
+	for key, pattern := range anchors {
+		key = key[1 : len(key)-1]
+
+		value, ok := object[key]
+		if !ok {
+			return true
+		}
+
+		if !validate.ValidateValueWithPattern(value, pattern) {
+			return true
+		}
+	}
+
+	return false
 }

@@ -10,7 +10,7 @@ import (
 
 //Interface ... normal functions
 type Interface interface {
-	Add(key string, data []byte, force bool) error
+	Add(key string, data []byte) error
 	Remove(key string) error
 	EvalInterface
 }

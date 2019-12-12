@@ -7,12 +7,13 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func isResponseSuccesful(engineReponses []engine.EngineResponse) bool {
+func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
 			return false
@@ -23,7 +24,7 @@ func isResponseSuccesful(engineReponses []engine.EngineResponse) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []engine.EngineResponse) bool {
+func toBlockResource(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if er.PolicyResponse.ValidationFailureAction == Enforce {
 			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
@@ -34,7 +35,7 @@ func toBlockResource(engineReponses []engine.EngineResponse) bool {
 	return false
 }
 
-func getErrorMsg(engineReponses []engine.EngineResponse) string {
+func getErrorMsg(engineReponses []response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
 

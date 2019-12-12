@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/response"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
@@ -67,23 +67,23 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 
 }
 
-func processPatches(rule kyverno.Rule, resource unstructured.Unstructured) (response RuleResponse, patchedResource unstructured.Unstructured) {
+func processPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started JSON patch rule %q (%v)", rule.Name, startTime)
-	response.Name = rule.Name
-	response.Type = Mutation.String()
+	resp.Name = rule.Name
+	resp.Type = Mutation.String()
 	defer func() {
-		response.RuleStats.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("finished JSON patch rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
+		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("finished JSON patch rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
 
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		response.Success = false
+		resp.Success = false
 		glog.Infof("unable to marshall resource: %v", err)
-		response.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
-		return response, resource
+		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
 	}
 
 	var errs []error
@@ -112,27 +112,27 @@ func processPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 
 	// error while processing JSON patches
 	if len(errs) > 0 {
-		response.Success = false
-		response.Message = fmt.Sprintf("failed to process JSON patches: %v", func() string {
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", func() string {
 			var str []string
 			for _, err := range errs {
 				str = append(str, err.Error())
 			}
 			return strings.Join(str, ";")
 		}())
-		return response, resource
+		return resp, resource
 	}
 	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
-		response.Success = false
-		response.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
-		return response, resource
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
 	}
 
 	// JSON patches processed succesfully
-	response.Success = true
-	response.Message = fmt.Sprintf("succesfully process JSON patches")
-	response.Patches = patches
-	return response, patchedResource
+	resp.Success = true
+	resp.Message = fmt.Sprintf("succesfully process JSON patches")
+	resp.Patches = patches
+	return resp, patchedResource
 }

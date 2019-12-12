@@ -1,4 +1,4 @@
-package engine
+package validate
 
 import (
 	"encoding/json"
@@ -13,6 +13,48 @@ func TestValidateValueWithPattern_Bool(t *testing.T) {
 	assert.Assert(t, !ValidateValueWithPattern(true, false))
 	assert.Assert(t, !ValidateValueWithPattern(false, true))
 	assert.Assert(t, ValidateValueWithPattern(false, false))
+}
+
+func TestValidateString_AsteriskTest(t *testing.T) {
+	pattern := "*"
+	value := "anything"
+	empty := ""
+
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(empty, pattern, operator.Equal))
+}
+
+func TestValidateString_LeftAsteriskTest(t *testing.T) {
+	pattern := "*right"
+	value := "leftright"
+	right := "right"
+
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(right, pattern, operator.Equal))
+
+	value = "leftmiddle"
+	middle := "middle"
+
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
+	assert.Assert(t, !validateString(middle, pattern, operator.Equal))
+}
+
+func TestValidateString_MiddleAsteriskTest(t *testing.T) {
+	pattern := "ab*ba"
+	value := "abbeba"
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+
+	value = "abbca"
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
+}
+
+func TestValidateString_QuestionMark(t *testing.T) {
+	pattern := "ab?ba"
+	value := "abbba"
+	assert.Assert(t, validateString(value, pattern, operator.Equal))
+
+	value = "abbbba"
+	assert.Assert(t, !validateString(value, pattern, operator.Equal))
 }
 
 func TestValidateValueWithPattern_BoolInJson(t *testing.T) {

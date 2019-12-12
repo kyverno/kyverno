@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -19,7 +20,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	var policyStats []policyctr.PolicyStat
 
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
@@ -60,7 +61,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	// if not then set it from the api request
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
 	resource.SetNamespace(request.Namespace)
-	var engineResponses []engine.EngineResponse
+	var engineResponses []response.EngineResponse
 	policyContext := engine.PolicyContext{
 		NewResource: *resource,
 		AdmissionInfo: engine.RequestInfo{
