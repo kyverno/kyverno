@@ -14,6 +14,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,7 +27,7 @@ import (
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
-	"golang.org/x/tools/internal/txtar"
+	"golang.org/x/tools/txtar"
 )
 
 const (
@@ -52,8 +53,8 @@ type Formats []span.Span
 type Imports []span.Span
 type SuggestedFixes []span.Span
 type Definitions map[span.Span]Definition
-type Implementationses map[span.Span]Implementations
-type Highlights map[string][]span.Span
+type Implementations map[span.Span][]span.Span
+type Highlights map[span.Span][]span.Span
 type References map[span.Span][]span.Span
 type Renames map[span.Span]string
 type PrepareRenames map[span.Span]*source.PrepareItem
@@ -79,7 +80,7 @@ type Data struct {
 	Imports                  Imports
 	SuggestedFixes           SuggestedFixes
 	Definitions              Definitions
-	Implementationses        Implementationses
+	Implementations          Implementations
 	Highlights               Highlights
 	References               References
 	Renames                  Renames
@@ -112,8 +113,8 @@ type Tests interface {
 	Import(*testing.T, span.Span)
 	SuggestedFix(*testing.T, span.Span)
 	Definition(*testing.T, span.Span, Definition)
-	Implementation(*testing.T, span.Span, Implementations)
-	Highlight(*testing.T, string, []span.Span)
+	Implementation(*testing.T, span.Span, []span.Span)
+	Highlight(*testing.T, span.Span, []span.Span)
 	References(*testing.T, span.Span, []span.Span)
 	Rename(*testing.T, span.Span, string)
 	PrepareRename(*testing.T, span.Span, *source.PrepareItem)
@@ -127,11 +128,6 @@ type Definition struct {
 	IsType    bool
 	OnlyHover bool
 	Src, Def  span.Span
-}
-
-type Implementations struct {
-	Src             span.Span
-	Implementations []span.Span
 }
 
 type CompletionTestType int
@@ -197,6 +193,8 @@ func DefaultOptions() source.Options {
 	return o
 }
 
+var haveCgo = false
+
 func Load(t testing.TB, exporter packagestest.Exporter, dir string) *Data {
 	t.Helper()
 
@@ -211,7 +209,7 @@ func Load(t testing.TB, exporter packagestest.Exporter, dir string) *Data {
 		RankCompletions:          make(RankCompletions),
 		CaseSensitiveCompletions: make(CaseSensitiveCompletions),
 		Definitions:              make(Definitions),
-		Implementationses:        make(Implementationses),
+		Implementations:          make(Implementations),
 		Highlights:               make(Highlights),
 		References:               make(References),
 		Renames:                  make(Renames),
@@ -351,6 +349,9 @@ func Run(t *testing.T, tests Tests, data *Data) {
 			for i, e := range exp {
 				t.Run(spanName(src)+"_"+strconv.Itoa(i), func(t *testing.T) {
 					t.Helper()
+					if (!haveCgo || runtime.GOOS == "android") && strings.Contains(t.Name(), "cgo") {
+						t.Skip("test requires cgo, not supported")
+					}
 					test(t, src, e, data.CompletionItems)
 				})
 			}
@@ -462,6 +463,9 @@ func Run(t *testing.T, tests Tests, data *Data) {
 		for spn, d := range data.Definitions {
 			t.Run(spanName(spn), func(t *testing.T) {
 				t.Helper()
+				if (!haveCgo || runtime.GOOS == "android") && strings.Contains(t.Name(), "cgo") {
+					t.Skip("test requires cgo, not supported")
+				}
 				tests.Definition(t, spn, d)
 			})
 		}
@@ -469,7 +473,7 @@ func Run(t *testing.T, tests Tests, data *Data) {
 
 	t.Run("Implementation", func(t *testing.T) {
 		t.Helper()
-		for spn, m := range data.Implementationses {
+		for spn, m := range data.Implementations {
 			t.Run(spanName(spn), func(t *testing.T) {
 				t.Helper()
 				tests.Implementation(t, spn, m)
@@ -479,10 +483,10 @@ func Run(t *testing.T, tests Tests, data *Data) {
 
 	t.Run("Highlight", func(t *testing.T) {
 		t.Helper()
-		for name, locations := range data.Highlights {
-			t.Run(name, func(t *testing.T) {
+		for pos, locations := range data.Highlights {
+			t.Run(spanName(pos), func(t *testing.T) {
 				t.Helper()
-				tests.Highlight(t, name, locations)
+				tests.Highlight(t, pos, locations)
 			})
 		}
 	})
@@ -615,6 +619,7 @@ func checkData(t *testing.T, data *Data) {
 	fmt.Fprintf(buf, "SymbolsCount = %v\n", len(data.Symbols))
 	fmt.Fprintf(buf, "SignaturesCount = %v\n", len(data.Signatures))
 	fmt.Fprintf(buf, "LinksCount = %v\n", linksCount)
+	fmt.Fprintf(buf, "ImplementationsCount = %v\n", len(data.Implementations))
 
 	want := string(data.Golden("summary", "summary.txt", func() ([]byte, error) {
 		return buf.Bytes(), nil
@@ -704,7 +709,6 @@ func (data *Data) collectDiagnostics(spn span.Span, msgSource, msg string) {
 	// This is not the correct way to do this,
 	// but it seems excessive to do the full conversion here.
 	want := source.Diagnostic{
-		URI: spn.URI(),
 		Range: protocol.Range{
 			Start: protocol.Position{
 				Line:      float64(spn.Start().Line()) - 1,
@@ -796,12 +800,8 @@ func (data *Data) collectDefinitions(src, target span.Span) {
 	}
 }
 
-func (data *Data) collectImplementations(src, target span.Span) {
-	// Add target to the list of expected implementations for src
-	imps := data.Implementationses[src]
-	imps.Src = src // Src is already set if imps already exists, but then we're setting it to the same thing.
-	imps.Implementations = append(imps.Implementations, target)
-	data.Implementationses[src] = imps
+func (data *Data) collectImplementations(src span.Span, targets []span.Span) {
+	data.Implementations[src] = targets
 }
 
 func (data *Data) collectHoverDefinitions(src, target span.Span) {
@@ -826,8 +826,9 @@ func (data *Data) collectDefinitionNames(src span.Span, name string) {
 	data.Definitions[src] = d
 }
 
-func (data *Data) collectHighlights(name string, rng span.Span) {
-	data.Highlights[name] = append(data.Highlights[name], rng)
+func (data *Data) collectHighlights(src span.Span, expected []span.Span) {
+	// Declaring a highlight in a test file: @highlight(src, expected1, expected2)
+	data.Highlights[src] = append(data.Highlights[src], expected...)
 }
 
 func (data *Data) collectReferences(src span.Span, expected []span.Span) {
@@ -839,11 +840,6 @@ func (data *Data) collectRenames(src span.Span, newText string) {
 }
 
 func (data *Data) collectPrepareRenames(src span.Span, rng span.Range, placeholder string) {
-	if int(rng.End-rng.Start) != len(placeholder) {
-		// If the length of the placeholder and the length of the range do not match,
-		// make the range just be the start.
-		rng = span.NewRange(rng.FileSet, rng.Start, rng.Start)
-	}
 	m, err := data.Mapper(src.URI())
 	if err != nil {
 		data.t.Fatal(err)

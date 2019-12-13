@@ -14,20 +14,31 @@ import (
 	"golang.org/x/tools/internal/lsp/diff"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/snippet"
-	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/telemetry/log"
 )
 
 // literal generates composite literal, function literal, and make()
 // completion items.
 func (c *completer) literal(literalType types.Type, imp *importInfo) {
-	// Don't provide literal candidates for variadic function arguments.
-	// For example, don't provide "[]interface{}{}" in "fmt.Print(<>)".
-	if c.expectedType.variadic {
+	if !c.opts.Literal {
 		return
 	}
 
 	expType := c.expectedType.objType
+
+	if c.expectedType.variadic {
+		// Don't offer literal slice candidates for variadic arguments.
+		// For example, don't offer "[]interface{}{}" in "fmt.Print(<>)".
+		if c.expectedType.matchesVariadic(literalType) {
+			return
+		}
+
+		// Otherwise, consider our expected type to be the variadic
+		// element type, not the slice type.
+		if slice, ok := expType.(*types.Slice); ok {
+			expType = slice.Elem()
+		}
+	}
 
 	// Avoid literal candidates if the expected type is an empty
 	// interface. It isn't very useful to suggest a literal candidate of
@@ -54,17 +65,12 @@ func (c *completer) literal(literalType types.Type, imp *importInfo) {
 
 	// Check if an object of type literalType or *literalType would
 	// match our expected type.
+	var isPointer bool
 	if !c.matchingType(literalType) {
-		literalType = types.NewPointer(literalType)
-
-		if !c.matchingType(literalType) {
+		isPointer = true
+		if !c.matchingType(types.NewPointer(literalType)) {
 			return
 		}
-	}
-
-	ptr, isPointer := literalType.(*types.Pointer)
-	if isPointer {
-		literalType = ptr.Elem()
 	}
 
 	var (
@@ -104,7 +110,7 @@ func (c *completer) literal(literalType types.Type, imp *importInfo) {
 				// If we are in a selector we must place the "&" before the selector.
 				// For example, "foo.B<>" must complete to "&foo.Bar{}", not
 				// "foo.&Bar{}".
-				edits, err := referenceEdit(c.view.Session().Cache().FileSet(), c.mapper, sel)
+				edits, err := referenceEdit(c.snapshot.View().Session().Cache().FileSet(), c.mapper, sel)
 				if err != nil {
 					log.Error(c.ctx, "error making edit for literal pointer completion", err)
 					return
@@ -122,8 +128,9 @@ func (c *completer) literal(literalType types.Type, imp *importInfo) {
 		case *types.Basic, *types.Signature:
 			// Add a literal completion for basic types that implement our
 			// expected interface (e.g. named string type http.Dir
-			// implements http.FileSystem).
-			if isInterface(expType) {
+			// implements http.FileSystem), or are identical to our expected
+			// type (i.e. yielding a type conversion such as "float64()").
+			if isInterface(expType) || types.Identical(expType, literalType) {
 				c.basicLiteral(t, typeName, float64(score), addlEdits)
 			}
 		}
@@ -156,11 +163,7 @@ func (c *completer) literal(literalType types.Type, imp *importInfo) {
 // referenceEdit produces text edits that prepend a "&" operator to the
 // specified node.
 func referenceEdit(fset *token.FileSet, m *protocol.ColumnMapper, node ast.Node) ([]protocol.TextEdit, error) {
-	rng := span.Range{
-		FileSet: fset,
-		Start:   node.Pos(),
-		End:     node.Pos(),
-	}
+	rng := newMappedRange(fset, m, node.Pos(), node.Pos())
 	spn, err := rng.Span()
 	if err != nil {
 		return nil, err
@@ -303,8 +306,8 @@ func (c *completer) compositeLiteral(T types.Type, typeName string, matchScore f
 	snip := &snippet.Builder{}
 	snip.WriteText(typeName + "{")
 	// Don't put the tab stop inside the composite literal curlies "{}"
-	// for structs that have no fields.
-	if strct, ok := T.(*types.Struct); !ok || strct.NumFields() > 0 {
+	// for structs that have no accessible fields.
+	if strct, ok := T.(*types.Struct); !ok || fieldsAccessible(strct, c.pkg.GetTypes()) {
 		snip.WriteFinalTabstop()
 	}
 	snip.WriteText("}")

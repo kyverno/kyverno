@@ -20,12 +20,35 @@ import "github.com/minio/minio/cmd/config"
 
 // Help template for caching feature.
 var (
-	Help = config.HelpKV{
-		Drives:         `List of mounted drives or directories delimited by ";"`,
-		Exclude:        `List of wildcard based cache exclusion patterns delimited by ";"`,
-		Expiry:         `Cache expiry duration in days. eg: "90"`,
-		Quota:          `Maximum permitted usage of the cache in percentage (0-100)`,
-		config.State:   "Indicates if caching is enabled or not",
-		config.Comment: "A comment to describe the caching setting",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         Drives,
+			Description: `comma separated mountpoints e.g. "/optane1,/optane2"`,
+			Type:        "csv",
+		},
+		config.HelpKV{
+			Key:         Expiry,
+			Description: `cache expiry duration in days e.g. "90"`,
+			Optional:    true,
+			Type:        "number",
+		},
+		config.HelpKV{
+			Key:         Quota,
+			Description: `limit cache drive usage in percentage e.g. "90"`,
+			Optional:    true,
+			Type:        "number",
+		},
+		config.HelpKV{
+			Key:         Exclude,
+			Description: `comma separated wildcard exclusion patterns e.g. "bucket/*.tmp,*.exe"`,
+			Optional:    true,
+			Type:        "csv",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: config.DefaultComment,
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

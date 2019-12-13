@@ -13,6 +13,8 @@ spec:
     kind: ClusterPolicy
     plural: clusterpolicies
     singular: clusterpolicy
+    shortNames:
+    - cpol
   subresources:
     status: {}
   validation:
@@ -238,8 +240,23 @@ spec:
     kind: ClusterPolicyViolation
     plural: clusterpolicyviolations
     singular: clusterpolicyviolation
+    shortNames:
+    - cpolv
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
@@ -261,8 +278,6 @@ spec:
                   type: string
                 name:
                   type: string
-                namespace:
-                  type: string
             rules:
               type: array
               items:
@@ -283,15 +298,13 @@ spec:
                     properties:
                       kind:
                         type: string
-                      namespace:
-                        type: string
                       creationBlocked:
                         type: boolean
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: namespacedpolicyviolations.kyverno.io
+  name: policyviolations.kyverno.io
 spec:
   group: kyverno.io
   versions:
@@ -300,11 +313,26 @@ spec:
       storage: true
   scope: Namespaced
   names:
-    kind: NamespacedPolicyViolation
-    plural: namespacedpolicyviolations
-    singular: namespacedpolicyviolation
+    kind: PolicyViolation
+    plural: policyviolations
+    singular: policyviolation
+    shortNames:
+    - polv
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
   validation:
     openAPIV3Schema:
       properties:
@@ -326,8 +354,6 @@ spec:
                   type: string
                 name:
                   type: string
-                namespace:
-                  type: string
             rules:
               type: array
               items:
@@ -347,8 +373,6 @@ spec:
                     type: object
                     properties:
                       kind:
-                        type: string
-                      namespace:
                         type: string
                       creationBlocked:
                         type: boolean

@@ -47,14 +47,19 @@ type parseGoData struct {
 	err        error
 }
 
+func (pgh *parseGoHandle) String() string {
+	return pgh.File().Identity().URI.Filename()
+}
+
 func (c *cache) ParseGoHandle(fh source.FileHandle, mode source.ParseMode) source.ParseGoHandle {
 	key := parseKey{
 		file: fh.Identity(),
 		mode: mode,
 	}
+	fset := c.fset
 	h := c.store.Bind(key, func(ctx context.Context) interface{} {
 		data := &parseGoData{}
-		data.ast, data.mapper, data.parseError, data.err = parseGo(ctx, c, fh, mode)
+		data.ast, data.mapper, data.parseError, data.err = parseGo(ctx, fset, fh, mode)
 		return data
 	})
 	return &parseGoHandle{
@@ -64,27 +69,27 @@ func (c *cache) ParseGoHandle(fh source.FileHandle, mode source.ParseMode) sourc
 	}
 }
 
-func (h *parseGoHandle) File() source.FileHandle {
-	return h.file
+func (pgh *parseGoHandle) File() source.FileHandle {
+	return pgh.file
 }
 
-func (h *parseGoHandle) Mode() source.ParseMode {
-	return h.mode
+func (pgh *parseGoHandle) Mode() source.ParseMode {
+	return pgh.mode
 }
 
-func (h *parseGoHandle) Parse(ctx context.Context) (*ast.File, *protocol.ColumnMapper, error, error) {
-	v := h.handle.Get(ctx)
+func (pgh *parseGoHandle) Parse(ctx context.Context) (*ast.File, *protocol.ColumnMapper, error, error) {
+	v := pgh.handle.Get(ctx)
 	if v == nil {
-		return nil, nil, nil, errors.Errorf("no parsed file for %s", h.File().Identity().URI)
+		return nil, nil, nil, errors.Errorf("no parsed file for %s", pgh.File().Identity().URI)
 	}
 	data := v.(*parseGoData)
 	return data.ast, data.mapper, data.parseError, data.err
 }
 
-func (h *parseGoHandle) Cached() (*ast.File, *protocol.ColumnMapper, error, error) {
-	v := h.handle.Cached()
+func (pgh *parseGoHandle) Cached() (*ast.File, *protocol.ColumnMapper, error, error) {
+	v := pgh.handle.Cached()
 	if v == nil {
-		return nil, nil, nil, errors.Errorf("no cached AST for %s", h.file.Identity().URI)
+		return nil, nil, nil, errors.Errorf("no cached AST for %s", pgh.file.Identity().URI)
 	}
 	data := v.(*parseGoData)
 	return data.ast, data.mapper, data.parseError, data.err
@@ -105,7 +110,7 @@ func hashParseKeys(phs []source.ParseGoHandle) string {
 	return hashContents(b.Bytes())
 }
 
-func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.ParseMode) (file *ast.File, mapper *protocol.ColumnMapper, parseError error, err error) {
+func parseGo(ctx context.Context, fset *token.FileSet, fh source.FileHandle, mode source.ParseMode) (file *ast.File, mapper *protocol.ColumnMapper, parseError error, err error) {
 	ctx, done := trace.StartSpan(ctx, "cache.parseGo", telemetry.File.Of(fh.Identity().URI.Filename()))
 	defer done()
 
@@ -119,18 +124,21 @@ func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.Pa
 	if mode == source.ParseHeader {
 		parserMode = parser.ImportsOnly | parser.ParseComments
 	}
-	file, parseError = parser.ParseFile(c.fset, fh.Identity().URI.Filename(), buf, parserMode)
+	file, parseError = parser.ParseFile(fset, fh.Identity().URI.Filename(), buf, parserMode)
+	var tok *token.File
 	if file != nil {
+		// Fix any badly parsed parts of the AST.
+		tok = fset.File(file.Pos())
+		if tok == nil {
+			return nil, nil, nil, errors.Errorf("successfully parsed but no token.File for %s (%v)", fh.Identity().URI, parseError)
+		}
 		if mode == source.ParseExported {
 			trimAST(file)
 		}
-		// Fix any badly parsed parts of the AST.
-		tok := c.fset.File(file.Pos())
 		if err := fix(ctx, file, tok, buf); err != nil {
 			log.Error(ctx, "failed to fix AST", err)
 		}
 	}
-
 	if file == nil {
 		// If the file is nil only due to parse errors,
 		// the parse errors are the actual errors.
@@ -140,10 +148,6 @@ func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.Pa
 		}
 		return nil, nil, parseError, err
 	}
-	tok := c.FileSet().File(file.Pos())
-	if tok == nil {
-		return nil, nil, parseError, errors.Errorf("no token.File for %s", fh.Identity().URI)
-	}
 	uri := fh.Identity().URI
 	content, _, err := fh.Read(ctx)
 	if err != nil {
@@ -151,7 +155,7 @@ func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.Pa
 	}
 	m := &protocol.ColumnMapper{
 		URI:       uri,
-		Converter: span.NewTokenConverter(c.FileSet(), tok),
+		Converter: span.NewTokenConverter(fset, tok),
 		Content:   content,
 	}
 	return file, m, parseError, nil
@@ -199,18 +203,23 @@ func isEllipsisArray(n ast.Expr) bool {
 func fix(ctx context.Context, n ast.Node, tok *token.File, src []byte) error {
 	var (
 		ancestors []ast.Node
-		parent    ast.Node
 		err       error
 	)
-	ast.Inspect(n, func(n ast.Node) bool {
-		if n == nil {
-			if len(ancestors) > 0 {
-				ancestors = ancestors[:len(ancestors)-1]
-				if len(ancestors) > 0 {
-					parent = ancestors[len(ancestors)-1]
-				}
+	ast.Inspect(n, func(n ast.Node) (recurse bool) {
+		defer func() {
+			if recurse {
+				ancestors = append(ancestors, n)
 			}
+		}()
+
+		if n == nil {
+			ancestors = ancestors[:len(ancestors)-1]
 			return false
+		}
+
+		var parent ast.Node
+		if len(ancestors) > 0 {
+			parent = ancestors[len(ancestors)-1]
 		}
 
 		switch n := n.(type) {
@@ -227,19 +236,157 @@ func fix(ctx context.Context, n ast.Node, tok *token.File, src []byte) error {
 			// Don't propagate this error since *ast.BadExpr is very common
 			// and it is only sometimes due to array types. Errors from here
 			// are expected and not actionable in general.
-			fixArrayErr := fixArrayType(n, parent, tok, src)
-			if fixArrayErr == nil {
+			if fixArrayType(n, parent, tok, src) == nil {
 				// Recursively fix in our fixed node.
 				err = fix(ctx, parent, tok, src)
+				return false
 			}
+
+			// Fix cases where the parser expects an expression but finds a keyword, e.g.:
+			//
+			//   someFunc(var<>) // want to complete to "variance"
+			//
+			fixAccidentalKeyword(n, parent, tok, src)
+
 			return false
+		case *ast.DeclStmt:
+			// Fix cases where the completion prefix looks like a decl, e.g.:
+			//
+			//   func typeName(obj interface{}) string {}
+			//   type<> // want to call "typeName()" but looks like a "type" decl
+			//
+			fixAccidentalDecl(n, parent, tok, src)
+			return false
+		case *ast.SelectorExpr:
+			// Fix cases where a keyword prefix results in a phantom "_" selector, e.g.:
+			//
+			//   foo.var<> // want to complete to "foo.variance"
+			//
+			fixPhantomSelector(n, tok, src)
+			return true
 		default:
-			ancestors = append(ancestors, n)
-			parent = n
 			return true
 		}
 	})
+
 	return err
+}
+
+// fixAccidentalDecl tries to fix "accidental" declarations. For example:
+//
+// func typeOf() {}
+// type<> // want to call typeOf(), not declare a type
+//
+// If we find an *ast.DeclStmt with only a single phantom "_" spec, we
+// replace the decl statement with an expression statement containing
+// only the keyword. This allows completion to work to some degree.
+func fixAccidentalDecl(decl *ast.DeclStmt, parent ast.Node, tok *token.File, src []byte) {
+	genDecl, _ := decl.Decl.(*ast.GenDecl)
+	if genDecl == nil || len(genDecl.Specs) != 1 {
+		return
+	}
+
+	switch spec := genDecl.Specs[0].(type) {
+	case *ast.TypeSpec:
+		// If the name isn't a phantom "_" identifier inserted by the
+		// parser then the decl is likely legitimate and we shouldn't mess
+		// with it.
+		if !isPhantomUnderscore(spec.Name, tok, src) {
+			return
+		}
+	case *ast.ValueSpec:
+		if len(spec.Names) != 1 || !isPhantomUnderscore(spec.Names[0], tok, src) {
+			return
+		}
+	}
+
+	replaceNode(parent, decl, &ast.ExprStmt{
+		X: &ast.Ident{
+			Name:    genDecl.Tok.String(),
+			NamePos: decl.Pos(),
+		},
+	})
+}
+
+// fixPhantomSelector tries to fix selector expressions with phantom
+// "_" selectors. In particular, we check if the selector is a
+// keyword, and if so we swap in an *ast.Ident with the keyword text. For example:
+//
+// foo.var
+//
+// yields a "_" selector instead of "var" since "var" is a keyword.
+func fixPhantomSelector(sel *ast.SelectorExpr, tok *token.File, src []byte) {
+	if !isPhantomUnderscore(sel.Sel, tok, src) {
+		return
+	}
+
+	maybeKeyword := readKeyword(sel.Sel.Pos(), tok, src)
+	if maybeKeyword == "" {
+		return
+	}
+
+	replaceNode(sel, sel.Sel, &ast.Ident{
+		Name:    maybeKeyword,
+		NamePos: sel.Sel.Pos(),
+	})
+}
+
+// isPhantomUnderscore reports whether the given ident is a phantom
+// underscore. The parser sometimes inserts phantom underscores when
+// it encounters otherwise unparseable situations.
+func isPhantomUnderscore(id *ast.Ident, tok *token.File, src []byte) bool {
+	if id == nil || id.Name != "_" {
+		return false
+	}
+
+	// Phantom underscore means the underscore is not actually in the
+	// program text.
+	offset := tok.Offset(id.Pos())
+	return len(src) <= offset || src[offset] != '_'
+}
+
+// fixAccidentalKeyword tries to fix "accidental" keyword expressions. For example:
+//
+// variance := 123
+// doMath(var<>)
+//
+// If we find an *ast.BadExpr that begins with a keyword, we replace
+// the BadExpr with an *ast.Ident containing the text of the keyword.
+// This allows completion to work to some degree.
+func fixAccidentalKeyword(bad *ast.BadExpr, parent ast.Node, tok *token.File, src []byte) {
+	if !bad.Pos().IsValid() {
+		return
+	}
+
+	maybeKeyword := readKeyword(bad.Pos(), tok, src)
+	if maybeKeyword == "" {
+		return
+	}
+
+	replaceNode(parent, bad, &ast.Ident{Name: maybeKeyword, NamePos: bad.Pos()})
+}
+
+// readKeyword reads the keyword starting at pos, if any.
+func readKeyword(pos token.Pos, tok *token.File, src []byte) string {
+	var kwBytes []byte
+	for i := tok.Offset(pos); i < len(src); i++ {
+		// Use a simplified identifier check since keywords are always lowercase ASCII.
+		if src[i] < 'a' || src[i] > 'z' {
+			break
+		}
+		kwBytes = append(kwBytes, src[i])
+
+		// Stop search at arbitrarily chosen too-long-for-a-keyword length.
+		if len(kwBytes) > 15 {
+			return ""
+		}
+	}
+
+	if kw := string(kwBytes); token.Lookup(kw).IsKeyword() {
+		return kw
+	}
+
+	return ""
 }
 
 // fixArrayType tries to parse an *ast.BadExpr into an *ast.ArrayType.

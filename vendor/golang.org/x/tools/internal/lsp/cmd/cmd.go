@@ -45,8 +45,8 @@ type Application struct {
 	// TODO: Remove this when we stop allowing the serve verb by default.
 	Serve Serve
 
-	// The base cache to use for sessions from this application.
-	cache source.Cache
+	// the options configuring function to invoke when building a server
+	options func(*source.Options)
 
 	// The name of the binary, used in help and telemetry.
 	name string
@@ -77,7 +77,7 @@ func New(name, wd string, env []string, options func(*source.Options)) *Applicat
 		wd, _ = os.Getwd()
 	}
 	app := &Application{
-		cache:   cache.New(options),
+		options: options,
 		name:    name,
 		wd:      wd,
 		env:     env,
@@ -144,8 +144,10 @@ func (app *Application) commands() []tool.Application {
 		&check{app: app},
 		&foldingRanges{app: app},
 		&format{app: app},
-		&links{app: app},
+		&highlight{app: app},
+		&implementation{app: app},
 		&imports{app: app},
+		&links{app: app},
 		&query{app: app},
 		&references{app: app},
 		&rename{app: app},
@@ -165,8 +167,8 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 	switch app.Remote {
 	case "":
 		connection := newConnection(app)
-		ctx, connection.Server = lsp.NewClientServer(ctx, app.cache, connection.Client)
-		return connection, connection.initialize(ctx)
+		ctx, connection.Server = lsp.NewClientServer(ctx, cache.New(app.options), connection.Client)
+		return connection, connection.initialize(ctx, app.options)
 	case "internal":
 		internalMu.Lock()
 		defer internalMu.Unlock()
@@ -181,10 +183,10 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 		ctx, jc, connection.Server = protocol.NewClient(ctx, jsonrpc2.NewHeaderStream(cr, cw), connection.Client)
 		go jc.Run(ctx)
 		go func() {
-			ctx, srv := lsp.NewServer(ctx, app.cache, jsonrpc2.NewHeaderStream(sr, sw))
+			ctx, srv := lsp.NewServer(ctx, cache.New(app.options), jsonrpc2.NewHeaderStream(sr, sw))
 			srv.Run(ctx)
 		}()
-		if err := connection.initialize(ctx); err != nil {
+		if err := connection.initialize(ctx, app.options); err != nil {
 			return nil, err
 		}
 		internalConnections[app.wd] = connection
@@ -199,17 +201,24 @@ func (app *Application) connect(ctx context.Context) (*connection, error) {
 		var jc *jsonrpc2.Conn
 		ctx, jc, connection.Server = protocol.NewClient(ctx, stream, connection.Client)
 		go jc.Run(ctx)
-		return connection, connection.initialize(ctx)
+		return connection, connection.initialize(ctx, app.options)
 	}
 }
 
-func (c *connection) initialize(ctx context.Context) error {
-	params := &protocol.ParamInitia{}
+func (c *connection) initialize(ctx context.Context, options func(*source.Options)) error {
+	params := &protocol.ParamInitialize{}
 	params.RootURI = string(span.FileURI(c.Client.app.wd))
 	params.Capabilities.Workspace.Configuration = true
-	params.Capabilities.TextDocument.Hover = &protocol.HoverClientCapabilities{
-		ContentFormat: []protocol.MarkupKind{protocol.PlainText},
+
+	// Make sure to respect configured options when sending initialize request.
+	opts := source.DefaultOptions
+	if options != nil {
+		options(&opts)
 	}
+	params.Capabilities.TextDocument.Hover = protocol.HoverClientCapabilities{
+		ContentFormat: []protocol.MarkupKind{opts.PreferredContentFormat},
+	}
+
 	if _, err := c.Server.Initialize(ctx, params); err != nil {
 		return err
 	}
@@ -295,7 +304,7 @@ func (c *cmdClient) WorkspaceFolders(ctx context.Context) ([]protocol.WorkspaceF
 	return nil, nil
 }
 
-func (c *cmdClient) Configuration(ctx context.Context, p *protocol.ParamConfig) ([]interface{}, error) {
+func (c *cmdClient) Configuration(ctx context.Context, p *protocol.ParamConfiguration) ([]interface{}, error) {
 	results := make([]interface{}, len(p.Items))
 	for i, item := range p.Items {
 		if item.Section != "gopls" {
@@ -322,17 +331,22 @@ func (c *cmdClient) ApplyEdit(ctx context.Context, p *protocol.ApplyWorkspaceEdi
 }
 
 func (c *cmdClient) PublishDiagnostics(ctx context.Context, p *protocol.PublishDiagnosticsParams) error {
+	// Don't worry about diagnostics without versions.
+	if p.Version == 0 {
+		return nil
+	}
+
 	c.filesMu.Lock()
 	defer c.filesMu.Unlock()
+
 	uri := span.URI(p.URI)
 	file := c.getFile(ctx, uri)
+
 	file.diagnosticsMu.Lock()
 	defer file.diagnosticsMu.Unlock()
+
 	hadDiagnostics := file.diagnostics != nil
 	file.diagnostics = p.Diagnostics
-	if file.diagnostics == nil {
-		file.diagnostics = []protocol.Diagnostic{}
-	}
 	if !hadDiagnostics {
 		close(file.hasDiagnostics)
 	}
@@ -383,10 +397,14 @@ func (c *connection) AddFile(ctx context.Context, uri span.URI) *cmdFile {
 		return file
 	}
 	file.added = true
-	p := &protocol.DidOpenTextDocumentParams{}
-	p.TextDocument.URI = string(uri)
-	p.TextDocument.Text = string(file.mapper.Content)
-	p.TextDocument.LanguageID = source.DetectLanguage("", file.uri.Filename()).String()
+	p := &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        protocol.NewURI(uri),
+			LanguageID: source.DetectLanguage("", file.uri.Filename()).String(),
+			Version:    1,
+			Text:       string(file.mapper.Content),
+		},
+	}
 	if err := c.Server.DidOpen(ctx, p); err != nil {
 		file.err = errors.Errorf("%v: %v", uri, err)
 	}

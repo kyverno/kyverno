@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/fake"
+	listerv1 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 func Test_Operations(t *testing.T) {
@@ -207,8 +210,8 @@ func Test_Operations(t *testing.T) {
 	polices = append(polices, obj)
 	// Mock Lister
 	client := fake.NewSimpleClientset(polices...)
-	fakeLister := &FakeLister{client: client}
-	store := NewPolicyStore(fakeLister)
+	fakeInformer := &FakeInformer{client: client}
+	store := NewPolicyStore(fakeInformer)
 	// Test Operations
 	// Add
 	store.Register(policy1)
@@ -258,25 +261,77 @@ func Test_Operations(t *testing.T) {
 
 }
 
+type FakeInformer struct {
+	client *fake.Clientset
+}
+
+func (fi *FakeInformer) Informer() cache.SharedIndexInformer {
+	fsi := &FakeSharedInformer{}
+	return fsi
+}
+
+func (fi *FakeInformer) Lister() listerv1.ClusterPolicyLister {
+	fl := &FakeLister{client: fi.client}
+	return fl
+}
+
 type FakeLister struct {
 	client *fake.Clientset
 }
 
-func (fk *FakeLister) List(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
+func (fl *FakeLister) List(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
 	return nil, nil
 }
 
-func (fk *FakeLister) Get(name string) (*kyverno.ClusterPolicy, error) {
-	return fk.client.KyvernoV1().ClusterPolicies().Get(name, v1.GetOptions{})
+func (fl *FakeLister) Get(name string) (*kyverno.ClusterPolicy, error) {
+	return fl.client.KyvernoV1().ClusterPolicies().Get(name, v1.GetOptions{})
 }
 
-func (fk *FakeLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
+func (fl *FakeLister) GetPolicyForPolicyViolation(pv *kyverno.ClusterPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	return nil, nil
 }
-func (fk *FakeLister) ListResources(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
+func (fl *FakeLister) ListResources(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
 	return nil, nil
 }
 
-func (fk *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.NamespacedPolicyViolation) ([]*kyverno.ClusterPolicy, error) {
+func (fl *FakeLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno.PolicyViolation) ([]*kyverno.ClusterPolicy, error) {
 	return nil, nil
+}
+
+type FakeSharedInformer struct {
+}
+
+func (fsi *FakeSharedInformer) HasSynced() bool {
+	return true
+}
+
+func (fsi *FakeSharedInformer) AddEventHandler(handler cache.ResourceEventHandler) {
+}
+
+func (fsi *FakeSharedInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) {
+
+}
+
+func (fsi *FakeSharedInformer) AddIndexers(indexers cache.Indexers) error {
+	return nil
+}
+
+func (fsi *FakeSharedInformer) GetIndexer() cache.Indexer {
+	return nil
+}
+
+func (fsi *FakeSharedInformer) GetStore() cache.Store {
+	return nil
+}
+
+func (fsi *FakeSharedInformer) GetController() cache.Controller {
+	return nil
+}
+
+func (fsi *FakeSharedInformer) Run(stopCh <-chan struct{}) {
+
+}
+
+func (fsi *FakeSharedInformer) LastSyncResourceVersion() string {
+	return ""
 }

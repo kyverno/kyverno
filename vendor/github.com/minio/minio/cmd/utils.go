@@ -35,6 +35,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beevik/ntp"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/handlers"
@@ -314,6 +315,17 @@ func UTCNow() time.Time {
 	return time.Now().UTC()
 }
 
+// UTCNowNTP - is similar in functionality to UTCNow()
+// but only used when we do not wish to rely on system
+// time.
+func UTCNowNTP() (time.Time, error) {
+	// ntp server is disabled
+	if ntpServer == "" {
+		return UTCNow(), nil
+	}
+	return ntp.Time(ntpServer)
+}
+
 // GenETag - generate UUID based ETag
 func GenETag() string {
 	return ToS3ETag(getMD5Hash([]byte(mustGetUUID())))
@@ -332,25 +344,49 @@ func ToS3ETag(etag string) string {
 	return etag
 }
 
+type dialContext func(ctx context.Context, network, address string) (net.Conn, error)
+
+func newCustomDialContext(dialTimeout, dialKeepAlive time.Duration) dialContext {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := &net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: dialKeepAlive,
+			DualStack: true,
+		}
+
+		return dialer.DialContext(ctx, network, addr)
+	}
+}
+
+func newCustomHTTPTransport(tlsConfig *tls.Config, dialTimeout, dialKeepAlive time.Duration) func() *http.Transport {
+	// For more details about various values used here refer
+	// https://golang.org/pkg/net/http/#Transport documentation
+	tr := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           newCustomDialContext(dialTimeout, dialKeepAlive),
+		MaxIdleConnsPerHost:   256,
+		IdleConnTimeout:       60 * time.Second,
+		TLSHandshakeTimeout:   30 * time.Second,
+		ExpectContinueTimeout: 10 * time.Second,
+		TLSClientConfig:       tlsConfig,
+		// Go net/http automatically unzip if content-type is
+		// gzip disable this feature, as we are always interested
+		// in raw stream.
+		DisableCompression: true,
+	}
+	return func() *http.Transport {
+		return tr
+	}
+}
+
 // NewCustomHTTPTransport returns a new http configuration
 // used while communicating with the cloud backends.
 // This sets the value for MaxIdleConnsPerHost from 2 (go default)
-// to 100.
+// to 256.
 func NewCustomHTTPTransport() *http.Transport {
-	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultDialTimeout,
-			KeepAlive: defaultDialKeepAlive,
-		}).DialContext,
-		MaxIdleConns:          1024,
-		MaxIdleConnsPerHost:   1024,
-		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{RootCAs: globalRootCAs},
-		DisableCompression:    true,
-	}
+	return newCustomHTTPTransport(&tls.Config{
+		RootCAs: globalRootCAs,
+	}, defaultDialTimeout, defaultDialKeepAlive)()
 }
 
 // Load the json (typically from disk file).
@@ -489,6 +525,16 @@ func getMinioMode() string {
 	return mode
 }
 
+func splitN(str, delim string, num int) []string {
+	stdSplit := strings.SplitN(str, delim, num)
+	retSplit := make([]string, num)
+	for i := 0; i < len(stdSplit); i++ {
+		retSplit[i] = stdSplit[i]
+	}
+
+	return retSplit
+}
+
 func iamPolicyName() string {
 	return globalOpenIDConfig.ClaimPrefix + iampolicy.PolicyName
 }
@@ -497,6 +543,5 @@ func isWORMEnabled(bucket string) (Retention, bool) {
 	if globalWORMEnabled {
 		return Retention{}, true
 	}
-
-	return globalBucketRetentionConfig.Get(bucket)
+	return globalBucketObjectLockConfig.Get(bucket)
 }

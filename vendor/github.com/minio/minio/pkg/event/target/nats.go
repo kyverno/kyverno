@@ -18,6 +18,8 @@ package target
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -32,35 +34,43 @@ import (
 
 // NATS related constants
 const (
-	NATSAddress      = "address"
-	NATSSubject      = "subject"
-	NATSUsername     = "username"
-	NATSPassword     = "password"
-	NATSToken        = "token"
-	NATSSecure       = "secure"
-	NATSPingInterval = "ping_interval"
-	NATSQueueDir     = "queue_dir"
-	NATSQueueLimit   = "queue_limit"
+	NATSAddress       = "address"
+	NATSSubject       = "subject"
+	NATSUsername      = "username"
+	NATSPassword      = "password"
+	NATSToken         = "token"
+	NATSTLS           = "tls"
+	NATSTLSSkipVerify = "tls_skip_verify"
+	NATSPingInterval  = "ping_interval"
+	NATSQueueDir      = "queue_dir"
+	NATSQueueLimit    = "queue_limit"
+	NATSCertAuthority = "cert_authority"
+	NATSClientCert    = "client_cert"
+	NATSClientKey     = "client_key"
 
 	// Streaming constants
-	NATSStreamingEnable             = "streaming_enable"
+	NATSStreaming                   = "streaming"
 	NATSStreamingClusterID          = "streaming_cluster_id"
 	NATSStreamingAsync              = "streaming_async"
 	NATSStreamingMaxPubAcksInFlight = "streaming_max_pub_acks_in_flight"
 
-	EnvNATSState        = "MINIO_NOTIFY_NATS_STATE"
-	EnvNATSAddress      = "MINIO_NOTIFY_NATS_ADDRESS"
-	EnvNATSSubject      = "MINIO_NOTIFY_NATS_SUBJECT"
-	EnvNATSUsername     = "MINIO_NOTIFY_NATS_USERNAME"
-	EnvNATSPassword     = "MINIO_NOTIFY_NATS_PASSWORD"
-	EnvNATSToken        = "MINIO_NOTIFY_NATS_TOKEN"
-	EnvNATSSecure       = "MINIO_NOTIFY_NATS_SECURE"
-	EnvNATSPingInterval = "MINIO_NOTIFY_NATS_PING_INTERVAL"
-	EnvNATSQueueDir     = "MINIO_NOTIFY_NATS_QUEUE_DIR"
-	EnvNATSQueueLimit   = "MINIO_NOTIFY_NATS_QUEUE_LIMIT"
+	EnvNATSEnable        = "MINIO_NOTIFY_NATS_ENABLE"
+	EnvNATSAddress       = "MINIO_NOTIFY_NATS_ADDRESS"
+	EnvNATSSubject       = "MINIO_NOTIFY_NATS_SUBJECT"
+	EnvNATSUsername      = "MINIO_NOTIFY_NATS_USERNAME"
+	EnvNATSPassword      = "MINIO_NOTIFY_NATS_PASSWORD"
+	EnvNATSToken         = "MINIO_NOTIFY_NATS_TOKEN"
+	EnvNATSTLS           = "MINIO_NOTIFY_NATS_TLS"
+	EnvNATSTLSSkipVerify = "MINIO_NOTIFY_NATS_TLS_SKIP_VERIFY"
+	EnvNATSPingInterval  = "MINIO_NOTIFY_NATS_PING_INTERVAL"
+	EnvNATSQueueDir      = "MINIO_NOTIFY_NATS_QUEUE_DIR"
+	EnvNATSQueueLimit    = "MINIO_NOTIFY_NATS_QUEUE_LIMIT"
+	EnvNATSCertAuthority = "MINIO_NOTIFY_NATS_CERT_AUTHORITY"
+	EnvNATSClientCert    = "MINIO_NOTIFY_NATS_CLIENT_CERT"
+	EnvNATSClientKey     = "MINIO_NOTIFY_NATS_CLIENT_KEY"
 
 	// Streaming constants
-	EnvNATSStreamingEnable             = "MINIO_NOTIFY_NATS_STREAMING_ENABLE"
+	EnvNATSStreaming                   = "MINIO_NOTIFY_NATS_STREAMING"
 	EnvNATSStreamingClusterID          = "MINIO_NOTIFY_NATS_STREAMING_CLUSTER_ID"
 	EnvNATSStreamingAsync              = "MINIO_NOTIFY_NATS_STREAMING_ASYNC"
 	EnvNATSStreamingMaxPubAcksInFlight = "MINIO_NOTIFY_NATS_STREAMING_MAX_PUB_ACKS_IN_FLIGHT"
@@ -68,22 +78,29 @@ const (
 
 // NATSArgs - NATS target arguments.
 type NATSArgs struct {
-	Enable       bool      `json:"enable"`
-	Address      xnet.Host `json:"address"`
-	Subject      string    `json:"subject"`
-	Username     string    `json:"username"`
-	Password     string    `json:"password"`
-	Token        string    `json:"token"`
-	Secure       bool      `json:"secure"`
-	PingInterval int64     `json:"pingInterval"`
-	QueueDir     string    `json:"queueDir"`
-	QueueLimit   uint64    `json:"queueLimit"`
-	Streaming    struct {
+	Enable        bool      `json:"enable"`
+	Address       xnet.Host `json:"address"`
+	Subject       string    `json:"subject"`
+	Username      string    `json:"username"`
+	Password      string    `json:"password"`
+	Token         string    `json:"token"`
+	TLS           bool      `json:"tls"`
+	TLSSkipVerify bool      `json:"tlsSkipVerify"`
+	Secure        bool      `json:"secure"`
+	CertAuthority string    `json:"certAuthority"`
+	ClientCert    string    `json:"clientCert"`
+	ClientKey     string    `json:"clientKey"`
+	PingInterval  int64     `json:"pingInterval"`
+	QueueDir      string    `json:"queueDir"`
+	QueueLimit    uint64    `json:"queueLimit"`
+	Streaming     struct {
 		Enable             bool   `json:"enable"`
 		ClusterID          string `json:"clusterID"`
 		Async              bool   `json:"async"`
 		MaxPubAcksInflight int    `json:"maxPubAcksInflight"`
 	} `json:"streaming"`
+
+	RootCAs *x509.CertPool `json:"-"`
 }
 
 // Validate NATSArgs fields
@@ -98,6 +115,10 @@ func (n NATSArgs) Validate() error {
 
 	if n.Subject == "" {
 		return errors.New("empty subject")
+	}
+
+	if n.ClientCert != "" && n.ClientKey == "" || n.ClientCert == "" && n.ClientKey != "" {
+		return errors.New("cert and key must be specified as a pair")
 	}
 
 	if n.Streaming.Enable {
@@ -120,13 +141,25 @@ func (n NATSArgs) Validate() error {
 
 // To obtain a nats connection from args.
 func (n NATSArgs) connectNats() (*nats.Conn, error) {
-	options := nats.DefaultOptions
-	options.Url = "nats://" + n.Address.String()
-	options.User = n.Username
-	options.Password = n.Password
-	options.Token = n.Token
-	options.Secure = n.Secure
-	return options.Connect()
+	connOpts := []nats.Option{nats.Name("Minio Notification")}
+	if n.Username != "" && n.Password != "" {
+		connOpts = append(connOpts, nats.UserInfo(n.Username, n.Password))
+	}
+	if n.Token != "" {
+		connOpts = append(connOpts, nats.Token(n.Token))
+	}
+	if n.Secure || n.TLS && n.TLSSkipVerify {
+		connOpts = append(connOpts, nats.Secure(nil))
+	} else if n.TLS {
+		connOpts = append(connOpts, nats.Secure(&tls.Config{RootCAs: n.RootCAs}))
+	}
+	if n.CertAuthority != "" {
+		connOpts = append(connOpts, nats.RootCAs(n.CertAuthority))
+	}
+	if n.ClientCert != "" && n.ClientKey != "" {
+		connOpts = append(connOpts, nats.ClientCert(n.ClientCert, n.ClientKey))
+	}
+	return nats.Connect(n.Address.String(), connOpts...)
 }
 
 // To obtain a streaming connection from args.
@@ -164,19 +197,28 @@ func (target *NATSTarget) ID() event.TargetID {
 	return target.id
 }
 
+// IsActive - Return true if target is up and active
+func (target *NATSTarget) IsActive() (bool, error) {
+	if target.args.Streaming.Enable {
+		if !target.stanConn.NatsConn().IsConnected() {
+			return false, errNotConnected
+		}
+	} else {
+		if !target.natsConn.IsConnected() {
+			return false, errNotConnected
+		}
+	}
+	return true, nil
+}
+
 // Save - saves the events to the store which will be replayed when the Nats connection is active.
 func (target *NATSTarget) Save(eventData event.Event) error {
 	if target.store != nil {
 		return target.store.Put(eventData)
 	}
-	if target.args.Streaming.Enable {
-		if !target.stanConn.NatsConn().IsConnected() {
-			return errNotConnected
-		}
-	} else {
-		if !target.natsConn.IsConnected() {
-			return errNotConnected
-		}
+	_, err := target.IsActive()
+	if err != nil {
+		return err
 	}
 	return target.send(eventData)
 }

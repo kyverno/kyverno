@@ -82,20 +82,25 @@ var errFake = errors.New("fake error from errorListener")
 
 // This used to hang.
 func TestLimitListenerError(t *testing.T) {
-	donec := make(chan bool, 1)
+	errCh := make(chan error, 1)
 	go func() {
+		defer close(errCh)
 		const n = 2
 		ll := LimitListener(errorListener{}, n)
 		for i := 0; i < n+1; i++ {
 			_, err := ll.Accept()
 			if err != errFake {
-				t.Fatalf("Accept error = %v; want errFake", err)
+				errCh <- fmt.Errorf("Accept error = %v; want errFake", err)
+				return
 			}
 		}
-		donec <- true
 	}()
+
 	select {
-	case <-donec:
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("server: %v", err)
+		}
 	case <-time.After(timeout):
 		t.Fatal("timeout. deadlock?")
 	}

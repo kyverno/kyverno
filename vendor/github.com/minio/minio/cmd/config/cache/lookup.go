@@ -19,7 +19,6 @@ package cache
 import (
 	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/pkg/env"
@@ -33,7 +32,6 @@ const (
 	MaxUse  = "maxuse"
 	Quota   = "quota"
 
-	EnvCacheState               = "MINIO_CACHE_STATE"
 	EnvCacheDrives              = "MINIO_CACHE_DRIVES"
 	EnvCacheExclude             = "MINIO_CACHE_EXCLUDE"
 	EnvCacheExpiry              = "MINIO_CACHE_EXPIRY"
@@ -48,18 +46,34 @@ const (
 // DefaultKVS - default KV settings for caching.
 var (
 	DefaultKVS = config.KVS{
-		config.State:   config.StateOff,
-		config.Comment: "This is a default cache configuration, only applicable in gateway setups",
-		Drives:         "",
-		Exclude:        "",
-		Expiry:         DefaultExpiry,
-		Quota:          DefaultQuota,
+		config.KV{
+			Key:   Drives,
+			Value: "",
+		},
+		config.KV{
+			Key:   Exclude,
+			Value: "",
+		},
+		config.KV{
+			Key:   Expiry,
+			Value: DefaultExpiry,
+		},
+		config.KV{
+			Key:   Quota,
+			Value: DefaultQuota,
+		},
 	}
 )
 
 const (
-	cacheDelimiter = ";"
+	cacheDelimiter = ","
 )
+
+// Enabled returns if cache is enabled.
+func Enabled(kvs config.KVS) bool {
+	drives := kvs.Get(Drives)
+	return drives != ""
+}
 
 // LookupConfig - extracts cache configuration provided by environment
 // variables and merge them with provided CacheConfiguration.
@@ -70,30 +84,20 @@ func LookupConfig(kvs config.KVS) (Config, error) {
 		return cfg, err
 	}
 
-	// Check if cache is explicitly disabled
-	stateBool, err := config.ParseBool(env.Get(EnvCacheState, kvs.Get(config.State)))
-	if err != nil {
-		return cfg, err
-	}
-
 	drives := env.Get(EnvCacheDrives, kvs.Get(Drives))
-	if stateBool {
-		if len(drives) == 0 {
-			return cfg, config.Error("'drives' key cannot be empty if you wish to enable caching")
-		}
-	}
 	if len(drives) == 0 {
 		return cfg, nil
 	}
 
-	cfg.Drives, err = parseCacheDrives(strings.Split(drives, cacheDelimiter))
+	var err error
+	cfg.Drives, err = parseCacheDrives(drives)
 	if err != nil {
 		return cfg, err
 	}
 
 	cfg.Enabled = true
 	if excludes := env.Get(EnvCacheExclude, kvs.Get(Exclude)); excludes != "" {
-		cfg.Exclude, err = parseCacheExcludes(strings.Split(excludes, cacheDelimiter))
+		cfg.Exclude, err = parseCacheExcludes(excludes)
 		if err != nil {
 			return cfg, err
 		}

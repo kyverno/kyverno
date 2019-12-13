@@ -32,10 +32,10 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/minio/minio-go/v6/pkg/set"
+	"github.com/minio/minio/cmd/config/etcd/dns"
 	"github.com/minio/minio/cmd/crypto"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
-	"github.com/minio/minio/pkg/dns"
 	"github.com/minio/minio/pkg/event"
 	"github.com/minio/minio/pkg/handlers"
 	"github.com/minio/minio/pkg/hash"
@@ -45,10 +45,10 @@ import (
 )
 
 const (
-	getBucketVersioningResponse = `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>`
-	objectLockConfig            = "object-lock.xml"
-	objectLockEnabledConfigFile = "object-lock-enabled.json"
-	objectLockEnabledConfig     = `{"x-amz-bucket-object-lock-enabled":true}`
+	getBucketVersioningResponse       = `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>`
+	objectLockConfig                  = "object-lock.xml"
+	bucketObjectLockEnabledConfigFile = "object-lock-enabled.json"
+	bucketObjectLockEnabledConfig     = `{"x-amz-bucket-object-lock-enabled":true}`
 )
 
 // Check if there are buckets on server without corresponding entry in etcd backend and
@@ -117,7 +117,7 @@ func initFederatorBackend(buckets []BucketInfo, objLayer ObjectLayer) {
 
 			// We go to here, so we know the bucket no longer exists, but is registered in DNS to this server
 			if err := globalDNSConfig.DeleteRecord(dnsBuckets[index]); err != nil {
-				return fmt.Errorf("Failed to remove DNS entry for %s due to %v", dnsBuckets[index].Key, err)
+				return fmt.Errorf("Failed to remove DNS entry for %s due to %w", dnsBuckets[index].Key, err)
 			}
 
 			return nil
@@ -214,7 +214,7 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 
 	if keyMarker != "" {
 		// Marker not common with prefix is not implemented.
-		if !hasPrefix(keyMarker, prefix) {
+		if !HasPrefix(keyMarker, prefix) {
 			writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrNotImplemented), r.URL, guessIsBrowserReq(r))
 			return
 		}
@@ -370,25 +370,17 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		return
 	}
 
-	// Deny if WORM is enabled
-	if _, isWORMBucket := isWORMEnabled(bucket); isWORMBucket {
-		// Not required to check whether given objects exist or not, because
-		// DeleteMultipleObject is always successful irrespective of object existence.
-		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrMethodNotAllowed), r.URL, guessIsBrowserReq(r))
-		return
-	}
-
 	deleteObjectsFn := objectAPI.DeleteObjects
 	if api.CacheAPI() != nil {
 		deleteObjectsFn = api.CacheAPI().DeleteObjects
 	}
 
-	type delObj struct {
-		origIndex int
-		name      string
+	var objectsToDelete = map[string]int{}
+	getObjectInfoFn := objectAPI.GetObjectInfo
+	if api.CacheAPI() != nil {
+		getObjectInfoFn = api.CacheAPI().GetObjectInfo
 	}
 
-	var objectsToDelete []delObj
 	var dErrs = make([]APIErrorCode, len(deleteObjects.Objects))
 
 	for index, object := range deleteObjects.Objects {
@@ -399,26 +391,37 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 			}
 			continue
 		}
-
-		objectsToDelete = append(objectsToDelete, delObj{index, object.ObjectName})
+		govBypassPerms := checkRequestAuthType(ctx, r, policy.BypassGovernanceRetentionAction, bucket, object.ObjectName)
+		if _, err := enforceRetentionBypassForDelete(ctx, r, bucket, object.ObjectName, getObjectInfoFn, govBypassPerms); err != ErrNone {
+			dErrs[index] = err
+			continue
+		}
+		// Avoid duplicate objects, we use map to filter them out.
+		if _, ok := objectsToDelete[object.ObjectName]; !ok {
+			objectsToDelete[object.ObjectName] = index
+		}
 	}
 
-	toNames := func(input []delObj) (output []string) {
+	toNames := func(input map[string]int) (output []string) {
 		output = make([]string, len(input))
-		for i := range input {
-			output[i] = input[i].name
+		idx := 0
+		for name := range input {
+			output[idx] = name
+			idx++
 		}
 		return
 	}
 
-	errs, err := deleteObjectsFn(ctx, bucket, toNames(objectsToDelete))
+	deleteList := toNames(objectsToDelete)
+	errs, err := deleteObjectsFn(ctx, bucket, deleteList)
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
 		return
 	}
 
-	for i, obj := range objectsToDelete {
-		dErrs[obj.origIndex] = toAPIErrorCode(ctx, errs[i])
+	for i, objName := range deleteList {
+		dIdx := objectsToDelete[objName]
+		dErrs[dIdx] = toAPIErrorCode(ctx, errs[i])
 	}
 
 	// Collect deleted objects and errors if any.
@@ -519,8 +522,8 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 				}
 
 				if objectLockEnabled {
-					configFile := path.Join(bucketConfigPrefix, bucket, objectLockEnabledConfigFile)
-					if err = saveConfig(ctx, objectAPI, configFile, []byte(objectLockEnabledConfig)); err != nil {
+					configFile := path.Join(bucketConfigPrefix, bucket, bucketObjectLockEnabledConfigFile)
+					if err = saveConfig(ctx, objectAPI, configFile, []byte(bucketObjectLockEnabledConfig)); err != nil {
 						writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
 						return
 					}
@@ -555,11 +558,13 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if objectLockEnabled {
-		configFile := path.Join(bucketConfigPrefix, bucket, objectLockEnabledConfigFile)
-		if err = saveConfig(ctx, objectAPI, configFile, []byte(objectLockEnabledConfig)); err != nil {
+		configFile := path.Join(bucketConfigPrefix, bucket, bucketObjectLockEnabledConfigFile)
+		if err = saveConfig(ctx, objectAPI, configFile, []byte(bucketObjectLockEnabledConfig)); err != nil {
 			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
 			return
 		}
+		globalBucketObjectLockConfig.Set(bucket, Retention{})
+		globalNotificationSys.PutBucketObjectLockConfig(ctx, bucket, Retention{})
 	}
 
 	// Make sure to add Location information here only for bucket
@@ -745,7 +750,7 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		return
 	}
 	if objectAPI.IsEncryptionSupported() {
-		if crypto.IsRequested(formValues) && !hasSuffix(object, SlashSeparator) { // handle SSE requests
+		if crypto.IsRequested(formValues) && !HasSuffix(object, SlashSeparator) { // handle SSE requests
 			if crypto.SSECopy.IsRequested(r.Header) {
 				writeErrorResponse(ctx, w, toAPIError(ctx, errInvalidEncryptionParameters), r.URL, guessIsBrowserReq(r))
 				return
@@ -892,12 +897,7 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	globalBucketRetentionConfig.Delete(bucket)
-	globalNotificationSys.RemoveNotification(bucket)
-	globalPolicySys.Remove(bucket)
 	globalNotificationSys.DeleteBucket(ctx, bucket)
-	globalLifecycleSys.Remove(bucket)
-	globalNotificationSys.RemoveBucketLifecycle(ctx, bucket)
 
 	// Write success response.
 	writeSuccessNoContent(w)
@@ -981,14 +981,18 @@ func (api objectAPIHandlers) PutBucketObjectLockConfigHandler(w http.ResponseWri
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrMethodNotAllowed), r.URL, guessIsBrowserReq(r))
 		return
 	}
-
-	config, err := parseObjectLockConfig(r.Body)
-	if err != nil {
-		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrMalformedXML), r.URL, guessIsBrowserReq(r))
+	if s3Error := checkRequestAuthType(ctx, r, policy.PutBucketObjectLockConfigurationAction, bucket, ""); s3Error != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL, guessIsBrowserReq(r))
 		return
 	}
-
-	configFile := path.Join(bucketConfigPrefix, bucket, objectLockEnabledConfigFile)
+	config, err := parseObjectLockConfig(r.Body)
+	if err != nil {
+		apiErr := errorCodes.ToAPIErr(ErrMalformedXML)
+		apiErr.Description = err.Error()
+		writeErrorResponse(ctx, w, apiErr, r.URL, guessIsBrowserReq(r))
+		return
+	}
+	configFile := path.Join(bucketConfigPrefix, bucket, bucketObjectLockEnabledConfigFile)
 	configData, err := readConfig(ctx, objectAPI, configFile)
 	if err != nil {
 		aerr := toAPIError(ctx, err)
@@ -999,29 +1003,27 @@ func (api objectAPIHandlers) PutBucketObjectLockConfigHandler(w http.ResponseWri
 		return
 	}
 
-	if string(configData) != objectLockEnabledConfig {
+	if string(configData) != bucketObjectLockEnabledConfig {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInternalError), r.URL, guessIsBrowserReq(r))
 		return
 	}
-
+	data, err := xml.Marshal(config)
+	if err != nil {
+		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
+		return
+	}
+	configFile = path.Join(bucketConfigPrefix, bucket, objectLockConfig)
+	if err = saveConfig(ctx, objectAPI, configFile, data); err != nil {
+		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
+		return
+	}
 	if config.Rule != nil {
-		data, err := xml.Marshal(config)
-		if err != nil {
-			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
-			return
-		}
-
-		configFile := path.Join(bucketConfigPrefix, bucket, objectLockConfig)
-		if err = saveConfig(ctx, objectAPI, configFile, data); err != nil {
-			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL, guessIsBrowserReq(r))
-			return
-		}
-
 		retention := config.ToRetention()
-		globalBucketRetentionConfig.Set(bucket, retention)
+		globalBucketObjectLockConfig.Set(bucket, retention)
 		globalNotificationSys.PutBucketObjectLockConfig(ctx, bucket, retention)
 	} else {
-		globalBucketRetentionConfig.Delete(bucket)
+		globalBucketObjectLockConfig.Remove(bucket)
+		globalNotificationSys.RemoveBucketObjectLockConfig(ctx, bucket)
 	}
 
 	// Write success response.
@@ -1046,19 +1048,25 @@ func (api objectAPIHandlers) GetBucketObjectLockConfigHandler(w http.ResponseWri
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrServerNotInitialized), r.URL, guessIsBrowserReq(r))
 		return
 	}
-
-	configFile := path.Join(bucketConfigPrefix, bucket, objectLockEnabledConfigFile)
+	// check if user has permissions to perform this operation
+	if s3Error := checkRequestAuthType(ctx, r, policy.GetBucketObjectLockConfigurationAction, bucket, ""); s3Error != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL, guessIsBrowserReq(r))
+		return
+	}
+	configFile := path.Join(bucketConfigPrefix, bucket, bucketObjectLockEnabledConfigFile)
 	configData, err := readConfig(ctx, objectAPI, configFile)
 	if err != nil {
-		aerr := toAPIError(ctx, err)
+		var aerr APIError
 		if err == errConfigNotFound {
 			aerr = errorCodes.ToAPIErr(ErrMethodNotAllowed)
+		} else {
+			aerr = toAPIError(ctx, err)
 		}
 		writeErrorResponse(ctx, w, aerr, r.URL, guessIsBrowserReq(r))
 		return
 	}
 
-	if string(configData) != objectLockEnabledConfig {
+	if string(configData) != bucketObjectLockEnabledConfig {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInternalError), r.URL, guessIsBrowserReq(r))
 		return
 	}

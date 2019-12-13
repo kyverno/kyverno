@@ -25,8 +25,8 @@ type ClusterPolicyList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterPolicyViolation ...
-type ClusterPolicyViolation PolicyViolation
+// ClusterPolicyViolation represents cluster-wide violations
+type ClusterPolicyViolation PolicyViolationTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -40,16 +40,16 @@ type ClusterPolicyViolationList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NamespacedPolicyViolation ...
-type NamespacedPolicyViolation PolicyViolation
+// PolicyViolation represents namespaced violations
+type PolicyViolation PolicyViolationTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NamespacedPolicyViolationList ...
-type NamespacedPolicyViolationList struct {
+// PolicyViolationList ...
+type PolicyViolationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []NamespacedPolicyViolation `json:"items"`
+	Items           []PolicyViolation `json:"items"`
 }
 
 // Policy contains rules to be applied to created resources
@@ -172,7 +172,7 @@ type RuleStats struct {
 // PolicyList is a list of Policy resources
 
 // PolicyViolation stores the information regarinding the resources for which a policy failed to apply
-type PolicyViolation struct {
+type PolicyViolationTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              PolicyViolationSpec   `json:"spec"`
@@ -188,7 +188,8 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	Kind      string `json:"kind"`
+	Kind string `json:"kind"`
+	// Is not used in processing, but will is present for backward compatablitiy
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name"`
 }
@@ -201,8 +202,11 @@ type ViolatedRule struct {
 	ManagedResource ManagedResourceSpec `json:"managedResource,omitempty"`
 }
 
+// ManagedResourceSpec is used when the violations is created on resource owner
+// to determing the kind of child resource that caused the violation
 type ManagedResourceSpec struct {
-	Kind            string `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	// Is not used in processing, but will is present for backward compatablitiy
 	Namespace       string `json:"namespace,omitempty"`
 	CreationBlocked bool   `json:"creationBlocked,omitempty"`
 }
@@ -212,5 +216,4 @@ type ManagedResourceSpec struct {
 //		LastUpdateTime : the time the polivy violation was updated
 type PolicyViolationStatus struct {
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
-	//TODO: having user information regarding the owner of resource can be helpful
 }

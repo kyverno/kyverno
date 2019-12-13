@@ -20,10 +20,24 @@ import "github.com/minio/minio/cmd/config"
 
 // Help template for storageclass feature.
 var (
-	Help = config.HelpKV{
-		ClassRRS:       "Set reduced redundancy storage class parity ratio. eg: \"EC:2\"",
-		ClassStandard:  "Set standard storage class parity ratio. eg: \"EC:4\"",
-		config.State:   "Indicates if storageclass is enabled or not",
-		config.Comment: "A comment to describe the storageclass setting",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         ClassStandard,
+			Description: `set the parity count for default standard storage class e.g. "EC:4"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         ClassRRS,
+			Description: `set the parity count for reduced redundancy storage class e.g. "EC:2"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: config.DefaultComment,
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

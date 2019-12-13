@@ -646,7 +646,7 @@ func (fs *FSObjects) CompleteMultipartUpload(ctx context.Context, bucket string,
 	}
 
 	// Hold write lock on the object.
-	destLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+	destLock := fs.NewNSLock(ctx, bucket, object)
 	if err = destLock.GetLock(globalObjectTimeout); err != nil {
 		return oi, err
 	}
@@ -683,8 +683,8 @@ func (fs *FSObjects) CompleteMultipartUpload(ctx context.Context, bucket string,
 	}
 
 	// Deny if WORM is enabled
-	if retention, isWORMBucket := isWORMEnabled(bucket); isWORMBucket {
-		if fi, err := fsStatFile(ctx, pathJoin(fs.fsPath, bucket, object)); err == nil && retention.Retain(fi.ModTime()) {
+	if globalWORMEnabled {
+		if _, err := fsStatFile(ctx, pathJoin(fs.fsPath, bucket, object)); err == nil {
 			return ObjectInfo{}, ObjectAlreadyExists{Bucket: bucket, Object: object}
 		}
 	}
