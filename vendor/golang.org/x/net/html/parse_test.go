@@ -272,14 +272,14 @@ func TestParserWithoutScripting(t *testing.T) {
 |   <head>
 |     <noscript>
 |   <body>
-|     "<img src='https://golang.org/doc/gopher/frontpage.png' />"
+|     <img>
+|       src="https://golang.org/doc/gopher/frontpage.png"
 |     <p>
 |       <img>
 |         src="https://golang.org/doc/gopher/doc.png"
 `
-	err := testParseCase(text, want, "", ParseOptionEnableScripting(false))
 
-	if err != nil {
+	if err := testParseCase(text, want, "", ParseOptionEnableScripting(false)); err != nil {
 		t.Errorf("test with scripting is disabled, %q, %s", text, err)
 	}
 }
@@ -429,8 +429,7 @@ func TestNodeConsistency(t *testing.T) {
 		DataAtom: atom.Frameset,
 		Data:     "table",
 	}
-	_, err := ParseFragment(strings.NewReader("<p>hello</p>"), inconsistentNode)
-	if err == nil {
+	if _, err := ParseFragment(strings.NewReader("<p>hello</p>"), inconsistentNode); err == nil {
 		t.Errorf("got nil error, want non-nil")
 	}
 }

@@ -23,30 +23,18 @@ var (
 	Help = config.HelpKVS{
 		config.HelpKV{
 			Key:         Endpoint,
-<<<<<<< HEAD
-			Description: `HTTP logger endpoint e.g. "http://localhost:8080/minio/logs/server"`,
-=======
-			Description: `HTTP logger endpoint eg: "http://localhost:8080/minio/logs/server"`,
->>>>>>> 524_bug
+			Description: `HTTP(s) endpoint e.g. "http://localhost:8080/minio/logs/server"`,
 			Type:        "url",
 		},
 		config.HelpKV{
 			Key:         AuthToken,
-<<<<<<< HEAD
-			Description: "authorization token for logger endpoint",
-=======
-			Description: "Authorization token for logger endpoint",
->>>>>>> 524_bug
+			Description: `opaque string or JWT authorization token`,
 			Optional:    true,
 			Type:        "string",
 		},
 		config.HelpKV{
 			Key:         config.Comment,
-<<<<<<< HEAD
 			Description: config.DefaultComment,
-=======
-			Description: "A comment to describe the HTTP logger setting",
->>>>>>> 524_bug
 			Optional:    true,
 			Type:        "sentence",
 		},
@@ -55,30 +43,18 @@ var (
 	HelpAudit = config.HelpKVS{
 		config.HelpKV{
 			Key:         Endpoint,
-<<<<<<< HEAD
-			Description: `HTTP Audit logger endpoint e.g. "http://localhost:8080/minio/logs/audit"`,
-=======
-			Description: `HTTP Audit logger endpoint eg: "http://localhost:8080/minio/logs/audit"`,
->>>>>>> 524_bug
+			Description: `HTTP(s) endpoint e.g. "http://localhost:8080/minio/logs/audit"`,
 			Type:        "url",
 		},
 		config.HelpKV{
 			Key:         AuthToken,
-<<<<<<< HEAD
-			Description: "authorization token for audit logger endpoint",
-=======
-			Description: "Authorization token for logger endpoint",
->>>>>>> 524_bug
+			Description: `opaque string or JWT authorization token`,
 			Optional:    true,
 			Type:        "string",
 		},
 		config.HelpKV{
 			Key:         config.Comment,
-<<<<<<< HEAD
 			Description: config.DefaultComment,
-=======
-			Description: "A comment to describe the HTTP Audit logger setting",
->>>>>>> 524_bug
 			Optional:    true,
 			Type:        "sentence",
 		},

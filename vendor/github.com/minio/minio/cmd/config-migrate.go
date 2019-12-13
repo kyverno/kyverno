@@ -2549,11 +2549,7 @@ func migrateV27ToV28MinioSys(objAPI ObjectLayer) error {
 	cfg.KMS = crypto.KMSConfig{}
 
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from ‘27’ to ‘28’. %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from ‘27’ to ‘28’. %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "27", "28")
@@ -2580,11 +2576,7 @@ func migrateV28ToV29MinioSys(objAPI ObjectLayer) error {
 
 	cfg.Version = "29"
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from ‘28’ to ‘29’. %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from ‘28’ to ‘29’. %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "28", "29")
@@ -2616,11 +2608,7 @@ func migrateV29ToV30MinioSys(objAPI ObjectLayer) error {
 	cfg.Compression.MimeTypes = strings.Split(compress.DefaultMimeTypes, config.ValueSeparator)
 
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from ‘29’ to ‘30’. %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from ‘29’ to ‘30’. %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "29", "30")
@@ -2655,11 +2643,7 @@ func migrateV30ToV31MinioSys(objAPI ObjectLayer) error {
 	}
 
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from ‘30’ to ‘31’. %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from ‘30’ to ‘31’. %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "30", "31")
@@ -2689,11 +2673,7 @@ func migrateV31ToV32MinioSys(objAPI ObjectLayer) error {
 	cfg.Notify.NSQ["1"] = target.NSQArgs{}
 
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from ‘31’ to ‘32’. %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from ‘31’ to ‘32’. %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "31", "32")
@@ -2721,11 +2701,7 @@ func migrateV32ToV33MinioSys(objAPI ObjectLayer) error {
 	cfg.Version = "33"
 
 	if err = saveServerConfig(context.Background(), objAPI, cfg); err != nil {
-<<<<<<< HEAD
 		return fmt.Errorf("Failed to migrate config from '32' to '33' . %w", err)
-=======
-		return fmt.Errorf("Failed to migrate config from '32' to '33' . %v", err)
->>>>>>> 524_bug
 	}
 
 	logger.Info(configMigrateMSGTemplate, configFile, "32", "33")

@@ -34,13 +34,6 @@ func SetPolicyOPAConfig(s config.Config, opaArgs Args) {
 	}
 	s[config.PolicyOPASubSys][config.Default] = config.KVS{
 		config.KV{
-<<<<<<< HEAD
-=======
-			Key:   config.State,
-			Value: config.StateOn,
-		},
-		config.KV{
->>>>>>> 524_bug
 			Key:   URL,
 			Value: opaArgs.URL.String(),
 		},

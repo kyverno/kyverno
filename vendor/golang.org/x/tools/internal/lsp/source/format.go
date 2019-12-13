@@ -28,12 +28,7 @@ func Format(ctx context.Context, snapshot Snapshot, f File) ([]protocol.TextEdit
 	ctx, done := trace.StartSpan(ctx, "source.Format")
 	defer done()
 
-<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
-=======
-	fh := snapshot.Handle(ctx, f)
-	cphs, err := snapshot.PackageHandles(ctx, fh)
->>>>>>> 524_bug
 	if err != nil {
 		return nil, fmt.Errorf("getting file for Format: %v", err)
 	}
@@ -56,11 +51,7 @@ func Format(ctx context.Context, snapshot Snapshot, f File) ([]protocol.TextEdit
 		if err != nil {
 			return nil, err
 		}
-<<<<<<< HEAD
 		return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, string(formatted))
-=======
-		return computeTextEdits(ctx, snapshot.View(), ph.File(), m, string(formatted))
->>>>>>> 524_bug
 	}
 
 	fset := snapshot.View().Session().Cache().FileSet()
@@ -73,11 +64,7 @@ func Format(ctx context.Context, snapshot Snapshot, f File) ([]protocol.TextEdit
 	if err := format.Node(buf, fset, file); err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
 	return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, buf.String())
-=======
-	return computeTextEdits(ctx, snapshot.View(), ph.File(), m, buf.String())
->>>>>>> 524_bug
 }
 
 func formatSource(ctx context.Context, s Snapshot, f File) ([]byte, error) {
@@ -104,39 +91,13 @@ func AllImportsFixes(ctx context.Context, snapshot Snapshot, f File) (allFixEdit
 	ctx, done := trace.StartSpan(ctx, "source.AllImportsFixes")
 	defer done()
 
-<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
-=======
-	fh := snapshot.Handle(ctx, f)
-	cphs, err := snapshot.PackageHandles(ctx, fh)
 	if err != nil {
-		return nil, nil, err
-	}
-	cph, err := NarrowestCheckPackageHandle(cphs)
-	if err != nil {
-		return nil, nil, err
-	}
-	pkg, err := cph.Check(ctx)
->>>>>>> 524_bug
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting file for AllImportsFixes: %v", err)
+		return nil, nil, errors.Errorf("getting file for AllImportsFixes: %v", err)
 	}
 	if hasListErrors(pkg) {
 		return nil, nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
 	}
-<<<<<<< HEAD
-=======
-	var ph ParseGoHandle
-	for _, h := range pkg.CompiledGoFiles() {
-		if h.File().Identity().URI == f.URI() {
-			ph = h
-		}
-	}
-	if ph == nil {
-		return nil, nil, errors.Errorf("no ParseGoHandle for %s", f.URI())
-	}
-
->>>>>>> 524_bug
 	options := &imports.Options{
 		// Defaults.
 		AllErrors:  true,
@@ -147,15 +108,11 @@ func AllImportsFixes(ctx context.Context, snapshot Snapshot, f File) (allFixEdit
 		TabWidth:   8,
 	}
 	err = snapshot.View().RunProcessEnvFunc(ctx, func(opts *imports.Options) error {
-<<<<<<< HEAD
 		allFixEdits, editsPerFix, err = computeImportEdits(ctx, snapshot.View(), pgh, opts)
-=======
-		allFixEdits, editsPerFix, err = computeImportEdits(ctx, snapshot.View(), ph, opts)
->>>>>>> 524_bug
 		return err
 	}, options)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Errorf("computing fix edits: %v", err)
 	}
 
 	return allFixEdits, editsPerFix, nil
@@ -229,7 +186,8 @@ func computeFixEdits(view View, ph ParseGoHandle, options *imports.Options, orig
 	filename := ph.File().Identity().URI.Filename()
 	// Apply the fixes and re-parse the file so that we can locate the
 	// new imports.
-	fixedData, err := imports.ApplyFixes(fixes, filename, origData, options)
+	fixedData, err := imports.ApplyFixes(fixes, filename, origData, options, parser.ImportsOnly)
+	fixedData = append(fixedData, '\n') // ApplyFixes comes out missing the newline, go figure.
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +212,11 @@ func computeFixEdits(view View, ph ParseGoHandle, options *imports.Options, orig
 	// somewhere before that.
 	if origImportOffset == 0 || fixedImportsOffset == 0 {
 		left, _ = trimToFirstNonImport(view.Session().Cache().FileSet(), origAST, origData, nil)
-		// We need the whole AST here, not just the ImportsOnly AST we parsed above.
+		fixedData, err = imports.ApplyFixes(fixes, filename, origData, options, 0)
+		if err != nil {
+			return nil, err
+		}
+		// We need the whole file here, not just the ImportsOnly versions we made above.
 		fixedAST, err = parser.ParseFile(fixedFset, filename, fixedData, 0)
 		if fixedAST == nil {
 			return nil, err
@@ -328,13 +290,9 @@ func trimToFirstNonImport(fset *token.FileSet, f *ast.File, src []byte, err erro
 	}
 	end := f.End()
 	if firstDecl != nil {
-<<<<<<< HEAD
 		if firstDeclLine := fset.Position(firstDecl.Pos()).Line; firstDeclLine > 1 {
 			end = tok.LineStart(firstDeclLine - 1)
 		}
-=======
-		end = tok.LineStart(fset.Position(firstDecl.Pos()).Line - 1)
->>>>>>> 524_bug
 	}
 	// Any errors in the file must be after the part of the file that we care about.
 	switch err := err.(type) {

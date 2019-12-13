@@ -40,7 +40,6 @@ func (kvs KVS) Empty() bool {
 	return len(kvs) == 0
 }
 
-<<<<<<< HEAD
 // Set sets a value, if not sets a default value.
 func (kvs *KVS) Set(key, value string) {
 	for i, kv := range *kvs {
@@ -58,8 +57,6 @@ func (kvs *KVS) Set(key, value string) {
 	})
 }
 
-=======
->>>>>>> 524_bug
 // Get - returns the value of a key, if not found returns empty.
 func (kvs KVS) Get(key string) string {
 	v, ok := kvs.Lookup(key)
@@ -78,59 +75,39 @@ func (kvs KVS) Lookup(key string) (string, bool) {
 	}
 	return "", false
 }
-<<<<<<< HEAD
 
 // Target signifies an individual target
 type Target struct {
 	SubSystem string `json:"subSys"`
 	KVS       KVS    `json:"kvs"`
 }
-=======
->>>>>>> 524_bug
 
 // Targets sub-system targets
 type Targets []Target
 
 // Standard config keys and values.
 const (
-<<<<<<< HEAD
 	EnableKey  = "enable"
 	CommentKey = "comment"
 
 	// Enable values
 	EnableOn  = "on"
 	EnableOff = "off"
-=======
-	stateKey   = "state"
-	commentKey = "comment"
->>>>>>> 524_bug
 )
 
 func (kvs KVS) String() string {
 	var s strings.Builder
 	for _, kv := range kvs {
-<<<<<<< HEAD
 		// Do not need to print state which is on.
 		if kv.Key == EnableKey && kv.Value == EnableOn {
 			continue
 		}
 		if kv.Key == CommentKey && kv.Value == "" {
-=======
-		// Do not need to print state
-		if kv.Key == stateKey {
-			continue
-		}
-		if kv.Key == commentKey && kv.Value == "" {
->>>>>>> 524_bug
 			continue
 		}
 		s.WriteString(kv.Key)
 		s.WriteString(KvSeparator)
-<<<<<<< HEAD
 		spc := HasSpace(kv.Value)
-=======
-		spc := hasSpace(kv.Value)
->>>>>>> 524_bug
 		if spc {
 			s.WriteString(KvDoubleQuote)
 		}
@@ -158,19 +135,9 @@ func HasSpace(s string) bool {
 	return false
 }
 
-func hasSpace(s string) bool {
-	for _, r := range s {
-		if unicode.IsSpace(r) {
-			return true
-		}
-	}
-	return false
-}
-
 func (t Targets) String() string {
 	var s strings.Builder
 	count := t.Count()
-<<<<<<< HEAD
 	// Print all "on" states entries
 	for _, targetKV := range t {
 		kv := targetKV.KVS
@@ -180,21 +147,6 @@ func (t Targets) String() string {
 		s.WriteString(kv.String())
 		if len(t) > 1 && count > 0 {
 			s.WriteString(KvNewline)
-=======
-	for subSys, targetKV := range t {
-		for target, kv := range targetKV {
-			count--
-			s.WriteString(subSys)
-			if target != Default {
-				s.WriteString(SubSystemSeparator)
-				s.WriteString(target)
-			}
-			s.WriteString(KvSpaceSeparator)
-			s.WriteString(kv.String())
-			if (len(t) > 1 || len(targetKV) > 1) && count > 0 {
-				s.WriteString(KvNewline)
-			}
->>>>>>> 524_bug
 		}
 	}
 	return s.String()
@@ -204,10 +156,7 @@ func (t Targets) String() string {
 const (
 	SubSystemSeparator = `:`
 	KvSeparator        = `=`
-<<<<<<< HEAD
 	KvComment          = `#`
-=======
->>>>>>> 524_bug
 	KvSpaceSeparator   = ` `
 	KvNewline          = "\n"
 	KvDoubleQuote      = `"`
@@ -242,18 +191,11 @@ func (t *Targets) AddTarget(s string) error {
 			continue
 		}
 		if len(kv) == 1 && prevK != "" {
-<<<<<<< HEAD
 			value := strings.Join([]string{
 				kvs.Get(prevK),
 				SanitizeValue(kv[0]),
 			}, KvSpaceSeparator)
 			kvs.Set(prevK, value)
-=======
-			kvs = append(kvs, KV{
-				Key:   prevK,
-				Value: strings.Join([]string{kvs.Get(prevK), sanitizeValue(kv[0])}, KvSpaceSeparator),
-			})
->>>>>>> 524_bug
 			continue
 		}
 		if len(kv) == 2 {
@@ -261,15 +203,7 @@ func (t *Targets) AddTarget(s string) error {
 			kvs.Set(prevK, SanitizeValue(kv[1]))
 			continue
 		}
-<<<<<<< HEAD
 		return fmt.Errorf("value for key '%s' cannot be empty", kv[0])
-=======
-		prevK = kv[0]
-		kvs = append(kvs, KV{
-			Key:   kv[0],
-			Value: sanitizeValue(kv[1]),
-		})
->>>>>>> 524_bug
 	}
 
 	for i := range *t {

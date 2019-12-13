@@ -54,13 +54,6 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
-<<<<<<< HEAD
-=======
-			Key:   config.State,
-			Value: config.StateOff,
-		},
-		config.KV{
->>>>>>> 524_bug
 			Key:   Endpoints,
 			Value: "",
 		},
@@ -126,86 +119,19 @@ func parseEndpoints(endpoints string) ([]string, bool, error) {
 	return etcdEndpoints, etcdSecure, nil
 }
 
-<<<<<<< HEAD
 // Enabled returns if etcd is enabled.
 func Enabled(kvs config.KVS) bool {
 	endpoints := kvs.Get(Endpoints)
 	return endpoints != ""
-=======
-func lookupLegacyConfig(rootCAs *x509.CertPool) (Config, error) {
-	cfg := Config{}
-	endpoints := env.Get(EnvEtcdEndpoints, "")
-	if endpoints == "" {
-		return cfg, nil
-	}
-	etcdEndpoints, etcdSecure, err := parseEndpoints(endpoints)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.Enabled = true
-	cfg.DialTimeout = defaultDialTimeout
-	cfg.DialKeepAliveTime = defaultDialKeepAlive
-	cfg.Endpoints = etcdEndpoints
-	cfg.CoreDNSPath = env.Get(EnvEtcdCoreDNSPath, "/skydns")
-	// Default path prefix for all keys on etcd, other than CoreDNSPath.
-	cfg.PathPrefix = env.Get(EnvEtcdPathPrefix, "")
-	if etcdSecure {
-		cfg.TLS = &tls.Config{
-			RootCAs: rootCAs,
-		}
-		// This is only to support client side certificate authentication
-		// https://coreos.com/etcd/docs/latest/op-guide/security.html
-		etcdClientCertFile := env.Get(EnvEtcdClientCert, "")
-		etcdClientCertKey := env.Get(EnvEtcdClientCertKey, "")
-		if etcdClientCertFile != "" && etcdClientCertKey != "" {
-			cfg.TLS.GetClientCertificate = func(unused *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				cert, err := tls.LoadX509KeyPair(etcdClientCertFile, etcdClientCertKey)
-				return &cert, err
-			}
-		}
-	}
-	return cfg, nil
->>>>>>> 524_bug
 }
 
 // LookupConfig - Initialize new etcd config.
 func LookupConfig(kvs config.KVS, rootCAs *x509.CertPool) (Config, error) {
 	cfg := Config{}
 	if err := config.CheckValidKeys(config.EtcdSubSys, kvs, DefaultKVS); err != nil {
-<<<<<<< HEAD
 		return cfg, err
 	}
 
-=======
-		return cfg, err
-	}
-
-	if env.Get(EnvEtcdEndpoints, "") != "" && env.Get(EnvEtcdState, "") == "" {
-		// By default state is 'on' to honor legacy config.
-		var err error
-		cfg, err = lookupLegacyConfig(rootCAs)
-		if err != nil {
-			return cfg, err
-		}
-		// If old legacy config is enabled honor it.
-		if cfg.Enabled {
-			return cfg, nil
-		}
-	}
-
-	stateBool, err := config.ParseBool(env.Get(EnvEtcdState, kvs.Get(config.State)))
-	if err != nil {
-		if kvs.Empty() {
-			return cfg, nil
-		}
-		return cfg, err
-	}
-
-	if !stateBool {
-		return cfg, nil
-	}
-
->>>>>>> 524_bug
 	endpoints := env.Get(EnvEtcdEndpoints, kvs.Get(Endpoints))
 	if endpoints == "" {
 		return cfg, nil

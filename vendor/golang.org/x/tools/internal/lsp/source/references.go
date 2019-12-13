@@ -32,8 +32,6 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 	ctx, done := trace.StartSpan(ctx, "source.References")
 	defer done()
 
-	var references []*ReferenceInfo
-
 	// If the object declaration is nil, assume it is an import spec and do not look for references.
 	if i.Declaration.obj == nil {
 		return nil, errors.Errorf("no references for an import spec")
@@ -42,54 +40,16 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 	if info == nil {
 		return nil, errors.Errorf("package %s has no types info", i.pkg.PkgPath())
 	}
-	if i.Declaration.wasImplicit {
-		// The definition is implicit, so we must add it separately.
-		// This occurs when the variable is declared in a type switch statement
-		// or is an implicit package name. Both implicits are local to a file.
-		references = append(references, &ReferenceInfo{
-			Name:          i.Declaration.obj.Name(),
-			mappedRange:   i.Declaration.mappedRange,
-			obj:           i.Declaration.obj,
-			pkg:           i.pkg,
-			isDeclaration: true,
-		})
-	}
-	for ident, obj := range info.Defs {
-		if obj == nil || !sameObj(obj, i.Declaration.obj) {
-			continue
-		}
-		rng, err := posToMappedRange(i.Snapshot.View(), i.pkg, ident.Pos(), ident.End())
-		if err != nil {
-			return nil, err
-		}
-		// Add the declarations at the beginning of the references list.
-		references = append([]*ReferenceInfo{{
-			Name:          ident.Name,
-			ident:         ident,
-			obj:           obj,
-			pkg:           i.pkg,
-			isDeclaration: true,
-			mappedRange:   rng,
-		}}, references...)
-	}
 	var searchpkgs []Package
 	if i.Declaration.obj.Exported() {
 		// Only search all packages if the identifier is exported.
 		for _, id := range i.Snapshot.GetReverseDependencies(i.pkg.ID()) {
-<<<<<<< HEAD
 			ph, err := i.Snapshot.PackageHandle(ctx, id)
-=======
-			cph, err := i.Snapshot.PackageHandle(ctx, id)
->>>>>>> 524_bug
 			if err != nil {
 				log.Error(ctx, "References: no CheckPackageHandle", err, telemetry.Package.Of(id))
 				continue
 			}
-<<<<<<< HEAD
 			pkg, err := ph.Check(ctx)
-=======
-			pkg, err := cph.Check(ctx)
->>>>>>> 524_bug
 			if err != nil {
 				log.Error(ctx, "References: no Package", err, telemetry.Package.Of(id))
 				continue
@@ -99,9 +59,11 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 	}
 	// Add the package in which the identifier is declared.
 	searchpkgs = append(searchpkgs, i.pkg)
+
+	var references []*ReferenceInfo
 	for _, pkg := range searchpkgs {
 		for ident, obj := range pkg.GetTypesInfo().Uses {
-			if obj == nil || !(sameObj(obj, i.Declaration.obj)) {
+			if !sameObj(obj, i.Declaration.obj) {
 				continue
 			}
 			rng, err := posToMappedRange(i.Snapshot.View(), pkg, ident.Pos(), ident.End())
@@ -125,6 +87,9 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 // and their objectpath and package are the same; or if they don't
 // have object paths and they have the same Pos and Name.
 func sameObj(obj, declObj types.Object) bool {
+	if obj == nil || declObj == nil {
+		return false
+	}
 	// TODO(suzmue): support the case where an identifier may have two different
 	// declaration positions.
 	if obj.Pkg() == nil || declObj.Pkg() == nil {

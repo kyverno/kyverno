@@ -61,7 +61,19 @@ func testSource(t *testing.T, exporter packagestest.Exporter) {
 		ctx:  ctx,
 	}
 	for filename, content := range data.Config.Overlay {
-		session.SetOverlay(span.FileURI(filename), source.DetectLanguage("", filename), -1, content)
+		kind := source.DetectLanguage("", filename)
+		if kind != source.Go {
+			continue
+		}
+		if err := session.DidModifyFile(ctx, source.FileModification{
+			URI:        span.FileURI(filename),
+			Action:     source.Open,
+			Version:    -1,
+			Text:       content,
+			LanguageID: "go",
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	tests.Run(t, r, data)
 }
@@ -98,6 +110,7 @@ func (r *runner) Completion(t *testing.T, src span.Span, test tests.Completion, 
 	prefix, list := r.callCompletion(t, src, source.CompletionOptions{
 		Documentation: true,
 		FuzzyMatching: true,
+		Literal:       strings.Contains(string(src.URI()), "literal"),
 	})
 	if !strings.Contains(string(src.URI()), "builtins") {
 		list = tests.FilterBuiltins(list)
@@ -118,6 +131,7 @@ func (r *runner) CompletionSnippet(t *testing.T, src span.Span, expected tests.C
 	_, list := r.callCompletion(t, src, source.CompletionOptions{
 		Placeholders: placeholders,
 		Deep:         true,
+		Literal:      true,
 	})
 	got := tests.FindItem(list, *items[expected.CompletionItem])
 	want := expected.PlainSnippet
@@ -222,6 +236,7 @@ func (r *runner) RankCompletion(t *testing.T, src span.Span, test tests.Completi
 	prefix, list := r.callCompletion(t, src, source.CompletionOptions{
 		FuzzyMatching: true,
 		Deep:          true,
+		Literal:       true,
 	})
 	fuzzyMatcher := fuzzy.NewMatcher(prefix)
 	var got []protocol.CompletionItem
@@ -499,7 +514,7 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start)
+	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start, source.WidestCheckPackageHandle)
 	if err != nil {
 		t.Fatalf("failed for %v: %v", d.Src, err)
 	}
@@ -507,15 +522,10 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 	if err != nil {
 		t.Fatalf("failed for %v: %v", d.Src, err)
 	}
-	var hover string
-	if h.Synopsis != "" {
-		hover += h.Synopsis + "\n"
+	hover, err := source.FormatHover(h, r.view.Options())
+	if err != nil {
+		t.Fatal(err)
 	}
-	hover += h.Signature
-<<<<<<< HEAD
-	hover += "\n" + h.DocumentationLink(r.view.Options())
-=======
->>>>>>> 524_bug
 	rng, err := ident.Declaration.Range()
 	if err != nil {
 		t.Fatal(err)
@@ -551,31 +561,31 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 	}
 }
 
-func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementations) {
+func (r *runner) Implementation(t *testing.T, spn span.Span, impls []span.Span) {
 	ctx := r.ctx
-	f, err := r.view.GetFile(ctx, m.Src.URI())
+	f, err := r.view.GetFile(ctx, spn.URI())
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
-	sm, err := r.data.Mapper(m.Src.URI())
+	sm, err := r.data.Mapper(spn.URI())
 	if err != nil {
 		t.Fatal(err)
 	}
-	loc, err := sm.Location(m.Src)
+	loc, err := sm.Location(spn)
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
-	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, loc.Range.Start)
+	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, loc.Range.Start, source.WidestCheckPackageHandle)
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
 	var locs []protocol.Location
 	locs, err = ident.Implementation(r.ctx)
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
-	if len(locs) != len(m.Implementations) {
-		t.Fatalf("got %d locations for implementation, expected %d", len(locs), len(m.Implementations))
+	if len(locs) != len(impls) {
+		t.Fatalf("got %d locations for implementation, expected %d", len(locs), len(impls))
 	}
 	var results []span.Span
 	for i := range locs {
@@ -594,12 +604,12 @@ func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementat
 	sort.SliceStable(results, func(i, j int) bool {
 		return span.Compare(results[i], results[j]) == -1
 	})
-	sort.SliceStable(m.Implementations, func(i, j int) bool {
-		return span.Compare(m.Implementations[i], m.Implementations[j]) == -1
+	sort.SliceStable(impls, func(i, j int) bool {
+		return span.Compare(impls[i], impls[j]) == -1
 	})
 	for i := range results {
-		if results[i] != m.Implementations[i] {
-			t.Errorf("for %dth implementation of %v got %v want %v", i, m.Src, results[i], m.Implementations[i])
+		if results[i] != impls[i] {
+			t.Errorf("for %dth implementation of %v got %v want %v", i, spn, results[i], impls[i])
 		}
 	}
 }
@@ -652,21 +662,20 @@ func (r *runner) References(t *testing.T, src span.Span, itemList []span.Span) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start)
+	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start, source.WidestCheckPackageHandle)
 	if err != nil {
 		t.Fatalf("failed for %v: %v", src, err)
 	}
-
 	want := make(map[span.Span]bool)
 	for _, pos := range itemList {
 		want[pos] = true
 	}
-
 	refs, err := ident.References(ctx)
 	if err != nil {
 		t.Fatalf("failed for %v: %v", src, err)
 	}
-
+	// Add the item's declaration, since References omits it.
+	refs = append([]*source.ReferenceInfo{ident.DeclarationReferenceInfo()}, refs...)
 	got := make(map[span.Span]bool)
 	for _, refInfo := range refs {
 		refSpan, err := refInfo.Span()
@@ -675,11 +684,9 @@ func (r *runner) References(t *testing.T, src span.Span, itemList []span.Span) {
 		}
 		got[refSpan] = true
 	}
-
 	if len(got) != len(want) {
 		t.Errorf("references failed: different lengths got %v want %v", len(got), len(want))
 	}
-
 	for spn := range got {
 		if !want[spn] {
 			t.Errorf("references failed: incorrect references got %v want locations %v", got, want)
@@ -699,7 +706,7 @@ func (r *runner) Rename(t *testing.T, spn span.Span, newText string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ident, err := source.Identifier(r.ctx, r.view.Snapshot(), f, srcRng.Start)
+	ident, err := source.Identifier(r.ctx, r.view.Snapshot(), f, srcRng.Start, source.WidestCheckPackageHandle)
 	if err != nil {
 		t.Error(err)
 		return
@@ -788,7 +795,7 @@ func (r *runner) PrepareRename(t *testing.T, src span.Span, want *source.Prepare
 		t.Fatal(err)
 	}
 	// Find the identifier at the position.
-	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start)
+	ident, err := source.Identifier(ctx, r.view.Snapshot(), f, srcRng.Start, source.WidestCheckPackageHandle)
 	if err != nil {
 		if want.Text != "" { // expected an ident.
 			t.Errorf("prepare rename failed for %v: got error: %v", src, err)

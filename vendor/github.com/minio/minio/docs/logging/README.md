@@ -16,19 +16,11 @@ HTTP target logs to a generic HTTP endpoint in JSON format and is not enabled by
 Assuming `mc` is already [configured](https://docs.min.io/docs/minio-client-quickstart-guide.html)
 ```
 mc admin config get myminio/ logger_webhook
-<<<<<<< HEAD
-logger_webhook:target1 auth_token="" endpoint=""
+logger_webhook:name1 auth_token="" endpoint=""
 ```
 
 ```
-mc admin config set myminio logger_webhook:target1 auth_token="" endpoint="http://endpoint:port/path"
-=======
-logger_webhook:target1 auth_token="" endpoint="" state="off"
-```
-
-```
-mc admin config set myminio logger_webhook:target1 auth_token="" endpoint="http://endpoint:port/path" state="on"
->>>>>>> 524_bug
+mc admin config set myminio logger_webhook:name1 auth_token="" endpoint="http://endpoint:port/path"
 mc admin service restart myminio
 ```
 
@@ -36,11 +28,7 @@ NOTE: `http://endpoint:port/path` is a placeholder value to indicate the URL for
 
 MinIO also honors environment variable for HTTP target logging as shown below, this setting will override the endpoint settings in the MinIO server config.
 ```
-<<<<<<< HEAD
 export MINIO_LOGGER_WEBHOOK_ENABLE_target1="on"
-=======
-export MINIO_LOGGER_WEBHOOK_STATE_target1="on"
->>>>>>> 524_bug
 export MINIO_LOGGER_WEBHOOK_AUTH_TOKEN_target1="token"
 export MINIO_LOGGER_WEBHOOK_ENDPOINT_target1=http://localhost:8080/minio/logs
 minio server /mnt/data
@@ -50,19 +38,11 @@ minio server /mnt/data
 Assuming `mc` is already [configured](https://docs.min.io/docs/minio-client-quickstart-guide.html)
 ```
 mc admin config get myminio/ audit_webhook
-<<<<<<< HEAD
-audit_webhook:target1 auth_token="" endpoint=""
+audit_webhook:name1 auth_token="" endpoint=""
 ```
 
 ```
-mc admin config set myminio audit_webhook:target1 auth_token="" endpoint="http://endpoint:port/path"
-=======
-audit_webhook:target1 auth_token="" endpoint="" state="off"
-```
-
-```
-mc admin config set myminio audit_webhook:target1 auth_token="" endpoint="http://endpoint:port/path" state="on"
->>>>>>> 524_bug
+mc admin config set myminio audit_webhook:name1 auth_token="" endpoint="http://endpoint:port/path"
 mc admin service restart myminio
 ```
 
@@ -70,11 +50,7 @@ NOTE: `http://endpoint:port/path` is a placeholder value to indicate the URL for
 
 MinIO also honors environment variable for HTTP target Audit logging as shown below, this setting will override the endpoint settings in the MinIO server config.
 ```
-<<<<<<< HEAD
 export MINIO_AUDIT_WEBHOOK_ENABLE_target1="on"
-=======
-export MINIO_AUDIT_WEBHOOK_STATE_target1="on"
->>>>>>> 524_bug
 export MINIO_AUDIT_WEBHOOK_AUTH_TOKEN_target1="token"
 export MINIO_AUDIT_WEBHOOK_ENDPOINT_target1=http://localhost:8080/minio/logs
 minio server /mnt/data

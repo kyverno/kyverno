@@ -79,11 +79,7 @@ const (
 	CacheSubSys          = "cache"
 	RegionSubSys         = "region"
 	EtcdSubSys           = "etcd"
-<<<<<<< HEAD
 	StorageClassSubSys   = "storage_class"
-=======
-	StorageClassSubSys   = "storageclass"
->>>>>>> 524_bug
 	CompressionSubSys    = "compression"
 	KmsVaultSubSys       = "kms_vault"
 	LoggerWebhookSubSys  = "logger_webhook"
@@ -153,7 +149,7 @@ const (
 	SubSystemSeparator = madmin.SubSystemSeparator
 	KvSeparator        = madmin.KvSeparator
 	KvSpaceSeparator   = madmin.KvSpaceSeparator
-	KvComment          = `#`
+	KvComment          = madmin.KvComment
 	KvNewline          = madmin.KvNewline
 	KvDoubleQuote      = madmin.KvDoubleQuote
 	KvSingleQuote      = madmin.KvSingleQuote
@@ -211,16 +207,11 @@ func (kvs KVS) String() string {
 	var s strings.Builder
 	for _, kv := range kvs {
 		// Do not need to print if state is on
-<<<<<<< HEAD
 		if kv.Key == Enable && kv.Value == EnableOn {
-=======
-		if kv.Key == State && kv.Value == StateOn {
->>>>>>> 524_bug
 			continue
 		}
 		s.WriteString(kv.Key)
 		s.WriteString(KvSeparator)
-<<<<<<< HEAD
 		spc := madmin.HasSpace(kv.Value)
 		if spc {
 			s.WriteString(KvDoubleQuote)
@@ -229,11 +220,6 @@ func (kvs KVS) String() string {
 		if spc {
 			s.WriteString(KvDoubleQuote)
 		}
-=======
-		s.WriteString(KvDoubleQuote)
-		s.WriteString(kv.Value)
-		s.WriteString(KvDoubleQuote)
->>>>>>> 524_bug
 		s.WriteString(KvSpaceSeparator)
 	}
 	return s.String()
@@ -332,91 +318,16 @@ func NewConfigWriteTo(cfg Config, key string) io.WriterTo {
 
 // WriteTo - implements io.WriterTo interface implementation for config.
 func (c *configWriteTo) WriteTo(w io.Writer) (int64, error) {
-	kvs, err := c.GetKVS(c.filterByKey, DefaultKVS)
+	kvsTargets, err := c.GetKVS(c.filterByKey, DefaultKVS)
 	if err != nil {
 		return 0, err
 	}
 	var n int
-	for k, kv := range kvs {
-		m1, _ := w.Write([]byte(k))
+	for _, target := range kvsTargets {
+		m1, _ := w.Write([]byte(target.SubSystem))
 		m2, _ := w.Write([]byte(KvSpaceSeparator))
-		m3, _ := w.Write([]byte(kv.String()))
-		if len(kvs) > 1 {
-			m4, _ := w.Write([]byte(KvNewline))
-			n += m1 + m2 + m3 + m4
-		} else {
-			n += m1 + m2 + m3
-		}
-	}
-	return int64(n), nil
-}
-
-// DelFrom - deletes all keys in the input reader.
-func (c Config) DelFrom(r io.Reader) error {
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		// Skip any empty lines, or comment like characters
-		if scanner.Text() == "" || strings.HasPrefix(scanner.Text(), KvComment) {
-			continue
-		}
-		if err := c.DelKVS(scanner.Text()); err != nil {
-			return err
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ReadFrom - implements io.ReaderFrom interface
-func (c Config) ReadFrom(r io.Reader) (int64, error) {
-	var n int
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		// Skip any empty lines, or comment like characters
-		if scanner.Text() == "" || strings.HasPrefix(scanner.Text(), KvComment) {
-			continue
-		}
-		if err := c.SetKVS(scanner.Text(), DefaultKVS); err != nil {
-			return 0, err
-		}
-		n += len(scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, err
-	}
-	return int64(n), nil
-}
-
-type configWriteTo struct {
-	Config
-	filterByKey string
-}
-
-// NewConfigWriteTo - returns a struct which
-// allows for serializing the config/kv struct
-// to a io.WriterTo
-func NewConfigWriteTo(cfg Config, key string) io.WriterTo {
-	return &configWriteTo{Config: cfg, filterByKey: key}
-}
-
-// WriteTo - implements io.WriterTo interface implementation for config.
-func (c *configWriteTo) WriteTo(w io.Writer) (int64, error) {
-	if c.filterByKey == "" {
-		n, err := w.Write([]byte(c.String()))
-		return int64(n), err
-	}
-	kvs, err := c.GetKVS(c.filterByKey, DefaultKVS)
-	if err != nil {
-		return 0, err
-	}
-	var n int
-	for k, kv := range kvs {
-		m1, _ := w.Write([]byte(k))
-		m2, _ := w.Write([]byte(KvSpaceSeparator))
-		m3, _ := w.Write([]byte(kv.String()))
-		if len(kvs) > 1 {
+		m3, _ := w.Write([]byte(target.KVS.String()))
+		if len(kvsTargets) > 1 {
 			m4, _ := w.Write([]byte(KvNewline))
 			n += m1 + m2 + m3 + m4
 		} else {
@@ -430,13 +341,6 @@ func (c *configWriteTo) WriteTo(w io.Writer) (int64, error) {
 var (
 	DefaultCredentialKVS = KVS{
 		KV{
-<<<<<<< HEAD
-=======
-			Key:   State,
-			Value: StateOff,
-		},
-		KV{
->>>>>>> 524_bug
 			Key:   AccessKey,
 			Value: auth.DefaultAccessKey,
 		},
@@ -448,13 +352,6 @@ var (
 
 	DefaultRegionKVS = KVS{
 		KV{
-<<<<<<< HEAD
-=======
-			Key:   State,
-			Value: StateOff,
-		},
-		KV{
->>>>>>> 524_bug
 			Key:   RegionName,
 			Value: "",
 		},
@@ -490,12 +387,8 @@ func LookupRegion(kv KVS) (string, error) {
 		if validRegionRegex.MatchString(region) {
 			return region, nil
 		}
-<<<<<<< HEAD
 		return "", Errorf(SafeModeKind,
 			"region '%s' is invalid, expected simple characters such as [us-east-1, myregion...]",
-=======
-		return "", Errorf("region '%s' is invalid, expected simple characters such as [us-east-1, myregion...]",
->>>>>>> 524_bug
 			region)
 	}
 	return "", nil
@@ -506,38 +399,27 @@ func LookupRegion(kv KVS) (string, error) {
 func CheckValidKeys(subSys string, kv KVS, validKVS KVS) error {
 	nkv := KVS{}
 	for _, kv := range kv {
-<<<<<<< HEAD
 		// Comment is a valid key, its also fully optional
 		// ignore it since it is a valid key for all
 		// sub-systems.
 		if kv.Key == Comment {
 			continue
 		}
-=======
->>>>>>> 524_bug
 		if _, ok := validKVS.Lookup(kv.Key); !ok {
 			nkv = append(nkv, kv)
 		}
 	}
 	if len(nkv) > 0 {
-<<<<<<< HEAD
 		return Errorf(
 			ContinueKind,
 			"found invalid keys (%s) for '%s' sub-system, use 'mc admin config reset myminio %s' to fix invalid keys", nkv.String(), subSys, subSys)
-=======
-		return Errorf("found invalid keys (%s) for '%s' sub-system", nkv.String(), subSys)
->>>>>>> 524_bug
 	}
 	return nil
 }
 
 // LookupWorm - check if worm is enabled
 func LookupWorm() (bool, error) {
-<<<<<<< HEAD
 	return ParseBool(env.Get(EnvWorm, EnableOff))
-=======
-	return ParseBool(env.Get(EnvWorm, StateOff))
->>>>>>> 524_bug
 }
 
 // New - initialize a new server config.
@@ -550,26 +432,27 @@ func New() Config {
 	return srvCfg
 }
 
+// Target signifies an individual target
+type Target struct {
+	SubSystem string
+	KVS       KVS
+}
+
+// Targets sub-system targets
+type Targets []Target
+
 // GetKVS - get kvs from specific subsystem.
-func (c Config) GetKVS(s string, defaultKVS map[string]KVS) (map[string]KVS, error) {
+func (c Config) GetKVS(s string, defaultKVS map[string]KVS) (Targets, error) {
 	if len(s) == 0 {
 		return nil, Errorf(SafeModeKind, "input cannot be empty")
 	}
 	inputs := strings.Fields(s)
 	if len(inputs) > 1 {
-<<<<<<< HEAD
 		return nil, Errorf(SafeModeKind, "invalid number of arguments %s", s)
 	}
 	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
 	if len(subSystemValue) == 0 {
 		return nil, Errorf(SafeModeKind, "invalid number of arguments %s", s)
-=======
-		return nil, Errorf("invalid number of arguments %s", s)
-	}
-	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
-	if len(subSystemValue) == 0 {
-		return nil, Errorf("invalid number of arguments %s", s)
->>>>>>> 524_bug
 	}
 	found := SubSystems.Contains(subSystemValue[0])
 	if !found {
@@ -578,51 +461,64 @@ func (c Config) GetKVS(s string, defaultKVS map[string]KVS) (map[string]KVS, err
 		found = !SubSystems.FuncMatch(strings.HasPrefix, subSystemValue[0]).IsEmpty() && len(subSystemValue) == 1
 	}
 	if !found {
-<<<<<<< HEAD
 		return nil, Errorf(SafeModeKind, "unknown sub-system %s", s)
-=======
-		return nil, Errorf("unknown sub-system %s", s)
->>>>>>> 524_bug
 	}
 
-	kvs := make(map[string]KVS)
-	var ok bool
+	targets := Targets{}
 	subSysPrefix := subSystemValue[0]
 	if len(subSystemValue) == 2 {
 		if len(subSystemValue[1]) == 0 {
-<<<<<<< HEAD
 			return nil, Errorf(SafeModeKind, "sub-system target '%s' cannot be empty", s)
 		}
-		kvs[inputs[0]], ok = c[subSysPrefix][subSystemValue[1]]
+		kvs, ok := c[subSysPrefix][subSystemValue[1]]
 		if !ok {
 			return nil, Errorf(SafeModeKind, "sub-system target '%s' doesn't exist", s)
-=======
-			return nil, Errorf("sub-system target '%s' cannot be empty", s)
 		}
-		kvs[inputs[0]], ok = c[subSysPrefix][subSystemValue[1]]
-		if !ok {
-			return nil, Errorf("sub-system target '%s' doesn't exist", s)
->>>>>>> 524_bug
+		for _, kv := range defaultKVS[subSysPrefix] {
+			_, ok = kvs.Lookup(kv.Key)
+			if !ok {
+				kvs.Set(kv.Key, kv.Value)
+			}
 		}
+		targets = append(targets, Target{
+			SubSystem: inputs[0],
+			KVS:       kvs,
+		})
 	} else {
-		for subSys, subSysTgts := range c {
-			if !strings.HasPrefix(subSys, subSysPrefix) {
+		hkvs := HelpSubSysMap[""]
+		// Use help for sub-system to preserve the order.
+		for _, hkv := range hkvs {
+			if !strings.HasPrefix(hkv.Key, subSysPrefix) {
 				continue
 			}
-			for k, kv := range subSysTgts {
+			if c[hkv.Key][Default].Empty() {
+				targets = append(targets, Target{
+					SubSystem: hkv.Key,
+					KVS:       defaultKVS[hkv.Key],
+				})
+			}
+			for k, kvs := range c[hkv.Key] {
+				for _, dkv := range defaultKVS[hkv.Key] {
+					_, ok := kvs.Lookup(dkv.Key)
+					if !ok {
+						kvs.Set(dkv.Key, dkv.Value)
+					}
+				}
 				if k != Default {
-					kvs[subSys+SubSystemSeparator+k] = kv
+					targets = append(targets, Target{
+						SubSystem: hkv.Key + SubSystemSeparator + k,
+						KVS:       kvs,
+					})
 				} else {
-					kvs[subSys] = kv
+					targets = append(targets, Target{
+						SubSystem: hkv.Key,
+						KVS:       kvs,
+					})
 				}
 			}
 		}
 	}
-	if len(kvs) == 0 {
-		kvs[subSysPrefix] = defaultKVS[subSysPrefix]
-		return kvs, nil
-	}
-	return kvs, nil
+	return targets, nil
 }
 
 // DelKVS - delete a specific key.
@@ -632,7 +528,6 @@ func (c Config) DelKVS(s string) error {
 	}
 	inputs := strings.Fields(s)
 	if len(inputs) > 1 {
-<<<<<<< HEAD
 		return Errorf(SafeModeKind, "invalid number of arguments %s", s)
 	}
 	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
@@ -643,22 +538,11 @@ func (c Config) DelKVS(s string) error {
 		// Unknown sub-system found try to remove it anyways.
 		delete(c, subSystemValue[0])
 		return nil
-=======
-		return Errorf("invalid number of arguments %s", s)
-	}
-	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
-	if len(subSystemValue) == 0 {
-		return Errorf("invalid number of arguments %s", s)
-	}
-	if !SubSystems.Contains(subSystemValue[0]) {
-		return Errorf("unknown sub-system %s", s)
->>>>>>> 524_bug
 	}
 	tgt := Default
 	subSys := subSystemValue[0]
 	if len(subSystemValue) == 2 {
 		if len(subSystemValue[1]) == 0 {
-<<<<<<< HEAD
 			return Errorf(SafeModeKind, "sub-system target '%s' cannot be empty", s)
 		}
 		tgt = subSystemValue[1]
@@ -669,24 +553,6 @@ func (c Config) DelKVS(s string) error {
 	}
 	delete(c[subSys], tgt)
 	return nil
-=======
-			return Errorf("sub-system target '%s' cannot be empty", s)
-		}
-		tgt = subSystemValue[1]
-	}
-	_, ok := c[subSys][tgt]
-	if !ok {
-		return Errorf("sub-system %s already deleted", s)
-	}
-	delete(c[subSys], tgt)
-	return nil
-}
-
-// This function is needed, to trim off single or double quotes, creeping into the values.
-func sanitizeValue(v string) string {
-	v = strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(v), KvDoubleQuote), KvDoubleQuote)
-	return strings.TrimSuffix(strings.TrimPrefix(v, KvSingleQuote), KvSingleQuote)
->>>>>>> 524_bug
 }
 
 // Clone - clones a config map entirely.
@@ -708,7 +574,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 	}
 	inputs := strings.SplitN(s, KvSpaceSeparator, 2)
 	if len(inputs) <= 1 {
-<<<<<<< HEAD
 		return Errorf(SafeModeKind, "invalid number of arguments '%s'", s)
 	}
 	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
@@ -722,21 +587,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 
 	if SubSystemsSingleTargets.Contains(subSystemValue[0]) && len(subSystemValue) == 2 {
 		return Errorf(SafeModeKind, "sub-system '%s' only supports single target", subSystemValue[0])
-=======
-		return Errorf("invalid number of arguments '%s'", s)
-	}
-	subSystemValue := strings.SplitN(inputs[0], SubSystemSeparator, 2)
-	if len(subSystemValue) == 0 {
-		return Errorf("invalid number of arguments %s", s)
-	}
-
-	if !SubSystems.Contains(subSystemValue[0]) {
-		return Errorf("unknown sub-system %s", s)
-	}
-
-	if SubSystemsSingleTargets.Contains(subSystemValue[0]) && len(subSystemValue) == 2 {
-		return Errorf("sub-system '%s' only supports single target", subSystemValue[0])
->>>>>>> 524_bug
 	}
 
 	var kvs = KVS{}
@@ -747,7 +597,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 			continue
 		}
 		if len(kv) == 1 && prevK != "" {
-<<<<<<< HEAD
 			value := strings.Join([]string{
 				kvs.Get(prevK),
 				madmin.SanitizeValue(kv[0]),
@@ -761,22 +610,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 			continue
 		}
 		return Errorf(SafeModeKind, "key '%s', cannot have empty value", kv[0])
-=======
-			kvs = append(kvs, KV{
-				Key:   prevK,
-				Value: strings.Join([]string{kvs.Get(prevK), sanitizeValue(kv[0])}, KvSpaceSeparator),
-			})
-			continue
-		}
-		if len(kv) == 1 {
-			return Errorf("key '%s', cannot have empty value", kv[0])
-		}
-		prevK = kv[0]
-		kvs = append(kvs, KV{
-			Key:   kv[0],
-			Value: sanitizeValue(kv[1]),
-		})
->>>>>>> 524_bug
 	}
 
 	tgt := Default
@@ -784,7 +617,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 	if len(subSystemValue) == 2 {
 		tgt = subSystemValue[1]
 	}
-<<<<<<< HEAD
 
 	_, ok := kvs.Lookup(Enable)
 	// Check if state is required
@@ -803,24 +635,6 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 		if kv.Key == Comment {
 			// Skip comment and add it later.
 			continue
-=======
-
-	// Save client sent kvs
-	c[subSys][tgt] = kvs
-
-	_, ok := c[subSys][tgt].Lookup(State)
-	if !ok {
-		// implicit state "on" if not specified.
-		c[subSys][tgt] = append(c[subSys][tgt], KV{
-			Key:   State,
-			Value: StateOn,
-		})
-	}
-	for _, kv := range defaultKVS[subSys] {
-		_, ok := c[subSys][tgt].Lookup(kv.Key)
-		if !ok {
-			c[subSys][tgt] = append(c[subSys][tgt], kv)
->>>>>>> 524_bug
 		}
 		currKVS.Set(kv.Key, kv.Value)
 	}
@@ -829,10 +643,16 @@ func (c Config) SetKVS(s string, defaultKVS map[string]KVS) error {
 	if ok {
 		currKVS.Set(Comment, v)
 	}
-<<<<<<< HEAD
 
+	hkvs := HelpSubSysMap[subSys]
+	for _, hkv := range hkvs {
+		v, _ := currKVS.Lookup(hkv.Key)
+		if v == "" && !hkv.Optional {
+			return Errorf(SafeModeKind,
+				"'%s' is not optional for '%s' sub-system, please check '%s' documentation",
+				hkv.Key, subSys, subSys)
+		}
+	}
 	c[subSys][tgt] = currKVS
-=======
->>>>>>> 524_bug
 	return nil
 }

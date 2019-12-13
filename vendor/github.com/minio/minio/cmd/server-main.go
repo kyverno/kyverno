@@ -156,13 +156,9 @@ func serverHandleCmdArgs(ctx *cli.Context) {
 	}
 	logger.FatalIf(err, "Invalid command line arguments")
 
-<<<<<<< HEAD
 	if err = checkEndpointsSubOptimal(ctx, setupType, globalEndpoints); err != nil {
 		logger.Info("Optimal endpoint check failed %s", err)
 	}
-=======
-	logger.LogIf(context.Background(), checkEndpointsSubOptimal(ctx, setupType, globalEndpoints))
->>>>>>> 524_bug
 
 	// On macOS, if a process already listens on LOCALIPADDR:PORT, net.Listen() falls back
 	// to IPv6 address ie minio will start listening on IPv6 address whereas another
@@ -358,13 +354,9 @@ func serverMain(ctx *cli.Context) {
 	}
 
 	// Set system resources to maximum.
-<<<<<<< HEAD
 	if err = setMaxResources(); err != nil {
 		logger.Info("Unable to set system resources to maximum %s", err)
 	}
-=======
-	logger.LogIf(context.Background(), setMaxResources())
->>>>>>> 524_bug
 
 	if globalIsXL {
 		// Init global heal state
@@ -392,13 +384,10 @@ func serverMain(ctx *cli.Context) {
 		globalHTTPServerErrorCh <- httpServer.Start()
 	}()
 
-<<<<<<< HEAD
 	globalObjLayerMutex.Lock()
 	globalHTTPServer = httpServer
 	globalObjLayerMutex.Unlock()
 
-=======
->>>>>>> 524_bug
 	if globalIsDistXL && globalEndpoints.FirstLocal() {
 		// Additionally in distributed setup validate
 		if err := verifyServerSystemConfig(globalEndpoints); err != nil {
@@ -448,6 +437,7 @@ func serverMain(ctx *cli.Context) {
 		globalObjLayerMutex.Unlock()
 	}
 
+	initDataUsageStats()
 	initDailyLifecycle()
 
 	if globalIsXL {

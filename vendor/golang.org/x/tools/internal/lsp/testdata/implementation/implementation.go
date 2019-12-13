@@ -1,10 +1,6 @@
 package implementation
 
-<<<<<<< HEAD
 import "golang.org/x/tools/internal/lsp/implementation/other"
-=======
-import "implementation/other"
->>>>>>> 524_bug
 
 type ImpP struct{} //@ImpP
 
@@ -16,12 +12,12 @@ type ImpS struct{} //@ImpS
 func (ImpS) Laugh() { //@mark(LaughS, "Laugh")
 }
 
-type ImpI interface { //@ImpI
-	Laugh() //@mark(LaughI, "Laugh"),implementations("augh", LaughP),implementations("augh", OtherLaughP),implementations("augh", LaughS),implementations("augh", LaughL),implementations("augh", OtherLaughI),implementations("augh", OtherLaughS)
+type ImpI interface {
+	Laugh() //@implementations("Laugh", LaughP, OtherLaughP, LaughS, OtherLaughS)
 }
 
-type Laugher interface { //@Laugher,implementations("augher", ImpP),implementations("augher", OtherImpP),implementations("augher", ImpI),implementations("augher", ImpS),implementations("augher", OtherImpI),implementations("augher", OtherImpS),
-	Laugh() //@mark(LaughL, "Laugh"),implementations("augh", LaughP),implementations("augh", OtherLaughP),implementations("augh", LaughI),implementations("augh", LaughS),implementations("augh", OtherLaughI),implementations("augh", OtherLaughS)
+type Laugher interface { //@implementations("Laugher", ImpP, OtherImpP, ImpS, OtherImpS)
+	Laugh() //@implementations("Laugh", LaughP, OtherLaughP, LaughS, OtherLaughS)
 }
 
 type Foo struct {
@@ -29,14 +25,9 @@ type Foo struct {
 }
 
 type U interface {
-<<<<<<< HEAD
 	U() //TODO: fix flaky @implementations("U", ImpU)
 }
 
 type cryer int
 
 func (cryer) Cry(other.CryType) {} //@mark(CryImpl, "Cry")
-=======
-	U() //@mark(IntU, "U"),implementations("U", ImpU),
-}
->>>>>>> 524_bug

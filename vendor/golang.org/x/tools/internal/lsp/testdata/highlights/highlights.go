@@ -2,17 +2,20 @@ package highlights
 
 import (
 	"fmt"
-<<<<<<< HEAD
 	"sort"
-=======
->>>>>>> 524_bug
 
 	"golang.org/x/tools/internal/lsp/protocol"
 )
 
-type F struct{ bar int }
+type F struct{ bar int } //@mark(barDeclaration, "bar"),highlight(barDeclaration, barDeclaration, bar1, bar2, bar3)
 
-var foo = F{bar: 52} //@mark(fooDeclaration, "foo"),highlight(fooDeclaration, fooDeclaration, fooUse)
+func _() F {
+	return F{
+		bar: 123, //@mark(bar1, "bar"),highlight(bar1, barDeclaration, bar1, bar2, bar3)
+	}
+}
+
+var foo = F{bar: 52} //@mark(fooDeclaration, "foo"),mark(bar2, "bar"),highlight(fooDeclaration, fooDeclaration, fooUse),highlight(bar2, barDeclaration, bar1, bar2, bar3)
 
 func Print() { //@mark(printFunc, "Print"),highlight(printFunc, printFunc, printTest)
 	fmt.Println(foo) //@mark(fooUse, "foo"),highlight(fooUse, fooDeclaration, fooUse)
@@ -20,9 +23,8 @@ func Print() { //@mark(printFunc, "Print"),highlight(printFunc, printFunc, print
 }
 
 func (x *F) Inc() { //@mark(xDeclaration, "x"),highlight(xDeclaration, xDeclaration, xUse)
-	x.bar++ //@mark(xUse, "x"),highlight(xUse, xDeclaration, xUse)
+	x.bar++ //@mark(xUse, "x"),mark(bar3, "bar"),highlight(xUse, xDeclaration, xUse),highlight(bar3, barDeclaration, bar1, bar2, bar3)
 }
-<<<<<<< HEAD
 
 func testFunctions() {
 	fmt.Print("main start") //@mark(print1, "Print"),highlight(print1, printSep, print1, print2)
@@ -98,55 +100,4 @@ func testReturnMultipleFields() (float32, string) { //@mark(retVal31, "float32")
 		return 20.1, y //@mark(retVal41, "20.1"),mark(retVal42, "y"),highlight(retVal41, retVal31, retVal41, retVal51),highlight(retVal42, retVal32, yDecl, retVal42, retVal52)
 	}
 	return 4.9, "test" //@mark(retVal51, "4.9"),mark(retVal52, "\"test\""),highlight(retVal51, retVal31, retVal41, retVal51),highlight(retVal52, retVal32, retVal42, retVal52)
-=======
-
-func testFunctions() {
-	fmt.Print("main start") //@mark(print1, "Print"),highlight(print1, printSep, print1, print2)
-	fmt.Print("ok")         //@mark(print2, "Print"),highlight(print2, printSep, print1, print2)
-	Print()                 //@mark(printTest, "Print"),highlight(printTest, printFunc, printTest)
-}
-
-func toProtocolHighlight(rngs []protocol.Range) []protocol.DocumentHighlight { //@mark(doc1, "DocumentHighlight"),highlight(doc1, doc1, doc2, doc3)
-	result := make([]protocol.DocumentHighlight, 0, len(rngs)) //@mark(doc2, "DocumentHighlight"),highlight(doc2, doc1, doc2, doc3)
-	kind := protocol.Text
-	for _, rng := range rngs {
-		result = append(result, protocol.DocumentHighlight{ //@mark(doc3, "DocumentHighlight"),highlight(doc3, doc1, doc2, doc3)
-			Kind:  kind,
-			Range: rng,
-		})
-	}
-	return result
-}
-
-func testForLoops() {
-	for i := 0; i < 10; i++ { //@mark(forDecl1, "for"),highlight(forDecl1, forDecl1, brk1, cont1)
-		if i > 8 {
-			break //@mark(brk1, "break"),highlight(brk1, forDecl1, brk1, cont1)
-		}
-		if i < 2 {
-			for j := 1; j < 10; j++ { //@mark(forDecl2, "for"),highlight(forDecl2, forDecl2, cont2)
-				if j < 3 {
-					for k := 1; k < 10; k++ { //@mark(forDecl3, "for"),highlight(forDecl3, forDecl3, cont3)
-						if k < 3 {
-							continue //@mark(cont3, "continue"),highlight(cont3, forDecl3, cont3)
-						}
-					}
-					continue //@mark(cont2, "continue"),highlight(cont2, forDecl2, cont2)
-				}
-			}
-			continue //@mark(cont1, "continue"),highlight(cont1, forDecl1, brk1, cont1)
-		}
-	}
-
-	arr := []int{}
-
-	for i := range arr { //@mark(forDecl4, "for"),highlight(forDecl4, forDecl4, brk4, cont4)
-		if i > 8 {
-			break //@mark(brk4, "break"),highlight(brk4, forDecl4, brk4, cont4)
-		}
-		if i < 4 {
-			continue //@mark(cont4, "continue"),highlight(cont4, forDecl4, brk4, cont4)
-		}
-	}
->>>>>>> 524_bug
 }

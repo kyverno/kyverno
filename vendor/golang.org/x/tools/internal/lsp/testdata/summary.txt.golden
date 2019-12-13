@@ -1,31 +1,24 @@
 -- summary --
-<<<<<<< HEAD
-CompletionsCount = 219
-=======
-CompletionsCount = 216
->>>>>>> 524_bug
-CompletionSnippetCount = 51
-UnimportedCompletionsCount = 3
+CompletionsCount = 222
+CompletionSnippetCount = 53
+UnimportedCompletionsCount = 4
 DeepCompletionsCount = 5
 FuzzyCompletionsCount = 7
 RankedCompletionsCount = 26
 CaseSensitiveCompletionsCount = 4
-DiagnosticsCount = 22
+DiagnosticsCount = 34
 FoldingRangesCount = 2
 FormatCount = 6
 ImportCount = 7
 SuggestedFixCount = 1
-DefinitionsCount = 38
+DefinitionsCount = 39
 TypeDefinitionsCount = 2
-<<<<<<< HEAD
-HighlightsCount = 37
-=======
-HighlightsCount = 22
->>>>>>> 524_bug
+HighlightsCount = 41
 ReferencesCount = 7
 RenamesCount = 22
 PrepareRenamesCount = 8
 SymbolsCount = 1
 SignaturesCount = 22
 LinksCount = 6
+ImplementationsCount = 4
 

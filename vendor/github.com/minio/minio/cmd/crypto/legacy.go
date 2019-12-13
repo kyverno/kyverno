@@ -84,13 +84,6 @@ func SetKMSConfig(s config.Config, cfg KMSConfig) {
 	}
 	s[config.KmsVaultSubSys][config.Default] = config.KVS{
 		config.KV{
-<<<<<<< HEAD
-=======
-			Key:   config.State,
-			Value: config.StateOn,
-		},
-		config.KV{
->>>>>>> 524_bug
 			Key:   KMSVaultEndpoint,
 			Value: cfg.Vault.Endpoint,
 		},

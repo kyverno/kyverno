@@ -253,12 +253,7 @@ func addNeededOverlayPackages(cfg *Config, driver driver, response *responseDedu
 	if len(pkgs) == 0 {
 		return nil
 	}
-	drivercfg := *cfg
-	if getGoInfo().env.modulesOn {
-		drivercfg.BuildFlags = append(drivercfg.BuildFlags, "-mod=readonly")
-	}
-	dr, err := driver(&drivercfg, pkgs...)
-
+	dr, err := driver(cfg, pkgs...)
 	if err != nil {
 		return err
 	}
@@ -810,9 +805,14 @@ func golistDriver(cfg *Config, rootsDirs func() *goInfo, words ...string) (*driv
 		}
 
 		if p.Error != nil {
+			msg := strings.TrimSpace(p.Error.Err) // Trim to work around golang.org/issue/32363.
+			// Address golang.org/issue/35964 by appending import stack to error message.
+			if msg == "import cycle not allowed" && len(p.Error.ImportStack) != 0 {
+				msg += fmt.Sprintf(": import stack: %v", p.Error.ImportStack)
+			}
 			pkg.Errors = append(pkg.Errors, Error{
 				Pos: p.Error.Pos,
-				Msg: strings.TrimSpace(p.Error.Err), // Trim to work around golang.org/issue/32363.
+				Msg: msg,
 			})
 		}
 

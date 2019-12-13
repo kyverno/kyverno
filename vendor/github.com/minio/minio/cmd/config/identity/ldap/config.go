@@ -78,13 +78,6 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
-<<<<<<< HEAD
-=======
-			Key:   config.State,
-			Value: config.StateOff,
-		},
-		config.KV{
->>>>>>> 524_bug
 			Key:   ServerAddr,
 			Value: "",
 		},
@@ -110,11 +103,7 @@ var (
 		},
 		config.KV{
 			Key:   TLSSkipVerify,
-<<<<<<< HEAD
 			Value: config.EnableOff,
-=======
-			Value: config.StateOff,
->>>>>>> 524_bug
 		},
 	}
 )
@@ -147,16 +136,6 @@ func Lookup(kvs config.KVS, rootCAs *x509.CertPool) (l Config, err error) {
 	if err = config.CheckValidKeys(config.IdentityLDAPSubSys, kvs, DefaultKVS); err != nil {
 		return l, err
 	}
-<<<<<<< HEAD
-=======
-	stateBool, err := config.ParseBool(env.Get(EnvLDAPState, kvs.Get(config.State)))
-	if err != nil {
-		if kvs.Empty() {
-			return l, nil
-		}
-		return l, err
-	}
->>>>>>> 524_bug
 	ldapServer := env.Get(EnvServerAddr, kvs.Get(ServerAddr))
 	if ldapServer == "" {
 		return l, nil

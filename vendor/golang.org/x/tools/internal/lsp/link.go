@@ -32,6 +32,9 @@ func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLink
 		return nil, err
 	}
 	fh := view.Snapshot().Handle(ctx, f)
+	if fh.Identity().Kind == source.Mod {
+		return nil, nil
+	}
 	file, m, _, err := view.Session().Cache().ParseGoHandle(fh, source.ParseFull).Parse(ctx)
 	if err != nil {
 		return nil, err
@@ -48,11 +51,7 @@ func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLink
 			if target == "" {
 				return false
 			}
-<<<<<<< HEAD
 			target = fmt.Sprintf("https://%s/%s", view.Options().LinkTarget, target)
-=======
-			target = "https://godoc.org/" + target
->>>>>>> 524_bug
 			l, err := toProtocolLink(view, m, target, n.Path.Pos()+1, n.Path.End()-1)
 			if err != nil {
 				log.Error(ctx, "cannot initialize DocumentLink", err, tag.Of("Path", n.Path.Value))
@@ -102,8 +101,8 @@ func findLinksInString(src string, pos token.Pos, view source.View, mapper *prot
 		end := urlIndex[1]
 		startPos := token.Pos(int(pos) + start)
 		endPos := token.Pos(int(pos) + end)
-	        target = src[start:end]
-	        l, err := toProtocolLink(view, mapper, target, startPos, endPos)
+		target = src[start:end]
+		l, err := toProtocolLink(view, mapper, target, startPos, endPos)
 		if err != nil {
 			return nil, err
 		}

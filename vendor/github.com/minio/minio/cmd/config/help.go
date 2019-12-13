@@ -41,33 +41,22 @@ func (hkvs HelpKVS) Lookup(key string) (HelpKV, bool) {
 	return HelpKV{}, false
 }
 
-<<<<<<< HEAD
 // DefaultComment used across all sub-systems.
 const DefaultComment = "optionally add a comment to this setting"
 
-=======
->>>>>>> 524_bug
 // Region and Worm help is documented in default config
 var (
 	RegionHelp = HelpKVS{
 		HelpKV{
 			Key:         RegionName,
 			Type:        "string",
-<<<<<<< HEAD
 			Description: `name of the location of the server e.g. "us-west-rack2"`,
-=======
-			Description: `Region name of this deployment, eg: "us-west-2"`,
->>>>>>> 524_bug
 			Optional:    true,
 		},
 		HelpKV{
 			Key:         Comment,
 			Type:        "sentence",
-<<<<<<< HEAD
 			Description: DefaultComment,
-=======
-			Description: "A comment to describe the region setting",
->>>>>>> 524_bug
 			Optional:    true,
 		},
 	}

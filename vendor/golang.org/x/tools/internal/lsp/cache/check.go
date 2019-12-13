@@ -79,17 +79,10 @@ func (s *snapshot) packageHandle(ctx context.Context, id packageID, mode source.
 	//     packageHandle.h.function -> snapshot -> packageHandle
 	//
 
-<<<<<<< HEAD
 	m := ph.m
 	goFiles := ph.goFiles
 	compiledGoFiles := ph.compiledGoFiles
 	key := ph.key
-=======
-	m := cph.m
-	goFiles := cph.goFiles
-	compiledGoFiles := cph.compiledGoFiles
-	key := cph.key
->>>>>>> 524_bug
 	fset := s.view.session.cache.fset
 
 	h := s.view.session.cache.store.Bind(string(key), func(ctx context.Context) interface{} {
@@ -99,11 +92,7 @@ func (s *snapshot) packageHandle(ctx context.Context, id packageID, mode source.
 				dep.check(ctx)
 			}(dep)
 		}
-<<<<<<< HEAD
 		data := &packageData{}
-=======
-		data := &checkPackageData{}
->>>>>>> 524_bug
 		data.pkg, data.err = typeCheck(ctx, fset, m, mode, goFiles, compiledGoFiles, deps)
 		return data
 	})
@@ -129,11 +118,7 @@ func (s *snapshot) buildKey(ctx context.Context, id packageID, mode source.Parse
 	if err != nil {
 		return nil, nil, err
 	}
-<<<<<<< HEAD
 	ph := &packageHandle{
-=======
-	cph := &checkPackageHandle{
->>>>>>> 524_bug
 		m:               m,
 		goFiles:         goFiles,
 		compiledGoFiles: compiledGoFiles,
@@ -167,13 +152,8 @@ func (s *snapshot) buildKey(ctx context.Context, id packageID, mode source.Parse
 		deps[depHandle.m.pkgPath] = depHandle
 		depKeys = append(depKeys, depHandle.key)
 	}
-<<<<<<< HEAD
 	ph.key = checkPackageKey(ph.m.id, ph.compiledGoFiles, m.config, depKeys)
 	return ph, deps, nil
-=======
-	cph.key = checkPackageKey(cph.m.id, cph.compiledGoFiles, m.config, depKeys)
-	return cph, deps, nil
->>>>>>> 524_bug
 }
 
 func checkPackageKey(id packageID, pghs []source.ParseGoHandle, cfg *packages.Config, deps [][]byte) []byte {
@@ -210,13 +190,8 @@ func (ph *packageHandle) check(ctx context.Context) (*pkg, error) {
 	return data.pkg, data.err
 }
 
-<<<<<<< HEAD
 func (ph *packageHandle) CompiledGoFiles() []source.ParseGoHandle {
 	return ph.compiledGoFiles
-=======
-func (cph *checkPackageHandle) CompiledGoFiles() []source.ParseGoHandle {
-	return cph.compiledGoFiles
->>>>>>> 524_bug
 }
 
 func (ph *packageHandle) ID() string {
@@ -257,11 +232,7 @@ func (s *snapshot) parseGoHandles(ctx context.Context, files []span.URI, mode so
 	return phs, nil
 }
 
-<<<<<<< HEAD
 func typeCheck(ctx context.Context, fset *token.FileSet, m *metadata, mode source.ParseMode, goFiles []source.ParseGoHandle, compiledGoFiles []source.ParseGoHandle, deps map[packagePath]*packageHandle) (*pkg, error) {
-=======
-func typeCheck(ctx context.Context, fset *token.FileSet, m *metadata, mode source.ParseMode, goFiles []source.ParseGoHandle, compiledGoFiles []source.ParseGoHandle, deps map[packagePath]*checkPackageHandle) (*pkg, error) {
->>>>>>> 524_bug
 	ctx, done := trace.StartSpan(ctx, "cache.importer.typeCheck", telemetry.Package.Of(m.id))
 	defer done()
 
@@ -360,18 +331,15 @@ func typeCheck(ctx context.Context, fset *token.FileSet, m *metadata, mode sourc
 		return nil, ctx.Err()
 	}
 
-	// We don't care about a package's errors unless we have parsed it in full.
-	if mode == source.ParseFull {
-		for _, e := range rawErrors {
-			srcErr, err := sourceError(ctx, fset, pkg, e)
-			if err != nil {
-				log.Error(ctx, "unable to compute error positions", err, telemetry.Package.Of(pkg.ID()))
-				continue
-			}
-			pkg.errors = append(pkg.errors, srcErr)
+	// TODO(golang/go#35964): Propagate `go list` errors here when go/packages supports it.
+	for _, e := range rawErrors {
+		srcErr, err := sourceError(ctx, fset, pkg, e)
+		if err != nil {
+			log.Error(ctx, "unable to compute error positions", err, telemetry.Package.Of(pkg.ID()))
+			continue
 		}
+		pkg.errors = append(pkg.errors, srcErr)
 	}
-
 	return pkg, nil
 }
 

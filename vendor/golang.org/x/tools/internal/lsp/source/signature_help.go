@@ -32,12 +32,7 @@ func SignatureHelp(ctx context.Context, snapshot Snapshot, f File, pos protocol.
 	ctx, done := trace.StartSpan(ctx, "source.SignatureHelp")
 	defer done()
 
-<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
-=======
-	fh := snapshot.Handle(ctx, f)
-	cphs, err := snapshot.PackageHandles(ctx, fh)
->>>>>>> 524_bug
 	if err != nil {
 		return nil, fmt.Errorf("getting file for SignatureHelp: %v", err)
 	}

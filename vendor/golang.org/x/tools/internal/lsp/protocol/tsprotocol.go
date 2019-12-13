@@ -126,7 +126,7 @@ type CodeAction struct {
 	 * provides a edit and a command, first the edit is
 	 * executed and then the command.
 	 */
-	Command Command `json:"command,omitempty"`
+	Command *Command `json:"command,omitempty"`
 }
 
 /**
@@ -1027,7 +1027,7 @@ type DidSaveTextDocumentParams struct {
 	 * Optional the content when saved. Depends on the includeText value
 	 * when the save notification was requested.
 	 */
-	Text string `json:"text,omitempty"`
+	Text *string `json:"text,omitempty"`
 }
 
 type DocumentColorClientCapabilities struct {

@@ -44,11 +44,7 @@ func Diagnostics(ctx context.Context, snapshot Snapshot, f File, withAnalysis bo
 	defer done()
 
 	fh := snapshot.Handle(ctx, f)
-<<<<<<< HEAD
 	phs, err := snapshot.PackageHandles(ctx, fh)
-=======
-	cphs, err := snapshot.PackageHandles(ctx, fh)
->>>>>>> 524_bug
 	if err != nil {
 		return nil, "", err
 	}
@@ -59,25 +55,14 @@ func Diagnostics(ctx context.Context, snapshot Snapshot, f File, withAnalysis bo
 	// If we are missing dependencies, it may because the user's workspace is
 	// not correctly configured. Report errors, if possible.
 	var warningMsg string
-<<<<<<< HEAD
 	if len(ph.MissingDependencies()) > 0 {
 		if warningMsg, err = checkCommonErrors(ctx, snapshot.View(), f.URI()); err != nil {
-=======
-	if len(cph.MissingDependencies()) > 0 {
-		warningMsg, err = checkCommonErrors(ctx, snapshot.View(), f.URI())
-		if err != nil {
->>>>>>> 524_bug
 			log.Error(ctx, "error checking common errors", err, telemetry.File.Of(f.URI))
 		}
 	}
 	pkg, err := ph.Check(ctx)
 	if err != nil {
-<<<<<<< HEAD
 		return nil, "", err
-=======
-		log.Error(ctx, "no package for file", err)
-		return singleDiagnostic(fh.Identity(), "%s is not part of a package", f.URI()), "", nil
->>>>>>> 524_bug
 	}
 	// Prepare the reports we will send for the files in this package.
 	reports := make(map[FileIdentity][]Diagnostic)
@@ -86,8 +71,13 @@ func Diagnostics(ctx context.Context, snapshot Snapshot, f File, withAnalysis bo
 	}
 	// Prepare any additional reports for the errors in this package.
 	for _, e := range pkg.GetErrors() {
-		if e.Kind != ListError {
+		// We only need to handle lower-level errors.
+		if !(e.Kind == UnknownError || e.Kind == ListError) {
 			continue
+		}
+		// If no file is associated with the error, default to the current file.
+		if e.File.URI.Filename() == "" {
+			e.File = fh.Identity()
 		}
 		clearReports(snapshot, reports, e.File)
 	}
@@ -104,19 +94,11 @@ func Diagnostics(ctx context.Context, snapshot Snapshot, f File, withAnalysis bo
 	}
 	// Updates to the diagnostics for this package may need to be propagated.
 	for _, id := range snapshot.GetReverseDependencies(pkg.ID()) {
-<<<<<<< HEAD
 		ph, err := snapshot.PackageHandle(ctx, id)
 		if err != nil {
 			return nil, warningMsg, err
 		}
 		pkg, err := ph.Check(ctx)
-=======
-		cph, err := snapshot.PackageHandle(ctx, id)
-		if err != nil {
-			return nil, warningMsg, err
-		}
-		pkg, err := cph.Check(ctx)
->>>>>>> 524_bug
 		if err != nil {
 			return nil, warningMsg, err
 		}
@@ -156,7 +138,7 @@ func diagnostics(ctx context.Context, snapshot Snapshot, pkg Package, reports ma
 		case TypeError:
 			set.typeErrors = append(set.typeErrors, diag)
 			diag.Source = "compiler"
-		case ListError:
+		case ListError, UnknownError:
 			set.listErrors = append(set.listErrors, diag)
 			diag.Source = "go list"
 		}
@@ -178,11 +160,7 @@ func diagnostics(ctx context.Context, snapshot Snapshot, pkg Package, reports ma
 	return nonEmptyDiagnostics
 }
 
-<<<<<<< HEAD
 func analyses(ctx context.Context, snapshot Snapshot, ph PackageHandle, disabledAnalyses map[string]struct{}, reports map[FileIdentity][]Diagnostic) error {
-=======
-func analyses(ctx context.Context, snapshot Snapshot, cph CheckPackageHandle, disabledAnalyses map[string]struct{}, reports map[FileIdentity][]Diagnostic) error {
->>>>>>> 524_bug
 	var analyzers []*analysis.Analyzer
 	for _, a := range snapshot.View().Options().Analyzers {
 		if _, ok := disabledAnalyses[a.Name]; ok {

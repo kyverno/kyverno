@@ -42,13 +42,6 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
-<<<<<<< HEAD
-=======
-			Key:   config.State,
-			Value: config.StateOff,
-		},
-		config.KV{
->>>>>>> 524_bug
 			Key:   URL,
 			Value: "",
 		},
