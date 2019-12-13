@@ -49,8 +49,13 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   Extensions,

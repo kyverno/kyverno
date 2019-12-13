@@ -264,11 +264,19 @@ func parseDiscoveryDoc(u *xnet.URL, transport *http.Transport, closeRespFn func(
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   ConfigURL,
 			Value: "",
 		},
 		config.KV{
 			Key:   ClientID,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   ConfigURL,
+>>>>>>> 524_bug
 			Value: "",
 		},
 		config.KV{
@@ -282,6 +290,7 @@ var (
 	}
 )
 
+<<<<<<< HEAD
 // Enabled returns if jwks is enabled.
 func Enabled(kvs config.KVS) bool {
 	return kvs.Get(JwksURL) != ""
@@ -290,6 +299,19 @@ func Enabled(kvs config.KVS) bool {
 // LookupConfig lookup jwks from config, override with any ENVs.
 func LookupConfig(kvs config.KVS, transport *http.Transport, closeRespFn func(io.ReadCloser)) (c Config, err error) {
 	if err = config.CheckValidKeys(config.IdentityOpenIDSubSys, kvs, DefaultKVS); err != nil {
+=======
+// LookupConfig lookup jwks from config, override with any ENVs.
+func LookupConfig(kvs config.KVS, transport *http.Transport, closeRespFn func(io.ReadCloser)) (c Config, err error) {
+	if err = config.CheckValidKeys(config.IdentityOpenIDSubSys, kvs, DefaultKVS); err != nil {
+		return c, err
+	}
+
+	stateBool, err := config.ParseBool(env.Get(EnvIdentityOpenIDState, kvs.Get(config.State)))
+	if err != nil {
+		if kvs.Empty() {
+			return c, nil
+		}
+>>>>>>> 524_bug
 		return c, err
 	}
 

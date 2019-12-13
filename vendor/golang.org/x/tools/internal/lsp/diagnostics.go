@@ -16,11 +16,16 @@ import (
 	"golang.org/x/tools/internal/telemetry/trace"
 )
 
+<<<<<<< HEAD
 func (s *Server) diagnoseSnapshot(snapshot source.Snapshot) {
+=======
+func (s *Server) diagnoseSnapshot(snapshot source.Snapshot, cphs []source.CheckPackageHandle) {
+>>>>>>> 524_bug
 	ctx := snapshot.View().BackgroundContext()
 	ctx, done := trace.StartSpan(ctx, "lsp:background-worker")
 	defer done()
 
+<<<<<<< HEAD
 	for _, id := range snapshot.WorkspacePackageIDs(ctx) {
 		ph, err := snapshot.PackageHandle(ctx, id)
 		if err != nil {
@@ -32,6 +37,14 @@ func (s *Server) diagnoseSnapshot(snapshot source.Snapshot) {
 		}
 		// Find a file on which to call diagnostics.
 		uri := ph.CompiledGoFiles()[0].File().Identity().URI
+=======
+	for _, cph := range cphs {
+		if len(cph.CompiledGoFiles()) == 0 {
+			continue
+		}
+		// Find a file on which to call diagnostics.
+		uri := cph.CompiledGoFiles()[0].File().Identity().URI
+>>>>>>> 524_bug
 		f, err := snapshot.View().GetFile(ctx, uri)
 		if err != nil {
 			log.Error(ctx, "no file", err, telemetry.URI.Of(uri))
@@ -50,7 +63,11 @@ func (s *Server) diagnoseSnapshot(snapshot source.Snapshot) {
 	}
 }
 
+<<<<<<< HEAD
 func (s *Server) diagnoseFile(snapshot source.Snapshot, uri span.URI) {
+=======
+func (s *Server) diagnoseFile(snapshot source.Snapshot, uri span.URI) error {
+>>>>>>> 524_bug
 	ctx := snapshot.View().BackgroundContext()
 	ctx, done := trace.StartSpan(ctx, "lsp:background-worker")
 	defer done()
@@ -58,6 +75,13 @@ func (s *Server) diagnoseFile(snapshot source.Snapshot, uri span.URI) {
 	ctx = telemetry.File.With(ctx, uri)
 
 	f, err := snapshot.View().GetFile(ctx, uri)
+<<<<<<< HEAD
+=======
+	if err != nil {
+		return err
+	}
+	reports, warningMsg, err := source.Diagnostics(ctx, snapshot, f, true, snapshot.View().Options().DisabledAnalyses)
+>>>>>>> 524_bug
 	if err != nil {
 		log.Error(ctx, "diagnoseFile: no file", err)
 		return
@@ -70,6 +94,7 @@ func (s *Server) diagnoseFile(snapshot source.Snapshot, uri span.URI) {
 			Message: warningMsg,
 		})
 	}
+<<<<<<< HEAD
 	if err != nil {
 		if err != context.Canceled {
 			log.Error(ctx, "diagnoseFile: could not generate diagnostics", err)
@@ -85,6 +110,22 @@ func (s *Server) publishReports(ctx context.Context, reports map[source.FileIden
 	if ctx.Err() != nil {
 		return
 	}
+=======
+	// Publish empty diagnostics for files.
+	s.publishReports(ctx, reports, true)
+	return nil
+}
+
+func (s *Server) publishReports(ctx context.Context, reports map[source.FileIdentity][]source.Diagnostic, publishEmpty bool) {
+	undelivered := make(map[source.FileIdentity][]source.Diagnostic)
+	for fileID, diagnostics := range reports {
+		// Don't publish empty diagnostics unless specified.
+		if len(diagnostics) == 0 && !publishEmpty {
+			continue
+		}
+		if err := s.publishDiagnostics(ctx, fileID, diagnostics); err != nil {
+			undelivered[fileID] = diagnostics
+>>>>>>> 524_bug
 
 	for fileID, diagnostics := range reports {
 		// Don't deliver diagnostics if the context has already been canceled.
@@ -95,6 +136,7 @@ func (s *Server) publishReports(ctx context.Context, reports map[source.FileIden
 		if len(diagnostics) == 0 && !publishEmpty {
 			continue
 		}
+<<<<<<< HEAD
 		if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			Diagnostics: toProtocolDiagnostics(ctx, diagnostics),
 			URI:         protocol.NewURI(fileID.URI),
@@ -104,6 +146,29 @@ func (s *Server) publishReports(ctx context.Context, reports map[source.FileIden
 			continue
 		}
 	}
+=======
+		// In case we had old, undelivered diagnostics.
+		delete(undelivered, fileID)
+	}
+	// Any time we compute diagnostics, make sure to also send along any
+	// undelivered ones (only for remaining URIs).
+	for uri, diagnostics := range undelivered {
+		if err := s.publishDiagnostics(ctx, uri, diagnostics); err != nil {
+			log.Error(ctx, "failed to deliver diagnostic for (will not retry)", err, telemetry.File)
+		}
+
+		// If we fail to deliver the same diagnostics twice, just give up.
+		delete(undelivered, uri)
+	}
+}
+
+func (s *Server) publishDiagnostics(ctx context.Context, fileID source.FileIdentity, diagnostics []source.Diagnostic) error {
+	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		Diagnostics: toProtocolDiagnostics(ctx, diagnostics),
+		URI:         protocol.NewURI(fileID.URI),
+		Version:     fileID.Version,
+	})
+>>>>>>> 524_bug
 }
 
 func toProtocolDiagnostics(ctx context.Context, diagnostics []source.Diagnostic) []protocol.Diagnostic {

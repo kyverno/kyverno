@@ -51,7 +51,11 @@ const (
 	NATSStreamingAsync              = "streaming_async"
 	NATSStreamingMaxPubAcksInFlight = "streaming_max_pub_acks_in_flight"
 
+<<<<<<< HEAD
 	EnvNATSEnable        = "MINIO_NOTIFY_NATS_ENABLE"
+=======
+	EnvNATSState         = "MINIO_NOTIFY_NATS_STATE"
+>>>>>>> 524_bug
 	EnvNATSAddress       = "MINIO_NOTIFY_NATS_ADDRESS"
 	EnvNATSSubject       = "MINIO_NOTIFY_NATS_SUBJECT"
 	EnvNATSUsername      = "MINIO_NOTIFY_NATS_USERNAME"

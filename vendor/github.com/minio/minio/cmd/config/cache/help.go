@@ -23,6 +23,7 @@ var (
 	Help = config.HelpKVS{
 		config.HelpKV{
 			Key:         Drives,
+<<<<<<< HEAD
 			Description: `comma separated mountpoints e.g. "/optane1,/optane2"`,
 			Type:        "csv",
 		},
@@ -35,10 +36,25 @@ var (
 		config.HelpKV{
 			Key:         Quota,
 			Description: `limit cache drive usage in percentage e.g. "90"`,
+=======
+			Description: `List of mounted drives or directories delimited by ","`,
+			Type:        "csv",
+		},
+		config.HelpKV{
+			Key:         Exclude,
+			Description: `List of wildcard based cache exclusion patterns delimited by ","`,
+			Optional:    true,
+			Type:        "csv",
+		},
+		config.HelpKV{
+			Key:         Expiry,
+			Description: `Cache expiry duration in days. eg: "90"`,
+>>>>>>> 524_bug
 			Optional:    true,
 			Type:        "number",
 		},
 		config.HelpKV{
+<<<<<<< HEAD
 			Key:         Exclude,
 			Description: `comma separated wildcard exclusion patterns e.g. "bucket/*.tmp,*.exe"`,
 			Optional:    true,
@@ -47,6 +63,16 @@ var (
 		config.HelpKV{
 			Key:         config.Comment,
 			Description: config.DefaultComment,
+=======
+			Key:         Quota,
+			Description: `Maximum permitted usage of the cache in percentage (0-100)`,
+			Optional:    true,
+			Type:        "number",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: "A comment to describe the 'cache' settings",
+>>>>>>> 524_bug
 			Optional:    true,
 			Type:        "sentence",
 		},

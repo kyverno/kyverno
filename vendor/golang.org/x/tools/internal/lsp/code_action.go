@@ -62,7 +62,7 @@ func (s *Server) codeAction(ctx context.Context, params *protocol.CodeActionPara
 		codeActions = append(codeActions, protocol.CodeAction{
 			Title: "Tidy",
 			Kind:  protocol.SourceOrganizeImports,
-			Command: &protocol.Command{
+			Command: protocol.Command{
 				Title:   "Tidy",
 				Command: "tidy",
 				Arguments: []interface{}{
@@ -207,7 +207,11 @@ func quickFixes(ctx context.Context, snapshot source.Snapshot, f source.File, di
 	var codeActions []protocol.CodeAction
 
 	fh := snapshot.Handle(ctx, f)
+<<<<<<< HEAD
 	phs, err := snapshot.PackageHandles(ctx, fh)
+=======
+	cphs, err := snapshot.PackageHandles(ctx, fh)
+>>>>>>> 524_bug
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +224,11 @@ func quickFixes(ctx context.Context, snapshot source.Snapshot, f source.File, di
 	for _, diag := range diagnostics {
 		// This code assumes that the analyzer name is the Source of the diagnostic.
 		// If this ever changes, this will need to be addressed.
+<<<<<<< HEAD
 		srcErr, err := snapshot.FindAnalysisError(ctx, ph.ID(), diag.Source, diag.Message, diag.Range)
+=======
+		srcErr, err := snapshot.FindAnalysisError(ctx, cph.ID(), diag.Source, diag.Message, diag.Range)
+>>>>>>> 524_bug
 		if err != nil {
 			continue
 		}

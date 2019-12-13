@@ -29,10 +29,14 @@ func (s *Server) documentSymbol(ctx context.Context, params *protocol.DocumentSy
 	if err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	symbols, err := source.DocumentSymbols(ctx, snapshot, f)
 	if err != nil {
 		log.Error(ctx, "DocumentSymbols failed", err, telemetry.URI.Of(uri))
 		return []protocol.DocumentSymbol{}, nil
 	}
 	return symbols, nil
+=======
+	return source.DocumentSymbols(ctx, snapshot, f)
+>>>>>>> 524_bug
 }

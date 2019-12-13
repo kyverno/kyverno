@@ -547,7 +547,11 @@ func formatXLFixLocalDeploymentID(endpoints Endpoints, storageDisks []StorageAPI
 			format.ID = refFormat.ID
 			if err := saveFormatXL(storageDisk, format); err != nil {
 				logger.LogIf(context.Background(), err)
+<<<<<<< HEAD
 				return fmt.Errorf("Unable to save format.json, %w", err)
+=======
+				return fmt.Errorf("Unable to save format.json, %s", err)
+>>>>>>> 524_bug
 			}
 		}
 	}
@@ -747,7 +751,11 @@ func initFormatXL(ctx context.Context, storageDisks []StorageAPI, setCount, driv
 
 	// Initialize meta volume, if volume already exists ignores it.
 	if err := initFormatXLMetaVolume(storageDisks, formats); err != nil {
+<<<<<<< HEAD
 		return format, fmt.Errorf("Unable to initialize '.minio.sys' meta volume, %w", err)
+=======
+		return format, fmt.Errorf("Unable to initialize '.minio.sys' meta volume, %s", err)
+>>>>>>> 524_bug
 	}
 
 	// Save formats `format.json` across all disks.

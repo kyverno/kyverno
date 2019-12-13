@@ -36,8 +36,13 @@ func SetCompressionConfig(s config.Config, cfg Config) {
 	}
 	s[config.CompressionSubSys][config.Default] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   Extensions,

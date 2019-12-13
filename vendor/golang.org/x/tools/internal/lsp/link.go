@@ -48,7 +48,11 @@ func (s *Server) documentLink(ctx context.Context, params *protocol.DocumentLink
 			if target == "" {
 				return false
 			}
+<<<<<<< HEAD
 			target = fmt.Sprintf("https://%s/%s", view.Options().LinkTarget, target)
+=======
+			target = "https://godoc.org/" + target
+>>>>>>> 524_bug
 			l, err := toProtocolLink(view, m, target, n.Path.Pos()+1, n.Path.End()-1)
 			if err != nil {
 				log.Error(ctx, "cannot initialize DocumentLink", err, tag.Of("Path", n.Path.Value))

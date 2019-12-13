@@ -1,5 +1,9 @@
 -- summary --
+<<<<<<< HEAD
 CompletionsCount = 219
+=======
+CompletionsCount = 216
+>>>>>>> 524_bug
 CompletionSnippetCount = 51
 UnimportedCompletionsCount = 3
 DeepCompletionsCount = 5
@@ -13,7 +17,11 @@ ImportCount = 7
 SuggestedFixCount = 1
 DefinitionsCount = 38
 TypeDefinitionsCount = 2
+<<<<<<< HEAD
 HighlightsCount = 37
+=======
+HighlightsCount = 22
+>>>>>>> 524_bug
 ReferencesCount = 7
 RenamesCount = 22
 PrepareRenamesCount = 8

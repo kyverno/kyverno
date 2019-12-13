@@ -1,6 +1,7 @@
 package links
 
 import (
+<<<<<<< HEAD
 	"fmt" //@link(`fmt`,"https://pkg.go.dev/fmt")
 
 	"golang.org/x/tools/internal/lsp/foo" //@link(`golang.org/x/tools/internal/lsp/foo`,`https://pkg.go.dev/golang.org/x/tools/internal/lsp/foo`)
@@ -8,6 +9,15 @@ import (
 	_ "database/sql" //@link(`database/sql`, `https://pkg.go.dev/database/sql`)
 
 	errors "golang.org/x/xerrors" //@link(`golang.org/x/xerrors`, `https://pkg.go.dev/golang.org/x/xerrors`)
+=======
+	"fmt" //@link(`fmt`,"https://godoc.org/fmt")
+
+	"golang.org/x/tools/internal/lsp/foo" //@link(`golang.org/x/tools/internal/lsp/foo`,`https://godoc.org/golang.org/x/tools/internal/lsp/foo`)
+
+	_ "database/sql" //@link(`database/sql`, `https://godoc.org/database/sql`)
+
+	errors "golang.org/x/xerrors" //@link(`golang.org/x/xerrors`, `https://godoc.org/golang.org/x/xerrors`)
+>>>>>>> 524_bug
 )
 
 var (

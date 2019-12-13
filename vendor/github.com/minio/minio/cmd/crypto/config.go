@@ -47,6 +47,13 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+>>>>>>> 524_bug
 			Key:   KMSVaultEndpoint,
 			Value: "",
 		},
@@ -175,6 +182,19 @@ func LookupConfig(kvs config.KVS) (KMSConfig, error) {
 		return kmsCfg, nil
 	}
 
+<<<<<<< HEAD
+=======
+	stateBool, err := config.ParseBool(env.Get(EnvKMSVaultState, kvs.Get(config.State)))
+	if err != nil {
+		if kvs.Empty() {
+			return kmsCfg, nil
+		}
+		return kmsCfg, err
+	}
+	if !stateBool {
+		return kmsCfg, nil
+	}
+>>>>>>> 524_bug
 	vcfg := VaultConfig{
 		Auth: VaultAuth{
 			Type: "approle",

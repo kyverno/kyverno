@@ -40,11 +40,19 @@ import (
 	"github.com/minio/minio/pkg/env"
 )
 
+<<<<<<< HEAD
 func initHelp() {
+=======
+func init() {
+>>>>>>> 524_bug
 	var kvs = map[string]config.KVS{
 		config.EtcdSubSys:           etcd.DefaultKVS,
 		config.CacheSubSys:          cache.DefaultKVS,
 		config.CompressionSubSys:    compress.DefaultKVS,
+<<<<<<< HEAD
+=======
+		config.StorageClassSubSys:   storageclass.DefaultKVS,
+>>>>>>> 524_bug
 		config.IdentityLDAPSubSys:   xldap.DefaultKVS,
 		config.IdentityOpenIDSubSys: openid.DefaultKVS,
 		config.PolicyOPASubSys:      opa.DefaultKVS,
@@ -57,15 +65,19 @@ func initHelp() {
 	for k, v := range notify.DefaultNotificationKVS {
 		kvs[k] = v
 	}
+<<<<<<< HEAD
 	if globalIsXL {
 		kvs[config.StorageClassSubSys] = storageclass.DefaultKVS
 	}
+=======
+>>>>>>> 524_bug
 	config.RegisterDefaultKVS(kvs)
 
 	// Captures help for each sub-system
 	var helpSubSys = config.HelpKVS{
 		config.HelpKV{
 			Key:         config.RegionSubSys,
+<<<<<<< HEAD
 			Description: "label the location of the server",
 		},
 		config.HelpKV{
@@ -99,65 +111,149 @@ func initHelp() {
 		config.HelpKV{
 			Key:             config.LoggerWebhookSubSys,
 			Description:     "send server logs to webhook endpoints",
+=======
+			Description: "Configure to describe the physical location of the server",
+		},
+		config.HelpKV{
+			Key:         config.StorageClassSubSys,
+			Description: "Configure to control data and parity per object",
+		},
+		config.HelpKV{
+			Key:         config.CacheSubSys,
+			Description: "Configure to enable edge caching",
+		},
+		config.HelpKV{
+			Key:         config.CompressionSubSys,
+			Description: "Configure to enable streaming on disk compression",
+		},
+		config.HelpKV{
+			Key:         config.EtcdSubSys,
+			Description: "Configure to enable 'etcd' configuration",
+		},
+		config.HelpKV{
+			Key:         config.IdentityOpenIDSubSys,
+			Description: "Configure to enable OpenID SSO support",
+		},
+		config.HelpKV{
+			Key:         config.IdentityLDAPSubSys,
+			Description: "Configure to enable LDAP SSO support",
+		},
+		config.HelpKV{
+			Key:         config.PolicyOPASubSys,
+			Description: "Configure to enable external OPA policy support",
+		},
+		config.HelpKV{
+			Key:         config.KmsVaultSubSys,
+			Description: "Configure to enable Vault based external KMS",
+		},
+		config.HelpKV{
+			Key:             config.LoggerWebhookSubSys,
+			Description:     "Configure to enable Webhook based logger",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.AuditWebhookSubSys,
+<<<<<<< HEAD
 			Description:     "send audit logs to webhook endpoints",
+=======
+			Description:     "Configure to enable Webhook based audit logger",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyWebhookSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to webhook endpoints",
+=======
+			Description:     "Configure to publish events to Webhook target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyAMQPSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to AMQP endpoints",
+=======
+			Description:     "Configure to publish events to AMQP target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyKafkaSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to Kafka endpoints",
+=======
+			Description:     "Configure to publish events to Kafka target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyMQTTSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to MQTT endpoints",
+=======
+			Description:     "Configure to publish events to MQTT target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyNATSSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to NATS endpoints",
+=======
+			Description:     "Configure to publish events to NATS target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyNSQSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to NSQ endpoints",
+=======
+			Description:     "Configure to publish events to NSQ target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyMySQLSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to MySQL endpoints",
+=======
+			Description:     "Configure to publish events to MySQL target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyPostgresSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to Postgres endpoints",
+=======
+			Description:     "Configure to publish events to Postgres target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyRedisSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to Redis endpoints",
+=======
+			Description:     "Configure to publish events to Redis target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyESSubSys,
+<<<<<<< HEAD
 			Description:     "publish bucket notifications to Elasticsearch endpoints",
+=======
+			Description:     "Configure to publish events to Elasticsearch target",
+>>>>>>> 524_bug
 			MultipleTargets: true,
 		},
 	}
 
+<<<<<<< HEAD
 	if globalIsXL {
 		helpSubSys = append(helpSubSys, config.HelpKV{})
 		copy(helpSubSys[2:], helpSubSys[1:])
@@ -174,6 +270,15 @@ func initHelp() {
 		config.EtcdSubSys:           etcd.Help,
 		config.CacheSubSys:          cache.Help,
 		config.CompressionSubSys:    compress.Help,
+=======
+	var helpMap = map[string]config.HelpKVS{
+		"":                          helpSubSys, // Help for all sub-systems.
+		config.RegionSubSys:         config.RegionHelp,
+		config.EtcdSubSys:           etcd.Help,
+		config.CacheSubSys:          cache.Help,
+		config.CompressionSubSys:    compress.Help,
+		config.StorageClassSubSys:   storageclass.Help,
+>>>>>>> 524_bug
 		config.IdentityOpenIDSubSys: openid.Help,
 		config.IdentityLDAPSubSys:   xldap.Help,
 		config.PolicyOPASubSys:      opa.Help,
@@ -431,32 +536,48 @@ func GetHelp(subSys, key string, envOnly bool) (Help, error) {
 	}
 	subSystemValue := strings.SplitN(subSys, config.SubSystemSeparator, 2)
 	if len(subSystemValue) == 0 {
+<<<<<<< HEAD
 		return Help{}, config.Errorf(
 			config.SafeModeKind,
 			"invalid number of arguments %s", subSys)
+=======
+		return Help{}, config.Errorf("invalid number of arguments %s", subSys)
+>>>>>>> 524_bug
 	}
 
 	subSys = subSystemValue[0]
 
 	subSysHelp, ok := config.HelpSubSysMap[""].Lookup(subSys)
 	if !ok {
+<<<<<<< HEAD
 		return Help{}, config.Errorf(
 			config.SafeModeKind,
 			"unknown sub-system %s", subSys)
+=======
+		return Help{}, config.Errorf("unknown sub-system %s", subSys)
+>>>>>>> 524_bug
 	}
 
 	h, ok := config.HelpSubSysMap[subSys]
 	if !ok {
+<<<<<<< HEAD
 		return Help{}, config.Errorf(
 			config.SafeModeKind,
 			"unknown sub-system %s", subSys)
+=======
+		return Help{}, config.Errorf("unknown sub-system %s", subSys)
+>>>>>>> 524_bug
 	}
 	if key != "" {
 		value, ok := h.Lookup(key)
 		if !ok {
+<<<<<<< HEAD
 			return Help{}, config.Errorf(
 				config.SafeModeKind,
 				"unknown key %s for sub-system %s", key, subSys)
+=======
+			return Help{}, config.Errorf("unknown key %s for sub-system %s", key, subSys)
+>>>>>>> 524_bug
 		}
 		h = config.HelpKVS{value}
 	}

@@ -150,27 +150,6 @@ func main() {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
 
-	// POLICY VIOLATION CONTROLLER
-	// policy violation cleanup if the corresponding resource is deleted
-	// status: lastUpdatTime
-	pvc, err := policyviolation.NewPolicyViolationController(
-		client,
-		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations())
-	if err != nil {
-		glog.Fatalf("error creating cluster policy violation controller: %v\n", err)
-	}
-
-	nspvc, err := policyviolation.NewNamespacedPolicyViolationController(
-		client,
-		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().PolicyViolations())
-	if err != nil {
-		glog.Fatalf("error creating namespaced policy violation controller: %v\n", err)
-	}
-
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
 	nsc := namespace.NewNamespaceController(
@@ -231,8 +210,6 @@ func main() {
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
-	go pvc.Run(1, stopCh)
-	go nspvc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
 	go nsc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)

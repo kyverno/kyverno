@@ -76,12 +76,20 @@ func (i *IdentifierInfo) References(ctx context.Context) ([]*ReferenceInfo, erro
 	if i.Declaration.obj.Exported() {
 		// Only search all packages if the identifier is exported.
 		for _, id := range i.Snapshot.GetReverseDependencies(i.pkg.ID()) {
+<<<<<<< HEAD
 			ph, err := i.Snapshot.PackageHandle(ctx, id)
+=======
+			cph, err := i.Snapshot.PackageHandle(ctx, id)
+>>>>>>> 524_bug
 			if err != nil {
 				log.Error(ctx, "References: no CheckPackageHandle", err, telemetry.Package.Of(id))
 				continue
 			}
+<<<<<<< HEAD
 			pkg, err := ph.Check(ctx)
+=======
+			pkg, err := cph.Check(ctx)
+>>>>>>> 524_bug
 			if err != nil {
 				log.Error(ctx, "References: no Package", err, telemetry.Package.Of(id))
 				continue

@@ -1,6 +1,10 @@
 package implementation
 
+<<<<<<< HEAD
 import "golang.org/x/tools/internal/lsp/implementation/other"
+=======
+import "implementation/other"
+>>>>>>> 524_bug
 
 type ImpP struct{} //@ImpP
 
@@ -25,9 +29,14 @@ type Foo struct {
 }
 
 type U interface {
+<<<<<<< HEAD
 	U() //TODO: fix flaky @implementations("U", ImpU)
 }
 
 type cryer int
 
 func (cryer) Cry(other.CryType) {} //@mark(CryImpl, "Cry")
+=======
+	U() //@mark(IntU, "U"),implementations("U", ImpU),
+}
+>>>>>>> 524_bug

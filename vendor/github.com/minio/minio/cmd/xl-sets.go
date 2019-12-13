@@ -1624,7 +1624,11 @@ func (s *xlSets) HealObjects(ctx context.Context, bucket, prefix string, healObj
 			// Wait at max 10 minute for an inprogress request before proceeding to heal
 			waitCount := 600
 			// Any requests in progress, delay the heal.
+<<<<<<< HEAD
 			for (httpServer.GetRequestCount() >= int32(s.setCount*s.drivesPerSet)) &&
+=======
+			for (globalHTTPServer.GetRequestCount() >= int32(s.setCount*s.drivesPerSet)) &&
+>>>>>>> 524_bug
 				waitCount > 0 {
 				waitCount--
 				time.Sleep(1 * time.Second)

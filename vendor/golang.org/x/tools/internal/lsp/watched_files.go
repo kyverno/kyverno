@@ -44,7 +44,11 @@ func (s *Server) didChangeWatchedFiles(ctx context.Context, params *protocol.Did
 				}
 				snapshot := view.Snapshot()
 				fh := snapshot.Handle(ctx, f)
+<<<<<<< HEAD
 				phs, err := snapshot.PackageHandles(ctx, fh)
+=======
+				cphs, err := snapshot.PackageHandles(ctx, fh)
+>>>>>>> 524_bug
 				if err != nil {
 					log.Error(ctx, "didChangeWatchedFiles: CheckPackageHandles", err, telemetry.File)
 					continue
@@ -57,8 +61,13 @@ func (s *Server) didChangeWatchedFiles(ctx context.Context, params *protocol.Did
 				// Find a different file in the same package we can use to trigger diagnostics.
 				// TODO(rstambler): Allow diagnostics to be called per-package to avoid this.
 				var otherFile source.File
+<<<<<<< HEAD
 				for _, pgh := range ph.CompiledGoFiles() {
 					if pgh.File().Identity().URI == f.URI() {
+=======
+				for _, ph := range cph.CompiledGoFiles() {
+					if ph.File().Identity().URI == f.URI() {
+>>>>>>> 524_bug
 						continue
 					}
 					if f := view.FindFile(ctx, pgh.File().Identity().URI); f != nil && s.session.IsOpen(f.URI()) {
@@ -72,10 +81,16 @@ func (s *Server) didChangeWatchedFiles(ctx context.Context, params *protocol.Did
 
 				// If this was the only file in the package, clear its diagnostics.
 				if otherFile == nil {
+<<<<<<< HEAD
 					if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 						URI:     protocol.NewURI(uri),
 						Version: fh.Identity().Version,
 					}); err != nil {
+=======
+					if err := s.publishDiagnostics(ctx, source.FileIdentity{
+						URI: uri,
+					}, []source.Diagnostic{}); err != nil {
+>>>>>>> 524_bug
 						log.Error(ctx, "failed to clear diagnostics", err, telemetry.URI.Of(uri))
 					}
 					return nil

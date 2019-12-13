@@ -395,7 +395,24 @@ func Completion(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 
 	startTime := time.Now()
 
+<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
+=======
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
+	if err != nil {
+		return nil, nil, err
+	}
+	cph, err := NarrowestCheckPackageHandle(cphs)
+	if err != nil {
+		return nil, nil, err
+	}
+	pkg, err := cph.Check(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	ph, err := pkg.File(f.URI())
+>>>>>>> 524_bug
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting file for Completion: %v", err)
 	}

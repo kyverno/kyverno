@@ -79,12 +79,17 @@ func TestCapabilities(t *testing.T) {
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
 			{
 				Range: nil,
+<<<<<<< HEAD
 				Text:  `package main; func main() { fmt.Println("") }`,
+=======
+				Text:  `package main; func main() {}; func main2() {};`,
+>>>>>>> 524_bug
 			},
 		},
 	}); err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< HEAD
 
 	// Send a code action request to validate expected types.
 	actions, err := c.Server.CodeAction(ctx, &protocol.CodeActionParams{
@@ -101,6 +106,8 @@ func TestCapabilities(t *testing.T) {
 			t.Errorf("unexpected command for import organization")
 		}
 	}
+=======
+>>>>>>> 524_bug
 }
 
 func validateCapabilities(result *protocol.InitializeResult) error {

@@ -90,7 +90,11 @@ func sourceError(ctx context.Context, fset *token.FileSet, pkg *pkg, e interface
 	}
 	ph, err := pkg.File(spn.URI())
 	if err != nil {
+<<<<<<< HEAD
 		return nil, fmt.Errorf("finding file for error %q: %v", msg, err)
+=======
+		return nil, err
+>>>>>>> 524_bug
 	}
 	return &source.Error{
 		File:           ph.File().Identity(),

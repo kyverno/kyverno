@@ -18,7 +18,12 @@ func DocumentSymbols(ctx context.Context, snapshot Snapshot, f File) ([]protocol
 	ctx, done := trace.StartSpan(ctx, "source.DocumentSymbols")
 	defer done()
 
+<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
+=======
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
+>>>>>>> 524_bug
 	if err != nil {
 		return nil, fmt.Errorf("getting file for DocumentSymbols: %v", err)
 	}
@@ -37,6 +42,7 @@ func DocumentSymbols(ctx context.Context, snapshot Snapshot, f File) ([]protocol
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
 			if obj := info.ObjectOf(decl.Name); obj != nil {
+<<<<<<< HEAD
 				fs, err := funcSymbol(ctx, snapshot.View(), m, decl, obj, q)
 				if err != nil {
 					return nil, err
@@ -44,6 +50,11 @@ func DocumentSymbols(ctx context.Context, snapshot Snapshot, f File) ([]protocol
 				// Store methods separately, as we want them to appear as children
 				// of the corresponding type (which we may not have seen yet).
 				if fs.Kind == protocol.Method {
+=======
+				if fs := funcSymbol(ctx, snapshot.View(), m, decl, obj, q); fs.Kind == protocol.Method {
+					// Store methods separately, as we want them to appear as children
+					// of the corresponding type (which we may not have seen yet).
+>>>>>>> 524_bug
 					rtype := obj.Type().(*types.Signature).Recv().Type()
 					methodsToReceiver[rtype] = append(methodsToReceiver[rtype], fs)
 				} else {
@@ -55,21 +66,29 @@ func DocumentSymbols(ctx context.Context, snapshot Snapshot, f File) ([]protocol
 				switch spec := spec.(type) {
 				case *ast.TypeSpec:
 					if obj := info.ObjectOf(spec.Name); obj != nil {
+<<<<<<< HEAD
 						ts, err := typeSymbol(ctx, snapshot.View(), m, info, spec, obj, q)
 						if err != nil {
 							return nil, err
 						}
+=======
+						ts := typeSymbol(ctx, snapshot.View(), m, info, spec, obj, q)
+>>>>>>> 524_bug
 						symbols = append(symbols, ts)
 						symbolsToReceiver[obj.Type()] = len(symbols) - 1
 					}
 				case *ast.ValueSpec:
 					for _, name := range spec.Names {
 						if obj := info.ObjectOf(name); obj != nil {
+<<<<<<< HEAD
 							vs, err := varSymbol(ctx, snapshot.View(), m, decl, name, obj, q)
 							if err != nil {
 								return nil, err
 							}
 							symbols = append(symbols, vs)
+=======
+							symbols = append(symbols, varSymbol(ctx, snapshot.View(), m, decl, name, obj, q))
+>>>>>>> 524_bug
 						}
 					}
 				}

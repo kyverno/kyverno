@@ -21,8 +21,13 @@ func SetNotifyKafka(s config.Config, kName string, cfg target.KafkaArgs) error {
 
 	s[config.NotifyKafkaSubSys][kName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key: target.KafkaBrokers,
@@ -43,6 +48,7 @@ func SetNotifyKafka(s config.Config, kName string, cfg target.KafkaArgs) error {
 			Value: cfg.QueueDir,
 		},
 		config.KV{
+<<<<<<< HEAD
 			Key:   target.KafkaClientTLSCert,
 			Value: cfg.TLS.ClientTLSCert,
 		},
@@ -51,6 +57,8 @@ func SetNotifyKafka(s config.Config, kName string, cfg target.KafkaArgs) error {
 			Value: cfg.TLS.ClientTLSKey,
 		},
 		config.KV{
+=======
+>>>>>>> 524_bug
 			Key:   target.KafkaQueueLimit,
 			Value: strconv.Itoa(int(cfg.QueueLimit)),
 		},
@@ -94,8 +102,13 @@ func SetNotifyAMQP(s config.Config, amqpName string, cfg target.AMQPArgs) error 
 
 	s[config.NotifyAMQPSubSys][amqpName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.AmqpURL,
@@ -162,8 +175,13 @@ func SetNotifyES(s config.Config, esName string, cfg target.ElasticsearchArgs) e
 
 	s[config.NotifyESSubSys][esName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.ElasticFormat,
@@ -202,8 +220,13 @@ func SetNotifyRedis(s config.Config, redisName string, cfg target.RedisArgs) err
 
 	s[config.NotifyRedisSubSys][redisName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.RedisFormat,
@@ -246,8 +269,13 @@ func SetNotifyWebhook(s config.Config, whName string, cfg target.WebhookArgs) er
 
 	s[config.NotifyWebhookSubSys][whName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.WebhookEndpoint,
@@ -282,8 +310,13 @@ func SetNotifyPostgres(s config.Config, psqName string, cfg target.PostgreSQLArg
 
 	s[config.NotifyPostgresSubSys][psqName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.PostgresFormat,
@@ -342,8 +375,13 @@ func SetNotifyNSQ(s config.Config, nsqName string, cfg target.NSQArgs) error {
 
 	s[config.NotifyNSQSubSys][nsqName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NSQAddress,
@@ -386,8 +424,13 @@ func SetNotifyNATS(s config.Config, natsName string, cfg target.NATSArgs) error 
 
 	s[config.NotifyNATSSubSys][natsName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NATSAddress,
@@ -441,9 +484,15 @@ func SetNotifyNATS(s config.Config, natsName string, cfg target.NATSArgs) error 
 			Key: target.NATSStreaming,
 			Value: func() string {
 				if cfg.Streaming.Enable {
+<<<<<<< HEAD
 					return config.EnableOn
 				}
 				return config.EnableOff
+=======
+					return config.StateOn
+				}
+				return config.StateOff
+>>>>>>> 524_bug
 			}(),
 		},
 		config.KV{
@@ -475,8 +524,13 @@ func SetNotifyMySQL(s config.Config, sqlName string, cfg target.MySQLArgs) error
 
 	s[config.NotifyMySQLSubSys][sqlName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.MySQLFormat,
@@ -535,8 +589,13 @@ func SetNotifyMQTT(s config.Config, mqttName string, cfg target.MQTTArgs) error 
 
 	s[config.NotifyMQTTSubSys][mqttName] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOn,
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.MqttBroker,

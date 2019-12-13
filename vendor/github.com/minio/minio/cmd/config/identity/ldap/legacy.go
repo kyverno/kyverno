@@ -26,6 +26,13 @@ func SetIdentityLDAP(s config.Config, ldapArgs Config) {
 	}
 	s[config.IdentityLDAPSubSys][config.Default] = config.KVS{
 		config.KV{
+<<<<<<< HEAD
+=======
+			Key:   config.State,
+			Value: config.StateOn,
+		},
+		config.KV{
+>>>>>>> 524_bug
 			Key:   ServerAddr,
 			Value: ldapArgs.ServerAddr,
 		},

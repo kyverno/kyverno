@@ -311,11 +311,16 @@ func (r *runner) Import(t *testing.T, spn span.Span) {
 		}
 		got = res[uri]
 	}
+<<<<<<< HEAD
 	want := string(r.data.Golden("goimports", filename, func() ([]byte, error) {
 		return []byte(got), nil
 	}))
 	if want != got {
 		t.Errorf("import failed for %s, expected:\n%v\ngot:\n%v", filename, want, got)
+=======
+	if goimported != got {
+		t.Errorf("import failed for %s, expected:\n%v\ngot:\n%v", filename, goimported, got)
+>>>>>>> 524_bug
 	}
 }
 
@@ -489,7 +494,11 @@ func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementat
 }
 
 func (r *runner) Highlight(t *testing.T, src span.Span, locations []span.Span) {
+<<<<<<< HEAD
 	m, err := r.data.Mapper(src.URI())
+=======
+	m, err := r.data.Mapper(locations[0].URI())
+>>>>>>> 524_bug
 	if err != nil {
 		t.Fatal(err)
 	}

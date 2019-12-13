@@ -6,4 +6,8 @@
 
 package cpu
 
+<<<<<<< HEAD
 func doinit() {}
+=======
+const cacheLineSize = 64
+>>>>>>> 524_bug

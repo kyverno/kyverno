@@ -134,11 +134,14 @@ func (a adminAPIHandlers) SetConfigKVHandler(w http.ResponseWriter, r *http.Requ
 
 	cfg, err := readServerConfig(ctx, objectAPI)
 	if err != nil {
+<<<<<<< HEAD
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
 
 	if _, err = cfg.ReadFrom(bytes.NewReader(kvBytes)); err != nil {
+=======
+>>>>>>> 524_bug
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
 	}
@@ -425,6 +428,7 @@ func (a adminAPIHandlers) GetConfigHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+<<<<<<< HEAD
 	var s strings.Builder
 	hkvs := config.HelpSubSysMap[""]
 	for _, hkv := range hkvs {
@@ -464,6 +468,17 @@ func (a adminAPIHandlers) GetConfigHandler(w http.ResponseWriter, r *http.Reques
 
 	password := globalActiveCred.SecretKey
 	econfigData, err := madmin.EncryptData(password, []byte(s.String()))
+=======
+	var buf = &bytes.Buffer{}
+	cw := config.NewConfigWriteTo(cfg, "")
+	if _, err = cw.WriteTo(buf); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	password := globalActiveCred.SecretKey
+	econfigData, err := madmin.EncryptData(password, buf.Bytes())
+>>>>>>> 524_bug
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return

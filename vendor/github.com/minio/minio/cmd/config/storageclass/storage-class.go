@@ -58,6 +58,13 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+>>>>>>> 524_bug
 			Key:   ClassStandard,
 			Value: "",
 		},
@@ -229,6 +236,16 @@ func LookupConfig(kvs config.KVS, drivesPerSet int) (cfg Config, err error) {
 		return cfg, err
 	}
 
+<<<<<<< HEAD
+=======
+	stateBool, err := config.ParseBool(env.Get(EnvStorageClass, kvs.Get(config.State)))
+	if err != nil {
+		if kvs.Empty() {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+>>>>>>> 524_bug
 	ssc := env.Get(StandardEnv, kvs.Get(ClassStandard))
 	rrsc := env.Get(RRSEnv, kvs.Get(ClassRRS))
 	// Check for environment variables and parse into storageClass struct

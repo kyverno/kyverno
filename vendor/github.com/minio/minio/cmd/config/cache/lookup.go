@@ -47,6 +47,13 @@ const (
 var (
 	DefaultKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+		},
+		config.KV{
+>>>>>>> 524_bug
 			Key:   Drives,
 			Value: "",
 		},
@@ -84,6 +91,19 @@ func LookupConfig(kvs config.KVS) (Config, error) {
 		return cfg, err
 	}
 
+<<<<<<< HEAD
+=======
+	// Check if cache is explicitly disabled
+	stateBool, err := config.ParseBool(env.Get(EnvCacheState, kvs.Get(config.State)))
+	if err != nil {
+		// Parsing failures happen due to empty KVS, ignore it.
+		if kvs.Empty() {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+
+>>>>>>> 524_bug
 	drives := env.Get(EnvCacheDrives, kvs.Get(Drives))
 	if len(drives) == 0 {
 		return cfg, nil
@@ -92,14 +112,20 @@ func LookupConfig(kvs config.KVS) (Config, error) {
 	var err error
 	cfg.Drives, err = parseCacheDrives(drives)
 	if err != nil {
-		return cfg, err
+		cfg.Drives, err = parseCacheDrives(strings.Split(drives, cacheDelimiterLegacy))
+		if err != nil {
+			return cfg, err
+		}
 	}
 
 	cfg.Enabled = true
 	if excludes := env.Get(EnvCacheExclude, kvs.Get(Exclude)); excludes != "" {
 		cfg.Exclude, err = parseCacheExcludes(excludes)
 		if err != nil {
-			return cfg, err
+			cfg.Exclude, err = parseCacheExcludes(strings.Split(excludes, cacheDelimiterLegacy))
+			if err != nil {
+				return cfg, err
+			}
 		}
 	}
 

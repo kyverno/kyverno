@@ -51,7 +51,24 @@ func Identifier(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 	ctx, done := trace.StartSpan(ctx, "source.Identifier")
 	defer done()
 
+<<<<<<< HEAD
 	pkg, pgh, err := getParsedFile(ctx, snapshot, f, WidestCheckPackageHandle)
+=======
+	fh := snapshot.Handle(ctx, f)
+	cphs, err := snapshot.PackageHandles(ctx, fh)
+	if err != nil {
+		return nil, err
+	}
+	cph, err := WidestCheckPackageHandle(cphs)
+	if err != nil {
+		return nil, err
+	}
+	pkg, err := cph.Check(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ph, err := pkg.File(f.URI())
+>>>>>>> 524_bug
 	if err != nil {
 		return nil, fmt.Errorf("getting file for Identifier: %v", err)
 	}

@@ -22,7 +22,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"flag"
@@ -75,11 +74,20 @@ func randomState() string {
 }
 
 var (
+<<<<<<< HEAD
 	stsEndpoint    string
 	configEndpoint string
 	clientID       string
 	clientSec      string
 	port           int
+=======
+	stsEndpoint   string
+	authEndpoint  string
+	tokenEndpoint string
+	clientID      string
+	clientSecret  string
+	port          int
+>>>>>>> 524_bug
 )
 
 // DiscoveryDoc - parses the output from openid-configuration
@@ -186,7 +194,10 @@ func main() {
 				Expiry: int(oauth2Token.Expiry.Sub(time.Now().UTC()).Seconds()),
 			}, nil
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 524_bug
 		sts, err := credentials.NewSTSWebIdentity(stsEndpoint, getWebTokenExpiry)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

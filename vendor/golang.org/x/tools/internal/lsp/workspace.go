@@ -26,7 +26,11 @@ func (s *Server) changeFolders(ctx context.Context, event protocol.WorkspaceFold
 	return nil
 }
 
+<<<<<<< HEAD
 func (s *Server) addView(ctx context.Context, name string, uri span.URI) (source.View, source.Snapshot, error) {
+=======
+func (s *Server) addView(ctx context.Context, name string, uri span.URI) (source.View, []source.CheckPackageHandle, error) {
+>>>>>>> 524_bug
 	s.stateMu.Lock()
 	state := s.state
 	s.stateMu.Unlock()

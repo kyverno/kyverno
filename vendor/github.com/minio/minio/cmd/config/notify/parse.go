@@ -341,8 +341,13 @@ func mergeTargets(cfgTargets map[string]config.KVS, envname string, defaultKVS c
 var (
 	DefaultKafkaKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.KafkaTopic,
@@ -361,6 +366,7 @@ var (
 			Value: "",
 		},
 		config.KV{
+<<<<<<< HEAD
 			Key:   target.KafkaClientTLSCert,
 			Value: "",
 		},
@@ -369,11 +375,14 @@ var (
 			Value: "",
 		},
 		config.KV{
+=======
+>>>>>>> 524_bug
 			Key:   target.KafkaTLSClientAuth,
 			Value: "0",
 		},
 		config.KV{
 			Key:   target.KafkaSASL,
+<<<<<<< HEAD
 			Value: config.EnableOff,
 		},
 		config.KV{
@@ -383,6 +392,17 @@ var (
 		config.KV{
 			Key:   target.KafkaTLSSkipVerify,
 			Value: config.EnableOff,
+=======
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.KafkaTLS,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.KafkaTLSSkipVerify,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.KafkaQueueLimit,
@@ -475,6 +495,7 @@ func GetNotifyKafka(kafkaKVS map[string]config.KVS) (map[string]target.KafkaArgs
 		if k != config.Default {
 			tlsSkipVerifyEnv = tlsSkipVerifyEnv + config.Default + k
 		}
+<<<<<<< HEAD
 
 		tlsClientTLSCertEnv := target.EnvKafkaClientTLSCert
 		if k != config.Default {
@@ -488,6 +509,10 @@ func GetNotifyKafka(kafkaKVS map[string]config.KVS) (map[string]target.KafkaArgs
 
 		kafkaArgs.TLS.Enable = env.Get(tlsEnableEnv, kv.Get(target.KafkaTLS)) == config.EnableOn
 		kafkaArgs.TLS.SkipVerify = env.Get(tlsSkipVerifyEnv, kv.Get(target.KafkaTLSSkipVerify)) == config.EnableOn
+=======
+		kafkaArgs.TLS.Enable = env.Get(tlsEnableEnv, kv.Get(target.KafkaTLS)) == config.StateOn
+		kafkaArgs.TLS.SkipVerify = env.Get(tlsSkipVerifyEnv, kv.Get(target.KafkaTLSSkipVerify)) == config.StateOn
+>>>>>>> 524_bug
 		kafkaArgs.TLS.ClientAuth = tls.ClientAuthType(clientAuth)
 
 		kafkaArgs.TLS.ClientTLSCert = env.Get(tlsClientTLSCertEnv, kv.Get(target.KafkaClientTLSCert))
@@ -505,7 +530,11 @@ func GetNotifyKafka(kafkaKVS map[string]config.KVS) (map[string]target.KafkaArgs
 		if k != config.Default {
 			saslPasswordEnv = saslPasswordEnv + config.Default + k
 		}
+<<<<<<< HEAD
 		kafkaArgs.SASL.Enable = env.Get(saslEnableEnv, kv.Get(target.KafkaSASL)) == config.EnableOn
+=======
+		kafkaArgs.SASL.Enable = env.Get(saslEnableEnv, kv.Get(target.KafkaSASL)) == config.StateOn
+>>>>>>> 524_bug
 		kafkaArgs.SASL.User = env.Get(saslUsernameEnv, kv.Get(target.KafkaSASLUsername))
 		kafkaArgs.SASL.Password = env.Get(saslPasswordEnv, kv.Get(target.KafkaSASLPassword))
 
@@ -523,8 +552,13 @@ func GetNotifyKafka(kafkaKVS map[string]config.KVS) (map[string]target.KafkaArgs
 var (
 	DefaultMQTTKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.MqttBroker,
@@ -678,8 +712,13 @@ func GetNotifyMQTT(mqttKVS map[string]config.KVS, rootCAs *x509.CertPool) (map[s
 var (
 	DefaultMySQLKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.MySQLFormat,
@@ -817,8 +856,13 @@ func GetNotifyMySQL(mysqlKVS map[string]config.KVS) (map[string]target.MySQLArgs
 var (
 	DefaultNATSKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NATSAddress,
@@ -854,7 +898,11 @@ var (
 		},
 		config.KV{
 			Key:   target.NATSSecure,
+<<<<<<< HEAD
 			Value: config.EnableOff,
+=======
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NATSPingInterval,
@@ -862,11 +910,19 @@ var (
 		},
 		config.KV{
 			Key:   target.NATSStreaming,
+<<<<<<< HEAD
 			Value: config.EnableOff,
 		},
 		config.KV{
 			Key:   target.NATSStreamingAsync,
 			Value: config.EnableOff,
+=======
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.NATSStreamingAsync,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NATSStreamingMaxPubAcksInFlight,
@@ -967,6 +1023,7 @@ func GetNotifyNATS(natsKVS map[string]config.KVS) (map[string]target.NATSArgs, e
 		certAuthorityEnv := target.EnvNATSCertAuthority
 		if k != config.Default {
 			certAuthorityEnv = certAuthorityEnv + config.Default + k
+<<<<<<< HEAD
 		}
 
 		clientCertEnv := target.EnvNATSClientCert
@@ -974,6 +1031,15 @@ func GetNotifyNATS(natsKVS map[string]config.KVS) (map[string]target.NATSArgs, e
 			clientCertEnv = clientCertEnv + config.Default + k
 		}
 
+=======
+		}
+
+		clientCertEnv := target.EnvNATSClientCert
+		if k != config.Default {
+			clientCertEnv = clientCertEnv + config.Default + k
+		}
+
+>>>>>>> 524_bug
 		clientKeyEnv := target.EnvNATSClientKey
 		if k != config.Default {
 			clientKeyEnv = clientKeyEnv + config.Default + k
@@ -989,7 +1055,11 @@ func GetNotifyNATS(natsKVS map[string]config.KVS) (map[string]target.NATSArgs, e
 			ClientCert:    env.Get(clientCertEnv, kv.Get(target.NATSClientCert)),
 			ClientKey:     env.Get(clientKeyEnv, kv.Get(target.NATSClientKey)),
 			Token:         env.Get(tokenEnv, kv.Get(target.NATSToken)),
+<<<<<<< HEAD
 			Secure:        env.Get(secureEnv, kv.Get(target.NATSSecure)) == config.EnableOn,
+=======
+			Secure:        env.Get(secureEnv, kv.Get(target.NATSSecure)) == config.StateOn,
+>>>>>>> 524_bug
 			PingInterval:  pingInterval,
 			QueueDir:      env.Get(queueDirEnv, kv.Get(target.NATSQueueDir)),
 			QueueLimit:    queueLimit,
@@ -1000,7 +1070,11 @@ func GetNotifyNATS(natsKVS map[string]config.KVS) (map[string]target.NATSArgs, e
 			streamingEnableEnv = streamingEnableEnv + config.Default + k
 		}
 
+<<<<<<< HEAD
 		streamingEnabled := env.Get(streamingEnableEnv, kv.Get(target.NATSStreaming)) == config.EnableOn
+=======
+		streamingEnabled := env.Get(streamingEnableEnv, kv.Get(target.NATSStreaming)) == config.StateOn
+>>>>>>> 524_bug
 		if streamingEnabled {
 			asyncEnv := target.EnvNATSStreamingAsync
 			if k != config.Default {
@@ -1038,8 +1112,13 @@ func GetNotifyNATS(natsKVS map[string]config.KVS) (map[string]target.NATSArgs, e
 var (
 	DefaultNSQKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NSQAddress,
@@ -1051,11 +1130,19 @@ var (
 		},
 		config.KV{
 			Key:   target.NSQTLS,
+<<<<<<< HEAD
 			Value: config.EnableOff,
 		},
 		config.KV{
 			Key:   target.NSQTLSSkipVerify,
 			Value: config.EnableOff,
+=======
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.NSQTLSSkipVerify,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.NSQQueueDir,
@@ -1127,8 +1214,13 @@ func GetNotifyNSQ(nsqKVS map[string]config.KVS) (map[string]target.NSQArgs, erro
 			QueueDir:    env.Get(queueDirEnv, kv.Get(target.NSQQueueDir)),
 			QueueLimit:  queueLimit,
 		}
+<<<<<<< HEAD
 		nsqArgs.TLS.Enable = env.Get(tlsEnableEnv, kv.Get(target.NSQTLS)) == config.EnableOn
 		nsqArgs.TLS.SkipVerify = env.Get(tlsSkipVerifyEnv, kv.Get(target.NSQTLSSkipVerify)) == config.EnableOn
+=======
+		nsqArgs.TLS.Enable = env.Get(tlsEnableEnv, kv.Get(target.NSQTLS)) == config.StateOn
+		nsqArgs.TLS.SkipVerify = env.Get(tlsSkipVerifyEnv, kv.Get(target.NSQTLSSkipVerify)) == config.StateOn
+>>>>>>> 524_bug
 
 		if err = nsqArgs.Validate(); err != nil {
 			return nil, err
@@ -1143,8 +1235,13 @@ func GetNotifyNSQ(nsqKVS map[string]config.KVS) (map[string]target.NSQArgs, erro
 var (
 	DefaultPostgresKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.PostgresFormat,
@@ -1292,8 +1389,13 @@ func GetNotifyPostgres(postgresKVS map[string]config.KVS) (map[string]target.Pos
 var (
 	DefaultRedisKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.RedisFormat,
@@ -1392,8 +1494,13 @@ func GetNotifyRedis(redisKVS map[string]config.KVS) (map[string]target.RedisArgs
 var (
 	DefaultWebhookKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.WebhookEndpoint,
@@ -1474,8 +1581,13 @@ func GetNotifyWebhook(webhookKVS map[string]config.KVS, rootCAs *x509.CertPool) 
 var (
 	DefaultESKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.ElasticURL,
@@ -1571,8 +1683,13 @@ func GetNotifyES(esKVS map[string]config.KVS) (map[string]target.ElasticsearchAr
 var (
 	DefaultAMQPKVS = config.KVS{
 		config.KV{
+<<<<<<< HEAD
 			Key:   config.Enable,
 			Value: config.EnableOff,
+=======
+			Key:   config.State,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.AmqpURL,
@@ -1592,6 +1709,7 @@ var (
 		},
 		config.KV{
 			Key:   target.AmqpMandatory,
+<<<<<<< HEAD
 			Value: config.EnableOff,
 		},
 		config.KV{
@@ -1609,6 +1727,25 @@ var (
 		config.KV{
 			Key:   target.AmqpAutoDeleted,
 			Value: config.EnableOff,
+=======
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.AmqpDurable,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.AmqpNoWait,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.AmqpInternal,
+			Value: config.StateOff,
+		},
+		config.KV{
+			Key:   target.AmqpAutoDeleted,
+			Value: config.StateOff,
+>>>>>>> 524_bug
 		},
 		config.KV{
 			Key:   target.AmqpDeliveryMode,
