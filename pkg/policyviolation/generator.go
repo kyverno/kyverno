@@ -249,5 +249,5 @@ func (gen *Generator) syncHandler(info Info) error {
 // Provides an interface to generate policy violations
 // implementations for namespaced and cluster PV
 type pvGenerator interface {
-	create(policyViolation kyverno.PolicyViolation) error
+	create(policyViolation kyverno.PolicyViolationTemplate) error
 }

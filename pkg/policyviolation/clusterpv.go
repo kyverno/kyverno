@@ -34,7 +34,7 @@ func newClusterPV(dclient *client.Client,
 	return &cpv
 }
 
-func (cpv *clusterPV) create(pv kyverno.PolicyViolation) error {
+func (cpv *clusterPV) create(pv kyverno.PolicyViolationTemplate) error {
 	newPv := kyverno.ClusterPolicyViolation(pv)
 	// PV already exists
 	oldPv, err := cpv.getExisting(newPv)

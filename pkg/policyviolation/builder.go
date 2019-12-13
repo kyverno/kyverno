@@ -10,8 +10,8 @@ import (
 // Builder builds Policy Violation struct
 // this is base type of namespaced and cluster policy violation
 type Builder interface {
-	generate(info Info) []kyverno.PolicyViolation
-	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolation
+	generate(info Info) []kyverno.PolicyViolationTemplate
+	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate
 }
 
 type pvBuilder struct {
@@ -25,7 +25,7 @@ func newPvBuilder(dclient *client.Client) *pvBuilder {
 	}
 	return &pvb
 }
-func (pvb *pvBuilder) generate(info Info) []kyverno.PolicyViolation {
+func (pvb *pvBuilder) generate(info Info) []kyverno.PolicyViolationTemplate {
 	var owners []kyverno.ResourceSpec
 	// get the owners if the resource is blocked or
 	// TODO:  https://github.com/nirmata/kyverno/issues/535
@@ -37,8 +37,8 @@ func (pvb *pvBuilder) generate(info Info) []kyverno.PolicyViolation {
 	return pvs
 }
 
-func (pvb *pvBuilder) buildPolicyViolations(owners []kyverno.ResourceSpec, info Info) []kyverno.PolicyViolation {
-	var pvs []kyverno.PolicyViolation
+func (pvb *pvBuilder) buildPolicyViolations(owners []kyverno.ResourceSpec, info Info) []kyverno.PolicyViolationTemplate {
+	var pvs []kyverno.PolicyViolationTemplate
 	if len(owners) != 0 {
 		// there are resource owners
 		// generate PV on them
@@ -54,8 +54,8 @@ func (pvb *pvBuilder) buildPolicyViolations(owners []kyverno.ResourceSpec, info 
 	return pvs
 }
 
-func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolation {
-	pv := &kyverno.PolicyViolation{
+func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
+	pv := &kyverno.PolicyViolationTemplate{
 		Spec: kyverno.PolicyViolationSpec{
 			Policy: policy,
 			ResourceSpec: kyverno.ResourceSpec{
