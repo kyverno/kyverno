@@ -421,6 +421,16 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: policyviolation
+rules:
+- apiGroups: ["kyverno.io"]
+  resources:
+  - policyviolations
+  verbs: ["get", "list", "watch"]
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
