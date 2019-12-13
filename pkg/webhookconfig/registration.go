@@ -228,7 +228,6 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	// mutating webhook configuration for verifying webhook
 	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 
-	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 	// wait for the removal go routines to return
 	wg.Wait()
 }
