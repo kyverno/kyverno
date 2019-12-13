@@ -257,6 +257,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -333,6 +336,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -414,6 +420,16 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: policyviolation
+rules:
+- apiGroups: ["kyverno.io"]
+  resources:
+  - policyviolations
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: v1
 kind: ConfigMap
