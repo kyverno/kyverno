@@ -81,7 +81,7 @@ Kyverno uses secrets created above to setup TLS communication with the kube-apis
 
 To install a specific version, change the image tag with git tag in `install.yaml`.
 
-e.g., change image tag from `latest` to the specific tag `v0.3.0`.
+e.g., change image tag from `latest` to the specific tag `v1.0.0`.
 >>>
     spec:
       containers:
@@ -110,6 +110,14 @@ kubectl logs <kyverno-pod-name> -n kyverno
 ````
 
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
+
+
+# Configure a namespace admin to access policy violations
+
+During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure [definitions/rolebinding.yaml](../definitions/rolebinding.yaml) then apply to the cluster.
+
+- Replace `metadata.namespace` with namespace of the admin
+- Configure `subjects` field to bind admin's role to the ClusterRole `policyviolation`
 
 
 # Installing outside of the cluster (debug mode)
