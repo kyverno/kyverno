@@ -26,7 +26,7 @@ func Mutate(policyContext PolicyContext) (response EngineResponse) {
 	defer func() {
 		response.PolicyResponse.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying mutation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
-		glog.V(4).Infof("Mutation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
+		glog.V(4).Infof("Mutation Rules appplied count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
 	}()
 	incrementAppliedRuleCount := func() {
 		// rules applied succesfully count

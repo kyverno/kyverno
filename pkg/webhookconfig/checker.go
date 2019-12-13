@@ -60,8 +60,7 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 
 func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	// Muating webhook configuration
+	// Mutating webhook configuration
 	var err error
 	var mutatingConfig string
 	if wrc.serverIP != "" {

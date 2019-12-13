@@ -19,6 +19,7 @@ import (
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/telemetry"
 	"golang.org/x/tools/internal/telemetry/log"
+	errors "golang.org/x/xerrors"
 )
 
 func (i *IdentifierInfo) Implementation(ctx context.Context) ([]protocol.Location, error) {
@@ -101,6 +102,8 @@ func (i *IdentifierInfo) Implementation(ctx context.Context) ([]protocol.Locatio
 	return locations, nil
 }
 
+var ErrNotAMethod = errors.New("this function is not a method")
+
 func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult, error) {
 	var T types.Type
 	var method *types.Func
@@ -112,7 +115,7 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 		}
 		recv := obj.Type().(*types.Signature).Recv()
 		if recv == nil {
-			return implementsResult{}, fmt.Errorf("this function is not a method")
+			return implementsResult{}, ErrNotAMethod
 		}
 		method = obj
 		T = recv.Type()
@@ -120,68 +123,38 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 		T = i.Type.Object.Type()
 	}
 
-	// Find all named types, even local types (which can have
-	// methods due to promotion) and the built-in "error".
-	// We ignore aliases 'type M = N' to avoid duplicate
-	// reporting of the Named type N.
+	// Find all named types, even local types (which can have methods
+	// due to promotion). We ignore aliases 'type M = N' to avoid
+	// duplicate reporting of the Named type N.
 	var allNamed []*types.Named
 	pkgs := map[*types.Named]Package{}
 	for _, pkg := range i.Snapshot.KnownPackages(ctx) {
 		info := pkg.GetTypesInfo()
 		for _, obj := range info.Defs {
 			if obj, ok := obj.(*types.TypeName); ok && !obj.IsAlias() {
-				if named, ok := obj.Type().(*types.Named); ok {
+				if named, ok := obj.Type().(*types.Named); ok && !isInterface(named) {
 					allNamed = append(allNamed, named)
 					pkgs[named] = pkg
 				}
 			}
 		}
 	}
-	allNamed = append(allNamed, types.Universe.Lookup("error").Type().(*types.Named))
 
 	var msets typeutil.MethodSetCache
 
-	// TODO(matloob): We only use the to and toMethod result for now. Figure out if we want to
-	// surface the from and fromPtr results to users.
 	// Test each named type.
-	var to, from, fromPtr []types.Type
+	var to []types.Type
 	for _, U := range allNamed {
 		if isInterface(T) {
 			if msets.MethodSet(T).Len() == 0 {
 				continue // empty interface
 			}
-			if isInterface(U) {
-				if msets.MethodSet(U).Len() == 0 {
-					continue // empty interface
-				}
 
-				// T interface, U interface
-				if !types.Identical(T, U) {
-					if types.AssignableTo(U, T) {
-						to = append(to, U)
-					}
-					if types.AssignableTo(T, U) {
-						from = append(from, U)
-					}
-				}
-			} else {
-				// T interface, U concrete
-				if types.AssignableTo(U, T) {
-					to = append(to, U)
-				} else if pU := types.NewPointer(U); types.AssignableTo(pU, T) {
-					to = append(to, pU)
-				}
-			}
-		} else if isInterface(U) {
-			if msets.MethodSet(U).Len() == 0 {
-				continue // empty interface
-			}
-
-			// T concrete, U interface
-			if types.AssignableTo(T, U) {
-				from = append(from, U)
-			} else if pT := types.NewPointer(T); types.AssignableTo(pT, U) {
-				fromPtr = append(fromPtr, U)
+			// T interface, U concrete
+			if types.AssignableTo(U, T) {
+				to = append(to, U)
+			} else if pU := types.NewPointer(U); types.AssignableTo(pU, T) {
+				to = append(to, pU)
 			}
 		}
 	}
@@ -192,14 +165,12 @@ func (i *IdentifierInfo) implementations(ctx context.Context) (implementsResult,
 				types.NewMethodSet(t).Lookup(method.Pkg(), method.Name()))
 		}
 	}
-	return implementsResult{pkgs, to, from, fromPtr, toMethod}, nil
+	return implementsResult{pkgs, to, toMethod}, nil
 }
 
 // implementsResult contains the results of an implements query.
 type implementsResult struct {
 	pkgs     map[*types.Named]Package
 	to       []types.Type // named or ptr-to-named types assignable to interface T
-	from     []types.Type // named interfaces assignable from T
-	fromPtr  []types.Type // named interfaces assignable only from *T
 	toMethod []*types.Selection
 }

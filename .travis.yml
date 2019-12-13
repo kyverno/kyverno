@@ -31,6 +31,6 @@ after_success:
    if [ $TRAVIS_PULL_REQUEST == 'false' ]
    then
      docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
-#     make docker-publish-initContainer
-#     make docker-publish-kyverno
+    make docker-publish-initContainer
+    make docker-publish-kyverno
    fi

@@ -33,9 +33,11 @@ type IdentifierInfo struct {
 
 	Declaration Declaration
 
-	pkg   Package
-	ident *ast.Ident
-	qf    types.Qualifier
+	ident    *ast.Ident
+	selector *ast.SelectorExpr
+
+	pkg Package
+	qf  types.Qualifier
 }
 
 type Declaration struct {
@@ -45,13 +47,24 @@ type Declaration struct {
 	wasImplicit bool
 }
 
+func (i *IdentifierInfo) DeclarationReferenceInfo() *ReferenceInfo {
+	return &ReferenceInfo{
+		Name:          i.Declaration.obj.Name(),
+		mappedRange:   i.Declaration.mappedRange,
+		obj:           i.Declaration.obj,
+		ident:         i.ident,
+		pkg:           i.pkg,
+		isDeclaration: true,
+	}
+}
+
 // Identifier returns identifier information for a position
 // in a file, accounting for a potentially incomplete selector.
-func Identifier(ctx context.Context, snapshot Snapshot, f File, pos protocol.Position) (*IdentifierInfo, error) {
+func Identifier(ctx context.Context, snapshot Snapshot, f File, pos protocol.Position, selectPackage PackagePolicy) (*IdentifierInfo, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Identifier")
 	defer done()
 
-	pkg, pgh, err := getParsedFile(ctx, snapshot, f, WidestCheckPackageHandle)
+	pkg, pgh, err := getParsedFile(ctx, snapshot, f, selectPackage)
 	if err != nil {
 		return nil, fmt.Errorf("getting file for Identifier: %v", err)
 	}
@@ -70,6 +83,8 @@ func Identifier(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 	return findIdentifier(snapshot, pkg, file, rng.Start)
 }
 
+var ErrNoIdentFound = errors.New("no identifier found")
+
 func findIdentifier(snapshot Snapshot, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
 	if result, err := identifier(snapshot, pkg, file, pos); err != nil || result != nil {
 		return result, err
@@ -79,7 +94,7 @@ func findIdentifier(snapshot Snapshot, pkg Package, file *ast.File, pos token.Po
 	// requesting a completion), use the path to the preceding node.
 	ident, err := identifier(snapshot, pkg, file, pos-1)
 	if ident == nil && err == nil {
-		err = errors.New("no identifier found")
+		err = ErrNoIdentFound
 	}
 	return ident, err
 }
@@ -110,7 +125,9 @@ func identifier(s Snapshot, pkg Package, file *ast.File, pos token.Pos) (*Identi
 		qf:       qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo()),
 		pkg:      pkg,
 		ident:    searchForIdent(path[0]),
+		selector: searchForSelector(path),
 	}
+
 	// No identifier at the given position.
 	if result.ident == nil {
 		return nil, nil
@@ -211,6 +228,16 @@ func searchForIdent(n ast.Node) *ast.Ident {
 		return node.Sel
 	case *ast.StarExpr:
 		return searchForIdent(node.X)
+	}
+	return nil
+}
+
+func searchForSelector(path []ast.Node) *ast.SelectorExpr {
+	for _, n := range path {
+		switch node := n.(type) {
+		case *ast.SelectorExpr:
+			return node
+		}
 	}
 	return nil
 }

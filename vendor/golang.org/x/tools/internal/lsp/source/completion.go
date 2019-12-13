@@ -322,7 +322,11 @@ func (c *completer) found(obj types.Object, score float64, imp *importInfo) {
 	} else if isTypeName(obj) {
 		// If obj is a *types.TypeName that didn't otherwise match, check
 		// if a literal object of this type makes a good candidate.
-		c.literal(obj.Type(), imp)
+
+		// We only care about named types (i.e. don't want builtin types).
+		if _, isNamed := obj.Type().(*types.Named); isNamed {
+			c.literal(obj.Type(), imp)
+		}
 	}
 
 	// Favor shallow matches by lowering weight according to depth.
@@ -417,12 +421,7 @@ func Completion(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 	if path == nil {
 		return nil, nil, errors.Errorf("cannot find node enclosing position")
 	}
-	// Skip completion inside comments.
-	for _, g := range file.Comments {
-		if g.Pos() <= rng.Start && rng.Start <= g.End() {
-			return nil, nil, nil
-		}
-	}
+
 	// Skip completion inside any kind of literal.
 	if _, ok := path[0].(*ast.BasicLit); ok {
 		return nil, nil, nil
@@ -459,6 +458,14 @@ func Completion(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 	}
 
 	c.expectedType = expectedType(c)
+
+	// If we're inside a comment return comment completions
+	for _, comment := range file.Comments {
+		if comment.Pos() <= rng.Start && rng.Start <= comment.End() {
+			c.populateCommentCompletions(comment)
+			return c.items, c.getSurrounding(), nil
+		}
+	}
 
 	// Struct literals are handled entirely separately.
 	if c.wantStructFieldCompletions() {
@@ -534,6 +541,48 @@ func Completion(ctx context.Context, snapshot Snapshot, f File, pos protocol.Pos
 	return c.items, c.getSurrounding(), nil
 }
 
+// populateCommentCompletions returns completions for an exported variable immediately preceeding comment
+func (c *completer) populateCommentCompletions(comment *ast.CommentGroup) {
+
+	// Using the comment position find the line after
+	fset := c.snapshot.View().Session().Cache().FileSet()
+	file := fset.File(comment.Pos())
+	if file == nil {
+		return
+	}
+
+	line := file.Line(comment.Pos())
+	nextLinePos := file.LineStart(line + 1)
+	if !nextLinePos.IsValid() {
+		return
+	}
+
+	// Using the next line pos, grab and parse the exported variable on that line
+	for _, n := range c.file.Decls {
+		if n.Pos() != nextLinePos {
+			continue
+		}
+		switch node := n.(type) {
+		case *ast.GenDecl:
+			if node.Tok != token.VAR {
+				return
+			}
+			for _, spec := range node.Specs {
+				if value, ok := spec.(*ast.ValueSpec); ok {
+					for _, name := range value.Names {
+						if name.Name == "_" || !name.IsExported() {
+							continue
+						}
+
+						exportedVar := c.pkg.GetTypesInfo().ObjectOf(name)
+						c.found(exportedVar, stdScore, nil)
+					}
+				}
+			}
+		}
+	}
+}
+
 func (c *completer) wantStructFieldCompletions() bool {
 	clInfo := c.enclosingCompositeLiteral
 	if clInfo == nil {
@@ -546,6 +595,9 @@ func (c *completer) wantStructFieldCompletions() bool {
 func (c *completer) wantTypeName() bool {
 	return c.expectedType.typeName.wantTypeName
 }
+
+// See https://golang.org/issue/36001. Unimported completions are expensive.
+const maxUnimported = 20
 
 // selector finds completions for the specified selector expression.
 func (c *completer) selector(sel *ast.SelectorExpr) error {
@@ -570,7 +622,11 @@ func (c *completer) selector(sel *ast.SelectorExpr) error {
 			return err
 		}
 		known := c.snapshot.KnownImportPaths()
+		startingItems := len(c.items)
 		for _, pkgExport := range pkgExports {
+			if len(c.items)-startingItems >= maxUnimported {
+				break
+			}
 			// If we've seen this import path, use the fully-typed version.
 			if knownPkg, ok := known[pkgExport.Fix.StmtInfo.ImportPath]; ok {
 				c.packageMembers(knownPkg.GetTypes(), &importInfo{
@@ -644,7 +700,10 @@ func (c *completer) lexical() error {
 	}
 	scopes = append(scopes, c.pkg.GetTypes().Scope(), types.Universe)
 
-	builtinIota := types.Universe.Lookup("iota")
+	var (
+		builtinIota = types.Universe.Lookup("iota")
+		builtinNil  = types.Universe.Lookup("nil")
+	)
 
 	// Track seen variables to avoid showing completions for shadowed variables.
 	// This works since we look at scopes from innermost to outermost.
@@ -662,7 +721,7 @@ func (c *completer) lexical() error {
 			}
 			// If obj's type is invalid, find the AST node that defines the lexical block
 			// containing the declaration of obj. Don't resolve types for packages.
-			if _, ok := obj.(*types.PkgName); !ok && obj.Type() == types.Typ[types.Invalid] {
+			if _, ok := obj.(*types.PkgName); !ok && !typeIsValid(obj.Type()) {
 				// Match the scope to its ast.Node. If the scope is the package scope,
 				// use the *ast.File as the starting node.
 				var node ast.Node
@@ -672,7 +731,8 @@ func (c *completer) lexical() error {
 					node = c.path[i-1]
 				}
 				if node != nil {
-					if resolved := resolveInvalid(obj, node, c.pkg.GetTypesInfo()); resolved != nil {
+					fset := c.snapshot.View().Session().Cache().FileSet()
+					if resolved := resolveInvalid(fset, obj, node, c.pkg.GetTypesInfo()); resolved != nil {
 						obj = resolved
 					}
 				}
@@ -683,10 +743,17 @@ func (c *completer) lexical() error {
 				continue
 			}
 
+			score := stdScore
+
+			// Dowrank "nil" a bit so it is ranked below more interesting candidates.
+			if obj == builtinNil {
+				score /= 2
+			}
+
 			// If we haven't already added a candidate for an object with this name.
 			if _, ok := seen[obj.Name()]; !ok {
 				seen[obj.Name()] = struct{}{}
-				c.found(obj, stdScore, nil)
+				c.found(obj, score, nil)
 			}
 		}
 	}
@@ -726,7 +793,12 @@ func (c *completer) lexical() error {
 		score := stdScore
 		// Rank unimported packages significantly lower than other results.
 		score *= 0.07
+
+		startingItems := len(c.items)
 		for _, pkg := range pkgs {
+			if len(c.items)-startingItems >= maxUnimported {
+				break
+			}
 			if _, ok := seen[pkg.IdentName]; !ok {
 				// Do not add the unimported packages to seen, since we can have
 				// multiple packages of the same name as completion suggestions, since

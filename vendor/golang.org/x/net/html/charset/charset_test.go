@@ -225,8 +225,7 @@ func TestXML(t *testing.T) {
 	var a struct {
 		Word string
 	}
-	err := d.Decode(&a)
-	if err != nil {
+	if err := d.Decode(&a); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 

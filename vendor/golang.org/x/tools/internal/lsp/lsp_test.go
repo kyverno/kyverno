@@ -57,11 +57,24 @@ func testLSP(t *testing.T, exporter packagestest.Exporter) {
 		t.Fatal(err)
 	}
 	for filename, content := range data.Config.Overlay {
-		session.SetOverlay(span.FileURI(filename), source.DetectLanguage("", filename), -1, content)
+		kind := source.DetectLanguage("", filename)
+		if kind != source.Go {
+			continue
+		}
+		if err := session.DidModifyFile(ctx, source.FileModification{
+			URI:        span.FileURI(filename),
+			Action:     source.Open,
+			Version:    -1,
+			Text:       content,
+			LanguageID: "go",
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	r := &runner{
 		server: &Server{
-			session: session,
+			session:   session,
+			delivered: map[span.URI]sentDiagnostics{},
 		},
 		data: data,
 		ctx:  ctx,
@@ -436,14 +449,14 @@ func (r *runner) Definition(t *testing.T, spn span.Span, d tests.Definition) {
 	}
 }
 
-func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementations) {
-	sm, err := r.data.Mapper(m.Src.URI())
+func (r *runner) Implementation(t *testing.T, spn span.Span, impls []span.Span) {
+	sm, err := r.data.Mapper(spn.URI())
 	if err != nil {
 		t.Fatal(err)
 	}
-	loc, err := sm.Location(m.Src)
+	loc, err := sm.Location(spn)
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
 	tdpp := protocol.TextDocumentPositionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: loc.URI},
@@ -455,10 +468,10 @@ func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementat
 	}
 	locs, err = r.server.Implementation(r.ctx, params)
 	if err != nil {
-		t.Fatalf("failed for %v: %v", m.Src, err)
+		t.Fatalf("failed for %v: %v", spn, err)
 	}
-	if len(locs) != len(m.Implementations) {
-		t.Fatalf("got %d locations for implementation, expected %d", len(locs), len(m.Implementations))
+	if len(locs) != len(impls) {
+		t.Fatalf("got %d locations for implementation, expected %d", len(locs), len(impls))
 	}
 
 	var results []span.Span
@@ -478,12 +491,12 @@ func (r *runner) Implementation(t *testing.T, spn span.Span, m tests.Implementat
 	sort.SliceStable(results, func(i, j int) bool {
 		return span.Compare(results[i], results[j]) == -1
 	})
-	sort.SliceStable(m.Implementations, func(i, j int) bool {
-		return span.Compare(m.Implementations[i], m.Implementations[j]) == -1
+	sort.SliceStable(impls, func(i, j int) bool {
+		return span.Compare(impls[i], impls[j]) == -1
 	})
 	for i := range results {
-		if results[i] != m.Implementations[i] {
-			t.Errorf("for %dth implementation of %v got %v want %v", i, m.Src, results[i], m.Implementations[i])
+		if results[i] != impls[i] {
+			t.Errorf("for %dth implementation of %v got %v want %v", i, spn, results[i], impls[i])
 		}
 	}
 }
@@ -541,7 +554,6 @@ func (r *runner) References(t *testing.T, src span.Span, itemList []span.Span) {
 	if err != nil {
 		t.Fatalf("failed for %v: %v", src, err)
 	}
-
 	want := make(map[protocol.Location]bool)
 	for _, pos := range itemList {
 		m, err := r.data.Mapper(pos.URI())
@@ -558,6 +570,9 @@ func (r *runner) References(t *testing.T, src span.Span, itemList []span.Span) {
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: loc.URI},
 			Position:     loc.Range.Start,
+		},
+		Context: protocol.ReferenceContext{
+			IncludeDeclaration: true,
 		},
 	}
 	got, err := r.server.References(r.ctx, params)

@@ -94,7 +94,7 @@ func initHelp() {
 		},
 		config.HelpKV{
 			Key:         config.KmsVaultSubSys,
-			Description: "enable external HashiCorp Vault for KMS",
+			Description: "enable external HashiCorp Vault key management service",
 		},
 		config.HelpKV{
 			Key:             config.LoggerWebhookSubSys,
@@ -138,22 +138,22 @@ func initHelp() {
 		},
 		config.HelpKV{
 			Key:             config.NotifyMySQLSubSys,
-			Description:     "publish bucket notifications to MySQL endpoints",
+			Description:     "publish bucket notifications to MySQL databases",
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyPostgresSubSys,
-			Description:     "publish bucket notifications to Postgres endpoints",
-			MultipleTargets: true,
-		},
-		config.HelpKV{
-			Key:             config.NotifyRedisSubSys,
-			Description:     "publish bucket notifications to Redis endpoints",
+			Description:     "publish bucket notifications to Postgres databases",
 			MultipleTargets: true,
 		},
 		config.HelpKV{
 			Key:             config.NotifyESSubSys,
 			Description:     "publish bucket notifications to Elasticsearch endpoints",
+			MultipleTargets: true,
+		},
+		config.HelpKV{
+			Key:             config.NotifyRedisSubSys,
+			Description:     "publish bucket notifications to Redis datastores",
 			MultipleTargets: true,
 		},
 	}
@@ -282,7 +282,7 @@ func validateConfig(s config.Config) error {
 		return err
 	}
 
-	return notify.TestNotificationTargets(s, GlobalServiceDoneCh, globalRootCAs)
+	return notify.TestNotificationTargets(s, GlobalServiceDoneCh, NewCustomHTTPTransport())
 }
 
 func lookupConfigs(s config.Config) (err error) {

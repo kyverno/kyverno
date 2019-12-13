@@ -98,7 +98,7 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 			}
 		} else {
 			// noAnchorKey doesn't exist in resource
-			continue
+			return curPath, newOverlayError(conditionNotPresent, fmt.Sprintf("resource field is not present %s", noAnchorKey))
 		}
 	}
 	return "", overlayError{}
@@ -110,8 +110,8 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 // resource - A: B2
 func compareOverlay(resource, overlay interface{}, path string) (string, overlayError) {
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
-		glog.V(4).Infof("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource)
-		return path, newOverlayError(conditionFailure, fmt.Sprintf("Found anchor on different types of element: overlay %T, resource %T\nSkip processing overlay.", overlay, resource))
+		glog.V(4).Infof("Found anchor on different types of element: overlay %T, resource %T", overlay, resource)
+		return path, newOverlayError(conditionFailure, fmt.Sprintf("Found anchor on different types of element: overlay %T, resource %T", overlay, resource))
 	}
 
 	switch typedOverlay := overlay.(type) {
@@ -122,7 +122,7 @@ func compareOverlay(resource, overlay interface{}, path string) (string, overlay
 			curPath := path + noAnchorKey + "/"
 			resourceVal, ok := typedResource[noAnchorKey]
 			if !ok {
-				return curPath, newOverlayError(conditionFailure, fmt.Sprintf("field %s is not present", noAnchorKey))
+				return curPath, newOverlayError(conditionFailure, fmt.Sprintf("Field %s is not present", noAnchorKey))
 			}
 			if newPath, err := compareOverlay(resourceVal, overlayVal, curPath); !reflect.DeepEqual(err, overlayError{}) {
 				return newPath, err
@@ -140,10 +140,10 @@ func compareOverlay(resource, overlay interface{}, path string) (string, overlay
 	case string, float64, int, int64, bool, nil:
 		if !ValidateValueWithPattern(resource, overlay) {
 			glog.V(4).Infof("Mutate rule: failed validating value %v with overlay %v", resource, overlay)
-			return path, newOverlayError(conditionFailure, fmt.Sprintf("failed validating value %v with overlay %v", resource, overlay))
+			return path, newOverlayError(conditionFailure, fmt.Sprintf("Failed validating value %v with overlay %v", resource, overlay))
 		}
 	default:
-		return path, newOverlayError(conditionFailure, fmt.Sprintf("overlay has unknown type %T, value %v", overlay, overlay))
+		return path, newOverlayError(conditionFailure, fmt.Sprintf("Overlay has unknown type %T, value %v", overlay, overlay))
 	}
 
 	return "", overlayError{}
@@ -156,11 +156,13 @@ func validateNonAnchorOverlayMap(resourceMap, overlayWithoutAnchor map[string]in
 		curPath := path + key + "/"
 		resourceValue, ok := resourceMap[key]
 		if !ok {
-			// policy: 		"(image)": "*:latest",
-			//				"imagePullPolicy": "IfNotPresent",
-			// resource:	"(image)": "*:latest",
-			// the above case should be allowed
-			continue
+			if !hasNestedAnchors(overlayValue) {
+				// policy: 		"(image)": "*:latest",
+				//				"imagePullPolicy": "IfNotPresent",
+				// resource:	"(image)": "*:latest",
+				// the above case should be allowed
+				continue
+			}
 		}
 		if newPath, err := checkConditions(resourceValue, overlayValue, curPath); !reflect.DeepEqual(err, overlayError{}) {
 			return newPath, err

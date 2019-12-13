@@ -62,6 +62,11 @@ func (s *snapshot) View() source.View {
 }
 
 func (s *snapshot) PackageHandles(ctx context.Context, fh source.FileHandle) ([]source.PackageHandle, error) {
+	// If the file is a go.mod file, go.Packages.Load will always return 0 packages.
+	if fh.Identity().Kind == source.Mod {
+		return nil, errors.Errorf("attempting to get PackageHandles of .mod file %s", fh.Identity().URI)
+	}
+
 	ctx = telemetry.File.With(ctx, fh.Identity().URI)
 	meta := s.getMetadataForURI(fh.Identity().URI)
 	// Determine if we need to type-check the package.
@@ -424,6 +429,17 @@ func (s *snapshot) getIDs(uri span.URI) []packageID {
 	return s.ids[uri]
 }
 
+func (s *snapshot) getFileURIs() []span.URI {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var uris []span.URI
+	for uri := range s.files {
+		uris = append(uris, uri)
+	}
+	return uris
+}
+
 func (s *snapshot) getFile(uri span.URI) source.FileHandle {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -441,7 +457,7 @@ func (s *snapshot) Handle(ctx context.Context, f source.File) source.FileHandle 
 	return s.files[f.URI()]
 }
 
-func (s *snapshot) clone(ctx context.Context, withoutURI span.URI, withoutTypes, withoutMetadata map[span.URI]struct{}) *snapshot {
+func (s *snapshot) clone(ctx context.Context, withoutURI span.URI, withoutTypes, withoutMetadata map[packageID]struct{}) *snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -464,50 +480,32 @@ func (s *snapshot) clone(ctx context.Context, withoutURI span.URI, withoutTypes,
 		result.files[k] = v
 	}
 	// Collect the IDs for the packages associated with the excluded URIs.
-	withoutMetadataIDs := make(map[packageID]struct{})
-	withoutTypesIDs := make(map[packageID]struct{})
 	for k, ids := range s.ids {
-		// Map URIs to IDs for exclusion.
-		if withoutTypes != nil {
-			if _, ok := withoutTypes[k]; ok {
-				for _, id := range ids {
-					withoutTypesIDs[id] = struct{}{}
-				}
-			}
-		}
-		if withoutMetadata != nil {
-			if _, ok := withoutMetadata[k]; ok {
-				for _, id := range ids {
-					withoutMetadataIDs[id] = struct{}{}
-				}
-				continue
-			}
-		}
 		result.ids[k] = ids
 	}
 	// Copy the package type information.
 	for k, v := range s.packages {
-		if _, ok := withoutTypesIDs[k.id]; ok {
+		if _, ok := withoutTypes[k.id]; ok {
 			continue
 		}
-		if _, ok := withoutMetadataIDs[k.id]; ok {
+		if _, ok := withoutMetadata[k.id]; ok {
 			continue
 		}
 		result.packages[k] = v
 	}
 	// Copy the package analysis information.
 	for k, v := range s.actions {
-		if _, ok := withoutTypesIDs[k.pkg.id]; ok {
+		if _, ok := withoutTypes[k.pkg.id]; ok {
 			continue
 		}
-		if _, ok := withoutMetadataIDs[k.pkg.id]; ok {
+		if _, ok := withoutMetadata[k.pkg.id]; ok {
 			continue
 		}
 		result.actions[k] = v
 	}
 	// Copy the package metadata.
 	for k, v := range s.metadata {
-		if _, ok := withoutMetadataIDs[k]; ok {
+		if _, ok := withoutMetadata[k]; ok {
 			continue
 		}
 		result.metadata[k] = v
@@ -530,10 +528,10 @@ func (s *snapshot) ID() uint64 {
 // It returns true if we were already tracking the given file, false otherwise.
 //
 // Note: The logic in this function is convoluted. Do not change without significant thought.
-func (v *view) invalidateContent(ctx context.Context, f source.File, kind source.FileKind, action source.FileAction) bool {
+func (v *view) invalidateContent(ctx context.Context, f source.File, action source.FileAction) bool {
 	var (
-		withoutTypes    = make(map[span.URI]struct{})
-		withoutMetadata = make(map[span.URI]struct{})
+		withoutTypes    = make(map[packageID]struct{})
+		withoutMetadata = make(map[packageID]struct{})
 		ids             = make(map[packageID]struct{})
 	)
 
@@ -546,6 +544,13 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 		ids[id] = struct{}{}
 	}
 
+	// If we are invalidating a go.mod file then we should invalidate all of the packages in the module
+	if f.Kind() == source.Mod {
+		for id := range v.snapshot.workspacePackages {
+			ids[id] = struct{}{}
+		}
+	}
+
 	// Get the original FileHandle for the URI, if it exists.
 	originalFH := v.snapshot.getFile(f.URI())
 
@@ -554,9 +559,9 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 	// Make a rough estimate of what metadata to invalidate by finding the package IDs
 	// of all of the files in the same directory as this one.
 	// TODO(rstambler): Speed this up by mapping directories to filenames.
-	if action == source.Create {
+	if originalFH == nil {
 		if dirStat, err := os.Stat(dir(f.URI().Filename())); err == nil {
-			for uri := range v.snapshot.files {
+			for _, uri := range v.snapshot.getFileURIs() {
 				if fdirStat, err := os.Stat(dir(uri.Filename())); err == nil {
 					if os.SameFile(dirStat, fdirStat) {
 						for _, id := range v.snapshot.ids[uri] {
@@ -577,15 +582,8 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 	}
 
 	// Remove the package and all of its reverse dependencies from the cache.
-	reverseDependencies := make(map[packageID]struct{})
 	for id := range ids {
-		v.snapshot.transitiveReverseDependencies(id, reverseDependencies)
-	}
-	for id := range reverseDependencies {
-		m := v.snapshot.getMetadata(id)
-		for _, uri := range m.compiledGoFiles {
-			withoutTypes[uri] = struct{}{}
-		}
+		v.snapshot.transitiveReverseDependencies(id, withoutTypes)
 	}
 
 	// If we are deleting a file, make sure to clear out the overlay.
@@ -597,13 +595,16 @@ func (v *view) invalidateContent(ctx context.Context, f source.File, kind source
 	currentFH := v.session.GetFile(f.URI(), f.Kind())
 
 	// Check if the file's package name or imports have changed,
-	// and if so, invalidate metadata.
+	// and if so, invalidate this file's packages' metadata.
 	if v.session.cache.shouldLoad(ctx, v.snapshot, originalFH, currentFH) {
-		withoutMetadata = withoutTypes
+		for id := range ids {
+			withoutMetadata[id] = struct{}{}
 
-		// TODO: If a package's name has changed,
-		// we should invalidate the metadata for the new package name (if it exists).
+			// TODO: If a package's name has changed,
+			// we should invalidate the metadata for the new package name (if it exists).
+		}
 	}
+
 	v.snapshot = v.snapshot.clone(ctx, f.URI(), withoutTypes, withoutMetadata)
 	return true
 }

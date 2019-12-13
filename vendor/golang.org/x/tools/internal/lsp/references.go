@@ -26,57 +26,71 @@ func (s *Server) references(ctx context.Context, params *protocol.ReferenceParam
 		return nil, err
 	}
 	// Find all references to the identifier at the position.
-	ident, err := source.Identifier(ctx, snapshot, f, params.Position)
-	if err != nil {
-		return nil, err
+	if f.Kind() != source.Go {
+		return nil, nil
 	}
-	references, err := ident.References(ctx)
+	phs, err := snapshot.PackageHandles(ctx, snapshot.Handle(ctx, f))
 	if err != nil {
-		log.Error(ctx, "no references", err, tag.Of("Identifier", ident.Name))
+		return nil, nil
 	}
 
 	// Get the location of each reference to return as the result.
-	locations := make([]protocol.Location, 0, len(references))
-	seen := make(map[span.Span]bool)
-	for _, ref := range references {
-		refSpan, err := ref.Span()
+	var (
+		locations []protocol.Location
+		seen      = make(map[span.Span]bool)
+		lastIdent *source.IdentifierInfo
+	)
+	for _, ph := range phs {
+		ident, err := source.Identifier(ctx, snapshot, f, params.Position, source.SpecificPackageHandle(ph.ID()))
 		if err != nil {
-			return nil, err
+			if err == source.ErrNoIdentFound {
+				return nil, err
+			}
+			log.Error(ctx, "no identifier", err, tag.Of("Identifier", ident.Name))
+			continue
 		}
-		if seen[refSpan] {
-			continue // already added this location
-		}
-		seen[refSpan] = true
-		refRange, err := ref.Range()
+
+		lastIdent = ident
+
+		references, err := ident.References(ctx)
 		if err != nil {
-			return nil, err
+			log.Error(ctx, "no references", err, tag.Of("Identifier", ident.Name))
+			continue
 		}
-		locations = append(locations, protocol.Location{
-			URI:   protocol.NewURI(ref.URI()),
-			Range: refRange,
-		})
-	}
-	// The declaration of this identifier may not be in the
-	// scope that we search for references, so make sure
-	// it is added to the beginning of the list if IncludeDeclaration
-	// was specified.
-	if params.Context.IncludeDeclaration {
-		decSpan, err := ident.Declaration.Span()
-		if err != nil {
-			return nil, err
-		}
-		if !seen[decSpan] {
-			rng, err := ident.Declaration.Range()
+
+		for _, ref := range references {
+			refSpan, err := ref.Span()
 			if err != nil {
 				return nil, err
 			}
-			locations = append([]protocol.Location{
-				{
-					URI:   protocol.NewURI(ident.Declaration.URI()),
-					Range: rng,
-				},
-			}, locations...)
+			if seen[refSpan] {
+				continue // already added this location
+			}
+			seen[refSpan] = true
+			refRange, err := ref.Range()
+			if err != nil {
+				return nil, err
+			}
+			locations = append(locations, protocol.Location{
+				URI:   protocol.NewURI(ref.URI()),
+				Range: refRange,
+			})
 		}
 	}
+
+	// Only add the identifier's declaration if the client requests it.
+	if params.Context.IncludeDeclaration && lastIdent != nil {
+		rng, err := lastIdent.Declaration.Range()
+		if err != nil {
+			return nil, err
+		}
+		locations = append([]protocol.Location{
+			{
+				URI:   protocol.NewURI(lastIdent.Declaration.URI()),
+				Range: rng,
+			},
+		}, locations...)
+	}
+
 	return locations, nil
 }

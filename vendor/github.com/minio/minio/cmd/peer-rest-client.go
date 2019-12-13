@@ -145,7 +145,7 @@ func (client *peerRESTClient) GetLocks() (locks GetLocksResp, err error) {
 }
 
 // ServerInfo - fetch server information for a remote node.
-func (client *peerRESTClient) ServerInfo() (info ServerInfoData, err error) {
+func (client *peerRESTClient) ServerInfo() (info madmin.ServerProperties, err error) {
 	respBody, err := client.call(peerRESTMethodServerInfo, nil, nil, -1)
 	if err != nil {
 		return
@@ -294,6 +294,21 @@ func (client *peerRESTClient) ListenBucketNotification(bucket string, eventNames
 
 // SendEvent - calls send event RPC.
 func (client *peerRESTClient) SendEvent(bucket string, targetID, remoteTargetID event.TargetID, eventData event.Event) error {
+	numTries := 10
+	for {
+		err := client.sendEvent(bucket, targetID, remoteTargetID, eventData)
+		if err == nil {
+			return nil
+		}
+		if numTries == 0 {
+			return err
+		}
+		numTries--
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (client *peerRESTClient) sendEvent(bucket string, targetID, remoteTargetID event.TargetID, eventData event.Event) error {
 	args := sendEventRequest{
 		TargetID: remoteTargetID,
 		Event:    eventData,
@@ -660,6 +675,60 @@ func (client *peerRESTClient) doTrace(traceCh chan interface{}, doneCh chan stru
 			}
 		}
 	}
+}
+
+func (client *peerRESTClient) doListen(listenCh chan interface{}, doneCh chan struct{}) {
+	// To cancel the REST request in case doneCh gets closed.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cancelCh := make(chan struct{})
+	defer close(cancelCh)
+	go func() {
+		select {
+		case <-doneCh:
+		case <-cancelCh:
+			// There was an error in the REST request.
+		}
+		cancel()
+	}()
+
+	respBody, err := client.callWithContext(ctx, peerRESTMethodListen, nil, nil, -1)
+	defer http.DrainBody(respBody)
+
+	if err != nil {
+		return
+	}
+
+	dec := gob.NewDecoder(respBody)
+	for {
+		var ev event.Event
+		if err = dec.Decode(&ev); err != nil {
+			return
+		}
+		if len(ev.EventVersion) > 0 {
+			select {
+			case listenCh <- ev:
+			default:
+				// Do not block on slow receivers.
+			}
+		}
+	}
+}
+
+// Listen - listen on peers.
+func (client *peerRESTClient) Listen(listenCh chan interface{}, doneCh chan struct{}) {
+	go func() {
+		for {
+			client.doListen(listenCh, doneCh)
+			select {
+			case <-doneCh:
+				return
+			default:
+				// There was error in the REST request, retry after sometime as probably the peer is down.
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}()
 }
 
 // Trace - send http trace request to peer nodes

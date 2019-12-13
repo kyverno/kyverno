@@ -494,7 +494,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	patches, err = processOverlayPatches(resource, overlay)
-	assert.Error(t, err, "[overlayError:0] Conditions are not met at /spec/template/metadata/labels/app/, [overlayError:0] failed validating value nginx with overlay nginx1")
+	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /spec/template/metadata/labels/app/, [overlayError:0] Failed validating value nginx with overlay nginx1")
 	assert.Assert(t, len(patches) == 0)
 }
 
@@ -807,7 +807,7 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	patches, err = processOverlayPatches(resource, overlay)
-	assert.Error(t, err, "[overlayError:0] Conditions are not met at /subsets/0/ports/0/port/, [overlayError:0] failed validating value 443 with overlay 444")
+	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /subsets/0/ports/0/port/, [overlayError:0] Failed validating value 443 with overlay 444")
 	assert.Assert(t, len(patches) == 0)
 }
 

@@ -251,7 +251,8 @@ func validateResponse(t *testing.T, er engine.PolicyResponse, expected engine.Po
 
 	// rules
 	if len(er.Rules) != len(expected.Rules) {
-		t.Error("rule count: error")
+		t.Errorf("rule count error, er.Rules=%d, expected.Rules=%d", len(er.Rules), len(expected.Rules))
+		return
 	}
 	if len(er.Rules) == len(expected.Rules) {
 		// if there are rules being applied then we compare the rule response
