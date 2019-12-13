@@ -26,7 +26,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Groups1 struct {
 	G                    []*Groups1_G `protobuf:"group,1,rep,name=G,json=g" json:"g,omitempty"`
@@ -838,7 +838,7 @@ func valueToGoStringGroup(v interface{}, typ string) string {
 }
 func NewPopulatedGroups1(r randyGroup, easy bool) *Groups1 {
 	this := &Groups1{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := r.Intn(5)
 		this.G = make([]*Groups1_G, v1)
 		for i := 0; i < v1; i++ {
@@ -853,14 +853,14 @@ func NewPopulatedGroups1(r randyGroup, easy bool) *Groups1 {
 
 func NewPopulatedGroups1_G(r randyGroup, easy bool) *Groups1_G {
 	this := &Groups1_G{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v2 *= -1
 		}
 		this.Field1 = &v2
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v3 *= -1
@@ -875,7 +875,7 @@ func NewPopulatedGroups1_G(r randyGroup, easy bool) *Groups1_G {
 
 func NewPopulatedGroups2(r randyGroup, easy bool) *Groups2 {
 	this := &Groups2{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.G = NewPopulatedGroups2_G(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -886,14 +886,14 @@ func NewPopulatedGroups2(r randyGroup, easy bool) *Groups2 {
 
 func NewPopulatedGroups2_G(r randyGroup, easy bool) *Groups2_G {
 	this := &Groups2_G{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v4 *= -1
 		}
 		this.Field1 = &v4
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(10)
 		this.Field2 = make([]float64, v5)
 		for i := 0; i < v5; i++ {
@@ -985,8 +985,13 @@ func (this *Groups1) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForG := "[]*Groups1_G{"
+	for _, f := range this.G {
+		repeatedStringForG += strings.Replace(fmt.Sprintf("%v", f), "Groups1_G", "Groups1_G", 1) + ","
+	}
+	repeatedStringForG += "}"
 	s := strings.Join([]string{`&Groups1{`,
-		`G:` + strings.Replace(fmt.Sprintf("%v", this.G), "Groups1_G", "Groups1_G", 1) + `,`,
+		`G:` + repeatedStringForG + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")

@@ -53,7 +53,7 @@ var GlobalFlags = []cli.Flag{
 	},
 	cli.BoolFlag{
 		Name:  "compat",
-		Usage: "trade off performance for S3 compatibility",
+		Usage: "enable strict S3 compatibility by turning off certain performance optimizations",
 	},
 }
 
@@ -116,8 +116,6 @@ func newApp(name string) *cli.App {
 	// Register all commands.
 	registerCommand(serverCmd)
 	registerCommand(gatewayCmd)
-	registerCommand(updateCmd)
-	registerCommand(versionCmd)
 
 	// Set up app.
 	cli.HelpFlag = cli.BoolFlag{
@@ -129,8 +127,8 @@ func newApp(name string) *cli.App {
 	app.Name = name
 	app.Author = "MinIO, Inc."
 	app.Version = Version
-	app.Usage = "Cloud Storage Server."
-	app.Description = `MinIO is an Amazon S3 compatible object storage server. Use it to store photos, videos, VMs, containers, log files, or any blob of data as objects.`
+	app.Usage = "High Performance Object Storage"
+	app.Description = `Build high performance data infrastructure for machine learning, analytics and application data workloads with MinIO`
 	app.Flags = GlobalFlags
 	app.HideVersion = true     // Hide `--version` flag, we already have `minio version`.
 	app.HideHelpCommand = true // Hide `help, h` command, we already have `minio --help`.

@@ -1,0 +1,20 @@
+# file path relative to project root
+input:
+  policy: samples/best_practices/disallow_privileged.yaml
+  resource: test/resources/disallow_privileged.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: disallow-privileged
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: check-privileged-cfg
+      rules:
+        - name: validate-privileged
+          type: Validation
+          success: false
+        - name: validate-allowPrivilegeEscalation
+          type: Validation
+          success: false

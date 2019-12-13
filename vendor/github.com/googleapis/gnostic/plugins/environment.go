@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
@@ -103,8 +104,12 @@ When the -plugin option is specified, these flags are ignored.`)
 		err = proto.Unmarshal(apiData, documentv2)
 		if err == nil {
 			env.Request.AddModel("openapi.v2.Document", documentv2)
+			sourceName, err := guessSourceName(*input)
+			if err != nil {
+				return nil, err
+			}
 			// include experimental API surface model
-			surfaceModel, err := surface.NewModelFromOpenAPI2(documentv2)
+			surfaceModel, err := surface.NewModelFromOpenAPI2(documentv2, sourceName)
 			if err == nil {
 				env.Request.AddModel("surface.v1.Model", surfaceModel)
 			}
@@ -115,8 +120,12 @@ When the -plugin option is specified, these flags are ignored.`)
 		err = proto.Unmarshal(apiData, documentv3)
 		if err == nil {
 			env.Request.AddModel("openapi.v3.Document", documentv3)
+			sourceName, err := guessSourceName(*input)
+			if err != nil {
+				return nil, err
+			}
 			// include experimental API surface model
-			surfaceModel, err := surface.NewModelFromOpenAPI3(documentv3)
+			surfaceModel, err := surface.NewModelFromOpenAPI3(documentv3, sourceName)
 			if err == nil {
 				env.Request.AddModel("surface.v1.Model", surfaceModel)
 			}
@@ -212,4 +221,18 @@ func isDirectory(path string) bool {
 		return false
 	}
 	return fileInfo.IsDir()
+}
+
+// Guesses the sourceName from the binary input file name. E.g.: given input: some/path/swagger.pb
+// check for some/path/swagger.yaml and some/path/swagger.json.
+func guessSourceName(input string) (string, error) {
+	sourceName := strings.Replace(input, ".pb", ".yaml", -1)
+	if _, err := os.Stat(sourceName); os.IsNotExist(err) {
+		// sourceName does not exist. Lets try .json instead
+		sourceName = strings.Replace(input, ".pb", ".json", -1)
+		if _, err := os.Stat(sourceName); os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	return sourceName, nil
 }

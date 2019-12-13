@@ -118,7 +118,7 @@ func (e *Exported) Expect(methods map[string]interface{}) error {
 	return nil
 }
 
-// Range is a type alias for span.Range for backwards compatability, prefer
+// Range is a type alias for span.Range for backwards compatibility, prefer
 // using span.Range directly.
 type Range = span.Range
 
@@ -156,7 +156,7 @@ func (e *Exported) getNotes() error {
 			}
 			l, err := expect.Parse(e.ExpectFileSet, filename, content)
 			if err != nil {
-				return fmt.Errorf("Failed to extract expectations: %v", err)
+				return fmt.Errorf("failed to extract expectations: %v", err)
 			}
 			notes = append(notes, l...)
 		}

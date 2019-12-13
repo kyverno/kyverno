@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,8 +27,7 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 				Message: fmt.Sprintf("Failed to unmarshal policy admission request err %v", err),
 			}}
 	}
-
-	if err := policy.Validate(); err != nil {
+	if err := policyvalidate.Validate(*policy); err != nil {
 		admissionResp = &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -36,22 +36,11 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 		}
 	}
 
-	// helper function to evaluate if policy has validtion or mutation rules defined
-	hasMutateOrValidate := func() bool {
-		for _, rule := range policy.Spec.Rules {
-			if rule.HasMutate() || rule.HasValidate() {
-				return true
-			}
-		}
-		return false
-	}
-
 	if admissionResp.Allowed {
-		if hasMutateOrValidate() {
-			// create mutating resource mutatingwebhookconfiguration if not present
-			if err := ws.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
-				glog.Error("failed to created resource mutating webhook configuration, policies wont be applied on the resource")
-			}
+		// if the policy contains mutating & validation rules and it config does not exist we create one
+		if policy.HasMutateOrValidate() {
+			// queue the request
+			ws.resourceWebhookWatcher.RegisterResourceWebhook()
 		}
 	}
 	return admissionResp

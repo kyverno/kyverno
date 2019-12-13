@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"strings"
@@ -70,10 +69,10 @@ ENVIRONMENT VARIABLES:
      MINIO_DOMAIN: To enable virtual-host-style requests, set this value to MinIO host domain name.
 
   CACHE:
-     MINIO_CACHE_DRIVES: List of mounted drives or directories delimited by ";".
-     MINIO_CACHE_EXCLUDE: List of cache exclusion patterns delimited by ";".
+     MINIO_CACHE_DRIVES: List of mounted drives or directories delimited by ",".
+     MINIO_CACHE_EXCLUDE: List of cache exclusion patterns delimited by ",".
      MINIO_CACHE_EXPIRY: Cache expiry duration in days.
-     MINIO_CACHE_MAXUSE: Maximum permitted usage of the cache in percentage (0-100).
+     MINIO_CACHE_QUOTA: Maximum permitted usage of the cache in percentage (0-100).
 
 EXAMPLES:
   1. Start minio gateway server for B2 backend.
@@ -84,10 +83,10 @@ EXAMPLES:
   2. Start minio gateway server for B2 backend with edge caching enabled.
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_ACCESS_KEY{{.AssignmentOperator}}accountID
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_SECRET_KEY{{.AssignmentOperator}}applicationKey
-     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_DRIVES{{.AssignmentOperator}}"/mnt/drive1;/mnt/drive2;/mnt/drive3;/mnt/drive4"
-     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXCLUDE{{.AssignmentOperator}}"bucket1/*;*.png"
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_DRIVES{{.AssignmentOperator}}"/mnt/drive1,/mnt/drive2,/mnt/drive3,/mnt/drive4"
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXCLUDE{{.AssignmentOperator}}"bucket1/*,*.png"
      {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_EXPIRY{{.AssignmentOperator}}40
-     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_MAXUSE{{.AssignmentOperator}}80
+     {{.Prompt}} {{.EnvVarSetCommand}} MINIO_CACHE_QUOTA{{.AssignmentOperator}}80
      {{.Prompt}} {{.HelpName}}
 `
 	minio.RegisterGatewayCommand(cli.Command{
@@ -124,7 +123,10 @@ func (g *B2) NewGatewayLayer(creds auth.Credentials) (minio.ObjectLayer, error) 
 	return &b2Objects{
 		creds:    creds,
 		b2Client: client,
-		ctx:      ctx,
+		httpClient: &http.Client{
+			Transport: minio.NewCustomHTTPTransport(),
+		},
+		ctx: ctx,
 	}, nil
 }
 
@@ -136,10 +138,11 @@ func (g *B2) Production() bool {
 // b2Object implements gateway for MinIO and BackBlaze B2 compatible object storage servers.
 type b2Objects struct {
 	minio.GatewayUnsupported
-	mu       sync.Mutex
-	creds    auth.Credentials
-	b2Client *b2.B2
-	ctx      context.Context
+	mu         sync.Mutex
+	creds      auth.Credentials
+	b2Client   *b2.B2
+	httpClient *http.Client
+	ctx        context.Context
 }
 
 // Convert B2 errors to minio object layer errors.
@@ -226,12 +229,13 @@ func b2MsgCodeToObjectError(code int, msgCode string, msg string, params ...stri
 // Shutdown saves any gateway metadata to disk
 // if necessary and reload upon next restart.
 func (l *b2Objects) Shutdown(ctx context.Context) error {
-	// TODO
 	return nil
 }
 
 // StorageInfo is not relevant to B2 backend.
 func (l *b2Objects) StorageInfo(ctx context.Context) (si minio.StorageInfo) {
+	si.Backend.Type = minio.BackendGateway
+	si.Backend.GatewayOnline = minio.IsBackendOnline(ctx, l.httpClient, "https://api.backblazeb2.com/b2api/v1")
 	return si
 }
 
@@ -460,13 +464,23 @@ func (l *b2Objects) GetObjectInfo(ctx context.Context, bucket string, object str
 	if err != nil {
 		return objInfo, err
 	}
-	f, err := bkt.DownloadFileByName(l.ctx, object, 0, 1)
+
+	f, _, err := bkt.ListFileNames(l.ctx, 1, object, "", "")
 	if err != nil {
 		logger.LogIf(ctx, err)
 		return objInfo, b2ToObjectError(err, bucket, object)
 	}
-	f.Close()
-	fi, err := bkt.File(f.ID, object).GetFileInfo(l.ctx)
+
+	// B2's list will return the next item in the bucket if the object doesn't
+	// exist so we need to perform a name check too
+	if len(f) != 1 || (len(f) == 1 && f[0].Name != object) {
+		return objInfo, minio.ObjectNotFound{
+			Bucket: bucket,
+			Object: object,
+		}
+	}
+
+	fi, err := bkt.File(f[0].ID, object).GetFileInfo(l.ctx)
 	if err != nil {
 		logger.LogIf(ctx, err)
 		return objInfo, b2ToObjectError(err, bucket, object)
@@ -474,7 +488,7 @@ func (l *b2Objects) GetObjectInfo(ctx context.Context, bucket string, object str
 	return minio.ObjectInfo{
 		Bucket:      bucket,
 		Name:        object,
-		ETag:        minio.ToS3ETag(f.ID),
+		ETag:        minio.ToS3ETag(f[0].ID),
 		Size:        fi.Size,
 		ModTime:     fi.Timestamp,
 		ContentType: fi.ContentType,
@@ -595,14 +609,10 @@ func (l *b2Objects) DeleteObject(ctx context.Context, bucket string, object stri
 	if err != nil {
 		return err
 	}
-	reader, err := bkt.DownloadFileByName(l.ctx, object, 0, 1)
-	if err != nil {
-		logger.LogIf(ctx, err)
-		return b2ToObjectError(err, bucket, object)
-	}
-	io.Copy(ioutil.Discard, reader)
-	reader.Close()
-	err = bkt.File(reader.ID, object).DeleteFileVersion(l.ctx)
+
+	// If we hide the file we'll conform to B2's versioning policy, it also
+	// saves an additional call to check if the file exists first
+	_, err = bkt.HideFile(l.ctx, object)
 	logger.LogIf(ctx, err)
 	return b2ToObjectError(err, bucket, object)
 }

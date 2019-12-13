@@ -83,6 +83,26 @@ const (
 
 	// PutObjectAction - PutObject Rest API action.
 	PutObjectAction = "s3:PutObject"
+
+	// PutBucketLifecycleAction - PutBucketLifecycle Rest API action.
+	PutBucketLifecycleAction = "s3:PutBucketLifecycle"
+
+	// GetBucketLifecycleAction - GetBucketLifecycle Rest API action.
+	GetBucketLifecycleAction = "s3:GetBucketLifecycle"
+
+	// BypassGovernanceModeAction - bypass governance mode for DeleteObject Rest API action.
+	BypassGovernanceModeAction = "s3:BypassGovernanceMode"
+	// BypassGovernanceRetentionAction - bypass governance retention for PutObjectRetention, PutObject and DeleteObject Rest API action.
+	BypassGovernanceRetentionAction = "s3:BypassGovernanceRetention"
+	// PutObjectRetentionAction - PutObjectRetention Rest API action.
+	PutObjectRetentionAction = "s3:PutObjectRetention"
+
+	// GetObjectRetentionAction - GetObjectRetention, GetObject, HeadObject Rest API action.
+	GetObjectRetentionAction = "s3:GetObjectRetention"
+	// GetBucketObjectLockConfigurationAction - GetObjectLockConfiguration Rest API action
+	GetBucketObjectLockConfigurationAction = "s3:GetBucketObjectLockConfiguration"
+	// PutBucketObjectLockConfigurationAction - PutObjectLockConfiguration Rest API action
+	PutBucketObjectLockConfigurationAction = "s3:PutBucketObjectLockConfiguration"
 )
 
 // isObjectAction - returns whether action is object type or not.
@@ -91,6 +111,10 @@ func (action Action) isObjectAction() bool {
 	case AbortMultipartUploadAction, DeleteObjectAction, GetObjectAction:
 		fallthrough
 	case ListMultipartUploadPartsAction, PutObjectAction:
+		return true
+	case PutObjectRetentionAction, GetObjectRetentionAction:
+		return true
+	case BypassGovernanceModeAction, BypassGovernanceRetentionAction:
 		return true
 	}
 
@@ -113,6 +137,14 @@ func (action Action) IsValid() bool {
 	case ListMultipartUploadPartsAction, PutBucketNotificationAction:
 		fallthrough
 	case PutBucketPolicyAction, PutObjectAction:
+		fallthrough
+	case PutBucketLifecycleAction, GetBucketLifecycleAction:
+		return true
+	case BypassGovernanceModeAction, BypassGovernanceRetentionAction:
+		return true
+	case PutObjectRetentionAction, GetObjectRetentionAction:
+		return true
+	case PutBucketObjectLockConfigurationAction, GetBucketObjectLockConfigurationAction:
 		return true
 	}
 
@@ -196,4 +228,10 @@ var actionConditionKeyMap = map[Action]condition.KeySet{
 			condition.S3XAmzMetadataDirective,
 			condition.S3XAmzStorageClass,
 		}, condition.CommonKeys...)...),
+	PutObjectRetentionAction:               condition.NewKeySet(condition.CommonKeys...),
+	GetObjectRetentionAction:               condition.NewKeySet(condition.CommonKeys...),
+	BypassGovernanceModeAction:             condition.NewKeySet(condition.CommonKeys...),
+	BypassGovernanceRetentionAction:        condition.NewKeySet(condition.CommonKeys...),
+	GetBucketObjectLockConfigurationAction: condition.NewKeySet(condition.CommonKeys...),
+	PutBucketObjectLockConfigurationAction: condition.NewKeySet(condition.CommonKeys...),
 }

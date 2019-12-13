@@ -9,8 +9,13 @@ package socket_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -294,5 +299,71 @@ func BenchmarkUDP(b *testing.B) {
 				}
 			})
 		}
+	}
+}
+
+func TestRace(t *testing.T) {
+	tests := []string{
+		`
+package main
+import "net"
+import "golang.org/x/net/ipv4"
+var g byte
+func main() {
+	c, _ := net.ListenPacket("udp", "127.0.0.1:0")
+	cc := ipv4.NewPacketConn(c)
+	sync := make(chan bool)
+	src := make([]byte, 1)
+	dst := make([]byte, 1)
+	go func() { cc.WriteTo(src, nil, c.LocalAddr()) }()
+	go func() { cc.ReadFrom(dst); sync <- true }()
+	g = dst[0]
+	<- sync
+}
+`,
+		`
+package main
+import "net"
+import "golang.org/x/net/ipv4"
+func main() {
+	c, _ := net.ListenPacket("udp", "127.0.0.1:0")
+	cc := ipv4.NewPacketConn(c)
+	sync := make(chan bool)
+	src := make([]byte, 1)
+	dst := make([]byte, 1)
+	go func() { cc.WriteTo(src, nil, c.LocalAddr()); sync <- true }()
+	src[0] = 0
+	go func() { cc.ReadFrom(dst) }()
+	<- sync
+}
+`,
+	}
+	platforms := map[string]bool{
+		"linux/amd64":   true,
+		"linux/ppc64le": true,
+		"linux/arm64":   true,
+	}
+	if !platforms[runtime.GOOS+"/"+runtime.GOARCH] {
+		t.Skip("skipping test on non-race-enabled host.")
+	}
+	dir, err := ioutil.TempDir("", "testrace")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+	goBinary := filepath.Join(runtime.GOROOT(), "bin", "go")
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("test %d", i), func(t *testing.T) {
+			src := filepath.Join(dir, fmt.Sprintf("test%d.go", i))
+			if err := ioutil.WriteFile(src, []byte(test), 0644); err != nil {
+				t.Fatalf("failed to write file: %v", err)
+			}
+			got, err := exec.Command(goBinary, "run", "-race", src).CombinedOutput()
+			if strings.Contains(string(got), "-race requires cgo") {
+				t.Log("CGO is not enabled so can't use -race")
+			} else if !strings.Contains(string(got), "WARNING: DATA RACE") {
+				t.Errorf("race not detected for test %d: err:%v out:%s", i, err, string(got))
+			}
+		})
 	}
 }

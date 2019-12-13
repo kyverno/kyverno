@@ -28,6 +28,7 @@
 
 regenerate:
 	go install github.com/gogo/protobuf/protoc-min-version
+	go install github.com/gogo/protobuf/protoc-gen-gogo
 	protoc-min-version --version="3.0.0" --proto_path=\
 	.:$(GOPATH)/src/:$(GOPATH)/src/github.com/gogo/protobuf/protobuf/ \
 	--gogofast_out=. issue498.proto

@@ -17,26 +17,6 @@ import (
 	"golang.org/x/tools/internal/lsp/fuzzy"
 )
 
-func ExampleFuzzyMatcher() {
-	pattern := "TEdit"
-	candidates := []string{"fuzzy.TextEdit", "ArtEdit", "TED talks about IT"}
-
-	// Create a fuzzy matcher for the pattern.
-	matcher := fuzzy.NewMatcher(pattern, fuzzy.Text)
-
-	for _, candidate := range candidates {
-		// Compute candidate's score against the matcher.
-		score := matcher.Score(candidate)
-
-		if score > -1 {
-			// Get the substrings in the candidate matching the pattern.
-			ranges := matcher.MatchedRanges()
-
-			fmt.Println(ranges) // Do something with the ranges.
-		}
-	}
-}
-
 type comparator struct {
 	f     func(val, ref float32) bool
 	descr string
@@ -54,6 +34,12 @@ var (
 			return val >= ref
 		},
 		descr: ">=",
+	}
+	gt = comparator{
+		f: func(val, ref float32) bool {
+			return val > ref
+		},
+		descr: ">",
 	}
 )
 
@@ -73,12 +59,10 @@ type scoreTest struct {
 
 var matcherTests = []struct {
 	pattern string
-	input   fuzzy.Input
 	tests   []scoreTest
 }{
 	{
 		pattern: "",
-		input:   fuzzy.Text,
 		tests: []scoreTest{
 			{"def", eq, 1},
 			{"Ab stuff c", eq, 1},
@@ -86,7 +70,6 @@ var matcherTests = []struct {
 	},
 	{
 		pattern: "abc",
-		input:   fuzzy.Text,
 		tests: []scoreTest{
 			{"def", eq, -1},
 			{"abd", eq, -1},
@@ -97,7 +80,6 @@ var matcherTests = []struct {
 	},
 	{
 		pattern: "Abc",
-		input:   fuzzy.Text,
 		tests: []scoreTest{
 			{"def", eq, -1},
 			{"abd", eq, -1},
@@ -107,28 +89,17 @@ var matcherTests = []struct {
 		},
 	},
 	{
-		pattern: "subs",
-		input:   fuzzy.Filename,
+		pattern: "U",
 		tests: []scoreTest{
-			{"sub/seq", ge, 0},
-			{"sub/seq/end", eq, -1},
-			{"sub/seq/base", ge, 0},
-		},
-	},
-	{
-		pattern: "subs",
-		input:   fuzzy.Filename,
-		tests: []scoreTest{
-			{"//sub/seq", ge, 0},
-			{"//sub/seq/end", eq, -1},
-			{"//sub/seq/base", ge, 0},
+			{"ErrUnexpectedEOF", gt, 0},
+			{"ErrUnexpectedEOF.Error", eq, 0},
 		},
 	},
 }
 
 func TestScore(t *testing.T) {
 	for _, tc := range matcherTests {
-		m := fuzzy.NewMatcher(tc.pattern, tc.input)
+		m := fuzzy.NewMatcher(tc.pattern)
 		for _, sct := range tc.tests {
 			score := m.Score(sct.candidate)
 			if !sct.comparator.eval(score, sct.ref) {
@@ -146,44 +117,35 @@ type candidateCompTest struct {
 
 var compareCandidatesTestCases = []struct {
 	pattern           string
-	input             fuzzy.Input
 	orderedCandidates []string
 }{
 	{
-		pattern: "aa",
-		input:   fuzzy.Filename,
-		orderedCandidates: []string{
-			"baab",
-			"bb_aa",
-			"a/a/a",
-			"aa_bb",
-			"aa_b",
-			"aabb",
-			"aab",
-			"b/aa",
-		},
-	},
-	{
 		pattern: "Foo",
-		input:   fuzzy.Text,
 		orderedCandidates: []string{
 			"Barfoo",
-			"F_o_o",
 			"Faoo",
-			"F__oo",
-			"F_oo",
+			"F_o_o",
 			"FaoFooa",
 			"BarFoo",
+			"F__oo",
+			"F_oo",
 			"FooA",
 			"FooBar",
 			"Foo",
+		},
+	},
+	{
+		pattern: "U",
+		orderedCandidates: []string{
+			"ErrUnexpectedEOF.Error",
+			"ErrUnexpectedEOF",
 		},
 	},
 }
 
 func TestCompareCandidateScores(t *testing.T) {
 	for _, tc := range compareCandidatesTestCases {
-		m := fuzzy.NewMatcher(tc.pattern, tc.input)
+		m := fuzzy.NewMatcher(tc.pattern)
 
 		var prevScore float32
 		prevCand := "MIN_SCORE"
@@ -202,55 +164,42 @@ func TestCompareCandidateScores(t *testing.T) {
 }
 
 var fuzzyMatcherTestCases = []struct {
-	p     string
-	str   string
-	want  string
-	input fuzzy.Input
+	p    string
+	str  string
+	want string
 }{
-	// fuzzy.Filename
-	{p: "aa", str: "a_a/a_a", want: "[a]_a/[a]_a", input: fuzzy.Filename},
-	{p: "aaaa", str: "a_a/a_a", want: "[a]_[a]/[a]_[a]", input: fuzzy.Filename},
-	{p: "aaaa", str: "aaaa", want: "[aaaa]", input: fuzzy.Filename},
-	{p: "aaaa", str: "a_a/a_aaaa", want: "a_a/[a]_[aaa]a", input: fuzzy.Filename},
-	{p: "aaaa", str: "a_a/aaaaa", want: "a_a/[aaaa]a", input: fuzzy.Filename},
-	{p: "aaaa", str: "aabaaa", want: "[aa]b[aa]a", input: fuzzy.Filename},
-	{p: "aaaa", str: "a/baaa", want: "[a]/b[aaa]", input: fuzzy.Filename},
-	{p: "abcxz", str: "d/abc/abcd/oxz", want: "d/[abc]/abcd/o[xz]", input: fuzzy.Filename},
-	{p: "abcxz", str: "d/abcd/abc/oxz", want: "d/[abc]d/abc/o[xz]", input: fuzzy.Filename},
-
-	// fuzzy.Symbol
-	{p: "foo", str: "abc::foo", want: "abc::[foo]", input: fuzzy.Symbol},
-	{p: "foo", str: "foo.foo", want: "foo.[foo]", input: fuzzy.Symbol},
-	{p: "foo", str: "fo_oo.o_oo", want: "[fo]_oo.[o]_oo", input: fuzzy.Symbol},
-	{p: "foo", str: "fo_oo.fo_oo", want: "fo_oo.[fo]_[o]o", input: fuzzy.Symbol},
-	{p: "fo_o", str: "fo_oo.o_oo", want: "[f]o_oo.[o_o]o", input: fuzzy.Symbol},
-	{p: "fOO", str: "fo_oo.o_oo", want: "[f]o_oo.[o]_[o]o", input: fuzzy.Symbol},
-	{p: "tedit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]", input: fuzzy.Symbol},
-	{p: "TEdit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]", input: fuzzy.Symbol},
-	{p: "Tedit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]", input: fuzzy.Symbol},
-	{p: "Tedit", str: "foo.Textedit", want: "foo.[Te]xte[dit]", input: fuzzy.Symbol},
-	{p: "TEdit", str: "foo.Textedit", want: "", input: fuzzy.Symbol},
-	{p: "te", str: "foo.Textedit", want: "foo.[Te]xtedit", input: fuzzy.Symbol},
-	{p: "ee", str: "foo.Textedit", want: "", input: fuzzy.Symbol}, // short middle of the word match
-	{p: "ex", str: "foo.Textedit", want: "foo.T[ex]tedit", input: fuzzy.Symbol},
-	{p: "exdi", str: "foo.Textedit", want: "", input: fuzzy.Symbol},  // short middle of the word match
-	{p: "exdit", str: "foo.Textedit", want: "", input: fuzzy.Symbol}, // short middle of the word match
-	{p: "extdit", str: "foo.Textedit", want: "foo.T[ext]e[dit]", input: fuzzy.Symbol},
-	{p: "e", str: "foo.Textedit", want: "foo.T[e]xtedit", input: fuzzy.Symbol},
-	{p: "E", str: "foo.Textedit", want: "foo.T[e]xtedit", input: fuzzy.Symbol},
-	{p: "ed", str: "foo.Textedit", want: "foo.Text[ed]it", input: fuzzy.Symbol},
-	{p: "edt", str: "foo.Textedit", want: "", input: fuzzy.Symbol}, // short middle of the word match
-	{p: "edit", str: "foo.Textedit", want: "foo.Text[edit]", input: fuzzy.Symbol},
-	{p: "edin", str: "foo.TexteditNum", want: "foo.Text[edi]t[N]um", input: fuzzy.Symbol},
-	{p: "n", str: "node.GoNodeMax", want: "node.Go[N]odeMax", input: fuzzy.Symbol},
-	{p: "N", str: "node.GoNodeMax", want: "node.Go[N]odeMax", input: fuzzy.Symbol},
-	{p: "completio", str: "completion", want: "[completio]n", input: fuzzy.Symbol},
-	{p: "completio", str: "completion.None", want: "[completi]on.N[o]ne", input: fuzzy.Symbol},
+	{p: "foo", str: "abc::foo", want: "abc::[foo]"},
+	{p: "foo", str: "foo.foo", want: "foo.[foo]"},
+	{p: "foo", str: "fo_oo.o_oo", want: "[fo]_oo.[o]_oo"},
+	{p: "foo", str: "fo_oo.fo_oo", want: "fo_oo.[fo]_[o]o"},
+	{p: "fo_o", str: "fo_oo.o_oo", want: "[f]o_oo.[o_o]o"},
+	{p: "fOO", str: "fo_oo.o_oo", want: "[f]o_oo.[o]_[o]o"},
+	{p: "tedit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]"},
+	{p: "TEdit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]"},
+	{p: "Tedit", str: "foo.TextEdit", want: "foo.[T]ext[Edit]"},
+	{p: "Tedit", str: "foo.Textedit", want: "foo.[Te]xte[dit]"},
+	{p: "TEdit", str: "foo.Textedit", want: ""},
+	{p: "te", str: "foo.Textedit", want: "foo.[Te]xtedit"},
+	{p: "ee", str: "foo.Textedit", want: ""}, // short middle of the word match
+	{p: "ex", str: "foo.Textedit", want: "foo.T[ex]tedit"},
+	{p: "exdi", str: "foo.Textedit", want: ""},  // short middle of the word match
+	{p: "exdit", str: "foo.Textedit", want: ""}, // short middle of the word match
+	{p: "extdit", str: "foo.Textedit", want: "foo.T[ext]e[dit]"},
+	{p: "e", str: "foo.Textedit", want: "foo.T[e]xtedit"},
+	{p: "E", str: "foo.Textedit", want: "foo.T[e]xtedit"},
+	{p: "ed", str: "foo.Textedit", want: "foo.Text[ed]it"},
+	{p: "edt", str: "foo.Textedit", want: ""}, // short middle of the word match
+	{p: "edit", str: "foo.Textedit", want: "foo.Text[edit]"},
+	{p: "edin", str: "foo.TexteditNum", want: "foo.Text[edi]t[N]um"},
+	{p: "n", str: "node.GoNodeMax", want: "[n]ode.GoNodeMax"},
+	{p: "N", str: "node.GoNodeMax", want: "[n]ode.GoNodeMax"},
+	{p: "completio", str: "completion", want: "[completio]n"},
+	{p: "completio", str: "completion.None", want: "[completio]n.None"},
 }
 
 func TestFuzzyMatcherRanges(t *testing.T) {
 	for _, tc := range fuzzyMatcherTestCases {
-		matcher := fuzzy.NewMatcher(tc.p, tc.input)
+		matcher := fuzzy.NewMatcher(tc.p)
 		score := matcher.Score(tc.str)
 		if tc.want == "" {
 			if score >= 0 {
@@ -282,15 +231,15 @@ var scoreTestCases = []struct {
 	{p: "strc", str: "StrCat", want: 1},
 	{p: "abc_def", str: "abc_def_xyz", want: 1},
 	{p: "abcdef", str: "abc_def_xyz", want: 0.91667},
-	{p: "abcxyz", str: "abc_def_xyz", want: 0.875},
+	{p: "abcxyz", str: "abc_def_xyz", want: 0.91667},
 	{p: "sc", str: "StrCat", want: 0.75},
-	{p: "abc", str: "AbstrBasicCtor", want: 0.75},
-	{p: "foo", str: "abc::foo", want: 1},
+	{p: "abc", str: "AbstrBasicCtor", want: 0.83333},
+	{p: "foo", str: "abc::foo", want: 0.91667},
 	{p: "afoo", str: "abc::foo", want: 0.9375},
 	{p: "abr", str: "abc::bar", want: 0.5},
-	{p: "br", str: "abc::bar", want: 0.375},
-	{p: "aar", str: "abc::bar", want: 0.16667},
-	{p: "edin", str: "foo.TexteditNum", want: 0},
+	{p: "br", str: "abc::bar", want: 0.25},
+	{p: "aar", str: "abc::bar", want: 0.41667},
+	{p: "edin", str: "foo.TexteditNum", want: 0.125},
 	{p: "ediu", str: "foo.TexteditNum", want: 0},
 	// We want the next two items to have roughly similar scores.
 	{p: "up", str: "unique_ptr", want: 0.75},
@@ -299,7 +248,7 @@ var scoreTestCases = []struct {
 
 func TestScores(t *testing.T) {
 	for _, tc := range scoreTestCases {
-		matcher := fuzzy.NewMatcher(tc.p, fuzzy.Symbol)
+		matcher := fuzzy.NewMatcher(tc.p)
 		got := math.Round(float64(matcher.Score(tc.str))*1e5) / 1e5
 		if got != tc.want {
 			t.Errorf("Score(%s, %s) = %v, want: %v", tc.p, tc.str, got, tc.want)
@@ -336,7 +285,7 @@ func BenchmarkMatcher(b *testing.B) {
 		"Foo",
 	}
 
-	matcher := fuzzy.NewMatcher(pattern, fuzzy.Text)
+	matcher := fuzzy.NewMatcher(pattern)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

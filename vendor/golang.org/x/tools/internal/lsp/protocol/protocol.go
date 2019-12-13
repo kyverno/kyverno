@@ -6,11 +6,18 @@ package protocol
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"golang.org/x/tools/internal/jsonrpc2"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/trace"
 	"golang.org/x/tools/internal/xcontext"
+)
+
+const (
+	// RequestCancelledError should be used when a request is cancelled early.
+	RequestCancelledError = -32800
 )
 
 type DocumentUri = string
@@ -25,6 +32,27 @@ type clientHandler struct {
 type serverHandler struct {
 	canceller
 	server Server
+}
+
+func (canceller) Request(ctx context.Context, conn *jsonrpc2.Conn, direction jsonrpc2.Direction, r *jsonrpc2.WireRequest) context.Context {
+	if direction == jsonrpc2.Receive && r.Method == "$/cancelRequest" {
+		var params CancelParams
+		if err := json.Unmarshal(*r.Params, &params); err != nil {
+			log.Error(ctx, "", err)
+		} else {
+			v := jsonrpc2.ID{}
+			if n, ok := params.ID.(float64); ok {
+				v.Number = int64(n)
+			} else if s, ok := params.ID.(string); ok {
+				v.Name = s
+			} else {
+				log.Error(ctx, fmt.Sprintf("Request ID %v malformed", params.ID), nil)
+				return ctx
+			}
+			conn.Cancel(v)
+		}
+	}
+	return ctx
 }
 
 func (canceller) Cancel(ctx context.Context, conn *jsonrpc2.Conn, id jsonrpc2.ID, cancelled bool) bool {

@@ -4,8 +4,6 @@ package imports //@import("package")
 import "fmt"
 
 func _() {
-	fmt.Println("")
+fmt.Println("")
 }
-
--- goimports-d --
 

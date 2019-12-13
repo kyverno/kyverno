@@ -13,7 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
 
 // processOverlay processes validation patterns on the resource
@@ -27,20 +28,42 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
 	}()
 
-	patches, err := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
-	// resource does not satisfy the overlay pattern, we dont apply this rule
-	if err != nil && strings.Contains(err.Error(), "Conditions are not met") {
-		glog.V(4).Infof("Resource %s/%s/%s does not meet the conditions in the rule %s with overlay pattern %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Name, rule.Mutation.Overlay)
-		//TODO: send zero response and not consider this as applied?
-		return RuleResponse{}, resource
+	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
+	// resource does not satisfy the overlay pattern, we don't apply this rule
+	if !reflect.DeepEqual(overlayerr, overlayError{}) {
+		switch overlayerr.statusCode {
+		// condition key is not present in the resource, don't apply this rule
+		// consider as success
+		case conditionNotPresent:
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			response.Success = true
+			return response, resource
+		// conditions are not met, don't apply this rule
+		case conditionFailure:
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			//TODO: send zero response and not consider this as applied?
+			response.Success = true
+			response.Message = overlayerr.ErrorMsg()
+			return response, resource
+		// rule application failed
+		case overlayFailure:
+			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), rule.Name)
+			response.Success = false
+			response.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
+			return response, resource
+		default:
+			glog.Errorf("Resource %s/%s/%s: Unknown type of error: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.Error())
+			response.Success = false
+			response.Message = fmt.Sprintf("Unknown type of error: %v", overlayerr.Error())
+			return response, resource
+		}
 	}
 
-	if err != nil {
-		// rule application failed
-		response.Success = false
-		response.Message = fmt.Sprintf("failed to process overlay: %v", err)
+	if len(patches) == 0 {
+		response.Success = true
 		return response, resource
 	}
+
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
@@ -53,11 +76,13 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	var patchResource []byte
 	patchResource, err = ApplyPatches(resourceRaw, patches)
 	if err != nil {
-		glog.Info("failed to apply patch")
+		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
+		glog.V(2).Infof("%s, patches=%s", msg, string(JoinPatches(patches)))
 		response.Success = false
-		response.Message = fmt.Sprintf("failed to apply JSON patches: %v", err)
+		response.Message = msg
 		return response, resource
 	}
+
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
@@ -68,18 +93,33 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 
 	// rule application succesfuly
 	response.Success = true
-	response.Message = fmt.Sprintf("succesfully process overlay")
+	response.Message = fmt.Sprintf("successfully processed overlay")
 	response.Patches = patches
 	// apply the patches to the resource
 	return response, patchedResource
 }
-func processOverlayPatches(resource, overlay interface{}) ([][]byte, error) {
 
-	if !meetConditions(resource, overlay) {
-		return nil, errors.New("Conditions are not met")
+func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
+	if path, overlayerr := meetConditions(resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
+		switch overlayerr.statusCode {
+		// anchor key does not exist in the resource, skip applying policy
+		case conditionNotPresent:
+			glog.V(4).Infof("Mutate rule: skip applying policy: %v at %s", overlayerr, path)
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, condition tag not present: %v at %s", overlayerr.ErrorMsg(), path))
+		// anchor key is not satisfied in the resource, skip applying policy
+		case conditionFailure:
+			// anchor key is not satisfied in the resource, skip applying policy
+			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
+			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, conditions are not met at %s, %v", path, overlayerr))
+		}
 	}
 
-	return mutateResourceWithOverlay(resource, overlay)
+	patchBytes, err := mutateResourceWithOverlay(resource, overlay)
+	if err != nil {
+		return patchBytes, newOverlayError(overlayFailure, err.Error())
+	}
+
+	return patchBytes, overlayError{}
 }
 
 // mutateResourceWithOverlay is a start of overlaying process
@@ -148,7 +188,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
 		// the value that must replace resource value
-		if isConditionAnchor(key) {
+		if anchor.IsConditionAnchor(key) {
 			continue
 		}
 
@@ -156,7 +196,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 		currentPath := path + noAnchorKey + "/"
 		resourcePart, ok := resourceMap[noAnchorKey]
 
-		if ok && !isAddingAnchor(key) {
+		if ok && !anchor.IsAddingAnchor(key) {
 			// Key exists - go down through the overlay and resource trees
 			patches, err := applyOverlay(resourcePart, value, currentPath)
 			if err != nil {
@@ -305,10 +345,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 		path = path[:len(path)-1]
 	}
 
-	if path == "" {
-		path = "/"
-	}
-
+	path = preparePath(path)
 	value := prepareJSONValue(overlay)
 	patchStr := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value": %s }`, op, path, value)
 
@@ -320,6 +357,20 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	}
 
 	return []byte(patchStr), nil
+}
+
+func preparePath(path string) string {
+	if path == "" {
+		path = "/"
+	}
+
+	annPath := "/metadata/annotations/"
+	// escape slash in annotation patch
+	if strings.Contains(path, annPath) {
+		p := path[len(annPath):]
+		path = annPath + strings.ReplaceAll(p, "/", "~1")
+	}
+	return path
 }
 
 // converts overlay to JSON string to be inserted into the JSON Patch

@@ -15,6 +15,7 @@ import (
 	io "io"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -28,7 +29,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type NewNoGroup struct {
 	Field1               *int64    `protobuf:"varint,1,opt,name=Field1" json:"Field1,omitempty"`
@@ -52,7 +53,7 @@ func (m *NewNoGroup) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NewNoGroup.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +92,7 @@ func (m *A) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_A.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1095,7 +1096,7 @@ func valueToGoStringUnrecognizedgroup(v interface{}, typ string) string {
 func (m *NewNoGroup) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1103,44 +1104,52 @@ func (m *NewNoGroup) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NewNoGroup) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NewNoGroup) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(*m.Field1))
-	}
-	if len(m.Field3) > 0 {
-		for _, num := range m.Field3 {
-			dAtA[i] = 0x19
-			i++
-			f1 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f1))
-			i += 8
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.A != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(m.A.Size()))
-		n2, err := m.A.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.A.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			f2 := math.Float64bits(float64(m.Field3[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f2))
+			i--
+			dAtA[i] = 0x19
+		}
 	}
-	return i, nil
+	if m.Field1 != nil {
+		i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *A) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1148,40 +1157,48 @@ func (m *A) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *A) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *A) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.AField != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(*m.AField))
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.AField != nil {
+		i = encodeVarintUnrecognizedgroup(dAtA, i, uint64(*m.AField))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintUnrecognizedgroup(dAtA []byte, offset int, v uint64) int {
+	offset -= sovUnrecognizedgroup(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func NewPopulatedNewNoGroup(r randyUnrecognizedgroup, easy bool) *NewNoGroup {
 	this := &NewNoGroup{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v1 *= -1
 		}
 		this.Field1 = &v1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := r.Intn(10)
 		this.Field3 = make([]float64, v2)
 		for i := 0; i < v2; i++ {
@@ -1191,7 +1208,7 @@ func NewPopulatedNewNoGroup(r randyUnrecognizedgroup, easy bool) *NewNoGroup {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.A = NewPopulatedA(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -1202,7 +1219,7 @@ func NewPopulatedNewNoGroup(r randyUnrecognizedgroup, easy bool) *NewNoGroup {
 
 func NewPopulatedA(r randyUnrecognizedgroup, easy bool) *A {
 	this := &A{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v3 *= -1
@@ -1217,17 +1234,17 @@ func NewPopulatedA(r randyUnrecognizedgroup, easy bool) *A {
 
 func NewPopulatedOldWithGroup(r randyUnrecognizedgroup, easy bool) *OldWithGroup {
 	this := &OldWithGroup{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v4 *= -1
 		}
 		this.Field1 = &v4
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Group1 = NewPopulatedOldWithGroup_Group1(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(10)
 		this.Field3 = make([]float64, v5)
 		for i := 0; i < v5; i++ {
@@ -1237,7 +1254,7 @@ func NewPopulatedOldWithGroup(r randyUnrecognizedgroup, easy bool) *OldWithGroup
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Group2 = NewPopulatedOldWithGroup_Group2(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -1248,21 +1265,21 @@ func NewPopulatedOldWithGroup(r randyUnrecognizedgroup, easy bool) *OldWithGroup
 
 func NewPopulatedOldWithGroup_Group1(r randyUnrecognizedgroup, easy bool) *OldWithGroup_Group1 {
 	this := &OldWithGroup_Group1{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v6 *= -1
 		}
 		this.Field1 = &v6
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v7 *= -1
 		}
 		this.Field2 = &v7
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v8 := r.Intn(10)
 		this.Field3 = make([]float64, v8)
 		for i := 0; i < v8; i++ {
@@ -1280,14 +1297,14 @@ func NewPopulatedOldWithGroup_Group1(r randyUnrecognizedgroup, easy bool) *OldWi
 
 func NewPopulatedOldWithGroup_Group2(r randyUnrecognizedgroup, easy bool) *OldWithGroup_Group2 {
 	this := &OldWithGroup_Group2{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v9 *= -1
 		}
 		this.Field1 = &v9
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v10 := r.Intn(10)
 		this.Field2 = make([]float64, v10)
 		for i := 0; i < v10; i++ {
@@ -1413,14 +1430,7 @@ func (m *A) Size() (n int) {
 }
 
 func sovUnrecognizedgroup(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozUnrecognizedgroup(x uint64) (n int) {
 	return sovUnrecognizedgroup(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -1432,7 +1442,7 @@ func (this *NewNoGroup) String() string {
 	s := strings.Join([]string{`&NewNoGroup{`,
 		`Field1:` + valueToStringUnrecognizedgroup(this.Field1) + `,`,
 		`Field3:` + fmt.Sprintf("%v", this.Field3) + `,`,
-		`A:` + strings.Replace(fmt.Sprintf("%v", this.A), "A", "A", 1) + `,`,
+		`A:` + strings.Replace(this.A.String(), "A", "A", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -1737,6 +1747,7 @@ func (m *A) Unmarshal(dAtA []byte) error {
 func skipUnrecognizedgroup(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -1768,10 +1779,8 @@ func skipUnrecognizedgroup(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -1792,55 +1801,30 @@ func skipUnrecognizedgroup(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthUnrecognizedgroup
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthUnrecognizedgroup
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowUnrecognizedgroup
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipUnrecognizedgroup(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthUnrecognizedgroup
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupUnrecognizedgroup
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthUnrecognizedgroup
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthUnrecognizedgroup = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowUnrecognizedgroup   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthUnrecognizedgroup        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowUnrecognizedgroup          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupUnrecognizedgroup = fmt.Errorf("proto: unexpected end of group")
 )

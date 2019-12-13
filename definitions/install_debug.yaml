@@ -5,7 +5,7 @@ metadata:
 spec:
   group: kyverno.io
   versions:
-    - name: v1alpha1
+    - name: v1
       served: true
       storage: true
   scope: Cluster
@@ -13,6 +13,8 @@ spec:
     kind: ClusterPolicy
     plural: clusterpolicies
     singular: clusterpolicy
+    shortNames:
+    - cpol
   subresources:
     status: {}
   validation:
@@ -27,7 +29,7 @@ spec:
               type: string
               enum: 
               - enforce # blocks the resorce api-reques if a rule fails.
-              - audit # allows resource creationg and reports the failed validation rules as violations. Default
+              - audit # allows resource creation and reports the failed validation rules as violations. Default
             rules:
               type: array
               items:
@@ -43,6 +45,30 @@ spec:
                     required:
                     - resources
                     properties:
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      clusterRoles:
+                        type: array
+                        items:
+                          type: string
+                      subjects:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - kind
+                          - name
+                          properties:
+                            kind:
+                              type: string
+                            apiGroup:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
                       resources:
                         type: object
                         required:
@@ -85,6 +111,30 @@ spec:
                     required:
                     - resources
                     properties:
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      clusterRoles:
+                        type: array
+                        items:
+                          type: string
+                      subjects:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - kind
+                          - name
+                          properties:
+                            kind:
+                              type: string
+                            apiGroup:
+                              type: string
+                            name:
+                              type: string
+                            Namespace:
+                              type: string
                       resources:
                         type: object
                         properties:
@@ -182,7 +232,7 @@ metadata:
 spec:
   group: kyverno.io
   versions:
-    - name: v1alpha1
+    - name: v1
       served: true
       storage: true
   scope: Cluster
@@ -190,8 +240,26 @@ spec:
     kind: ClusterPolicyViolation
     plural: clusterpolicyviolations
     singular: clusterpolicyviolation
+    shortNames:
+    - cpolv
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -206,20 +274,120 @@ spec:
             resource:
               type: object
               required:
-                - kind
-                - name
+              - kind
+              - name
               properties:
                 kind:
                   type: string
                 name:
-                  type: string
-                namespace:
                   type: string
             rules:
               type: array
               items:
                 type: object
                 required:
-                  - name
-                  - type
-                  - message
+                - name
+                - type
+                - message
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  message:
+                    type: string
+                  managedResource:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                      creationBlocked:
+                        type: boolean
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: policyviolations.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+  scope: Namespaced
+  names:
+    kind: PolicyViolation
+    plural: policyviolations
+    singular: policyviolation
+    shortNames:
+    - polv
+  subresources:
+    status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - policy
+          - resource
+          - rules
+          properties:
+            policy:
+              type: string
+            resource:
+              type: object
+              required:
+              - kind
+              - name
+              properties:
+                kind:
+                  type: string
+                name:
+                  type: string
+            rules:
+              type: array
+              items:
+                type: object
+                required:
+                - name
+                - type
+                - message
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  message:
+                    type: string
+                  managedResource:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                      creationBlocked:
+                        type: boolean
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-config
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"

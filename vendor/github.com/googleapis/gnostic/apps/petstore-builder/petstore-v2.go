@@ -228,10 +228,10 @@ func buildDocumentV2() *v2.Document {
 				Properties: &v2.Properties{
 					AdditionalProperties: []*v2.NamedSchema{
 						&v2.NamedSchema{Name: "id", Value: &v2.Schema{
-							Type:   &v2.TypeItem{[]string{"integer"}},
+							Type:   &v2.TypeItem{Value: []string{"integer"}},
 							Format: "int64"}},
-						&v2.NamedSchema{Name: "name", Value: &v2.Schema{Type: &v2.TypeItem{[]string{"string"}}}},
-						&v2.NamedSchema{Name: "tag", Value: &v2.Schema{Type: &v2.TypeItem{[]string{"string"}}}},
+						&v2.NamedSchema{Name: "name", Value: &v2.Schema{Type: &v2.TypeItem{Value: []string{"string"}}}},
+						&v2.NamedSchema{Name: "tag", Value: &v2.Schema{Type: &v2.TypeItem{Value: []string{"string"}}}},
 					},
 				},
 			}})
@@ -239,8 +239,8 @@ func buildDocumentV2() *v2.Document {
 		&v2.NamedSchema{
 			Name: "Pets",
 			Value: &v2.Schema{
-				Type:  &v2.TypeItem{[]string{"array"}},
-				Items: &v2.ItemsItem{[]*v2.Schema{&v2.Schema{XRef: "#/definitions/Pet"}}},
+				Type:  &v2.TypeItem{Value: []string{"array"}},
+				Items: &v2.ItemsItem{Schema: []*v2.Schema{&v2.Schema{XRef: "#/definitions/Pet"}}},
 			}})
 	d.Definitions.AdditionalProperties = append(d.Definitions.AdditionalProperties,
 		&v2.NamedSchema{
@@ -250,9 +250,9 @@ func buildDocumentV2() *v2.Document {
 				Properties: &v2.Properties{
 					AdditionalProperties: []*v2.NamedSchema{
 						&v2.NamedSchema{Name: "code", Value: &v2.Schema{
-							Type:   &v2.TypeItem{[]string{"integer"}},
+							Type:   &v2.TypeItem{Value: []string{"integer"}},
 							Format: "int32"}},
-						&v2.NamedSchema{Name: "message", Value: &v2.Schema{Type: &v2.TypeItem{[]string{"string"}}}},
+						&v2.NamedSchema{Name: "message", Value: &v2.Schema{Type: &v2.TypeItem{Value:[]string{"string"}}}},
 					},
 				},
 			}})

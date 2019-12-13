@@ -1,22 +1,24 @@
 package engine
 
 import (
-	"encoding/json"
 	"time"
 
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //Generate apply generation rules on a resource
-func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructured.Unstructured) (response EngineResponse) {
+func Generate(policyContext PolicyContext) (response EngineResponse) {
+	policy := policyContext.Policy
+	ns := policyContext.NewResource
+	client := policyContext.Client
+
 	startTime := time.Now()
 	// policy information
 	func() {
@@ -38,7 +40,7 @@ func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructur
 		response.PolicyResponse.RulesAppliedCount++
 	}
 	for _, rule := range policy.Spec.Rules {
-		if rule.Generation == (kyverno.Generation{}) {
+		if !rule.HasGenerate() {
 			continue
 		}
 		glog.V(4).Infof("applying policy %s generate rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
@@ -46,6 +48,8 @@ func Generate(client *client.Client, policy kyverno.ClusterPolicy, ns unstructur
 		response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
 		incrementAppliedRuleCount()
 	}
+	// set resource in reponse
+	response.PatchedResource = ns
 	return response
 }
 
@@ -149,38 +153,12 @@ func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rul
 
 //checkResource checks if the config is present in th eresource
 func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
-	var err error
 
-	objByte, err := resource.MarshalJSON()
+	// we are checking if config is a subset of resource with default pattern
+	path, err := validateResourceWithPattern(resource.Object, config)
 	if err != nil {
-		// unable to parse the json
+		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
 		return false, err
 	}
-	err = resource.UnmarshalJSON(objByte)
-	if err != nil {
-		// unable to parse the json
-		return false, err
-	}
-	// marshall and unmarshall json to verify if its right format
-	configByte, err := json.Marshal(config)
-	if err != nil {
-		// unable to marshall the config
-		return false, err
-	}
-	var configData interface{}
-	err = json.Unmarshal(configByte, &configData)
-	if err != nil {
-		// unable to unmarshall
-		return false, err
-	}
-
-	var objData interface{}
-	err = json.Unmarshal(objByte, &objData)
-	if err != nil {
-		// unable to unmarshall
-		return false, err
-	}
-
-	// Check if the config is a subset of resource
-	return utils.JSONsubsetValue(configData, objData), nil
+	return true, nil
 }

@@ -34,18 +34,56 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
 
 ## Anchors
+
+Anchors allow conditional processing (i.e. "if-then-else) and other logical checks in validation patterns. The following types of anchors are supported:
+
+
 | Anchor      	| Tag 	| Behavior                                                                                                                                                                                                                                     	|
 |-------------	|-----	|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|
-| Conditional 	| ()  	| If tag with the given value is specified, then following resource elements must satisfy the conditions.<br/>e.g. <br/><code> (image):"*:latest" <br/>  imagePullPolicy: "!IfNotPresent"</code>  <br/> If image has tag latest then, imagePullPolicy cannot be IfNotPresent.                                                	|
-| Equality    	| =() 	| If tag is specified, then it should have the provided value.<br/>e.g.<br/><code> =(hostPath):<br/> path: "!/var/lib" </code><br/> If hostPath is defined then the path cannot be /var/lib                                                                                  	|
-| Existance   	| ^() 	| It can be specified on the list/array type only. If there exists at least one resource in the list that satisfies the pattern.<br/>e.g. <br/><code> ^(containers):<br/> - image: nginx:latest </code><br/> There must exist at least one container with image nginx:latest. 	|
-| Negation    	| X() 	| A tag with negation anchor cannot be present in the resource. The value of the tag is never evaulated as the tag is not expected to be there. <br/>e.g. <br/><code> X(hostPath):</code><br/> Hostpath tag cannot be defined.	|
+| Conditional 	| ()  	| If tag with the given value (including child elements) is specified, then peer elements will be processed. <br/>e.g. If image has tag latest then imagePullPolicy cannot be IfNotPresent. <br/>&nbsp;&nbsp;&nbsp;&nbsp;(image): "*:latest" <br>&nbsp;&nbsp;&nbsp;&nbsp;imagePullPolicy: "!IfNotPresent"<br/>                                             	|
+| Equality    	| =() 	| If tag is specified, then processing continues. For tags with scalar values, the value must match. For tags with child elements, the child element is further evaluated as a validation pattern.  <br/>e.g. If hostPath is defined then the path cannot be /var/lib<br/>&nbsp;&nbsp;&nbsp;&nbsp;=(hostPath):<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;path: "!/var/lib"<br/>                                                                                  	|
+| Existence   	| ^() 	| Works on the list/array type only. If at least one element in the list satisfies the pattern. In contrast, a conditional anchor would validate that all elements in the list match the pattern. <br/>e.g. At least one container with image nginx:latest must exist. <br/>&nbsp;&nbsp;&nbsp;&nbsp;^(containers):<br/>&nbsp;&nbsp;&nbsp;&nbsp;- image: nginx:latest<br/>  	|
+| Negation    	| X() 	| The tag cannot be specified. The value of the tag is not evaulated. <br/>e.g. Hostpath tag cannot be defined.<br/>&nbsp;&nbsp;&nbsp;&nbsp;X(hostPath):<br/>	|
 
-## Example
-The next rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
+## Anchors and child elements
+
+Child elements are handled differently for conditional and equality anchors. 
+
+For conditional anchors, the child element is considered to be part of the "if" clause, and all peer elements are considered to be part of the "then" clause. For example, consider the pattern:
+
+````yaml
+  pattern:
+    metadata:
+      labels:
+        allow-docker: true
+    spec:
+      (volumes):
+        (hostPath):
+          path: "/var/run/docker.sock"
+````
+
+This reads as "If a hostPath volume exists and the path equals /var/run/docker.sock, then a label "allow-docker" must be specified with a value of true."
+
+For equality anchors, a child element is considered to be part of the "then" clause. Consider this pattern:
+
+````yaml
+  pattern:
+    spec:
+      =(volumes):
+        =(hostPath):
+          path: "!/var/run/docker.sock"
+````
+
+This is read as "If a hostPath volume exists, then the path must not be equal to /var/run/docker.sock".
+
+
+## Examples
+
+The following rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
+
 ````yaml
 
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : validation-example
@@ -75,13 +113,14 @@ spec :
 
 ````
 
-### Check if one exist
-A variation of an anchor, is to check existance of one element. This is done by using the ^(...) notation for the field.
+### Existence anchor: at least one
 
-For example, this pattern will check the existance of "name" field in the list:
+A variation of an anchor, is to check that in a list of elements at least one element exists that matches the patterm. This is done by using the ^(...) notation for the field.
+
+For example, this pattern will check that at least one container has memory requests and limits defined and that the request is less than the limit:
 
 ````yaml
-apiVersion : kyverno.io/v1alpha1
+apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
   name : validation-example2
@@ -101,7 +140,6 @@ spec :
         pattern:
           spec:
             ^(containers):
-            - (name): "*"
               resources:
                 requests:
                   memory: "$(<=./../../limits/memory)"
@@ -109,14 +147,16 @@ spec :
                   memory: "2048Mi"
 ````
 
-### Allow OR across overlay pattern
-In some cases one content can be defined at a different level. For example, a security context can be defined at the Pod or Container level. The validation rule should pass if one of the conditions is met. 
-`anyPattern` can be used to check on at least one of condition, it is the array of pattern, and the rule will be passed if at least one pattern is true.
+### Logical OR across validation patterns
 
-<small>*Note: either `pattern` or `anyPattern` is allowed in each rule, they can't be decalred in the same rule.*</small>
+In some cases content can be defined at a different level. For example, a security context can be defined at the Pod or Container level. The validation rule should pass if either one of the conditions is met. 
+
+The `anyPattern` tag can be used to check if any one of the patterns in the list match. 
+
+<small>*Note: either one of `pattern` or `anyPattern` is allowed in a rule, they both can't be declared in the same rule.*</small>
 
 ````yaml
-apiVersion: kyverno.io/v1alpha1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: check-container-security-context
@@ -144,9 +184,11 @@ spec:
                 runAsNonRoot: true
 ````
 
+Additional examples are available in [samples](/samples/README.md)
 
-Additional examples are available in [examples](/examples/)
+## Validation Failure Action
 
+The `validationFailureAction` attribute controls processing behaviors when the resource is not compliant with the policy. If the value is set to `enforce` resource creation or updates are blocked when the resource does not comply, and when the value is set to `audit` a policy violation is reported but the resource creation or update is allowed.
 
 ---
 <small>*Read Next >> [Generate](/documentation/writing-policies-mutate.md)*</small>

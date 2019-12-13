@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-helm-tiller
+spec:
+  containers:
+  - name: helm-tiller
+    image: docker.io/tiller:latest

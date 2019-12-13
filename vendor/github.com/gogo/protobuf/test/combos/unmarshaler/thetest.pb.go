@@ -18,6 +18,7 @@ import (
 	io "io"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	sort "sort"
 	strconv "strconv"
@@ -33,7 +34,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type TheTestEnum int32
 
@@ -20186,16 +20187,16 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field2: "+fmt.Sprintf("%#v", this.Field2)+",\n")
 	}
 	if this.Field3 != nil {
-		vs := make([]*NidOptNative, len(this.Field3))
+		vs := make([]NidOptNative, len(this.Field3))
 		for i := range vs {
-			vs[i] = &this.Field3[i]
+			vs[i] = this.Field3[i]
 		}
 		s = append(s, "Field3: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.Field4 != nil {
-		vs := make([]*NinOptNative, len(this.Field4))
+		vs := make([]NinOptNative, len(this.Field4))
 		for i := range vs {
-			vs[i] = &this.Field4[i]
+			vs[i] = this.Field4[i]
 		}
 		s = append(s, "Field4: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -20206,9 +20207,9 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field7: "+fmt.Sprintf("%#v", this.Field7)+",\n")
 	}
 	if this.Field8 != nil {
-		vs := make([]*NidOptNative, len(this.Field8))
+		vs := make([]NidOptNative, len(this.Field8))
 		for i := range vs {
-			vs[i] = &this.Field8[i]
+			vs[i] = this.Field8[i]
 		}
 		s = append(s, "Field8: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -20315,9 +20316,9 @@ func (this *NidNestedStruct) GoString() string {
 	s = append(s, "&test.NidNestedStruct{")
 	s = append(s, "Field1: "+strings.Replace(this.Field1.GoString(), `&`, ``, 1)+",\n")
 	if this.Field2 != nil {
-		vs := make([]*NidRepStruct, len(this.Field2))
+		vs := make([]NidRepStruct, len(this.Field2))
 		for i := range vs {
-			vs[i] = &this.Field2[i]
+			vs[i] = this.Field2[i]
 		}
 		s = append(s, "Field2: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -21543,87 +21544,87 @@ func NewPopulatedNidOptNative(r randyThetest, easy bool) *NidOptNative {
 
 func NewPopulatedNinOptNative(r randyThetest, easy bool) *NinOptNative {
 	this := &NinOptNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v2 *= -1
 		}
 		this.Field1 = &v2
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
 		this.Field2 = &v3
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v4 *= -1
 		}
 		this.Field3 = &v4
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v5 *= -1
 		}
 		this.Field4 = &v5
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := uint32(r.Uint32())
 		this.Field5 = &v6
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v7
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v8 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v8 *= -1
 		}
 		this.Field7 = &v8
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v9 *= -1
 		}
 		this.Field8 = &v9
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v10 := uint32(r.Uint32())
 		this.Field9 = &v10
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v11 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v11 *= -1
 		}
 		this.Field10 = &v11
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v12 := uint64(uint64(r.Uint32()))
 		this.Field11 = &v12
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v13 *= -1
 		}
 		this.Field12 = &v13
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v14 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v14
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := string(randStringThetest(r))
 		this.Field14 = &v15
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v16 := r.Intn(100)
 		this.Field15 = make([]byte, v16)
 		for i := 0; i < v16; i++ {
@@ -21638,7 +21639,7 @@ func NewPopulatedNinOptNative(r randyThetest, easy bool) *NinOptNative {
 
 func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 	this := &NidRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v17 := r.Intn(10)
 		this.Field1 = make([]float64, v17)
 		for i := 0; i < v17; i++ {
@@ -21648,7 +21649,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v18 := r.Intn(10)
 		this.Field2 = make([]float32, v18)
 		for i := 0; i < v18; i++ {
@@ -21658,7 +21659,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := r.Intn(10)
 		this.Field3 = make([]int32, v19)
 		for i := 0; i < v19; i++ {
@@ -21668,7 +21669,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v20 := r.Intn(10)
 		this.Field4 = make([]int64, v20)
 		for i := 0; i < v20; i++ {
@@ -21678,21 +21679,21 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v21 := r.Intn(10)
 		this.Field5 = make([]uint32, v21)
 		for i := 0; i < v21; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v22 := r.Intn(10)
 		this.Field6 = make([]uint64, v22)
 		for i := 0; i < v22; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v23 := r.Intn(10)
 		this.Field7 = make([]int32, v23)
 		for i := 0; i < v23; i++ {
@@ -21702,7 +21703,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v24 := r.Intn(10)
 		this.Field8 = make([]int64, v24)
 		for i := 0; i < v24; i++ {
@@ -21712,14 +21713,14 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := r.Intn(10)
 		this.Field9 = make([]uint32, v25)
 		for i := 0; i < v25; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v26 := r.Intn(10)
 		this.Field10 = make([]int32, v26)
 		for i := 0; i < v26; i++ {
@@ -21729,14 +21730,14 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v27 := r.Intn(10)
 		this.Field11 = make([]uint64, v27)
 		for i := 0; i < v27; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v28 := r.Intn(10)
 		this.Field12 = make([]int64, v28)
 		for i := 0; i < v28; i++ {
@@ -21746,21 +21747,21 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v29 := r.Intn(10)
 		this.Field13 = make([]bool, v29)
 		for i := 0; i < v29; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v30 := r.Intn(10)
 		this.Field14 = make([]string, v30)
 		for i := 0; i < v30; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v31 := r.Intn(10)
 		this.Field15 = make([][]byte, v31)
 		for i := 0; i < v31; i++ {
@@ -21779,7 +21780,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 
 func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 	this := &NinRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v33 := r.Intn(10)
 		this.Field1 = make([]float64, v33)
 		for i := 0; i < v33; i++ {
@@ -21789,7 +21790,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v34 := r.Intn(10)
 		this.Field2 = make([]float32, v34)
 		for i := 0; i < v34; i++ {
@@ -21799,7 +21800,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v35 := r.Intn(10)
 		this.Field3 = make([]int32, v35)
 		for i := 0; i < v35; i++ {
@@ -21809,7 +21810,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v36 := r.Intn(10)
 		this.Field4 = make([]int64, v36)
 		for i := 0; i < v36; i++ {
@@ -21819,21 +21820,21 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v37 := r.Intn(10)
 		this.Field5 = make([]uint32, v37)
 		for i := 0; i < v37; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v38 := r.Intn(10)
 		this.Field6 = make([]uint64, v38)
 		for i := 0; i < v38; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v39 := r.Intn(10)
 		this.Field7 = make([]int32, v39)
 		for i := 0; i < v39; i++ {
@@ -21843,7 +21844,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v40 := r.Intn(10)
 		this.Field8 = make([]int64, v40)
 		for i := 0; i < v40; i++ {
@@ -21853,14 +21854,14 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v41 := r.Intn(10)
 		this.Field9 = make([]uint32, v41)
 		for i := 0; i < v41; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v42 := r.Intn(10)
 		this.Field10 = make([]int32, v42)
 		for i := 0; i < v42; i++ {
@@ -21870,14 +21871,14 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v43 := r.Intn(10)
 		this.Field11 = make([]uint64, v43)
 		for i := 0; i < v43; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v44 := r.Intn(10)
 		this.Field12 = make([]int64, v44)
 		for i := 0; i < v44; i++ {
@@ -21887,21 +21888,21 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v45 := r.Intn(10)
 		this.Field13 = make([]bool, v45)
 		for i := 0; i < v45; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v46 := r.Intn(10)
 		this.Field14 = make([]string, v46)
 		for i := 0; i < v46; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v47 := r.Intn(10)
 		this.Field15 = make([][]byte, v47)
 		for i := 0; i < v47; i++ {
@@ -21920,7 +21921,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 
 func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNative {
 	this := &NidRepPackedNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v49 := r.Intn(10)
 		this.Field1 = make([]float64, v49)
 		for i := 0; i < v49; i++ {
@@ -21930,7 +21931,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v50 := r.Intn(10)
 		this.Field2 = make([]float32, v50)
 		for i := 0; i < v50; i++ {
@@ -21940,7 +21941,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v51 := r.Intn(10)
 		this.Field3 = make([]int32, v51)
 		for i := 0; i < v51; i++ {
@@ -21950,7 +21951,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v52 := r.Intn(10)
 		this.Field4 = make([]int64, v52)
 		for i := 0; i < v52; i++ {
@@ -21960,21 +21961,21 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v53 := r.Intn(10)
 		this.Field5 = make([]uint32, v53)
 		for i := 0; i < v53; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v54 := r.Intn(10)
 		this.Field6 = make([]uint64, v54)
 		for i := 0; i < v54; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v55 := r.Intn(10)
 		this.Field7 = make([]int32, v55)
 		for i := 0; i < v55; i++ {
@@ -21984,7 +21985,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v56 := r.Intn(10)
 		this.Field8 = make([]int64, v56)
 		for i := 0; i < v56; i++ {
@@ -21994,14 +21995,14 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v57 := r.Intn(10)
 		this.Field9 = make([]uint32, v57)
 		for i := 0; i < v57; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v58 := r.Intn(10)
 		this.Field10 = make([]int32, v58)
 		for i := 0; i < v58; i++ {
@@ -22011,14 +22012,14 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v59 := r.Intn(10)
 		this.Field11 = make([]uint64, v59)
 		for i := 0; i < v59; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v60 := r.Intn(10)
 		this.Field12 = make([]int64, v60)
 		for i := 0; i < v60; i++ {
@@ -22028,7 +22029,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v61 := r.Intn(10)
 		this.Field13 = make([]bool, v61)
 		for i := 0; i < v61; i++ {
@@ -22043,7 +22044,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 
 func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNative {
 	this := &NinRepPackedNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v62 := r.Intn(10)
 		this.Field1 = make([]float64, v62)
 		for i := 0; i < v62; i++ {
@@ -22053,7 +22054,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v63 := r.Intn(10)
 		this.Field2 = make([]float32, v63)
 		for i := 0; i < v63; i++ {
@@ -22063,7 +22064,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v64 := r.Intn(10)
 		this.Field3 = make([]int32, v64)
 		for i := 0; i < v64; i++ {
@@ -22073,7 +22074,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v65 := r.Intn(10)
 		this.Field4 = make([]int64, v65)
 		for i := 0; i < v65; i++ {
@@ -22083,21 +22084,21 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v66 := r.Intn(10)
 		this.Field5 = make([]uint32, v66)
 		for i := 0; i < v66; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v67 := r.Intn(10)
 		this.Field6 = make([]uint64, v67)
 		for i := 0; i < v67; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v68 := r.Intn(10)
 		this.Field7 = make([]int32, v68)
 		for i := 0; i < v68; i++ {
@@ -22107,7 +22108,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v69 := r.Intn(10)
 		this.Field8 = make([]int64, v69)
 		for i := 0; i < v69; i++ {
@@ -22117,14 +22118,14 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v70 := r.Intn(10)
 		this.Field9 = make([]uint32, v70)
 		for i := 0; i < v70; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v71 := r.Intn(10)
 		this.Field10 = make([]int32, v71)
 		for i := 0; i < v71; i++ {
@@ -22134,14 +22135,14 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v72 := r.Intn(10)
 		this.Field11 = make([]uint64, v72)
 		for i := 0; i < v72; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v73 := r.Intn(10)
 		this.Field12 = make([]int64, v73)
 		for i := 0; i < v73; i++ {
@@ -22151,7 +22152,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v74 := r.Intn(10)
 		this.Field13 = make([]bool, v74)
 		for i := 0; i < v74; i++ {
@@ -22200,49 +22201,49 @@ func NewPopulatedNidOptStruct(r randyThetest, easy bool) *NidOptStruct {
 
 func NewPopulatedNinOptStruct(r randyThetest, easy bool) *NinOptStruct {
 	this := &NinOptStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v79 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v79 *= -1
 		}
 		this.Field1 = &v79
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v80 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v80 *= -1
 		}
 		this.Field2 = &v80
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field3 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field4 = NewPopulatedNinOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v81 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v81
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v82 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v82 *= -1
 		}
 		this.Field7 = &v82
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field8 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v83 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v83
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v84 := string(randStringThetest(r))
 		this.Field14 = &v84
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v85 := r.Intn(100)
 		this.Field15 = make([]byte, v85)
 		for i := 0; i < v85; i++ {
@@ -22257,7 +22258,7 @@ func NewPopulatedNinOptStruct(r randyThetest, easy bool) *NinOptStruct {
 
 func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 	this := &NidRepStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v86 := r.Intn(10)
 		this.Field1 = make([]float64, v86)
 		for i := 0; i < v86; i++ {
@@ -22267,7 +22268,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v87 := r.Intn(10)
 		this.Field2 = make([]float32, v87)
 		for i := 0; i < v87; i++ {
@@ -22277,7 +22278,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v88 := r.Intn(5)
 		this.Field3 = make([]NidOptNative, v88)
 		for i := 0; i < v88; i++ {
@@ -22285,7 +22286,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field3[i] = *v89
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v90 := r.Intn(5)
 		this.Field4 = make([]NinOptNative, v90)
 		for i := 0; i < v90; i++ {
@@ -22293,14 +22294,14 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field4[i] = *v91
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v92 := r.Intn(10)
 		this.Field6 = make([]uint64, v92)
 		for i := 0; i < v92; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v93 := r.Intn(10)
 		this.Field7 = make([]int32, v93)
 		for i := 0; i < v93; i++ {
@@ -22310,7 +22311,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v94 := r.Intn(5)
 		this.Field8 = make([]NidOptNative, v94)
 		for i := 0; i < v94; i++ {
@@ -22318,21 +22319,21 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field8[i] = *v95
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v96 := r.Intn(10)
 		this.Field13 = make([]bool, v96)
 		for i := 0; i < v96; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v97 := r.Intn(10)
 		this.Field14 = make([]string, v97)
 		for i := 0; i < v97; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v98 := r.Intn(10)
 		this.Field15 = make([][]byte, v98)
 		for i := 0; i < v98; i++ {
@@ -22351,7 +22352,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 
 func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 	this := &NinRepStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v100 := r.Intn(10)
 		this.Field1 = make([]float64, v100)
 		for i := 0; i < v100; i++ {
@@ -22361,7 +22362,7 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v101 := r.Intn(10)
 		this.Field2 = make([]float32, v101)
 		for i := 0; i < v101; i++ {
@@ -22371,28 +22372,28 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v102 := r.Intn(5)
 		this.Field3 = make([]*NidOptNative, v102)
 		for i := 0; i < v102; i++ {
 			this.Field3[i] = NewPopulatedNidOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v103 := r.Intn(5)
 		this.Field4 = make([]*NinOptNative, v103)
 		for i := 0; i < v103; i++ {
 			this.Field4[i] = NewPopulatedNinOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v104 := r.Intn(10)
 		this.Field6 = make([]uint64, v104)
 		for i := 0; i < v104; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v105 := r.Intn(10)
 		this.Field7 = make([]int32, v105)
 		for i := 0; i < v105; i++ {
@@ -22402,28 +22403,28 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v106 := r.Intn(5)
 		this.Field8 = make([]*NidOptNative, v106)
 		for i := 0; i < v106; i++ {
 			this.Field8[i] = NewPopulatedNidOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v107 := r.Intn(10)
 		this.Field13 = make([]bool, v107)
 		for i := 0; i < v107; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v108 := r.Intn(10)
 		this.Field14 = make([]string, v108)
 		for i := 0; i < v108; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v109 := r.Intn(10)
 		this.Field15 = make([][]byte, v109)
 		for i := 0; i < v109; i++ {
@@ -22442,7 +22443,7 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 
 func NewPopulatedNidEmbeddedStruct(r randyThetest, easy bool) *NidEmbeddedStruct {
 	this := &NidEmbeddedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NidOptNative = NewPopulatedNidOptNative(r, easy)
 	}
 	v111 := NewPopulatedNidOptNative(r, easy)
@@ -22456,13 +22457,13 @@ func NewPopulatedNidEmbeddedStruct(r randyThetest, easy bool) *NidEmbeddedStruct
 
 func NewPopulatedNinEmbeddedStruct(r randyThetest, easy bool) *NinEmbeddedStruct {
 	this := &NinEmbeddedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NidOptNative = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field200 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v112 := bool(bool(r.Intn(2) == 0))
 		this.Field210 = &v112
 	}
@@ -22476,7 +22477,7 @@ func NewPopulatedNidNestedStruct(r randyThetest, easy bool) *NidNestedStruct {
 	this := &NidNestedStruct{}
 	v113 := NewPopulatedNidOptStruct(r, easy)
 	this.Field1 = *v113
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v114 := r.Intn(5)
 		this.Field2 = make([]NidRepStruct, v114)
 		for i := 0; i < v114; i++ {
@@ -22492,10 +22493,10 @@ func NewPopulatedNidNestedStruct(r randyThetest, easy bool) *NidNestedStruct {
 
 func NewPopulatedNinNestedStruct(r randyThetest, easy bool) *NinNestedStruct {
 	this := &NinNestedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedNinOptStruct(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v116 := r.Intn(5)
 		this.Field2 = make([]*NinRepStruct, v116)
 		for i := 0; i < v116; i++ {
@@ -22522,7 +22523,7 @@ func NewPopulatedNidOptCustom(r randyThetest, easy bool) *NidOptCustom {
 
 func NewPopulatedCustomDash(r randyThetest, easy bool) *CustomDash {
 	this := &CustomDash{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = github_com_gogo_protobuf_test_custom_dash_type.NewPopulatedBytes(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -22533,10 +22534,10 @@ func NewPopulatedCustomDash(r randyThetest, easy bool) *CustomDash {
 
 func NewPopulatedNinOptCustom(r randyThetest, easy bool) *NinOptCustom {
 	this := &NinOptCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Id = NewPopulatedUuid(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = github_com_gogo_protobuf_test_custom.NewPopulatedUint128(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -22547,7 +22548,7 @@ func NewPopulatedNinOptCustom(r randyThetest, easy bool) *NinOptCustom {
 
 func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 	this := &NidRepCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v119 := r.Intn(10)
 		this.Id = make([]Uuid, v119)
 		for i := 0; i < v119; i++ {
@@ -22555,7 +22556,7 @@ func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 			this.Id[i] = *v120
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v121 := r.Intn(10)
 		this.Value = make([]github_com_gogo_protobuf_test_custom.Uint128, v121)
 		for i := 0; i < v121; i++ {
@@ -22571,7 +22572,7 @@ func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 
 func NewPopulatedNinRepCustom(r randyThetest, easy bool) *NinRepCustom {
 	this := &NinRepCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v123 := r.Intn(10)
 		this.Id = make([]Uuid, v123)
 		for i := 0; i < v123; i++ {
@@ -22579,7 +22580,7 @@ func NewPopulatedNinRepCustom(r randyThetest, easy bool) *NinRepCustom {
 			this.Id[i] = *v124
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v125 := r.Intn(10)
 		this.Value = make([]github_com_gogo_protobuf_test_custom.Uint128, v125)
 		for i := 0; i < v125; i++ {
@@ -22833,15 +22834,15 @@ func NewPopulatedNidOptEnum(r randyThetest, easy bool) *NidOptEnum {
 
 func NewPopulatedNinOptEnum(r randyThetest, easy bool) *NinOptEnum {
 	this := &NinOptEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v152 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.Field1 = &v152
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v153 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v153
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v154 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v154
 	}
@@ -22853,21 +22854,21 @@ func NewPopulatedNinOptEnum(r randyThetest, easy bool) *NinOptEnum {
 
 func NewPopulatedNidRepEnum(r randyThetest, easy bool) *NidRepEnum {
 	this := &NidRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v155 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v155)
 		for i := 0; i < v155; i++ {
 			this.Field1[i] = TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v156 := r.Intn(10)
 		this.Field2 = make([]YetAnotherTestEnum, v156)
 		for i := 0; i < v156; i++ {
 			this.Field2[i] = YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v157 := r.Intn(10)
 		this.Field3 = make([]YetYetAnotherTestEnum, v157)
 		for i := 0; i < v157; i++ {
@@ -22882,21 +22883,21 @@ func NewPopulatedNidRepEnum(r randyThetest, easy bool) *NidRepEnum {
 
 func NewPopulatedNinRepEnum(r randyThetest, easy bool) *NinRepEnum {
 	this := &NinRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v158 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v158)
 		for i := 0; i < v158; i++ {
 			this.Field1[i] = TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v159 := r.Intn(10)
 		this.Field2 = make([]YetAnotherTestEnum, v159)
 		for i := 0; i < v159; i++ {
 			this.Field2[i] = YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v160 := r.Intn(10)
 		this.Field3 = make([]YetYetAnotherTestEnum, v160)
 		for i := 0; i < v160; i++ {
@@ -22911,15 +22912,15 @@ func NewPopulatedNinRepEnum(r randyThetest, easy bool) *NinRepEnum {
 
 func NewPopulatedNinOptEnumDefault(r randyThetest, easy bool) *NinOptEnumDefault {
 	this := &NinOptEnumDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v161 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.Field1 = &v161
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v162 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v162
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v163 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v163
 	}
@@ -22931,15 +22932,15 @@ func NewPopulatedNinOptEnumDefault(r randyThetest, easy bool) *NinOptEnumDefault
 
 func NewPopulatedAnotherNinOptEnum(r randyThetest, easy bool) *AnotherNinOptEnum {
 	this := &AnotherNinOptEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v164 := AnotherTestEnum([]int32{10, 11}[r.Intn(2)])
 		this.Field1 = &v164
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v165 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v165
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v166 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v166
 	}
@@ -22951,15 +22952,15 @@ func NewPopulatedAnotherNinOptEnum(r randyThetest, easy bool) *AnotherNinOptEnum
 
 func NewPopulatedAnotherNinOptEnumDefault(r randyThetest, easy bool) *AnotherNinOptEnumDefault {
 	this := &AnotherNinOptEnumDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v167 := AnotherTestEnum([]int32{10, 11}[r.Intn(2)])
 		this.Field1 = &v167
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v168 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v168
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v169 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v169
 	}
@@ -22992,7 +22993,7 @@ func NewPopulatedTimer(r randyThetest, easy bool) *Timer {
 
 func NewPopulatedMyExtendable(r randyThetest, easy bool) *MyExtendable {
 	this := &MyExtendable{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v171 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v171 *= -1
@@ -23019,21 +23020,21 @@ func NewPopulatedMyExtendable(r randyThetest, easy bool) *MyExtendable {
 
 func NewPopulatedOtherExtenable(r randyThetest, easy bool) *OtherExtenable {
 	this := &OtherExtenable{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v172 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v172 *= -1
 		}
 		this.Field2 = &v172
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v173 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v173 *= -1
 		}
 		this.Field13 = &v173
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.M = NewPopulatedMyExtendable(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23063,21 +23064,21 @@ func NewPopulatedOtherExtenable(r randyThetest, easy bool) *OtherExtenable {
 
 func NewPopulatedNestedDefinition(r randyThetest, easy bool) *NestedDefinition {
 	this := &NestedDefinition{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v174 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v174 *= -1
 		}
 		this.Field1 = &v174
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v175 := NestedDefinition_NestedEnum([]int32{1}[r.Intn(1)])
 		this.EnumField = &v175
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NNM = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NM = NewPopulatedNestedDefinition_NestedMessage(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23088,11 +23089,11 @@ func NewPopulatedNestedDefinition(r randyThetest, easy bool) *NestedDefinition {
 
 func NewPopulatedNestedDefinition_NestedMessage(r randyThetest, easy bool) *NestedDefinition_NestedMessage {
 	this := &NestedDefinition_NestedMessage{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v176 := uint64(uint64(r.Uint32()))
 		this.NestedField1 = &v176
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NNM = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23103,7 +23104,7 @@ func NewPopulatedNestedDefinition_NestedMessage(r randyThetest, easy bool) *Nest
 
 func NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r randyThetest, easy bool) *NestedDefinition_NestedMessage_NestedNestedMsg {
 	this := &NestedDefinition_NestedMessage_NestedNestedMsg{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v177 := string(randStringThetest(r))
 		this.NestedNestedField1 = &v177
 	}
@@ -23115,14 +23116,14 @@ func NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r randyThetest, 
 
 func NewPopulatedNestedScope(r randyThetest, easy bool) *NestedScope {
 	this := &NestedScope{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.A = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v178 := NestedDefinition_NestedEnum([]int32{1}[r.Intn(1)])
 		this.B = &v178
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.C = NewPopulatedNestedDefinition_NestedMessage(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23133,87 +23134,87 @@ func NewPopulatedNestedScope(r randyThetest, easy bool) *NestedScope {
 
 func NewPopulatedNinOptNativeDefault(r randyThetest, easy bool) *NinOptNativeDefault {
 	this := &NinOptNativeDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v179 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v179 *= -1
 		}
 		this.Field1 = &v179
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v180 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v180 *= -1
 		}
 		this.Field2 = &v180
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v181 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v181 *= -1
 		}
 		this.Field3 = &v181
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v182 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v182 *= -1
 		}
 		this.Field4 = &v182
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v183 := uint32(r.Uint32())
 		this.Field5 = &v183
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v184 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v184
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v185 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v185 *= -1
 		}
 		this.Field7 = &v185
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v186 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v186 *= -1
 		}
 		this.Field8 = &v186
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v187 := uint32(r.Uint32())
 		this.Field9 = &v187
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v188 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v188 *= -1
 		}
 		this.Field10 = &v188
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v189 := uint64(uint64(r.Uint32()))
 		this.Field11 = &v189
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v190 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v190 *= -1
 		}
 		this.Field12 = &v190
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v191 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v191
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v192 := string(randStringThetest(r))
 		this.Field14 = &v192
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v193 := r.Intn(100)
 		this.Field15 = make([]byte, v193)
 		for i := 0; i < v193; i++ {
@@ -23289,87 +23290,87 @@ func NewPopulatedCustomNameNidOptNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinOptNative(r randyThetest, easy bool) *CustomNameNinOptNative {
 	this := &CustomNameNinOptNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v196 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v196 *= -1
 		}
 		this.FieldA = &v196
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v197 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v197 *= -1
 		}
 		this.FieldB = &v197
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v198 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v198 *= -1
 		}
 		this.FieldC = &v198
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v199 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v199 *= -1
 		}
 		this.FieldD = &v199
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v200 := uint32(r.Uint32())
 		this.FieldE = &v200
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v201 := uint64(uint64(r.Uint32()))
 		this.FieldF = &v201
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v202 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v202 *= -1
 		}
 		this.FieldG = &v202
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v203 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v203 *= -1
 		}
 		this.FieldH = &v203
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v204 := uint32(r.Uint32())
 		this.FieldI = &v204
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v205 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v205 *= -1
 		}
 		this.FieldJ = &v205
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v206 := uint64(uint64(r.Uint32()))
 		this.FieldK = &v206
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v207 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v207 *= -1
 		}
 		this.FielL = &v207
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v208 := bool(bool(r.Intn(2) == 0))
 		this.FieldM = &v208
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v209 := string(randStringThetest(r))
 		this.FieldN = &v209
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v210 := r.Intn(100)
 		this.FieldO = make([]byte, v210)
 		for i := 0; i < v210; i++ {
@@ -23384,7 +23385,7 @@ func NewPopulatedCustomNameNinOptNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNinRepNative {
 	this := &CustomNameNinRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v211 := r.Intn(10)
 		this.FieldA = make([]float64, v211)
 		for i := 0; i < v211; i++ {
@@ -23394,7 +23395,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v212 := r.Intn(10)
 		this.FieldB = make([]float32, v212)
 		for i := 0; i < v212; i++ {
@@ -23404,7 +23405,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v213 := r.Intn(10)
 		this.FieldC = make([]int32, v213)
 		for i := 0; i < v213; i++ {
@@ -23414,7 +23415,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v214 := r.Intn(10)
 		this.FieldD = make([]int64, v214)
 		for i := 0; i < v214; i++ {
@@ -23424,21 +23425,21 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v215 := r.Intn(10)
 		this.FieldE = make([]uint32, v215)
 		for i := 0; i < v215; i++ {
 			this.FieldE[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v216 := r.Intn(10)
 		this.FieldF = make([]uint64, v216)
 		for i := 0; i < v216; i++ {
 			this.FieldF[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v217 := r.Intn(10)
 		this.FieldG = make([]int32, v217)
 		for i := 0; i < v217; i++ {
@@ -23448,7 +23449,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v218 := r.Intn(10)
 		this.FieldH = make([]int64, v218)
 		for i := 0; i < v218; i++ {
@@ -23458,14 +23459,14 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v219 := r.Intn(10)
 		this.FieldI = make([]uint32, v219)
 		for i := 0; i < v219; i++ {
 			this.FieldI[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v220 := r.Intn(10)
 		this.FieldJ = make([]int32, v220)
 		for i := 0; i < v220; i++ {
@@ -23475,14 +23476,14 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v221 := r.Intn(10)
 		this.FieldK = make([]uint64, v221)
 		for i := 0; i < v221; i++ {
 			this.FieldK[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v222 := r.Intn(10)
 		this.FieldL = make([]int64, v222)
 		for i := 0; i < v222; i++ {
@@ -23492,21 +23493,21 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v223 := r.Intn(10)
 		this.FieldM = make([]bool, v223)
 		for i := 0; i < v223; i++ {
 			this.FieldM[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v224 := r.Intn(10)
 		this.FieldN = make([]string, v224)
 		for i := 0; i < v224; i++ {
 			this.FieldN[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v225 := r.Intn(10)
 		this.FieldO = make([][]byte, v225)
 		for i := 0; i < v225; i++ {
@@ -23525,53 +23526,53 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinStruct(r randyThetest, easy bool) *CustomNameNinStruct {
 	this := &CustomNameNinStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v227 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v227 *= -1
 		}
 		this.FieldA = &v227
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v228 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v228 *= -1
 		}
 		this.FieldB = &v228
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldC = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v229 := r.Intn(5)
 		this.FieldD = make([]*NinOptNative, v229)
 		for i := 0; i < v229; i++ {
 			this.FieldD[i] = NewPopulatedNinOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v230 := uint64(uint64(r.Uint32()))
 		this.FieldE = &v230
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v231 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v231 *= -1
 		}
 		this.FieldF = &v231
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldG = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v232 := bool(bool(r.Intn(2) == 0))
 		this.FieldH = &v232
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v233 := string(randStringThetest(r))
 		this.FieldI = &v233
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v234 := r.Intn(100)
 		this.FieldJ = make([]byte, v234)
 		for i := 0; i < v234; i++ {
@@ -23586,13 +23587,13 @@ func NewPopulatedCustomNameNinStruct(r randyThetest, easy bool) *CustomNameNinSt
 
 func NewPopulatedCustomNameCustomType(r randyThetest, easy bool) *CustomNameCustomType {
 	this := &CustomNameCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldA = NewPopulatedUuid(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldB = github_com_gogo_protobuf_test_custom.NewPopulatedUint128(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v235 := r.Intn(10)
 		this.FieldC = make([]Uuid, v235)
 		for i := 0; i < v235; i++ {
@@ -23600,7 +23601,7 @@ func NewPopulatedCustomNameCustomType(r randyThetest, easy bool) *CustomNameCust
 			this.FieldC[i] = *v236
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v237 := r.Intn(10)
 		this.FieldD = make([]github_com_gogo_protobuf_test_custom.Uint128, v237)
 		for i := 0; i < v237; i++ {
@@ -23631,11 +23632,11 @@ func NewPopulatedCustomNameNinEmbeddedStructUnion(r randyThetest, easy bool) *Cu
 
 func NewPopulatedCustomNameEnum(r randyThetest, easy bool) *CustomNameEnum {
 	this := &CustomNameEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v240 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.FieldA = &v240
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v241 := r.Intn(10)
 		this.FieldB = make([]TheTestEnum, v241)
 		for i := 0; i < v241; i++ {
@@ -23650,7 +23651,7 @@ func NewPopulatedCustomNameEnum(r randyThetest, easy bool) *CustomNameEnum {
 
 func NewPopulatedNoExtensionsMap(r randyThetest, easy bool) *NoExtensionsMap {
 	this := &NoExtensionsMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v242 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v242 *= -1
@@ -23677,7 +23678,7 @@ func NewPopulatedNoExtensionsMap(r randyThetest, easy bool) *NoExtensionsMap {
 
 func NewPopulatedUnrecognized(r randyThetest, easy bool) *Unrecognized {
 	this := &Unrecognized{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v243 := string(randStringThetest(r))
 		this.Field1 = &v243
 	}
@@ -23688,14 +23689,14 @@ func NewPopulatedUnrecognized(r randyThetest, easy bool) *Unrecognized {
 
 func NewPopulatedUnrecognizedWithInner(r randyThetest, easy bool) *UnrecognizedWithInner {
 	this := &UnrecognizedWithInner{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v244 := r.Intn(5)
 		this.Embedded = make([]*UnrecognizedWithInner_Inner, v244)
 		for i := 0; i < v244; i++ {
 			this.Embedded[i] = NewPopulatedUnrecognizedWithInner_Inner(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v245 := string(randStringThetest(r))
 		this.Field2 = &v245
 	}
@@ -23707,7 +23708,7 @@ func NewPopulatedUnrecognizedWithInner(r randyThetest, easy bool) *UnrecognizedW
 
 func NewPopulatedUnrecognizedWithInner_Inner(r randyThetest, easy bool) *UnrecognizedWithInner_Inner {
 	this := &UnrecognizedWithInner_Inner{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v246 := uint32(r.Uint32())
 		this.Field1 = &v246
 	}
@@ -23720,7 +23721,7 @@ func NewPopulatedUnrecognizedWithEmbed(r randyThetest, easy bool) *UnrecognizedW
 	this := &UnrecognizedWithEmbed{}
 	v247 := NewPopulatedUnrecognizedWithEmbed_Embedded(r, easy)
 	this.UnrecognizedWithEmbed_Embedded = *v247
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v248 := string(randStringThetest(r))
 		this.Field2 = &v248
 	}
@@ -23732,7 +23733,7 @@ func NewPopulatedUnrecognizedWithEmbed(r randyThetest, easy bool) *UnrecognizedW
 
 func NewPopulatedUnrecognizedWithEmbed_Embedded(r randyThetest, easy bool) *UnrecognizedWithEmbed_Embedded {
 	this := &UnrecognizedWithEmbed_Embedded{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v249 := uint32(r.Uint32())
 		this.Field1 = &v249
 	}
@@ -23743,11 +23744,11 @@ func NewPopulatedUnrecognizedWithEmbed_Embedded(r randyThetest, easy bool) *Unre
 
 func NewPopulatedNode(r randyThetest, easy bool) *Node {
 	this := &Node{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v250 := string(randStringThetest(r))
 		this.Label = &v250
 	}
-	if r.Intn(10) == 0 {
+	if r.Intn(5) == 0 {
 		v251 := r.Intn(5)
 		this.Children = make([]*Node, v251)
 		for i := 0; i < v251; i++ {
@@ -23762,7 +23763,7 @@ func NewPopulatedNode(r randyThetest, easy bool) *Node {
 
 func NewPopulatedNonByteCustomType(r randyThetest, easy bool) *NonByteCustomType {
 	this := &NonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedT(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23783,7 +23784,7 @@ func NewPopulatedNidOptNonByteCustomType(r randyThetest, easy bool) *NidOptNonBy
 
 func NewPopulatedNinOptNonByteCustomType(r randyThetest, easy bool) *NinOptNonByteCustomType {
 	this := &NinOptNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedT(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -23794,7 +23795,7 @@ func NewPopulatedNinOptNonByteCustomType(r randyThetest, easy bool) *NinOptNonBy
 
 func NewPopulatedNidRepNonByteCustomType(r randyThetest, easy bool) *NidRepNonByteCustomType {
 	this := &NidRepNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v253 := r.Intn(10)
 		this.Field1 = make([]T, v253)
 		for i := 0; i < v253; i++ {
@@ -23810,7 +23811,7 @@ func NewPopulatedNidRepNonByteCustomType(r randyThetest, easy bool) *NidRepNonBy
 
 func NewPopulatedNinRepNonByteCustomType(r randyThetest, easy bool) *NinRepNonByteCustomType {
 	this := &NinRepNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v255 := r.Intn(10)
 		this.Field1 = make([]T, v255)
 		for i := 0; i < v255; i++ {
@@ -23826,7 +23827,7 @@ func NewPopulatedNinRepNonByteCustomType(r randyThetest, easy bool) *NinRepNonBy
 
 func NewPopulatedProtoType(r randyThetest, easy bool) *ProtoType {
 	this := &ProtoType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v257 := string(randStringThetest(r))
 		this.Field2 = &v257
 	}
@@ -25832,14 +25833,7 @@ func (m *ProtoType) Size() (n int) {
 }
 
 func sovThetest(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozThetest(x uint64) (n int) {
 	return sovThetest(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -26017,11 +26011,11 @@ func (this *NinOptStruct) String() string {
 	s := strings.Join([]string{`&NinOptStruct{`,
 		`Field1:` + valueToStringThetest(this.Field1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field4:` + strings.Replace(this.Field4.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field6:` + valueToStringThetest(this.Field6) + `,`,
 		`Field7:` + valueToStringThetest(this.Field7) + `,`,
-		`Field8:` + strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field8:` + strings.Replace(this.Field8.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
 		`Field14:` + valueToStringThetest(this.Field14) + `,`,
 		`Field15:` + valueToStringThetest(this.Field15) + `,`,
@@ -26034,14 +26028,29 @@ func (this *NidRepStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField3 := "[]NidOptNative{"
+	for _, f := range this.Field3 {
+		repeatedStringForField3 += strings.Replace(strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField3 += "}"
+	repeatedStringForField4 := "[]NinOptNative{"
+	for _, f := range this.Field4 {
+		repeatedStringForField4 += strings.Replace(strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField4 += "}"
+	repeatedStringForField8 := "[]NidOptNative{"
+	for _, f := range this.Field8 {
+		repeatedStringForField8 += strings.Replace(strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField8 += "}"
 	s := strings.Join([]string{`&NidRepStruct{`,
 		`Field1:` + fmt.Sprintf("%v", this.Field1) + `,`,
 		`Field2:` + fmt.Sprintf("%v", this.Field2) + `,`,
-		`Field3:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
-		`Field4:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1), `&`, ``, 1) + `,`,
+		`Field3:` + repeatedStringForField3 + `,`,
+		`Field4:` + repeatedStringForField4 + `,`,
 		`Field6:` + fmt.Sprintf("%v", this.Field6) + `,`,
 		`Field7:` + fmt.Sprintf("%v", this.Field7) + `,`,
-		`Field8:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
+		`Field8:` + repeatedStringForField8 + `,`,
 		`Field13:` + fmt.Sprintf("%v", this.Field13) + `,`,
 		`Field14:` + fmt.Sprintf("%v", this.Field14) + `,`,
 		`Field15:` + fmt.Sprintf("%v", this.Field15) + `,`,
@@ -26054,14 +26063,29 @@ func (this *NinRepStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField3 := "[]*NidOptNative{"
+	for _, f := range this.Field3 {
+		repeatedStringForField3 += strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1) + ","
+	}
+	repeatedStringForField3 += "}"
+	repeatedStringForField4 := "[]*NinOptNative{"
+	for _, f := range this.Field4 {
+		repeatedStringForField4 += strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1) + ","
+	}
+	repeatedStringForField4 += "}"
+	repeatedStringForField8 := "[]*NidOptNative{"
+	for _, f := range this.Field8 {
+		repeatedStringForField8 += strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1) + ","
+	}
+	repeatedStringForField8 += "}"
 	s := strings.Join([]string{`&NinRepStruct{`,
 		`Field1:` + fmt.Sprintf("%v", this.Field1) + `,`,
 		`Field2:` + fmt.Sprintf("%v", this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + repeatedStringForField3 + `,`,
+		`Field4:` + repeatedStringForField4 + `,`,
 		`Field6:` + fmt.Sprintf("%v", this.Field6) + `,`,
 		`Field7:` + fmt.Sprintf("%v", this.Field7) + `,`,
-		`Field8:` + strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field8:` + repeatedStringForField8 + `,`,
 		`Field13:` + fmt.Sprintf("%v", this.Field13) + `,`,
 		`Field14:` + fmt.Sprintf("%v", this.Field14) + `,`,
 		`Field15:` + fmt.Sprintf("%v", this.Field15) + `,`,
@@ -26075,7 +26099,7 @@ func (this *NidEmbeddedStruct) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NidEmbeddedStruct{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field200:` + strings.Replace(strings.Replace(this.Field200.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
 		`Field210:` + fmt.Sprintf("%v", this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
@@ -26088,8 +26112,8 @@ func (this *NinEmbeddedStruct) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinEmbeddedStruct{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field200:` + strings.Replace(fmt.Sprintf("%v", this.Field200), "NidOptNative", "NidOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field200:` + strings.Replace(this.Field200.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field210:` + valueToStringThetest(this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26100,9 +26124,14 @@ func (this *NidNestedStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField2 := "[]NidRepStruct{"
+	for _, f := range this.Field2 {
+		repeatedStringForField2 += strings.Replace(strings.Replace(f.String(), "NidRepStruct", "NidRepStruct", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField2 += "}"
 	s := strings.Join([]string{`&NidNestedStruct{`,
 		`Field1:` + strings.Replace(strings.Replace(this.Field1.String(), "NidOptStruct", "NidOptStruct", 1), `&`, ``, 1) + `,`,
-		`Field2:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field2), "NidRepStruct", "NidRepStruct", 1), `&`, ``, 1) + `,`,
+		`Field2:` + repeatedStringForField2 + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -26112,9 +26141,14 @@ func (this *NinNestedStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField2 := "[]*NinRepStruct{"
+	for _, f := range this.Field2 {
+		repeatedStringForField2 += strings.Replace(f.String(), "NinRepStruct", "NinRepStruct", 1) + ","
+	}
+	repeatedStringForField2 += "}"
 	s := strings.Join([]string{`&NinNestedStruct{`,
-		`Field1:` + strings.Replace(fmt.Sprintf("%v", this.Field1), "NinOptStruct", "NinOptStruct", 1) + `,`,
-		`Field2:` + strings.Replace(fmt.Sprintf("%v", this.Field2), "NinRepStruct", "NinRepStruct", 1) + `,`,
+		`Field1:` + strings.Replace(this.Field1.String(), "NinOptStruct", "NinOptStruct", 1) + `,`,
+		`Field2:` + repeatedStringForField2 + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -26205,8 +26239,8 @@ func (this *NinOptStructUnion) String() string {
 	s := strings.Join([]string{`&NinOptStructUnion{`,
 		`Field1:` + valueToStringThetest(this.Field1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field4:` + strings.Replace(this.Field4.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field6:` + valueToStringThetest(this.Field6) + `,`,
 		`Field7:` + valueToStringThetest(this.Field7) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
@@ -26222,8 +26256,8 @@ func (this *NinEmbeddedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinEmbeddedStructUnion{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field200:` + strings.Replace(fmt.Sprintf("%v", this.Field200), "NinOptNative", "NinOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field200:` + strings.Replace(this.Field200.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field210:` + valueToStringThetest(this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26235,9 +26269,9 @@ func (this *NinNestedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinNestedStructUnion{`,
-		`Field1:` + strings.Replace(fmt.Sprintf("%v", this.Field1), "NinOptNativeUnion", "NinOptNativeUnion", 1) + `,`,
-		`Field2:` + strings.Replace(fmt.Sprintf("%v", this.Field2), "NinOptStructUnion", "NinOptStructUnion", 1) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NinEmbeddedStructUnion", "NinEmbeddedStructUnion", 1) + `,`,
+		`Field1:` + strings.Replace(this.Field1.String(), "NinOptNativeUnion", "NinOptNativeUnion", 1) + `,`,
+		`Field2:` + strings.Replace(this.Field2.String(), "NinOptStructUnion", "NinOptStructUnion", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NinEmbeddedStructUnion", "NinEmbeddedStructUnion", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -26248,9 +26282,9 @@ func (this *Tree) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Tree{`,
-		`Or:` + strings.Replace(fmt.Sprintf("%v", this.Or), "OrBranch", "OrBranch", 1) + `,`,
-		`And:` + strings.Replace(fmt.Sprintf("%v", this.And), "AndBranch", "AndBranch", 1) + `,`,
-		`Leaf:` + strings.Replace(fmt.Sprintf("%v", this.Leaf), "Leaf", "Leaf", 1) + `,`,
+		`Or:` + strings.Replace(this.Or.String(), "OrBranch", "OrBranch", 1) + `,`,
+		`And:` + strings.Replace(this.And.String(), "AndBranch", "AndBranch", 1) + `,`,
+		`Leaf:` + strings.Replace(this.Leaf.String(), "Leaf", "Leaf", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -26297,9 +26331,9 @@ func (this *DeepTree) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&DeepTree{`,
-		`Down:` + strings.Replace(fmt.Sprintf("%v", this.Down), "ADeepBranch", "ADeepBranch", 1) + `,`,
-		`And:` + strings.Replace(fmt.Sprintf("%v", this.And), "AndDeepBranch", "AndDeepBranch", 1) + `,`,
-		`Leaf:` + strings.Replace(fmt.Sprintf("%v", this.Leaf), "DeepLeaf", "DeepLeaf", 1) + `,`,
+		`Down:` + strings.Replace(this.Down.String(), "ADeepBranch", "ADeepBranch", 1) + `,`,
+		`And:` + strings.Replace(this.And.String(), "AndDeepBranch", "AndDeepBranch", 1) + `,`,
+		`Leaf:` + strings.Replace(this.Leaf.String(), "DeepLeaf", "DeepLeaf", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -26470,7 +26504,7 @@ func (this *OtherExtenable) String() string {
 	s := strings.Join([]string{`&OtherExtenable{`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
-		`M:` + strings.Replace(fmt.Sprintf("%v", this.M), "MyExtendable", "MyExtendable", 1) + `,`,
+		`M:` + strings.Replace(this.M.String(), "MyExtendable", "MyExtendable", 1) + `,`,
 		`XXX_InternalExtensions:` + github_com_gogo_protobuf_proto.StringFromInternalExtension(this) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26642,14 +26676,19 @@ func (this *CustomNameNinStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForFieldD := "[]*NinOptNative{"
+	for _, f := range this.FieldD {
+		repeatedStringForFieldD += strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1) + ","
+	}
+	repeatedStringForFieldD += "}"
 	s := strings.Join([]string{`&CustomNameNinStruct{`,
 		`FieldA:` + valueToStringThetest(this.FieldA) + `,`,
 		`FieldB:` + valueToStringThetest(this.FieldB) + `,`,
-		`FieldC:` + strings.Replace(fmt.Sprintf("%v", this.FieldC), "NidOptNative", "NidOptNative", 1) + `,`,
-		`FieldD:` + strings.Replace(fmt.Sprintf("%v", this.FieldD), "NinOptNative", "NinOptNative", 1) + `,`,
+		`FieldC:` + strings.Replace(this.FieldC.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldD:` + repeatedStringForFieldD + `,`,
 		`FieldE:` + valueToStringThetest(this.FieldE) + `,`,
 		`FieldF:` + valueToStringThetest(this.FieldF) + `,`,
-		`FieldG:` + strings.Replace(fmt.Sprintf("%v", this.FieldG), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldG:` + strings.Replace(this.FieldG.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`FieldH:` + valueToStringThetest(this.FieldH) + `,`,
 		`FieldI:` + valueToStringThetest(this.FieldI) + `,`,
 		`FieldJ:` + valueToStringThetest(this.FieldJ) + `,`,
@@ -26677,8 +26716,8 @@ func (this *CustomNameNinEmbeddedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CustomNameNinEmbeddedStructUnion{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`FieldA:` + strings.Replace(fmt.Sprintf("%v", this.FieldA), "NinOptNative", "NinOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldA:` + strings.Replace(this.FieldA.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`FieldB:` + valueToStringThetest(this.FieldB) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26723,8 +26762,13 @@ func (this *UnrecognizedWithInner) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForEmbedded := "[]*UnrecognizedWithInner_Inner{"
+	for _, f := range this.Embedded {
+		repeatedStringForEmbedded += strings.Replace(fmt.Sprintf("%v", f), "UnrecognizedWithInner_Inner", "UnrecognizedWithInner_Inner", 1) + ","
+	}
+	repeatedStringForEmbedded += "}"
 	s := strings.Join([]string{`&UnrecognizedWithInner{`,
-		`Embedded:` + strings.Replace(fmt.Sprintf("%v", this.Embedded), "UnrecognizedWithInner_Inner", "UnrecognizedWithInner_Inner", 1) + `,`,
+		`Embedded:` + repeatedStringForEmbedded + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26746,7 +26790,7 @@ func (this *UnrecognizedWithEmbed) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&UnrecognizedWithEmbed{`,
-		`UnrecognizedWithEmbed_Embedded:` + strings.Replace(strings.Replace(this.UnrecognizedWithEmbed_Embedded.String(), "UnrecognizedWithEmbed_Embedded", "UnrecognizedWithEmbed_Embedded", 1), `&`, ``, 1) + `,`,
+		`UnrecognizedWithEmbed_Embedded:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.UnrecognizedWithEmbed_Embedded), "UnrecognizedWithEmbed_Embedded", "UnrecognizedWithEmbed_Embedded", 1), `&`, ``, 1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -26767,9 +26811,14 @@ func (this *Node) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForChildren := "[]*Node{"
+	for _, f := range this.Children {
+		repeatedStringForChildren += strings.Replace(f.String(), "Node", "Node", 1) + ","
+	}
+	repeatedStringForChildren += "}"
 	s := strings.Join([]string{`&Node{`,
 		`Label:` + valueToStringThetest(this.Label) + `,`,
-		`Children:` + strings.Replace(fmt.Sprintf("%v", this.Children), "Node", "Node", 1) + `,`,
+		`Children:` + repeatedStringForChildren + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -42153,6 +42202,7 @@ func (m *ProtoType) Unmarshal(dAtA []byte) error {
 func skipThetest(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -42184,10 +42234,8 @@ func skipThetest(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -42208,55 +42256,30 @@ func skipThetest(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthThetest
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthThetest
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowThetest
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipThetest(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthThetest
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupThetest
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthThetest
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthThetest = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowThetest   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthThetest        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowThetest          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupThetest = fmt.Errorf("proto: unexpected end of group")
 )

@@ -62,19 +62,75 @@ Diagnostic struct:
 
 type Diagnostic struct {
 	...
-	SuggestedFixes []SuggestedFix // this is an optional field
+	SuggestedFixes []SuggestedFix  // this is an optional field
 }
 
 ```
 
+### Requirements for SuggestedFixes
+
+SuggestedFixes will be required to conform to several requirements:
+
+* TextEdits for a SuggestedFix should not overlap.
+* TextEdits for SuggestedFixes should not contain edits for other packages.
+* Each TextEdit should apply to a single file.
+
+These requirements guarantee that suggested fixes can be cleanly applied.
+Because a driver may only analyze, or be able to modify, the current package,
+we restrict edits to the current package. In general this restriction should
+not be a big problem for users because other packages might not belong to the
+same module and so will not be safe to modify in a singe change.
+
+On the other hand, analyzers will not be required to produce gofmt-compliant
+code. Analysis drivers will be expected to apply gofmt to the results of
+a SuggestedFix application.
+
+## SuggestedFix integration points
+
+### ```checker -fix```
+
+Singlechecker and multichecker have the ```-fix``` flag, which will automatically
+apply all fixes suggested by their analysis or analyses. This is intended to
+be used primarily by refactoring tools, because in general, like diagnostics,
+suggested fixes will need to be examined by a human who can decide whether
+they are relevent.
+
+### gopls
+
+Suggested fixes have been integrated into ```gopls```, and editors can choose
+to display the suggested fixes to the user as they type, so that they can be
+accepted to fix diagnostics immediately.
+
+### Code Review Tools (Future Work)
+
+Suggested fixes can be integrated into programs that are integrated with
+code review systems to suggest fixes that users can apply from their code review tools.
+
 ## Alternatives
 
-# Performing transformations directly on the AST
+### Performing transformations directly on the AST
 
-TODO(matloob): expand on this.
-
-Even though it may be more convienient
+Even though it may be more convenient
 for authors of refactorings to perform transformations directly on
 the AST, allowing mutations on the AST would mean that a copy of the AST
 would need to be made every time a transformation was produced, to avoid
 having transformations interfere with each other.
+
+This is primarily an issue with the current design of the Go AST and
+it's possible that a new future version of the AST might make this a more
+viable option.
+
+### Supplying AST nodes directly
+
+Another possibility would be for SuggestedFixes to supply the replacement
+ASTs directly. There is one primary limitation to this: that because
+comments to ASTs specify their location using token.Pos values, it's very
+difficult to place any comments in the right place.
+
+In general, it's also more difficult to generate the AST structures for
+some code than to generate the text for that code. So we prefer to allow
+the flexibility to do the latter.
+
+Because users can call ```format.Node``` to produce the text for any
+AST node, users will always be able to produce a SuggestedFix from AST
+nodes. In future, we may choose to add a convenience method that does this for users.

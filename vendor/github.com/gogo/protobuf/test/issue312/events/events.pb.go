@@ -23,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Subtype struct {
 	State                *issue312.TaskState `protobuf:"varint,4,opt,name=state,enum=issue312.TaskState" json:"state,omitempty"`
@@ -142,7 +142,7 @@ func valueToGoStringEvents(v interface{}, typ string) string {
 }
 func NewPopulatedSubtype(r randyEvents, easy bool) *Subtype {
 	this := &Subtype{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := issue312.TaskState([]int32{6, 0, 1}[r.Intn(3)])
 		this.State = &v1
 	}

@@ -1,6 +1,8 @@
 #data
 <foo bar=qux/>
 #errors
+(1,14): expected-doctype-but-got-start-tag
+(1,14): expected-closing-tag-but-got-eof
 #document
 | <html>
 |   <head>
@@ -11,6 +13,8 @@
 #data
 <p id="status"><noscript><strong>A</strong></noscript><span>B</span></p>
 #errors
+(1,15): expected-doctype-but-got-start-tag
+#script-on
 #document
 | <html>
 |   <head>
@@ -23,8 +27,26 @@
 |         "B"
 
 #data
+<p id="status"><noscript><strong>A</strong></noscript><span>B</span></p>
+#errors
+(1,15): expected-doctype-but-got-start-tag
+#script-off
+#document
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       id="status"
+|       <noscript>
+|         <strong>
+|           "A"
+|       <span>
+|         "B"
+
+#data
 <div><sarcasm><div></div></sarcasm></div>
 #errors
+(1,5): expected-doctype-but-got-start-tag
 #document
 | <html>
 |   <head>
@@ -36,6 +58,8 @@
 #data
 <html><body><img src="" border="0" alt="><div>A</div></body></html>
 #errors
+(1,6): expected-doctype-but-got-start-tag
+(1,67): eof-in-attribute-value-double-quote
 #document
 | <html>
 |   <head>
@@ -44,6 +68,10 @@
 #data
 <table><td></tbody>A
 #errors
+(1,7): expected-doctype-but-got-start-tag
+(1,11): unexpected-cell-in-table-body
+(1,20): foster-parenting-character
+(1,20): eof-in-table
 #document
 | <html>
 |   <head>
@@ -57,6 +85,10 @@
 #data
 <table><td></thead>A
 #errors
+(1,7): expected-doctype-but-got-start-tag
+(1,11): unexpected-cell-in-table-body
+(1,19): XXX-undefined-error
+(1,20): expected-closing-tag-but-got-eof
 #document
 | <html>
 |   <head>
@@ -70,6 +102,10 @@
 #data
 <table><td></tfoot>A
 #errors
+(1,7): expected-doctype-but-got-start-tag
+(1,11): unexpected-cell-in-table-body
+(1,19): XXX-undefined-error
+(1,20): expected-closing-tag-but-got-eof
 #document
 | <html>
 |   <head>
@@ -83,6 +119,10 @@
 #data
 <table><thead><td></tbody>A
 #errors
+(1,7): expected-doctype-but-got-start-tag
+(1,18): unexpected-cell-in-table-body
+(1,26): XXX-undefined-error
+(1,27): expected-closing-tag-but-got-eof
 #document
 | <html>
 |   <head>
@@ -114,41 +154,107 @@
 |     <table>
 
 #data
-<b><em><dcell><postfield><postfield><postfield><postfield><missing_glyph><missing_glyph><missing_glyph><missing_glyph><hkern><aside></b></em>
+<b><em><foo><foo><aside></b>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <em>
+|         <foo>
+|           <foo>
+|     <em>
+|       <aside>
+|         <b>
+
+#data
+<b><em><foo><foo><aside></b></em>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <em>
+|         <foo>
+|           <foo>
+|     <em>
+|     <aside>
+|       <em>
+|         <b>
+
+#data
+<b><em><foo><foo><foo><aside></b>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <em>
+|         <foo>
+|           <foo>
+|             <foo>
+|     <aside>
+|       <b>
+
+#data
+<b><em><foo><foo><foo><aside></b></em>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       <em>
+|         <foo>
+|           <foo>
+|             <foo>
+|     <aside>
+|       <b>
+
+#data
+<b><em><foo><foo><foo><foo><foo><foo><foo><foo><foo><foo><aside></b></em>
 #errors
 #document-fragment
 div
 #document
 | <b>
 |   <em>
-|     <dcell>
-|       <postfield>
-|         <postfield>
-|           <postfield>
-|             <postfield>
-|               <missing_glyph>
-|                 <missing_glyph>
-|                   <missing_glyph>
-|                     <missing_glyph>
-|                       <hkern>
+|     <foo>
+|       <foo>
+|         <foo>
+|           <foo>
+|             <foo>
+|               <foo>
+|                 <foo>
+|                   <foo>
+|                     <foo>
+|                       <foo>
 | <aside>
-|   <em>
-|     <b>
+|   <b>
 
 #data
-<isindex action="x">
+<b><em><foo><foob><foob><foob><foob><fooc><fooc><fooc><fooc><food><aside></b></em>
 #errors
 #document-fragment
-table
+div
 #document
-| <form>
-|   action="x"
-| <hr>
-| <label>
-|   "This is a searchable index. Enter search keywords: "
-|   <input>
-|     name="isindex"
-| <hr>
+| <b>
+|   <em>
+|     <foo>
+|       <foob>
+|         <foob>
+|           <foob>
+|             <foob>
+|               <fooc>
+|                 <fooc>
+|                   <fooc>
+|                     <fooc>
+|                       <food>
+| <aside>
+|   <b>
 
 #data
 <option><XH<optgroup></optgroup>
@@ -157,3 +263,39 @@ table
 select
 #document
 | <option>
+
+#data
+<svg><foreignObject><div>foo</div><plaintext></foreignObject></svg><div>bar</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg foreignObject>
+|         <div>
+|           "foo"
+|         <plaintext>
+|           "</foreignObject></svg><div>bar</div>"
+
+#data
+<svg><foreignObject></foreignObject><title></svg>foo
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg foreignObject>
+|       <svg title>
+|     "foo"
+
+#data
+</foreignObject><plaintext><div>foo</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <plaintext>
+|       "<div>foo</div>"

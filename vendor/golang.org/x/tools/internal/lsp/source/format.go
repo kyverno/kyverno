@@ -8,128 +8,167 @@ package source
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/scanner"
+	"go/token"
 
-	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/imports"
 	"golang.org/x/tools/internal/lsp/diff"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
 // Format formats a file with a given range.
-func Format(ctx context.Context, f GoFile, rng span.Range) ([]TextEdit, error) {
+func Format(ctx context.Context, snapshot Snapshot, f File) ([]protocol.TextEdit, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Format")
 	defer done()
 
-	file, err := f.GetAST(ctx, ParseFull)
-	if file == nil {
+	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
+	if err != nil {
+		return nil, fmt.Errorf("getting file for Format: %v", err)
+	}
+
+	// Be extra careful that the file's ParseMode is correct,
+	// otherwise we might replace the user's code with a trimmed AST.
+	if pgh.Mode() != ParseFull {
+		return nil, errors.Errorf("%s was parsed in the incorrect mode", pgh.File().Identity().URI)
+	}
+	file, m, _, err := pgh.Parse(ctx)
+	if err != nil {
 		return nil, err
 	}
-	pkg := f.GetPackage(ctx)
-	if hasListErrors(pkg.GetErrors()) || hasParseErrors(pkg, f.URI()) {
+	if hasListErrors(pkg) || hasParseErrors(pkg, f.URI()) {
 		// Even if this package has list or parse errors, this file may not
 		// have any parse errors and can still be formatted. Using format.Node
 		// on an ast with errors may result in code being added or removed.
 		// Attempt to format the source of this file instead.
-		formatted, err := formatSource(ctx, f)
+		formatted, err := formatSource(ctx, snapshot, f)
 		if err != nil {
 			return nil, err
 		}
-		return computeTextEdits(ctx, f, string(formatted)), nil
+		return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, string(formatted))
 	}
-	path, exact := astutil.PathEnclosingInterval(file, rng.Start, rng.End)
-	if !exact || len(path) == 0 {
-		return nil, errors.Errorf("no exact AST node matching the specified range")
-	}
-	node := path[0]
 
-	fset := f.FileSet()
+	fset := snapshot.View().Session().Cache().FileSet()
 	buf := &bytes.Buffer{}
 
 	// format.Node changes slightly from one release to another, so the version
 	// of Go used to build the LSP server will determine how it formats code.
 	// This should be acceptable for all users, who likely be prompted to rebuild
 	// the LSP server on each Go release.
-	if err := format.Node(buf, fset, node); err != nil {
+	if err := format.Node(buf, fset, file); err != nil {
 		return nil, err
 	}
-	return computeTextEdits(ctx, f, buf.String()), nil
+	return computeTextEdits(ctx, snapshot.View(), pgh.File(), m, buf.String())
 }
 
-func formatSource(ctx context.Context, file File) ([]byte, error) {
+func formatSource(ctx context.Context, s Snapshot, f File) ([]byte, error) {
 	ctx, done := trace.StartSpan(ctx, "source.formatSource")
 	defer done()
-	data, _, err := file.Handle(ctx).Read(ctx)
+
+	data, _, err := s.Handle(ctx, f).Read(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return format.Source(data)
 }
 
-// Imports formats a file using the goimports tool.
-func Imports(ctx context.Context, view View, f GoFile, rng span.Range) ([]TextEdit, error) {
-	ctx, done := trace.StartSpan(ctx, "source.Imports")
-	defer done()
-	data, _, err := f.Handle(ctx).Read(ctx)
-	if err != nil {
-		return nil, err
-	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, errors.Errorf("no package for file %s", f.URI())
-	}
-	if hasListErrors(pkg.GetErrors()) {
-		return nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
-	}
-
-	options := &imports.Options{
-		// Defaults.
-		AllErrors:  true,
-		Comments:   true,
-		Fragment:   true,
-		FormatOnly: false,
-		TabIndent:  true,
-		TabWidth:   8,
-	}
-	var formatted []byte
-	importFn := func(opts *imports.Options) error {
-		formatted, err = imports.Process(f.URI().Filename(), data, opts)
-		return err
-	}
-	err = view.RunProcessEnvFunc(ctx, importFn, options)
-	if err != nil {
-		return nil, err
-	}
-	return computeTextEdits(ctx, f, string(formatted)), nil
-}
-
 type ImportFix struct {
 	Fix   *imports.ImportFix
-	Edits []TextEdit
+	Edits []protocol.TextEdit
 }
 
 // AllImportsFixes formats f for each possible fix to the imports.
 // In addition to returning the result of applying all edits,
 // it returns a list of fixes that could be applied to the file, with the
 // corresponding TextEdits that would be needed to apply that fix.
-func AllImportsFixes(ctx context.Context, view View, f GoFile, rng span.Range) (edits []TextEdit, editsPerFix []*ImportFix, err error) {
+func AllImportsFixes(ctx context.Context, snapshot Snapshot, f File) (allFixEdits []protocol.TextEdit, editsPerFix []*ImportFix, err error) {
 	ctx, done := trace.StartSpan(ctx, "source.AllImportsFixes")
 	defer done()
-	data, _, err := f.Handle(ctx).Read(ctx)
+
+	pkg, pgh, err := getParsedFile(ctx, snapshot, f, NarrowestCheckPackageHandle)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting file for AllImportsFixes: %v", err)
+	}
+	if hasListErrors(pkg) {
+		return nil, nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
+	}
+	options := &imports.Options{
+		// Defaults.
+		AllErrors:  true,
+		Comments:   true,
+		Fragment:   true,
+		FormatOnly: false,
+		TabIndent:  true,
+		TabWidth:   8,
+	}
+	err = snapshot.View().RunProcessEnvFunc(ctx, func(opts *imports.Options) error {
+		allFixEdits, editsPerFix, err = computeImportEdits(ctx, snapshot.View(), pgh, opts)
+		return err
+	}, options)
+	if err != nil {
+		return nil, nil, errors.Errorf("computing fix edits: %v", err)
+	}
+
+	return allFixEdits, editsPerFix, nil
+}
+
+// computeImportEdits computes a set of edits that perform one or all of the
+// necessary import fixes.
+func computeImportEdits(ctx context.Context, view View, ph ParseGoHandle, options *imports.Options) (allFixEdits []protocol.TextEdit, editsPerFix []*ImportFix, err error) {
+	filename := ph.File().Identity().URI.Filename()
+
+	// Build up basic information about the original file.
+	origData, _, err := ph.File().Read(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, nil, errors.Errorf("no package for file %s", f.URI())
+	origAST, origMapper, _, err := ph.Parse(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
-	if hasListErrors(pkg.GetErrors()) {
-		return nil, nil, errors.Errorf("%s has list errors, not running goimports", f.URI())
+	origImports, origImportOffset := trimToImports(view.Session().Cache().FileSet(), origAST, origData)
+
+	allFixes, err := imports.FixImports(filename, origData, options)
+	if err != nil {
+		return nil, nil, err
 	}
+
+	allFixEdits, err = computeFixEdits(view, ph, options, origData, origAST, origMapper, origImports, origImportOffset, allFixes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Apply all of the import fixes to the file.
+	// Add the edits for each fix to the result.
+	for _, fix := range allFixes {
+		edits, err := computeFixEdits(view, ph, options, origData, origAST, origMapper, origImports, origImportOffset, []*imports.ImportFix{fix})
+		if err != nil {
+			return nil, nil, err
+		}
+		editsPerFix = append(editsPerFix, &ImportFix{
+			Fix:   fix,
+			Edits: edits,
+		})
+	}
+	return allFixEdits, editsPerFix, nil
+}
+
+func computeOneImportFixEdits(ctx context.Context, view View, ph ParseGoHandle, fix *imports.ImportFix) ([]protocol.TextEdit, error) {
+	origData, _, err := ph.File().Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	origAST, origMapper, _, err := ph.Parse(ctx)
+	if err != nil {
+		return nil, err
+	}
+	origImports, origImportOffset := trimToImports(view.Session().Cache().FileSet(), origAST, origData)
 
 	options := &imports.Options{
 		// Defaults.
@@ -140,68 +179,253 @@ func AllImportsFixes(ctx context.Context, view View, f GoFile, rng span.Range) (
 		TabIndent:  true,
 		TabWidth:   8,
 	}
-	importFn := func(opts *imports.Options) error {
-		fixes, err := imports.FixImports(f.URI().Filename(), data, opts)
-		if err != nil {
-			return err
-		}
-		// Apply all of the import fixes to the file.
-		formatted, err := imports.ApplyFixes(fixes, f.URI().Filename(), data, options)
-		if err != nil {
-			return err
-		}
-		edits = computeTextEdits(ctx, f, string(formatted))
-		// Add the edits for each fix to the result.
-		editsPerFix = make([]*ImportFix, len(fixes))
-		for i, fix := range fixes {
-			formatted, err := imports.ApplyFixes([]*imports.ImportFix{fix}, f.URI().Filename(), data, options)
-			if err != nil {
-				return err
-			}
-			editsPerFix[i] = &ImportFix{
-				Fix:   fix,
-				Edits: computeTextEdits(ctx, f, string(formatted)),
-			}
-		}
-		return err
-	}
-	err = view.RunProcessEnvFunc(ctx, importFn, options)
+	return computeFixEdits(view, ph, options, origData, origAST, origMapper, origImports, origImportOffset, []*imports.ImportFix{fix})
+}
+
+func computeFixEdits(view View, ph ParseGoHandle, options *imports.Options, origData []byte, origAST *ast.File, origMapper *protocol.ColumnMapper, origImports []byte, origImportOffset int, fixes []*imports.ImportFix) ([]protocol.TextEdit, error) {
+	filename := ph.File().Identity().URI.Filename()
+	// Apply the fixes and re-parse the file so that we can locate the
+	// new imports.
+	fixedData, err := imports.ApplyFixes(fixes, filename, origData, options, parser.ImportsOnly)
+	fixedData = append(fixedData, '\n') // ApplyFixes comes out missing the newline, go figure.
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	fixedFset := token.NewFileSet()
+	fixedAST, err := parser.ParseFile(fixedFset, filename, fixedData, parser.ImportsOnly)
+	// Any error here prevents us from computing the edits.
+	if err != nil {
+		return nil, err
+	}
+	fixedImports, fixedImportsOffset := trimToImports(fixedFset, fixedAST, fixedData)
+
+	// Prepare the diff. If both sides had import statements, we can diff
+	// just those sections against each other, then shift the resulting
+	// edits to the right lines in the original file.
+	left, right := origImports, fixedImports
+	converter := span.NewContentConverter(filename, origImports)
+	offset := origImportOffset
+
+	// If one side or the other has no imports, we won't know where to
+	// anchor the diffs. Instead, use the beginning of the file, up to its
+	// first non-imports decl. We know the imports code will insert
+	// somewhere before that.
+	if origImportOffset == 0 || fixedImportsOffset == 0 {
+		left, _ = trimToFirstNonImport(view.Session().Cache().FileSet(), origAST, origData, nil)
+		fixedData, err = imports.ApplyFixes(fixes, filename, origData, options, 0)
+		if err != nil {
+			return nil, err
+		}
+		// We need the whole file here, not just the ImportsOnly versions we made above.
+		fixedAST, err = parser.ParseFile(fixedFset, filename, fixedData, 0)
+		if fixedAST == nil {
+			return nil, err
+		}
+		var ok bool
+		right, ok = trimToFirstNonImport(fixedFset, fixedAST, fixedData, err)
+		if !ok {
+			return nil, errors.Errorf("error %v detected in the import block", err)
+		}
+		// We're now working with a prefix of the original file, so we can
+		// use the original converter, and there is no offset on the edits.
+		converter = origMapper.Converter
+		offset = 0
 	}
 
-	return edits, editsPerFix, nil
+	// Perform the diff and adjust the results for the trimming, if any.
+	edits := view.Options().ComputeEdits(ph.File().Identity().URI, string(left), string(right))
+	for i := range edits {
+		s, err := edits[i].Span.WithPosition(converter)
+		if err != nil {
+			return nil, err
+		}
+		start := span.NewPoint(s.Start().Line()+offset, s.Start().Column(), -1)
+		end := span.NewPoint(s.End().Line()+offset, s.End().Column(), -1)
+		edits[i].Span = span.New(s.URI(), start, end)
+	}
+	return ToProtocolEdits(origMapper, edits)
+}
+
+// trimToImports returns a section of the source file that covers all of the
+// import declarations, and the line offset into the file that section starts at.
+func trimToImports(fset *token.FileSet, f *ast.File, src []byte) ([]byte, int) {
+	var firstImport, lastImport ast.Decl
+	for _, decl := range f.Decls {
+		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.IMPORT {
+			if firstImport == nil {
+				firstImport = decl
+			}
+			lastImport = decl
+		}
+	}
+
+	if firstImport == nil {
+		return nil, 0
+	}
+	tok := fset.File(f.Pos())
+	start := firstImport.Pos()
+	end := lastImport.End()
+	if tok.LineCount() > fset.Position(end).Line {
+		end = fset.File(f.Pos()).LineStart(fset.Position(lastImport.End()).Line + 1)
+	}
+
+	startLineOffset := fset.Position(start).Line - 1 // lines are 1-indexed.
+	return src[fset.Position(firstImport.Pos()).Offset:fset.Position(end).Offset], startLineOffset
+}
+
+// trimToFirstNonImport returns src from the beginning to the first non-import
+// declaration, or the end of the file if there is no such decl.
+func trimToFirstNonImport(fset *token.FileSet, f *ast.File, src []byte, err error) ([]byte, bool) {
+	var firstDecl ast.Decl
+	for _, decl := range f.Decls {
+		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.IMPORT {
+			continue
+		}
+		firstDecl = decl
+		break
+	}
+	tok := fset.File(f.Pos())
+	if tok == nil {
+		return nil, false
+	}
+	end := f.End()
+	if firstDecl != nil {
+		if firstDeclLine := fset.Position(firstDecl.Pos()).Line; firstDeclLine > 1 {
+			end = tok.LineStart(firstDeclLine - 1)
+		}
+	}
+	// Any errors in the file must be after the part of the file that we care about.
+	switch err := err.(type) {
+	case *scanner.Error:
+		pos := tok.Pos(err.Pos.Offset)
+		if pos <= end {
+			return nil, false
+		}
+	case scanner.ErrorList:
+		if err.Len() > 0 {
+			pos := tok.Pos(err[0].Pos.Offset)
+			if pos <= end {
+				return nil, false
+			}
+		}
+	}
+	return src[0:fset.Position(end).Offset], true
+}
+
+// CandidateImports returns every import that could be added to filename.
+func CandidateImports(ctx context.Context, view View, filename string) ([]imports.ImportFix, error) {
+	ctx, done := trace.StartSpan(ctx, "source.CandidateImports")
+	defer done()
+
+	options := &imports.Options{
+		// Defaults.
+		AllErrors:  true,
+		Comments:   true,
+		Fragment:   true,
+		FormatOnly: false,
+		TabIndent:  true,
+		TabWidth:   8,
+	}
+
+	var imps []imports.ImportFix
+	importFn := func(opts *imports.Options) error {
+		var err error
+		imps, err = imports.GetAllCandidates(filename, opts)
+		return err
+	}
+	err := view.RunProcessEnvFunc(ctx, importFn, options)
+	return imps, err
+}
+
+// PackageExports returns all the packages named pkg that could be imported by
+// filename, and their exports.
+func PackageExports(ctx context.Context, view View, pkg, filename string) ([]imports.PackageExport, error) {
+	ctx, done := trace.StartSpan(ctx, "source.PackageExports")
+	defer done()
+
+	options := &imports.Options{
+		// Defaults.
+		AllErrors:  true,
+		Comments:   true,
+		Fragment:   true,
+		FormatOnly: false,
+		TabIndent:  true,
+		TabWidth:   8,
+	}
+
+	var pkgs []imports.PackageExport
+	importFn := func(opts *imports.Options) error {
+		var err error
+		pkgs, err = imports.GetPackageExports(pkg, filename, opts)
+		return err
+	}
+	err := view.RunProcessEnvFunc(ctx, importFn, options)
+	return pkgs, err
 }
 
 // hasParseErrors returns true if the given file has parse errors.
 func hasParseErrors(pkg Package, uri span.URI) bool {
+	for _, e := range pkg.GetErrors() {
+		if e.File.URI == uri && e.Kind == ParseError {
+			return true
+		}
+	}
+	return false
+}
+
+func hasListErrors(pkg Package) bool {
 	for _, err := range pkg.GetErrors() {
-		spn := packagesErrorSpan(err)
-		if spn.URI() == uri && err.Kind == packages.ParseError {
+		if err.Kind == ListError {
 			return true
 		}
 	}
 	return false
 }
 
-func hasListErrors(errors []packages.Error) bool {
-	for _, err := range errors {
-		if err.Kind == packages.ListError {
-			return true
-		}
-	}
-	return false
-}
-
-func computeTextEdits(ctx context.Context, file File, formatted string) (edits []TextEdit) {
+func computeTextEdits(ctx context.Context, view View, fh FileHandle, m *protocol.ColumnMapper, formatted string) ([]protocol.TextEdit, error) {
 	ctx, done := trace.StartSpan(ctx, "source.computeTextEdits")
 	defer done()
-	data, _, err := file.Handle(ctx).Read(ctx)
+
+	data, _, err := fh.Read(ctx)
 	if err != nil {
-		log.Error(ctx, "Cannot compute text edits", err)
-		return nil
+		return nil, err
 	}
-	u := diff.SplitLines(string(data))
-	f := diff.SplitLines(formatted)
-	return DiffToEdits(file.URI(), diff.Operations(u, f))
+	edits := view.Options().ComputeEdits(fh.Identity().URI, string(data), formatted)
+	return ToProtocolEdits(m, edits)
+}
+
+func ToProtocolEdits(m *protocol.ColumnMapper, edits []diff.TextEdit) ([]protocol.TextEdit, error) {
+	if edits == nil {
+		return nil, nil
+	}
+	result := make([]protocol.TextEdit, len(edits))
+	for i, edit := range edits {
+		rng, err := m.Range(edit.Span)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = protocol.TextEdit{
+			Range:   rng,
+			NewText: edit.NewText,
+		}
+	}
+	return result, nil
+}
+
+func FromProtocolEdits(m *protocol.ColumnMapper, edits []protocol.TextEdit) ([]diff.TextEdit, error) {
+	if edits == nil {
+		return nil, nil
+	}
+	result := make([]diff.TextEdit, len(edits))
+	for i, edit := range edits {
+		spn, err := m.RangeSpan(edit.Range)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = diff.TextEdit{
+			Span:    spn,
+			NewText: edit.NewText,
+		}
+	}
+	return result, nil
 }

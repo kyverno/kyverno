@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	"gotest.tools/assert"
@@ -26,11 +28,11 @@ func TestMeetConditions_NoAnchor(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(nil, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(nil, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
-func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
+func TestMeetConditions_conditionalAnchorOnMap(t *testing.T) {
 	resourceRaw := []byte(`
 	 {  
 		"apiVersion":"v1",
@@ -79,8 +81,8 @@ func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, !res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, !reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`
 	{  
@@ -89,8 +91,8 @@ func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
 			 "ports":[  
 				{  
 				   "name":"secure-connection",
-				   "port":444,
-				   "protocol":"UDP"
+				   "port":443,
+				   "(protocol)":"TCP"
 				}
 			 ]
 		  }
@@ -99,28 +101,24 @@ func TestMeetConditions_invalidConditionalAnchor(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, !res)
+	_, overlayerr := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 }
 
 func TestMeetConditions_DifferentTypes(t *testing.T) {
 	resourceRaw := []byte(`
-	 {  
-		"apiVersion":"v1",
-		"kind":"Endpoints",
-		"metadata":{  
-		   "name":"test-endpoint",
+	{
+		"apiVersion": "v1",
+		"kind": "Endpoints",
+		"metadata": {
+		   "name": "test-endpoint"
 		},
-		"subsets":[  
-		   {  
-			  "addresses":[  
-				 {  
-					"ip":"192.168.10.171"
-				 }
-			  ],
+		"subsets": {
+		   "addresses": {
+			  "ip": "192.168.10.171"
 		   }
-		]
-	 }`)
+		}
+	}`)
 
 	overlayRaw := []byte(`
 	 {  
@@ -142,8 +140,8 @@ func TestMeetConditions_DifferentTypes(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	// anchor exist
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, !res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, strings.Contains(err.Error(), "Found anchor on different types of element at path /subsets/"))
 }
 
 func TestMeetConditions_anchosInSameObject(t *testing.T) {
@@ -195,9 +193,8 @@ func TestMeetConditions_anchosInSameObject(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	// no anchor
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, !res)
+	_, err := meetConditions(resource, overlay)
+	assert.Error(t, err, "[overlayError:0] Failed validating value 443 with overlay 444")
 }
 
 func TestMeetConditions_anchorOnPeer(t *testing.T) {
@@ -254,8 +251,8 @@ func TestMeetConditions_anchorOnPeer(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnMetaAndSpec(t *testing.T) {
@@ -331,8 +328,8 @@ func TestMeetConditions_anchorsOnMetaAndSpec(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 var resourceRawAnchorOnPeers = []byte(`{
@@ -412,8 +409,8 @@ func TestMeetConditions_anchorsOnPeer_single(t *testing.T) {
 	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
@@ -425,7 +422,7 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 					{
 					   "(image)": "*/nginx-unprivileged",
 					   "securityContext": {
-						  "(runAsNonRoot)": true,
+						  "(runAsNonRoot)": false,
 						  "allowPrivilegeEscalation": false
 					   },
 					   "env": [
@@ -446,8 +443,8 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(resource, overlay)
+	assert.Error(t, err, "[overlayError:0] Failed validating value true with overlay false")
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -475,8 +472,8 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err = meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -504,8 +501,8 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err = meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 }
 
 func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
@@ -538,8 +535,8 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res := meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -567,8 +564,8 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err = meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -581,10 +578,10 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 						  "runAsNonRoot": true,
 						  "(allowPrivilegeEscalation)": false
 					   },
-					   "env": [
+					   "(env)": [
 						  {
-							 "(name)": "ENV_KEY",
-							 "(value)": "ENV_VALUE"
+							 "name": "ENV_KEY",
+							 "value": "ENV_VALUE1"
 						  }
 					   ]
 					}
@@ -596,7 +593,66 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	res = meetConditions(resource, overlay)
-	assert.Assert(t, res)
+	_, err = meetConditions(resource, overlay)
+	assert.Error(t, err, "[overlayError:0] Failed validating value ENV_VALUE with overlay ENV_VALUE1")
+}
 
+func TestMeetConditions_AtleastOneExist(t *testing.T) {
+	overlayRaw := []byte(`
+	{
+		"metadata": {
+		   "annotations": {
+			  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+		   }
+		},
+		"spec": {
+		   "volumes": [
+			  {
+				 "(emptyDir)": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	// validate when resource has multiple same blocks
+	resourceRaw := []byte(`
+	{
+		"spec": {
+		   "containers": [
+			  {
+				 "image": "k8s.gcr.io/test-webserver",
+				 "name": "test-container",
+				 "volumeMounts": [
+					{
+					   "mountPath": "/cache",
+					   "name": "cache-volume"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "cache-volume1",
+				 "emptyDir": 1
+			  },
+			  {
+				 "name": "cache-volume2",
+				 "emptyDir": 2
+			  },
+			  {
+				 "name": "cache-volume3",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }`)
+
+	var resource, overlay interface{}
+
+	json.Unmarshal(resourceRaw, &resource)
+	json.Unmarshal(overlayRaw, &overlay)
+
+	path, err := meetConditions(resource, overlay)
+	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
+	assert.Assert(t, len(path) == 0)
 }

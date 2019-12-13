@@ -35,9 +35,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beevik/ntp"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/handlers"
+	iampolicy "github.com/minio/minio/pkg/iam/policy"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
@@ -52,23 +54,11 @@ func IsErrIgnored(err error, ignoredErrs ...error) bool {
 // IsErr returns whether given error is exact error.
 func IsErr(err error, errs ...error) bool {
 	for _, exactErr := range errs {
-		if err == exactErr {
+		if errors.Is(err, exactErr) {
 			return true
 		}
 	}
 	return false
-}
-
-// make a copy of http.Header
-func cloneHeader(h http.Header) http.Header {
-	h2 := make(http.Header, len(h))
-	for k, vv := range h {
-		vv2 := make([]string, len(vv))
-		copy(vv2, vv)
-		h2[k] = vv2
-
-	}
-	return h2
 }
 
 func request2BucketObjectName(r *http.Request) (bucketName, objectName string) {
@@ -288,7 +278,7 @@ var globalProfiler minioProfiler
 
 // dump the request into a string in JSON format.
 func dumpRequest(r *http.Request) string {
-	header := cloneHeader(r.Header)
+	header := r.Header.Clone()
 	header.Set("Host", r.Host)
 	// Replace all '%' to '%%' so that printer format parser
 	// to ignore URL encoded values.
@@ -325,6 +315,17 @@ func UTCNow() time.Time {
 	return time.Now().UTC()
 }
 
+// UTCNowNTP - is similar in functionality to UTCNow()
+// but only used when we do not wish to rely on system
+// time.
+func UTCNowNTP() (time.Time, error) {
+	// ntp server is disabled
+	if ntpServer == "" {
+		return UTCNow(), nil
+	}
+	return ntp.Time(ntpServer)
+}
+
 // GenETag - generate UUID based ETag
 func GenETag() string {
 	return ToS3ETag(getMD5Hash([]byte(mustGetUUID())))
@@ -343,25 +344,49 @@ func ToS3ETag(etag string) string {
 	return etag
 }
 
+type dialContext func(ctx context.Context, network, address string) (net.Conn, error)
+
+func newCustomDialContext(dialTimeout, dialKeepAlive time.Duration) dialContext {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := &net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: dialKeepAlive,
+			DualStack: true,
+		}
+
+		return dialer.DialContext(ctx, network, addr)
+	}
+}
+
+func newCustomHTTPTransport(tlsConfig *tls.Config, dialTimeout, dialKeepAlive time.Duration) func() *http.Transport {
+	// For more details about various values used here refer
+	// https://golang.org/pkg/net/http/#Transport documentation
+	tr := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           newCustomDialContext(dialTimeout, dialKeepAlive),
+		MaxIdleConnsPerHost:   256,
+		IdleConnTimeout:       60 * time.Second,
+		TLSHandshakeTimeout:   30 * time.Second,
+		ExpectContinueTimeout: 10 * time.Second,
+		TLSClientConfig:       tlsConfig,
+		// Go net/http automatically unzip if content-type is
+		// gzip disable this feature, as we are always interested
+		// in raw stream.
+		DisableCompression: true,
+	}
+	return func() *http.Transport {
+		return tr
+	}
+}
+
 // NewCustomHTTPTransport returns a new http configuration
 // used while communicating with the cloud backends.
 // This sets the value for MaxIdleConnsPerHost from 2 (go default)
-// to 100.
+// to 256.
 func NewCustomHTTPTransport() *http.Transport {
-	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultDialTimeout,
-			KeepAlive: defaultDialKeepAlive,
-		}).DialContext,
-		MaxIdleConns:          1024,
-		MaxIdleConnsPerHost:   1024,
-		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{RootCAs: globalRootCAs},
-		DisableCompression:    true,
-	}
+	return newCustomHTTPTransport(&tls.Config{
+		RootCAs: globalRootCAs,
+	}, defaultDialTimeout, defaultDialKeepAlive)()
 }
 
 // Load the json (typically from disk file).
@@ -437,28 +462,6 @@ func newContext(r *http.Request, w http.ResponseWriter, api string) context.Cont
 	return logger.SetReqInfo(r.Context(), reqInfo)
 }
 
-// isNetworkOrHostDown - if there was a network error or if the host is down.
-func isNetworkOrHostDown(err error) bool {
-	if err == nil {
-		return false
-	}
-	// We need to figure if the error either a timeout
-	// or a non-temporary error.
-	e, ok := err.(net.Error)
-	if ok {
-		return e.Timeout()
-	}
-	// Fallback to other mechanisms.
-	if strings.Contains(err.Error(), "i/o timeout") {
-		// If error is - tcp timeoutError.
-		ok = true
-	} else if strings.Contains(err.Error(), "connection timed out") {
-		// If err is a net.Dial timeout.
-		ok = true
-	}
-	return ok
-}
-
 // Used for registering with rest handlers (have a look at registerStorageRESTHandlers for usage example)
 // If it is passed ["aaaa", "bbbb"], it returns ["aaaa", "{aaaa:.*}", "bbbb", "{bbbb:.*}"]
 func restQueries(keys ...string) []string {
@@ -474,4 +477,71 @@ func reverseStringSlice(input []string) {
 	for left, right := 0, len(input)-1; left < right; left, right = left+1, right-1 {
 		input[left], input[right] = input[right], input[left]
 	}
+}
+
+// lcp finds the longest common prefix of the input strings.
+// It compares by bytes instead of runes (Unicode code points).
+// It's up to the caller to do Unicode normalization if desired
+// (e.g. see golang.org/x/text/unicode/norm).
+func lcp(l []string) string {
+	// Special cases first
+	switch len(l) {
+	case 0:
+		return ""
+	case 1:
+		return l[0]
+	}
+	// LCP of min and max (lexigraphically)
+	// is the LCP of the whole set.
+	min, max := l[0], l[0]
+	for _, s := range l[1:] {
+		switch {
+		case s < min:
+			min = s
+		case s > max:
+			max = s
+		}
+	}
+	for i := 0; i < len(min) && i < len(max); i++ {
+		if min[i] != max[i] {
+			return min[:i]
+		}
+	}
+	// In the case where lengths are not equal but all bytes
+	// are equal, min is the answer ("foo" < "foobar").
+	return min
+}
+
+// Returns the mode in which MinIO is running
+func getMinioMode() string {
+	mode := globalMinioModeFS
+	if globalIsDistXL {
+		mode = globalMinioModeDistXL
+	} else if globalIsXL {
+		mode = globalMinioModeXL
+	} else if globalIsGateway {
+		mode = globalMinioModeGatewayPrefix + globalGatewayName
+	}
+	return mode
+}
+
+func splitN(str, delim string, num int) []string {
+	stdSplit := strings.SplitN(str, delim, num)
+	retSplit := make([]string, num)
+	for i := 0; i < len(stdSplit); i++ {
+		retSplit[i] = stdSplit[i]
+	}
+
+	return retSplit
+}
+
+func iamPolicyName() string {
+	return globalOpenIDConfig.ClaimPrefix + iampolicy.PolicyName
+}
+
+func isWORMEnabled(bucket string) (Retention, bool) {
+	if globalWORMEnabled {
+		return Retention{}, true
+	}
+	return globalBucketObjectLockConfig.Get(bucket)
 }

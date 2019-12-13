@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -50,6 +50,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		clientConfig: config,
 		kclient:      kclient,
 	}
+	// Set discovery client
 	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
@@ -114,7 +115,7 @@ func (c *Client) GetResource(kind string, namespace string, name string, subreso
 	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
-//Patch
+//PatchResource patches the resource
 func (c *Client) PatchResource(kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
 	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
@@ -129,8 +130,8 @@ func (c *Client) ListResource(kind string, namespace string, lselector *meta.Lab
 	return c.getResourceInterface(kind, namespace).List(options)
 }
 
-// DeleteResouce deletes the specified resource
-func (c *Client) DeleteResouce(kind string, namespace string, name string, dryRun bool) error {
+// DeleteResource deletes the specified resource
+func (c *Client) DeleteResource(kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}

@@ -6,22 +6,26 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
 
 //Generator generate events
 type Generator struct {
-	client   *client.Client
-	pLister  kyvernolister.ClusterPolicyLister
+	client *client.Client
+	// list/get cluster policy
+	pLister kyvernolister.ClusterPolicyLister
+	// returns true if the cluster policy store has been synced at least once
+	pSynced  cache.InformerSynced
 	queue    workqueue.RateLimitingInterface
 	recorder record.EventRecorder
 }
@@ -32,13 +36,13 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client,
-	pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
+func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
 
 	gen := Generator{
 		client:   client,
 		pLister:  pInformer.Lister(),
 		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		pSynced:  pInformer.Informer().HasSynced,
 		recorder: initRecorder(client),
 	}
 
@@ -53,7 +57,7 @@ func initRecorder(client *client.Client) record.EventRecorder {
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(glog.V(4).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		glog.Error(err) // TODO: add more specific error
@@ -86,6 +90,10 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	glog.Info("Starting event generator")
 	defer glog.Info("Shutting down event generator")
+
+	if !cache.WaitForCacheSync(stopCh, gen.pSynced) {
+		glog.Error("event generator: failed to sync informer cache")
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)

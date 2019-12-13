@@ -54,6 +54,7 @@
 package target
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -78,6 +79,32 @@ const (
 	mysqlUpdateRow = `INSERT INTO %s (key_name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value=VALUES(value);`
 	mysqlDeleteRow = `DELETE FROM %s WHERE key_name = ?;`
 	mysqlInsertRow = `INSERT INTO %s (event_time, event_data) VALUES (?, ?);`
+)
+
+// MySQL related constants
+const (
+	MySQLFormat     = "format"
+	MySQLDSNString  = "dsn_string"
+	MySQLTable      = "table"
+	MySQLHost       = "host"
+	MySQLPort       = "port"
+	MySQLUsername   = "username"
+	MySQLPassword   = "password"
+	MySQLDatabase   = "database"
+	MySQLQueueLimit = "queue_limit"
+	MySQLQueueDir   = "queue_dir"
+
+	EnvMySQLEnable     = "MINIO_NOTIFY_MYSQL_ENABLE"
+	EnvMySQLFormat     = "MINIO_NOTIFY_MYSQL_FORMAT"
+	EnvMySQLDSNString  = "MINIO_NOTIFY_MYSQL_DSN_STRING"
+	EnvMySQLTable      = "MINIO_NOTIFY_MYSQL_TABLE"
+	EnvMySQLHost       = "MINIO_NOTIFY_MYSQL_HOST"
+	EnvMySQLPort       = "MINIO_NOTIFY_MYSQL_PORT"
+	EnvMySQLUsername   = "MINIO_NOTIFY_MYSQL_USERNAME"
+	EnvMySQLPassword   = "MINIO_NOTIFY_MYSQL_PASSWORD"
+	EnvMySQLDatabase   = "MINIO_NOTIFY_MYSQL_DATABASE"
+	EnvMySQLQueueLimit = "MINIO_NOTIFY_MYSQL_QUEUE_LIMIT"
+	EnvMySQLQueueDir   = "MINIO_NOTIFY_MYSQL_QUEUE_DIR"
 )
 
 // MySQLArgs - MySQL target arguments.
@@ -158,15 +185,24 @@ func (target *MySQLTarget) ID() event.TargetID {
 	return target.id
 }
 
+// IsActive - Return true if target is up and active
+func (target *MySQLTarget) IsActive() (bool, error) {
+	if err := target.db.Ping(); err != nil {
+		if IsConnErr(err) {
+			return false, errNotConnected
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // Save - saves the events to the store which will be replayed when the SQL connection is active.
 func (target *MySQLTarget) Save(eventData event.Event) error {
 	if target.store != nil {
 		return target.store.Put(eventData)
 	}
-	if err := target.db.Ping(); err != nil {
-		if IsConnErr(err) {
-			return errNotConnected
-		}
+	_, err := target.IsActive()
+	if err != nil {
 		return err
 	}
 	return target.send(eventData)
@@ -217,10 +253,8 @@ func (target *MySQLTarget) send(eventData event.Event) error {
 // Send - reads an event from store and sends it to MySQL.
 func (target *MySQLTarget) Send(eventKey string) error {
 
-	if err := target.db.Ping(); err != nil {
-		if IsConnErr(err) {
-			return errNotConnected
-		}
+	_, err := target.IsActive()
+	if err != nil {
 		return err
 	}
 
@@ -311,7 +345,7 @@ func (target *MySQLTarget) executeStmts() error {
 }
 
 // NewMySQLTarget - creates new MySQL target.
-func NewMySQLTarget(id string, args MySQLArgs, doneCh <-chan struct{}) (*MySQLTarget, error) {
+func NewMySQLTarget(id string, args MySQLArgs, doneCh <-chan struct{}, loggerOnce func(ctx context.Context, err error, id interface{}, kind ...interface{})) (*MySQLTarget, error) {
 	var firstPing bool
 	if args.DSN == "" {
 		config := mysql.Config{
@@ -351,7 +385,7 @@ func NewMySQLTarget(id string, args MySQLArgs, doneCh <-chan struct{}) (*MySQLTa
 
 	err = target.db.Ping()
 	if err != nil {
-		if target.store == nil || !IsConnRefusedErr(err) {
+		if target.store == nil || !(IsConnRefusedErr(err) || IsConnResetErr(err)) {
 			return nil, err
 		}
 	} else {
@@ -363,9 +397,9 @@ func NewMySQLTarget(id string, args MySQLArgs, doneCh <-chan struct{}) (*MySQLTa
 
 	if target.store != nil {
 		// Replays the events from the store.
-		eventKeyCh := replayEvents(target.store, doneCh)
+		eventKeyCh := replayEvents(target.store, doneCh, loggerOnce, target.ID())
 		// Start replaying events from the store.
-		go sendEvents(target, eventKeyCh, doneCh)
+		go sendEvents(target, eventKeyCh, doneCh, loggerOnce)
 	}
 
 	return target, nil

@@ -14,6 +14,7 @@ import (
 
 	guru "golang.org/x/tools/cmd/guru/serial"
 	"golang.org/x/tools/internal/lsp/protocol"
+	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/tool"
 	errors "golang.org/x/xerrors"
@@ -60,6 +61,15 @@ func (d *definition) Run(ctx context.Context, args ...string) error {
 	if len(args) != 1 {
 		return tool.CommandLineErrorf("definition expects 1 argument")
 	}
+	// Plaintext makes more sense for the command line.
+	opts := d.query.app.options
+	d.query.app.options = func(o *source.Options) {
+		opts(o)
+		o.PreferredContentFormat = protocol.PlainText
+		if d.query.MarkdownSupported {
+			o.PreferredContentFormat = protocol.Markdown
+		}
+	}
 	conn, err := d.query.app.connect(ctx)
 	if err != nil {
 		return err
@@ -74,9 +84,12 @@ func (d *definition) Run(ctx context.Context, args ...string) error {
 	if err != nil {
 		return err
 	}
-	p := protocol.TextDocumentPositionParams{
+	tdpp := protocol.TextDocumentPositionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: loc.URI},
 		Position:     loc.Range.Start,
+	}
+	p := protocol.DefinitionParams{
+		TextDocumentPositionParams: tdpp,
 	}
 	locs, err := conn.Definition(ctx, &p)
 	if err != nil {
@@ -86,7 +99,10 @@ func (d *definition) Run(ctx context.Context, args ...string) error {
 	if len(locs) == 0 {
 		return errors.Errorf("%v: not an identifier", from)
 	}
-	hover, err := conn.Hover(ctx, &p)
+	q := protocol.HoverParams{
+		TextDocumentPositionParams: tdpp,
+	}
+	hover, err := conn.Hover(ctx, &q)
 	if err != nil {
 		return errors.Errorf("%v: %v", from, err)
 	}

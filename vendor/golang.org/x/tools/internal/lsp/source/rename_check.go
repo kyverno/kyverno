@@ -13,6 +13,7 @@ import (
 	"go/token"
 	"go/types"
 	"reflect"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -91,6 +92,9 @@ func (r *renamer) checkInPackageBlock(from types.Object) {
 	}
 
 	pkg := r.packages[from.Pkg()]
+	if pkg == nil {
+		return
+	}
 
 	// Check that in the package block, "init" is a function, and never referenced.
 	if r.to == "init" {
@@ -113,7 +117,7 @@ func (r *renamer) checkInPackageBlock(from types.Object) {
 	}
 
 	// Check for conflicts between package block and all file blocks.
-	for _, f := range pkg.GetSyntax(r.ctx) {
+	for _, f := range pkg.GetSyntax() {
 		fileScope := pkg.GetTypesInfo().Scopes[f]
 		b, prev := fileScope.LookupParent(r.to, token.NoPos)
 		if b == fileScope {
@@ -204,7 +208,6 @@ func (r *renamer) checkInLexicalScope(from types.Object, pkg Package) {
 			})
 		}
 	}
-
 	// Check for sub-block conflict.
 	// Is there an intervening definition of r.to between
 	// the block defining 'from' and some reference to it?
@@ -328,7 +331,7 @@ func forEachLexicalRef(ctx context.Context, pkg Package, obj types.Object, fn fu
 		return true
 	}
 
-	for _, f := range pkg.GetSyntax(ctx) {
+	for _, f := range pkg.GetSyntax() {
 		ast.Inspect(f, visit)
 		if len(stack) != 0 {
 			panic(stack)
@@ -381,6 +384,9 @@ func (r *renamer) checkStructField(from *types.Var) {
 	// method) to its declaring struct (or interface), so we must
 	// ascend the AST.
 	pkg, path, _ := pathEnclosingInterval(r.ctx, r.fset, r.packages[from.Pkg()], from.Pos(), from.Pos())
+	if pkg == nil || path == nil {
+		return
+	}
 	// path matches this pattern:
 	// [Ident SelectorExpr? StarExpr? Field FieldList StructType ParenExpr* ... File]
 
@@ -802,7 +808,7 @@ func (r *renamer) satisfy() map[satisfy.Constraint]bool {
 					r.from, r.to, pkg.PkgPath())
 				return nil
 			}
-			f.Find(pkg.GetTypesInfo(), pkg.GetSyntax(r.ctx))
+			f.Find(pkg.GetTypesInfo(), pkg.GetSyntax())
 		}
 		r.satisfyConstraints = f.Result
 	}
@@ -835,20 +841,24 @@ func someUse(info *types.Info, obj types.Object) *ast.Ident {
 //
 func pathEnclosingInterval(ctx context.Context, fset *token.FileSet, pkg Package, start, end token.Pos) (resPkg Package, path []ast.Node, exact bool) {
 	var pkgs = []Package{pkg}
-	for _, f := range pkg.GetSyntax(ctx) {
+	for _, f := range pkg.GetSyntax() {
 		for _, imp := range f.Imports {
 			if imp == nil {
 				continue
 			}
-			impPkg := pkg.GetImport(imp.Path.Value)
-			if impPkg == nil {
+			importPath, err := strconv.Unquote(imp.Path.Value)
+			if err != nil {
 				continue
 			}
-			pkgs = append(pkgs, impPkg)
+			importPkg, err := pkg.GetImport(importPath)
+			if err != nil {
+				return nil, nil, false
+			}
+			pkgs = append(pkgs, importPkg)
 		}
 	}
 	for _, p := range pkgs {
-		for _, f := range p.GetSyntax(ctx) {
+		for _, f := range p.GetSyntax() {
 			if f.Pos() == token.NoPos {
 				// This can happen if the parser saw
 				// too many errors and bailed out.
@@ -920,9 +930,9 @@ func isPackageLevel(obj types.Object) bool {
 	return obj.Pkg().Scope().Lookup(obj.Name()) == obj
 }
 
-// -- Plundered from golang.org/x/tools/go/ssa -----------------
-
-func isInterface(T types.Type) bool { return types.IsInterface(T) }
+func isInterface(T types.Type) bool {
+	return T != nil && types.IsInterface(T)
+}
 
 // -- Plundered from go/scanner: ---------------------------------------
 

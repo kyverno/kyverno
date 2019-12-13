@@ -38,6 +38,25 @@ func TestIoctlGetInt(t *testing.T) {
 	t.Logf("%d bits of entropy available", v)
 }
 
+func TestIoctlRetInt(t *testing.T) {
+	f, err := os.Open("/proc/self/ns/mnt")
+	if err != nil {
+		t.Skipf("skipping test, %v", err)
+	}
+	defer f.Close()
+
+	v, err := unix.IoctlRetInt(int(f.Fd()), unix.NS_GET_NSTYPE)
+	if err != nil {
+		if err == unix.ENOTTY {
+			t.Skipf("old kernel? (need Linux >= 4.11)")
+		}
+		t.Fatalf("failed to perform ioctl: %v", err)
+	}
+	if v != unix.CLONE_NEWNS {
+		t.Fatalf("unexpected return from ioctl; expected %v, got %v", v, unix.CLONE_NEWNS)
+	}
+}
+
 func TestIoctlGetRTCTime(t *testing.T) {
 	f, err := os.Open("/dev/rtc0")
 	if err != nil {
@@ -106,13 +125,13 @@ func TestTime(t *testing.T) {
 		}
 
 		now = time.Now()
-
-		if int64(ut) == now.Unix() {
+		diff := int64(ut) - now.Unix()
+		if -1 <= diff && diff <= 1 {
 			return
 		}
 	}
 
-	t.Errorf("Time: return value %v should be nearly equal to time.Now().Unix() %v", ut, now.Unix())
+	t.Errorf("Time: return value %v should be nearly equal to time.Now().Unix() %v±1", ut, now.Unix())
 }
 
 func TestUtime(t *testing.T) {
@@ -218,39 +237,38 @@ func TestRlimitAs(t *testing.T) {
 	}
 }
 
-func TestSelect(t *testing.T) {
-	_, err := unix.Select(0, nil, nil, nil, &unix.Timeval{Sec: 0, Usec: 0})
-	if err != nil {
-		t.Fatalf("Select: %v", err)
-	}
-
-	dur := 150 * time.Millisecond
-	tv := unix.NsecToTimeval(int64(dur))
-	start := time.Now()
-	_, err = unix.Select(0, nil, nil, nil, &tv)
-	took := time.Since(start)
-	if err != nil {
-		t.Fatalf("Select: %v", err)
-	}
-
-	if took < dur {
-		t.Errorf("Select: timeout should have been at least %v, got %v", dur, took)
-	}
-}
-
 func TestPselect(t *testing.T) {
-	_, err := unix.Pselect(0, nil, nil, nil, &unix.Timespec{Sec: 0, Nsec: 0}, nil)
-	if err != nil {
-		t.Fatalf("Pselect: %v", err)
+	for {
+		n, err := unix.Pselect(0, nil, nil, nil, &unix.Timespec{Sec: 0, Nsec: 0}, nil)
+		if err == unix.EINTR {
+			t.Logf("Pselect interrupted")
+			continue
+		} else if err != nil {
+			t.Fatalf("Pselect: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Pselect: got %v ready file descriptors, expected 0", n)
+		}
+		break
 	}
 
 	dur := 2500 * time.Microsecond
 	ts := unix.NsecToTimespec(int64(dur))
-	start := time.Now()
-	_, err = unix.Pselect(0, nil, nil, nil, &ts, nil)
-	took := time.Since(start)
-	if err != nil {
-		t.Fatalf("Pselect: %v", err)
+	var took time.Duration
+	for {
+		start := time.Now()
+		n, err := unix.Pselect(0, nil, nil, nil, &ts, nil)
+		took = time.Since(start)
+		if err == unix.EINTR {
+			t.Logf("Pselect interrupted after %v", took)
+			continue
+		} else if err != nil {
+			t.Fatalf("Pselect: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Pselect: got %v ready file descriptors, expected 0", n)
+		}
+		break
 	}
 
 	if took < dur {
@@ -259,15 +277,6 @@ func TestPselect(t *testing.T) {
 }
 
 func TestSchedSetaffinity(t *testing.T) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	var oldMask unix.CPUSet
-	err := unix.SchedGetaffinity(0, &oldMask)
-	if err != nil {
-		t.Fatalf("SchedGetaffinity: %v", err)
-	}
-
 	var newMask unix.CPUSet
 	newMask.Zero()
 	if newMask.Count() != 0 {
@@ -288,6 +297,15 @@ func TestSchedSetaffinity(t *testing.T) {
 		t.Errorf("CpuClr: didn't clear CPU %d in set: %v", cpu, newMask)
 	}
 
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	var oldMask unix.CPUSet
+	err := unix.SchedGetaffinity(0, &oldMask)
+	if err != nil {
+		t.Fatalf("SchedGetaffinity: %v", err)
+	}
+
 	if runtime.NumCPU() < 2 {
 		t.Skip("skipping setaffinity tests on single CPU system")
 	}
@@ -299,6 +317,7 @@ func TestSchedSetaffinity(t *testing.T) {
 	// setaffinity should only be called with enabled cores. The valid cores
 	// are found from the oldMask, but if none are found then the setaffinity
 	// tests are skipped. Issue #27875.
+	cpu = 1
 	if !oldMask.IsSet(cpu) {
 		newMask.Zero()
 		for i := 0; i < len(oldMask); i++ {
@@ -506,33 +525,47 @@ func TestSyncFileRange(t *testing.T) {
 }
 
 func TestClockNanosleep(t *testing.T) {
-	delay := 100 * time.Millisecond
+	delay := 50 * time.Millisecond
 
 	// Relative timespec.
 	start := time.Now()
 	rel := unix.NsecToTimespec(delay.Nanoseconds())
-	err := unix.ClockNanosleep(unix.CLOCK_MONOTONIC, 0, &rel, nil)
-	if err == unix.ENOSYS || err == unix.EPERM {
-		t.Skip("clock_nanosleep syscall is not available, skipping test")
-	} else if err != nil {
-		t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) = %v", &rel, err)
-	} else if slept := time.Since(start); slept < delay {
-		t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) slept only %v", &rel, slept)
+	remain := unix.Timespec{}
+	for {
+		err := unix.ClockNanosleep(unix.CLOCK_MONOTONIC, 0, &rel, &remain)
+		if err == unix.ENOSYS || err == unix.EPERM {
+			t.Skip("clock_nanosleep syscall is not available, skipping test")
+		} else if err == unix.EINTR {
+			t.Logf("ClockNanosleep interrupted after %v", time.Since(start))
+			rel = remain
+			continue
+		} else if err != nil {
+			t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) = %v", &rel, err)
+		} else if slept := time.Since(start); slept < delay {
+			t.Errorf("ClockNanosleep(CLOCK_MONOTONIC, 0, %#v, nil) slept only %v", &rel, slept)
+		}
+		break
 	}
 
 	// Absolute timespec.
-	start = time.Now()
-	until := start.Add(delay)
-	abs := unix.NsecToTimespec(until.UnixNano())
-	err = unix.ClockNanosleep(unix.CLOCK_REALTIME, unix.TIMER_ABSTIME, &abs, nil)
-	if err != nil {
-		t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) = %v", &abs, until, err)
-	} else if slept := time.Since(start); slept < delay {
-		t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) slept only %v", &abs, until, slept)
+	for {
+		start = time.Now()
+		until := start.Add(delay)
+		abs := unix.NsecToTimespec(until.UnixNano())
+		err := unix.ClockNanosleep(unix.CLOCK_REALTIME, unix.TIMER_ABSTIME, &abs, nil)
+		if err == unix.EINTR {
+			t.Logf("ClockNanosleep interrupted after %v", time.Since(start))
+			continue
+		} else if err != nil {
+			t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) = %v", &abs, until, err)
+		} else if slept := time.Since(start); slept < delay {
+			t.Errorf("ClockNanosleep(CLOCK_REALTIME, TIMER_ABSTIME, %#v (=%v), nil) slept only %v", &abs, until, slept)
+		}
+		break
 	}
 
 	// Invalid clock. clock_nanosleep(2) says EINVAL, but it’s actually EOPNOTSUPP.
-	err = unix.ClockNanosleep(unix.CLOCK_THREAD_CPUTIME_ID, 0, &rel, nil)
+	err := unix.ClockNanosleep(unix.CLOCK_THREAD_CPUTIME_ID, 0, &rel, nil)
 	if err != unix.EINVAL && err != unix.EOPNOTSUPP {
 		t.Errorf("ClockNanosleep(CLOCK_THREAD_CPUTIME_ID, 0, %#v, nil) = %v, want EINVAL or EOPNOTSUPP", &rel, err)
 	}
@@ -610,4 +643,46 @@ func openMountByID(mountID int) (f *os.File, err error) {
 		return nil, err
 	}
 	return nil, errors.New("mountID not found")
+}
+
+func TestEpoll(t *testing.T) {
+	efd, err := unix.EpollCreate1(unix.EPOLL_CLOEXEC)
+	if err != nil {
+		t.Fatalf("EpollCreate1: %v", err)
+	}
+	defer unix.Close(efd)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	defer w.Close()
+
+	fd := int(r.Fd())
+	ev := unix.EpollEvent{Events: unix.EPOLLIN, Fd: int32(fd)}
+
+	err = unix.EpollCtl(efd, unix.EPOLL_CTL_ADD, fd, &ev)
+	if err != nil {
+		t.Fatalf("EpollCtl: %v", err)
+	}
+
+	if _, err := w.Write([]byte("HELLO GOPHER")); err != nil {
+		t.Fatal(err)
+	}
+
+	events := make([]unix.EpollEvent, 128)
+	n, err := unix.EpollWait(efd, events, 1)
+	if err != nil {
+		t.Fatalf("EpollWait: %v", err)
+	}
+
+	if n != 1 {
+		t.Errorf("EpollWait: wrong number of events: got %v, expected 1", n)
+	}
+
+	got := int(events[0].Fd)
+	if got != fd {
+		t.Errorf("EpollWait: wrong Fd in event: got %v, expected %v", got, fd)
+	}
 }

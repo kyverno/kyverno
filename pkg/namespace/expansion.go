@@ -41,6 +41,10 @@ func (nsl *NamespaceLister) ListResources(selector labels.Selector) (ret []*v1.N
 //GetResource is a wrapper to get the resource and inject the GVK
 func (nsl *NamespaceLister) GetResource(name string) (*v1.Namespace, error) {
 	namespace, err := nsl.Get(name)
+	if err != nil {
+		return nil, err
+	}
+
 	namespace.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("Namespace"))
 	return namespace, err
 }

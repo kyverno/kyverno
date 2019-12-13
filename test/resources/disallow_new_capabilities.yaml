@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+ name: add-new-capabilities
+spec:
+ containers:
+   - name: add-new-capabilities
+     image: "ubuntu:18.04"
+     command:
+       - /bin/sleep
+       - "300"
+     securityContext:
+       capabilities:
+         add:
+           - NET_ADMIN

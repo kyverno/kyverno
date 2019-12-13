@@ -7,30 +7,35 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/internal/imports"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
 	errors "golang.org/x/xerrors"
 )
 
 func (s *Server) codeAction(ctx context.Context, params *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getSourceFile(ctx, view, uri)
+	view, err := s.session.ViewOf(uri)
 	if err != nil {
 		return nil, err
 	}
+	f, err := view.GetFile(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
+	fh := snapshot.Handle(ctx, f)
 
 	// Determine the supported actions for this file kind.
-	fileKind := f.Handle(ctx).Kind()
-	supportedCodeActions, ok := s.supportedCodeActions[fileKind]
+	supportedCodeActions, ok := view.Options().SupportedCodeActions[fh.Identity().Kind]
 	if !ok {
-		return nil, fmt.Errorf("no supported code actions for %v file kind", fileKind)
+		return nil, fmt.Errorf("no supported code actions for %v file kind", fh.Identity().Kind)
 	}
 
 	// The Only field of the context specifies which code actions the client wants.
@@ -48,104 +53,91 @@ func (s *Server) codeAction(ctx context.Context, params *protocol.CodeActionPara
 		return nil, errors.Errorf("no supported code action to execute for %s, wanted %v", uri, params.Context.Only)
 	}
 
-	spn, err := m.RangeSpan(params.Range)
-	if err != nil {
-		return nil, err
-	}
-
 	var codeActions []protocol.CodeAction
-
-	edits, editsPerFix, err := organizeImports(ctx, view, spn)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the user wants to see quickfixes.
-	if wanted[protocol.QuickFix] {
-		// First, add the quick fixes reported by go/analysis.
-		// TODO: Enable this when this actually works. For now, it's needless work.
-		if s.wantSuggestedFixes {
-			gof, ok := f.(source.GoFile)
-			if !ok {
-				return nil, fmt.Errorf("%s is not a Go file", f.URI())
-			}
-			qf, err := quickFixes(ctx, view, gof)
+	switch fh.Identity().Kind {
+	case source.Mod:
+		if !wanted[protocol.SourceOrganizeImports] {
+			return nil, nil
+		}
+		codeActions = append(codeActions, protocol.CodeAction{
+			Title: "Tidy",
+			Kind:  protocol.SourceOrganizeImports,
+			Command: &protocol.Command{
+				Title:   "Tidy",
+				Command: "tidy",
+				Arguments: []interface{}{
+					f.URI(),
+				},
+			},
+		})
+	case source.Go:
+		edits, editsPerFix, err := source.AllImportsFixes(ctx, snapshot, f)
+		if err != nil {
+			return nil, err
+		}
+		if diagnostics := params.Context.Diagnostics; wanted[protocol.QuickFix] && len(diagnostics) > 0 {
+			// First, add the quick fixes reported by go/analysis.
+			qf, err := quickFixes(ctx, snapshot, f, diagnostics)
 			if err != nil {
 				log.Error(ctx, "quick fixes failed", err, telemetry.File.Of(uri))
 			}
 			codeActions = append(codeActions, qf...)
-		}
 
-		// If we also have diagnostics for missing imports, we can associate them with quick fixes.
-		if findImportErrors(params.Context.Diagnostics) {
-			// Separate this into a set of codeActions per diagnostic, where
-			// each action is the addition, removal, or renaming of one import.
-			for _, importFix := range editsPerFix {
-				// Get the diagnostics this fix would affect.
-				if fixDiagnostics := importDiagnostics(importFix.fix, params.Context.Diagnostics); len(fixDiagnostics) > 0 {
-					codeActions = append(codeActions, protocol.CodeAction{
-						Title: importFixTitle(importFix.fix),
-						Kind:  protocol.QuickFix,
-						Edit: &protocol.WorkspaceEdit{
-							Changes: &map[string][]protocol.TextEdit{
-								string(uri): importFix.edits,
+			// If we also have diagnostics for missing imports, we can associate them with quick fixes.
+			if findImportErrors(diagnostics) {
+				// Separate this into a set of codeActions per diagnostic, where
+				// each action is the addition, removal, or renaming of one import.
+				for _, importFix := range editsPerFix {
+					// Get the diagnostics this fix would affect.
+					if fixDiagnostics := importDiagnostics(importFix.Fix, diagnostics); len(fixDiagnostics) > 0 {
+						codeActions = append(codeActions, protocol.CodeAction{
+							Title: importFixTitle(importFix.Fix),
+							Kind:  protocol.QuickFix,
+							Edit: protocol.WorkspaceEdit{
+								DocumentChanges: documentChanges(fh, importFix.Edits),
 							},
-						},
-						Diagnostics: fixDiagnostics,
-					})
+							Diagnostics: fixDiagnostics,
+						})
+					}
 				}
 			}
 		}
-	}
-
-	// Add the results of import organization as source.OrganizeImports.
-	if wanted[protocol.SourceOrganizeImports] {
-		codeActions = append(codeActions, protocol.CodeAction{
-			Title: "Organize Imports",
-			Kind:  protocol.SourceOrganizeImports,
-			Edit: &protocol.WorkspaceEdit{
-				Changes: &map[string][]protocol.TextEdit{
-					string(spn.URI()): edits,
+		if wanted[protocol.SourceOrganizeImports] && len(edits) > 0 {
+			codeActions = append(codeActions, protocol.CodeAction{
+				Title: "Organize Imports",
+				Kind:  protocol.SourceOrganizeImports,
+				Edit: protocol.WorkspaceEdit{
+					DocumentChanges: documentChanges(fh, edits),
 				},
-			},
-		})
+			})
+		}
+	default:
+		// Unsupported file kind for a code action.
+		return nil, nil
 	}
-
 	return codeActions, nil
+}
+
+func (s *Server) getSupportedCodeActions() []protocol.CodeActionKind {
+	allCodeActionKinds := make(map[protocol.CodeActionKind]struct{})
+	for _, kinds := range s.session.Options().SupportedCodeActions {
+		for kind := range kinds {
+			allCodeActionKinds[kind] = struct{}{}
+		}
+	}
+	var result []protocol.CodeActionKind
+	for kind := range allCodeActionKinds {
+		result = append(result, kind)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i] < result[j]
+	})
+	return result
 }
 
 type protocolImportFix struct {
 	fix   *imports.ImportFix
 	edits []protocol.TextEdit
-}
-
-func organizeImports(ctx context.Context, view source.View, s span.Span) ([]protocol.TextEdit, []*protocolImportFix, error) {
-	f, m, rng, err := spanToRange(ctx, view, s)
-	if err != nil {
-		return nil, nil, err
-	}
-	edits, editsPerFix, err := source.AllImportsFixes(ctx, view, f, rng)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Convert all source edits to protocol edits.
-	pEdits, err := ToProtocolEdits(m, edits)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pEditsPerFix := make([]*protocolImportFix, len(editsPerFix))
-	for i, fix := range editsPerFix {
-		pEdits, err := ToProtocolEdits(m, fix.Edits)
-		if err != nil {
-			return nil, nil, err
-		}
-		pEditsPerFix[i] = &protocolImportFix{
-			fix:   fix.Fix,
-			edits: pEdits,
-		}
-	}
-	return pEdits, pEditsPerFix, nil
 }
 
 // findImports determines if a given diagnostic represents an error that could
@@ -207,44 +199,63 @@ func importDiagnostics(fix *imports.ImportFix, diagnostics []protocol.Diagnostic
 				results = append(results, diagnostic)
 			}
 		}
-
 	}
-
 	return results
 }
 
-func quickFixes(ctx context.Context, view source.View, gof source.GoFile) ([]protocol.CodeAction, error) {
+func quickFixes(ctx context.Context, snapshot source.Snapshot, f source.File, diagnostics []protocol.Diagnostic) ([]protocol.CodeAction, error) {
 	var codeActions []protocol.CodeAction
 
-	// TODO: This is technically racy because the diagnostics provided by the code action
-	// may not be the same as the ones that gopls is aware of.
-	// We need to figure out some way to solve this problem.
-	diags := gof.GetPackage(ctx).GetDiagnostics()
-	for _, diag := range diags {
-		pdiag, err := toProtocolDiagnostic(ctx, view, diag)
+	fh := snapshot.Handle(ctx, f)
+	phs, err := snapshot.PackageHandles(ctx, fh)
+	if err != nil {
+		return nil, err
+	}
+	// We get the package that source.Diagnostics would've used. This is hack.
+	// TODO(golang/go#32443): The correct solution will be to cache diagnostics per-file per-snapshot.
+	ph, err := source.WidestCheckPackageHandle(phs)
+	if err != nil {
+		return nil, err
+	}
+	for _, diag := range diagnostics {
+		// This code assumes that the analyzer name is the Source of the diagnostic.
+		// If this ever changes, this will need to be addressed.
+		srcErr, err := snapshot.FindAnalysisError(ctx, ph.ID(), diag.Source, diag.Message, diag.Range)
 		if err != nil {
-			return nil, err
+			continue
 		}
-		for _, ca := range diag.SuggestedFixes {
-			_, m, err := getGoFile(ctx, view, diag.URI())
-			if err != nil {
-				return nil, err
+		for _, fix := range srcErr.SuggestedFixes {
+			action := protocol.CodeAction{
+				Title:       fix.Title,
+				Kind:        protocol.QuickFix,
+				Diagnostics: []protocol.Diagnostic{diag},
+				Edit:        protocol.WorkspaceEdit{},
 			}
-			edits, err := ToProtocolEdits(m, ca.Edits)
-			if err != nil {
-				return nil, err
+			for uri, edits := range fix.Edits {
+				f, err := snapshot.View().GetFile(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "no file", err, telemetry.URI.Of(uri))
+					continue
+				}
+				fh := snapshot.Handle(ctx, f)
+				action.Edit.DocumentChanges = append(action.Edit.DocumentChanges, documentChanges(fh, edits)...)
 			}
-			codeActions = append(codeActions, protocol.CodeAction{
-				Title: ca.Title,
-				Kind:  protocol.QuickFix, // TODO(matloob): Be more accurate about these?
-				Edit: &protocol.WorkspaceEdit{
-					Changes: &map[string][]protocol.TextEdit{
-						string(diag.URI()): edits,
-					},
-				},
-				Diagnostics: []protocol.Diagnostic{pdiag},
-			})
+			codeActions = append(codeActions, action)
 		}
 	}
 	return codeActions, nil
+}
+
+func documentChanges(fh source.FileHandle, edits []protocol.TextEdit) []protocol.TextDocumentEdit {
+	return []protocol.TextDocumentEdit{
+		{
+			TextDocument: protocol.VersionedTextDocumentIdentifier{
+				Version: fh.Identity().Version,
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{
+					URI: protocol.NewURI(fh.Identity().URI),
+				},
+			},
+			Edits: edits,
+		},
+	}
 }

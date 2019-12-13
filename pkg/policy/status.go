@@ -111,7 +111,6 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 }
 
 func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
-	glog.V(4).Info(update)
 	var zeroDuration time.Duration
 	searchRule := func(list []RuleStatinfo, key string) *RuleStatinfo {
 		for _, v := range list {

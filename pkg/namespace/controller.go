@@ -6,16 +6,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/policystore"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	v1Informer "k8s.io/client-go/informers/core/v1"
@@ -37,16 +39,12 @@ type NamespaceController struct {
 
 	//nsLister provides expansion to the namespace lister to inject GVK for the resource
 	nsLister NamespaceListerExpansion
-	// nLsister can list/get namespaces from the shared informer's store
-	// nsLister v1CoreLister.NamespaceLister
-	// nsListerSynced returns true if the Namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
+	// nsSynced returns true if the Namespace store has been synced at least once
+	nsSynced cache.InformerSynced
 	// pvLister can list/get policy violation from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
-	// pvListerSynced retrns true if the Policy store has been synced at least once
-	pvListerSynced cache.InformerSynced
-	// pvLister can list/get policy violation from the shared informer's store
-	pvLister kyvernolister.ClusterPolicyViolationLister
+	// pSynced retrns true if the Policy store has been synced at least once
+	pSynced cache.InformerSynced
 	// API to send policy stats for aggregation
 	policyStatus policy.PolicyStatusInterface
 	// eventGen provides interface to generate evenets
@@ -55,8 +53,12 @@ type NamespaceController struct {
 	queue workqueue.RateLimitingInterface
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
-	// filter the resources defined in the list
-	filterK8Resources []utils.K8Resource
+	// helpers to validate against current loaded configuration
+	configHandler config.Interface
+	// store to hold policy meta data for faster lookup
+	pMetaStore policystore.LookupInterface
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 //NewNamespaceController returns a new Controller to manage generation rules
@@ -64,18 +66,21 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	nsInformer v1Informer.NamespaceInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	policyStatus policy.PolicyStatusInterface,
 	eventGen event.Interface,
-	filterK8Resources string) *NamespaceController {
+	configHandler config.Interface,
+	pvGenerator policyviolation.GeneratorInterface,
+	pMetaStore policystore.LookupInterface) *NamespaceController {
 	//TODO: do we need to event recorder for this controller?
 	// create the controller
 	nsc := &NamespaceController{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		eventGen:          eventGen,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
-		filterK8Resources: utils.ParseKinds(filterK8Resources),
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespace"),
+		configHandler: configHandler,
+		pMetaStore:    pMetaStore,
+		pvGenerator:   pvGenerator,
 	}
 
 	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -93,10 +98,9 @@ func NewNamespaceController(kyvernoClient *kyvernoclient.Clientset,
 	nsc.syncHandler = nsc.syncNamespace
 
 	nsc.nsLister = NewNamespaceLister(nsInformer.Lister())
-	nsc.nsListerSynced = nsInformer.Informer().HasSynced
+	nsc.nsSynced = nsInformer.Informer().HasSynced
 	nsc.pLister = pInformer.Lister()
-	nsc.pvListerSynced = pInformer.Informer().HasSynced
-	nsc.pvLister = pvInformer.Lister()
+	nsc.pSynced = pInformer.Informer().HasSynced
 	nsc.policyStatus = policyStatus
 
 	// resource manager
@@ -164,7 +168,8 @@ func (nsc *NamespaceController) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Starting namespace controller")
 	defer glog.Info("Shutting down namespace controller")
 
-	if ok := cache.WaitForCacheSync(stopCh, nsc.nsListerSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, nsc.nsSynced, nsc.pSynced); !ok {
+		glog.Error("namespace generator: failed to sync cache")
 		return
 	}
 
@@ -231,7 +236,7 @@ func (nsc *NamespaceController) syncNamespace(key string) error {
 
 	// skip processing namespace if its been filtered
 	// exclude the filtered resources
-	if utils.SkipFilteredResources("Namespace", "", namespace.Name, nsc.filterK8Resources) {
+	if nsc.configHandler.ToFilter("", namespace.Name, "") {
 		//TODO: improve the text
 		glog.V(4).Infof("excluding namespace %s as its a filtered resource", namespace.Name)
 		return nil

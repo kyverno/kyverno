@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package lsp implements LSP for gopls.
 package lsp
 
 import (
@@ -20,15 +21,18 @@ import (
 func NewClientServer(ctx context.Context, cache source.Cache, client protocol.Client) (context.Context, *Server) {
 	ctx = protocol.WithClient(ctx, client)
 	return ctx, &Server{
-		client:  client,
-		session: cache.NewSession(ctx),
+		client:    client,
+		session:   cache.NewSession(ctx),
+		delivered: make(map[span.URI]sentDiagnostics),
 	}
 }
 
 // NewServer starts an LSP server on the supplied stream, and waits until the
 // stream is closed.
 func NewServer(ctx context.Context, cache source.Cache, stream jsonrpc2.Stream) (context.Context, *Server) {
-	s := &Server{}
+	s := &Server{
+		delivered: make(map[span.URI]sentDiagnostics),
+	}
 	ctx, s.Conn, s.client = protocol.NewServer(ctx, stream, s)
 	s.session = cache.NewSession(ctx)
 	return ctx, s
@@ -76,34 +80,30 @@ type Server struct {
 	stateMu sync.Mutex
 	state   serverState
 
-	// Configurations.
-	// TODO(rstambler): Separate these into their own struct?
-	usePlaceholders               bool
-	hoverKind                     source.HoverKind
-	useDeepCompletions            bool
-	wantCompletionDocumentation   bool
-	insertTextFormat              protocol.InsertTextFormat
-	configurationSupported        bool
-	dynamicConfigurationSupported bool
-	preferredContentFormat        protocol.MarkupKind
-	disabledAnalyses              map[string]struct{}
-	wantSuggestedFixes            bool
-
-	supportedCodeActions map[source.FileKind]map[protocol.CodeActionKind]bool
-
-	textDocumentSyncKind protocol.TextDocumentSyncKind
-
 	session source.Session
 
-	// undelivered is a cache of any diagnostics that the server
-	// failed to deliver for some reason.
-	undeliveredMu sync.Mutex
-	undelivered   map[span.URI][]source.Diagnostic
+	// changedFiles tracks files for which there has been a textDocument/didChange.
+	changedFiles map[span.URI]struct{}
+
+	// folders is only valid between initialize and initialized, and holds the
+	// set of folders to build views for when we are ready
+	pendingFolders []protocol.WorkspaceFolder
+
+	// delivered is a cache of the diagnostics that the server has sent.
+	deliveredMu sync.Mutex
+	delivered   map[span.URI]sentDiagnostics
+}
+
+// sentDiagnostics is used to cache diagnostics that have been sent for a given file.
+type sentDiagnostics struct {
+	version    float64
+	identifier string
+	sorted     []source.Diagnostic
 }
 
 // General
 
-func (s *Server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+func (s *Server) Initialize(ctx context.Context, params *protocol.ParamInitialize) (*protocol.InitializeResult, error) {
 	return s.initialize(ctx, params)
 }
 
@@ -119,26 +119,30 @@ func (s *Server) Exit(ctx context.Context) error {
 	return s.exit(ctx)
 }
 
+func (s *Server) CancelRequest(ctx context.Context, params *protocol.CancelParams) error {
+	return nil
+}
+
 // Workspace
 
 func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol.DidChangeWorkspaceFoldersParams) error {
 	return s.changeFolders(ctx, params.Event)
 }
 
-func (s *Server) DidChangeConfiguration(context.Context, *protocol.DidChangeConfigurationParams) error {
-	return notImplemented("DidChangeConfiguration")
+func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
+	return s.updateConfiguration(ctx, params.Settings)
 }
 
-func (s *Server) DidChangeWatchedFiles(context.Context, *protocol.DidChangeWatchedFilesParams) error {
-	return notImplemented("DidChangeWatchedFiles")
+func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.DidChangeWatchedFilesParams) error {
+	return s.didChangeWatchedFiles(ctx, params)
 }
 
 func (s *Server) Symbol(context.Context, *protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error) {
 	return nil, notImplemented("Symbol")
 }
 
-func (s *Server) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (interface{}, error) {
-	return nil, notImplemented("ExecuteCommand")
+func (s *Server) ExecuteCommand(ctx context.Context, params *protocol.ExecuteCommandParams) (interface{}, error) {
+	return s.executeCommand(ctx, params)
 }
 
 // Text Synchronization
@@ -177,31 +181,31 @@ func (s *Server) Resolve(ctx context.Context, item *protocol.CompletionItem) (*p
 	return nil, notImplemented("completionItem/resolve")
 }
 
-func (s *Server) Hover(ctx context.Context, params *protocol.TextDocumentPositionParams) (*protocol.Hover, error) {
+func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	return s.hover(ctx, params)
 }
 
-func (s *Server) SignatureHelp(ctx context.Context, params *protocol.TextDocumentPositionParams) (*protocol.SignatureHelp, error) {
+func (s *Server) SignatureHelp(ctx context.Context, params *protocol.SignatureHelpParams) (*protocol.SignatureHelp, error) {
 	return s.signatureHelp(ctx, params)
 }
 
-func (s *Server) Definition(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.Location, error) {
+func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) (protocol.Definition, error) {
 	return s.definition(ctx, params)
 }
 
-func (s *Server) TypeDefinition(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.Location, error) {
+func (s *Server) TypeDefinition(ctx context.Context, params *protocol.TypeDefinitionParams) (protocol.Definition, error) {
 	return s.typeDefinition(ctx, params)
 }
 
-func (s *Server) Implementation(context.Context, *protocol.TextDocumentPositionParams) ([]protocol.Location, error) {
-	return nil, notImplemented("Implementation")
+func (s *Server) Implementation(ctx context.Context, params *protocol.ImplementationParams) (protocol.Definition, error) {
+	return s.implementation(ctx, params)
 }
 
 func (s *Server) References(ctx context.Context, params *protocol.ReferenceParams) ([]protocol.Location, error) {
 	return s.references(ctx, params)
 }
 
-func (s *Server) DocumentHighlight(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.DocumentHighlight, error) {
+func (s *Server) DocumentHighlight(ctx context.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
 	return s.documentHighlight(ctx, params)
 }
 
@@ -253,20 +257,25 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 	return s.rename(ctx, params)
 }
 
-func (s *Server) Declaration(context.Context, *protocol.TextDocumentPositionParams) ([]protocol.DeclarationLink, error) {
+func (s *Server) Declaration(context.Context, *protocol.DeclarationParams) (protocol.Declaration, error) {
 	return nil, notImplemented("Declaration")
 }
 
-func (s *Server) FoldingRange(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, notImplemented("FoldingRange")
+func (s *Server) FoldingRange(ctx context.Context, params *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
+	return s.foldingRange(ctx, params)
 }
 
 func (s *Server) LogTraceNotification(context.Context, *protocol.LogTraceParams) error {
 	return notImplemented("LogtraceNotification")
 }
 
-func (s *Server) PrepareRename(context.Context, *protocol.TextDocumentPositionParams) (*protocol.Range, error) {
-	return nil, notImplemented("PrepareRename")
+func (s *Server) PrepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (interface{}, error) {
+	// TODO(suzmue): support sending placeholder text.
+	return s.prepareRename(ctx, params)
+}
+
+func (s *Server) Progress(context.Context, *protocol.ProgressParams) error {
+	return notImplemented("Progress")
 }
 
 func (s *Server) SetTraceNotification(context.Context, *protocol.SetTraceParams) error {

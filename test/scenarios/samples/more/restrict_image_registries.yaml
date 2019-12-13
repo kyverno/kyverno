@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/more/restrict_image_registries.yaml
+  resource: test/resources//trusted_image_registries.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: restrict-image-registries
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: k8s-nginx
+      rules:
+        - name: validate-registries
+          type: Validation
+          success: true

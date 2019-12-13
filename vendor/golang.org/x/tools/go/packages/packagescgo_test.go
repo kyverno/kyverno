@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/testenv"
 )
 
 func TestLoadImportsC(t *testing.T) {
@@ -28,10 +29,12 @@ func TestLoadImportsC(t *testing.T) {
 		// See https://golang.org/issue/27100.
 		t.Skip(`skipping on plan9; for some reason "net [syscall.test]" is not loaded`)
 	}
+	testenv.NeedsGoPackages(t)
 
 	cfg := &packages.Config{
-		Mode:  packages.LoadImports,
-		Tests: true,
+		Context: testCtx,
+		Mode:    packages.LoadImports,
+		Tests:   true,
 	}
 	initial, err := packages.Load(cfg, "syscall", "net")
 	if err != nil {

@@ -19,18 +19,22 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/minio/minio-go/v6/pkg/s3utils"
+	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/lifecycle"
 	"github.com/minio/minio/pkg/lock"
@@ -47,6 +51,11 @@ var defaultEtag = "00000000000000000000000000000000-1"
 type FSObjects struct {
 	// Disk usage metrics
 	totalUsed uint64 // ref: https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+
+	// The count of concurrent calls on FSObjects API
+	activeIOCount int64
+	// The active IO count ceiling for crawling to work
+	maxActiveIOCount int64
 
 	// Path to be exported over S3 API.
 	fsPath string
@@ -98,6 +107,11 @@ func initMetaVolumeFS(fsPath, fsUUID string) error {
 		return err
 	}
 
+	metaStatsPath := pathJoin(fsPath, minioMetaBackgroundOpsBucket, fsUUID)
+	if err := os.MkdirAll(metaStatsPath, 0777); err != nil {
+		return err
+	}
+
 	metaMultipartPath := pathJoin(fsPath, minioMetaMultipartBucket)
 	return os.MkdirAll(metaMultipartPath, 0777)
 
@@ -115,7 +129,7 @@ func NewFSObjectLayer(fsPath string) (ObjectLayer, error) {
 		if err == errMinDiskSize {
 			return nil, err
 		}
-		return nil, uiErrUnableToWriteInBackend(err)
+		return nil, config.ErrUnableToWriteInBackend(err)
 	}
 
 	// Assign a new UUID for FS minio mode. Each server instance
@@ -145,6 +159,8 @@ func NewFSObjectLayer(fsPath string) (ObjectLayer, error) {
 		listPool:      NewTreeWalkPool(globalLookupTimeout),
 		appendFileMap: make(map[string]*fsAppendFile),
 		diskMount:     mountinfo.IsLikelyMountPoint(fsPath),
+
+		maxActiveIOCount: 10,
 	}
 
 	// Once the filesystem has initialized hold the read lock for
@@ -153,14 +169,16 @@ func NewFSObjectLayer(fsPath string) (ObjectLayer, error) {
 	// or cause changes on backend format.
 	fs.fsFormatRlk = rlk
 
-	if !fs.diskMount {
-		go fs.diskUsage(GlobalServiceDoneCh)
-	}
-
 	go fs.cleanupStaleMultipartUploads(ctx, GlobalMultipartCleanupInterval, GlobalMultipartExpiry, GlobalServiceDoneCh)
 
 	// Return successfully initialized object layer.
 	return fs, nil
+}
+
+// NewNSLock - initialize a new namespace RWLocker instance.
+func (fs *FSObjects) NewNSLock(ctx context.Context, bucket string, object string) RWLocker {
+	// lockers are explicitly 'nil' for FS mode since there are only local lockers
+	return fs.nsMutex.NewNSLock(ctx, nil, bucket, object)
 }
 
 // Shutdown - should be called when process shuts down.
@@ -171,77 +189,14 @@ func (fs *FSObjects) Shutdown(ctx context.Context) error {
 	return fsRemoveAll(ctx, pathJoin(fs.fsPath, minioMetaTmpBucket, fs.fsUUID))
 }
 
-// diskUsage returns du information for the posix path, in a continuous routine.
-func (fs *FSObjects) diskUsage(doneCh chan struct{}) {
-	usageFn := func(ctx context.Context, entry string) error {
-		if globalHTTPServer != nil {
-			// Wait at max 1 minute for an inprogress request
-			// before proceeding to count the usage.
-			waitCount := 60
-			// Any requests in progress, delay the usage.
-			for globalHTTPServer.GetRequestCount() > 0 && waitCount > 0 {
-				waitCount--
-				time.Sleep(1 * time.Second)
-			}
-		}
-
-		select {
-		case <-doneCh:
-			return errWalkAbort
-		default:
-			fi, err := os.Stat(entry)
-			if err != nil {
-				err = osErrToFSFileErr(err)
-				return err
-			}
-			atomic.AddUint64(&fs.totalUsed, uint64(fi.Size()))
-		}
-		return nil
-	}
-
-	// Return this routine upon errWalkAbort, continue for any other error on purpose
-	// so that we can start the routine freshly in another 12 hours.
-	if err := getDiskUsage(context.Background(), fs.fsPath, usageFn); err == errWalkAbort {
-		return
-	}
-
-	for {
-		select {
-		case <-doneCh:
-			return
-		case <-time.After(globalUsageCheckInterval):
-			var usage uint64
-			usageFn = func(ctx context.Context, entry string) error {
-				if globalHTTPServer != nil {
-					// Wait at max 1 minute for an inprogress request
-					// before proceeding to count the usage.
-					waitCount := 60
-					// Any requests in progress, delay the usage.
-					for globalHTTPServer.GetRequestCount() > 0 && waitCount > 0 {
-						waitCount--
-						time.Sleep(1 * time.Second)
-					}
-				}
-
-				fi, err := os.Stat(entry)
-				if err != nil {
-					err = osErrToFSFileErr(err)
-					return err
-				}
-				usage = usage + uint64(fi.Size())
-				return nil
-			}
-
-			if err := getDiskUsage(context.Background(), fs.fsPath, usageFn); err != nil {
-				continue
-			}
-			atomic.StoreUint64(&fs.totalUsed, usage)
-		}
-	}
-}
-
 // StorageInfo - returns underlying storage statistics.
 func (fs *FSObjects) StorageInfo(ctx context.Context) StorageInfo {
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	di, err := getDiskInfo(fs.fsPath)
 	if err != nil {
 		return StorageInfo{}
@@ -250,13 +205,107 @@ func (fs *FSObjects) StorageInfo(ctx context.Context) StorageInfo {
 	if !fs.diskMount {
 		used = atomic.LoadUint64(&fs.totalUsed)
 	}
+
 	storageInfo := StorageInfo{
-		Used:      used,
-		Total:     di.Total,
-		Available: di.Free,
+		Used:       []uint64{used},
+		Total:      []uint64{di.Total},
+		Available:  []uint64{di.Free},
+		MountPaths: []string{fs.fsPath},
 	}
 	storageInfo.Backend.Type = BackendFS
 	return storageInfo
+}
+
+func (fs *FSObjects) waitForLowActiveIO() error {
+	t := time.NewTicker(lowActiveIOWaitTick)
+	defer t.Stop()
+	for {
+		if atomic.LoadInt64(&fs.activeIOCount) >= fs.maxActiveIOCount {
+			select {
+			case <-GlobalServiceDoneCh:
+				return errors.New("forced exit")
+			case <-t.C:
+				continue
+			}
+		}
+		break
+	}
+
+	return nil
+
+}
+
+// crawlAndGetDataUsageInfo returns data usage stats of the current FS deployment
+func (fs *FSObjects) crawlAndGetDataUsageInfo(ctx context.Context, endCh <-chan struct{}) DataUsageInfo {
+
+	var dataUsageInfoMu sync.Mutex
+	var dataUsageInfo = DataUsageInfo{
+		BucketsSizes:          make(map[string]uint64),
+		ObjectsSizesHistogram: make(map[string]uint64),
+	}
+
+	walkFn := func(origPath string, typ os.FileMode) error {
+
+		select {
+		case <-GlobalServiceDoneCh:
+			return filepath.SkipDir
+		default:
+		}
+
+		if err := fs.waitForLowActiveIO(); err != nil {
+			return filepath.SkipDir
+		}
+
+		path := strings.TrimPrefix(origPath, fs.fsPath)
+		path = strings.TrimPrefix(path, SlashSeparator)
+
+		splits := splitN(path, SlashSeparator, 2)
+		bucket := splits[0]
+		prefix := splits[1]
+
+		if bucket == "" {
+			return nil
+		}
+
+		if isReservedOrInvalidBucket(bucket, false) {
+			return filepath.SkipDir
+		}
+
+		if prefix == "" {
+			dataUsageInfoMu.Lock()
+			dataUsageInfo.BucketsCount++
+			dataUsageInfo.BucketsSizes[bucket] = 0
+			dataUsageInfoMu.Unlock()
+			return nil
+		}
+
+		if typ&os.ModeDir != 0 {
+			return nil
+		}
+
+		// Get file size
+		fi, err := os.Stat(origPath)
+		if err != nil {
+			return nil
+		}
+		size := fi.Size()
+
+		dataUsageInfoMu.Lock()
+		dataUsageInfo.ObjectsCount++
+		dataUsageInfo.ObjectsTotalSize += uint64(size)
+		dataUsageInfo.BucketsSizes[bucket] += uint64(size)
+		dataUsageInfo.ObjectsSizesHistogram[objSizeToHistoInterval(uint64(size))]++
+		dataUsageInfoMu.Unlock()
+
+		return nil
+	}
+
+	fastWalk(fs.fsPath, walkFn)
+
+	dataUsageInfo.LastUpdate = UTCNow()
+	atomic.StoreUint64(&fs.totalUsed, dataUsageInfo.ObjectsTotalSize)
+
+	return dataUsageInfo
 }
 
 /// Bucket operations
@@ -287,7 +336,7 @@ func (fs *FSObjects) statBucketDir(ctx context.Context, bucket string) (os.FileI
 // MakeBucketWithLocation - create a new bucket, returns if it
 // already exists.
 func (fs *FSObjects) MakeBucketWithLocation(ctx context.Context, bucket, location string) error {
-	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
+	bucketLock := fs.NewNSLock(ctx, bucket, "")
 	if err := bucketLock.GetLock(globalObjectTimeout); err != nil {
 		return err
 	}
@@ -296,6 +345,12 @@ func (fs *FSObjects) MakeBucketWithLocation(ctx context.Context, bucket, locatio
 	if s3utils.CheckValidBucketNameStrict(bucket) != nil {
 		return BucketNameInvalid{Bucket: bucket}
 	}
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	bucketDir, err := fs.getBucketDir(ctx, bucket)
 	if err != nil {
 		return toObjectErr(err, bucket)
@@ -310,11 +365,17 @@ func (fs *FSObjects) MakeBucketWithLocation(ctx context.Context, bucket, locatio
 
 // GetBucketInfo - fetch bucket metadata info.
 func (fs *FSObjects) GetBucketInfo(ctx context.Context, bucket string) (bi BucketInfo, e error) {
-	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
+	bucketLock := fs.NewNSLock(ctx, bucket, "")
 	if e := bucketLock.GetRLock(globalObjectTimeout); e != nil {
 		return bi, e
 	}
 	defer bucketLock.RUnlock()
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	st, err := fs.statBucketDir(ctx, bucket)
 	if err != nil {
 		return bi, toObjectErr(err, bucket)
@@ -334,6 +395,12 @@ func (fs *FSObjects) ListBuckets(ctx context.Context) ([]BucketInfo, error) {
 		logger.LogIf(ctx, err)
 		return nil, err
 	}
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	var bucketInfos []BucketInfo
 	entries, err := readDir((fs.fsPath))
 	if err != nil {
@@ -373,12 +440,18 @@ func (fs *FSObjects) ListBuckets(ctx context.Context) ([]BucketInfo, error) {
 // DeleteBucket - delete a bucket and all the metadata associated
 // with the bucket including pending multipart, object metadata.
 func (fs *FSObjects) DeleteBucket(ctx context.Context, bucket string) error {
-	bucketLock := fs.nsMutex.NewNSLock(ctx, bucket, "")
+	bucketLock := fs.NewNSLock(ctx, bucket, "")
 	if err := bucketLock.GetLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return err
 	}
 	defer bucketLock.Unlock()
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	bucketDir, err := fs.getBucketDir(ctx, bucket)
 	if err != nil {
 		return toObjectErr(err, bucket)
@@ -409,12 +482,17 @@ func (fs *FSObjects) DeleteBucket(ctx context.Context, bucket string) error {
 func (fs *FSObjects) CopyObject(ctx context.Context, srcBucket, srcObject, dstBucket, dstObject string, srcInfo ObjectInfo, srcOpts, dstOpts ObjectOptions) (oi ObjectInfo, e error) {
 	cpSrcDstSame := isStringEqual(pathJoin(srcBucket, srcObject), pathJoin(dstBucket, dstObject))
 	if !cpSrcDstSame {
-		objectDWLock := fs.nsMutex.NewNSLock(ctx, dstBucket, dstObject)
+		objectDWLock := fs.NewNSLock(ctx, dstBucket, dstObject)
 		if err := objectDWLock.GetLock(globalObjectTimeout); err != nil {
 			return oi, err
 		}
 		defer objectDWLock.Unlock()
 	}
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
 
 	if _, err := fs.statBucketDir(ctx, srcBucket); err != nil {
 		return oi, toObjectErr(err, srcBucket)
@@ -473,6 +551,11 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 		return nil, err
 	}
 
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	if _, err = fs.statBucketDir(ctx, bucket); err != nil {
 		return nil, toObjectErr(err, bucket)
 	}
@@ -481,7 +564,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 
 	if lockType != noLock {
 		// Lock the object before reading.
-		lock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+		lock := fs.NewNSLock(ctx, bucket, object)
 		switch lockType {
 		case writeLock:
 			if err = lock.GetLock(globalObjectTimeout); err != nil {
@@ -505,7 +588,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 		return nil, toObjectErr(err, bucket, object)
 	}
 	// For a directory, we need to send an reader that returns no bytes.
-	if hasSuffix(object, SlashSeparator) {
+	if HasSuffix(object, SlashSeparator) {
 		// The lock taken above is released when
 		// objReader.Close() is called by the caller.
 		return NewGetObjectReaderFromReader(bytes.NewBuffer(nil), objInfo, opts.CheckCopyPrecondFn, nsUnlocker)
@@ -546,7 +629,7 @@ func (fs *FSObjects) GetObjectNInfo(ctx context.Context, bucket, object string, 
 	// Check if range is valid
 	if off > size || off+length > size {
 		err = InvalidRange{off, length, size}
-		logger.LogIf(ctx, err)
+		logger.LogIf(ctx, err, logger.Application)
 		closeFn()
 		rwPoolUnlocker()
 		nsUnlocker()
@@ -568,12 +651,18 @@ func (fs *FSObjects) GetObject(ctx context.Context, bucket, object string, offse
 	}
 
 	// Lock the object before reading.
-	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+	objectLock := fs.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return err
 	}
 	defer objectLock.RUnlock()
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	return fs.getObject(ctx, bucket, object, offset, length, writer, etag, true)
 }
 
@@ -585,18 +674,18 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 
 	// Offset cannot be negative.
 	if offset < 0 {
-		logger.LogIf(ctx, errUnexpected)
+		logger.LogIf(ctx, errUnexpected, logger.Application)
 		return toObjectErr(errUnexpected, bucket, object)
 	}
 
 	// Writer cannot be nil.
 	if writer == nil {
-		logger.LogIf(ctx, errUnexpected)
+		logger.LogIf(ctx, errUnexpected, logger.Application)
 		return toObjectErr(errUnexpected, bucket, object)
 	}
 
 	// If its a directory request, we return an empty body.
-	if hasSuffix(object, SlashSeparator) {
+	if HasSuffix(object, SlashSeparator) {
 		_, err = writer.Write([]byte(""))
 		logger.LogIf(ctx, err)
 		return toObjectErr(err, bucket, object)
@@ -620,7 +709,7 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 			return toObjectErr(perr, bucket, object)
 		}
 		if objEtag != etag {
-			logger.LogIf(ctx, InvalidETag{})
+			logger.LogIf(ctx, InvalidETag{}, logger.Application)
 			return toObjectErr(InvalidETag{}, bucket, object)
 		}
 	}
@@ -646,7 +735,7 @@ func (fs *FSObjects) getObject(ctx context.Context, bucket, object string, offse
 	// Reply back invalid range if the input offset and length fall out of range.
 	if offset > size || offset+length > size {
 		err = InvalidRange{offset, length, size}
-		logger.LogIf(ctx, err)
+		logger.LogIf(ctx, err, logger.Application)
 		return err
 	}
 
@@ -690,7 +779,7 @@ func (fs *FSObjects) defaultFsJSON(object string) fsMetaV1 {
 // getObjectInfo - wrapper for reading object metadata and constructs ObjectInfo.
 func (fs *FSObjects) getObjectInfo(ctx context.Context, bucket, object string) (oi ObjectInfo, e error) {
 	fsMeta := fsMetaV1{}
-	if hasSuffix(object, SlashSeparator) {
+	if HasSuffix(object, SlashSeparator) {
 		fi, err := fsStatDir(ctx, pathJoin(fs.fsPath, bucket, object))
 		if err != nil {
 			return oi, err
@@ -736,7 +825,7 @@ func (fs *FSObjects) getObjectInfo(ctx context.Context, bucket, object string) (
 // getObjectInfoWithLock - reads object metadata and replies back ObjectInfo.
 func (fs *FSObjects) getObjectInfoWithLock(ctx context.Context, bucket, object string) (oi ObjectInfo, e error) {
 	// Lock the object before reading.
-	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+	objectLock := fs.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetRLock(globalObjectTimeout); err != nil {
 		return oi, err
 	}
@@ -759,9 +848,15 @@ func (fs *FSObjects) getObjectInfoWithLock(ctx context.Context, bucket, object s
 
 // GetObjectInfo - reads object metadata and replies back ObjectInfo.
 func (fs *FSObjects) GetObjectInfo(ctx context.Context, bucket, object string, opts ObjectOptions) (oi ObjectInfo, e error) {
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	oi, err := fs.getObjectInfoWithLock(ctx, bucket, object)
 	if err == errCorruptedFormat || err == io.EOF {
-		objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+		objectLock := fs.NewNSLock(ctx, bucket, object)
 		if err = objectLock.GetLock(globalObjectTimeout); err != nil {
 			return oi, toObjectErr(err, bucket, object)
 		}
@@ -807,12 +902,17 @@ func (fs *FSObjects) PutObject(ctx context.Context, bucket string, object string
 		return ObjectInfo{}, err
 	}
 	// Lock the object.
-	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+	objectLock := fs.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetLock(globalObjectTimeout); err != nil {
 		logger.LogIf(ctx, err)
 		return objInfo, err
 	}
 	defer objectLock.Unlock()
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
 
 	return fs.putObject(ctx, bucket, object, r, opts)
 }
@@ -862,7 +962,7 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 
 	// Validate input data size and it can never be less than zero.
 	if data.Size() < -1 {
-		logger.LogIf(ctx, errInvalidArgument)
+		logger.LogIf(ctx, errInvalidArgument, logger.Application)
 		return ObjectInfo{}, errInvalidArgument
 	}
 
@@ -923,7 +1023,7 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 	fsNSObjPath := pathJoin(fs.fsPath, bucket, object)
 	// Deny if WORM is enabled
 	if globalWORMEnabled {
-		if _, err = fsStatFile(ctx, fsNSObjPath); err == nil {
+		if _, err := fsStatFile(ctx, fsNSObjPath); err == nil {
 			return ObjectInfo{}, ObjectAlreadyExists{Bucket: bucket, Object: object}
 		}
 	}
@@ -962,7 +1062,7 @@ func (fs *FSObjects) DeleteObjects(ctx context.Context, bucket string, objects [
 // and there are no rollbacks supported.
 func (fs *FSObjects) DeleteObject(ctx context.Context, bucket, object string) error {
 	// Acquire a write lock before deleting the object.
-	objectLock := fs.nsMutex.NewNSLock(ctx, bucket, object)
+	objectLock := fs.NewNSLock(ctx, bucket, object)
 	if err := objectLock.GetLock(globalOperationTimeout); err != nil {
 		return err
 	}
@@ -971,6 +1071,11 @@ func (fs *FSObjects) DeleteObject(ctx context.Context, bucket, object string) er
 	if err := checkDelObjArgs(ctx, bucket, object); err != nil {
 		return err
 	}
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
 
 	if _, err := fs.statBucketDir(ctx, bucket); err != nil {
 		return toObjectErr(err, bucket)
@@ -1092,18 +1197,30 @@ func (fs *FSObjects) getObjectETag(ctx context.Context, bucket, entry string, lo
 		return "", toObjectErr(err, bucket, entry)
 	}
 
+	var fsMeta fsMetaV1
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	if err = json.Unmarshal(fsMetaBuf, &fsMeta); err != nil {
+		return "", err
+	}
+
 	// Check if FS metadata is valid, if not return error.
-	if !isFSMetaValid(parseFSVersion(fsMetaBuf)) {
+	if !isFSMetaValid(fsMeta.Version) {
 		logger.LogIf(ctx, errCorruptedFormat)
 		return "", toObjectErr(errCorruptedFormat, bucket, entry)
 	}
 
-	return extractETag(parseFSMetaMap(fsMetaBuf)), nil
+	return extractETag(fsMeta.Meta), nil
 }
 
 // ListObjects - list all objects at prefix upto maxKeys., optionally delimited by '/'. Maintains the list pool
 // state for future re-entrant list requests.
 func (fs *FSObjects) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (loi ListObjectsInfo, e error) {
+
+	atomic.AddInt64(&fs.activeIOCount, 1)
+	defer func() {
+		atomic.AddInt64(&fs.activeIOCount, -1)
+	}()
+
 	return listObjects(ctx, fs, bucket, prefix, marker, delimiter, maxKeys, fs.listPool,
 		fs.listDirFactory(), fs.getObjectInfo, fs.getObjectInfo)
 }
@@ -1150,6 +1267,12 @@ func (fs *FSObjects) ListBucketsHeal(ctx context.Context) ([]BucketInfo, error) 
 func (fs *FSObjects) ListObjectsHeal(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result ListObjectsInfo, err error) {
 	logger.LogIf(ctx, NotImplemented{})
 	return ListObjectsInfo{}, NotImplemented{}
+}
+
+// GetMetrics - no op
+func (fs *FSObjects) GetMetrics(ctx context.Context) (*Metrics, error) {
+	logger.LogIf(ctx, NotImplemented{})
+	return &Metrics{}, NotImplemented{}
 }
 
 // SetBucketPolicy sets policy on bucket

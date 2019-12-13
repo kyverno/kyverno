@@ -15,6 +15,7 @@ import (
 	github_com_gogo_protobuf_test_casttype "github.com/gogo/protobuf/test/casttype"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -28,7 +29,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type Castaway struct {
 	Int32Ptr             *int32                                                                                                      `protobuf:"varint,1,opt,name=Int32Ptr,casttype=int32" json:"Int32Ptr,omitempty"`
@@ -1053,7 +1054,7 @@ func valueToGoStringCasttype(v interface{}, typ string) string {
 }
 func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 	this := &Castaway{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := int32(r.Int63())
 		if r.Intn(2) == 0 {
 			v1 *= -1
@@ -1064,12 +1065,12 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 	if r.Intn(2) == 0 {
 		this.Int32 *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := github_com_gogo_protobuf_test_casttype.MyUint64Type(uint64(r.Uint32()))
 		this.MyUint64Ptr = &v2
 	}
 	this.MyUint64 = github_com_gogo_protobuf_test_casttype.MyUint64Type(uint64(r.Uint32()))
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := github_com_gogo_protobuf_test_casttype.MyFloat32Type(r.Float32())
 		if r.Intn(2) == 0 {
 			v3 *= -1
@@ -1080,7 +1081,7 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 	if r.Intn(2) == 0 {
 		this.MyFloat32 *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := github_com_gogo_protobuf_test_casttype.MyFloat64Type(r.Float64())
 		if r.Intn(2) == 0 {
 			v4 *= -1
@@ -1091,28 +1092,28 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 	if r.Intn(2) == 0 {
 		this.MyFloat64 *= -1
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := r.Intn(100)
 		this.MyBytes = make(github_com_gogo_protobuf_test_casttype.Bytes, v5)
 		for i := 0; i < v5; i++ {
 			this.MyBytes[i] = byte(r.Intn(256))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := r.Intn(100)
 		this.NormalBytes = make([]byte, v6)
 		for i := 0; i < v6; i++ {
 			this.NormalBytes[i] = byte(r.Intn(256))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := r.Intn(10)
 		this.MyUint64S = make([]github_com_gogo_protobuf_test_casttype.MyUint64Type, v7)
 		for i := 0; i < v7; i++ {
 			this.MyUint64S[i] = github_com_gogo_protobuf_test_casttype.MyUint64Type(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v8 := r.Intn(10)
 		this.MyMap = make(github_com_gogo_protobuf_test_casttype.MyMapType)
 		for i := 0; i < v8; i++ {
@@ -1120,7 +1121,7 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 			this.MyMap[v9] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v10 := r.Intn(10)
 		this.MyCustomMap = make(map[github_com_gogo_protobuf_test_casttype.MyStringType]github_com_gogo_protobuf_test_casttype.MyUint64Type)
 		for i := 0; i < v10; i++ {
@@ -1128,21 +1129,21 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 			this.MyCustomMap[v11] = github_com_gogo_protobuf_test_casttype.MyUint64Type(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v12 := r.Intn(10)
 		this.MyNullableMap = make(map[github_com_gogo_protobuf_test_casttype.MyInt32Type]*Wilson)
 		for i := 0; i < v12; i++ {
 			this.MyNullableMap[github_com_gogo_protobuf_test_casttype.MyInt32Type(int32(r.Int31()))] = NewPopulatedWilson(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := r.Intn(10)
 		this.MyEmbeddedMap = make(map[github_com_gogo_protobuf_test_casttype.MyInt32Type]Wilson)
 		for i := 0; i < v13; i++ {
 			this.MyEmbeddedMap[github_com_gogo_protobuf_test_casttype.MyInt32Type(int32(r.Int31()))] = *NewPopulatedWilson(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v14 := github_com_gogo_protobuf_test_casttype.MyStringType(randStringCasttype(r))
 		this.String_ = &v14
 	}
@@ -1154,7 +1155,7 @@ func NewPopulatedCastaway(r randyCasttype, easy bool) *Castaway {
 
 func NewPopulatedWilson(r randyCasttype, easy bool) *Wilson {
 	this := &Wilson{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v15 *= -1
@@ -1338,14 +1339,7 @@ func (m *Wilson) Size() (n int) {
 }
 
 func sovCasttype(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozCasttype(x uint64) (n int) {
 	return sovCasttype(uint64((x << 1) ^ uint64((int64(x) >> 63))))

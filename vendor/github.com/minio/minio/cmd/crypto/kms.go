@@ -72,6 +72,9 @@ func (c Context) WriteTo(w io.Writer) (n int64, err error) {
 // data key generation and unsealing of KMS-generated
 // data keys.
 type KMS interface {
+	// KeyID - returns configured KMS key id.
+	KeyID() string
+
 	// GenerateKey generates a new random data key using
 	// the master key referenced by the keyID. It returns
 	// the plaintext key and the sealed plaintext key
@@ -99,17 +102,32 @@ type KMS interface {
 	// keys this method may behave like a NOP and just return the sealedKey
 	// itself.
 	UpdateKey(keyID string, sealedKey []byte, context Context) (rotatedKey []byte, err error)
+
+	// Returns KMSInfo
+	Info() (kmsInfo KMSInfo)
 }
 
 type masterKeyKMS struct {
+	keyID     string
 	masterKey [32]byte
 }
 
-// NewKMS returns a basic KMS implementation from a single 256 bit master key.
+// KMSInfo stores the details of KMS
+type KMSInfo struct {
+	Endpoint string
+	Name     string
+	AuthType string
+}
+
+// NewMasterKey returns a basic KMS implementation from a single 256 bit master key.
 //
 // The KMS accepts any keyID but binds the keyID and context cryptographically
 // to the generated keys.
-func NewKMS(key [32]byte) KMS { return &masterKeyKMS{masterKey: key} }
+func NewMasterKey(keyID string, key [32]byte) KMS { return &masterKeyKMS{keyID: keyID, masterKey: key} }
+
+func (kms *masterKeyKMS) KeyID() string {
+	return kms.keyID
+}
 
 func (kms *masterKeyKMS) GenerateKey(keyID string, ctx Context) (key [32]byte, sealedKey []byte, err error) {
 	if _, err = io.ReadFull(rand.Reader, key[:]); err != nil {
@@ -125,6 +143,15 @@ func (kms *masterKeyKMS) GenerateKey(keyID string, ctx Context) (key [32]byte, s
 	}
 	sealedKey = buffer.Bytes()
 	return key, sealedKey, nil
+}
+
+// KMS is configured directly using master key
+func (kms *masterKeyKMS) Info() (info KMSInfo) {
+	return KMSInfo{
+		Endpoint: "",
+		Name:     "",
+		AuthType: "master-key",
+	}
 }
 
 func (kms *masterKeyKMS) UnsealKey(keyID string, sealedKey []byte, ctx Context) (key [32]byte, err error) {

@@ -29,8 +29,10 @@ type StorageAPI interface {
 	IsOnline() bool // Returns true if disk is online.
 	LastError() error
 	Close() error
+	SetDiskID(id string)
 
 	DiskInfo() (info DiskInfo, err error)
+	CrawlAndGetDataUsage(endCh <-chan struct{}) (DataUsageInfo, error)
 
 	// Volume operations.
 	MakeVol(volume string) (err error)
@@ -52,7 +54,7 @@ type StorageAPI interface {
 	StatFile(volume string, path string) (file FileInfo, err error)
 	DeleteFile(volume string, path string) (err error)
 	DeleteFileBulk(volume string, paths []string) (errs []error, err error)
-	VerifyFile(volume, path string, empty bool, algo BitrotAlgorithm, sum []byte, shardSize int64) error
+	VerifyFile(volume, path string, size int64, algo BitrotAlgorithm, sum []byte, shardSize int64) error
 
 	// Write all data, syncs the data to disk.
 	WriteAll(volume string, path string, reader io.Reader) (err error)

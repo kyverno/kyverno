@@ -20,7 +20,7 @@ func TestMarker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const expectNotes = 11
+	const expectNotes = 13
 	expectMarkers := map[string]string{
 		"αSimpleMarker": "α",
 		"OffsetMarker":  "β",
@@ -30,7 +30,9 @@ func TestMarker(t *testing.T) {
 		"ηBlockMarker":  "η",
 		"Declared":      "η",
 		"Comment":       "ι",
+		"LineComment":   "someFunc",
 		"NonIdentifier": "+",
+		"StringMarker":  "\"hello\"",
 	}
 	expectChecks := map[string][]interface{}{
 		"αSimpleMarker": nil,
@@ -43,7 +45,7 @@ func TestMarker(t *testing.T) {
 	for name, tok := range expectMarkers {
 		offset := bytes.Index(content, []byte(tok))
 		markers[name] = token.Pos(offset + 1)
-		end := bytes.Index(content[offset+1:], []byte(tok))
+		end := bytes.Index(content[offset:], []byte(tok))
 		if end > 0 {
 			markers[name+"@"] = token.Pos(offset + end + 2)
 		}

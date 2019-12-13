@@ -1,0 +1,17 @@
+# file path relative to project root
+input:
+  policy: samples/more/restrict_automount_sa_token.yaml
+  resource: test/resources/disallow_automountingapicred.yaml
+expected:
+  validation:
+    policyresponse:
+      policy: restrict-automount-sa-token
+      resource:
+        kind: Pod
+        apiVersion: v1
+        namespace: ''
+        name: myapp-pod
+      rules:
+        - name: validate-automountServiceAccountToken
+          type: Validation
+          success: true 

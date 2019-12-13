@@ -1,6 +1,12 @@
 package config
 
-import "flag"
+import (
+	"flag"
+
+	"github.com/golang/glog"
+	rest "k8s.io/client-go/rest"
+	clientcmd "k8s.io/client-go/tools/clientcmd"
+)
 
 const (
 	// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -14,6 +20,10 @@ const (
 	// ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
 	// ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
 	// ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
+
+	VerifyMutatingWebhookConfigurationName      = "kyverno-verify-mutating-webhook-cfg"
+	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
+	VerifyMutatingWebhookName                   = "nirmata.kyverno.verify-mutating-webhook"
 
 	PolicyValidatingWebhookConfigurationName      = "kyverno-policy-validating-webhook-cfg"
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
@@ -36,6 +46,7 @@ var (
 	ValidatingWebhookServicePath       = "/validate"
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	PolicyMutatingWebhookServicePath   = "/policymutate"
+	VerifyMutatingWebhookServicePath   = "/verifymutate"
 
 	SupportedKinds = []string{
 		"ConfigMap",
@@ -64,4 +75,14 @@ func LogDefaultFlags() {
 	flag.Set("logtostderr", "true")
 	flag.Set("stderrthreshold", "WARNING")
 	flag.Set("v", "2")
+}
+
+//CreateClientConfig creates client config
+func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
+	if kubeconfig == "" {
+		glog.Info("Using in-cluster configuration")
+		return rest.InClusterConfig()
+	}
+	glog.Infof("Using configuration from '%s'", kubeconfig)
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

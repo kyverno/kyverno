@@ -12,42 +12,41 @@ import (
 	"golang.org/x/tools/internal/span"
 )
 
-func (s *Server) hover(ctx context.Context, params *protocol.TextDocumentPositionParams) (*protocol.Hover, error) {
+func (s *Server) hover(ctx context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
+	view, err := s.session.ViewOf(uri)
 	if err != nil {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
+	snapshot := view.Snapshot()
+	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	identRange, err := spn.Range(m.Converter)
-	if err != nil {
-		return nil, err
+	if f.Kind() != source.Go {
+		return nil, nil
 	}
-	ident, err := source.Identifier(ctx, f, identRange.Start)
+	ident, err := source.Identifier(ctx, snapshot, f, params.Position, source.WidestCheckPackageHandle)
 	if err != nil {
 		return nil, nil
 	}
-	hover, err := ident.Hover(ctx, s.preferredContentFormat == protocol.Markdown, s.hoverKind)
+	h, err := ident.Hover(ctx)
 	if err != nil {
 		return nil, err
 	}
-	identSpan, err := ident.Range.Span()
+	rng, err := ident.Range()
 	if err != nil {
 		return nil, err
 	}
-	rng, err := m.Range(identSpan)
+	hover, err := source.FormatHover(h, view.Options())
 	if err != nil {
 		return nil, err
 	}
 	return &protocol.Hover{
 		Contents: protocol.MarkupContent{
-			Kind:  s.preferredContentFormat,
+			Kind:  view.Options().PreferredContentFormat,
 			Value: hover,
 		},
-		Range: &rng,
+		Range: rng,
 	}, nil
 }

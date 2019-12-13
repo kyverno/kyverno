@@ -17,6 +17,7 @@ import (
 	github_com_gogo_protobuf_test_custom_dash_type "github.com/gogo/protobuf/test/custom-dash-type"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	sort "sort"
 	strconv "strconv"
@@ -32,7 +33,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type TheTestEnum int32
 
@@ -272,7 +273,7 @@ func (m *NidOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +326,7 @@ func (m *NinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +379,7 @@ func (m *NidRepNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidRepNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -431,7 +432,7 @@ func (m *NinRepNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinRepNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -482,7 +483,7 @@ func (m *NidRepPackedNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_NidRepPackedNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -533,7 +534,7 @@ func (m *NinRepPackedNative) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_NinRepPackedNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -581,7 +582,7 @@ func (m *NidOptStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidOptStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -629,7 +630,7 @@ func (m *NinOptStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinOptStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -677,7 +678,7 @@ func (m *NidRepStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidRepStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -725,7 +726,7 @@ func (m *NinRepStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinRepStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -766,7 +767,7 @@ func (m *NidEmbeddedStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NidEmbeddedStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -807,7 +808,7 @@ func (m *NinEmbeddedStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NinEmbeddedStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -847,7 +848,7 @@ func (m *NidNestedStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_NidNestedStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -887,7 +888,7 @@ func (m *NinNestedStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_NinNestedStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -927,7 +928,7 @@ func (m *NidOptCustom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidOptCustom.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -966,7 +967,7 @@ func (m *CustomDash) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_CustomDash.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1006,7 +1007,7 @@ func (m *NinOptCustom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinOptCustom.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1046,7 +1047,7 @@ func (m *NidRepCustom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NidRepCustom.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1086,7 +1087,7 @@ func (m *NinRepCustom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_NinRepCustom.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1133,7 +1134,7 @@ func (m *NinOptNativeUnion) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NinOptNativeUnion.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1180,7 +1181,7 @@ func (m *NinOptStructUnion) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NinOptStructUnion.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1221,7 +1222,7 @@ func (m *NinEmbeddedStructUnion) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_NinEmbeddedStructUnion.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1262,7 +1263,7 @@ func (m *NinNestedStructUnion) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_NinNestedStructUnion.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1303,7 +1304,7 @@ func (m *Tree) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Tree.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1343,7 +1344,7 @@ func (m *OrBranch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_OrBranch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1383,7 +1384,7 @@ func (m *AndBranch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_AndBranch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1423,7 +1424,7 @@ func (m *Leaf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Leaf.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1464,7 +1465,7 @@ func (m *DeepTree) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_DeepTree.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1503,7 +1504,7 @@ func (m *ADeepBranch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_ADeepBranch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1543,7 +1544,7 @@ func (m *AndDeepBranch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_AndDeepBranch.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1582,7 +1583,7 @@ func (m *DeepLeaf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_DeepLeaf.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1620,7 +1621,7 @@ func (m *Nil) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Nil.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1659,7 +1660,7 @@ func (m *NidOptEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NidOptEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1700,7 +1701,7 @@ func (m *NinOptEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NinOptEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1741,7 +1742,7 @@ func (m *NidRepEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NidRepEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1782,7 +1783,7 @@ func (m *NinRepEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NinRepEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1823,7 +1824,7 @@ func (m *NinOptEnumDefault) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NinOptEnumDefault.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1889,7 +1890,7 @@ func (m *AnotherNinOptEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_AnotherNinOptEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1930,7 +1931,7 @@ func (m *AnotherNinOptEnumDefault) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_AnotherNinOptEnumDefault.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1996,7 +1997,7 @@ func (m *Timer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Timer.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2045,7 +2046,7 @@ func (m *MyExtendable) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_MyExtendable.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2097,7 +2098,7 @@ func (m *OtherExtenable) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_OtherExtenable.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2139,7 +2140,7 @@ func (m *NestedDefinition) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_NestedDefinition.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2179,7 +2180,7 @@ func (m *NestedDefinition_NestedMessage) XXX_Marshal(b []byte, deterministic boo
 		return xxx_messageInfo_NestedDefinition_NestedMessage.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2220,7 +2221,7 @@ func (m *NestedDefinition_NestedMessage_NestedNestedMsg) XXX_Marshal(b []byte, d
 		return xxx_messageInfo_NestedDefinition_NestedMessage_NestedNestedMsg.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2261,7 +2262,7 @@ func (m *NestedScope) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_NestedScope.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2314,7 +2315,7 @@ func (m *NinOptNativeDefault) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_NinOptNativeDefault.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2473,7 +2474,7 @@ func (m *CustomContainer) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_CustomContainer.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2526,7 +2527,7 @@ func (m *CustomNameNidOptNative) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_CustomNameNidOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2579,7 +2580,7 @@ func (m *CustomNameNinOptNative) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_CustomNameNinOptNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2632,7 +2633,7 @@ func (m *CustomNameNinRepNative) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_CustomNameNinRepNative.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2680,7 +2681,7 @@ func (m *CustomNameNinStruct) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_CustomNameNinStruct.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2722,7 +2723,7 @@ func (m *CustomNameCustomType) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_CustomNameCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2763,7 +2764,7 @@ func (m *CustomNameNinEmbeddedStructUnion) XXX_Marshal(b []byte, deterministic b
 		return xxx_messageInfo_CustomNameNinEmbeddedStructUnion.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2803,7 +2804,7 @@ func (m *CustomNameEnum) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_CustomNameEnum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2858,7 +2859,7 @@ func (m *NoExtensionsMap) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_NoExtensionsMap.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2896,7 +2897,7 @@ func (m *Unrecognized) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_Unrecognized.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2936,7 +2937,7 @@ func (m *UnrecognizedWithInner) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_UnrecognizedWithInner.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2974,7 +2975,7 @@ func (m *UnrecognizedWithInner_Inner) XXX_Marshal(b []byte, deterministic bool) 
 		return xxx_messageInfo_UnrecognizedWithInner_Inner.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3014,7 +3015,7 @@ func (m *UnrecognizedWithEmbed) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_UnrecognizedWithEmbed.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3052,7 +3053,7 @@ func (m *UnrecognizedWithEmbed_Embedded) XXX_Marshal(b []byte, deterministic boo
 		return xxx_messageInfo_UnrecognizedWithEmbed_Embedded.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3092,7 +3093,7 @@ func (m *Node) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Node.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3131,7 +3132,7 @@ func (m *NonByteCustomType) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_NonByteCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3170,7 +3171,7 @@ func (m *NidOptNonByteCustomType) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_NidOptNonByteCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3209,7 +3210,7 @@ func (m *NinOptNonByteCustomType) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_NinOptNonByteCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3248,7 +3249,7 @@ func (m *NidRepNonByteCustomType) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_NidRepNonByteCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3287,7 +3288,7 @@ func (m *NinRepNonByteCustomType) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_NinRepNonByteCustomType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3326,7 +3327,7 @@ func (m *ProtoType) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ProtoType.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -20797,16 +20798,16 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field2: "+fmt.Sprintf("%#v", this.Field2)+",\n")
 	}
 	if this.Field3 != nil {
-		vs := make([]*NidOptNative, len(this.Field3))
+		vs := make([]NidOptNative, len(this.Field3))
 		for i := range vs {
-			vs[i] = &this.Field3[i]
+			vs[i] = this.Field3[i]
 		}
 		s = append(s, "Field3: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.Field4 != nil {
-		vs := make([]*NinOptNative, len(this.Field4))
+		vs := make([]NinOptNative, len(this.Field4))
 		for i := range vs {
-			vs[i] = &this.Field4[i]
+			vs[i] = this.Field4[i]
 		}
 		s = append(s, "Field4: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -20817,9 +20818,9 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field7: "+fmt.Sprintf("%#v", this.Field7)+",\n")
 	}
 	if this.Field8 != nil {
-		vs := make([]*NidOptNative, len(this.Field8))
+		vs := make([]NidOptNative, len(this.Field8))
 		for i := range vs {
-			vs[i] = &this.Field8[i]
+			vs[i] = this.Field8[i]
 		}
 		s = append(s, "Field8: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -20926,9 +20927,9 @@ func (this *NidNestedStruct) GoString() string {
 	s = append(s, "&test.NidNestedStruct{")
 	s = append(s, "Field1: "+strings.Replace(this.Field1.GoString(), `&`, ``, 1)+",\n")
 	if this.Field2 != nil {
-		vs := make([]*NidRepStruct, len(this.Field2))
+		vs := make([]NidRepStruct, len(this.Field2))
 		for i := range vs {
-			vs[i] = &this.Field2[i]
+			vs[i] = this.Field2[i]
 		}
 		s = append(s, "Field2: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
@@ -22104,7 +22105,7 @@ func extensionToGoStringThetest(m github_com_gogo_protobuf_proto.Message) string
 func (m *NidOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22112,80 +22113,88 @@ func (m *NidOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x9
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
-	i += 8
-	dAtA[i] = 0x15
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
-	i += 4
-	dAtA[i] = 0x18
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field3))
-	dAtA[i] = 0x20
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field4))
-	dAtA[i] = 0x28
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field5))
-	dAtA[i] = 0x30
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field6))
-	dAtA[i] = 0x38
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
-	dAtA[i] = 0x40
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
-	dAtA[i] = 0x4d
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9))
-	i += 4
-	dAtA[i] = 0x55
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10))
-	i += 4
-	dAtA[i] = 0x59
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11))
-	i += 8
-	dAtA[i] = 0x61
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12))
-	i += 8
-	dAtA[i] = 0x68
-	i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
+	}
+	i -= len(m.Field14)
+	copy(dAtA[i:], m.Field14)
+	i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14)))
+	i--
+	dAtA[i] = 0x72
+	i--
 	if m.Field13 {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	dAtA[i] = 0x72
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14)))
-	i += copy(dAtA[i:], m.Field14)
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	i--
+	dAtA[i] = 0x68
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12))
+	i--
+	dAtA[i] = 0x61
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11))
+	i--
+	dAtA[i] = 0x59
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10))
+	i--
+	dAtA[i] = 0x55
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9))
+	i--
+	dAtA[i] = 0x4d
+	i = encodeVarintThetest(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
+	i--
+	dAtA[i] = 0x40
+	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
+	i--
+	dAtA[i] = 0x38
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field6))
+	i--
+	dAtA[i] = 0x30
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field5))
+	i--
+	dAtA[i] = 0x28
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field4))
+	i--
+	dAtA[i] = 0x20
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field3))
+	i--
+	dAtA[i] = 0x18
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
+	i--
+	dAtA[i] = 0x15
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
+	i--
+	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22193,108 +22202,116 @@ func (m *NinOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
-	}
-	if m.Field4 != nil {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
-	}
-	if m.Field5 != nil {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
-	}
-	if m.Field6 != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
-	}
-	if m.Field7 != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
-	}
-	if m.Field8 != nil {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
-	}
-	if m.Field9 != nil {
-		dAtA[i] = 0x4d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
-		i += 4
-	}
-	if m.Field10 != nil {
-		dAtA[i] = 0x55
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
-		i += 4
-	}
-	if m.Field11 != nil {
-		dAtA[i] = 0x59
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
-		i += 8
-	}
-	if m.Field12 != nil {
-		dAtA[i] = 0x61
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
-		i += 8
+	if m.Field14 != nil {
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+	if m.Field12 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
+		i--
+		dAtA[i] = 0x61
 	}
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	if m.Field11 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
+		i--
+		dAtA[i] = 0x59
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field10 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
+		i--
+		dAtA[i] = 0x55
 	}
-	return i, nil
+	if m.Field9 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
+		i--
+		dAtA[i] = 0x4d
+	}
+	if m.Field8 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.Field7 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.Field6 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.Field5 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Field4 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Field3 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Field2 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22302,161 +22319,150 @@ func (m *NidRepNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x9
-			i++
-			f1 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f1))
-			i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field15) > 0 {
+		for iNdEx := len(m.Field15) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field15[iNdEx])
+			copy(dAtA[i:], m.Field15[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15[iNdEx])))
+			i--
+			dAtA[i] = 0x7a
 		}
 	}
-	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
-			dAtA[i] = 0x15
-			i++
-			f2 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f2))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		for _, num := range m.Field3 {
-			dAtA[i] = 0x18
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field4) > 0 {
-		for _, num := range m.Field4 {
-			dAtA[i] = 0x20
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field5) > 0 {
-		for _, num := range m.Field5 {
-			dAtA[i] = 0x28
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field6) > 0 {
-		for _, num := range m.Field6 {
-			dAtA[i] = 0x30
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field7) > 0 {
-		for _, num := range m.Field7 {
-			dAtA[i] = 0x38
-			i++
-			x3 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x3 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x3)&0x7f | 0x80)
-				x3 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x3)
-			i++
-		}
-	}
-	if len(m.Field8) > 0 {
-		for _, num := range m.Field8 {
-			dAtA[i] = 0x40
-			i++
-			x4 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x4 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x4)&0x7f | 0x80)
-				x4 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x4)
-			i++
-		}
-	}
-	if len(m.Field9) > 0 {
-		for _, num := range m.Field9 {
-			dAtA[i] = 0x4d
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.Field10) > 0 {
-		for _, num := range m.Field10 {
-			dAtA[i] = 0x55
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.Field11) > 0 {
-		for _, num := range m.Field11 {
-			dAtA[i] = 0x59
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field12) > 0 {
-		for _, num := range m.Field12 {
-			dAtA[i] = 0x61
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
+	if len(m.Field14) > 0 {
+		for iNdEx := len(m.Field14) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field14[iNdEx])
+			copy(dAtA[i:], m.Field14[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14[iNdEx])))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.Field13) > 0 {
-		for _, b := range m.Field13 {
-			dAtA[i] = 0x68
-			i++
-			if b {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x68
 		}
 	}
-	if len(m.Field14) > 0 {
-		for _, s := range m.Field14 {
-			dAtA[i] = 0x72
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+	if len(m.Field12) > 0 {
+		for iNdEx := len(m.Field12) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12[iNdEx]))
+			i--
+			dAtA[i] = 0x61
 		}
 	}
-	if len(m.Field15) > 0 {
-		for _, b := range m.Field15 {
-			dAtA[i] = 0x7a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(len(b)))
-			i += copy(dAtA[i:], b)
+	if len(m.Field11) > 0 {
+		for iNdEx := len(m.Field11) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11[iNdEx]))
+			i--
+			dAtA[i] = 0x59
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Field10) > 0 {
+		for iNdEx := len(m.Field10) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10[iNdEx]))
+			i--
+			dAtA[i] = 0x55
+		}
 	}
-	return i, nil
+	if len(m.Field9) > 0 {
+		for iNdEx := len(m.Field9) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9[iNdEx]))
+			i--
+			dAtA[i] = 0x4d
+		}
+	}
+	if len(m.Field8) > 0 {
+		for iNdEx := len(m.Field8) - 1; iNdEx >= 0; iNdEx-- {
+			x1 := (uint64(m.Field8[iNdEx]) << 1) ^ uint64((m.Field8[iNdEx] >> 63))
+			i = encodeVarintThetest(dAtA, i, uint64(x1))
+			i--
+			dAtA[i] = 0x40
+		}
+	}
+	if len(m.Field7) > 0 {
+		for iNdEx := len(m.Field7) - 1; iNdEx >= 0; iNdEx-- {
+			x2 := (uint32(m.Field7[iNdEx]) << 1) ^ uint32((m.Field7[iNdEx] >> 31))
+			i = encodeVarintThetest(dAtA, i, uint64(x2))
+			i--
+			dAtA[i] = 0x38
+		}
+	}
+	if len(m.Field6) > 0 {
+		for iNdEx := len(m.Field6) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field6[iNdEx]))
+			i--
+			dAtA[i] = 0x30
+		}
+	}
+	if len(m.Field5) > 0 {
+		for iNdEx := len(m.Field5) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field5[iNdEx]))
+			i--
+			dAtA[i] = 0x28
+		}
+	}
+	if len(m.Field4) > 0 {
+		for iNdEx := len(m.Field4) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field4[iNdEx]))
+			i--
+			dAtA[i] = 0x20
+		}
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field3[iNdEx]))
+			i--
+			dAtA[i] = 0x18
+		}
+	}
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f3 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f3))
+			i--
+			dAtA[i] = 0x15
+		}
+	}
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f4 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f4))
+			i--
+			dAtA[i] = 0x9
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22464,161 +22470,150 @@ func (m *NinRepNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x9
-			i++
-			f5 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f5))
-			i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field15) > 0 {
+		for iNdEx := len(m.Field15) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field15[iNdEx])
+			copy(dAtA[i:], m.Field15[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15[iNdEx])))
+			i--
+			dAtA[i] = 0x7a
 		}
 	}
-	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
-			dAtA[i] = 0x15
-			i++
-			f6 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f6))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		for _, num := range m.Field3 {
-			dAtA[i] = 0x18
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field4) > 0 {
-		for _, num := range m.Field4 {
-			dAtA[i] = 0x20
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field5) > 0 {
-		for _, num := range m.Field5 {
-			dAtA[i] = 0x28
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field6) > 0 {
-		for _, num := range m.Field6 {
-			dAtA[i] = 0x30
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field7) > 0 {
-		for _, num := range m.Field7 {
-			dAtA[i] = 0x38
-			i++
-			x7 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x7 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x7)&0x7f | 0x80)
-				x7 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x7)
-			i++
-		}
-	}
-	if len(m.Field8) > 0 {
-		for _, num := range m.Field8 {
-			dAtA[i] = 0x40
-			i++
-			x8 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x8 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x8)&0x7f | 0x80)
-				x8 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x8)
-			i++
-		}
-	}
-	if len(m.Field9) > 0 {
-		for _, num := range m.Field9 {
-			dAtA[i] = 0x4d
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.Field10) > 0 {
-		for _, num := range m.Field10 {
-			dAtA[i] = 0x55
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.Field11) > 0 {
-		for _, num := range m.Field11 {
-			dAtA[i] = 0x59
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field12) > 0 {
-		for _, num := range m.Field12 {
-			dAtA[i] = 0x61
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
+	if len(m.Field14) > 0 {
+		for iNdEx := len(m.Field14) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field14[iNdEx])
+			copy(dAtA[i:], m.Field14[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14[iNdEx])))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.Field13) > 0 {
-		for _, b := range m.Field13 {
-			dAtA[i] = 0x68
-			i++
-			if b {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x68
 		}
 	}
-	if len(m.Field14) > 0 {
-		for _, s := range m.Field14 {
-			dAtA[i] = 0x72
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+	if len(m.Field12) > 0 {
+		for iNdEx := len(m.Field12) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12[iNdEx]))
+			i--
+			dAtA[i] = 0x61
 		}
 	}
-	if len(m.Field15) > 0 {
-		for _, b := range m.Field15 {
-			dAtA[i] = 0x7a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(len(b)))
-			i += copy(dAtA[i:], b)
+	if len(m.Field11) > 0 {
+		for iNdEx := len(m.Field11) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11[iNdEx]))
+			i--
+			dAtA[i] = 0x59
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Field10) > 0 {
+		for iNdEx := len(m.Field10) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10[iNdEx]))
+			i--
+			dAtA[i] = 0x55
+		}
 	}
-	return i, nil
+	if len(m.Field9) > 0 {
+		for iNdEx := len(m.Field9) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9[iNdEx]))
+			i--
+			dAtA[i] = 0x4d
+		}
+	}
+	if len(m.Field8) > 0 {
+		for iNdEx := len(m.Field8) - 1; iNdEx >= 0; iNdEx-- {
+			x5 := (uint64(m.Field8[iNdEx]) << 1) ^ uint64((m.Field8[iNdEx] >> 63))
+			i = encodeVarintThetest(dAtA, i, uint64(x5))
+			i--
+			dAtA[i] = 0x40
+		}
+	}
+	if len(m.Field7) > 0 {
+		for iNdEx := len(m.Field7) - 1; iNdEx >= 0; iNdEx-- {
+			x6 := (uint32(m.Field7[iNdEx]) << 1) ^ uint32((m.Field7[iNdEx] >> 31))
+			i = encodeVarintThetest(dAtA, i, uint64(x6))
+			i--
+			dAtA[i] = 0x38
+		}
+	}
+	if len(m.Field6) > 0 {
+		for iNdEx := len(m.Field6) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field6[iNdEx]))
+			i--
+			dAtA[i] = 0x30
+		}
+	}
+	if len(m.Field5) > 0 {
+		for iNdEx := len(m.Field5) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field5[iNdEx]))
+			i--
+			dAtA[i] = 0x28
+		}
+	}
+	if len(m.Field4) > 0 {
+		for iNdEx := len(m.Field4) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field4[iNdEx]))
+			i--
+			dAtA[i] = 0x20
+		}
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field3[iNdEx]))
+			i--
+			dAtA[i] = 0x18
+		}
+	}
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f7 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f7))
+			i--
+			dAtA[i] = 0x15
+		}
+	}
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f8 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f8))
+			i--
+			dAtA[i] = 0x9
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepPackedNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22626,70 +22621,110 @@ func (m *NidRepPackedNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepPackedNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field1)*8))
-		for _, num := range m.Field1 {
-			f9 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f9))
-			i += 8
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Field2) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field2)*4))
-		for _, num := range m.Field2 {
-			f10 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f10))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		dAtA12 := make([]byte, len(m.Field3)*10)
-		var j11 int
-		for _, num1 := range m.Field3 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA12[j11] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j11++
+	if len(m.Field13) > 0 {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
 			}
-			dAtA12[j11] = uint8(num)
-			j11++
 		}
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j11))
-		i += copy(dAtA[i:], dAtA12[:j11])
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field13)))
+		i--
+		dAtA[i] = 0x6a
 	}
-	if len(m.Field4) > 0 {
-		dAtA14 := make([]byte, len(m.Field4)*10)
+	if len(m.Field12) > 0 {
+		for iNdEx := len(m.Field12) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field12)*8))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.Field11) > 0 {
+		for iNdEx := len(m.Field11) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field11)*8))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.Field10) > 0 {
+		for iNdEx := len(m.Field10) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field10)*4))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.Field9) > 0 {
+		for iNdEx := len(m.Field9) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field9)*4))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Field8) > 0 {
+		var j9 int
+		dAtA11 := make([]byte, len(m.Field8)*10)
+		for _, num := range m.Field8 {
+			x10 := (uint64(num) << 1) ^ uint64((num >> 63))
+			for x10 >= 1<<7 {
+				dAtA11[j9] = uint8(uint64(x10)&0x7f | 0x80)
+				j9++
+				x10 >>= 7
+			}
+			dAtA11[j9] = uint8(x10)
+			j9++
+		}
+		i -= j9
+		copy(dAtA[i:], dAtA11[:j9])
+		i = encodeVarintThetest(dAtA, i, uint64(j9))
+		i--
+		dAtA[i] = 0x42
+	}
+	if len(m.Field7) > 0 {
+		dAtA12 := make([]byte, len(m.Field7)*5)
 		var j13 int
-		for _, num1 := range m.Field4 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA14[j13] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
+		for _, num := range m.Field7 {
+			x14 := (uint32(num) << 1) ^ uint32((num >> 31))
+			for x14 >= 1<<7 {
+				dAtA12[j13] = uint8(uint64(x14)&0x7f | 0x80)
 				j13++
+				x14 >>= 7
 			}
-			dAtA14[j13] = uint8(num)
+			dAtA12[j13] = uint8(x14)
 			j13++
 		}
-		dAtA[i] = 0x22
-		i++
+		i -= j13
+		copy(dAtA[i:], dAtA12[:j13])
 		i = encodeVarintThetest(dAtA, i, uint64(j13))
-		i += copy(dAtA[i:], dAtA14[:j13])
+		i--
+		dAtA[i] = 0x3a
 	}
-	if len(m.Field5) > 0 {
-		dAtA16 := make([]byte, len(m.Field5)*10)
+	if len(m.Field6) > 0 {
+		dAtA16 := make([]byte, len(m.Field6)*10)
 		var j15 int
-		for _, num := range m.Field5 {
+		for _, num := range m.Field6 {
 			for num >= 1<<7 {
 				dAtA16[j15] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
@@ -22698,15 +22733,16 @@ func (m *NidRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
 			dAtA16[j15] = uint8(num)
 			j15++
 		}
-		dAtA[i] = 0x2a
-		i++
+		i -= j15
+		copy(dAtA[i:], dAtA16[:j15])
 		i = encodeVarintThetest(dAtA, i, uint64(j15))
-		i += copy(dAtA[i:], dAtA16[:j15])
+		i--
+		dAtA[i] = 0x32
 	}
-	if len(m.Field6) > 0 {
-		dAtA18 := make([]byte, len(m.Field6)*10)
+	if len(m.Field5) > 0 {
+		dAtA18 := make([]byte, len(m.Field5)*10)
 		var j17 int
-		for _, num := range m.Field6 {
+		for _, num := range m.Field5 {
 			for num >= 1<<7 {
 				dAtA18[j17] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
@@ -22715,106 +22751,77 @@ func (m *NidRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
 			dAtA18[j17] = uint8(num)
 			j17++
 		}
-		dAtA[i] = 0x32
-		i++
+		i -= j17
+		copy(dAtA[i:], dAtA18[:j17])
 		i = encodeVarintThetest(dAtA, i, uint64(j17))
-		i += copy(dAtA[i:], dAtA18[:j17])
+		i--
+		dAtA[i] = 0x2a
 	}
-	if len(m.Field7) > 0 {
-		dAtA19 := make([]byte, len(m.Field7)*5)
-		var j20 int
-		for _, num := range m.Field7 {
-			x21 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x21 >= 1<<7 {
-				dAtA19[j20] = uint8(uint64(x21)&0x7f | 0x80)
-				j20++
-				x21 >>= 7
+	if len(m.Field4) > 0 {
+		dAtA20 := make([]byte, len(m.Field4)*10)
+		var j19 int
+		for _, num1 := range m.Field4 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA20[j19] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j19++
 			}
-			dAtA19[j20] = uint8(x21)
-			j20++
+			dAtA20[j19] = uint8(num)
+			j19++
 		}
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j20))
-		i += copy(dAtA[i:], dAtA19[:j20])
+		i -= j19
+		copy(dAtA[i:], dAtA20[:j19])
+		i = encodeVarintThetest(dAtA, i, uint64(j19))
+		i--
+		dAtA[i] = 0x22
 	}
-	if len(m.Field8) > 0 {
-		var j22 int
-		dAtA24 := make([]byte, len(m.Field8)*10)
-		for _, num := range m.Field8 {
-			x23 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x23 >= 1<<7 {
-				dAtA24[j22] = uint8(uint64(x23)&0x7f | 0x80)
-				j22++
-				x23 >>= 7
+	if len(m.Field3) > 0 {
+		dAtA22 := make([]byte, len(m.Field3)*10)
+		var j21 int
+		for _, num1 := range m.Field3 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA22[j21] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j21++
 			}
-			dAtA24[j22] = uint8(x23)
-			j22++
+			dAtA22[j21] = uint8(num)
+			j21++
 		}
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j22))
-		i += copy(dAtA[i:], dAtA24[:j22])
+		i -= j21
+		copy(dAtA[i:], dAtA22[:j21])
+		i = encodeVarintThetest(dAtA, i, uint64(j21))
+		i--
+		dAtA[i] = 0x1a
 	}
-	if len(m.Field9) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field9)*4))
-		for _, num := range m.Field9 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f23 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f23))
 		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field2)*4))
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.Field10) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field10)*4))
-		for _, num := range m.Field10 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f24 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f24))
 		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field1)*8))
+		i--
+		dAtA[i] = 0xa
 	}
-	if len(m.Field11) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field11)*8))
-		for _, num := range m.Field11 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field12) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field12)*8))
-		for _, num := range m.Field12 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field13) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field13)))
-		for _, b := range m.Field13 {
-			if b {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepPackedNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -22822,70 +22829,110 @@ func (m *NinRepPackedNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepPackedNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field1)*8))
-		for _, num := range m.Field1 {
-			f25 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f25))
-			i += 8
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Field2) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field2)*4))
-		for _, num := range m.Field2 {
-			f26 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f26))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		dAtA28 := make([]byte, len(m.Field3)*10)
-		var j27 int
-		for _, num1 := range m.Field3 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA28[j27] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j27++
+	if len(m.Field13) > 0 {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
+				dAtA[i] = 1
+			} else {
+				dAtA[i] = 0
 			}
-			dAtA28[j27] = uint8(num)
-			j27++
 		}
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j27))
-		i += copy(dAtA[i:], dAtA28[:j27])
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field13)))
+		i--
+		dAtA[i] = 0x6a
 	}
-	if len(m.Field4) > 0 {
-		dAtA30 := make([]byte, len(m.Field4)*10)
+	if len(m.Field12) > 0 {
+		for iNdEx := len(m.Field12) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field12)*8))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.Field11) > 0 {
+		for iNdEx := len(m.Field11) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field11)*8))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.Field10) > 0 {
+		for iNdEx := len(m.Field10) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field10)*4))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.Field9) > 0 {
+		for iNdEx := len(m.Field9) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9[iNdEx]))
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field9)*4))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if len(m.Field8) > 0 {
+		var j25 int
+		dAtA27 := make([]byte, len(m.Field8)*10)
+		for _, num := range m.Field8 {
+			x26 := (uint64(num) << 1) ^ uint64((num >> 63))
+			for x26 >= 1<<7 {
+				dAtA27[j25] = uint8(uint64(x26)&0x7f | 0x80)
+				j25++
+				x26 >>= 7
+			}
+			dAtA27[j25] = uint8(x26)
+			j25++
+		}
+		i -= j25
+		copy(dAtA[i:], dAtA27[:j25])
+		i = encodeVarintThetest(dAtA, i, uint64(j25))
+		i--
+		dAtA[i] = 0x42
+	}
+	if len(m.Field7) > 0 {
+		dAtA28 := make([]byte, len(m.Field7)*5)
 		var j29 int
-		for _, num1 := range m.Field4 {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				dAtA30[j29] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
+		for _, num := range m.Field7 {
+			x30 := (uint32(num) << 1) ^ uint32((num >> 31))
+			for x30 >= 1<<7 {
+				dAtA28[j29] = uint8(uint64(x30)&0x7f | 0x80)
 				j29++
+				x30 >>= 7
 			}
-			dAtA30[j29] = uint8(num)
+			dAtA28[j29] = uint8(x30)
 			j29++
 		}
-		dAtA[i] = 0x22
-		i++
+		i -= j29
+		copy(dAtA[i:], dAtA28[:j29])
 		i = encodeVarintThetest(dAtA, i, uint64(j29))
-		i += copy(dAtA[i:], dAtA30[:j29])
+		i--
+		dAtA[i] = 0x3a
 	}
-	if len(m.Field5) > 0 {
-		dAtA32 := make([]byte, len(m.Field5)*10)
+	if len(m.Field6) > 0 {
+		dAtA32 := make([]byte, len(m.Field6)*10)
 		var j31 int
-		for _, num := range m.Field5 {
+		for _, num := range m.Field6 {
 			for num >= 1<<7 {
 				dAtA32[j31] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
@@ -22894,15 +22941,16 @@ func (m *NinRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
 			dAtA32[j31] = uint8(num)
 			j31++
 		}
-		dAtA[i] = 0x2a
-		i++
+		i -= j31
+		copy(dAtA[i:], dAtA32[:j31])
 		i = encodeVarintThetest(dAtA, i, uint64(j31))
-		i += copy(dAtA[i:], dAtA32[:j31])
+		i--
+		dAtA[i] = 0x32
 	}
-	if len(m.Field6) > 0 {
-		dAtA34 := make([]byte, len(m.Field6)*10)
+	if len(m.Field5) > 0 {
+		dAtA34 := make([]byte, len(m.Field5)*10)
 		var j33 int
-		for _, num := range m.Field6 {
+		for _, num := range m.Field5 {
 			for num >= 1<<7 {
 				dAtA34[j33] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
@@ -22911,106 +22959,77 @@ func (m *NinRepPackedNative) MarshalTo(dAtA []byte) (int, error) {
 			dAtA34[j33] = uint8(num)
 			j33++
 		}
-		dAtA[i] = 0x32
-		i++
+		i -= j33
+		copy(dAtA[i:], dAtA34[:j33])
 		i = encodeVarintThetest(dAtA, i, uint64(j33))
-		i += copy(dAtA[i:], dAtA34[:j33])
+		i--
+		dAtA[i] = 0x2a
 	}
-	if len(m.Field7) > 0 {
-		dAtA35 := make([]byte, len(m.Field7)*5)
-		var j36 int
-		for _, num := range m.Field7 {
-			x37 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x37 >= 1<<7 {
-				dAtA35[j36] = uint8(uint64(x37)&0x7f | 0x80)
-				j36++
-				x37 >>= 7
+	if len(m.Field4) > 0 {
+		dAtA36 := make([]byte, len(m.Field4)*10)
+		var j35 int
+		for _, num1 := range m.Field4 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA36[j35] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j35++
 			}
-			dAtA35[j36] = uint8(x37)
-			j36++
+			dAtA36[j35] = uint8(num)
+			j35++
 		}
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j36))
-		i += copy(dAtA[i:], dAtA35[:j36])
+		i -= j35
+		copy(dAtA[i:], dAtA36[:j35])
+		i = encodeVarintThetest(dAtA, i, uint64(j35))
+		i--
+		dAtA[i] = 0x22
 	}
-	if len(m.Field8) > 0 {
-		var j38 int
-		dAtA40 := make([]byte, len(m.Field8)*10)
-		for _, num := range m.Field8 {
-			x39 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x39 >= 1<<7 {
-				dAtA40[j38] = uint8(uint64(x39)&0x7f | 0x80)
-				j38++
-				x39 >>= 7
+	if len(m.Field3) > 0 {
+		dAtA38 := make([]byte, len(m.Field3)*10)
+		var j37 int
+		for _, num1 := range m.Field3 {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA38[j37] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j37++
 			}
-			dAtA40[j38] = uint8(x39)
-			j38++
+			dAtA38[j37] = uint8(num)
+			j37++
 		}
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(j38))
-		i += copy(dAtA[i:], dAtA40[:j38])
+		i -= j37
+		copy(dAtA[i:], dAtA38[:j37])
+		i = encodeVarintThetest(dAtA, i, uint64(j37))
+		i--
+		dAtA[i] = 0x1a
 	}
-	if len(m.Field9) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field9)*4))
-		for _, num := range m.Field9 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f39 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f39))
 		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field2)*4))
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.Field10) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field10)*4))
-		for _, num := range m.Field10 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f40 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f40))
 		}
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field1)*8))
+		i--
+		dAtA[i] = 0xa
 	}
-	if len(m.Field11) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field11)*8))
-		for _, num := range m.Field11 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field12) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field12)*8))
-		for _, num := range m.Field12 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.Field13) > 0 {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field13)))
-		for _, b := range m.Field13 {
-			if b {
-				dAtA[i] = 1
-			} else {
-				dAtA[i] = 0
-			}
-			i++
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NidOptStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23018,76 +23037,90 @@ func (m *NidOptStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x9
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
-	i += 8
-	dAtA[i] = 0x15
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
-	i += 4
-	dAtA[i] = 0x1a
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field3.Size()))
-	n41, err := m.Field3.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	i += n41
-	dAtA[i] = 0x22
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field4.Size()))
-	n42, err := m.Field4.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	i += n42
-	dAtA[i] = 0x30
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field6))
-	dAtA[i] = 0x38
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
-	dAtA[i] = 0x42
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field8.Size()))
-	n43, err := m.Field8.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n43
-	dAtA[i] = 0x68
-	i++
+	i -= len(m.Field14)
+	copy(dAtA[i:], m.Field14)
+	i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14)))
+	i--
+	dAtA[i] = 0x72
+	i--
 	if m.Field13 {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	dAtA[i] = 0x72
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14)))
-	i += copy(dAtA[i:], m.Field14)
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	i--
+	dAtA[i] = 0x68
+	{
+		size, err := m.Field8.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	i--
+	dAtA[i] = 0x42
+	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
+	i--
+	dAtA[i] = 0x38
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field6))
+	i--
+	dAtA[i] = 0x30
+	{
+		size, err := m.Field4.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
 	}
-	return i, nil
+	i--
+	dAtA[i] = 0x22
+	{
+		size, err := m.Field3.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x1a
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
+	i--
+	dAtA[i] = 0x15
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
+	i--
+	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23095,94 +23128,108 @@ func (m *NinOptStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field3.Size()))
-		n44, err := m.Field3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n44
-	}
-	if m.Field4 != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field4.Size()))
-		n45, err := m.Field4.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n45
-	}
-	if m.Field6 != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
-	}
-	if m.Field7 != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
-	}
-	if m.Field8 != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field8.Size()))
-		n46, err := m.Field8.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n46
+	if m.Field14 != nil {
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+	if m.Field8 != nil {
+		{
+			size, err := m.Field8.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x42
 	}
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	if m.Field7 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field6 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
 	}
-	return i, nil
+	if m.Field4 != nil {
+		{
+			size, err := m.Field4.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Field3 != nil {
+		{
+			size, err := m.Field3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Field2 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23190,130 +23237,131 @@ func (m *NidRepStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x9
-			i++
-			f47 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f47))
-			i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field15) > 0 {
+		for iNdEx := len(m.Field15) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field15[iNdEx])
+			copy(dAtA[i:], m.Field15[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15[iNdEx])))
+			i--
+			dAtA[i] = 0x7a
 		}
 	}
-	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
-			dAtA[i] = 0x15
-			i++
-			f48 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f48))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		for _, msg := range m.Field3 {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Field4) > 0 {
-		for _, msg := range m.Field4 {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Field6) > 0 {
-		for _, num := range m.Field6 {
-			dAtA[i] = 0x30
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field7) > 0 {
-		for _, num := range m.Field7 {
-			dAtA[i] = 0x38
-			i++
-			x49 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x49 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x49)&0x7f | 0x80)
-				x49 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x49)
-			i++
-		}
-	}
-	if len(m.Field8) > 0 {
-		for _, msg := range m.Field8 {
-			dAtA[i] = 0x42
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
+	if len(m.Field14) > 0 {
+		for iNdEx := len(m.Field14) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field14[iNdEx])
+			copy(dAtA[i:], m.Field14[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14[iNdEx])))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.Field13) > 0 {
-		for _, b := range m.Field13 {
-			dAtA[i] = 0x68
-			i++
-			if b {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x68
 		}
 	}
-	if len(m.Field14) > 0 {
-		for _, s := range m.Field14 {
-			dAtA[i] = 0x72
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+	if len(m.Field8) > 0 {
+		for iNdEx := len(m.Field8) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field8[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i--
+			dAtA[i] = 0x42
 		}
 	}
-	if len(m.Field15) > 0 {
-		for _, b := range m.Field15 {
-			dAtA[i] = 0x7a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(len(b)))
-			i += copy(dAtA[i:], b)
+	if len(m.Field7) > 0 {
+		for iNdEx := len(m.Field7) - 1; iNdEx >= 0; iNdEx-- {
+			x47 := (uint32(m.Field7[iNdEx]) << 1) ^ uint32((m.Field7[iNdEx] >> 31))
+			i = encodeVarintThetest(dAtA, i, uint64(x47))
+			i--
+			dAtA[i] = 0x38
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Field6) > 0 {
+		for iNdEx := len(m.Field6) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field6[iNdEx]))
+			i--
+			dAtA[i] = 0x30
+		}
 	}
-	return i, nil
+	if len(m.Field4) > 0 {
+		for iNdEx := len(m.Field4) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field4[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field3[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f48 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f48))
+			i--
+			dAtA[i] = 0x15
+		}
+	}
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f49 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f49))
+			i--
+			dAtA[i] = 0x9
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23321,130 +23369,131 @@ func (m *NinRepStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x9
-			i++
-			f50 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f50))
-			i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field15) > 0 {
+		for iNdEx := len(m.Field15) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field15[iNdEx])
+			copy(dAtA[i:], m.Field15[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15[iNdEx])))
+			i--
+			dAtA[i] = 0x7a
 		}
 	}
-	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
-			dAtA[i] = 0x15
-			i++
-			f51 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f51))
-			i += 4
-		}
-	}
-	if len(m.Field3) > 0 {
-		for _, msg := range m.Field3 {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Field4) > 0 {
-		for _, msg := range m.Field4 {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Field6) > 0 {
-		for _, num := range m.Field6 {
-			dAtA[i] = 0x30
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.Field7) > 0 {
-		for _, num := range m.Field7 {
-			dAtA[i] = 0x38
-			i++
-			x52 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x52 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x52)&0x7f | 0x80)
-				x52 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x52)
-			i++
-		}
-	}
-	if len(m.Field8) > 0 {
-		for _, msg := range m.Field8 {
-			dAtA[i] = 0x42
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
+	if len(m.Field14) > 0 {
+		for iNdEx := len(m.Field14) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Field14[iNdEx])
+			copy(dAtA[i:], m.Field14[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.Field14[iNdEx])))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.Field13) > 0 {
-		for _, b := range m.Field13 {
-			dAtA[i] = 0x68
-			i++
-			if b {
+		for iNdEx := len(m.Field13) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.Field13[iNdEx] {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x68
 		}
 	}
-	if len(m.Field14) > 0 {
-		for _, s := range m.Field14 {
-			dAtA[i] = 0x72
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+	if len(m.Field8) > 0 {
+		for iNdEx := len(m.Field8) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field8[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i--
+			dAtA[i] = 0x42
 		}
 	}
-	if len(m.Field15) > 0 {
-		for _, b := range m.Field15 {
-			dAtA[i] = 0x7a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(len(b)))
-			i += copy(dAtA[i:], b)
+	if len(m.Field7) > 0 {
+		for iNdEx := len(m.Field7) - 1; iNdEx >= 0; iNdEx-- {
+			x50 := (uint32(m.Field7[iNdEx]) << 1) ^ uint32((m.Field7[iNdEx] >> 31))
+			i = encodeVarintThetest(dAtA, i, uint64(x50))
+			i--
+			dAtA[i] = 0x38
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Field6) > 0 {
+		for iNdEx := len(m.Field6) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field6[iNdEx]))
+			i--
+			dAtA[i] = 0x30
+		}
 	}
-	return i, nil
+	if len(m.Field4) > 0 {
+		for iNdEx := len(m.Field4) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field4[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field3[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Field2) > 0 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			f51 := math.Float32bits(float32(m.Field2[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f51))
+			i--
+			dAtA[i] = 0x15
+		}
+	}
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			f52 := math.Float64bits(float64(m.Field1[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f52))
+			i--
+			dAtA[i] = 0x9
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidEmbeddedStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23452,50 +23501,60 @@ func (m *NidEmbeddedStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidEmbeddedStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidEmbeddedStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NidOptNative != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NidOptNative.Size()))
-		n53, err := m.NidOptNative.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n53
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	dAtA[i] = 0xc2
-	i++
-	dAtA[i] = 0xc
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field200.Size()))
-	n54, err := m.Field200.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n54
-	dAtA[i] = 0x90
-	i++
-	dAtA[i] = 0xd
-	i++
+	i--
 	if m.Field210 {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	i--
+	dAtA[i] = 0xd
+	i--
+	dAtA[i] = 0x90
+	{
+		size, err := m.Field200.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
 	}
-	return i, nil
+	i--
+	dAtA[i] = 0xc
+	i--
+	dAtA[i] = 0xc2
+	if m.NidOptNative != nil {
+		{
+			size, err := m.NidOptNative.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinEmbeddedStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23503,54 +23562,64 @@ func (m *NinEmbeddedStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinEmbeddedStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinEmbeddedStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NidOptNative != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NidOptNative.Size()))
-		n55, err := m.NidOptNative.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n55
-	}
-	if m.Field200 != nil {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0xc
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field200.Size()))
-		n56, err := m.Field200.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n56
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field210 != nil {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0xd
-		i++
+		i--
 		if *m.Field210 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0xd
+		i--
+		dAtA[i] = 0x90
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field200 != nil {
+		{
+			size, err := m.Field200.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xc
+		i--
+		dAtA[i] = 0xc2
 	}
-	return i, nil
+	if m.NidOptNative != nil {
+		{
+			size, err := m.NidOptNative.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidNestedStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23558,40 +23627,50 @@ func (m *NidNestedStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidNestedStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidNestedStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-	n57, err := m.Field1.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	i += n57
 	if len(m.Field2) > 0 {
-		for _, msg := range m.Field2 {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field2[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	{
+		size, err := m.Field1.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
 	}
-	return i, nil
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *NinNestedStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23599,42 +23678,52 @@ func (m *NinNestedStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinNestedStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinNestedStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-		n58, err := m.Field1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n58
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Field2) > 0 {
-		for _, msg := range m.Field2 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Field2[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
 			dAtA[i] = 0x12
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+		}
+	}
+	if m.Field1 != nil {
+		{
+			size, err := m.Field1.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NidOptCustom) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23642,36 +23731,46 @@ func (m *NidOptCustom) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptCustom) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptCustom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Id.Size()))
-	n59, err := m.Id.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n59
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Value.Size()))
-	n60, err := m.Value.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n60
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size := m.Value.Size()
+		i -= size
+		if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size := m.Id.Size()
+		i -= size
+		if _, err := m.Id.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomDash) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23679,30 +23778,38 @@ func (m *CustomDash) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomDash) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomDash) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Value != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Value.Size()))
-		n61, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n61
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Value != nil {
+		{
+			size := m.Value.Size()
+			i -= size
+			if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptCustom) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23710,40 +23817,50 @@ func (m *NinOptCustom) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptCustom) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptCustom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Id != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Id.Size()))
-		n62, err := m.Id.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n62
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Value != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Value.Size()))
-		n63, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size := m.Value.Size()
+			i -= size
+			if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n63
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Id != nil {
+		{
+			size := m.Id.Size()
+			i -= size
+			if _, err := m.Id.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepCustom) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23751,44 +23868,54 @@ func (m *NidRepCustom) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepCustom) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepCustom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Id) > 0 {
-		for _, msg := range m.Id {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Value) > 0 {
-		for _, msg := range m.Value {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Value) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Value[iNdEx].Size()
+				i -= size
+				if _, err := m.Value[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Id) > 0 {
+		for iNdEx := len(m.Id) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Id[iNdEx].Size()
+				i -= size
+				if _, err := m.Id[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepCustom) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23796,44 +23923,54 @@ func (m *NinRepCustom) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepCustom) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepCustom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Id) > 0 {
-		for _, msg := range m.Id {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Value) > 0 {
-		for _, msg := range m.Value {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Value) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Value[iNdEx].Size()
+				i -= size
+				if _, err := m.Value[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Id) > 0 {
+		for iNdEx := len(m.Id) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Id[iNdEx].Size()
+				i -= size
+				if _, err := m.Id[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptNativeUnion) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23841,74 +23978,82 @@ func (m *NinOptNativeUnion) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptNativeUnion) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptNativeUnion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
-	}
-	if m.Field4 != nil {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
-	}
-	if m.Field5 != nil {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
-	}
-	if m.Field6 != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+	if m.Field14 != nil {
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+	if m.Field6 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	if m.Field5 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field4 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if m.Field3 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Field2 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptStructUnion) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -23916,84 +24061,96 @@ func (m *NinOptStructUnion) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptStructUnion) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptStructUnion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field3.Size()))
-		n64, err := m.Field3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n64
-	}
-	if m.Field4 != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field4.Size()))
-		n65, err := m.Field4.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n65
-	}
-	if m.Field6 != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
-	}
-	if m.Field7 != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+	if m.Field14 != nil {
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+	if m.Field7 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	if m.Field6 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field4 != nil {
+		{
+			size, err := m.Field4.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.Field3 != nil {
+		{
+			size, err := m.Field3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Field2 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinEmbeddedStructUnion) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24001,54 +24158,64 @@ func (m *NinEmbeddedStructUnion) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinEmbeddedStructUnion) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinEmbeddedStructUnion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NidOptNative != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NidOptNative.Size()))
-		n66, err := m.NidOptNative.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n66
-	}
-	if m.Field200 != nil {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0xc
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field200.Size()))
-		n67, err := m.Field200.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n67
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field210 != nil {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0xd
-		i++
+		i--
 		if *m.Field210 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0xd
+		i--
+		dAtA[i] = 0x90
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field200 != nil {
+		{
+			size, err := m.Field200.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xc
+		i--
+		dAtA[i] = 0xc2
 	}
-	return i, nil
+	if m.NidOptNative != nil {
+		{
+			size, err := m.NidOptNative.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinNestedStructUnion) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24056,50 +24223,62 @@ func (m *NinNestedStructUnion) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinNestedStructUnion) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinNestedStructUnion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-		n68, err := m.Field1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n68
-	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field2.Size()))
-		n69, err := m.Field2.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n69
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field3 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field3.Size()))
-		n70, err := m.Field3.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Field3.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n70
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field2 != nil {
+		{
+			size, err := m.Field2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Field1 != nil {
+		{
+			size, err := m.Field1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Tree) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24107,50 +24286,62 @@ func (m *Tree) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Tree) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Tree) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Or != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Or.Size()))
-		n71, err := m.Or.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n71
-	}
-	if m.And != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.And.Size()))
-		n72, err := m.And.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n72
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Leaf != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Leaf.Size()))
-		n73, err := m.Leaf.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Leaf.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n73
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.And != nil {
+		{
+			size, err := m.And.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Or != nil {
+		{
+			size, err := m.Or.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *OrBranch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24158,36 +24349,46 @@ func (m *OrBranch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OrBranch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OrBranch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Left.Size()))
-	n74, err := m.Left.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n74
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Right.Size()))
-	n75, err := m.Right.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n75
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.Right.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Left.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *AndBranch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24195,36 +24396,46 @@ func (m *AndBranch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AndBranch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AndBranch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Left.Size()))
-	n76, err := m.Left.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n76
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Right.Size()))
-	n77, err := m.Right.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n77
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.Right.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Left.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *Leaf) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24232,27 +24443,34 @@ func (m *Leaf) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Leaf) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Leaf) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x8
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Value))
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(len(m.StrValue)))
-	i += copy(dAtA[i:], m.StrValue)
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	i -= len(m.StrValue)
+	copy(dAtA[i:], m.StrValue)
+	i = encodeVarintThetest(dAtA, i, uint64(len(m.StrValue)))
+	i--
+	dAtA[i] = 0x12
+	i = encodeVarintThetest(dAtA, i, uint64(m.Value))
+	i--
+	dAtA[i] = 0x8
+	return len(dAtA) - i, nil
 }
 
 func (m *DeepTree) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24260,50 +24478,62 @@ func (m *DeepTree) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeepTree) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeepTree) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Down != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Down.Size()))
-		n78, err := m.Down.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n78
-	}
-	if m.And != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.And.Size()))
-		n79, err := m.And.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n79
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Leaf != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Leaf.Size()))
-		n80, err := m.Leaf.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Leaf.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n80
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.And != nil {
+		{
+			size, err := m.And.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.Down != nil {
+		{
+			size, err := m.Down.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ADeepBranch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24311,28 +24541,36 @@ func (m *ADeepBranch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ADeepBranch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ADeepBranch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Down.Size()))
-	n81, err := m.Down.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n81
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.Down.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	return len(dAtA) - i, nil
 }
 
 func (m *AndDeepBranch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24340,36 +24578,46 @@ func (m *AndDeepBranch) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AndDeepBranch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AndDeepBranch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Left.Size()))
-	n82, err := m.Left.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n82
-	dAtA[i] = 0x12
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Right.Size()))
-	n83, err := m.Right.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n83
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.Right.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Left.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *DeepLeaf) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24377,28 +24625,36 @@ func (m *DeepLeaf) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeepLeaf) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeepLeaf) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Tree.Size()))
-	n84, err := m.Tree.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n84
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.Tree.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *Nil) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24406,20 +24662,26 @@ func (m *Nil) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Nil) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Nil) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NidOptEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24427,23 +24689,29 @@ func (m *NidOptEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x8
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field1))
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	i = encodeVarintThetest(dAtA, i, uint64(m.Field1))
+	i--
+	dAtA[i] = 0x8
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24451,35 +24719,41 @@ func (m *NinOptEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field2 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24487,41 +24761,47 @@ func (m *NidRepEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field3[iNdEx]))
+			i--
+			dAtA[i] = 0x18
 		}
 	}
 	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field2[iNdEx]))
+			i--
 			dAtA[i] = 0x10
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
 		}
 	}
-	if len(m.Field3) > 0 {
-		for _, num := range m.Field3 {
-			dAtA[i] = 0x18
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field1[iNdEx]))
+			i--
+			dAtA[i] = 0x8
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24529,41 +24809,47 @@ func (m *NinRepEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Field1) > 0 {
-		for _, num := range m.Field1 {
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Field3) > 0 {
+		for iNdEx := len(m.Field3) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field3[iNdEx]))
+			i--
+			dAtA[i] = 0x18
 		}
 	}
 	if len(m.Field2) > 0 {
-		for _, num := range m.Field2 {
+		for iNdEx := len(m.Field2) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field2[iNdEx]))
+			i--
 			dAtA[i] = 0x10
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
 		}
 	}
-	if len(m.Field3) > 0 {
-		for _, num := range m.Field3 {
-			dAtA[i] = 0x18
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
+	if len(m.Field1) > 0 {
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.Field1[iNdEx]))
+			i--
+			dAtA[i] = 0x8
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptEnumDefault) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24571,35 +24857,41 @@ func (m *NinOptEnumDefault) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptEnumDefault) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptEnumDefault) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field2 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AnotherNinOptEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24607,35 +24899,41 @@ func (m *AnotherNinOptEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AnotherNinOptEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AnotherNinOptEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field2 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AnotherNinOptEnumDefault) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24643,35 +24941,41 @@ func (m *AnotherNinOptEnumDefault) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AnotherNinOptEnumDefault) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AnotherNinOptEnumDefault) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field2 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Timer) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24679,34 +24983,41 @@ func (m *Timer) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Timer) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Timer) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x9
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Time1))
-	i += 8
-	dAtA[i] = 0x11
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Time2))
-	i += 8
-	if m.Data != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Data != nil {
+		i -= len(m.Data)
+		copy(dAtA[i:], m.Data)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Data)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Time2))
+	i--
+	dAtA[i] = 0x11
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Time1))
+	i--
+	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
 }
 
 func (m *MyExtendable) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24714,30 +25025,36 @@ func (m *MyExtendable) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MyExtendable) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MyExtendable) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	n, err := github_com_gogo_protobuf_proto.EncodeInternalExtension(m, dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if n, err := github_com_gogo_protobuf_proto.EncodeInternalExtensionBackwards(m, dAtA[:i]); err != nil {
+		return 0, err
+	} else {
+		i -= n
+	}
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *OtherExtenable) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24745,45 +25062,53 @@ func (m *OtherExtenable) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OtherExtenable) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OtherExtenable) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.M != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.M.Size()))
-		n85, err := m.M.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n85
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+	if n, err := github_com_gogo_protobuf_proto.EncodeInternalExtensionBackwards(m, dAtA[:i]); err != nil {
+		return 0, err
+	} else {
+		i -= n
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field13))
+		i--
+		dAtA[i] = 0x68
 	}
-	n, err := github_com_gogo_protobuf_proto.EncodeInternalExtension(m, dAtA[i:])
-	if err != nil {
-		return 0, err
+	if m.Field2 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field2))
+		i--
+		dAtA[i] = 0x10
 	}
-	i += n
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.M != nil {
+		{
+			size, err := m.M.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NestedDefinition) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24791,50 +25116,60 @@ func (m *NestedDefinition) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NestedDefinition) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NestedDefinition) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
-	}
-	if m.EnumField != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.EnumField))
-	}
-	if m.NNM != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NNM.Size()))
-		n86, err := m.NNM.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n86
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.NM != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NM.Size()))
-		n87, err := m.NM.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NM.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n87
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.NNM != nil {
+		{
+			size, err := m.NNM.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if m.EnumField != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.EnumField))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NestedDefinition_NestedMessage) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24842,36 +25177,44 @@ func (m *NestedDefinition_NestedMessage) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NestedDefinition_NestedMessage) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NestedDefinition_NestedMessage) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NestedField1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.NestedField1))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.NNM != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NNM.Size()))
-		n88, err := m.NNM.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NNM.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n88
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.NestedField1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.NestedField1))
+		i--
+		dAtA[i] = 0x9
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NestedDefinition_NestedMessage_NestedNestedMsg) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24879,26 +25222,33 @@ func (m *NestedDefinition_NestedMessage_NestedNestedMsg) Marshal() (dAtA []byte,
 }
 
 func (m *NestedDefinition_NestedMessage_NestedNestedMsg) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NestedDefinition_NestedMessage_NestedNestedMsg) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NestedNestedField1 != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.NestedNestedField1)))
-		i += copy(dAtA[i:], *m.NestedNestedField1)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.NestedNestedField1 != nil {
+		i -= len(*m.NestedNestedField1)
+		copy(dAtA[i:], *m.NestedNestedField1)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.NestedNestedField1)))
+		i--
+		dAtA[i] = 0x52
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NestedScope) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24906,45 +25256,55 @@ func (m *NestedScope) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NestedScope) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NestedScope) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.A != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.A.Size()))
-		n89, err := m.A.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n89
-	}
-	if m.B != nil {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.B))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.C != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.C.Size()))
-		n90, err := m.C.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.C.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
 		}
-		i += n90
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.B != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.B))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.A != nil {
+		{
+			size, err := m.A.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptNativeDefault) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -24952,108 +25312,116 @@ func (m *NinOptNativeDefault) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptNativeDefault) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptNativeDefault) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Field2 != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
-		i += 4
+	if m.Field15 != nil {
+		i -= len(m.Field15)
+		copy(dAtA[i:], m.Field15)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.Field3 != nil {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
-	}
-	if m.Field4 != nil {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
-	}
-	if m.Field5 != nil {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
-	}
-	if m.Field6 != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
-	}
-	if m.Field7 != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
-	}
-	if m.Field8 != nil {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
-	}
-	if m.Field9 != nil {
-		dAtA[i] = 0x4d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
-		i += 4
-	}
-	if m.Field10 != nil {
-		dAtA[i] = 0x55
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
-		i += 4
-	}
-	if m.Field11 != nil {
-		dAtA[i] = 0x59
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
-		i += 8
-	}
-	if m.Field12 != nil {
-		dAtA[i] = 0x61
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
-		i += 8
+	if m.Field14 != nil {
+		i -= len(*m.Field14)
+		copy(dAtA[i:], *m.Field14)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.Field13 != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.Field13 {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.Field14 != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field14)))
-		i += copy(dAtA[i:], *m.Field14)
+	if m.Field12 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
+		i--
+		dAtA[i] = 0x61
 	}
-	if m.Field15 != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.Field15)))
-		i += copy(dAtA[i:], m.Field15)
+	if m.Field11 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
+		i--
+		dAtA[i] = 0x59
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field10 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
+		i--
+		dAtA[i] = 0x55
 	}
-	return i, nil
+	if m.Field9 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
+		i--
+		dAtA[i] = 0x4d
+	}
+	if m.Field8 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.Field7 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.Field6 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field6))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.Field5 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field5))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Field4 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field4))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Field3 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field3))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Field2 != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.Field1 != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomContainer) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25061,28 +25429,36 @@ func (m *CustomContainer) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomContainer) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomContainer) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.CustomStruct.Size()))
-	n91, err := m.CustomStruct.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n91
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size, err := m.CustomStruct.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameNidOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25090,80 +25466,88 @@ func (m *CustomNameNidOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameNidOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameNidOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0x9
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FieldA))))
-	i += 8
-	dAtA[i] = 0x15
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.FieldB))))
-	i += 4
-	dAtA[i] = 0x18
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.FieldC))
-	dAtA[i] = 0x20
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.FieldD))
-	dAtA[i] = 0x28
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.FieldE))
-	dAtA[i] = 0x30
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.FieldF))
-	dAtA[i] = 0x38
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.FieldG)<<1)^uint32((m.FieldG>>31))))
-	dAtA[i] = 0x40
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64((uint64(m.FieldH)<<1)^uint64((m.FieldH>>63))))
-	dAtA[i] = 0x4d
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldI))
-	i += 4
-	dAtA[i] = 0x55
-	i++
-	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldJ))
-	i += 4
-	dAtA[i] = 0x59
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldK))
-	i += 8
-	dAtA[i] = 0x61
-	i++
-	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldL))
-	i += 8
-	dAtA[i] = 0x68
-	i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.FieldO != nil {
+		i -= len(m.FieldO)
+		copy(dAtA[i:], m.FieldO)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldO)))
+		i--
+		dAtA[i] = 0x7a
+	}
+	i -= len(m.FieldN)
+	copy(dAtA[i:], m.FieldN)
+	i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldN)))
+	i--
+	dAtA[i] = 0x72
+	i--
 	if m.FieldM {
 		dAtA[i] = 1
 	} else {
 		dAtA[i] = 0
 	}
-	i++
-	dAtA[i] = 0x72
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldN)))
-	i += copy(dAtA[i:], m.FieldN)
-	if m.FieldO != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldO)))
-		i += copy(dAtA[i:], m.FieldO)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	i--
+	dAtA[i] = 0x68
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldL))
+	i--
+	dAtA[i] = 0x61
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldK))
+	i--
+	dAtA[i] = 0x59
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldJ))
+	i--
+	dAtA[i] = 0x55
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldI))
+	i--
+	dAtA[i] = 0x4d
+	i = encodeVarintThetest(dAtA, i, uint64((uint64(m.FieldH)<<1)^uint64((m.FieldH>>63))))
+	i--
+	dAtA[i] = 0x40
+	i = encodeVarintThetest(dAtA, i, uint64((uint32(m.FieldG)<<1)^uint32((m.FieldG>>31))))
+	i--
+	dAtA[i] = 0x38
+	i = encodeVarintThetest(dAtA, i, uint64(m.FieldF))
+	i--
+	dAtA[i] = 0x30
+	i = encodeVarintThetest(dAtA, i, uint64(m.FieldE))
+	i--
+	dAtA[i] = 0x28
+	i = encodeVarintThetest(dAtA, i, uint64(m.FieldD))
+	i--
+	dAtA[i] = 0x20
+	i = encodeVarintThetest(dAtA, i, uint64(m.FieldC))
+	i--
+	dAtA[i] = 0x18
+	i -= 4
+	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.FieldB))))
+	i--
+	dAtA[i] = 0x15
+	i -= 8
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FieldA))))
+	i--
+	dAtA[i] = 0x9
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameNinOptNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25171,108 +25555,116 @@ func (m *CustomNameNinOptNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameNinOptNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameNinOptNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.FieldA != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.FieldA))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.FieldB != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.FieldB))))
-		i += 4
+	if m.FieldO != nil {
+		i -= len(m.FieldO)
+		copy(dAtA[i:], m.FieldO)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldO)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.FieldC != nil {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldC))
-	}
-	if m.FieldD != nil {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldD))
-	}
-	if m.FieldE != nil {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldE))
-	}
-	if m.FieldF != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldF))
-	}
-	if m.FieldG != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.FieldG)<<1)^uint32((*m.FieldG>>31))))
-	}
-	if m.FieldH != nil {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.FieldH)<<1)^uint64((*m.FieldH>>63))))
-	}
-	if m.FieldI != nil {
-		dAtA[i] = 0x4d
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.FieldI))
-		i += 4
-	}
-	if m.FieldJ != nil {
-		dAtA[i] = 0x55
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.FieldJ))
-		i += 4
-	}
-	if m.FieldK != nil {
-		dAtA[i] = 0x59
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.FieldK))
-		i += 8
-	}
-	if m.FielL != nil {
-		dAtA[i] = 0x61
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.FielL))
-		i += 8
+	if m.FieldN != nil {
+		i -= len(*m.FieldN)
+		copy(dAtA[i:], *m.FieldN)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.FieldN)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.FieldM != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.FieldM {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.FieldN != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.FieldN)))
-		i += copy(dAtA[i:], *m.FieldN)
+	if m.FielL != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.FielL))
+		i--
+		dAtA[i] = 0x61
 	}
-	if m.FieldO != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldO)))
-		i += copy(dAtA[i:], m.FieldO)
+	if m.FieldK != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.FieldK))
+		i--
+		dAtA[i] = 0x59
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FieldJ != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.FieldJ))
+		i--
+		dAtA[i] = 0x55
 	}
-	return i, nil
+	if m.FieldI != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.FieldI))
+		i--
+		dAtA[i] = 0x4d
+	}
+	if m.FieldH != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint64(*m.FieldH)<<1)^uint64((*m.FieldH>>63))))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.FieldG != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.FieldG)<<1)^uint32((*m.FieldG>>31))))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.FieldF != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldF))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.FieldE != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldE))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.FieldD != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldD))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.FieldC != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldC))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.FieldB != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.FieldB))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.FieldA != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.FieldA))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameNinRepNative) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25280,161 +25672,150 @@ func (m *CustomNameNinRepNative) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameNinRepNative) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameNinRepNative) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.FieldA) > 0 {
-		for _, num := range m.FieldA {
-			dAtA[i] = 0x9
-			i++
-			f92 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f92))
-			i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.FieldO) > 0 {
+		for iNdEx := len(m.FieldO) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.FieldO[iNdEx])
+			copy(dAtA[i:], m.FieldO[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldO[iNdEx])))
+			i--
+			dAtA[i] = 0x7a
 		}
 	}
-	if len(m.FieldB) > 0 {
-		for _, num := range m.FieldB {
-			dAtA[i] = 0x15
-			i++
-			f93 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f93))
-			i += 4
-		}
-	}
-	if len(m.FieldC) > 0 {
-		for _, num := range m.FieldC {
-			dAtA[i] = 0x18
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.FieldD) > 0 {
-		for _, num := range m.FieldD {
-			dAtA[i] = 0x20
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.FieldE) > 0 {
-		for _, num := range m.FieldE {
-			dAtA[i] = 0x28
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.FieldF) > 0 {
-		for _, num := range m.FieldF {
-			dAtA[i] = 0x30
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
-		}
-	}
-	if len(m.FieldG) > 0 {
-		for _, num := range m.FieldG {
-			dAtA[i] = 0x38
-			i++
-			x94 := (uint32(num) << 1) ^ uint32((num >> 31))
-			for x94 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x94)&0x7f | 0x80)
-				x94 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x94)
-			i++
-		}
-	}
-	if len(m.FieldH) > 0 {
-		for _, num := range m.FieldH {
-			dAtA[i] = 0x40
-			i++
-			x95 := (uint64(num) << 1) ^ uint64((num >> 63))
-			for x95 >= 1<<7 {
-				dAtA[i] = uint8(uint64(x95)&0x7f | 0x80)
-				x95 >>= 7
-				i++
-			}
-			dAtA[i] = uint8(x95)
-			i++
-		}
-	}
-	if len(m.FieldI) > 0 {
-		for _, num := range m.FieldI {
-			dAtA[i] = 0x4d
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.FieldJ) > 0 {
-		for _, num := range m.FieldJ {
-			dAtA[i] = 0x55
-			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
-			i += 4
-		}
-	}
-	if len(m.FieldK) > 0 {
-		for _, num := range m.FieldK {
-			dAtA[i] = 0x59
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
-		}
-	}
-	if len(m.FieldL) > 0 {
-		for _, num := range m.FieldL {
-			dAtA[i] = 0x61
-			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
-			i += 8
+	if len(m.FieldN) > 0 {
+		for iNdEx := len(m.FieldN) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.FieldN[iNdEx])
+			copy(dAtA[i:], m.FieldN[iNdEx])
+			i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldN[iNdEx])))
+			i--
+			dAtA[i] = 0x72
 		}
 	}
 	if len(m.FieldM) > 0 {
-		for _, b := range m.FieldM {
-			dAtA[i] = 0x68
-			i++
-			if b {
+		for iNdEx := len(m.FieldM) - 1; iNdEx >= 0; iNdEx-- {
+			i--
+			if m.FieldM[iNdEx] {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x68
 		}
 	}
-	if len(m.FieldN) > 0 {
-		for _, s := range m.FieldN {
-			dAtA[i] = 0x72
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+	if len(m.FieldL) > 0 {
+		for iNdEx := len(m.FieldL) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldL[iNdEx]))
+			i--
+			dAtA[i] = 0x61
 		}
 	}
-	if len(m.FieldO) > 0 {
-		for _, b := range m.FieldO {
-			dAtA[i] = 0x7a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(len(b)))
-			i += copy(dAtA[i:], b)
+	if len(m.FieldK) > 0 {
+		for iNdEx := len(m.FieldK) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.FieldK[iNdEx]))
+			i--
+			dAtA[i] = 0x59
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.FieldJ) > 0 {
+		for iNdEx := len(m.FieldJ) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldJ[iNdEx]))
+			i--
+			dAtA[i] = 0x55
+		}
 	}
-	return i, nil
+	if len(m.FieldI) > 0 {
+		for iNdEx := len(m.FieldI) - 1; iNdEx >= 0; iNdEx-- {
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.FieldI[iNdEx]))
+			i--
+			dAtA[i] = 0x4d
+		}
+	}
+	if len(m.FieldH) > 0 {
+		for iNdEx := len(m.FieldH) - 1; iNdEx >= 0; iNdEx-- {
+			x87 := (uint64(m.FieldH[iNdEx]) << 1) ^ uint64((m.FieldH[iNdEx] >> 63))
+			i = encodeVarintThetest(dAtA, i, uint64(x87))
+			i--
+			dAtA[i] = 0x40
+		}
+	}
+	if len(m.FieldG) > 0 {
+		for iNdEx := len(m.FieldG) - 1; iNdEx >= 0; iNdEx-- {
+			x88 := (uint32(m.FieldG[iNdEx]) << 1) ^ uint32((m.FieldG[iNdEx] >> 31))
+			i = encodeVarintThetest(dAtA, i, uint64(x88))
+			i--
+			dAtA[i] = 0x38
+		}
+	}
+	if len(m.FieldF) > 0 {
+		for iNdEx := len(m.FieldF) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.FieldF[iNdEx]))
+			i--
+			dAtA[i] = 0x30
+		}
+	}
+	if len(m.FieldE) > 0 {
+		for iNdEx := len(m.FieldE) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.FieldE[iNdEx]))
+			i--
+			dAtA[i] = 0x28
+		}
+	}
+	if len(m.FieldD) > 0 {
+		for iNdEx := len(m.FieldD) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.FieldD[iNdEx]))
+			i--
+			dAtA[i] = 0x20
+		}
+	}
+	if len(m.FieldC) > 0 {
+		for iNdEx := len(m.FieldC) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.FieldC[iNdEx]))
+			i--
+			dAtA[i] = 0x18
+		}
+	}
+	if len(m.FieldB) > 0 {
+		for iNdEx := len(m.FieldB) - 1; iNdEx >= 0; iNdEx-- {
+			f89 := math.Float32bits(float32(m.FieldB[iNdEx]))
+			i -= 4
+			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f89))
+			i--
+			dAtA[i] = 0x15
+		}
+	}
+	if len(m.FieldA) > 0 {
+		for iNdEx := len(m.FieldA) - 1; iNdEx >= 0; iNdEx-- {
+			f90 := math.Float64bits(float64(m.FieldA[iNdEx]))
+			i -= 8
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f90))
+			i--
+			dAtA[i] = 0x9
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameNinStruct) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25442,96 +25823,110 @@ func (m *CustomNameNinStruct) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameNinStruct) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameNinStruct) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.FieldA != nil {
-		dAtA[i] = 0x9
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.FieldA))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.FieldB != nil {
-		dAtA[i] = 0x15
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.FieldB))))
-		i += 4
+	if m.FieldJ != nil {
+		i -= len(m.FieldJ)
+		copy(dAtA[i:], m.FieldJ)
+		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldJ)))
+		i--
+		dAtA[i] = 0x7a
 	}
-	if m.FieldC != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.FieldC.Size()))
-		n96, err := m.FieldC.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n96
-	}
-	if len(m.FieldD) > 0 {
-		for _, msg := range m.FieldD {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.FieldE != nil {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldE))
-	}
-	if m.FieldF != nil {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.FieldF)<<1)^uint32((*m.FieldF>>31))))
-	}
-	if m.FieldG != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.FieldG.Size()))
-		n97, err := m.FieldG.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n97
+	if m.FieldI != nil {
+		i -= len(*m.FieldI)
+		copy(dAtA[i:], *m.FieldI)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.FieldI)))
+		i--
+		dAtA[i] = 0x72
 	}
 	if m.FieldH != nil {
-		dAtA[i] = 0x68
-		i++
+		i--
 		if *m.FieldH {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x68
 	}
-	if m.FieldI != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.FieldI)))
-		i += copy(dAtA[i:], *m.FieldI)
+	if m.FieldG != nil {
+		{
+			size, err := m.FieldG.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x42
 	}
-	if m.FieldJ != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(m.FieldJ)))
-		i += copy(dAtA[i:], m.FieldJ)
+	if m.FieldF != nil {
+		i = encodeVarintThetest(dAtA, i, uint64((uint32(*m.FieldF)<<1)^uint32((*m.FieldF>>31))))
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FieldE != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldE))
+		i--
+		dAtA[i] = 0x30
 	}
-	return i, nil
+	if len(m.FieldD) > 0 {
+		for iNdEx := len(m.FieldD) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.FieldD[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if m.FieldC != nil {
+		{
+			size, err := m.FieldC.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.FieldB != nil {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.FieldB))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.FieldA != nil {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.FieldA))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25539,64 +25934,78 @@ func (m *CustomNameCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.FieldA != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.FieldA.Size()))
-		n98, err := m.FieldA.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n98
-	}
-	if m.FieldB != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.FieldB.Size()))
-		n99, err := m.FieldB.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n99
-	}
-	if len(m.FieldC) > 0 {
-		for _, msg := range m.FieldC {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.FieldD) > 0 {
-		for _, msg := range m.FieldD {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.FieldD) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.FieldD[iNdEx].Size()
+				i -= size
+				if _, err := m.FieldD[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x22
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.FieldC) > 0 {
+		for iNdEx := len(m.FieldC) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.FieldC[iNdEx].Size()
+				i -= size
+				if _, err := m.FieldC[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	if m.FieldB != nil {
+		{
+			size := m.FieldB.Size()
+			i -= size
+			if _, err := m.FieldB.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.FieldA != nil {
+		{
+			size := m.FieldA.Size()
+			i -= size
+			if _, err := m.FieldA.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameNinEmbeddedStructUnion) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25604,54 +26013,64 @@ func (m *CustomNameNinEmbeddedStructUnion) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameNinEmbeddedStructUnion) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameNinEmbeddedStructUnion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.NidOptNative != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.NidOptNative.Size()))
-		n100, err := m.NidOptNative.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n100
-	}
-	if m.FieldA != nil {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0xc
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.FieldA.Size()))
-		n101, err := m.FieldA.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n101
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.FieldB != nil {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0xd
-		i++
+		i--
 		if *m.FieldB {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0xd
+		i--
+		dAtA[i] = 0x90
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FieldA != nil {
+		{
+			size, err := m.FieldA.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xc
+		i--
+		dAtA[i] = 0xc2
 	}
-	return i, nil
+	if m.NidOptNative != nil {
+		{
+			size, err := m.NidOptNative.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CustomNameEnum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25659,32 +26078,38 @@ func (m *CustomNameEnum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CustomNameEnum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CustomNameEnum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.FieldA != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldA))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.FieldB) > 0 {
-		for _, num := range m.FieldB {
+		for iNdEx := len(m.FieldB) - 1; iNdEx >= 0; iNdEx-- {
+			i = encodeVarintThetest(dAtA, i, uint64(m.FieldB[iNdEx]))
+			i--
 			dAtA[i] = 0x10
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(num))
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FieldA != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.FieldA))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NoExtensionsMap) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25692,28 +26117,35 @@ func (m *NoExtensionsMap) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NoExtensionsMap) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NoExtensionsMap) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.XXX_extensions != nil {
-		i += copy(dAtA[i:], m.XXX_extensions)
+		i -= len(m.XXX_extensions)
+		copy(dAtA[i:], m.XXX_extensions)
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Field1 != nil {
+		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Unrecognized) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25721,23 +26153,29 @@ func (m *Unrecognized) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Unrecognized) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Unrecognized) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Field1 != nil {
-		dAtA[i] = 0xa
-		i++
+		i -= len(*m.Field1)
+		copy(dAtA[i:], *m.Field1)
 		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field1)))
-		i += copy(dAtA[i:], *m.Field1)
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *UnrecognizedWithInner) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25745,38 +26183,47 @@ func (m *UnrecognizedWithInner) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UnrecognizedWithInner) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnrecognizedWithInner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Embedded) > 0 {
-		for _, msg := range m.Embedded {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Field2 != nil {
-		dAtA[i] = 0x12
-		i++
+		i -= len(*m.Field2)
+		copy(dAtA[i:], *m.Field2)
 		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field2)))
-		i += copy(dAtA[i:], *m.Field2)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Embedded) > 0 {
+		for iNdEx := len(m.Embedded) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Embedded[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *UnrecognizedWithInner_Inner) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25784,22 +26231,27 @@ func (m *UnrecognizedWithInner_Inner) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UnrecognizedWithInner_Inner) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnrecognizedWithInner_Inner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *UnrecognizedWithEmbed) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25807,34 +26259,43 @@ func (m *UnrecognizedWithEmbed) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UnrecognizedWithEmbed) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnrecognizedWithEmbed) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.UnrecognizedWithEmbed_Embedded.Size()))
-	n102, err := m.UnrecognizedWithEmbed_Embedded.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n102
-	if m.Field2 != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field2)))
-		i += copy(dAtA[i:], *m.Field2)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Field2 != nil {
+		i -= len(*m.Field2)
+		copy(dAtA[i:], *m.Field2)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field2)))
+		i--
+		dAtA[i] = 0x12
+	}
+	{
+		size, err := m.UnrecognizedWithEmbed_Embedded.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *UnrecognizedWithEmbed_Embedded) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25842,22 +26303,27 @@ func (m *UnrecognizedWithEmbed_Embedded) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UnrecognizedWithEmbed_Embedded) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnrecognizedWithEmbed_Embedded) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.Field1 != nil {
-		dAtA[i] = 0x8
-		i++
 		i = encodeVarintThetest(dAtA, i, uint64(*m.Field1))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Node) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25865,38 +26331,47 @@ func (m *Node) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Node) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Node) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Label != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Label)))
-		i += copy(dAtA[i:], *m.Label)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Children) > 0 {
-		for _, msg := range m.Children {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Children) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Children[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Label != nil {
+		i -= len(*m.Label)
+		copy(dAtA[i:], *m.Label)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Label)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NonByteCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25904,30 +26379,38 @@ func (m *NonByteCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NonByteCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NonByteCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-		n103, err := m.Field1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n103
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Field1 != nil {
+		{
+			size := m.Field1.Size()
+			i -= size
+			if _, err := m.Field1.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidOptNonByteCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25935,28 +26418,36 @@ func (m *NidOptNonByteCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidOptNonByteCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidOptNonByteCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-	n104, err := m.Field1.MarshalTo(dAtA[i:])
-	if err != nil {
-		return 0, err
-	}
-	i += n104
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	{
+		size := m.Field1.Size()
+		i -= size
+		if _, err := m.Field1.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintThetest(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
 }
 
 func (m *NinOptNonByteCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25964,30 +26455,38 @@ func (m *NinOptNonByteCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinOptNonByteCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinOptNonByteCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field1 != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(m.Field1.Size()))
-		n105, err := m.Field1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n105
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Field1 != nil {
+		{
+			size := m.Field1.Size()
+			i -= size
+			if _, err := m.Field1.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+			i = encodeVarintThetest(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NidRepNonByteCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -25995,32 +26494,40 @@ func (m *NidRepNonByteCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NidRepNonByteCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NidRepNonByteCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Field1) > 0 {
-		for _, msg := range m.Field1 {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Field1[iNdEx].Size()
+				i -= size
+				if _, err := m.Field1[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NinRepNonByteCustomType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -26028,32 +26535,40 @@ func (m *NinRepNonByteCustomType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NinRepNonByteCustomType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NinRepNonByteCustomType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Field1) > 0 {
-		for _, msg := range m.Field1 {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintThetest(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Field1) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size := m.Field1[iNdEx].Size()
+				i -= size
+				if _, err := m.Field1[iNdEx].MarshalTo(dAtA[i:]); err != nil {
+					return 0, err
+				}
+				i = encodeVarintThetest(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ProtoType) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -26061,30 +26576,39 @@ func (m *ProtoType) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ProtoType) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProtoType) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Field2 != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field2)))
-		i += copy(dAtA[i:], *m.Field2)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Field2 != nil {
+		i -= len(*m.Field2)
+		copy(dAtA[i:], *m.Field2)
+		i = encodeVarintThetest(dAtA, i, uint64(len(*m.Field2)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintThetest(dAtA []byte, offset int, v uint64) int {
+	offset -= sovThetest(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func NewPopulatedNidOptNative(r randyThetest, easy bool) *NidOptNative {
 	this := &NidOptNative{}
@@ -26139,87 +26663,87 @@ func NewPopulatedNidOptNative(r randyThetest, easy bool) *NidOptNative {
 
 func NewPopulatedNinOptNative(r randyThetest, easy bool) *NinOptNative {
 	this := &NinOptNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v2 *= -1
 		}
 		this.Field1 = &v2
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
 		this.Field2 = &v3
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v4 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v4 *= -1
 		}
 		this.Field3 = &v4
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v5 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v5 *= -1
 		}
 		this.Field4 = &v5
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v6 := uint32(r.Uint32())
 		this.Field5 = &v6
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v7 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v7
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v8 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v8 *= -1
 		}
 		this.Field7 = &v8
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v9 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v9 *= -1
 		}
 		this.Field8 = &v9
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v10 := uint32(r.Uint32())
 		this.Field9 = &v10
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v11 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v11 *= -1
 		}
 		this.Field10 = &v11
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v12 := uint64(uint64(r.Uint32()))
 		this.Field11 = &v12
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v13 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v13 *= -1
 		}
 		this.Field12 = &v13
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v14 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v14
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v15 := string(randStringThetest(r))
 		this.Field14 = &v15
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v16 := r.Intn(100)
 		this.Field15 = make([]byte, v16)
 		for i := 0; i < v16; i++ {
@@ -26234,7 +26758,7 @@ func NewPopulatedNinOptNative(r randyThetest, easy bool) *NinOptNative {
 
 func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 	this := &NidRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v17 := r.Intn(10)
 		this.Field1 = make([]float64, v17)
 		for i := 0; i < v17; i++ {
@@ -26244,7 +26768,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v18 := r.Intn(10)
 		this.Field2 = make([]float32, v18)
 		for i := 0; i < v18; i++ {
@@ -26254,7 +26778,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v19 := r.Intn(10)
 		this.Field3 = make([]int32, v19)
 		for i := 0; i < v19; i++ {
@@ -26264,7 +26788,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v20 := r.Intn(10)
 		this.Field4 = make([]int64, v20)
 		for i := 0; i < v20; i++ {
@@ -26274,21 +26798,21 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v21 := r.Intn(10)
 		this.Field5 = make([]uint32, v21)
 		for i := 0; i < v21; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v22 := r.Intn(10)
 		this.Field6 = make([]uint64, v22)
 		for i := 0; i < v22; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v23 := r.Intn(10)
 		this.Field7 = make([]int32, v23)
 		for i := 0; i < v23; i++ {
@@ -26298,7 +26822,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v24 := r.Intn(10)
 		this.Field8 = make([]int64, v24)
 		for i := 0; i < v24; i++ {
@@ -26308,14 +26832,14 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v25 := r.Intn(10)
 		this.Field9 = make([]uint32, v25)
 		for i := 0; i < v25; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v26 := r.Intn(10)
 		this.Field10 = make([]int32, v26)
 		for i := 0; i < v26; i++ {
@@ -26325,14 +26849,14 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v27 := r.Intn(10)
 		this.Field11 = make([]uint64, v27)
 		for i := 0; i < v27; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v28 := r.Intn(10)
 		this.Field12 = make([]int64, v28)
 		for i := 0; i < v28; i++ {
@@ -26342,21 +26866,21 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v29 := r.Intn(10)
 		this.Field13 = make([]bool, v29)
 		for i := 0; i < v29; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v30 := r.Intn(10)
 		this.Field14 = make([]string, v30)
 		for i := 0; i < v30; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v31 := r.Intn(10)
 		this.Field15 = make([][]byte, v31)
 		for i := 0; i < v31; i++ {
@@ -26375,7 +26899,7 @@ func NewPopulatedNidRepNative(r randyThetest, easy bool) *NidRepNative {
 
 func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 	this := &NinRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v33 := r.Intn(10)
 		this.Field1 = make([]float64, v33)
 		for i := 0; i < v33; i++ {
@@ -26385,7 +26909,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v34 := r.Intn(10)
 		this.Field2 = make([]float32, v34)
 		for i := 0; i < v34; i++ {
@@ -26395,7 +26919,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v35 := r.Intn(10)
 		this.Field3 = make([]int32, v35)
 		for i := 0; i < v35; i++ {
@@ -26405,7 +26929,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v36 := r.Intn(10)
 		this.Field4 = make([]int64, v36)
 		for i := 0; i < v36; i++ {
@@ -26415,21 +26939,21 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v37 := r.Intn(10)
 		this.Field5 = make([]uint32, v37)
 		for i := 0; i < v37; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v38 := r.Intn(10)
 		this.Field6 = make([]uint64, v38)
 		for i := 0; i < v38; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v39 := r.Intn(10)
 		this.Field7 = make([]int32, v39)
 		for i := 0; i < v39; i++ {
@@ -26439,7 +26963,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v40 := r.Intn(10)
 		this.Field8 = make([]int64, v40)
 		for i := 0; i < v40; i++ {
@@ -26449,14 +26973,14 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v41 := r.Intn(10)
 		this.Field9 = make([]uint32, v41)
 		for i := 0; i < v41; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v42 := r.Intn(10)
 		this.Field10 = make([]int32, v42)
 		for i := 0; i < v42; i++ {
@@ -26466,14 +26990,14 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v43 := r.Intn(10)
 		this.Field11 = make([]uint64, v43)
 		for i := 0; i < v43; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v44 := r.Intn(10)
 		this.Field12 = make([]int64, v44)
 		for i := 0; i < v44; i++ {
@@ -26483,21 +27007,21 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v45 := r.Intn(10)
 		this.Field13 = make([]bool, v45)
 		for i := 0; i < v45; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v46 := r.Intn(10)
 		this.Field14 = make([]string, v46)
 		for i := 0; i < v46; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v47 := r.Intn(10)
 		this.Field15 = make([][]byte, v47)
 		for i := 0; i < v47; i++ {
@@ -26516,7 +27040,7 @@ func NewPopulatedNinRepNative(r randyThetest, easy bool) *NinRepNative {
 
 func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNative {
 	this := &NidRepPackedNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v49 := r.Intn(10)
 		this.Field1 = make([]float64, v49)
 		for i := 0; i < v49; i++ {
@@ -26526,7 +27050,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v50 := r.Intn(10)
 		this.Field2 = make([]float32, v50)
 		for i := 0; i < v50; i++ {
@@ -26536,7 +27060,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v51 := r.Intn(10)
 		this.Field3 = make([]int32, v51)
 		for i := 0; i < v51; i++ {
@@ -26546,7 +27070,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v52 := r.Intn(10)
 		this.Field4 = make([]int64, v52)
 		for i := 0; i < v52; i++ {
@@ -26556,21 +27080,21 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v53 := r.Intn(10)
 		this.Field5 = make([]uint32, v53)
 		for i := 0; i < v53; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v54 := r.Intn(10)
 		this.Field6 = make([]uint64, v54)
 		for i := 0; i < v54; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v55 := r.Intn(10)
 		this.Field7 = make([]int32, v55)
 		for i := 0; i < v55; i++ {
@@ -26580,7 +27104,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v56 := r.Intn(10)
 		this.Field8 = make([]int64, v56)
 		for i := 0; i < v56; i++ {
@@ -26590,14 +27114,14 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v57 := r.Intn(10)
 		this.Field9 = make([]uint32, v57)
 		for i := 0; i < v57; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v58 := r.Intn(10)
 		this.Field10 = make([]int32, v58)
 		for i := 0; i < v58; i++ {
@@ -26607,14 +27131,14 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v59 := r.Intn(10)
 		this.Field11 = make([]uint64, v59)
 		for i := 0; i < v59; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v60 := r.Intn(10)
 		this.Field12 = make([]int64, v60)
 		for i := 0; i < v60; i++ {
@@ -26624,7 +27148,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v61 := r.Intn(10)
 		this.Field13 = make([]bool, v61)
 		for i := 0; i < v61; i++ {
@@ -26639,7 +27163,7 @@ func NewPopulatedNidRepPackedNative(r randyThetest, easy bool) *NidRepPackedNati
 
 func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNative {
 	this := &NinRepPackedNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v62 := r.Intn(10)
 		this.Field1 = make([]float64, v62)
 		for i := 0; i < v62; i++ {
@@ -26649,7 +27173,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v63 := r.Intn(10)
 		this.Field2 = make([]float32, v63)
 		for i := 0; i < v63; i++ {
@@ -26659,7 +27183,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v64 := r.Intn(10)
 		this.Field3 = make([]int32, v64)
 		for i := 0; i < v64; i++ {
@@ -26669,7 +27193,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v65 := r.Intn(10)
 		this.Field4 = make([]int64, v65)
 		for i := 0; i < v65; i++ {
@@ -26679,21 +27203,21 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v66 := r.Intn(10)
 		this.Field5 = make([]uint32, v66)
 		for i := 0; i < v66; i++ {
 			this.Field5[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v67 := r.Intn(10)
 		this.Field6 = make([]uint64, v67)
 		for i := 0; i < v67; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v68 := r.Intn(10)
 		this.Field7 = make([]int32, v68)
 		for i := 0; i < v68; i++ {
@@ -26703,7 +27227,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v69 := r.Intn(10)
 		this.Field8 = make([]int64, v69)
 		for i := 0; i < v69; i++ {
@@ -26713,14 +27237,14 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v70 := r.Intn(10)
 		this.Field9 = make([]uint32, v70)
 		for i := 0; i < v70; i++ {
 			this.Field9[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v71 := r.Intn(10)
 		this.Field10 = make([]int32, v71)
 		for i := 0; i < v71; i++ {
@@ -26730,14 +27254,14 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v72 := r.Intn(10)
 		this.Field11 = make([]uint64, v72)
 		for i := 0; i < v72; i++ {
 			this.Field11[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v73 := r.Intn(10)
 		this.Field12 = make([]int64, v73)
 		for i := 0; i < v73; i++ {
@@ -26747,7 +27271,7 @@ func NewPopulatedNinRepPackedNative(r randyThetest, easy bool) *NinRepPackedNati
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v74 := r.Intn(10)
 		this.Field13 = make([]bool, v74)
 		for i := 0; i < v74; i++ {
@@ -26796,49 +27320,49 @@ func NewPopulatedNidOptStruct(r randyThetest, easy bool) *NidOptStruct {
 
 func NewPopulatedNinOptStruct(r randyThetest, easy bool) *NinOptStruct {
 	this := &NinOptStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v79 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v79 *= -1
 		}
 		this.Field1 = &v79
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v80 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v80 *= -1
 		}
 		this.Field2 = &v80
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field3 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field4 = NewPopulatedNinOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v81 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v81
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v82 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v82 *= -1
 		}
 		this.Field7 = &v82
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field8 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v83 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v83
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v84 := string(randStringThetest(r))
 		this.Field14 = &v84
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v85 := r.Intn(100)
 		this.Field15 = make([]byte, v85)
 		for i := 0; i < v85; i++ {
@@ -26853,7 +27377,7 @@ func NewPopulatedNinOptStruct(r randyThetest, easy bool) *NinOptStruct {
 
 func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 	this := &NidRepStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v86 := r.Intn(10)
 		this.Field1 = make([]float64, v86)
 		for i := 0; i < v86; i++ {
@@ -26863,7 +27387,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v87 := r.Intn(10)
 		this.Field2 = make([]float32, v87)
 		for i := 0; i < v87; i++ {
@@ -26873,7 +27397,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v88 := r.Intn(5)
 		this.Field3 = make([]NidOptNative, v88)
 		for i := 0; i < v88; i++ {
@@ -26881,7 +27405,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field3[i] = *v89
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v90 := r.Intn(5)
 		this.Field4 = make([]NinOptNative, v90)
 		for i := 0; i < v90; i++ {
@@ -26889,14 +27413,14 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field4[i] = *v91
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v92 := r.Intn(10)
 		this.Field6 = make([]uint64, v92)
 		for i := 0; i < v92; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v93 := r.Intn(10)
 		this.Field7 = make([]int32, v93)
 		for i := 0; i < v93; i++ {
@@ -26906,7 +27430,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v94 := r.Intn(5)
 		this.Field8 = make([]NidOptNative, v94)
 		for i := 0; i < v94; i++ {
@@ -26914,21 +27438,21 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 			this.Field8[i] = *v95
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v96 := r.Intn(10)
 		this.Field13 = make([]bool, v96)
 		for i := 0; i < v96; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v97 := r.Intn(10)
 		this.Field14 = make([]string, v97)
 		for i := 0; i < v97; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v98 := r.Intn(10)
 		this.Field15 = make([][]byte, v98)
 		for i := 0; i < v98; i++ {
@@ -26947,7 +27471,7 @@ func NewPopulatedNidRepStruct(r randyThetest, easy bool) *NidRepStruct {
 
 func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 	this := &NinRepStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v100 := r.Intn(10)
 		this.Field1 = make([]float64, v100)
 		for i := 0; i < v100; i++ {
@@ -26957,7 +27481,7 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v101 := r.Intn(10)
 		this.Field2 = make([]float32, v101)
 		for i := 0; i < v101; i++ {
@@ -26967,28 +27491,28 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v102 := r.Intn(5)
 		this.Field3 = make([]*NidOptNative, v102)
 		for i := 0; i < v102; i++ {
 			this.Field3[i] = NewPopulatedNidOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v103 := r.Intn(5)
 		this.Field4 = make([]*NinOptNative, v103)
 		for i := 0; i < v103; i++ {
 			this.Field4[i] = NewPopulatedNinOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v104 := r.Intn(10)
 		this.Field6 = make([]uint64, v104)
 		for i := 0; i < v104; i++ {
 			this.Field6[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v105 := r.Intn(10)
 		this.Field7 = make([]int32, v105)
 		for i := 0; i < v105; i++ {
@@ -26998,28 +27522,28 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v106 := r.Intn(5)
 		this.Field8 = make([]*NidOptNative, v106)
 		for i := 0; i < v106; i++ {
 			this.Field8[i] = NewPopulatedNidOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v107 := r.Intn(10)
 		this.Field13 = make([]bool, v107)
 		for i := 0; i < v107; i++ {
 			this.Field13[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v108 := r.Intn(10)
 		this.Field14 = make([]string, v108)
 		for i := 0; i < v108; i++ {
 			this.Field14[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v109 := r.Intn(10)
 		this.Field15 = make([][]byte, v109)
 		for i := 0; i < v109; i++ {
@@ -27038,7 +27562,7 @@ func NewPopulatedNinRepStruct(r randyThetest, easy bool) *NinRepStruct {
 
 func NewPopulatedNidEmbeddedStruct(r randyThetest, easy bool) *NidEmbeddedStruct {
 	this := &NidEmbeddedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NidOptNative = NewPopulatedNidOptNative(r, easy)
 	}
 	v111 := NewPopulatedNidOptNative(r, easy)
@@ -27052,13 +27576,13 @@ func NewPopulatedNidEmbeddedStruct(r randyThetest, easy bool) *NidEmbeddedStruct
 
 func NewPopulatedNinEmbeddedStruct(r randyThetest, easy bool) *NinEmbeddedStruct {
 	this := &NinEmbeddedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NidOptNative = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field200 = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v112 := bool(bool(r.Intn(2) == 0))
 		this.Field210 = &v112
 	}
@@ -27072,7 +27596,7 @@ func NewPopulatedNidNestedStruct(r randyThetest, easy bool) *NidNestedStruct {
 	this := &NidNestedStruct{}
 	v113 := NewPopulatedNidOptStruct(r, easy)
 	this.Field1 = *v113
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v114 := r.Intn(5)
 		this.Field2 = make([]NidRepStruct, v114)
 		for i := 0; i < v114; i++ {
@@ -27088,10 +27612,10 @@ func NewPopulatedNidNestedStruct(r randyThetest, easy bool) *NidNestedStruct {
 
 func NewPopulatedNinNestedStruct(r randyThetest, easy bool) *NinNestedStruct {
 	this := &NinNestedStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedNinOptStruct(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v116 := r.Intn(5)
 		this.Field2 = make([]*NinRepStruct, v116)
 		for i := 0; i < v116; i++ {
@@ -27118,7 +27642,7 @@ func NewPopulatedNidOptCustom(r randyThetest, easy bool) *NidOptCustom {
 
 func NewPopulatedCustomDash(r randyThetest, easy bool) *CustomDash {
 	this := &CustomDash{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = github_com_gogo_protobuf_test_custom_dash_type.NewPopulatedBytes(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -27129,10 +27653,10 @@ func NewPopulatedCustomDash(r randyThetest, easy bool) *CustomDash {
 
 func NewPopulatedNinOptCustom(r randyThetest, easy bool) *NinOptCustom {
 	this := &NinOptCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Id = NewPopulatedUuid(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Value = github_com_gogo_protobuf_test_custom.NewPopulatedUint128(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -27143,7 +27667,7 @@ func NewPopulatedNinOptCustom(r randyThetest, easy bool) *NinOptCustom {
 
 func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 	this := &NidRepCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v119 := r.Intn(10)
 		this.Id = make([]Uuid, v119)
 		for i := 0; i < v119; i++ {
@@ -27151,7 +27675,7 @@ func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 			this.Id[i] = *v120
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v121 := r.Intn(10)
 		this.Value = make([]github_com_gogo_protobuf_test_custom.Uint128, v121)
 		for i := 0; i < v121; i++ {
@@ -27167,7 +27691,7 @@ func NewPopulatedNidRepCustom(r randyThetest, easy bool) *NidRepCustom {
 
 func NewPopulatedNinRepCustom(r randyThetest, easy bool) *NinRepCustom {
 	this := &NinRepCustom{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v123 := r.Intn(10)
 		this.Id = make([]Uuid, v123)
 		for i := 0; i < v123; i++ {
@@ -27175,7 +27699,7 @@ func NewPopulatedNinRepCustom(r randyThetest, easy bool) *NinRepCustom {
 			this.Id[i] = *v124
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v125 := r.Intn(10)
 		this.Value = make([]github_com_gogo_protobuf_test_custom.Uint128, v125)
 		for i := 0; i < v125; i++ {
@@ -27429,15 +27953,15 @@ func NewPopulatedNidOptEnum(r randyThetest, easy bool) *NidOptEnum {
 
 func NewPopulatedNinOptEnum(r randyThetest, easy bool) *NinOptEnum {
 	this := &NinOptEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v152 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.Field1 = &v152
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v153 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v153
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v154 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v154
 	}
@@ -27449,21 +27973,21 @@ func NewPopulatedNinOptEnum(r randyThetest, easy bool) *NinOptEnum {
 
 func NewPopulatedNidRepEnum(r randyThetest, easy bool) *NidRepEnum {
 	this := &NidRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v155 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v155)
 		for i := 0; i < v155; i++ {
 			this.Field1[i] = TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v156 := r.Intn(10)
 		this.Field2 = make([]YetAnotherTestEnum, v156)
 		for i := 0; i < v156; i++ {
 			this.Field2[i] = YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v157 := r.Intn(10)
 		this.Field3 = make([]YetYetAnotherTestEnum, v157)
 		for i := 0; i < v157; i++ {
@@ -27478,21 +28002,21 @@ func NewPopulatedNidRepEnum(r randyThetest, easy bool) *NidRepEnum {
 
 func NewPopulatedNinRepEnum(r randyThetest, easy bool) *NinRepEnum {
 	this := &NinRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v158 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v158)
 		for i := 0; i < v158; i++ {
 			this.Field1[i] = TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v159 := r.Intn(10)
 		this.Field2 = make([]YetAnotherTestEnum, v159)
 		for i := 0; i < v159; i++ {
 			this.Field2[i] = YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v160 := r.Intn(10)
 		this.Field3 = make([]YetYetAnotherTestEnum, v160)
 		for i := 0; i < v160; i++ {
@@ -27507,15 +28031,15 @@ func NewPopulatedNinRepEnum(r randyThetest, easy bool) *NinRepEnum {
 
 func NewPopulatedNinOptEnumDefault(r randyThetest, easy bool) *NinOptEnumDefault {
 	this := &NinOptEnumDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v161 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.Field1 = &v161
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v162 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v162
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v163 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v163
 	}
@@ -27527,15 +28051,15 @@ func NewPopulatedNinOptEnumDefault(r randyThetest, easy bool) *NinOptEnumDefault
 
 func NewPopulatedAnotherNinOptEnum(r randyThetest, easy bool) *AnotherNinOptEnum {
 	this := &AnotherNinOptEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v164 := AnotherTestEnum([]int32{10, 11}[r.Intn(2)])
 		this.Field1 = &v164
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v165 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v165
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v166 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v166
 	}
@@ -27547,15 +28071,15 @@ func NewPopulatedAnotherNinOptEnum(r randyThetest, easy bool) *AnotherNinOptEnum
 
 func NewPopulatedAnotherNinOptEnumDefault(r randyThetest, easy bool) *AnotherNinOptEnumDefault {
 	this := &AnotherNinOptEnumDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v167 := AnotherTestEnum([]int32{10, 11}[r.Intn(2)])
 		this.Field1 = &v167
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v168 := YetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field2 = &v168
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v169 := YetYetAnotherTestEnum([]int32{0, 1}[r.Intn(2)])
 		this.Field3 = &v169
 	}
@@ -27588,7 +28112,7 @@ func NewPopulatedTimer(r randyThetest, easy bool) *Timer {
 
 func NewPopulatedMyExtendable(r randyThetest, easy bool) *MyExtendable {
 	this := &MyExtendable{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v171 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v171 *= -1
@@ -27615,17 +28139,17 @@ func NewPopulatedMyExtendable(r randyThetest, easy bool) *MyExtendable {
 
 func NewPopulatedOtherExtenable(r randyThetest, easy bool) *OtherExtenable {
 	this := &OtherExtenable{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.M = NewPopulatedMyExtendable(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v172 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v172 *= -1
 		}
 		this.Field2 = &v172
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v173 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v173 *= -1
@@ -27659,21 +28183,21 @@ func NewPopulatedOtherExtenable(r randyThetest, easy bool) *OtherExtenable {
 
 func NewPopulatedNestedDefinition(r randyThetest, easy bool) *NestedDefinition {
 	this := &NestedDefinition{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v174 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v174 *= -1
 		}
 		this.Field1 = &v174
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v175 := NestedDefinition_NestedEnum([]int32{1}[r.Intn(1)])
 		this.EnumField = &v175
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NNM = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NM = NewPopulatedNestedDefinition_NestedMessage(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -27684,11 +28208,11 @@ func NewPopulatedNestedDefinition(r randyThetest, easy bool) *NestedDefinition {
 
 func NewPopulatedNestedDefinition_NestedMessage(r randyThetest, easy bool) *NestedDefinition_NestedMessage {
 	this := &NestedDefinition_NestedMessage{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v176 := uint64(uint64(r.Uint32()))
 		this.NestedField1 = &v176
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.NNM = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -27699,7 +28223,7 @@ func NewPopulatedNestedDefinition_NestedMessage(r randyThetest, easy bool) *Nest
 
 func NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r randyThetest, easy bool) *NestedDefinition_NestedMessage_NestedNestedMsg {
 	this := &NestedDefinition_NestedMessage_NestedNestedMsg{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v177 := string(randStringThetest(r))
 		this.NestedNestedField1 = &v177
 	}
@@ -27711,14 +28235,14 @@ func NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r randyThetest, 
 
 func NewPopulatedNestedScope(r randyThetest, easy bool) *NestedScope {
 	this := &NestedScope{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.A = NewPopulatedNestedDefinition_NestedMessage_NestedNestedMsg(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v178 := NestedDefinition_NestedEnum([]int32{1}[r.Intn(1)])
 		this.B = &v178
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.C = NewPopulatedNestedDefinition_NestedMessage(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -27729,87 +28253,87 @@ func NewPopulatedNestedScope(r randyThetest, easy bool) *NestedScope {
 
 func NewPopulatedNinOptNativeDefault(r randyThetest, easy bool) *NinOptNativeDefault {
 	this := &NinOptNativeDefault{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v179 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v179 *= -1
 		}
 		this.Field1 = &v179
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v180 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v180 *= -1
 		}
 		this.Field2 = &v180
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v181 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v181 *= -1
 		}
 		this.Field3 = &v181
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v182 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v182 *= -1
 		}
 		this.Field4 = &v182
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v183 := uint32(r.Uint32())
 		this.Field5 = &v183
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v184 := uint64(uint64(r.Uint32()))
 		this.Field6 = &v184
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v185 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v185 *= -1
 		}
 		this.Field7 = &v185
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v186 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v186 *= -1
 		}
 		this.Field8 = &v186
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v187 := uint32(r.Uint32())
 		this.Field9 = &v187
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v188 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v188 *= -1
 		}
 		this.Field10 = &v188
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v189 := uint64(uint64(r.Uint32()))
 		this.Field11 = &v189
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v190 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v190 *= -1
 		}
 		this.Field12 = &v190
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v191 := bool(bool(r.Intn(2) == 0))
 		this.Field13 = &v191
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v192 := string(randStringThetest(r))
 		this.Field14 = &v192
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v193 := r.Intn(100)
 		this.Field15 = make([]byte, v193)
 		for i := 0; i < v193; i++ {
@@ -27885,87 +28409,87 @@ func NewPopulatedCustomNameNidOptNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinOptNative(r randyThetest, easy bool) *CustomNameNinOptNative {
 	this := &CustomNameNinOptNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v196 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v196 *= -1
 		}
 		this.FieldA = &v196
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v197 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v197 *= -1
 		}
 		this.FieldB = &v197
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v198 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v198 *= -1
 		}
 		this.FieldC = &v198
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v199 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v199 *= -1
 		}
 		this.FieldD = &v199
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v200 := uint32(r.Uint32())
 		this.FieldE = &v200
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v201 := uint64(uint64(r.Uint32()))
 		this.FieldF = &v201
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v202 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v202 *= -1
 		}
 		this.FieldG = &v202
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v203 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v203 *= -1
 		}
 		this.FieldH = &v203
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v204 := uint32(r.Uint32())
 		this.FieldI = &v204
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v205 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v205 *= -1
 		}
 		this.FieldJ = &v205
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v206 := uint64(uint64(r.Uint32()))
 		this.FieldK = &v206
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v207 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v207 *= -1
 		}
 		this.FielL = &v207
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v208 := bool(bool(r.Intn(2) == 0))
 		this.FieldM = &v208
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v209 := string(randStringThetest(r))
 		this.FieldN = &v209
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v210 := r.Intn(100)
 		this.FieldO = make([]byte, v210)
 		for i := 0; i < v210; i++ {
@@ -27980,7 +28504,7 @@ func NewPopulatedCustomNameNinOptNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNinRepNative {
 	this := &CustomNameNinRepNative{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v211 := r.Intn(10)
 		this.FieldA = make([]float64, v211)
 		for i := 0; i < v211; i++ {
@@ -27990,7 +28514,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v212 := r.Intn(10)
 		this.FieldB = make([]float32, v212)
 		for i := 0; i < v212; i++ {
@@ -28000,7 +28524,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v213 := r.Intn(10)
 		this.FieldC = make([]int32, v213)
 		for i := 0; i < v213; i++ {
@@ -28010,7 +28534,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v214 := r.Intn(10)
 		this.FieldD = make([]int64, v214)
 		for i := 0; i < v214; i++ {
@@ -28020,21 +28544,21 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v215 := r.Intn(10)
 		this.FieldE = make([]uint32, v215)
 		for i := 0; i < v215; i++ {
 			this.FieldE[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v216 := r.Intn(10)
 		this.FieldF = make([]uint64, v216)
 		for i := 0; i < v216; i++ {
 			this.FieldF[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v217 := r.Intn(10)
 		this.FieldG = make([]int32, v217)
 		for i := 0; i < v217; i++ {
@@ -28044,7 +28568,7 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v218 := r.Intn(10)
 		this.FieldH = make([]int64, v218)
 		for i := 0; i < v218; i++ {
@@ -28054,14 +28578,14 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v219 := r.Intn(10)
 		this.FieldI = make([]uint32, v219)
 		for i := 0; i < v219; i++ {
 			this.FieldI[i] = uint32(r.Uint32())
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v220 := r.Intn(10)
 		this.FieldJ = make([]int32, v220)
 		for i := 0; i < v220; i++ {
@@ -28071,14 +28595,14 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v221 := r.Intn(10)
 		this.FieldK = make([]uint64, v221)
 		for i := 0; i < v221; i++ {
 			this.FieldK[i] = uint64(uint64(r.Uint32()))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v222 := r.Intn(10)
 		this.FieldL = make([]int64, v222)
 		for i := 0; i < v222; i++ {
@@ -28088,21 +28612,21 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 			}
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v223 := r.Intn(10)
 		this.FieldM = make([]bool, v223)
 		for i := 0; i < v223; i++ {
 			this.FieldM[i] = bool(bool(r.Intn(2) == 0))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v224 := r.Intn(10)
 		this.FieldN = make([]string, v224)
 		for i := 0; i < v224; i++ {
 			this.FieldN[i] = string(randStringThetest(r))
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v225 := r.Intn(10)
 		this.FieldO = make([][]byte, v225)
 		for i := 0; i < v225; i++ {
@@ -28121,53 +28645,53 @@ func NewPopulatedCustomNameNinRepNative(r randyThetest, easy bool) *CustomNameNi
 
 func NewPopulatedCustomNameNinStruct(r randyThetest, easy bool) *CustomNameNinStruct {
 	this := &CustomNameNinStruct{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v227 := float64(r.Float64())
 		if r.Intn(2) == 0 {
 			v227 *= -1
 		}
 		this.FieldA = &v227
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v228 := float32(r.Float32())
 		if r.Intn(2) == 0 {
 			v228 *= -1
 		}
 		this.FieldB = &v228
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldC = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v229 := r.Intn(5)
 		this.FieldD = make([]*NinOptNative, v229)
 		for i := 0; i < v229; i++ {
 			this.FieldD[i] = NewPopulatedNinOptNative(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v230 := uint64(uint64(r.Uint32()))
 		this.FieldE = &v230
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v231 := int32(r.Int31())
 		if r.Intn(2) == 0 {
 			v231 *= -1
 		}
 		this.FieldF = &v231
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldG = NewPopulatedNidOptNative(r, easy)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v232 := bool(bool(r.Intn(2) == 0))
 		this.FieldH = &v232
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v233 := string(randStringThetest(r))
 		this.FieldI = &v233
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v234 := r.Intn(100)
 		this.FieldJ = make([]byte, v234)
 		for i := 0; i < v234; i++ {
@@ -28182,13 +28706,13 @@ func NewPopulatedCustomNameNinStruct(r randyThetest, easy bool) *CustomNameNinSt
 
 func NewPopulatedCustomNameCustomType(r randyThetest, easy bool) *CustomNameCustomType {
 	this := &CustomNameCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldA = NewPopulatedUuid(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.FieldB = github_com_gogo_protobuf_test_custom.NewPopulatedUint128(r)
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v235 := r.Intn(10)
 		this.FieldC = make([]Uuid, v235)
 		for i := 0; i < v235; i++ {
@@ -28196,7 +28720,7 @@ func NewPopulatedCustomNameCustomType(r randyThetest, easy bool) *CustomNameCust
 			this.FieldC[i] = *v236
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v237 := r.Intn(10)
 		this.FieldD = make([]github_com_gogo_protobuf_test_custom.Uint128, v237)
 		for i := 0; i < v237; i++ {
@@ -28227,11 +28751,11 @@ func NewPopulatedCustomNameNinEmbeddedStructUnion(r randyThetest, easy bool) *Cu
 
 func NewPopulatedCustomNameEnum(r randyThetest, easy bool) *CustomNameEnum {
 	this := &CustomNameEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v240 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.FieldA = &v240
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v241 := r.Intn(10)
 		this.FieldB = make([]TheTestEnum, v241)
 		for i := 0; i < v241; i++ {
@@ -28246,7 +28770,7 @@ func NewPopulatedCustomNameEnum(r randyThetest, easy bool) *CustomNameEnum {
 
 func NewPopulatedNoExtensionsMap(r randyThetest, easy bool) *NoExtensionsMap {
 	this := &NoExtensionsMap{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v242 := int64(r.Int63())
 		if r.Intn(2) == 0 {
 			v242 *= -1
@@ -28273,7 +28797,7 @@ func NewPopulatedNoExtensionsMap(r randyThetest, easy bool) *NoExtensionsMap {
 
 func NewPopulatedUnrecognized(r randyThetest, easy bool) *Unrecognized {
 	this := &Unrecognized{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v243 := string(randStringThetest(r))
 		this.Field1 = &v243
 	}
@@ -28284,14 +28808,14 @@ func NewPopulatedUnrecognized(r randyThetest, easy bool) *Unrecognized {
 
 func NewPopulatedUnrecognizedWithInner(r randyThetest, easy bool) *UnrecognizedWithInner {
 	this := &UnrecognizedWithInner{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v244 := r.Intn(5)
 		this.Embedded = make([]*UnrecognizedWithInner_Inner, v244)
 		for i := 0; i < v244; i++ {
 			this.Embedded[i] = NewPopulatedUnrecognizedWithInner_Inner(r, easy)
 		}
 	}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v245 := string(randStringThetest(r))
 		this.Field2 = &v245
 	}
@@ -28303,7 +28827,7 @@ func NewPopulatedUnrecognizedWithInner(r randyThetest, easy bool) *UnrecognizedW
 
 func NewPopulatedUnrecognizedWithInner_Inner(r randyThetest, easy bool) *UnrecognizedWithInner_Inner {
 	this := &UnrecognizedWithInner_Inner{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v246 := uint32(r.Uint32())
 		this.Field1 = &v246
 	}
@@ -28316,7 +28840,7 @@ func NewPopulatedUnrecognizedWithEmbed(r randyThetest, easy bool) *UnrecognizedW
 	this := &UnrecognizedWithEmbed{}
 	v247 := NewPopulatedUnrecognizedWithEmbed_Embedded(r, easy)
 	this.UnrecognizedWithEmbed_Embedded = *v247
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v248 := string(randStringThetest(r))
 		this.Field2 = &v248
 	}
@@ -28328,7 +28852,7 @@ func NewPopulatedUnrecognizedWithEmbed(r randyThetest, easy bool) *UnrecognizedW
 
 func NewPopulatedUnrecognizedWithEmbed_Embedded(r randyThetest, easy bool) *UnrecognizedWithEmbed_Embedded {
 	this := &UnrecognizedWithEmbed_Embedded{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v249 := uint32(r.Uint32())
 		this.Field1 = &v249
 	}
@@ -28339,11 +28863,11 @@ func NewPopulatedUnrecognizedWithEmbed_Embedded(r randyThetest, easy bool) *Unre
 
 func NewPopulatedNode(r randyThetest, easy bool) *Node {
 	this := &Node{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v250 := string(randStringThetest(r))
 		this.Label = &v250
 	}
-	if r.Intn(10) == 0 {
+	if r.Intn(5) == 0 {
 		v251 := r.Intn(5)
 		this.Children = make([]*Node, v251)
 		for i := 0; i < v251; i++ {
@@ -28358,7 +28882,7 @@ func NewPopulatedNode(r randyThetest, easy bool) *Node {
 
 func NewPopulatedNonByteCustomType(r randyThetest, easy bool) *NonByteCustomType {
 	this := &NonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedT(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -28379,7 +28903,7 @@ func NewPopulatedNidOptNonByteCustomType(r randyThetest, easy bool) *NidOptNonBy
 
 func NewPopulatedNinOptNonByteCustomType(r randyThetest, easy bool) *NinOptNonByteCustomType {
 	this := &NinOptNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		this.Field1 = NewPopulatedT(r)
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -28390,7 +28914,7 @@ func NewPopulatedNinOptNonByteCustomType(r randyThetest, easy bool) *NinOptNonBy
 
 func NewPopulatedNidRepNonByteCustomType(r randyThetest, easy bool) *NidRepNonByteCustomType {
 	this := &NidRepNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v253 := r.Intn(10)
 		this.Field1 = make([]T, v253)
 		for i := 0; i < v253; i++ {
@@ -28406,7 +28930,7 @@ func NewPopulatedNidRepNonByteCustomType(r randyThetest, easy bool) *NidRepNonBy
 
 func NewPopulatedNinRepNonByteCustomType(r randyThetest, easy bool) *NinRepNonByteCustomType {
 	this := &NinRepNonByteCustomType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v255 := r.Intn(10)
 		this.Field1 = make([]T, v255)
 		for i := 0; i < v255; i++ {
@@ -28422,7 +28946,7 @@ func NewPopulatedNinRepNonByteCustomType(r randyThetest, easy bool) *NinRepNonBy
 
 func NewPopulatedProtoType(r randyThetest, easy bool) *ProtoType {
 	this := &ProtoType{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v257 := string(randStringThetest(r))
 		this.Field2 = &v257
 	}
@@ -30428,14 +30952,7 @@ func (m *ProtoType) Size() (n int) {
 }
 
 func sovThetest(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozThetest(x uint64) (n int) {
 	return sovThetest(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -30613,11 +31130,11 @@ func (this *NinOptStruct) String() string {
 	s := strings.Join([]string{`&NinOptStruct{`,
 		`Field1:` + valueToStringThetest(this.Field1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field4:` + strings.Replace(this.Field4.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field6:` + valueToStringThetest(this.Field6) + `,`,
 		`Field7:` + valueToStringThetest(this.Field7) + `,`,
-		`Field8:` + strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field8:` + strings.Replace(this.Field8.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
 		`Field14:` + valueToStringThetest(this.Field14) + `,`,
 		`Field15:` + valueToStringThetest(this.Field15) + `,`,
@@ -30630,14 +31147,29 @@ func (this *NidRepStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField3 := "[]NidOptNative{"
+	for _, f := range this.Field3 {
+		repeatedStringForField3 += strings.Replace(strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField3 += "}"
+	repeatedStringForField4 := "[]NinOptNative{"
+	for _, f := range this.Field4 {
+		repeatedStringForField4 += strings.Replace(strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField4 += "}"
+	repeatedStringForField8 := "[]NidOptNative{"
+	for _, f := range this.Field8 {
+		repeatedStringForField8 += strings.Replace(strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField8 += "}"
 	s := strings.Join([]string{`&NidRepStruct{`,
 		`Field1:` + fmt.Sprintf("%v", this.Field1) + `,`,
 		`Field2:` + fmt.Sprintf("%v", this.Field2) + `,`,
-		`Field3:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
-		`Field4:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1), `&`, ``, 1) + `,`,
+		`Field3:` + repeatedStringForField3 + `,`,
+		`Field4:` + repeatedStringForField4 + `,`,
 		`Field6:` + fmt.Sprintf("%v", this.Field6) + `,`,
 		`Field7:` + fmt.Sprintf("%v", this.Field7) + `,`,
-		`Field8:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
+		`Field8:` + repeatedStringForField8 + `,`,
 		`Field13:` + fmt.Sprintf("%v", this.Field13) + `,`,
 		`Field14:` + fmt.Sprintf("%v", this.Field14) + `,`,
 		`Field15:` + fmt.Sprintf("%v", this.Field15) + `,`,
@@ -30650,14 +31182,29 @@ func (this *NinRepStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField3 := "[]*NidOptNative{"
+	for _, f := range this.Field3 {
+		repeatedStringForField3 += strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1) + ","
+	}
+	repeatedStringForField3 += "}"
+	repeatedStringForField4 := "[]*NinOptNative{"
+	for _, f := range this.Field4 {
+		repeatedStringForField4 += strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1) + ","
+	}
+	repeatedStringForField4 += "}"
+	repeatedStringForField8 := "[]*NidOptNative{"
+	for _, f := range this.Field8 {
+		repeatedStringForField8 += strings.Replace(f.String(), "NidOptNative", "NidOptNative", 1) + ","
+	}
+	repeatedStringForField8 += "}"
 	s := strings.Join([]string{`&NinRepStruct{`,
 		`Field1:` + fmt.Sprintf("%v", this.Field1) + `,`,
 		`Field2:` + fmt.Sprintf("%v", this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + repeatedStringForField3 + `,`,
+		`Field4:` + repeatedStringForField4 + `,`,
 		`Field6:` + fmt.Sprintf("%v", this.Field6) + `,`,
 		`Field7:` + fmt.Sprintf("%v", this.Field7) + `,`,
-		`Field8:` + strings.Replace(fmt.Sprintf("%v", this.Field8), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field8:` + repeatedStringForField8 + `,`,
 		`Field13:` + fmt.Sprintf("%v", this.Field13) + `,`,
 		`Field14:` + fmt.Sprintf("%v", this.Field14) + `,`,
 		`Field15:` + fmt.Sprintf("%v", this.Field15) + `,`,
@@ -30671,7 +31218,7 @@ func (this *NidEmbeddedStruct) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NidEmbeddedStruct{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field200:` + strings.Replace(strings.Replace(this.Field200.String(), "NidOptNative", "NidOptNative", 1), `&`, ``, 1) + `,`,
 		`Field210:` + fmt.Sprintf("%v", this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
@@ -30684,8 +31231,8 @@ func (this *NinEmbeddedStruct) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinEmbeddedStruct{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field200:` + strings.Replace(fmt.Sprintf("%v", this.Field200), "NidOptNative", "NidOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field200:` + strings.Replace(this.Field200.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`Field210:` + valueToStringThetest(this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -30696,9 +31243,14 @@ func (this *NidNestedStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField2 := "[]NidRepStruct{"
+	for _, f := range this.Field2 {
+		repeatedStringForField2 += strings.Replace(strings.Replace(f.String(), "NidRepStruct", "NidRepStruct", 1), `&`, ``, 1) + ","
+	}
+	repeatedStringForField2 += "}"
 	s := strings.Join([]string{`&NidNestedStruct{`,
 		`Field1:` + strings.Replace(strings.Replace(this.Field1.String(), "NidOptStruct", "NidOptStruct", 1), `&`, ``, 1) + `,`,
-		`Field2:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Field2), "NidRepStruct", "NidRepStruct", 1), `&`, ``, 1) + `,`,
+		`Field2:` + repeatedStringForField2 + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -30708,9 +31260,14 @@ func (this *NinNestedStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForField2 := "[]*NinRepStruct{"
+	for _, f := range this.Field2 {
+		repeatedStringForField2 += strings.Replace(f.String(), "NinRepStruct", "NinRepStruct", 1) + ","
+	}
+	repeatedStringForField2 += "}"
 	s := strings.Join([]string{`&NinNestedStruct{`,
-		`Field1:` + strings.Replace(fmt.Sprintf("%v", this.Field1), "NinOptStruct", "NinOptStruct", 1) + `,`,
-		`Field2:` + strings.Replace(fmt.Sprintf("%v", this.Field2), "NinRepStruct", "NinRepStruct", 1) + `,`,
+		`Field1:` + strings.Replace(this.Field1.String(), "NinOptStruct", "NinOptStruct", 1) + `,`,
+		`Field2:` + repeatedStringForField2 + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -30801,8 +31358,8 @@ func (this *NinOptStructUnion) String() string {
 	s := strings.Join([]string{`&NinOptStructUnion{`,
 		`Field1:` + valueToStringThetest(this.Field1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field4:` + strings.Replace(fmt.Sprintf("%v", this.Field4), "NinOptNative", "NinOptNative", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field4:` + strings.Replace(this.Field4.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field6:` + valueToStringThetest(this.Field6) + `,`,
 		`Field7:` + valueToStringThetest(this.Field7) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
@@ -30818,8 +31375,8 @@ func (this *NinEmbeddedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinEmbeddedStructUnion{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`Field200:` + strings.Replace(fmt.Sprintf("%v", this.Field200), "NinOptNative", "NinOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`Field200:` + strings.Replace(this.Field200.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`Field210:` + valueToStringThetest(this.Field210) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -30831,9 +31388,9 @@ func (this *NinNestedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&NinNestedStructUnion{`,
-		`Field1:` + strings.Replace(fmt.Sprintf("%v", this.Field1), "NinOptNativeUnion", "NinOptNativeUnion", 1) + `,`,
-		`Field2:` + strings.Replace(fmt.Sprintf("%v", this.Field2), "NinOptStructUnion", "NinOptStructUnion", 1) + `,`,
-		`Field3:` + strings.Replace(fmt.Sprintf("%v", this.Field3), "NinEmbeddedStructUnion", "NinEmbeddedStructUnion", 1) + `,`,
+		`Field1:` + strings.Replace(this.Field1.String(), "NinOptNativeUnion", "NinOptNativeUnion", 1) + `,`,
+		`Field2:` + strings.Replace(this.Field2.String(), "NinOptStructUnion", "NinOptStructUnion", 1) + `,`,
+		`Field3:` + strings.Replace(this.Field3.String(), "NinEmbeddedStructUnion", "NinEmbeddedStructUnion", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -30844,9 +31401,9 @@ func (this *Tree) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Tree{`,
-		`Or:` + strings.Replace(fmt.Sprintf("%v", this.Or), "OrBranch", "OrBranch", 1) + `,`,
-		`And:` + strings.Replace(fmt.Sprintf("%v", this.And), "AndBranch", "AndBranch", 1) + `,`,
-		`Leaf:` + strings.Replace(fmt.Sprintf("%v", this.Leaf), "Leaf", "Leaf", 1) + `,`,
+		`Or:` + strings.Replace(this.Or.String(), "OrBranch", "OrBranch", 1) + `,`,
+		`And:` + strings.Replace(this.And.String(), "AndBranch", "AndBranch", 1) + `,`,
+		`Leaf:` + strings.Replace(this.Leaf.String(), "Leaf", "Leaf", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -30893,9 +31450,9 @@ func (this *DeepTree) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&DeepTree{`,
-		`Down:` + strings.Replace(fmt.Sprintf("%v", this.Down), "ADeepBranch", "ADeepBranch", 1) + `,`,
-		`And:` + strings.Replace(fmt.Sprintf("%v", this.And), "AndDeepBranch", "AndDeepBranch", 1) + `,`,
-		`Leaf:` + strings.Replace(fmt.Sprintf("%v", this.Leaf), "DeepLeaf", "DeepLeaf", 1) + `,`,
+		`Down:` + strings.Replace(this.Down.String(), "ADeepBranch", "ADeepBranch", 1) + `,`,
+		`And:` + strings.Replace(this.And.String(), "AndDeepBranch", "AndDeepBranch", 1) + `,`,
+		`Leaf:` + strings.Replace(this.Leaf.String(), "DeepLeaf", "DeepLeaf", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -31064,7 +31621,7 @@ func (this *OtherExtenable) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&OtherExtenable{`,
-		`M:` + strings.Replace(fmt.Sprintf("%v", this.M), "MyExtendable", "MyExtendable", 1) + `,`,
+		`M:` + strings.Replace(this.M.String(), "MyExtendable", "MyExtendable", 1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`Field13:` + valueToStringThetest(this.Field13) + `,`,
 		`XXX_InternalExtensions:` + github_com_gogo_protobuf_proto.StringFromInternalExtension(this) + `,`,
@@ -31238,14 +31795,19 @@ func (this *CustomNameNinStruct) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForFieldD := "[]*NinOptNative{"
+	for _, f := range this.FieldD {
+		repeatedStringForFieldD += strings.Replace(f.String(), "NinOptNative", "NinOptNative", 1) + ","
+	}
+	repeatedStringForFieldD += "}"
 	s := strings.Join([]string{`&CustomNameNinStruct{`,
 		`FieldA:` + valueToStringThetest(this.FieldA) + `,`,
 		`FieldB:` + valueToStringThetest(this.FieldB) + `,`,
-		`FieldC:` + strings.Replace(fmt.Sprintf("%v", this.FieldC), "NidOptNative", "NidOptNative", 1) + `,`,
-		`FieldD:` + strings.Replace(fmt.Sprintf("%v", this.FieldD), "NinOptNative", "NinOptNative", 1) + `,`,
+		`FieldC:` + strings.Replace(this.FieldC.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldD:` + repeatedStringForFieldD + `,`,
 		`FieldE:` + valueToStringThetest(this.FieldE) + `,`,
 		`FieldF:` + valueToStringThetest(this.FieldF) + `,`,
-		`FieldG:` + strings.Replace(fmt.Sprintf("%v", this.FieldG), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldG:` + strings.Replace(this.FieldG.String(), "NidOptNative", "NidOptNative", 1) + `,`,
 		`FieldH:` + valueToStringThetest(this.FieldH) + `,`,
 		`FieldI:` + valueToStringThetest(this.FieldI) + `,`,
 		`FieldJ:` + valueToStringThetest(this.FieldJ) + `,`,
@@ -31273,8 +31835,8 @@ func (this *CustomNameNinEmbeddedStructUnion) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&CustomNameNinEmbeddedStructUnion{`,
-		`NidOptNative:` + strings.Replace(fmt.Sprintf("%v", this.NidOptNative), "NidOptNative", "NidOptNative", 1) + `,`,
-		`FieldA:` + strings.Replace(fmt.Sprintf("%v", this.FieldA), "NinOptNative", "NinOptNative", 1) + `,`,
+		`NidOptNative:` + strings.Replace(this.NidOptNative.String(), "NidOptNative", "NidOptNative", 1) + `,`,
+		`FieldA:` + strings.Replace(this.FieldA.String(), "NinOptNative", "NinOptNative", 1) + `,`,
 		`FieldB:` + valueToStringThetest(this.FieldB) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -31319,8 +31881,13 @@ func (this *UnrecognizedWithInner) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForEmbedded := "[]*UnrecognizedWithInner_Inner{"
+	for _, f := range this.Embedded {
+		repeatedStringForEmbedded += strings.Replace(fmt.Sprintf("%v", f), "UnrecognizedWithInner_Inner", "UnrecognizedWithInner_Inner", 1) + ","
+	}
+	repeatedStringForEmbedded += "}"
 	s := strings.Join([]string{`&UnrecognizedWithInner{`,
-		`Embedded:` + strings.Replace(fmt.Sprintf("%v", this.Embedded), "UnrecognizedWithInner_Inner", "UnrecognizedWithInner_Inner", 1) + `,`,
+		`Embedded:` + repeatedStringForEmbedded + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -31342,7 +31909,7 @@ func (this *UnrecognizedWithEmbed) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&UnrecognizedWithEmbed{`,
-		`UnrecognizedWithEmbed_Embedded:` + strings.Replace(strings.Replace(this.UnrecognizedWithEmbed_Embedded.String(), "UnrecognizedWithEmbed_Embedded", "UnrecognizedWithEmbed_Embedded", 1), `&`, ``, 1) + `,`,
+		`UnrecognizedWithEmbed_Embedded:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.UnrecognizedWithEmbed_Embedded), "UnrecognizedWithEmbed_Embedded", "UnrecognizedWithEmbed_Embedded", 1), `&`, ``, 1) + `,`,
 		`Field2:` + valueToStringThetest(this.Field2) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -31363,9 +31930,14 @@ func (this *Node) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForChildren := "[]*Node{"
+	for _, f := range this.Children {
+		repeatedStringForChildren += strings.Replace(f.String(), "Node", "Node", 1) + ","
+	}
+	repeatedStringForChildren += "}"
 	s := strings.Join([]string{`&Node{`,
 		`Label:` + valueToStringThetest(this.Label) + `,`,
-		`Children:` + strings.Replace(fmt.Sprintf("%v", this.Children), "Node", "Node", 1) + `,`,
+		`Children:` + repeatedStringForChildren + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")

@@ -512,6 +512,76 @@ func TestPoll(t *testing.T) {
 	}
 }
 
+func TestSelect(t *testing.T) {
+	for {
+		n, err := unix.Select(0, nil, nil, nil, &unix.Timeval{Sec: 0, Usec: 0})
+		if err == unix.EINTR {
+			t.Logf("Select interrupted")
+			continue
+		} else if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Select: got %v ready file descriptors, expected 0", n)
+		}
+		break
+	}
+
+	dur := 250 * time.Millisecond
+	tv := unix.NsecToTimeval(int64(dur))
+	var took time.Duration
+	for {
+		start := time.Now()
+		n, err := unix.Select(0, nil, nil, nil, &tv)
+		took = time.Since(start)
+		if err == unix.EINTR {
+			t.Logf("Select interrupted after %v", took)
+			continue
+		} else if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Select: got %v ready file descriptors, expected 0", n)
+		}
+		break
+	}
+
+	// On some BSDs the actual timeout might also be slightly less than the requested.
+	// Add an acceptable margin to avoid flaky tests.
+	if took < dur*2/3 {
+		t.Errorf("Select: got %v timeout, expected at least %v", took, dur)
+	}
+
+	rr, ww, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rr.Close()
+	defer ww.Close()
+
+	if _, err := ww.Write([]byte("HELLO GOPHER")); err != nil {
+		t.Fatal(err)
+	}
+
+	rFdSet := &unix.FdSet{}
+	fd := int(rr.Fd())
+	rFdSet.Set(fd)
+
+	for {
+		n, err := unix.Select(fd+1, rFdSet, nil, nil, nil)
+		if err == unix.EINTR {
+			t.Log("Select interrupted")
+			continue
+		} else if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if n != 1 {
+			t.Fatalf("Select: got %v ready file descriptors, expected 1", n)
+		}
+		break
+	}
+}
+
 func TestGetwd(t *testing.T) {
 	fd, err := os.Open(".")
 	if err != nil {

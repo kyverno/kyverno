@@ -20,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type TheTestEnum int32
 
@@ -527,7 +527,7 @@ func NewPopulatedNidOptEnum(r randyEnumstringer, easy bool) *NidOptEnum {
 
 func NewPopulatedNinOptEnum(r randyEnumstringer, easy bool) *NinOptEnum {
 	this := &NinOptEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := TheTestEnum([]int32{0, 1, 2}[r.Intn(3)])
 		this.Field1 = &v1
 	}
@@ -539,7 +539,7 @@ func NewPopulatedNinOptEnum(r randyEnumstringer, easy bool) *NinOptEnum {
 
 func NewPopulatedNidRepEnum(r randyEnumstringer, easy bool) *NidRepEnum {
 	this := &NidRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v2 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v2)
 		for i := 0; i < v2; i++ {
@@ -554,7 +554,7 @@ func NewPopulatedNidRepEnum(r randyEnumstringer, easy bool) *NidRepEnum {
 
 func NewPopulatedNinRepEnum(r randyEnumstringer, easy bool) *NinRepEnum {
 	this := &NinRepEnum{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v3 := r.Intn(10)
 		this.Field1 = make([]TheTestEnum, v3)
 		for i := 0; i < v3; i++ {

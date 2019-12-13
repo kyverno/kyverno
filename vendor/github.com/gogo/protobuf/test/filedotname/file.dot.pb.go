@@ -13,6 +13,7 @@ import (
 	github_com_gogo_protobuf_protoc_gen_gogo_descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	io_ioutil "io/ioutil"
 	math "math"
+	math_bits "math/bits"
 	reflect "reflect"
 	strings "strings"
 )
@@ -26,7 +27,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type M struct {
 	A                    *string  `protobuf:"bytes,1,opt,name=a" json:"a,omitempty"`
@@ -468,7 +469,7 @@ func valueToGoStringFileDot(v interface{}, typ string) string {
 }
 func NewPopulatedM(r randyFileDot, easy bool) *M {
 	this := &M{}
-	if r.Intn(10) != 0 {
+	if r.Intn(5) != 0 {
 		v1 := string(randStringFileDot(r))
 		this.A = &v1
 	}
@@ -567,14 +568,7 @@ func (m *M) Size() (n int) {
 }
 
 func sovFileDot(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozFileDot(x uint64) (n int) {
 	return sovFileDot(uint64((x << 1) ^ uint64((int64(x) >> 63))))

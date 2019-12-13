@@ -23,8 +23,9 @@ const (
 
 // query implements the query command.
 type query struct {
-	JSON    bool   `flag:"json" help:"emit output in JSON format"`
-	Emulate string `flag:"emulate" help:"compatibility mode, causes gopls to emulate another tool.\nvalues depend on the operation being performed"`
+	JSON              bool   `flag:"json" help:"emit output in JSON format"`
+	MarkdownSupported bool   `flag:"markdown" help:"support markdown in responses"`
+	Emulate           string `flag:"emulate" help:"compatibility mode, causes gopls to emulate another tool.\nvalues depend on the operation being performed"`
 
 	app *Application
 }
@@ -56,8 +57,7 @@ func (q *query) Run(ctx context.Context, args ...string) error {
 	mode, args := args[0], args[1:]
 	for _, m := range q.modes() {
 		if m.Name() == mode {
-			tool.Main(ctx, m, args)
-			return nil
+			return tool.Run(ctx, m, args) // pass errors up the chain
 		}
 	}
 	return tool.CommandLineErrorf("unknown command %v", mode)

@@ -5,11 +5,9 @@
 package cache
 
 import (
-	"context"
 	"go/token"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
@@ -31,9 +29,10 @@ type fileBase struct {
 	kind  source.FileKind
 
 	view *view
+}
 
-	handleMu sync.Mutex
-	handle   source.FileHandle
+func dir(filename string) string {
+	return strings.ToLower(filepath.Dir(filename))
 }
 
 func basename(filename string) string {
@@ -44,6 +43,10 @@ func (f *fileBase) URI() span.URI {
 	return f.uris[0]
 }
 
+func (f *fileBase) Kind() source.FileKind {
+	return f.kind
+}
+
 func (f *fileBase) filename() string {
 	return f.fname
 }
@@ -51,16 +54,6 @@ func (f *fileBase) filename() string {
 // View returns the view associated with the file.
 func (f *fileBase) View() source.View {
 	return f.view
-}
-
-// Content returns a handle for the contents of the file.
-func (f *fileBase) Handle(ctx context.Context) source.FileHandle {
-	f.handleMu.Lock()
-	defer f.handleMu.Unlock()
-	if f.handle == nil {
-		f.handle = f.view.Session().GetFile(f.URI())
-	}
-	return f.handle
 }
 
 func (f *fileBase) FileSet() *token.FileSet {

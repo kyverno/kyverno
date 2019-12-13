@@ -7,16 +7,31 @@ import (
 	"fmt"
 	"go/build"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
 
+	"golang.org/x/tools/internal/gopathwalk"
 	"golang.org/x/tools/internal/module"
-	"golang.org/x/tools/internal/txtar"
+	"golang.org/x/tools/internal/testenv"
+	"golang.org/x/tools/txtar"
 )
+
+// Tests that we can find packages in the stdlib.
+func TestScanStdlib(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module x
+`, "")
+	defer mt.cleanup()
+
+	mt.assertScanFinds("fmt", "fmt")
+}
 
 // Tests that we handle a nested module. This is different from other tests
 // where the module is in scope -- here we have to figure out the import path
@@ -74,7 +89,7 @@ package z
 
 	mt.assertFound("y", "y")
 
-	scan, err := mt.resolver.scan(nil)
+	scan, err := mt.resolver.scan(nil, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +152,28 @@ import _ "example.com"
 
 }
 
-// Tests that -mod=vendor sort of works. Adapted from mod_getmode_vendor.txt.
-func TestModeGetmodeVendor(t *testing.T) {
+// Tests that scanning the module cache > 1 time is able to find the same module
+// in the module cache.
+func TestModMultipleScansWithSubdirs(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module x
+
+require rsc.io/quote v1.5.2
+
+-- x.go --
+package x
+import _ "rsc.io/quote"
+`, "")
+	defer mt.cleanup()
+
+	mt.assertScanFinds("rsc.io/quote", "quote")
+	mt.assertScanFinds("rsc.io/quote", "quote")
+}
+
+// Tests that scanning the module cache > 1 after changing a package in module cache to make it unimportable
+// is able to find the same module.
+func TestModCacheEditModFile(t *testing.T) {
 	mt := setup(t, `
 -- go.mod --
 module x
@@ -149,18 +184,93 @@ package x
 import _ "rsc.io/quote"
 `, "")
 	defer mt.cleanup()
+	found := mt.assertScanFinds("rsc.io/quote", "quote")
+	if found == nil {
+		t.Fatal("rsc.io/quote not found in initial scan.")
+	}
 
+	// Update the go.mod file of example.com so that it changes its module path (not allowed).
+	if err := os.Chmod(filepath.Join(found.dir, "go.mod"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(found.dir, "go.mod"), []byte("module bad.com\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test that with its cache of module packages it still finds the package.
+	mt.assertScanFinds("rsc.io/quote", "quote")
+
+	// Rewrite the main package so that rsc.io/quote is not in scope.
+	if err := ioutil.WriteFile(filepath.Join(mt.env.WorkingDir, "go.mod"), []byte("module x\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(mt.env.WorkingDir, "x.go"), []byte("package x\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Uninitialize the go.mod dependent cached information and make sure it still finds the package.
+	mt.resolver.Initialized = false
+	mt.resolver.Main = nil
+	mt.resolver.ModsByModPath = nil
+	mt.resolver.ModsByDir = nil
+	mt.assertScanFinds("rsc.io/quote", "quote")
+
+}
+
+// Tests that -mod=vendor works. Adapted from mod_vendor_build.txt.
+func TestModVendorBuild(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module m
+go 1.12
+require rsc.io/sampler v1.3.1
+-- x.go --
+package x
+import _ "rsc.io/sampler"
+`, "")
+	defer mt.cleanup()
+
+	// Sanity-check the setup.
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", `pkg.*mod.*/sampler@.*$`)
+
+	// Populate vendor/ and clear out the mod cache so we can't cheat.
+	if _, err := mt.env.invokeGo("mod", "vendor"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mt.env.invokeGo("clean", "-modcache"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Clear out the resolver's cache, since we've changed the environment.
+	mt.resolver = &ModuleResolver{env: mt.env}
+	mt.env.GOFLAGS = "-mod=vendor"
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", `/vendor/`)
+}
+
+// Tests that -mod=vendor is auto-enabled only for go1.14 and higher.
+// Vaguely inspired by mod_vendor_auto.txt.
+func testModVendorAuto(t *testing.T, wantEnabled bool) {
+	mt := setup(t, `
+-- go.mod --
+module m
+go 1.14
+require rsc.io/sampler v1.3.1
+-- x.go --
+package x
+import _ "rsc.io/sampler"
+`, "")
+	defer mt.cleanup()
+
+	// Populate vendor/.
 	if _, err := mt.env.invokeGo("mod", "vendor"); err != nil {
 		t.Fatal(err)
 	}
 
-	mt.env.GOFLAGS = "-mod=vendor"
-	mt.assertModuleFoundInDir("rsc.io/quote", "quote", `/vendor/`)
-
-	mt.env.GOFLAGS = ""
-	// Clear out the resolver's cache, since we've changed the environment.
-	mt.resolver = &ModuleResolver{env: mt.env}
-	mt.assertModuleFoundInDir("rsc.io/quote", "quote", `pkg.*mod.*/quote@.*$`)
+	wantDir := `pkg.*mod.*/sampler@.*$`
+	if wantEnabled {
+		wantDir = `/vendor/`
+	}
+	mt.assertModuleFoundInDir("rsc.io/sampler", "sampler", wantDir)
 }
 
 // Tests that a module replace works. Adapted from mod_list.txt. We start with
@@ -462,7 +572,7 @@ func (t *modTest) assertFound(importPath, pkgName string) (string, *pkg) {
 
 func (t *modTest) assertScanFinds(importPath, pkgName string) *pkg {
 	t.Helper()
-	scan, err := t.resolver.scan(nil)
+	scan, err := t.resolver.scan(nil, true, nil)
 	if err != nil {
 		t.Errorf("scan failed: %v", err)
 	}
@@ -509,10 +619,12 @@ type modTest struct {
 	cleanup  func()
 }
 
-// setup builds a test enviroment from a txtar and supporting modules
+// setup builds a test environment from a txtar and supporting modules
 // in testdata/mod, along the lines of TestScript in cmd/go.
 func setup(t *testing.T, main, wd string) *modTest {
 	t.Helper()
+	testenv.NeedsTool(t, "go")
+
 	proxyOnce.Do(func() {
 		var err error
 		proxyDir, err = ioutil.TempDir("", "proxy-")
@@ -541,6 +653,8 @@ func setup(t *testing.T, main, wd string) *modTest {
 		GOPROXY:     proxyDirToURL(proxyDir),
 		GOSUMDB:     "off",
 		WorkingDir:  filepath.Join(mainDir, wd),
+		Debug:       *testDebug,
+		Logf:        log.Printf,
 	}
 
 	// go mod download gets mad if we don't have a go.mod, so make sure we do.
@@ -558,18 +672,7 @@ func setup(t *testing.T, main, wd string) *modTest {
 		T:        t,
 		env:      env,
 		resolver: &ModuleResolver{env: env},
-		cleanup: func() {
-			_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if info.IsDir() {
-					_ = os.Chmod(path, 0777)
-				}
-				return nil
-			})
-			_ = os.RemoveAll(dir) // ignore errors
-		},
+		cleanup:  func() { removeDir(dir) },
 	}
 }
 
@@ -667,4 +770,128 @@ func writeProxyModule(base, arPath string) error {
 		return err
 	}
 	return nil
+}
+
+func removeDir(dir string) {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			_ = os.Chmod(path, 0777)
+		}
+		return nil
+	})
+	_ = os.RemoveAll(dir) // ignore errors
+}
+
+// Tests that findModFile can find the mod files from a path in the module cache.
+func TestFindModFileModCache(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module x
+
+require rsc.io/quote v1.5.2
+-- x.go --
+package x
+import _ "rsc.io/quote"
+`, "")
+	defer mt.cleanup()
+	want := filepath.Join(mt.resolver.env.GOPATH, "pkg/mod", "rsc.io/quote@v1.5.2")
+
+	found := mt.assertScanFinds("rsc.io/quote", "quote")
+	modDir, _ := mt.resolver.modInfo(found.dir)
+	if modDir != want {
+		t.Errorf("expected: %s, got: %s", want, modDir)
+	}
+}
+
+// Tests that crud in the module cache is ignored.
+func TestInvalidModCache(t *testing.T) {
+	dir, err := ioutil.TempDir("", t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeDir(dir)
+
+	// This doesn't have module@version like it should.
+	if err := os.MkdirAll(filepath.Join(dir, "gopath/pkg/mod/sabotage"), 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(dir, "gopath/pkg/mod/sabotage/x.go"), []byte("package foo\n"), 0777); err != nil {
+		t.Fatal(err)
+	}
+	env := &ProcessEnv{
+		GOROOT:      build.Default.GOROOT,
+		GOPATH:      filepath.Join(dir, "gopath"),
+		GO111MODULE: "on",
+		GOSUMDB:     "off",
+		WorkingDir:  dir,
+	}
+	resolver := &ModuleResolver{env: env}
+	resolver.scan(nil, true, nil)
+}
+
+func TestGetCandidatesRanking(t *testing.T) {
+	mt := setup(t, `
+-- go.mod --
+module example.com
+
+require rsc.io/quote v1.5.1
+
+-- rpackage/x.go --
+package rpackage
+import _ "rsc.io/quote"
+`, "")
+	defer mt.cleanup()
+
+	if _, err := mt.env.invokeGo("mod", "download", "rsc.io/quote/v2@v2.0.1"); err != nil {
+		t.Fatal(err)
+	}
+
+	type res struct {
+		name, path string
+	}
+	want := []res{
+		// Stdlib
+		{"bytes", "bytes"},
+		{"http", "net/http"},
+		// In scope modules
+		{"language", "golang.org/x/text/language"},
+		{"quote", "rsc.io/quote"},
+		{"rpackage", "example.com/rpackage"},
+		// Out of scope modules
+		{"quote", "rsc.io/quote/v2"},
+	}
+	candidates, err := getAllCandidates("foo.go", mt.env)
+	if err != nil {
+		t.Fatalf("getAllCandidates() = %v", err)
+	}
+	var got []res
+	for _, c := range candidates {
+		for _, w := range want {
+			if c.StmtInfo.ImportPath == w.path {
+				got = append(got, res{c.IdentName, c.StmtInfo.ImportPath})
+			}
+		}
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("wanted candidates in order %v, got %v", want, got)
+	}
+}
+
+func BenchmarkScanModCache(b *testing.B) {
+	env := &ProcessEnv{
+		Debug:  true,
+		GOPATH: build.Default.GOPATH,
+		GOROOT: build.Default.GOROOT,
+		Logf:   log.Printf,
+	}
+	exclude := []gopathwalk.RootType{gopathwalk.RootGOROOT}
+	env.GetResolver().scan(nil, true, exclude)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		env.GetResolver().scan(nil, true, exclude)
+		env.GetResolver().(*ModuleResolver).ClearForNewScan()
+	}
 }

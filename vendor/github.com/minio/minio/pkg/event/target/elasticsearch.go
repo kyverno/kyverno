@@ -19,7 +19,6 @@ package target
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -30,6 +29,22 @@ import (
 	"github.com/pkg/errors"
 
 	"gopkg.in/olivere/elastic.v5"
+)
+
+// Elastic constants
+const (
+	ElasticFormat     = "format"
+	ElasticURL        = "url"
+	ElasticIndex      = "index"
+	ElasticQueueDir   = "queue_dir"
+	ElasticQueueLimit = "queue_limit"
+
+	EnvElasticEnable     = "MINIO_NOTIFY_ELASTICSEARCH_ENABLE"
+	EnvElasticFormat     = "MINIO_NOTIFY_ELASTICSEARCH_FORMAT"
+	EnvElasticURL        = "MINIO_NOTIFY_ELASTICSEARCH_URL"
+	EnvElasticIndex      = "MINIO_NOTIFY_ELASTICSEARCH_INDEX"
+	EnvElasticQueueDir   = "MINIO_NOTIFY_ELASTICSEARCH_QUEUE_DIR"
+	EnvElasticQueueLimit = "MINIO_NOTIFY_ELASTICSEARCH_QUEUE_LIMIT"
 )
 
 // ElasticsearchArgs - Elasticsearch target arguments.
@@ -78,13 +93,25 @@ func (target *ElasticsearchTarget) ID() event.TargetID {
 	return target.id
 }
 
+// IsActive - Return true if target is up and active
+func (target *ElasticsearchTarget) IsActive() (bool, error) {
+	if dErr := target.args.URL.DialHTTP(); dErr != nil {
+		if xnet.IsNetworkOrHostDown(dErr) {
+			return false, errNotConnected
+		}
+		return false, dErr
+	}
+	return true, nil
+}
+
 // Save - saves the events to the store if queuestore is configured, which will be replayed when the elasticsearch connection is active.
 func (target *ElasticsearchTarget) Save(eventData event.Event) error {
 	if target.store != nil {
 		return target.store.Put(eventData)
 	}
-	if _, err := net.Dial("tcp", target.args.URL.Host); err != nil {
-		return errNotConnected
+	_, err := target.IsActive()
+	if err != nil {
+		return err
 	}
 	return target.send(eventData)
 }
@@ -128,7 +155,6 @@ func (target *ElasticsearchTarget) send(eventData event.Event) error {
 		} else {
 			err = update()
 		}
-
 		return err
 	}
 
@@ -150,9 +176,9 @@ func (target *ElasticsearchTarget) Send(eventKey string) error {
 			return err
 		}
 	}
-
-	if _, err := net.Dial("tcp", target.args.URL.Host); err != nil {
-		return errNotConnected
+	_, err = target.IsActive()
+	if err != nil {
+		return err
 	}
 
 	eventData, eErr := target.store.Get(eventKey)
@@ -166,6 +192,9 @@ func (target *ElasticsearchTarget) Send(eventKey string) error {
 	}
 
 	if err := target.send(eventData); err != nil {
+		if xnet.IsNetworkOrHostDown(err) {
+			return errNotConnected
+		}
 		return err
 	}
 
@@ -213,7 +242,7 @@ func newClient(args ElasticsearchArgs) (*elastic.Client, error) {
 }
 
 // NewElasticsearchTarget - creates new Elasticsearch target.
-func NewElasticsearchTarget(id string, args ElasticsearchArgs, doneCh <-chan struct{}) (*ElasticsearchTarget, error) {
+func NewElasticsearchTarget(id string, args ElasticsearchArgs, doneCh <-chan struct{}, loggerOnce func(ctx context.Context, err error, id interface{}, kind ...interface{})) (*ElasticsearchTarget, error) {
 	var client *elastic.Client
 	var err error
 
@@ -227,10 +256,10 @@ func NewElasticsearchTarget(id string, args ElasticsearchArgs, doneCh <-chan str
 		}
 	}
 
-	_, derr := net.Dial("tcp", args.URL.Host)
-	if derr != nil {
+	dErr := args.URL.DialHTTP()
+	if dErr != nil {
 		if store == nil {
-			return nil, derr
+			return nil, dErr
 		}
 	} else {
 		client, err = newClient(args)
@@ -248,9 +277,9 @@ func NewElasticsearchTarget(id string, args ElasticsearchArgs, doneCh <-chan str
 
 	if target.store != nil {
 		// Replays the events from the store.
-		eventKeyCh := replayEvents(target.store, doneCh)
+		eventKeyCh := replayEvents(target.store, doneCh, loggerOnce, target.ID())
 		// Start replaying events from the store.
-		go sendEvents(target, eventKeyCh, doneCh)
+		go sendEvents(target, eventKeyCh, doneCh, loggerOnce)
 	}
 
 	return target, nil
