@@ -23,7 +23,7 @@ These policies are highly recommended.
 13. [Require pod resource requests and limits](RequirePodRequestsLimits.md)
 14. [Require pod `livenessProbe` and `readinessProbe`](RequirePodProbes.md)
 15. [Add default network policy](AddDefaultNetworkPolicy.md)
-16. [Add namespace resource quotas](AddNamespaceResourceQuota.md)
+16. [Add namespace quotas](AddNamespaceQuotas.md)
 17. [Add `safe-to-evict` for pods with `emptyDir` and `hostPath` volumes](AddSafeToEvict.md)
 
 ## Additional Policies

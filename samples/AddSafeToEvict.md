@@ -14,7 +14,7 @@ This policy matches and mutates pods with `emptyDir` and `hostPath` volumes, to 
 
 ````yaml
 apiVersion: "kyverno.io/v1"
-kind: "ClusterPolicy"
+kind: ClusterPolicy
 metadata: 
   name: "add-safe-to-evict"
 spec: 

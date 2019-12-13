@@ -447,7 +447,7 @@ spec:
           image: nirmata/kyvernopre:latest
       containers:
         - name: kyverno
-          image: nirmata/kyverno:latest
+          image: nirmata/kyverno:v1.0.0
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
           # customize webhook timout
