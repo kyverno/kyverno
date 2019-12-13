@@ -257,7 +257,6 @@ func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
 func TestValidateQuantity_InvalidQuantity(t *testing.T) {
 	assert.Assert(t, !validateNumberWithStr("1024Gi", "", Equal))
 	assert.Assert(t, !validateNumberWithStr("gii", "1024Gi", Equal))
-	assert.Assert(t, !validateNumberWithStr(1024, "1024Gi", Equal))
 }
 
 func TestValidateQuantity_Equal(t *testing.T) {
@@ -266,6 +265,7 @@ func TestValidateQuantity_Equal(t *testing.T) {
 	assert.Assert(t, validateNumberWithStr("0.2", "200m", Equal))
 	assert.Assert(t, validateNumberWithStr("500", "500", Equal))
 	assert.Assert(t, !validateNumberWithStr("2048", "1024", Equal))
+	assert.Assert(t, validateNumberWithStr(1024, "1024", Equal))
 }
 
 func TestValidateQuantity_Operation(t *testing.T) {
