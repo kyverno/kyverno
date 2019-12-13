@@ -213,11 +213,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s.", rule.Name, index, failedPaths[index])
 				errorStr = append(errorStr, str)
 			}
-<<<<<<< HEAD
-			resp.Message = fmt.Sprintf("Validation error: %s\n%s", rule.Validation.Message, strings.Join(errorStr, "\n"))
-=======
-			response.Message = fmt.Sprintf("Validation error: %s; %s", rule.Validation.Message, strings.Join(errorStr, ";"))
->>>>>>> master
+			resp.Message = fmt.Sprintf("Validation error: %s; %s", rule.Validation.Message, strings.Join(errorStr, ";"))
 
 			return resp
 		}
