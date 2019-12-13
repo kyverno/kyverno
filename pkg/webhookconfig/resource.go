@@ -58,16 +58,20 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 	}
 }
 
+//GetResourceMutatingWebhookConfigName provi
+func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfigName() string {
+	if wrc.serverIP != "" {
+		return config.MutatingWebhookConfigurationDebugName
+	}
+	return config.MutatingWebhookConfigurationName
+}
+
 //RemoveResourceMutatingWebhookConfiguration removes mutating webhook configuration for all resources
 func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() error {
-	var configName string
-	if wrc.serverIP != "" {
-		configName = config.MutatingWebhookConfigurationDebugName
-	} else {
-		configName = config.MutatingWebhookConfigurationName
-	}
+
+	configName := wrc.GetResourceMutatingWebhookConfigName()
 	// delete webhook configuration
-	err := wrc.registrationClient.MutatingWebhookConfigurations().Delete(configName, &v1.DeleteOptions{})
+	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		glog.V(4).Infof("resource webhook configuration %s does not exits, so not deleting", configName)
 		return nil

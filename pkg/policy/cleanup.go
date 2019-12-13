@@ -21,7 +21,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 
 	// there can be multiple violations as a resource can have multiple owners
 	if pResponse.Resource.Namespace == "" {
-		pvs, err := getClusterPVs(pc.pvLister, pc.client, pResponse.Policy, pResponse.Resource.Kind, pResponse.Resource.Name)
+		pvs, err := getClusterPVs(pc.cpvLister, pc.client, pResponse.Policy, pResponse.Resource.Kind, pResponse.Resource.Name)
 		if err != nil {
 			glog.Errorf("failed to cleanUp violations: %v", err)
 			return
@@ -32,7 +32,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 				continue
 			}
 			glog.V(4).Infof("cleanup cluster violation %s on %s", pv.Name, pv.Spec.ResourceSpec.ToKey())
-			if err := pc.pvControl.DeletePolicyViolation(pv.Name); err != nil {
+			if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
 				glog.Errorf("failed to delete cluster policy violation %s on %s: %v", pv.Name, pv.Spec.ResourceSpec.ToKey(), err)
 				continue
 			}
@@ -47,7 +47,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 	}
 
 	for _, pv := range nspvs {
-		if reflect.DeepEqual(pv, kyverno.NamespacedPolicyViolation{}) {
+		if reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
 			continue
 		}
 		glog.V(4).Infof("cleanup namespaced violation %s on %s", pv.Name, pv.Spec.ResourceSpec.ToKey())
@@ -127,8 +127,8 @@ func getClusterPVonOwnerRef(pvLister kyvernolister.ClusterPolicyViolationLister,
 	return pvs, nil
 }
 
-func getNamespacedPVs(nspvLister kyvernolister.NamespacedPolicyViolationLister, client *dclient.Client, policyName, kind, namespace, name string) ([]kyverno.NamespacedPolicyViolation, error) {
-	var pvs []kyverno.NamespacedPolicyViolation
+func getNamespacedPVs(nspvLister kyvernolister.PolicyViolationLister, client *dclient.Client, policyName, kind, namespace, name string) ([]kyverno.PolicyViolation, error) {
+	var pvs []kyverno.PolicyViolation
 	var err error
 	pv, err := getNamespacedPVOnResource(nspvLister, policyName, kind, namespace, name)
 	if err != nil {
@@ -136,7 +136,7 @@ func getNamespacedPVs(nspvLister kyvernolister.NamespacedPolicyViolationLister, 
 		return nil, err
 	}
 
-	if !reflect.DeepEqual(pv, kyverno.NamespacedPolicyViolation{}) {
+	if !reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
 		// found a violation on resource
 		pvs = append(pvs, pv)
 		return pvs, nil
@@ -151,27 +151,26 @@ func getNamespacedPVs(nspvLister kyvernolister.NamespacedPolicyViolationLister, 
 	return pvs, nil
 }
 
-func getNamespacedPVOnResource(nspvLister kyvernolister.NamespacedPolicyViolationLister, policyName, kind, namespace, name string) (kyverno.NamespacedPolicyViolation, error) {
-	nspvs, err := nspvLister.List(labels.Everything())
+func getNamespacedPVOnResource(nspvLister kyvernolister.PolicyViolationLister, policyName, kind, namespace, name string) (kyverno.PolicyViolation, error) {
+	nspvs, err := nspvLister.PolicyViolations(namespace).List(labels.Everything())
 	if err != nil {
 		glog.V(2).Infof("failed to list namespaced pv: %v", err)
-		return kyverno.NamespacedPolicyViolation{}, fmt.Errorf("failed to list namespaced pv: %v", err)
+		return kyverno.PolicyViolation{}, fmt.Errorf("failed to list namespaced pv: %v", err)
 	}
 
 	for _, nspv := range nspvs {
 		// find a policy on same resource and policy combination
 		if nspv.Spec.Policy == policyName &&
 			nspv.Spec.ResourceSpec.Kind == kind &&
-			nspv.Spec.ResourceSpec.Namespace == namespace &&
 			nspv.Spec.ResourceSpec.Name == name {
 			return *nspv, nil
 		}
 	}
-	return kyverno.NamespacedPolicyViolation{}, nil
+	return kyverno.PolicyViolation{}, nil
 }
 
-func getNamespacedPVonOwnerRef(nspvLister kyvernolister.NamespacedPolicyViolationLister, dclient *dclient.Client, policyName, kind, namespace, name string) ([]kyverno.NamespacedPolicyViolation, error) {
-	var pvs []kyverno.NamespacedPolicyViolation
+func getNamespacedPVonOwnerRef(nspvLister kyvernolister.PolicyViolationLister, dclient *dclient.Client, policyName, kind, namespace, name string) ([]kyverno.PolicyViolation, error) {
+	var pvs []kyverno.PolicyViolation
 	// get resource
 	resource, err := dclient.GetResource(kind, namespace, name)
 	if err != nil {
@@ -185,7 +184,7 @@ func getNamespacedPVonOwnerRef(nspvLister kyvernolister.NamespacedPolicyViolatio
 	// as we can have multiple top level owners to a resource
 	// check if pv exists on each one
 	for owner := range owners {
-		pv, err := getNamespacedPVOnResource(nspvLister, policyName, owner.Kind, owner.Namespace, owner.Name)
+		pv, err := getNamespacedPVOnResource(nspvLister, policyName, owner.Kind, namespace, owner.Name)
 		if err != nil {
 			glog.Errorf("error while fetching resource owners: %v", err)
 			continue

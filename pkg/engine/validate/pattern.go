@@ -40,7 +40,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 		glog.Warning("Arrays as patterns are not supported")
 		return false
 	default:
-		glog.Warningf("Unknown type as pattern: %T\n", pattern)
+		glog.Warningf("Unknown type as pattern: %v", typedPattern)
 		return false
 	}
 }

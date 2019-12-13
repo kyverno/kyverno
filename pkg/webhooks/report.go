@@ -133,7 +133,6 @@ func buildViolatedRules(er response.EngineResponse, blocked bool) []kyverno.Viol
 	// if resource was blocked we create dependent
 	dependant := kyverno.ManagedResourceSpec{
 		Kind:            er.PolicyResponse.Resource.Kind,
-		Namespace:       er.PolicyResponse.Resource.Namespace,
 		CreationBlocked: true,
 	}
 

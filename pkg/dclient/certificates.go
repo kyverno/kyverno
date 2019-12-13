@@ -15,6 +15,31 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
+// Created pair is stored in cluster's secret.
+// Returns struct with key/certificate pair.
+func (c *Client) InitTLSPemPair(configuration *rest.Config) (*tls.TlsPemPair, error) {
+	certProps, err := c.GetTLSCertProps(configuration)
+	if err != nil {
+		return nil, err
+	}
+	tlsPair := c.ReadTlsPair(certProps)
+	if tls.IsTlsPairShouldBeUpdated(tlsPair) {
+		glog.Info("Generating new key/certificate pair for TLS")
+		tlsPair, err = c.GenerateTlsPemPair(certProps)
+		if err != nil {
+			return nil, err
+		}
+		if err = c.WriteTlsPair(certProps, tlsPair); err != nil {
+			return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
+		}
+		return tlsPair, nil
+	}
+
+	glog.Infoln("Using existing TLS key/certificate pair")
+	return tlsPair, nil
+}
+
 //GenerateTlsPemPair Issues TLS certificate for webhook server using given PEM private key
 // Returns signed and approved TLS certificate in PEM format
 func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
@@ -57,7 +82,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 
 	for _, csr := range csrList.Items {
 		if csr.GetName() == req.ObjectMeta.Name {
-			err := c.DeleteResouce(CSRs, "", csr.GetName(), false)
+			err := c.DeleteResource(CSRs, "", csr.GetName(), false)
 			if err != nil {
 				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
 			}

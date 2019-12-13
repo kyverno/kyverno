@@ -197,7 +197,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				return resp
 			}
 			if err != nil {
-				glog.V(4).Infof("Validation error: %s\nValidation rule %s anyPattern[%d] failed at path %s for %s/%s/%s",
+				glog.V(4).Infof("Validation error: %s; Validation rule %s anyPattern[%d] failed at path %s for %s/%s/%s",
 					rule.Validation.Message, rule.Name, index, path, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				errs = append(errs, err)
 				failedPaths = append(failedPaths, path)
@@ -213,7 +213,11 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s.", rule.Name, index, failedPaths[index])
 				errorStr = append(errorStr, str)
 			}
+<<<<<<< HEAD
 			resp.Message = fmt.Sprintf("Validation error: %s\n%s", rule.Validation.Message, strings.Join(errorStr, "\n"))
+=======
+			response.Message = fmt.Sprintf("Validation error: %s; %s", rule.Validation.Message, strings.Join(errorStr, ";"))
+>>>>>>> master
 
 			return resp
 		}

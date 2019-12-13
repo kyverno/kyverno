@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -9,37 +10,35 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	admregclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	rest "k8s.io/client-go/rest"
+)
+
+const (
+	MutatingWebhookConfigurationKind   string = "MutatingWebhookConfiguration"
+	ValidatingWebhookConfigurationKind string = "ValidatingWebhookConfiguration"
 )
 
 // WebhookRegistrationClient is client for registration webhooks on cluster
 type WebhookRegistrationClient struct {
-	registrationClient *admregclient.AdmissionregistrationV1beta1Client
-	client             *client.Client
-	clientConfig       *rest.Config
+	client       *client.Client
+	clientConfig *rest.Config
 	// serverIP should be used if running Kyverno out of clutser
 	serverIP       string
 	timeoutSeconds int32
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
-func NewWebhookRegistrationClient(clientConfig *rest.Config, client *client.Client, serverIP string, webhookTimeout int32) (*WebhookRegistrationClient, error) {
-	registrationClient, err := admregclient.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	glog.V(4).Infof("Registering webhook client using serverIP %s\n", serverIP)
-
+func NewWebhookRegistrationClient(
+	clientConfig *rest.Config,
+	client *client.Client,
+	serverIP string,
+	webhookTimeout int32) *WebhookRegistrationClient {
 	return &WebhookRegistrationClient{
-		registrationClient: registrationClient,
-		client:             client,
-		clientConfig:       clientConfig,
-		serverIP:           serverIP,
-		timeoutSeconds:     webhookTimeout,
-	}, nil
+		clientConfig:   clientConfig,
+		client:         client,
+		serverIP:       serverIP,
+		timeoutSeconds: webhookTimeout,
+	}
 }
 
 // Register creates admission webhooks configs on cluster
@@ -53,6 +52,12 @@ func (wrc *WebhookRegistrationClient) Register() error {
 	// webhook configurations are created dynamically based on the policy resources
 	wrc.removeWebhookConfigurations()
 
+	// create Verify mutating webhook configuration resource
+	// that is used to check if admission control is enabled or not
+	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+		return err
+	}
+
 	// Static Webhook configuration on Policy CRD
 	// create Policy CRD validating webhook configuration resource
 	// used for validating Policy CR
@@ -65,18 +70,12 @@ func (wrc *WebhookRegistrationClient) Register() error {
 		return err
 	}
 
-	// create Verify mutating webhook configuration resource
-	// that is used to check if admission control is enabled or not
-	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-// RemovePolicyWebhookConfigurations removes webhook configurations for reosurces and policy
+// RemoveWebhookConfigurations removes webhook configurations for reosurces and policy
 // called during webhook server shutdown
-func (wrc *WebhookRegistrationClient) RemovePolicyWebhookConfigurations(cleanUp chan<- struct{}) {
+func (wrc *WebhookRegistrationClient) RemoveWebhookConfigurations(cleanUp chan<- struct{}) {
 	//TODO: dupliate, but a placeholder to perform more error handlind during cleanup
 	wrc.removeWebhookConfigurations()
 	// close channel to notify cleanup is complete
@@ -105,8 +104,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		// clientConfig - service
 		config = wrc.constructMutatingWebhookConfig(caData)
 	}
-
-	_, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config)
+	_, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		glog.V(4).Infof("resource mutating webhook configuration %s, already exists. not creating one", config.Name)
 		return nil
@@ -116,18 +114,6 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		return err
 	}
 	return nil
-}
-
-//GetResourceMutatingWebhookConfiguration returns the MutatingWebhookConfiguration
-func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfiguration() (*admregapi.MutatingWebhookConfiguration, error) {
-	var name string
-	if wrc.serverIP != "" {
-		name = config.MutatingWebhookConfigurationDebugName
-	} else {
-		name = config.MutatingWebhookConfigurationName
-	}
-
-	return wrc.registrationClient.MutatingWebhookConfigurations().Get(name, v1.GetOptions{})
 }
 
 //registerPolicyValidatingWebhookConfiguration create a Validating webhook configuration for Policy CRD
@@ -153,7 +139,7 @@ func (wrc *WebhookRegistrationClient) createPolicyValidatingWebhookConfiguration
 	}
 
 	// create validating webhook configuration resource
-	if _, err := wrc.registrationClient.ValidatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -183,7 +169,7 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -213,7 +199,7 @@ func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.registrationClient.MutatingWebhookConfigurations().Create(config); err != nil {
+	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -230,12 +216,71 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	defer func() {
 		glog.V(4).Infof("Finished cleaning up webhookcongfigurations (%v)", time.Since(startTime))
 	}()
+
+	var wg sync.WaitGroup
+
+	wg.Add(4)
 	// mutating and validating webhook configuration for Kubernetes resources
-	wrc.RemoveResourceMutatingWebhookConfiguration()
-
+	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	// mutating and validating webhook configurtion for Policy CRD resource
-	wrc.removePolicyWebhookConfigurations()
+	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
+	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
+	// mutating webhook configuration for verifying webhook
+	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 
-	// muating webhook configuration use to verify if admission control flow is working or not
-	wrc.removeVerifyWebhookMutatingWebhookConfig()
+	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
+	// wait for the removal go routines to return
+	wg.Wait()
+}
+
+// wrapper to handle wait group
+// TODO: re-work with RemoveResourceMutatingWebhookConfiguration, as the only difference is wg handling
+func (wrc *WebhookRegistrationClient) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.RemoveResourceMutatingWebhookConfiguration()
+}
+
+// delete policy mutating webhookconfigurations
+// handle wait group
+func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	// Mutating webhook configuration
+	var mutatingConfig string
+	if wrc.serverIP != "" {
+		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
+	} else {
+		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
+	}
+
+	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
+	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
+	if errorsapi.IsNotFound(err) {
+		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", mutatingConfig)
+	} else if err != nil {
+		glog.Errorf("failed to delete policy webhook configuration %s: %v", mutatingConfig, err)
+	} else {
+		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", mutatingConfig)
+	}
+}
+
+// delete policy validating webhookconfigurations
+// handle wait group
+func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	// Validating webhook configuration
+	var validatingConfig string
+	if wrc.serverIP != "" {
+		validatingConfig = config.PolicyValidatingWebhookConfigurationDebugName
+	} else {
+		validatingConfig = config.PolicyValidatingWebhookConfigurationName
+	}
+	glog.V(4).Infof("removing webhook configuration %s", validatingConfig)
+	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", validatingConfig, false)
+	if errorsapi.IsNotFound(err) {
+		glog.V(4).Infof("policy webhook configuration %s, does not exits. not deleting", validatingConfig)
+	} else if err != nil {
+		glog.Errorf("failed to delete policy webhook configuration %s: %v", validatingConfig, err)
+	} else {
+		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", validatingConfig)
+	}
 }
