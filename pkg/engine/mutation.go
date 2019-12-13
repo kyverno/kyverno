@@ -12,6 +12,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
+	ctx := policyContext.Context
 
 	// policy information
 	func() {
@@ -61,7 +62,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = processOverlay(rule, patchedResource)
+			ruleResponse, patchedResource = processOverlay(ctx, rule, patchedResource)
 			if ruleResponse.Success == true && ruleResponse.Patches == nil {
 				// overlay pattern does not match the resource conditions
 				glog.V(4).Infof(ruleResponse.Message)

@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -62,6 +63,12 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
 	resource.SetNamespace(request.Namespace)
 	var engineResponses []response.EngineResponse
+	// build context
+	ctx := context.NewContext()
+	// load incoming resource into the context
+	ctx.Add("resource", request.Object.Raw)
+	ctx.Add("user", transformUser(request.UserInfo))
+
 	policyContext := engine.PolicyContext{
 		NewResource: *resource,
 		AdmissionInfo: engine.RequestInfo{

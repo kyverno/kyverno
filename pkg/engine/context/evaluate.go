@@ -2,7 +2,7 @@ package context
 
 import (
 	"github.com/golang/glog"
-	jmespath "github.com/jmespath/go-jmespath"
+	"github.com/jmespath/go-jmespath"
 )
 
 //Query searches for query in the context

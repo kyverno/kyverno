@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"encoding/json"
 	"reflect"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 // HandleValidation handles validating webhook admission request
@@ -66,6 +64,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// load incoming resource into the context
 	ctx.Add("resource", request.Object.Raw)
 	ctx.Add("user", transformUser(request.UserInfo))
+
 	policyContext := engine.PolicyContext{
 		NewResource: newR,
 		OldResource: oldR,
@@ -126,13 +125,4 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// report time end
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
 	return true, ""
-}
-
-func transformUser(userInfo authenticationv1.UserInfo) []byte {
-	data, err := json.Marshal(userInfo)
-	if err != nil {
-		glog.Errorf("failed to marshall resource %v: %v", userInfo, err)
-		return nil
-	}
-	return data
 }

@@ -15,12 +15,14 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 )
 
 // processOverlay processes validation patterns on the resource
-func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func processOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
@@ -29,8 +31,13 @@ func processOverlay(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
+	// substitute variables
+	// first pass we substitute all the JMESPATH substitution for the variable
+	// variable: {{<JMESPATH>}}
+	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
+	overlay := variables.SubstituteVariables(ctx, rule.Mutation.Overlay)
 
-	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), rule.Mutation.Overlay)
+	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), overlay)
 	// resource does not satisfy the overlay pattern, we don't apply this rule
 	if !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
