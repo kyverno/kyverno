@@ -1013,7 +1013,7 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 		"metadata": {
 		   "name": "pod-with-emptydir",
 		   "annotations": {
-			  "cluster-autoscaler.kubernetes.io/safe-to-evict": true
+			  "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
 		   }
 		},
 		"spec": {
