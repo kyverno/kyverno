@@ -11,68 +11,142 @@ import (
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/span"
 	"golang.org/x/tools/internal/telemetry/log"
 	"golang.org/x/tools/internal/telemetry/trace"
 )
 
-func (s *Server) diagnostics(view source.View, uri span.URI) error {
-	ctx := view.BackgroundContext()
+func (s *Server) diagnose(snapshot source.Snapshot, f source.File) error {
+	switch f.Kind() {
+	case source.Go:
+		go s.diagnoseFile(snapshot, f)
+	case source.Mod:
+		go s.diagnoseSnapshot(snapshot)
+	}
+	return nil
+}
+
+func (s *Server) diagnoseSnapshot(snapshot source.Snapshot) {
+	ctx := snapshot.View().BackgroundContext()
 	ctx, done := trace.StartSpan(ctx, "lsp:background-worker")
 	defer done()
 
-	ctx = telemetry.File.With(ctx, uri)
+	for _, id := range snapshot.WorkspacePackageIDs(ctx) {
+		ph, err := snapshot.PackageHandle(ctx, id)
+		if err != nil {
+			log.Error(ctx, "diagnoseSnapshot: no PackageHandle for workspace package", err, telemetry.Package.Of(id))
+			continue
+		}
+		if len(ph.CompiledGoFiles()) == 0 {
+			continue
+		}
+		// Find a file on which to call diagnostics.
+		uri := ph.CompiledGoFiles()[0].File().Identity().URI
+		f, err := snapshot.View().GetFile(ctx, uri)
+		if err != nil {
+			log.Error(ctx, "no file", err, telemetry.URI.Of(uri))
+			continue
+		}
+		// Run diagnostics on the workspace package.
+		go func(snapshot source.Snapshot, f source.File) {
+			reports, _, err := source.Diagnostics(ctx, snapshot, f, false, snapshot.View().Options().DisabledAnalyses)
+			if err != nil {
+				log.Error(ctx, "no diagnostics", err, telemetry.URI.Of(f.URI()))
+				return
+			}
+			// Don't publish empty diagnostics.
+			s.publishReports(ctx, reports, false)
+		}(snapshot, f)
+	}
+}
 
-	f, err := view.GetFile(ctx, uri)
-	if err != nil {
-		return err
-	}
-	reports, warningMsg, err := source.Diagnostics(ctx, view, f, view.Options().DisabledAnalyses)
-	if err != nil {
-		return err
-	}
+func (s *Server) diagnoseFile(snapshot source.Snapshot, f source.File) {
+	ctx := snapshot.View().BackgroundContext()
+	ctx, done := trace.StartSpan(ctx, "lsp:background-worker")
+	defer done()
+
+	ctx = telemetry.File.With(ctx, f.URI())
+
+	reports, warningMsg, err := source.Diagnostics(ctx, snapshot, f, true, snapshot.View().Options().DisabledAnalyses)
+	// Check the warning message first.
 	if warningMsg != "" {
 		s.client.ShowMessage(ctx, &protocol.ShowMessageParams{
 			Type:    protocol.Info,
 			Message: warningMsg,
 		})
 	}
-
-	s.undeliveredMu.Lock()
-	defer s.undeliveredMu.Unlock()
-
-	for uri, diagnostics := range reports {
-		if err := s.publishDiagnostics(ctx, uri, diagnostics); err != nil {
-			if s.undelivered == nil {
-				s.undelivered = make(map[span.URI][]source.Diagnostic)
-			}
-			s.undelivered[uri] = diagnostics
-
-			log.Error(ctx, "failed to deliver diagnostic (will retry)", err, telemetry.File)
-			continue
+	if err != nil {
+		if err != context.Canceled {
+			log.Error(ctx, "diagnoseFile: could not generate diagnostics", err)
 		}
-		// In case we had old, undelivered diagnostics.
-		delete(s.undelivered, uri)
+		return
 	}
-	// Anytime we compute diagnostics, make sure to also send along any
-	// undelivered ones (only for remaining URIs).
-	for uri, diagnostics := range s.undelivered {
-		if err := s.publishDiagnostics(ctx, uri, diagnostics); err != nil {
-			log.Error(ctx, "failed to deliver diagnostic for (will not retry)", err, telemetry.File)
-		}
-
-		// If we fail to deliver the same diagnostics twice, just give up.
-		delete(s.undelivered, uri)
-	}
-	return nil
+	// Publish empty diagnostics for files.
+	s.publishReports(ctx, reports, true)
 }
 
-func (s *Server) publishDiagnostics(ctx context.Context, uri span.URI, diagnostics []source.Diagnostic) error {
-	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		Diagnostics: toProtocolDiagnostics(ctx, diagnostics),
-		URI:         protocol.NewURI(uri),
-	})
-	return nil
+func (s *Server) publishReports(ctx context.Context, reports map[source.FileIdentity][]source.Diagnostic, publishEmpty bool) {
+	// Check for context cancellation before publishing diagnostics.
+	if ctx.Err() != nil {
+		return
+	}
+
+	s.deliveredMu.Lock()
+	defer s.deliveredMu.Unlock()
+
+	for fileID, diagnostics := range reports {
+		// Don't deliver diagnostics if the context has already been canceled.
+		if ctx.Err() != nil {
+			break
+		}
+		// Don't publish empty diagnostics unless specified.
+		if len(diagnostics) == 0 && !publishEmpty {
+			continue
+		}
+		// Pre-sort diagnostics to avoid extra work when we compare them.
+		source.SortDiagnostics(diagnostics)
+		toSend := sentDiagnostics{
+			version:    fileID.Version,
+			identifier: fileID.Identifier,
+			sorted:     diagnostics,
+		}
+
+		if delivered, ok := s.delivered[fileID.URI]; ok {
+			// We only reuse cached diagnostics in two cases:
+			//   1. This file is at a greater version than that of the previously sent diagnostics.
+			//   2. There are no known versions for the file.
+			greaterVersion := fileID.Version > delivered.version && delivered.version > 0
+			noVersions := (fileID.Version == 0 && delivered.version == 0) && delivered.identifier == fileID.Identifier
+			if (greaterVersion || noVersions) && equalDiagnostics(delivered.sorted, diagnostics) {
+				// Update the delivered map even if we reuse cached diagnostics.
+				s.delivered[fileID.URI] = toSend
+				continue
+			}
+		}
+		if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+			Diagnostics: toProtocolDiagnostics(ctx, diagnostics),
+			URI:         protocol.NewURI(fileID.URI),
+			Version:     fileID.Version,
+		}); err != nil {
+			log.Error(ctx, "failed to deliver diagnostic", err, telemetry.File)
+			continue
+		}
+		// Update the delivered map.
+		s.delivered[fileID.URI] = toSend
+	}
+}
+
+// equalDiagnostics returns true if the 2 lists of diagnostics are equal.
+// It assumes that both a and b are already sorted.
+func equalDiagnostics(a, b []source.Diagnostic) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if source.CompareDiagnostic(a[i], b[i]) != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func toProtocolDiagnostics(ctx context.Context, diagnostics []source.Diagnostic) []protocol.Diagnostic {

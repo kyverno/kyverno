@@ -22,12 +22,13 @@ type pkg struct {
 	pkgPath packagePath
 	mode    source.ParseMode
 
-	files      []source.ParseGoHandle
-	errors     []*source.Error
-	imports    map[packagePath]*pkg
-	types      *types.Package
-	typesInfo  *types.Info
-	typesSizes types.Sizes
+	goFiles         []source.ParseGoHandle
+	compiledGoFiles []source.ParseGoHandle
+	errors          []*source.Error
+	imports         map[packagePath]*pkg
+	types           *types.Package
+	typesInfo       *types.Info
+	typesSizes      types.Sizes
 }
 
 // Declare explicit types for package paths and IDs to ensure that we never use
@@ -44,12 +45,17 @@ func (p *pkg) PkgPath() string {
 	return string(p.pkgPath)
 }
 
-func (p *pkg) Files() []source.ParseGoHandle {
-	return p.files
+func (p *pkg) CompiledGoFiles() []source.ParseGoHandle {
+	return p.compiledGoFiles
 }
 
 func (p *pkg) File(uri span.URI) (source.ParseGoHandle, error) {
-	for _, ph := range p.Files() {
+	for _, ph := range p.compiledGoFiles {
+		if ph.File().Identity().URI == uri {
+			return ph, nil
+		}
+	}
+	for _, ph := range p.goFiles {
 		if ph.File().Identity().URI == uri {
 			return ph, nil
 		}
@@ -59,7 +65,7 @@ func (p *pkg) File(uri span.URI) (source.ParseGoHandle, error) {
 
 func (p *pkg) GetSyntax() []*ast.File {
 	var syntax []*ast.File
-	for _, ph := range p.files {
+	for _, ph := range p.compiledGoFiles {
 		file, _, _, err := ph.Cached()
 		if err == nil {
 			syntax = append(syntax, file)
@@ -104,48 +110,30 @@ func (p *pkg) Imports() []source.Package {
 	return result
 }
 
-func (s *snapshot) FindAnalysisError(ctx context.Context, id string, diag protocol.Diagnostic) (*source.Error, error) {
-	acts := s.getActionHandles(packageID(id), source.ParseFull)
-	for _, act := range acts {
-		errors, _, err := act.analyze(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, err := range errors {
-			if err.Category != diag.Source {
-				continue
-			}
-			if err.Message != diag.Message {
-				continue
-			}
-			if protocol.CompareRange(err.Range, diag.Range) != 0 {
-				continue
-			}
-			return err, nil
-		}
+func (s *snapshot) FindAnalysisError(ctx context.Context, pkgID, analyzerName, msg string, rng protocol.Range) (*source.Error, error) {
+	analyzer, ok := s.View().Options().Analyzers[analyzerName]
+	if !ok {
+		return nil, errors.Errorf("unexpected analyzer: %s", analyzerName)
 	}
-	return nil, errors.Errorf("no matching diagnostic for %v", diag)
-}
-
-func findFileInPackage(ctx context.Context, uri span.URI, pkg source.Package) (source.ParseGoHandle, source.Package, error) {
-	queue := []source.Package{pkg}
-	seen := make(map[string]bool)
-
-	for len(queue) > 0 {
-		pkg := queue[0]
-		queue = queue[1:]
-		seen[pkg.ID()] = true
-
-		for _, ph := range pkg.Files() {
-			if ph.File().Identity().URI == uri {
-				return ph, pkg, nil
-			}
-		}
-		for _, dep := range pkg.Imports() {
-			if !seen[dep.ID()] {
-				queue = append(queue, dep)
-			}
-		}
+	act, err := s.actionHandle(ctx, packageID(pkgID), source.ParseFull, analyzer)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil, errors.Errorf("no file for %s in package %s", uri, pkg.ID())
+	errs, _, err := act.analyze(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, err := range errs {
+		if err.Category != analyzerName {
+			continue
+		}
+		if err.Message != msg {
+			continue
+		}
+		if protocol.CompareRange(err.Range, rng) != 0 {
+			continue
+		}
+		return err, nil
+	}
+	return nil, errors.Errorf("no matching diagnostic for %s:%v", pkgID, analyzerName)
 }

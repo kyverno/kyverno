@@ -75,19 +75,19 @@ func TestNewXLSets(t *testing.T) {
 		defer os.RemoveAll(disk)
 	}
 
-	endpoints := mustGetNewEndpointList(erasureDisks...)
-	_, err := waitForFormatXL(true, endpoints, 0, 16)
+	endpoints := mustGetNewEndpoints(erasureDisks...)
+	_, err := waitForFormatXL(true, endpoints, 0, 16, "")
 	if err != errInvalidArgument {
 		t.Fatalf("Expecting error, got %s", err)
 	}
 
-	_, err = waitForFormatXL(true, nil, 1, 16)
+	_, err = waitForFormatXL(true, nil, 1, 16, "")
 	if err != errInvalidArgument {
 		t.Fatalf("Expecting error, got %s", err)
 	}
 
 	// Initializes all erasure disks
-	format, err := waitForFormatXL(true, endpoints, 1, 16)
+	format, err := waitForFormatXL(true, endpoints, 1, 16, "")
 	if err != nil {
 		t.Fatalf("Unable to format disks for erasure, %s", err)
 	}
@@ -113,7 +113,8 @@ func TestHashedLayer(t *testing.T) {
 			defer os.RemoveAll(dir)
 		}
 
-		objs = append(objs, obj.(*xlObjects))
+		z := obj.(*xlZones)
+		objs = append(objs, z.zones[0].sets[0])
 	}
 
 	sets := &xlSets{sets: objs, distributionAlgo: "CRCMOD"}

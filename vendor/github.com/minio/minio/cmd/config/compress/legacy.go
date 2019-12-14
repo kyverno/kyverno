@@ -30,15 +30,22 @@ const (
 
 // SetCompressionConfig - One time migration code needed, for migrating from older config to new for Compression.
 func SetCompressionConfig(s config.Config, cfg Config) {
+	if !cfg.Enabled {
+		// No need to save disabled settings in new config.
+		return
+	}
 	s[config.CompressionSubSys][config.Default] = config.KVS{
-		config.State: func() string {
-			if cfg.Enabled {
-				return config.StateOn
-			}
-			return config.StateOff
-		}(),
-		config.Comment: "Settings for Compression, after migrating config",
-		Extensions:     strings.Join(cfg.Extensions, config.ValueSeparator),
-		MimeTypes:      strings.Join(cfg.MimeTypes, config.ValueSeparator),
+		config.KV{
+			Key:   config.Enable,
+			Value: config.EnableOn,
+		},
+		config.KV{
+			Key:   Extensions,
+			Value: strings.Join(cfg.Extensions, config.ValueSeparator),
+		},
+		config.KV{
+			Key:   MimeTypes,
+			Value: strings.Join(cfg.MimeTypes, config.ValueSeparator),
+		},
 	}
 }

@@ -6,6 +6,7 @@ package source
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/doc"
@@ -13,6 +14,7 @@ import (
 	"go/types"
 	"strings"
 
+	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
@@ -30,6 +32,13 @@ type HoverInformation struct {
 
 	// FullDocumentation is the symbol's full documentation.
 	FullDocumentation string `json:"fullDocumentation"`
+
+	// Link is the pkg.go.dev anchor for the given symbol.
+	// For example, "go/ast#Node".
+	Link string `json:"link"`
+
+	// SymbolName is the types.Object.Name for the given symbol.
+	SymbolName string
 
 	source  interface{}
 	comment *ast.CommentGroup
@@ -54,16 +63,66 @@ func (i *IdentifierInfo) Hover(ctx context.Context) (*HoverInformation, error) {
 	case types.Object:
 		h.Signature = objectString(x, i.qf)
 	}
-
-	// Set the documentation.
-	if i.Declaration.obj != nil {
-		h.SingleLine = objectString(i.Declaration.obj, i.qf)
+	if obj := i.Declaration.obj; obj != nil {
+		h.SingleLine = objectString(obj, i.qf)
 	}
+	h.Link, h.SymbolName = i.linkAndSymbolName()
 	if h.comment != nil {
 		h.FullDocumentation = h.comment.Text()
 		h.Synopsis = doc.Synopsis(h.FullDocumentation)
 	}
 	return h, nil
+}
+
+func (i *IdentifierInfo) linkAndSymbolName() (string, string) {
+	obj := i.Declaration.obj
+	if obj == nil {
+		return "", ""
+	}
+	switch obj := obj.(type) {
+	case *types.PkgName:
+		return obj.Imported().Path(), obj.Name()
+	case *types.Builtin:
+		return fmt.Sprintf("builtin#%s", obj.Name()), obj.Name()
+	}
+	// Don't return links for other unexported types.
+	if !obj.Exported() {
+		return "", ""
+	}
+	var rTypeName string
+	switch obj := obj.(type) {
+	case *types.Var:
+		if obj.IsField() {
+			// If the object is a field, and we have an associated selector,
+			// we can determine the struct.
+			if selection, ok := i.pkg.GetTypesInfo().Selections[i.selector]; ok {
+				switch rtyp := deref(selection.Recv()).(type) {
+				case *types.Named:
+					rTypeName = rtyp.Obj().Name()
+				}
+			}
+		}
+	case *types.Func:
+		typ, ok := obj.Type().(*types.Signature)
+		if !ok {
+			return "", ""
+		}
+		if r := typ.Recv(); r != nil {
+			switch rtyp := deref(r.Type()).(type) {
+			case *types.Struct:
+				rTypeName = r.Name()
+			case *types.Named:
+				rTypeName = rtyp.Obj().Name()
+			}
+		}
+	}
+	if rTypeName != "" {
+		link := fmt.Sprintf("%s#%s.%s", obj.Pkg().Path(), rTypeName, obj.Name())
+		symbol := fmt.Sprintf("(%s.%s).%s", obj.Pkg().Name(), rTypeName, obj.Name())
+		return link, symbol
+	}
+	// For most cases, the link is "package/path#symbol".
+	return fmt.Sprintf("%s#%s", obj.Pkg().Path(), obj.Name()), fmt.Sprintf("%s.%s", obj.Pkg().Name(), obj.Name())
 }
 
 // objectString is a wrapper around the types.ObjectString function.
@@ -128,7 +187,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*HoverI
 	// If we have a field or method.
 	switch obj.(type) {
 	case *types.Var, *types.Const, *types.Func:
-		return formatVar(spec, obj)
+		return formatVar(spec, obj, node), nil
 	}
 	// Handle types.
 	switch spec := spec.(type) {
@@ -147,7 +206,7 @@ func formatGenDecl(node *ast.GenDecl, obj types.Object, typ types.Type) (*HoverI
 	return nil, errors.Errorf("unable to format spec %v (%T)", spec, spec)
 }
 
-func formatVar(node ast.Spec, obj types.Object) (*HoverInformation, error) {
+func formatVar(node ast.Spec, obj types.Object, decl *ast.GenDecl) *HoverInformation {
 	var fieldList *ast.FieldList
 	if spec, ok := node.(*ast.TypeSpec); ok {
 		switch t := spec.Type.(type) {
@@ -164,13 +223,107 @@ func formatVar(node ast.Spec, obj types.Object) (*HoverInformation, error) {
 			field := fieldList.List[i]
 			if field.Pos() <= obj.Pos() && obj.Pos() <= field.End() {
 				if field.Doc.Text() != "" {
-					return &HoverInformation{source: obj, comment: field.Doc}, nil
+					return &HoverInformation{source: obj, comment: field.Doc}
 				} else if field.Comment.Text() != "" {
-					return &HoverInformation{source: obj, comment: field.Comment}, nil
+					return &HoverInformation{source: obj, comment: field.Comment}
 				}
 			}
 		}
 	}
+	// If we have a package level variable that does have a
+	// comment group attached to it but not in the ast.spec.
+	if decl.Doc.Text() != "" {
+		return &HoverInformation{source: obj, comment: decl.Doc}
+	}
+
 	// If we weren't able to find documentation for the object.
-	return &HoverInformation{source: obj}, nil
+	return &HoverInformation{source: obj}
+}
+
+func FormatHover(h *HoverInformation, options Options) (string, error) {
+	signature := formatSignature(h.Signature, options)
+	switch options.HoverKind {
+	case SingleLine:
+		return h.SingleLine, nil
+	case NoDocumentation:
+		return signature, nil
+	case Structured:
+		b, err := json.Marshal(h)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	link := formatLink(h, options)
+	switch options.HoverKind {
+	case SynopsisDocumentation:
+		doc := formatDoc(h.Synopsis, options)
+		return formatHover(options, doc, link, signature), nil
+	case FullDocumentation:
+		doc := formatDoc(h.FullDocumentation, options)
+		return formatHover(options, signature, link, doc), nil
+	}
+	return "", errors.Errorf("no hover for %v", h.source)
+}
+
+func formatLink(h *HoverInformation, options Options) string {
+	if options.LinkTarget == "" || h.Link == "" {
+		return ""
+	}
+	plainLink := fmt.Sprintf("https://%s/%s", options.LinkTarget, h.Link)
+	switch options.PreferredContentFormat {
+	case protocol.Markdown:
+		return fmt.Sprintf("[`%s` on %s](%s)", h.SymbolName, options.LinkTarget, plainLink)
+	case protocol.PlainText:
+		return ""
+	default:
+		return plainLink
+	}
+}
+
+func formatSignature(signature string, options Options) string {
+	if options.PreferredContentFormat == protocol.Markdown {
+		signature = fmt.Sprintf("```go\n%s\n```", signature)
+	}
+	return signature
+}
+
+func formatDoc(doc string, options Options) string {
+	if options.PreferredContentFormat == protocol.Markdown {
+		return CommentToMarkdown(doc)
+	}
+	return doc
+}
+
+func formatHover(options Options, x ...string) string {
+	var b strings.Builder
+	for i, el := range x {
+		if el != "" {
+			b.WriteString(el)
+
+			// Don't write out final newline.
+			if i == len(x) {
+				continue
+			}
+			// If any elements of the remainder of the list are non-empty,
+			// write a newline.
+			if anyNonEmpty(x[i+1:]) {
+				if options.PreferredContentFormat == protocol.Markdown {
+					b.WriteString("\n\n")
+				} else {
+					b.WriteRune('\n')
+				}
+			}
+		}
+	}
+	return b.String()
+}
+
+func anyNonEmpty(x []string) bool {
+	for _, el := range x {
+		if el != "" {
+			return true
+		}
+	}
+	return false
 }

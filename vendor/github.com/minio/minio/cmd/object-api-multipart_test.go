@@ -237,8 +237,9 @@ func testPutObjectPartDiskNotFound(obj ObjectLayer, instanceType string, disks [
 	if err == nil {
 		t.Fatalf("Test %s: expected to fail but passed instead", instanceType)
 	}
+
 	// as majority of xl.json are not available, we expect uploadID to be not available.
-	expectedErr1 := InsufficientReadQuorum{}
+	expectedErr1 := BucketNotFound{Bucket: testCase.bucketName}
 	if err.Error() != expectedErr1.Error() {
 		t.Fatalf("Test %s: expected error %s, got %s instead.", instanceType, expectedErr1, err)
 	}
@@ -255,8 +256,8 @@ func testPutObjectPartDiskNotFound(obj ObjectLayer, instanceType string, disks [
 	}
 
 	// As all disks at not available, bucket not found.
-	expectedErr2 := errDiskNotFound
-	if err != errDiskNotFound {
+	expectedErr2 := BucketNotFound{Bucket: testCase.bucketName}
+	if err.Error() != expectedErr2.Error() {
 		t.Fatalf("Test %s: expected error %s, got %s instead.", instanceType, expectedErr2, err)
 	}
 }
@@ -1128,10 +1129,9 @@ func testListMultipartUploads(obj ObjectLayer, instanceType string, t TestErrHan
 		{"volatile-bucket-1", "", "", "", "", 0, ListMultipartsInfo{}, BucketNotFound{Bucket: "volatile-bucket-1"}, false},
 		{"volatile-bucket-2", "", "", "", "", 0, ListMultipartsInfo{}, BucketNotFound{Bucket: "volatile-bucket-2"}, false},
 		{"volatile-bucket-3", "", "", "", "", 0, ListMultipartsInfo{}, BucketNotFound{Bucket: "volatile-bucket-3"}, false},
-		// Valid, existing bucket, but sending invalid delimeter values (Test number 8-9).
-		// Empty string < "" > and forward slash < / > are the ony two valid arguments for delimeter.
-		{bucketNames[0], "", "", "", "*", 0, ListMultipartsInfo{}, fmt.Errorf("delimiter '%s' is not supported", "*"), false},
-		{bucketNames[0], "", "", "", "-", 0, ListMultipartsInfo{}, fmt.Errorf("delimiter '%s' is not supported", "-"), false},
+		// Valid, existing bucket, delimiter not supported, returns empty values (Test number 8-9).
+		{bucketNames[0], "", "", "", "*", 0, ListMultipartsInfo{Delimiter: "*"}, nil, true},
+		{bucketNames[0], "", "", "", "-", 0, ListMultipartsInfo{Delimiter: "-"}, nil, true},
 		// Testing for failure cases with both perfix and marker (Test number 10).
 		// The prefix and marker combination to be valid it should satisfy strings.HasPrefix(marker, prefix).
 		{bucketNames[0], "asia", "europe-object", "", "", 0, ListMultipartsInfo{},
@@ -1193,9 +1193,6 @@ func testListMultipartUploads(obj ObjectLayer, instanceType string, t TestErrHan
 		{bucketNames[1], "Asia", "", "", "", 10, listMultipartResults[23], nil, true},
 		// Test case with `Prefix` and `UploadIDMarker` (Test number 37).
 		{bucketNames[1], "min", "minio-object-1.txt", uploadIDs[1], "", 10, listMultipartResults[24], nil, true},
-		// Test case with `KeyMarker`  and `UploadIDMarker` (Test number 38).
-		// {bucketNames[1], "", "minio-object-1.txt", uploadIDs[1], "", 10, listMultipartResults[24], nil, true},
-
 		// Test case for bucket with multiple objects in it.
 		//	Bucket used : `bucketNames[2]`.
 		//	Objects used: `objectNames[1-5]`.
@@ -1217,16 +1214,10 @@ func testListMultipartUploads(obj ObjectLayer, instanceType string, t TestErrHan
 		// Since all available entries are listed, IsTruncated is expected to be false
 		// and NextMarkers are expected to empty.
 		{bucketNames[2], "", "", "", "", 6, listMultipartResults[31], nil, true},
-		//	Test case with `uploadIDMarker` (Test number 46).
-		// {bucketNames[2], "", "", uploadIDs[6], "", 10, listMultipartResults[32], nil, true},
 		//	Test case with `KeyMarker` (Test number 47).
 		{bucketNames[2], "", objectNames[3], "", "", 10, listMultipartResults[33], nil, true},
 		//	Test case with `prefix` and `KeyMarker` (Test number 48).
 		{bucketNames[2], "minio-object", objectNames[1], "", "", 10, listMultipartResults[34], nil, true},
-		//	Test case with `prefix` and `uploadIDMarker` (Test number 49).
-		// {bucketNames[2], globalMinioDefaultOwnerID, "", uploadIDs[4], "", 10, listMultipartResults[35], nil, true},
-		//	Test case with `KeyMarker` and `uploadIDMarker` (Test number 50).
-		// {bucketNames[2], "minio-object.txt", "", uploadIDs[5], "", 10, listMultipartResults[36], nil, true},
 	}
 
 	for i, testCase := range testCases {

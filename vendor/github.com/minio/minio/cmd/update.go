@@ -95,14 +95,14 @@ func getModTime(path string) (t time.Time, err error) {
 	// Convert to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return t, fmt.Errorf("Unable to get absolute path of %s. %s", path, err)
+		return t, fmt.Errorf("Unable to get absolute path of %s. %w", path, err)
 	}
 
 	// Version is minio non-standard, we will use minio binary's
 	// ModTime as release time.
 	fi, err := os.Stat(absPath)
 	if err != nil {
-		return t, fmt.Errorf("Unable to get ModTime of %s. %s", absPath, err)
+		return t, fmt.Errorf("Unable to get ModTime of %s. %w", absPath, err)
 	}
 
 	// Return the ModTime
@@ -130,31 +130,40 @@ func GetCurrentReleaseTime() (releaseTime time.Time, err error) {
 //     "/.dockerenv":      "file",
 //
 func IsDocker() bool {
-	_, err := os.Stat("/.dockerenv")
-	if os.IsNotExist(err) {
-		return false
+	if env.Get("SIMPLE_CI", "") == "" {
+		_, err := os.Stat("/.dockerenv")
+		if os.IsNotExist(err) {
+			return false
+		}
+
+		// Log error, as we will not propagate it to caller
+		logger.LogIf(context.Background(), err)
+
+		return err == nil
 	}
-
-	// Log error, as we will not propagate it to caller
-	logger.LogIf(context.Background(), err)
-
-	return err == nil
+	return false
 }
 
 // IsDCOS returns true if minio is running in DCOS.
 func IsDCOS() bool {
-	// http://mesos.apache.org/documentation/latest/docker-containerizer/
-	// Mesos docker containerizer sets this value
-	return env.Get("MESOS_CONTAINER_NAME", "") != ""
+	if env.Get("SIMPLE_CI", "") == "" {
+		// http://mesos.apache.org/documentation/latest/docker-containerizer/
+		// Mesos docker containerizer sets this value
+		return env.Get("MESOS_CONTAINER_NAME", "") != ""
+	}
+	return false
 }
 
 // IsKubernetes returns true if minio is running in kubernetes.
 func IsKubernetes() bool {
-	// Kubernetes env used to validate if we are
-	// indeed running inside a kubernetes pod
-	// is KUBERNETES_SERVICE_HOST but in future
-	// we might need to enhance this.
-	return env.Get("KUBERNETES_SERVICE_HOST", "") != ""
+	if env.Get("SIMPLE_CI", "") == "" {
+		// Kubernetes env used to validate if we are
+		// indeed running inside a kubernetes pod
+		// is KUBERNETES_SERVICE_HOST but in future
+		// we might need to enhance this.
+		return env.Get("KUBERNETES_SERVICE_HOST", "") != ""
+	}
+	return false
 }
 
 // IsBOSH returns true if minio is deployed from a bosh package
@@ -385,7 +394,7 @@ func parseReleaseData(data string) (sha256Hex string, releaseTime time.Time, err
 
 	releaseTime, err = releaseTagToReleaseTime(nfields[1])
 	if err != nil {
-		err = fmt.Errorf("Unknown release tag format. %s", err)
+		err = fmt.Errorf("Unknown release tag format. %w", err)
 	}
 
 	return sha256Hex, releaseTime, err

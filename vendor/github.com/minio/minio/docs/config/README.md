@@ -70,34 +70,21 @@ export MINIO_REGION_NAME="my_region"
 minio server /data
 ```
 
-#### Worm
-
-| Field                  | Type     | Description                                                                                                                                       |
-|:-----------------------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------|
-| ``worm state=on`` | _string_ | Enable this to turn on Write-Once-Read-Many. By default it is set to `off`. You may override this field with ``MINIO_WORM`` environment variable. |
-
-Example:
-
-```sh
-export MINIO_WORM_STATE=on
-minio server /data
-```
-
 ### Storage Class
 
 | Field                          | Type     | Description                                                                                                                                                                                  |
 |:-------------------------------|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ``storageclass``               |          | Set storage class for configurable data and parity, as per object basis.                                                                                                                     |
-| ``storageclass standard=EC:4`` | _string_ | Value for standard storage class. It should be in the format `EC:Parity`, for example to set 4 disk parity for standard storage class objects, set this field to `EC:4`.                     |
-| ``storageclass rrs=EC:2``      | _string_ | Value for reduced redundancy storage class. It should be in the format `EC:Parity`, for example to set 3 disk parity for reduced redundancy storage class objects, set this field to `EC:3`. |
+| ``storage_class``               |          | Set storage class for configurable data and parity, as per object basis.                                                                                                                     |
+| ``storage_class standard=EC:4`` | _string_ | Value for standard storage class. It should be in the format `EC:Parity`, for example to set 4 disk parity for standard storage class objects, set this field to `EC:4`.                     |
+| ``storage_class rrs=EC:2``      | _string_ | Value for reduced redundancy storage class. It should be in the format `EC:Parity`, for example to set 3 disk parity for reduced redundancy storage class objects, set this field to `EC:3`. |
 
 By default, parity for objects with standard storage class is set to `N/2`, and parity for objects with reduced redundancy storage class objects is set to `2`. Read more about storage class support in MinIO server [here](https://github.com/minio/minio/blob/master/docs/erasure/storage-class/README.md).
 
 ### Cache
 | Field                                                        | Type       | Description                                                                                                 |
 |:-------------------------------------------------------------|:-----------|:------------------------------------------------------------------------------------------------------------|
-| ``cache drives="/mnt/drive1;/mnt/drive2;/mnt/cache{1...3}"`` | _[]string_ | List of mounted file system drives with [`atime`](http://kerolasa.github.io/filetimes.html) support enabled |
-| ``cache exclude="*.pdf;mybucket/*"``                         | _[]string_ | List of wildcard patterns for prefixes to exclude from cache                                                |
+| ``cache drives="/mnt/drive1,/mnt/drive2,/mnt/cache{1...3}"`` | _[]string_ | List of mounted file system drives with [`atime`](http://kerolasa.github.io/filetimes.html) support enabled |
+| ``cache exclude="*.pdf,mybucket/*"``                         | _[]string_ | List of wildcard patterns for prefixes to exclude from cache                                                |
 | ``cache expiry=90``                                          | _int_      | Days to cache expiry                                                                                        |
 | ``cache quota=70``                                           | _int_      | Percentage of disk available to cache                                                                       |
 |                                                              |            |                                                                                                             |
@@ -120,6 +107,16 @@ By default, parity for objects with standard storage class is set to `N/2`, and 
 All configuration changes can be made using [`mc admin config` get/set commands](https://github.com/minio/mc/blob/master/docs/minio-admin-complete-guide.md). Following sections provide brief explanation of fields and how to customize them. A complete example of `config.json` is available [here](https://raw.githubusercontent.com/minio/minio/master/docs/config/config.sample.json)
 
 ## Environment only settings
+
+#### Worm
+Enable this to turn on Write-Once-Read-Many. By default it is set to `off`. Set ``MINIO_WORM=on`` environment variable to enable WORM mode.
+
+Example:
+
+```sh
+export MINIO_WORM=on
+minio server /data
+```
 
 ### Browser
 

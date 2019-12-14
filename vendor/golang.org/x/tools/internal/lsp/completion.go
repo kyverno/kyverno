@@ -18,14 +18,27 @@ import (
 
 func (s *Server) completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	options := view.Options()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	options.Completion.FullDocumentation = options.HoverKind == source.FullDocumentation
-	candidates, surrounding, err := source.Completion(ctx, view, f, params.Position, options.Completion)
+
+	var candidates []source.CompletionItem
+	var surrounding *source.Selection
+	switch f.Kind() {
+	case source.Go:
+		options.Completion.FullDocumentation = options.HoverKind == source.FullDocumentation
+		candidates, surrounding, err = source.Completion(ctx, snapshot, f, params.Position, options.Completion)
+	case source.Mod:
+		candidates, surrounding = nil, nil
+	}
+
 	if err != nil {
 		log.Print(ctx, "no completions found", tag.Of("At", params.Position), tag.Of("Failure", err))
 	}
@@ -50,16 +63,16 @@ func (s *Server) completion(ctx context.Context, params *protocol.CompletionPara
 
 	items := toProtocolCompletionItems(candidates, rng, options)
 
-	if incompleteResults {
-		prefix := surrounding.Prefix()
-		for i := range items {
-			// We send the prefix as the filterText to trick VSCode into not
-			// reordering our candidates. All the candidates will appear to
-			// be a perfect match, so VSCode's fuzzy matching/ranking just
-			// maintains the natural "sortText" ordering. We can only do
-			// this in tandem with "incompleteResults" since otherwise
-			// client side filtering is important.
-			items[i].FilterText = prefix
+	if incompleteResults && len(items) > 1 {
+		for i := range items[1:] {
+			// Give all the candidaites the same filterText to trick VSCode
+			// into not reordering our candidates. All the candidates will
+			// appear to be equally good matches, so VSCode's fuzzy
+			// matching/ranking just maintains the natural "sortText"
+			// ordering. We can only do this in tandem with
+			// "incompleteResults" since otherwise client side filtering is
+			// important.
+			items[i].FilterText = items[0].FilterText
 		}
 	}
 
@@ -101,7 +114,7 @@ func toProtocolCompletionItems(candidates []source.CompletionItem, rng protocol.
 			Label:  candidate.Label,
 			Detail: candidate.Detail,
 			Kind:   candidate.Kind,
-			TextEdit: &protocol.TextEdit{
+			TextEdit: protocol.TextEdit{
 				NewText: insertText,
 				Range:   rng,
 			},
@@ -120,7 +133,7 @@ func toProtocolCompletionItems(candidates []source.CompletionItem, rng protocol.
 		// since we show return types as well.
 		switch item.Kind {
 		case protocol.FunctionCompletion, protocol.MethodCompletion:
-			item.Command = &protocol.Command{
+			item.Command = protocol.Command{
 				Command: "editor.action.triggerParameterHints",
 			}
 		}

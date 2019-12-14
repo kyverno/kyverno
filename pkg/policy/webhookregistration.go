@@ -7,16 +7,6 @@ import (
 )
 
 func (pc *PolicyController) removeResourceWebhookConfiguration() error {
-	removeWebhookConfig := func() error {
-		var err error
-		err = pc.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
-		if err != nil {
-			return err
-		}
-		glog.V(4).Info("removed resource webhook configuration")
-		return nil
-	}
-
 	var err error
 	// get all existing policies
 	policies, err := pc.pLister.List(labels.NewSelector())
@@ -27,25 +17,15 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 
 	if len(policies) == 0 {
 		glog.V(4).Info("no policies loaded, removing resource webhook configuration if one exists")
-		return removeWebhookConfig()
+		return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
 	}
 
-	// if there are policies, check if they contain mutating or validating rule
+	// if polices only have generate rules, we dont need the webhook
 	if !hasMutateOrValidatePolicies(policies) {
 		glog.V(4).Info("no policies with mutating or validating webhook configurations, remove resource webhook configuration if one exists")
-		return removeWebhookConfig()
+		return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
 	}
 
-	return nil
-}
-
-func (pc *PolicyController) createResourceMutatingWebhookConfigurationIfRequired(policy kyverno.ClusterPolicy) error {
-	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
-		if err := pc.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

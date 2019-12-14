@@ -39,7 +39,7 @@ const (
 	ElasticQueueDir   = "queue_dir"
 	ElasticQueueLimit = "queue_limit"
 
-	EnvElasticState      = "MINIO_NOTIFY_ELASTICSEARCH_STATE"
+	EnvElasticEnable     = "MINIO_NOTIFY_ELASTICSEARCH_ENABLE"
 	EnvElasticFormat     = "MINIO_NOTIFY_ELASTICSEARCH_FORMAT"
 	EnvElasticURL        = "MINIO_NOTIFY_ELASTICSEARCH_URL"
 	EnvElasticIndex      = "MINIO_NOTIFY_ELASTICSEARCH_INDEX"
@@ -93,16 +93,25 @@ func (target *ElasticsearchTarget) ID() event.TargetID {
 	return target.id
 }
 
+// IsActive - Return true if target is up and active
+func (target *ElasticsearchTarget) IsActive() (bool, error) {
+	if dErr := target.args.URL.DialHTTP(); dErr != nil {
+		if xnet.IsNetworkOrHostDown(dErr) {
+			return false, errNotConnected
+		}
+		return false, dErr
+	}
+	return true, nil
+}
+
 // Save - saves the events to the store if queuestore is configured, which will be replayed when the elasticsearch connection is active.
 func (target *ElasticsearchTarget) Save(eventData event.Event) error {
 	if target.store != nil {
 		return target.store.Put(eventData)
 	}
-	if dErr := target.args.URL.DialHTTP(); dErr != nil {
-		if xnet.IsNetworkOrHostDown(dErr) {
-			return errNotConnected
-		}
-		return dErr
+	_, err := target.IsActive()
+	if err != nil {
+		return err
 	}
 	return target.send(eventData)
 }
@@ -146,7 +155,6 @@ func (target *ElasticsearchTarget) send(eventData event.Event) error {
 		} else {
 			err = update()
 		}
-
 		return err
 	}
 
@@ -168,12 +176,9 @@ func (target *ElasticsearchTarget) Send(eventKey string) error {
 			return err
 		}
 	}
-
-	if dErr := target.args.URL.DialHTTP(); dErr != nil {
-		if xnet.IsNetworkOrHostDown(dErr) {
-			return errNotConnected
-		}
-		return dErr
+	_, err = target.IsActive()
+	if err != nil {
+		return err
 	}
 
 	eventData, eErr := target.store.Get(eventKey)
