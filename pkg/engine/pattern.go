@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-
 	"github.com/minio/minio/pkg/wildcard"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Operator is string alias that represents selection operators enum
@@ -31,6 +31,14 @@ const (
 
 const relativePrefix Operator = "./"
 const referenceSign Operator = "$()"
+
+type quantity int
+
+const (
+	equal       quantity = 0
+	lessThan    quantity = -1
+	greaterThan quantity = 1
+)
 
 // ValidateValueWithPattern validates value with operators and wildcards
 func ValidateValueWithPattern(value, pattern interface{}) bool {
@@ -187,7 +195,7 @@ func validateValueWithStringPattern(value interface{}, pattern string) bool {
 		return validateString(value, str, operator)
 	}
 
-	return validateNumberWithStr(value, number, str, operator)
+	return validateNumberWithStr(value, pattern, operator)
 }
 
 // Handler for string values
@@ -212,53 +220,50 @@ func validateString(value interface{}, pattern string, operator Operator) bool {
 	return false
 }
 
-// validateNumberWithStr applies wildcard to suffix and operator to numerical part
-func validateNumberWithStr(value interface{}, patternNumber, patternStr string, operator Operator) bool {
-	// pattern has suffix
-	if "" != patternStr {
-		typedValue, ok := value.(string)
-		if !ok {
-			glog.Warningf("Number must have suffix: %s", patternStr)
-			return false
-		}
-
-		valueNumber, valueStr := getNumberAndStringPartsFromPattern(typedValue)
-		if !wildcard.Match(patternStr, valueStr) {
-			glog.Warningf("Suffix %s has not passed wildcard check: %s", valueStr, patternStr)
-			return false
-		}
-
-		return validateNumber(valueNumber, patternNumber, operator)
+// validateNumberWithStr compares quantity if pattern type is quantity
+//  or a wildcard match to pattern string
+func validateNumberWithStr(value interface{}, pattern string, operator Operator) bool {
+	typedValue, err := convertToString(value)
+	if err != nil {
+		glog.Warning(err)
+		return false
 	}
 
-	return validateNumber(value, patternNumber, operator)
+	patternQuan, err := apiresource.ParseQuantity(pattern)
+	// 1. nil error - quantity comparison
+	if err == nil {
+		valueQuan, err := apiresource.ParseQuantity(typedValue)
+		if err != nil {
+			glog.Warningf("Invalid quantity in resource %s, err: %v\n", typedValue, err)
+			return false
+		}
+
+		return compareQuantity(valueQuan, patternQuan, operator)
+	}
+
+	// 2. wildcard match
+	if !wildcard.Match(pattern, typedValue) {
+		glog.Warningf("Value '%s' has not passed wildcard check: %s", typedValue, pattern)
+		return false
+	}
+	return true
 }
 
-// validateNumber compares two numbers with operator
-func validateNumber(value, pattern interface{}, operator Operator) bool {
-	floatPattern, err := convertToFloat(pattern)
-	if err != nil {
-		return false
-	}
-
-	floatValue, err := convertToFloat(value)
-	if err != nil {
-		return false
-	}
-
+func compareQuantity(value, pattern apiresource.Quantity, operator Operator) bool {
+	result := value.Cmp(pattern)
 	switch operator {
 	case Equal:
-		return floatValue == floatPattern
+		return result == int(equal)
 	case NotEqual:
-		return floatValue != floatPattern
+		return result != int(equal)
 	case More:
-		return floatValue > floatPattern
-	case MoreEqual:
-		return floatValue >= floatPattern
+		return result == int(greaterThan)
 	case Less:
-		return floatValue < floatPattern
+		return result == int(lessThan)
+	case MoreEqual:
+		return (result == int(equal)) || (result == int(greaterThan))
 	case LessEqual:
-		return floatValue <= floatPattern
+		return (result == int(equal)) || (result == int(lessThan))
 	}
 
 	return false
