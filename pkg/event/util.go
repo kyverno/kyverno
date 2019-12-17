@@ -1,8 +1,6 @@
 package event
 
-const eventSource = "policy-controller"
-
-const eventWorkQueueName = "policy-controller-events"
+const eventWorkQueueName = "kyverno-events"
 
 const eventWorkerThreadCount = 1
 
@@ -15,4 +13,5 @@ type Info struct {
 	Namespace string
 	Reason    string
 	Message   string
+	Source    Source
 }

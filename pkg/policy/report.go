@@ -109,6 +109,7 @@ func generateEventsPerEr(er engine.EngineResponse) []event.Info {
 		e.Namespace = er.PolicyResponse.Resource.Namespace
 		e.Name = er.PolicyResponse.Resource.Name
 		e.Reason = event.PolicyViolation.String()
+		e.Source = event.PolicyController
 		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' not satisfied. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
 		eventInfos = append(eventInfos, e)
 	}
@@ -123,6 +124,7 @@ func generateEventsPerEr(er engine.EngineResponse) []event.Info {
 	e.Namespace = ""
 	e.Name = er.PolicyResponse.Policy
 	e.Reason = event.PolicyViolation.String()
+	e.Source = event.PolicyController
 	e.Message = fmt.Sprintf("policy '%s' rules '%v' not satisfied on resource '%s/%s/%s'", er.PolicyResponse.Policy, er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 	eventInfos = append(eventInfos, e)
 	return eventInfos
