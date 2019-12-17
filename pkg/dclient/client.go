@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -37,7 +36,7 @@ type Client struct {
 }
 
 //NewClient creates new instance of client
-func NewClient(config *rest.Config) (*Client, error) {
+func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}) (*Client, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -52,9 +51,14 @@ func NewClient(config *rest.Config) (*Client, error) {
 		kclient:      kclient,
 	}
 	// Set discovery client
-	//
-
 	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
+	// client will invalidate registered resources cache every x seconds,
+	// As there is no way to identify if the registered resource is available or not
+	// we will be invalidating the local cache, so the next request get a fresh cache
+	// If a resource is removed then and cache is not invalidate yet, we will not detect the removal
+	// but the re-sync shall re-evaluate
+	go discoveryClient.Poll(resync, stopCh)
+
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
 }
@@ -70,10 +74,6 @@ func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
 		return nil, err
 	}
 	return &deploy, nil
-}
-
-func (c *Client) GetAppsV1Interface() appsv1.AppsV1Interface {
-	return c.kclient.AppsV1()
 }
 
 //GetEventsInterface provides typed interface for events
@@ -115,7 +115,7 @@ func (c *Client) GetResource(kind string, namespace string, name string, subreso
 	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
-//Patch
+//PatchResource patches the resource
 func (c *Client) PatchResource(kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
 	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
@@ -130,8 +130,8 @@ func (c *Client) ListResource(kind string, namespace string, lselector *meta.Lab
 	return c.getResourceInterface(kind, namespace).List(options)
 }
 
-// DeleteResouce deletes the specified resource
-func (c *Client) DeleteResouce(kind string, namespace string, name string, dryRun bool) error {
+// DeleteResource deletes the specified resource
+func (c *Client) DeleteResource(kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}
@@ -271,6 +271,25 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+}
+
+//Poll will keep invalidate the local cache
+func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struct{}) {
+	// start a ticker
+	ticker := time.NewTicker(resync)
+	defer func() { ticker.Stop() }()
+	glog.Infof("Starting registered resources sync: every %d seconds", resync)
+	for {
+		select {
+		case <-stopCh:
+			glog.Info("Stopping registered resources sync")
+			return
+		case <-ticker.C:
+			// set cache as stale
+			glog.V(6).Info("invalidating local client cache for registered resources")
+			c.cachedClient.Invalidate()
+		}
+	}
 }
 
 //GetGVRFromKind get the Group Version Resource from kind

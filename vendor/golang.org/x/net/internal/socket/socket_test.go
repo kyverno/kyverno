@@ -359,7 +359,9 @@ func main() {
 				t.Fatalf("failed to write file: %v", err)
 			}
 			got, err := exec.Command(goBinary, "run", "-race", src).CombinedOutput()
-			if !strings.Contains(string(got), "WARNING: DATA RACE") {
+			if strings.Contains(string(got), "-race requires cgo") {
+				t.Log("CGO is not enabled so can't use -race")
+			} else if !strings.Contains(string(got), "WARNING: DATA RACE") {
 				t.Errorf("race not detected for test %d: err:%v out:%s", i, err, string(got))
 			}
 		})

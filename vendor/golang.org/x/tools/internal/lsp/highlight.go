@@ -16,8 +16,24 @@ import (
 
 func (s *Server) documentHighlight(ctx context.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	rngs, err := source.Highlight(ctx, view, uri, params.Position)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
+	f, err := view.GetFile(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	var rngs []protocol.Range
+	switch f.Kind() {
+	case source.Go:
+		rngs, err = source.Highlight(ctx, snapshot, f, params.Position)
+	case source.Mod:
+		return nil, nil
+	}
+
 	if err != nil {
 		log.Error(ctx, "no highlight", err, telemetry.URI.Of(uri))
 	}
@@ -29,7 +45,7 @@ func toProtocolHighlight(rngs []protocol.Range) []protocol.DocumentHighlight {
 	kind := protocol.Text
 	for _, rng := range rngs {
 		result = append(result, protocol.DocumentHighlight{
-			Kind:  &kind,
+			Kind:  kind,
 			Range: rng,
 		})
 	}

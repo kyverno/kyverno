@@ -20,12 +20,41 @@ import "github.com/minio/minio/cmd/config"
 
 // etcd config documented in default config
 var (
-	Help = config.HelpKV{
-		Endpoints:      `(required) Comma separated list of etcd endpoints eg: "http://localhost:2379"`,
-		CoreDNSPath:    `(optional) CoreDNS etcd path location to populate DNS srv records eg: "/skydns"`,
-		ClientCert:     `(optional) Etcd client cert for mTLS authentication`,
-		ClientCertKey:  `(optional) Etcd client cert key for mTLS authentication`,
-		config.State:   "Indicates if etcd config is on or off",
-		config.Comment: "A comment to describe the etcd settings",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         Endpoints,
+			Description: `comma separated list of etcd endpoints e.g. "http://localhost:2379"`,
+			Type:        "csv",
+		},
+		config.HelpKV{
+			Key:         PathPrefix,
+			Description: `namespace prefix to isolate tenants e.g. "customer1/"`,
+			Optional:    true,
+			Type:        "path",
+		},
+		config.HelpKV{
+			Key:         CoreDNSPath,
+			Description: `shared bucket DNS records, default is "/skydns"`,
+			Optional:    true,
+			Type:        "path",
+		},
+		config.HelpKV{
+			Key:         ClientCert,
+			Description: `client cert for mTLS authentication`,
+			Optional:    true,
+			Type:        "path",
+		},
+		config.HelpKV{
+			Key:         ClientCertKey,
+			Description: `client cert key for mTLS authentication`,
+			Optional:    true,
+			Type:        "path",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: config.DefaultComment,
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

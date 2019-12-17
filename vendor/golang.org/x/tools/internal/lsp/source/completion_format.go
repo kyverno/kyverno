@@ -47,7 +47,7 @@ func (c *completer) item(cand candidate) (CompletionItem, error) {
 	// expandFuncCall mutates the completion label, detail, and snippet
 	// to that of an invocation of sig.
 	expandFuncCall := func(sig *types.Signature) {
-		params := formatParams(sig.Params(), sig.Variadic(), c.qf)
+		params := formatParams(c.snapshot, c.pkg, sig, c.qf)
 		snip = c.functionCallSnippet(label, params)
 		results, writeParens := formatResults(sig.Results(), c.qf)
 		detail = "func" + formatFunction(params, results, writeParens)
@@ -66,6 +66,12 @@ func (c *completer) item(cand candidate) (CompletionItem, error) {
 	case *types.Var:
 		if _, ok := obj.Type().(*types.Struct); ok {
 			detail = "struct{...}" // for anonymous structs
+		} else if obj.IsField() {
+			var err error
+			detail, err = formatFieldType(c.snapshot, c.pkg, obj, c.qf)
+			if err != nil {
+				detail = types.TypeString(obj.Type(), c.qf)
+			}
 		}
 		if obj.IsField() {
 			kind = protocol.FieldCompletion
@@ -139,7 +145,7 @@ func (c *completer) item(cand candidate) (CompletionItem, error) {
 	if !c.opts.Documentation {
 		return item, nil
 	}
-	pos := c.view.Session().Cache().FileSet().Position(obj.Pos())
+	pos := c.snapshot.View().Session().Cache().FileSet().Position(obj.Pos())
 
 	// We ignore errors here, because some types, like "unsafe" or "error",
 	// may not have valid positions that we can use to get documentation.
@@ -154,23 +160,12 @@ func (c *completer) item(cand candidate) (CompletionItem, error) {
 	if cand.imp != nil && cand.imp.pkg != nil {
 		searchPkg = cand.imp.pkg
 	}
-	ph, pkg, err := c.view.FindFileInPackage(c.ctx, uri, searchPkg)
+	file, pkg, err := c.snapshot.View().FindPosInPackage(searchPkg, obj.Pos())
 	if err != nil {
-		log.Error(c.ctx, "error finding file in package", err, telemetry.URI.Of(uri), telemetry.Package.Of(searchPkg.ID()))
 		return item, nil
 	}
-	file, _, _, err := ph.Cached()
+	ident, err := findIdentifier(c.snapshot, pkg, file, obj.Pos())
 	if err != nil {
-		log.Error(c.ctx, "no cached file", err, telemetry.URI.Of(uri))
-		return item, nil
-	}
-	if !(file.Pos() <= obj.Pos() && obj.Pos() <= file.End()) {
-		log.Error(c.ctx, "no file for object", errors.Errorf("no file for completion object %s", obj.Name()), telemetry.URI.Of(uri))
-		return item, nil
-	}
-	ident, err := findIdentifier(c.ctx, c.snapshot, pkg, file, obj.Pos())
-	if err != nil {
-		log.Error(c.ctx, "failed to findIdentifier", err, telemetry.URI.Of(uri))
 		return item, nil
 	}
 	hover, err := ident.Hover(c.ctx)
@@ -193,16 +188,16 @@ func (c *completer) importEdits(imp *importInfo) ([]protocol.TextEdit, error) {
 
 	uri := span.FileURI(c.filename)
 	var ph ParseGoHandle
-	for _, h := range c.pkg.Files() {
+	for _, h := range c.pkg.CompiledGoFiles() {
 		if h.File().Identity().URI == uri {
 			ph = h
 		}
 	}
 	if ph == nil {
-		return nil, errors.Errorf("no ParseGoHandle for %s", c.filename)
+		return nil, errors.Errorf("building import completion for %v: no ParseGoHandle for %s", imp.importPath, c.filename)
 	}
 
-	return computeOneImportFixEdits(c.ctx, c.view, ph, &imports.ImportFix{
+	return computeOneImportFixEdits(c.ctx, c.snapshot.View(), ph, &imports.ImportFix{
 		StmtInfo: imports.ImportInfo{
 			ImportPath: imp.importPath,
 			Name:       imp.name,
@@ -224,7 +219,7 @@ func (c *completer) formatBuiltin(cand candidate) CompletionItem {
 		item.Kind = protocol.ConstantCompletion
 	case *types.Builtin:
 		item.Kind = protocol.FunctionCompletion
-		builtin := c.view.BuiltinPackage().Lookup(obj.Name())
+		builtin := c.snapshot.View().BuiltinPackage().Lookup(obj.Name())
 		if obj == nil {
 			break
 		}
@@ -232,8 +227,8 @@ func (c *completer) formatBuiltin(cand candidate) CompletionItem {
 		if !ok {
 			break
 		}
-		params, _ := formatFieldList(c.ctx, c.view, decl.Type.Params)
-		results, writeResultParens := formatFieldList(c.ctx, c.view, decl.Type.Results)
+		params, _ := formatFieldList(c.ctx, c.snapshot.View(), decl.Type.Params)
+		results, writeResultParens := formatFieldList(c.ctx, c.snapshot.View(), decl.Type.Results)
 		item.Label = obj.Name()
 		item.Detail = "func" + formatFunction(params, results, writeResultParens)
 		item.snippet = c.functionCallSnippet(obj.Name(), params)

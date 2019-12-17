@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"syscall"
 
 	"github.com/minio/cli"
-	"github.com/minio/dsync/v2"
 	"github.com/minio/minio/cmd/config"
 	xhttp "github.com/minio/minio/cmd/http"
 	"github.com/minio/minio/cmd/logger"
@@ -144,23 +144,21 @@ func serverHandleCmdArgs(ctx *cli.Context) {
 	var setupType SetupType
 	var err error
 
-	if len(ctx.Args()) > serverCommandLineArgsMax {
-		uErr := config.ErrInvalidErasureEndpoints(nil).Msg(fmt.Sprintf("Invalid total number of endpoints (%d) passed, supported upto 32 unique arguments",
-			len(ctx.Args())))
-		logger.FatalIf(uErr, "Unable to validate passed endpoints")
-	}
+	globalMinioAddr = globalCLIContext.Addr
+
+	globalMinioHost, globalMinioPort = mustSplitHostPort(globalMinioAddr)
 
 	endpoints := strings.Fields(env.Get(config.EnvEndpoints, ""))
 	if len(endpoints) > 0 {
-		globalMinioAddr, globalEndpoints, setupType, globalXLSetCount, globalXLSetDriveCount, err = createServerEndpoints(globalCLIContext.Addr, endpoints...)
+		globalEndpoints, globalXLSetDriveCount, setupType, err = createServerEndpoints(globalCLIContext.Addr, endpoints...)
 	} else {
-		globalMinioAddr, globalEndpoints, setupType, globalXLSetCount, globalXLSetDriveCount, err = createServerEndpoints(globalCLIContext.Addr, ctx.Args()...)
+		globalEndpoints, globalXLSetDriveCount, setupType, err = createServerEndpoints(globalCLIContext.Addr, ctx.Args()...)
 	}
 	logger.FatalIf(err, "Invalid command line arguments")
 
-	logger.LogIf(context.Background(), checkEndpointsSubOptimal(ctx, setupType, globalEndpoints))
-
-	globalMinioHost, globalMinioPort = mustSplitHostPort(globalMinioAddr)
+	if err = checkEndpointsSubOptimal(ctx, setupType, globalEndpoints); err != nil {
+		logger.Info("Optimal endpoint check failed %s", err)
+	}
 
 	// On macOS, if a process already listens on LOCALIPADDR:PORT, net.Listen() falls back
 	// to IPv6 address ie minio will start listening on IPv6 address whereas another
@@ -198,12 +196,40 @@ func newAllSubsystems() {
 }
 
 func initSafeModeInit(buckets []BucketInfo) (err error) {
-	defer func() {
+	newObject := newObjectLayerWithoutSafeModeFn()
+
+	// Construct path to config/transaction.lock for locking
+	transactionConfigPrefix := minioConfigPrefix + "/transaction.lock"
+
+	// Make sure to hold lock for entire migration to avoid
+	// such that only one server should migrate the entire config
+	// at a given time, this big transaction lock ensures this
+	// appropriately. This is also true for rotation of encrypted
+	// content.
+	objLock := newObject.NewNSLock(context.Background(), minioMetaBucket, transactionConfigPrefix)
+	if err = objLock.GetLock(globalOperationTimeout); err != nil {
+		return err
+	}
+
+	defer func(objLock RWLocker) {
+		objLock.Unlock()
+
 		if err != nil {
-			switch err.(type) {
-			case config.Err:
+			var cerr config.Err
+			if errors.As(err, &cerr) {
 				return
 			}
+
+			var cfgErr config.Error
+			if errors.As(err, &cfgErr) {
+				if cfgErr.Kind == config.ContinueKind {
+					// print the error and continue
+					logger.Info("Config validation failed '%s' the sub-system is turned-off and all other sub-systems", err)
+					err = nil
+					return
+				}
+			}
+
 			// Enable logger
 			logger.Disable = false
 
@@ -214,16 +240,14 @@ func initSafeModeInit(buckets []BucketInfo) (err error) {
 			// not proceeding waiting for admin action.
 			handleSignals()
 		}
-	}()
-
-	newObject := newObjectLayerWithoutSafeModeFn()
+	}(objLock)
 
 	// Calls New() for all sub-systems.
 	newAllSubsystems()
 
 	// Migrate all backend configs to encrypted backend, also handles rotation as well.
 	if err = handleEncryptedConfigBackend(newObject, true); err != nil {
-		return fmt.Errorf("Unable to handle encrypted backend for config, iam and policies: %v", err)
+		return fmt.Errorf("Unable to handle encrypted backend for config, iam and policies: %w", err)
 	}
 
 	// ****  WARNING ****
@@ -253,7 +277,7 @@ func initAllSubsystems(buckets []BucketInfo, newObject ObjectLayer) (err error) 
 		// Migrating to encrypted backend on etcd should happen before initialization of
 		// IAM sub-systems, make sure that we do not move the above codeblock elsewhere.
 		if err = migrateIAMConfigsEtcdToEncrypted(globalEtcdClient); err != nil {
-			return fmt.Errorf("Unable to handle encrypted backend for iam and policies: %v", err)
+			return fmt.Errorf("Unable to handle encrypted backend for iam and policies: %w", err)
 		}
 	}
 
@@ -273,7 +297,7 @@ func initAllSubsystems(buckets []BucketInfo, newObject ObjectLayer) (err error) 
 
 	// Initialize lifecycle system.
 	if err = globalLifecycleSys.Init(buckets, newObject); err != nil {
-		return fmt.Errorf("Unable to initialize lifecycle system: %v", err)
+		return fmt.Errorf("Unable to initialize lifecycle system: %w", err)
 	}
 
 	return nil
@@ -297,6 +321,9 @@ func serverMain(ctx *cli.Context) {
 	// Handle all server environment vars.
 	serverHandleEnvVars()
 
+	// Initialize all help
+	initHelp()
+
 	// Check and load TLS certificates.
 	var err error
 	globalPublicCerts, globalTLSCerts, globalIsSSL, err = getTLSConfig()
@@ -308,10 +335,10 @@ func serverMain(ctx *cli.Context) {
 
 	// Is distributed setup, error out if no certificates are found for HTTPS endpoints.
 	if globalIsDistXL {
-		if globalEndpoints.IsHTTPS() && !globalIsSSL {
+		if globalEndpoints.HTTPS() && !globalIsSSL {
 			logger.Fatal(config.ErrNoCertsAndHTTPSEndpoints(nil), "Unable to start the server")
 		}
-		if !globalEndpoints.IsHTTPS() && globalIsSSL {
+		if !globalEndpoints.HTTPS() && globalIsSSL {
 			logger.Fatal(config.ErrCertsAndHTTPEndpoints(nil), "Unable to start the server")
 		}
 	}
@@ -327,22 +354,9 @@ func serverMain(ctx *cli.Context) {
 	}
 
 	// Set system resources to maximum.
-	logger.LogIf(context.Background(), setMaxResources())
-
-	// Set nodes for dsync for distributed setup.
-	if globalIsDistXL {
-		clnts, myNode, err := newDsyncNodes(globalEndpoints)
-		if err != nil {
-			logger.Fatal(err, "Unable to initialize distributed locking on %s", globalEndpoints)
-		}
-		globalDsync, err = dsync.New(clnts, myNode)
-		if err != nil {
-			logger.Fatal(err, "Unable to initialize distributed locking on %s", globalEndpoints)
-		}
+	if err = setMaxResources(); err != nil {
+		logger.Info("Unable to set system resources to maximum %s", err)
 	}
-
-	// Initialize name space lock.
-	initNSLock(globalIsDistXL)
 
 	if globalIsXL {
 		// Init global heal state
@@ -365,10 +379,21 @@ func serverMain(ctx *cli.Context) {
 		getCert = globalTLSCerts.GetCertificate
 	}
 
-	globalHTTPServer = xhttp.NewServer([]string{globalMinioAddr}, criticalErrorHandler{handler}, getCert)
+	httpServer := xhttp.NewServer([]string{globalMinioAddr}, criticalErrorHandler{handler}, getCert)
 	go func() {
-		globalHTTPServerErrorCh <- globalHTTPServer.Start()
+		globalHTTPServerErrorCh <- httpServer.Start()
 	}()
+
+	globalObjLayerMutex.Lock()
+	globalHTTPServer = httpServer
+	globalObjLayerMutex.Unlock()
+
+	if globalIsDistXL && globalEndpoints.FirstLocal() {
+		// Additionally in distributed setup validate
+		if err := verifyServerSystemConfig(globalEndpoints); err != nil {
+			logger.Fatal(err, "Unable to initialize distributed setup")
+		}
+	}
 
 	newObject, err := newObjectLayer(globalEndpoints)
 	logger.SetDeploymentID(globalDeploymentID)
@@ -399,13 +424,20 @@ func serverMain(ctx *cli.Context) {
 		initFederatorBackend(buckets, newObject)
 	}
 
-	initSafeModeInit(buckets)
+	logger.FatalIf(initSafeModeInit(buckets), "Unable to initialize server")
 
 	if globalCacheConfig.Enabled {
-		msg := color.RedBold("Disk caching is disabled in 'server' mode, 'caching' is only supported in gateway deployments")
-		logger.StartupMessage(msg)
+		// initialize the new disk cache objects.
+		var cacheAPI CacheObjectLayer
+		cacheAPI, err = newServerCacheObjects(context.Background(), globalCacheConfig)
+		logger.FatalIf(err, "Unable to initialize disk caching")
+
+		globalObjLayerMutex.Lock()
+		globalCacheObjectAPI = cacheAPI
+		globalObjLayerMutex.Unlock()
 	}
 
+	initDataUsageStats()
 	initDailyLifecycle()
 
 	if globalIsXL {
@@ -434,19 +466,13 @@ func serverMain(ctx *cli.Context) {
 }
 
 // Initialize object layer with the supplied disks, objectLayer is nil upon any error.
-func newObjectLayer(endpoints EndpointList) (newObject ObjectLayer, err error) {
+func newObjectLayer(endpointZones EndpointZones) (newObject ObjectLayer, err error) {
 	// For FS only, directly use the disk.
 
-	isFS := len(endpoints) == 1
-	if isFS {
+	if endpointZones.Nodes() == 1 {
 		// Initialize new FS object layer.
-		return NewFSObjectLayer(endpoints[0].Path)
+		return NewFSObjectLayer(endpointZones[0].Endpoints[0].Path)
 	}
 
-	format, err := waitForFormatXL(endpoints[0].IsLocal, endpoints, globalXLSetCount, globalXLSetDriveCount)
-	if err != nil {
-		return nil, err
-	}
-
-	return newXLSets(endpoints, format, len(format.XL.Sets), len(format.XL.Sets[0]))
+	return newXLZones(endpointZones)
 }

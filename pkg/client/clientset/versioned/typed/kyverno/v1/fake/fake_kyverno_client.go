@@ -36,8 +36,8 @@ func (c *FakeKyvernoV1) ClusterPolicyViolations() v1.ClusterPolicyViolationInter
 	return &FakeClusterPolicyViolations{c}
 }
 
-func (c *FakeKyvernoV1) NamespacedPolicyViolations(namespace string) v1.NamespacedPolicyViolationInterface {
-	return &FakeNamespacedPolicyViolations{c, namespace}
+func (c *FakeKyvernoV1) PolicyViolations(namespace string) v1.PolicyViolationInterface {
+	return &FakePolicyViolations{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

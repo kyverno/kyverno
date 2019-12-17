@@ -30,7 +30,7 @@ func TestJWTFetch_JSONResponse(t *testing.T) {
 
 	conf := &Config{
 		BaseURL: "https://my.app.com",
-		Subject: "userkey",
+		Subject: "useraccountId",
 		Config: oauth2.Config{
 			ClientID:     "super_secret_client_id",
 			ClientSecret: "super_shared_secret",
@@ -69,7 +69,7 @@ func TestJWTFetch_BadResponse(t *testing.T) {
 
 	conf := &Config{
 		BaseURL: "https://my.app.com",
-		Subject: "userkey",
+		Subject: "useraccountId",
 		Config: oauth2.Config{
 			ClientID:     "super_secret_client_id",
 			ClientSecret: "super_shared_secret",
@@ -108,7 +108,7 @@ func TestJWTFetch_BadResponseType(t *testing.T) {
 
 	conf := &Config{
 		BaseURL: "https://my.app.com",
-		Subject: "userkey",
+		Subject: "useraccountId",
 		Config: oauth2.Config{
 			ClientID:     "super_secret_client_id",
 			ClientSecret: "super_shared_secret",
@@ -145,7 +145,7 @@ func TestJWTFetch_Assertion(t *testing.T) {
 
 	conf := &Config{
 		BaseURL: "https://my.app.com",
-		Subject: "userkey",
+		Subject: "useraccountId",
 		Config: oauth2.Config{
 			ClientID:     "super_secret_client_id",
 			ClientSecret: "super_shared_secret",

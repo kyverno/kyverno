@@ -37,6 +37,8 @@ var limitTests = []struct {
 	{name: "10kb of maps", data: []byte(`a: &a [{a}` + strings.Repeat(`,{a}`, 10*1024/4-1) + `]`)},
 	{name: "100kb of maps", data: []byte(`a: &a [{a}` + strings.Repeat(`,{a}`, 100*1024/4-1) + `]`)},
 	{name: "1000kb of maps", data: []byte(`a: &a [{a}` + strings.Repeat(`,{a}`, 1000*1024/4-1) + `]`)},
+	{name: "1000kb slice nested at max-depth", data: []byte(strings.Repeat(`[`, 10000) + `1` + strings.Repeat(`,1`, 1000*1024/2-20000-1) + strings.Repeat(`]`, 10000))},
+	{name: "1000kb slice nested in maps at max-depth", data: []byte("{a,b:\n" + strings.Repeat(" {a,b:", 10000-2) + ` [1` + strings.Repeat(",1", 1000*1024/2-6*10000-1) + `]` + strings.Repeat(`}`, 10000-1))},
 }
 
 func (s *S) TestLimits(c *C) {
@@ -80,6 +82,14 @@ func Benchmark100KBMaps(b *testing.B) {
 }
 func Benchmark1000KBMaps(b *testing.B) {
 	benchmark(b, "1000kb of maps")
+}
+
+func BenchmarkDeepSlice(b *testing.B) {
+	benchmark(b, "1000kb slice nested at max-depth")
+}
+
+func BenchmarkDeepFlow(b *testing.B) {
+	benchmark(b, "1000kb slice nested in maps at max-depth")
 }
 
 func benchmark(b *testing.B, name string) {

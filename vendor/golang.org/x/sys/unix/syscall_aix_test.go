@@ -49,13 +49,13 @@ func TestTime(t *testing.T) {
 		}
 
 		now = time.Now()
-
-		if int64(ut) == now.Unix() {
+		diff := int64(ut) - now.Unix()
+		if -1 <= diff && diff <= 1 {
 			return
 		}
 	}
 
-	t.Errorf("Time: return value %v should be nearly equal to time.Now().Unix() %v", ut, now.Unix())
+	t.Errorf("Time: return value %v should be nearly equal to time.Now().Unix() %v±1", ut, now.Unix())
 }
 
 func TestUtime(t *testing.T) {
@@ -120,26 +120,6 @@ func TestUtimesNanoAt(t *testing.T) {
 		if int32(st.Mtim.Sec) != int32(ts[1].Sec) || int32(st.Mtim.Nsec) != int32(ts[1].Nsec) {
 			t.Errorf("UtimesNanoAt: wrong mtime: %v", st.Mtim)
 		}
-	}
-}
-
-func TestSelect(t *testing.T) {
-	_, err := unix.Select(0, nil, nil, nil, &unix.Timeval{Sec: 0, Usec: 0})
-	if err != nil {
-		t.Fatalf("Select: %v", err)
-	}
-
-	dur := 150 * time.Millisecond
-	tv := unix.NsecToTimeval(int64(dur))
-	start := time.Now()
-	_, err = unix.Select(0, nil, nil, nil, &tv)
-	took := time.Since(start)
-	if err != nil {
-		t.Fatalf("Select: %v", err)
-	}
-
-	if took < dur {
-		t.Errorf("Select: timeout should have been at least %v, got %v", dur, took)
 	}
 }
 

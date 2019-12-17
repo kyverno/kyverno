@@ -1,7 +1,7 @@
 package policyviolation
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,13 +12,15 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -27,15 +29,22 @@ const workQueueRetryLimit = 3
 
 //Generator creates PV
 type Generator struct {
-	dclient     *dclient.Client
-	pvInterface kyvernov1.KyvernoV1Interface
-	pvLister    kyvernolister.ClusterPolicyViolationLister
-	nspvLister  kyvernolister.NamespacedPolicyViolationLister
-	queue       workqueue.RateLimitingInterface
-	dataStore   *dataStore
+	dclient          *dclient.Client
+	kyvernoInterface kyvernov1.KyvernoV1Interface
+	// get/list cluster policy violation
+	cpvLister kyvernolister.ClusterPolicyViolationLister
+	// get/ist namespaced policy violation
+	nspvLister kyvernolister.PolicyViolationLister
+	// returns true if the cluster policy store has been synced at least once
+	pvSynced cache.InformerSynced
+	// returns true if the namespaced cluster policy store has been synced at at least once
+	nspvSynced cache.InformerSynced
+	queue      workqueue.RateLimitingInterface
+	dataStore  *dataStore
 }
 
-func NewDataStore() *dataStore {
+//NewDataStore returns an instance of data store
+func newDataStore() *dataStore {
 	ds := dataStore{
 		data: make(map[string]Info),
 	}
@@ -94,16 +103,19 @@ type GeneratorInterface interface {
 }
 
 // NewPVGenerator returns a new instance of policy violation generator
-func NewPVGenerator(client *kyvernoclient.Clientset, dclient *client.Client,
-	pvLister kyvernolister.ClusterPolicyViolationLister,
-	nspvLister kyvernolister.NamespacedPolicyViolationLister) *Generator {
+func NewPVGenerator(client *kyvernoclient.Clientset,
+	dclient *client.Client,
+	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
+	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
 	gen := Generator{
-		pvInterface: client.KyvernoV1(),
-		dclient:     dclient,
-		pvLister:    pvLister,
-		nspvLister:  nspvLister,
-		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:   NewDataStore(),
+		kyvernoInterface: client.KyvernoV1(),
+		dclient:          dclient,
+		cpvLister:        pvInformer.Lister(),
+		pvSynced:         pvInformer.Informer().HasSynced,
+		nspvLister:       nspvInformer.Lister(),
+		nspvSynced:       nspvInformer.Informer().HasSynced,
+		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:        newDataStore(),
 	}
 	return &gen
 }
@@ -129,6 +141,10 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	glog.Info("Start policy violation generator")
 	defer glog.Info("Shutting down policy violation generator")
+
+	if !cache.WaitForCacheSync(stopCh, gen.pvSynced, gen.nspvSynced) {
+		glog.Error("policy violation generator: failed to sync informer cache")
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
@@ -201,197 +217,37 @@ func (gen *Generator) processNextWorkitem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	glog.V(4).Infof("recieved info:%v", info)
-	// cluster policy violations
+	var handler pvGenerator
+	var builder Builder
+	builder = newPvBuilder(gen.dclient)
 	if info.Resource.GetNamespace() == "" {
-		var pvs []kyverno.ClusterPolicyViolation
-		if !info.Blocked {
-			pvs = append(pvs, buildPV(info))
-		} else {
-			// blocked
-			// get owners
-			pvs = buildPVWithOwners(gen.dclient, info)
-		}
-		// create policy violation
-		if err := createPVS(gen.dclient, pvs, gen.pvLister, gen.pvInterface); err != nil {
-			return err
-		}
-
-		glog.V(3).Infof("Created cluster policy violation policy=%s, resource=%s/%s/%s",
-			info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
-		return nil
-	}
-
-	// namespaced policy violations
-	var pvs []kyverno.NamespacedPolicyViolation
-	if !info.Blocked {
-		pvs = append(pvs, buildNamespacedPV(info))
+		// cluster scope resource generate a clusterpolicy violation
+		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
 	} else {
-		pvs = buildNamespacedPVWithOwner(gen.dclient, info)
+		// namespaced resources generated a namespaced policy violation in the namespace of the resource
+		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface)
 	}
 
-	if err := createNamespacedPV(gen.dclient, gen.nspvLister, gen.pvInterface, pvs); err != nil {
-		return err
-	}
-
-	glog.V(3).Infof("Created namespaced policy violation policy=%s, resource=%s/%s/%s",
-		info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
-	return nil
-}
-
-func createPVS(dclient *client.Client, pvs []kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface) error {
+	failure := false
+	// Generate Policy Violations
+	// as there can be multiple owners we can have multiple violations
+	pvs := builder.generate(info)
 	for _, pv := range pvs {
-		if err := createPVNew(dclient, pv, pvLister, pvInterface); err != nil {
-			return err
+		// Create Policy Violations
+		err := handler.create(pv)
+		if err != nil {
+			failure = true
 		}
+	}
+	if failure {
+		// even if there is a single failure we requeue the request
+		return errors.New("Failed to process some policy violations, re-queuing")
 	}
 	return nil
 }
 
-func createPVNew(dclient *client.Client, pv kyverno.ClusterPolicyViolation, pvLister kyvernolister.ClusterPolicyViolationLister, pvInterface kyvernov1.KyvernoV1Interface) error {
-	var err error
-	// PV already exists
-	ePV, err := getExistingPVIfAny(pvLister, pv)
-	if err != nil {
-		glog.Error(err)
-		return fmt.Errorf("failed to get existing pv on resource '%s': %v", pv.Spec.ResourceSpec.ToKey(), err)
-	}
-	if ePV == nil {
-		// Create a New PV
-		glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", pv.Spec.Policy, pv.Spec.ResourceSpec.Kind, pv.Spec.ResourceSpec.Namespace, pv.Spec.ResourceSpec.Name)
-		err := retryGetResource(dclient, pv.Spec.ResourceSpec)
-		if err != nil {
-			return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", pv.Name, pv.Spec.Policy, err)
-		}
-
-		_, err = pvInterface.ClusterPolicyViolations().Create(&pv)
-		if err != nil {
-			glog.Error(err)
-			return fmt.Errorf("failed to create cluster policy violation: %v", err)
-		}
-		glog.Infof("policy violation created for resource %v", pv.Spec.ResourceSpec)
-		return nil
-	}
-	// Update existing PV if there any changes
-	if reflect.DeepEqual(pv.Spec, ePV.Spec) {
-		glog.V(4).Infof("policy violation spec %v did not change so not updating it", pv.Spec)
-		return nil
-	}
-
-	// set newPv Name/ResourceVersion with curPv, as we are updating the resource itself
-	pv.SetName(ePV.Name)
-	pv.SetResourceVersion(ePV.ResourceVersion)
-	_, err = pvInterface.ClusterPolicyViolations().Update(&pv)
-	if err != nil {
-		glog.Error(err)
-		return fmt.Errorf("failed to update cluster polciy violation: %v", err)
-	}
-	glog.Infof("policy violation updated for resource %v", pv.Spec.ResourceSpec)
-	return nil
-}
-
-func getExistingPVIfAny(pvLister kyvernolister.ClusterPolicyViolationLister, currpv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
-	pvs, err := pvLister.List(labels.Everything())
-	if err != nil {
-		glog.Errorf("unable to list policy violations : %v", err)
-		return nil, err
-	}
-
-	for _, pv := range pvs {
-		// find a policy on same resource and policy combination
-		if pv.Spec.Policy == currpv.Spec.Policy &&
-			pv.Spec.ResourceSpec.Kind == currpv.Spec.ResourceSpec.Kind &&
-			pv.Spec.ResourceSpec.Namespace == currpv.Spec.ResourceSpec.Namespace &&
-			pv.Spec.ResourceSpec.Name == currpv.Spec.ResourceSpec.Name {
-			return pv, nil
-		}
-	}
-	return nil, nil
-}
-
-// build PV without owners
-func buildPV(info Info) kyverno.ClusterPolicyViolation {
-	pv := buildPVObj(info.PolicyName, kyverno.ResourceSpec{
-		Kind:      info.Resource.GetKind(),
-		Namespace: info.Resource.GetNamespace(),
-		Name:      info.Resource.GetName(),
-	}, info.Rules,
-	)
-	return pv
-}
-
-// build PV object
-func buildPVObj(policyName string, resourceSpec kyverno.ResourceSpec, rules []kyverno.ViolatedRule) kyverno.ClusterPolicyViolation {
-	pv := kyverno.ClusterPolicyViolation{
-		Spec: kyverno.PolicyViolationSpec{
-			Policy:        policyName,
-			ResourceSpec:  resourceSpec,
-			ViolatedRules: rules,
-		},
-	}
-
-	labelMap := map[string]string{
-		"policy":   policyName,
-		"resource": resourceSpec.ToKey(),
-	}
-	pv.SetLabels(labelMap)
-	pv.SetGenerateName("pv-")
-	return pv
-}
-
-// build PV with owners
-func buildPVWithOwners(dclient *client.Client, info Info) []kyverno.ClusterPolicyViolation {
-	var pvs []kyverno.ClusterPolicyViolation
-	// as its blocked resource, the violation is created on owner
-	ownerMap := map[kyverno.ResourceSpec]interface{}{}
-	GetOwner(dclient, ownerMap, info.Resource)
-
-	// standaloneresource, set pvResourceSpec with resource itself
-	if len(ownerMap) == 0 {
-		pvResourceSpec := kyverno.ResourceSpec{
-			Namespace: info.Resource.GetNamespace(),
-			Kind:      info.Resource.GetKind(),
-			Name:      info.Resource.GetName(),
-		}
-		return append(pvs, buildPVObj(info.PolicyName, pvResourceSpec, info.Rules))
-	}
-
-	// Generate owner on all owners
-	for owner := range ownerMap {
-		pv := buildPVObj(info.PolicyName, owner, info.Rules)
-		pvs = append(pvs, pv)
-	}
-	return pvs
-}
-
-// GetOwner of a resource by iterating over ownerReferences
-func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
-	var emptyInterface interface{}
-	resourceSpec := kyverno.ResourceSpec{
-		Kind:      resource.GetKind(),
-		Namespace: resource.GetNamespace(),
-		Name:      resource.GetName(),
-	}
-	if _, ok := ownerMap[resourceSpec]; ok {
-		// owner seen before
-		// breaking loop
-		return
-	}
-	rOwners := resource.GetOwnerReferences()
-	// if there are no resource owners then its top level resource
-	if len(rOwners) == 0 {
-		// add resource to map
-		ownerMap[resourceSpec] = emptyInterface
-		return
-	}
-	for _, rOwner := range rOwners {
-		// lookup resource via client
-		// owner has to be in same namespace
-		owner, err := dclient.GetResource(rOwner.Kind, resource.GetNamespace(), rOwner.Name)
-		if err != nil {
-			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", rOwner.Kind, resource.GetNamespace(), rOwner.Name, err)
-			// as we want to process other owners
-			continue
-		}
-		GetOwner(dclient, ownerMap, *owner)
-	}
+// Provides an interface to generate policy violations
+// implementations for namespaced and cluster PV
+type pvGenerator interface {
+	create(policyViolation kyverno.PolicyViolationTemplate) error
 }

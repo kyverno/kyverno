@@ -20,7 +20,7 @@ func ExampleRetry() {
 	// Operation is successful.
 }
 
-func ExampleRetryContext() {
+func ExampleRetryContext() { // nolint: govet
 	// A context
 	ctx := context.Background()
 
@@ -52,7 +52,7 @@ func ExampleTicker() {
 
 	// Ticks will continue to arrive when the previous operation is still running,
 	// so operations that take a while to fail could run in quick succession.
-	for _ = range ticker.C {
+	for range ticker.C {
 		if err = operation(); err != nil {
 			log.Println(err, "will retry...")
 			continue
@@ -68,5 +68,4 @@ func ExampleTicker() {
 	}
 
 	// Operation is successful.
-	return
 }

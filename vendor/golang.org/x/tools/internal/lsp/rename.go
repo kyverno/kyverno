@@ -14,39 +14,63 @@ import (
 
 func (s *Server) rename(ctx context.Context, params *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
-	ident, err := source.Identifier(ctx, view, f, params.Position)
+	if f.Kind() != source.Go {
+		return nil, nil
+	}
+	ident, err := source.Identifier(ctx, snapshot, f, params.Position, source.WidestCheckPackageHandle)
+	if err != nil {
+		return nil, nil
+	}
+	edits, err := ident.Rename(ctx, params.NewName)
 	if err != nil {
 		return nil, err
 	}
-	edits, err := ident.Rename(ctx, view, params.NewName)
-	if err != nil {
-		return nil, err
-	}
-	changes := make(map[string][]protocol.TextEdit)
+	var docChanges []protocol.TextDocumentEdit
 	for uri, e := range edits {
-		changes[protocol.NewURI(uri)] = e
+		f, err := view.GetFile(ctx, uri)
+		if err != nil {
+			return nil, err
+		}
+		fh := ident.Snapshot.Handle(ctx, f)
+		docChanges = append(docChanges, documentChanges(fh, e)...)
 	}
-
-	return &protocol.WorkspaceEdit{Changes: &changes}, nil
+	return &protocol.WorkspaceEdit{
+		DocumentChanges: docChanges,
+	}, nil
 }
 
 func (s *Server) prepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (*protocol.Range, error) {
 	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
+	view, err := s.session.ViewOf(uri)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := view.Snapshot()
 	f, err := view.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
+	if f.Kind() != source.Go {
+		return nil, nil
+	}
+	ident, err := source.Identifier(ctx, snapshot, f, params.Position, source.WidestCheckPackageHandle)
+	if err != nil {
+		return nil, nil // ignore errors
+	}
 	// Do not return errors here, as it adds clutter.
 	// Returning a nil result means there is not a valid rename.
-	item, err := source.PrepareRename(ctx, view, f, params.Position)
+	item, err := ident.PrepareRename(ctx)
 	if err != nil {
-		return nil, nil
+		return nil, nil // ignore errors
 	}
 	// TODO(suzmue): return ident.Name as the placeholder text.
 	return &item.Range, nil

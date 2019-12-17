@@ -20,16 +20,55 @@ import "github.com/minio/minio/cmd/config"
 
 // Help template for KMS vault
 var (
-	Help = config.HelpKV{
-		KMSVaultEndpoint:      `Points to Vault API endpoint eg: "http://vault-endpoint-ip:8200"`,
-		KMSVaultKeyName:       `Transit key name used in vault policy, must be unique name eg: "my-minio-key"`,
-		KMSVaultAuthType:      `Authentication type to Vault API endpoint eg: "approle"`,
-		KMSVaultAppRoleID:     `Unique role ID created for AppRole`,
-		KMSVaultAppRoleSecret: `Unique secret ID created for AppRole`,
-		KMSVaultNamespace:     `Only needed if AppRole engine is scoped to Vault Namespace eg: "ns1"`,
-		KMSVaultKeyVersion:    `Key version (optional)`,
-		KMSVaultCAPath:        `Path to PEM-encoded CA cert files to use mTLS authentication (optional) eg: "/home/user/custom-certs"`,
-		config.State:          "Indicates if KMS Vault is enabled or not",
-		config.Comment:        "A comment to describe the KMS Vault setting",
+	Help = config.HelpKVS{
+		config.HelpKV{
+			Key:         KMSVaultEndpoint,
+			Description: `API endpoint e.g. "http://vault-endpoint-ip:8200"`,
+			Type:        "url",
+		},
+		config.HelpKV{
+			Key:         KMSVaultKeyName,
+			Description: `unique transit key name e.g. "my-minio-key"`,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         KMSVaultAuthType,
+			Description: `supported auth type(s) ["approle"], defaults to "approle"`,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         KMSVaultAppRoleID,
+			Description: `unique role ID for approle`,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         KMSVaultAppRoleSecret,
+			Description: `unique secret ID for approle`,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         KMSVaultNamespace,
+			Description: `optional KMS namespace e.g. "customer1"`,
+			Optional:    true,
+			Type:        "string",
+		},
+		config.HelpKV{
+			Key:         KMSVaultKeyVersion,
+			Description: `optional key version number`,
+			Optional:    true,
+			Type:        "number",
+		},
+		config.HelpKV{
+			Key:         KMSVaultCAPath,
+			Description: `optional path to PEM-encoded CA certs e.g. "/home/user/custom-certs"`,
+			Optional:    true,
+			Type:        "path",
+		},
+		config.HelpKV{
+			Key:         config.Comment,
+			Description: config.DefaultComment,
+			Optional:    true,
+			Type:        "sentence",
+		},
 	}
 )

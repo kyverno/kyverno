@@ -6,9 +6,11 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -60,6 +62,11 @@ func Validate(p kyverno.ClusterPolicy) error {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
+	// validate userInfo in match and exclude
+	if path, err := validateUserInfo(rule); err != nil {
+		return fmt.Sprintf("resources.%s", path), err
+	}
+
 	// matched resources
 	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
 		return fmt.Sprintf("resources.%s", path), err
@@ -125,6 +132,57 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 	}
 
 	return "", nil
+}
+
+func validateUserInfo(rule kyverno.Rule) (string, error) {
+	if err := validateRoles(rule.MatchResources.Roles); err != nil {
+		return "match.roles", err
+	}
+
+	if err := validateSubjects(rule.MatchResources.Subjects); err != nil {
+		return "match.subjects", err
+	}
+
+	if err := validateRoles(rule.ExcludeResources.Roles); err != nil {
+		return "exclude.roles", err
+	}
+
+	if err := validateSubjects(rule.ExcludeResources.Subjects); err != nil {
+		return "exclude.subjects", err
+	}
+
+	return "", nil
+}
+
+// a role must in format namespace:name
+func validateRoles(roles []string) error {
+	if len(roles) == 0 {
+		return nil
+	}
+
+	for _, r := range roles {
+		role := strings.Split(r, ":")
+		if len(role) != 2 {
+			return fmt.Errorf("invalid role %s, expect namespace:name", r)
+		}
+	}
+	return nil
+}
+
+// a namespace should be set in kind ServiceAccount of a subject
+func validateSubjects(subjects []rbacv1.Subject) error {
+	if len(subjects) == 0 {
+		return nil
+	}
+
+	for _, subject := range subjects {
+		if subject.Kind == "ServiceAccount" {
+			if subject.Namespace == "" {
+				return fmt.Errorf("service account %s in subject expects a namespace", subject.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string, error) {

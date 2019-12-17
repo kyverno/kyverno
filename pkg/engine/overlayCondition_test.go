@@ -194,7 +194,7 @@ func TestMeetConditions_anchosInSameObject(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.Error(t, err, "[overlayError:0] failed validating value 443 with overlay 444")
+	assert.Error(t, err, "[overlayError:0] Failed validating value 443 with overlay 444")
 }
 
 func TestMeetConditions_anchorOnPeer(t *testing.T) {
@@ -444,7 +444,7 @@ func TestMeetConditions_anchorsOnPeer_two(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err := meetConditions(resource, overlay)
-	assert.Error(t, err, "[overlayError:0] failed validating value true with overlay false")
+	assert.Error(t, err, "[overlayError:0] Failed validating value true with overlay false")
 
 	overlayRaw = []byte(`{
 		"spec": {
@@ -594,7 +594,7 @@ func TestMeetConditions_anchorsOnPeer_multiple(t *testing.T) {
 	json.Unmarshal(overlayRaw, &overlay)
 
 	_, err = meetConditions(resource, overlay)
-	assert.Error(t, err, "[overlayError:0] failed validating value ENV_VALUE with overlay ENV_VALUE1")
+	assert.Error(t, err, "[overlayError:0] Failed validating value ENV_VALUE with overlay ENV_VALUE1")
 }
 
 func TestMeetConditions_AtleastOneExist(t *testing.T) {

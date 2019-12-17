@@ -30,7 +30,7 @@ import (
 // ClusterPolicyLister.
 type ClusterPolicyListerExpansion interface {
 	GetPolicyForPolicyViolation(pv *kyvernov1.ClusterPolicyViolation) ([]*kyvernov1.ClusterPolicy, error)
-	GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.NamespacedPolicyViolation) ([]*kyvernov1.ClusterPolicy, error)
+	GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.ClusterPolicy, error)
 	ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicy, err error)
 }
 
@@ -41,13 +41,13 @@ type ClusterPolicyViolationListerExpansion interface {
 	ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicyViolation, err error)
 }
 
-// NamespacedPolicyViolationListerExpansion allows custom methods to be added to
-// NamespacedPolicyViolationLister.
-type NamespacedPolicyViolationListerExpansion interface{}
+// PolicyViolationListerExpansion allows custom methods to be added to
+// PolicyViolationLister.
+type PolicyViolationListerExpansion interface{}
 
-// NamespacedPolicyViolationNamespaceListerExpansion allows custom methods to be added to
-// NamespacedPolicyViolationNamespaceLister.
-type NamespacedPolicyViolationNamespaceListerExpansion interface{}
+// PolicyViolationNamespaceListerExpansion allows custom methods to be added to
+// PolicyViolationNamespaceLister.
+type PolicyViolationNamespaceListerExpansion interface{}
 
 //ListResources is a wrapper to List and adds the resource kind information
 // as the lister is specific to a gvk we can harcode the values here
@@ -107,7 +107,7 @@ func (pl *clusterPolicyLister) GetPolicyForPolicyViolation(pv *kyvernov1.Cluster
 
 }
 
-func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.NamespacedPolicyViolation) ([]*kyvernov1.ClusterPolicy, error) {
+func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.ClusterPolicy, error) {
 	if len(pv.Labels) == 0 {
 		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
 	}

@@ -129,47 +129,10 @@ func saveServerConfigHistory(ctx context.Context, objAPI ObjectLayer, kv []byte)
 	return saveConfig(ctx, objAPI, historyFile, kv)
 }
 
-func saveServerConfig(ctx context.Context, objAPI ObjectLayer, config interface{}, oldConfig interface{}) error {
+func saveServerConfig(ctx context.Context, objAPI ObjectLayer, config interface{}) error {
 	data, err := json.Marshal(config)
 	if err != nil {
 		return err
-	}
-
-	configFile := path.Join(minioConfigPrefix, minioConfigFile)
-	// Create a backup of the current config
-	backupConfigFile := path.Join(minioConfigPrefix, minioConfigBackupFile)
-
-	var oldData []byte
-	var freshConfig bool
-	if oldConfig == nil {
-		oldData, err = readConfig(ctx, objAPI, configFile)
-		if err != nil && err != errConfigNotFound {
-			return err
-		}
-		if err == errConfigNotFound {
-			// Current config not found, so nothing to backup.
-			freshConfig = true
-		}
-		// Do not need to decrypt oldData since we are going to
-		// save it anyway if freshConfig is false.
-	} else {
-		oldData, err = json.Marshal(oldConfig)
-		if err != nil {
-			return err
-		}
-		if globalConfigEncrypted {
-			oldData, err = madmin.EncryptData(globalActiveCred.String(), oldData)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// No need to take backups for fresh setups.
-	if !freshConfig {
-		if err = saveConfig(ctx, objAPI, backupConfigFile, oldData); err != nil {
-			return err
-		}
 	}
 
 	if globalConfigEncrypted {
@@ -179,6 +142,7 @@ func saveServerConfig(ctx context.Context, objAPI ObjectLayer, config interface{
 		}
 	}
 
+	configFile := path.Join(minioConfigPrefix, minioConfigFile)
 	// Save the new config in the std config path
 	return saveConfig(ctx, objAPI, configFile, data)
 }
@@ -187,6 +151,11 @@ func readServerConfig(ctx context.Context, objAPI ObjectLayer) (config.Config, e
 	configFile := path.Join(minioConfigPrefix, minioConfigFile)
 	configData, err := readConfig(ctx, objAPI, configFile)
 	if err != nil {
+		// Config not found for some reason, allow things to continue
+		// by initializing a new fresh config in safe mode.
+		if err == errConfigNotFound && globalSafeMode {
+			return newServerConfig(), nil
+		}
 		return nil, err
 	}
 
@@ -286,19 +255,6 @@ func initConfig(objAPI ObjectLayer) error {
 			return err
 		}
 	}
-
-	// Construct path to config/transaction.lock for locking
-	transactionConfigPrefix := minioConfigPrefix + "/transaction.lock"
-
-	// Hold lock only by one server and let that server alone migrate
-	// all the config as necessary, this is to ensure that
-	// redundant locks are not held for each migration - this allows
-	// for a more predictable behavior while debugging.
-	objLock := globalNSMutex.NewNSLock(context.Background(), minioMetaBucket, transactionConfigPrefix)
-	if err := objLock.GetLock(globalOperationTimeout); err != nil {
-		return err
-	}
-	defer objLock.Unlock()
 
 	// Migrates ${HOME}/.minio/config.json or config.json.deprecated
 	// to '<export_path>/.minio.sys/config/config.json'

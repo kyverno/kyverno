@@ -79,27 +79,47 @@ const (
 
 // SetKMSConfig helper to migrate from older KMSConfig to new KV.
 func SetKMSConfig(s config.Config, cfg KMSConfig) {
+	if cfg.Vault.Endpoint == "" {
+		return
+	}
 	s[config.KmsVaultSubSys][config.Default] = config.KVS{
-		KMSVaultEndpoint: cfg.Vault.Endpoint,
-		KMSVaultCAPath:   cfg.Vault.CAPath,
-		KMSVaultAuthType: func() string {
-			if cfg.Vault.Auth.Type != "" {
-				return cfg.Vault.Auth.Type
-			}
-			return "approle"
-		}(),
-		KMSVaultAppRoleID:     cfg.Vault.Auth.AppRole.ID,
-		KMSVaultAppRoleSecret: cfg.Vault.Auth.AppRole.Secret,
-		KMSVaultKeyName:       cfg.Vault.Key.Name,
-		KMSVaultKeyVersion:    strconv.Itoa(cfg.Vault.Key.Version),
-		KMSVaultNamespace:     cfg.Vault.Namespace,
-		config.State: func() string {
-			if cfg.Vault.Endpoint != "" {
-				return config.StateOn
-			}
-			return config.StateOff
-		}(),
-		config.Comment: "Settings for KMS Vault, after migrating config",
+		config.KV{
+			Key:   KMSVaultEndpoint,
+			Value: cfg.Vault.Endpoint,
+		},
+		config.KV{
+			Key:   KMSVaultCAPath,
+			Value: cfg.Vault.CAPath,
+		},
+		config.KV{
+			Key: KMSVaultAuthType,
+			Value: func() string {
+				if cfg.Vault.Auth.Type != "" {
+					return cfg.Vault.Auth.Type
+				}
+				return "approle"
+			}(),
+		},
+		config.KV{
+			Key:   KMSVaultAppRoleID,
+			Value: cfg.Vault.Auth.AppRole.ID,
+		},
+		config.KV{
+			Key:   KMSVaultAppRoleSecret,
+			Value: cfg.Vault.Auth.AppRole.Secret,
+		},
+		config.KV{
+			Key:   KMSVaultKeyName,
+			Value: cfg.Vault.Key.Name,
+		},
+		config.KV{
+			Key:   KMSVaultKeyVersion,
+			Value: strconv.Itoa(cfg.Vault.Key.Version),
+		},
+		config.KV{
+			Key:   KMSVaultNamespace,
+			Value: cfg.Vault.Namespace,
+		},
 	}
 }
 
@@ -117,7 +137,7 @@ func SetKMSConfig(s config.Config, cfg KMSConfig) {
 // It sets the global KMS configuration according to the merged configuration
 // on success.
 func lookupConfigLegacy(kvs config.KVS) (KMSConfig, error) {
-	autoBool, err := config.ParseBool(env.Get(EnvAutoEncryptionLegacy, config.StateOff))
+	autoBool, err := config.ParseBool(env.Get(EnvAutoEncryptionLegacy, config.EnableOff))
 	if err != nil {
 		return KMSConfig{}, err
 	}
@@ -129,17 +149,6 @@ func lookupConfigLegacy(kvs config.KVS) (KMSConfig, error) {
 				Type: "approle",
 			},
 		},
-	}
-
-	// Assume default as "on" for legacy config since we didn't have a _STATE
-	// flag to turn it off, but we should honor it nonetheless to turn it off
-	// if the vault endpoint is down and there is no way to start the server.
-	stateBool, err := config.ParseBool(env.Get(EnvKMSVaultState, config.StateOn))
-	if err != nil {
-		return cfg, err
-	}
-	if !stateBool {
-		return cfg, nil
 	}
 
 	endpointStr := env.Get(EnvLegacyVaultEndpoint, "")

@@ -20,9 +20,11 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/bpool"
+	"github.com/minio/minio/pkg/dsync"
 	"github.com/minio/minio/pkg/madmin"
 	xnet "github.com/minio/minio/pkg/net"
 	"github.com/minio/minio/pkg/sync/errgroup"
@@ -39,26 +41,32 @@ var OfflineDisk StorageAPI // zero value is nil
 
 // xlObjects - Implements XL object layer.
 type xlObjects struct {
-	// name space mutex for object layer.
-	nsMutex *nsLockMap
-
 	// getDisks returns list of storageAPIs.
 	getDisks func() []StorageAPI
+
+	// getLockers returns list of remote and local lockers.
+	getLockers func() []dsync.NetLocker
+
+	// Locker mutex map.
+	nsMutex *nsLockMap
 
 	// Byte pools used for temporary i/o buffers.
 	bp *bpool.BytePoolCap
 
-	// TODO: Deprecated only kept here for tests, should be removed in future.
-	storageDisks []StorageAPI
-
 	// TODO: ListObjects pool management, should be removed in future.
 	listPool *TreeWalkPool
+}
+
+// NewNSLock - initialize a new namespace RWLocker instance.
+func (xl xlObjects) NewNSLock(ctx context.Context, bucket string, object string) RWLocker {
+	return xl.nsMutex.NewNSLock(ctx, xl.getLockers, bucket, object)
 }
 
 // Shutdown function for object storage interface.
 func (xl xlObjects) Shutdown(ctx context.Context) error {
 	// Add any object layer shutdown activities here.
 	closeStorageDisks(xl.getDisks())
+	closeLockers(xl.getLockers())
 	return nil
 }
 
@@ -192,4 +200,48 @@ func getStorageInfo(disks []StorageAPI) StorageInfo {
 // StorageInfo - returns underlying storage statistics.
 func (xl xlObjects) StorageInfo(ctx context.Context) StorageInfo {
 	return getStorageInfo(xl.getDisks())
+}
+
+// GetMetrics - no op
+func (xl xlObjects) GetMetrics(ctx context.Context) (*Metrics, error) {
+	logger.LogIf(ctx, NotImplemented{})
+	return &Metrics{}, NotImplemented{}
+}
+
+func (xl xlObjects) crawlAndGetDataUsage(ctx context.Context, endCh <-chan struct{}) DataUsageInfo {
+	var randomDisks []StorageAPI
+	for _, d := range xl.getLoadBalancedDisks() {
+		if d == nil || !d.IsOnline() {
+			continue
+		}
+		if len(randomDisks) > 3 {
+			break
+		}
+		randomDisks = append(randomDisks, d)
+	}
+
+	var dataUsageResults = make([]DataUsageInfo, len(randomDisks))
+
+	var wg sync.WaitGroup
+	for i := 0; i < len(randomDisks); i++ {
+		wg.Add(1)
+		go func(index int, disk StorageAPI) {
+			defer wg.Done()
+			var err error
+			dataUsageResults[index], err = disk.CrawlAndGetDataUsage(endCh)
+			if err != nil {
+				logger.LogIf(ctx, err)
+			}
+		}(i, randomDisks[i])
+	}
+	wg.Wait()
+
+	var dataUsageInfo DataUsageInfo
+	for i := 0; i < len(dataUsageResults); i++ {
+		if dataUsageResults[i].ObjectsCount > dataUsageInfo.ObjectsCount {
+			dataUsageInfo = dataUsageResults[i]
+		}
+	}
+
+	return dataUsageInfo
 }

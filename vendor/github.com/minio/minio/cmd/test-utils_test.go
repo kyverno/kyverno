@@ -59,7 +59,6 @@ import (
 	"github.com/minio/minio/cmd/config"
 	"github.com/minio/minio/cmd/logger"
 	"github.com/minio/minio/pkg/auth"
-	"github.com/minio/minio/pkg/bpool"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/minio/minio/pkg/policy"
 )
@@ -69,9 +68,6 @@ func init() {
 	// Set as non-distributed.
 	globalIsDistXL = false
 
-	// Initialize name space lock.
-	initNSLock(globalIsDistXL)
-
 	// Disable printing console messages during tests.
 	color.Output = ioutil.Discard
 
@@ -80,6 +76,7 @@ func init() {
 
 	logger.Disable = true
 
+	initHelp()
 	// Uncomment the following line to see trace logs during unit tests.
 	// logger.AddTarget(console.New())
 }
@@ -183,17 +180,17 @@ func prepareXLSets32() (ObjectLayer, []string, error) {
 		return nil, nil, err
 	}
 
-	endpoints1 := mustGetNewEndpointList(fsDirs1...)
+	endpoints1 := mustGetNewEndpoints(fsDirs1...)
 	fsDirs2, err := getRandomDisks(16)
 	if err != nil {
 		removeRoots(fsDirs1)
 		return nil, nil, err
 	}
-	endpoints2 := mustGetNewEndpointList(fsDirs2...)
+	endpoints2 := mustGetNewEndpoints(fsDirs2...)
 
 	endpoints := append(endpoints1, endpoints2...)
 	fsDirs := append(fsDirs1, fsDirs2...)
-	format, err := waitForFormatXL(true, endpoints, 2, 16)
+	format, err := waitForFormatXL(true, endpoints, 2, 16, "")
 	if err != nil {
 		removeRoots(fsDirs)
 		return nil, nil, err
@@ -212,7 +209,7 @@ func prepareXL(nDisks int) (ObjectLayer, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	obj, _, err := initObjectLayer(mustGetNewEndpointList(fsDirs...))
+	obj, _, err := initObjectLayer(mustGetZoneEndpoints(fsDirs...))
 	if err != nil {
 		removeRoots(fsDirs)
 		return nil, nil, err
@@ -304,7 +301,7 @@ func isSameType(obj1, obj2 interface{}) bool {
 //   defer s.Stop()
 type TestServer struct {
 	Root      string
-	Disks     EndpointList
+	Disks     EndpointZones
 	AccessKey string
 	SecretKey string
 	Server    *httptest.Server
@@ -333,9 +330,7 @@ func UnstartedTestServer(t TestErrHandler, instanceType string) TestServer {
 	credentials := globalActiveCred
 
 	testServer.Obj = objLayer
-	for _, disk := range disks {
-		testServer.Disks = append(testServer.Disks, mustGetNewEndpointList(disk)...)
-	}
+	testServer.Disks = mustGetZoneEndpoints(disks...)
 	testServer.AccessKey = credentials.AccessKey
 	testServer.SecretKey = credentials.SecretKey
 
@@ -451,15 +446,8 @@ func resetGlobalConfig() {
 	globalServerConfigMu.Unlock()
 }
 
-// reset global NSLock.
-func resetGlobalNSLock() {
-	if globalNSMutex != nil {
-		globalNSMutex = nil
-	}
-}
-
 func resetGlobalEndpoints() {
-	globalEndpoints = EndpointList{}
+	globalEndpoints = EndpointZones{}
 }
 
 func resetGlobalIsXL() {
@@ -497,8 +485,6 @@ func resetTestGlobals() {
 	resetGlobalConfigPath()
 	// Reset Global server config.
 	resetGlobalConfig()
-	// Reset global NSLock.
-	resetGlobalNSLock()
 	// Reset global endpoints.
 	resetGlobalEndpoints()
 	// Reset global isXL flag.
@@ -530,14 +516,16 @@ func newTestConfig(bucketLocation string, obj ObjectLayer) (err error) {
 	config.SetRegion(globalServerConfig, bucketLocation)
 
 	// Save config.
-	return saveServerConfig(context.Background(), obj, globalServerConfig, nil)
+	return saveServerConfig(context.Background(), obj, globalServerConfig)
 }
 
 // Deleting the temporary backend and stopping the server.
 func (testServer TestServer) Stop() {
 	os.RemoveAll(testServer.Root)
-	for _, disk := range testServer.Disks {
-		os.RemoveAll(disk.Path)
+	for _, ep := range testServer.Disks {
+		for _, disk := range ep.Endpoints {
+			os.RemoveAll(disk.Path)
+		}
 	}
 	testServer.Server.Close()
 }
@@ -1591,70 +1579,43 @@ func getRandomDisks(N int) ([]string, error) {
 }
 
 // Initialize object layer with the supplied disks, objectLayer is nil upon any error.
-func newTestObjectLayer(endpoints EndpointList) (newObject ObjectLayer, err error) {
+func newTestObjectLayer(endpointZones EndpointZones) (newObject ObjectLayer, err error) {
 	// For FS only, directly use the disk.
-	isFS := len(endpoints) == 1
-	if isFS {
+	if endpointZones.Nodes() == 1 {
 		// Initialize new FS object layer.
-		return NewFSObjectLayer(endpoints[0].Path)
+		return NewFSObjectLayer(endpointZones[0].Endpoints[0].Path)
 	}
 
-	format, err := waitForFormatXL(endpoints[0].IsLocal, endpoints, 1, 16)
+	z, err := newXLZones(endpointZones)
 	if err != nil {
 		return nil, err
-	}
-
-	storageDisks, errs := initStorageDisksWithErrors(endpoints)
-	for _, err = range errs {
-		if err != nil && err != errDiskNotFound {
-			return nil, err
-		}
-	}
-
-	for i, disk := range storageDisks {
-		disk.SetDiskID(format.XL.Sets[0][i])
-	}
-
-	// Initialize list pool.
-	listPool := NewTreeWalkPool(globalLookupTimeout)
-
-	// Initialize xl objects.
-	xl := &xlObjects{
-		listPool:     listPool,
-		storageDisks: storageDisks,
-		nsMutex:      newNSLock(false),
-		bp:           bpool.NewBytePoolCap(4, blockSizeV1, blockSizeV1*2),
-	}
-
-	xl.getDisks = func() []StorageAPI {
-		return xl.storageDisks
 	}
 
 	globalConfigSys = NewConfigSys()
 
 	globalIAMSys = NewIAMSys()
-	globalIAMSys.Init(xl)
+	globalIAMSys.Init(z)
 
 	globalPolicySys = NewPolicySys()
-	globalPolicySys.Init(nil, xl)
+	globalPolicySys.Init(nil, z)
 
-	globalNotificationSys = NewNotificationSys(endpoints)
-	globalNotificationSys.Init(nil, xl)
+	globalNotificationSys = NewNotificationSys(endpointZones)
+	globalNotificationSys.Init(nil, z)
 
-	return xl, nil
+	return z, nil
 }
 
 // initObjectLayer - Instantiates object layer and returns it.
-func initObjectLayer(endpoints EndpointList) (ObjectLayer, []StorageAPI, error) {
-	objLayer, err := newTestObjectLayer(endpoints)
+func initObjectLayer(endpointZones EndpointZones) (ObjectLayer, []StorageAPI, error) {
+	objLayer, err := newTestObjectLayer(endpointZones)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var formattedDisks []StorageAPI
 	// Should use the object layer tests for validating cache.
-	if xl, ok := objLayer.(*xlObjects); ok {
-		formattedDisks = xl.storageDisks
+	if z, ok := objLayer.(*xlZones); ok {
+		formattedDisks = z.zones[0].GetDisks(0)()
 	}
 
 	// Success.
@@ -1918,9 +1879,6 @@ func ExecObjectLayerAPITest(t *testing.T, objAPITest objAPITestType, endpoints [
 	// this is to make sure that the tests are not affected by modified value.
 	resetTestGlobals()
 
-	// initialize NSLock.
-	initNSLock(false)
-
 	objLayer, fsDir, err := prepareFS()
 	if err != nil {
 		t.Fatalf("Initialization of object layer failed for single node setup: %s", err)
@@ -2063,7 +2021,7 @@ func ExecObjectLayerStaleFilesTest(t *testing.T, objTest objTestStaleFilesType) 
 	if err != nil {
 		t.Fatalf("Initialization of disks for XL setup: %s", err)
 	}
-	objLayer, _, err := initObjectLayer(mustGetNewEndpointList(erasureDisks...))
+	objLayer, _, err := initObjectLayer(mustGetZoneEndpoints(erasureDisks...))
 	if err != nil {
 		t.Fatalf("Initialization of object layer failed for XL setup: %s", err)
 	}
@@ -2263,7 +2221,7 @@ func generateTLSCertKey(host string) ([]byte, []byte, error) {
 	var err error
 	priv, err = rsa.GenerateKey(crand.Reader, rsaBits)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate private key: %s", err)
+		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	notBefore := time.Now()
@@ -2272,7 +2230,7 @@ func generateTLSCertKey(host string) ([]byte, []byte, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := crand.Int(crand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate serial number: %s", err)
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
 	template := x509.Certificate{
@@ -2302,7 +2260,7 @@ func generateTLSCertKey(host string) ([]byte, []byte, error) {
 
 	derBytes, err := x509.CreateCertificate(crand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create certificate: %s", err)
+		return nil, nil, fmt.Errorf("Failed to create certificate: %w", err)
 	}
 
 	certOut := bytes.NewBuffer([]byte{})
@@ -2314,23 +2272,27 @@ func generateTLSCertKey(host string) ([]byte, []byte, error) {
 	return certOut.Bytes(), keyOut.Bytes(), nil
 }
 
-func mustGetNewEndpointList(args ...string) (endpoints EndpointList) {
-	if len(args) == 1 {
-		endpoint, err := NewEndpoint(args[0])
-		logger.FatalIf(err, "unable to create new endpoint")
-		endpoints = append(endpoints, endpoint)
-	} else {
-		var err error
-		endpoints, err = NewEndpointList(args...)
-		logger.FatalIf(err, "unable to create new endpoint list")
-	}
+func mustGetZoneEndpoints(args ...string) EndpointZones {
+	endpoints := mustGetNewEndpoints(args...)
+	return []ZoneEndpoints{{
+		SetCount:     1,
+		DrivesPerSet: len(args),
+		Endpoints:    endpoints,
+	}}
+}
+
+func mustGetNewEndpoints(args ...string) (endpoints Endpoints) {
+	endpoints, err := NewEndpoints(args...)
+	logger.FatalIf(err, "unable to create new endpoint list")
 	return endpoints
 }
 
-func getEndpointsLocalAddr(endpoints EndpointList) string {
-	for _, endpoint := range endpoints {
-		if endpoint.IsLocal && endpoint.Type() == URLEndpointType {
-			return endpoint.Host
+func getEndpointsLocalAddr(endpointZones EndpointZones) string {
+	for _, endpoints := range endpointZones {
+		for _, endpoint := range endpoints.Endpoints {
+			if endpoint.IsLocal && endpoint.Type() == URLEndpointType {
+				return endpoint.Host
+			}
 		}
 	}
 
