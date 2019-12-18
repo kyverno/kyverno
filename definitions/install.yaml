@@ -257,6 +257,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -333,6 +336,9 @@ spec:
     type: string
     description: The resource name that caused the violation
     JSONPath: .spec.resource.name
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
@@ -415,6 +421,16 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno
 ---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: policyviolation
+rules:
+- apiGroups: ["kyverno.io"]
+  resources:
+  - policyviolations
+  verbs: ["get", "list", "watch"]
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -447,7 +463,7 @@ spec:
           image: nirmata/kyvernopre:latest
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.0.0
+          image: nirmata/kyverno:latest
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
           # customize webhook timout

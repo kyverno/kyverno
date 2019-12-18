@@ -118,10 +118,9 @@ func NewWebhookServer(
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
-
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
