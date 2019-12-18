@@ -3,9 +3,11 @@ package context
 import (
 	"reflect"
 	"testing"
+
+	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
-func Test_Add(t *testing.T) {
+func Test_addResourceAndUserContext(t *testing.T) {
 	rawResource := []byte(`
 	{
 		"apiVersion": "v1",
@@ -40,47 +42,40 @@ func Test_Add(t *testing.T) {
 	 }
 			`)
 
-	expectedResult := "my-namespace"
+	userInfo := authenticationv1.UserInfo{
+		Username: "admin",
+		UID:      "014fbff9a07c",
+	}
 
-	var err error
+	var expectedResult string
 	ctx := NewContext()
-	ctx.Add("resource", rawResource)
-	query := "resource.metadata.labels.namespace"
-	result, err := ctx.Query(query)
+	ctx.AddResource(rawResource)
+	result, err := ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(expectedResult)
+	expectedResult = "v1"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")
 	}
-}
 
-func Test_AddUser(t *testing.T) {
-	rawUser := []byte(`
-	{
-		"userInfo": {
-				"username": "admin",
-				"uid": "014fbff9a07c",
-				"groups": ["system:authenticated","my-admin-group"],
-				"extra": {
-					"some-key":["some-value1", "some-value2"]
-				}
-			}
-	}
-	`)
-	expectedResult := "admin"
-
-	var err error
-	ctx := NewContext()
-	ctx.Add("user", rawUser)
-	query := "user.userInfo.username"
-	result, err := ctx.Query(query)
+	ctx.AddUserInfo(userInfo)
+	result, err = ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(expectedResult)
+	expectedResult = "v1"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
+
+	result, err = ctx.Query("request.userInfo.username")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult = "admin"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")

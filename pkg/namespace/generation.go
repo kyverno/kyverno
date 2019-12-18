@@ -225,7 +225,7 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 	}()
 	// build context
 	ctx := context.NewContext()
-	ctx.Add("resource", transformResource(resource))
+	ctx.AddResource(transformResource(resource))
 
 	policyContext := engine.PolicyContext{
 		NewResource: resource,

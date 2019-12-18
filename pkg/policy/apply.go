@@ -9,6 +9,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,9 +59,12 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	var engineResponses []response.EngineResponse
 	var engineResponse response.EngineResponse
 	var err error
+	// build context
+	ctx := context.NewContext()
+	ctx.AddResource(transformResource(resource))
 
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, policyStatus)
+	engineResponse, err = mutation(policy, resource, policyStatus, ctx)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
 		glog.Errorf("unable to process mutation rules: %v", err)
@@ -70,7 +74,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	sendStat(false)
 
 	//VALIDATION
-	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, NewResource: resource})
+	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
 	// gather stats
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -80,8 +84,9 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	//TODO: GENERATION
 	return engineResponses
 }
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (response.EngineResponse, error) {
-	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource})
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, ctx context.EvalInterface) (response.EngineResponse, error) {
+
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx})
 	if !engineResponse.IsSuccesful() {
 		glog.V(4).Infof("mutation had errors reporting them")
 		return engineResponse, nil

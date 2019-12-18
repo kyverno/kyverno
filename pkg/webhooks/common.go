@@ -3,7 +3,6 @@ package webhooks
 import (
 	"fmt"
 	"strings"
-	"encoding/json"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -11,7 +10,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -153,13 +151,4 @@ func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return resource, nil
-}
-
-func transformUser(userInfo authenticationv1.UserInfo) []byte {
-	data, err := json.Marshal(userInfo)
-	if err != nil {
-		glog.Errorf("failed to marshall resource %v: %v", userInfo, err)
-		return nil
-	}
-	return data
 }

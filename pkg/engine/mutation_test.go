@@ -33,7 +33,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 						"overlay": {
 							"metadata": {
 								"labels": {
-									"appname": "{{resource.metadata.name}}"
+									"appname": "{{request.object.metadata.name}}"
 								}
 							}
 						}
@@ -70,8 +70,8 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 	resourceUnstructured, err := ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	ctx.Add("resource", rawResource)
-	value, err := ctx.Query("resource.metadata.name")
+	ctx.AddResource(rawResource)
+	value, err := ctx.Query("request.object.metadata.name")
 	t.Log(value)
 	if err != nil {
 		t.Error(err)

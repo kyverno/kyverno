@@ -1,11 +1,11 @@
 package engine
 
 import (
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
 // PolicyContext contains the contexts for engine to process
@@ -20,7 +20,7 @@ type PolicyContext struct {
 	// Dynamic client - used by generate
 	Client *client.Client
 	// Contexts to store resources
-	Context *context.Context
+	Context context.EvalInterface
 }
 
 // RequestInfo contains permission info carried in an admission request

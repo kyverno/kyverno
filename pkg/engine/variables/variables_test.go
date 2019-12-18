@@ -25,7 +25,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"name": "{{resource.metadata.name}}"
+			"name": "{{request.object.metadata.name}}"
 		}
 	}
 	`)
@@ -38,7 +38,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -66,7 +66,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"name": "!{{resource.metadata.name}}"
+			"name": "!{{request.object.metadata.name}}"
 		}
 	}
 	`)
@@ -78,7 +78,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -108,7 +108,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"name": "{{resource.metadata.name1}}"
+			"name": "{{request.object.metadata.name1}}"
 		}
 	}
 	`)
@@ -120,7 +120,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -155,7 +155,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"variable": "{{resource.spec.variable}}"
+			"variable": "{{request.object.spec.variable}}"
 		}
 	}
 	`)
@@ -167,7 +167,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -202,7 +202,7 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"variable": "!{{resource.spec.variable}}"
+			"variable": "!{{request.object.spec.variable}}"
 		}
 	}
 	`)
@@ -215,7 +215,7 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -250,8 +250,8 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"spec": {
-			"var": "{{resource.spec.variable.varNested.var1}}",
-			"variable": "{{resource.spec.variable}}"
+			"var": "{{request.object.spec.variable.varNested.var1}}",
+			"variable": "{{request.object.spec.variable}}"
 		}
 	}
 	`)
@@ -264,7 +264,7 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.Add("resource", resourceRaw)
+	ctx.AddResource(resourceRaw)
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
