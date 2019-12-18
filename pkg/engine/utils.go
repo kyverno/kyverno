@@ -318,25 +318,19 @@ func removeAnchor(key string) string {
 	return key
 }
 
-// convertToFloat converts string and any other value to float64
-func convertToFloat(value interface{}) (float64, error) {
+// convertToString converts value to string
+func convertToString(value interface{}) (string, error) {
 	switch typed := value.(type) {
 	case string:
-		var err error
-		floatValue, err := strconv.ParseFloat(typed, 64)
-		if err != nil {
-			return 0, err
-		}
-
-		return floatValue, nil
+		return string(typed), nil
 	case float64:
-		return typed, nil
+		return fmt.Sprintf("%f", typed), nil
 	case int64:
-		return float64(typed), nil
+		return strconv.FormatInt(typed, 10), nil
 	case int:
-		return float64(typed), nil
+		return strconv.Itoa(typed), nil
 	default:
-		return 0, fmt.Errorf("Could not convert %T to float64", value)
+		return "", fmt.Errorf("Could not convert %T to string", value)
 	}
 }
 

@@ -195,6 +195,10 @@ func TestValidateValueWithPattern_StringsLogicalOr(t *testing.T) {
 	assert.Assert(t, ValidateValueWithPattern(value, pattern))
 }
 
+func TestValidateValueWithPattern_EqualTwoFloats(t *testing.T) {
+	assert.Assert(t, ValidateValueWithPattern(7.0, 7.000))
+}
+
 func TestValidateValueWithNilPattern_NullPatternStringValue(t *testing.T) {
 	assert.Assert(t, !validateValueWithNilPattern("value"))
 }
@@ -285,14 +289,42 @@ func TestGetNumberAndStringPartsFromPattern_Empty(t *testing.T) {
 	assert.Equal(t, str, "")
 }
 
-func TestValidateNumber_EqualTwoFloats(t *testing.T) {
-	assert.Assert(t, validateNumber(7.0, 7.000, operator.Equal))
+func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr(7.00001, "7.000001", operator.More))
+	assert.Assert(t, validateNumberWithStr(7.00001, "7", operator.NotEqual))
+
+	assert.Assert(t, validateNumberWithStr(7.0000, "7", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr(6.000000001, "6", operator.Less))
 }
 
-func TestValidateNumber_LessFloatAndInt(t *testing.T) {
-	assert.Assert(t, validateNumber(7, 7.00001, operator.Less))
-	assert.Assert(t, validateNumber(7, 7.00001, operator.NotEqual))
+func TestValidateQuantity_InvalidQuantity(t *testing.T) {
+	assert.Assert(t, !validateNumberWithStr("1024Gi", "", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr("gii", "1024Gi", operator.Equal))
+}
 
-	assert.Assert(t, !validateNumber(7, 7.0000, operator.NotEqual))
-	assert.Assert(t, !validateNumber(6, 6.000000001, operator.More))
+func TestValidateQuantity_Equal(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr("1024Gi", "1024Gi", operator.Equal))
+	assert.Assert(t, validateNumberWithStr("1024Mi", "1Gi", operator.Equal))
+	assert.Assert(t, validateNumberWithStr("0.2", "200m", operator.Equal))
+	assert.Assert(t, validateNumberWithStr("500", "500", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr("2048", "1024", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(1024, "1024", operator.Equal))
+}
+
+func TestValidateQuantity_Operation(t *testing.T) {
+	assert.Assert(t, validateNumberWithStr("1Gi", "1000Mi", operator.More))
+	assert.Assert(t, validateNumberWithStr("1G", "1Gi", operator.Less))
+	assert.Assert(t, validateNumberWithStr("500m", "0.5", operator.MoreEqual))
+	assert.Assert(t, validateNumberWithStr("1", "500m", operator.MoreEqual))
+	assert.Assert(t, validateNumberWithStr("0.5", ".5", operator.LessEqual))
+	assert.Assert(t, validateNumberWithStr("0.2", ".5", operator.LessEqual))
+	assert.Assert(t, validateNumberWithStr("0.2", ".5", operator.NotEqual))
+}
+
+func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
+	assert.Equal(t, operator.GetOperatorFromStringPattern("f"), operator.Equal)
+}
+
+func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
+	assert.Equal(t, operator.GetOperatorFromStringPattern(""), operator.Equal)
 }

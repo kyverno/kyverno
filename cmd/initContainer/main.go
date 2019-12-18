@@ -7,6 +7,7 @@ import (
 	"flag"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -41,7 +42,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig)
+	client, err := client.NewClient(clientConfig, 10*time.Second, stopCh)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
