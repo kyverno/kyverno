@@ -6,13 +6,15 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
-// handleValidation handles validating webhook admission request
+// HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
@@ -22,7 +24,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	var policyStats []policyctr.PolicyStat
 	evalTime := time.Now()
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.ValidationExecutionTime = policyResponse.ProcessingTime
@@ -57,22 +59,28 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		glog.Error(err)
 		return true, ""
 	}
+	// build context
+	ctx := context.NewContext()
+	// load incoming resource into the context
+	ctx.AddResource(request.Object.Raw)
+	ctx.AddUserInfo(request.UserInfo)
 
 	policyContext := engine.PolicyContext{
 		NewResource: newR,
 		OldResource: oldR,
+		Context:     ctx,
 		AdmissionInfo: engine.RequestInfo{
 			Roles:             roles,
 			ClusterRoles:      clusterRoles,
 			AdmissionUserInfo: request.UserInfo},
 	}
-	var engineResponses []engine.EngineResponse
+	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			newR.GetKind(), newR.GetNamespace(), newR.GetName(), request.UID, request.Operation)
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
-		if reflect.DeepEqual(engineResponse, engine.EngineResponse{}) {
+		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
 			continue

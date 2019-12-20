@@ -20,6 +20,8 @@ type PolicyContext struct {
 	AdmissionInfo RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client
+	// Contexts to store resources
+	Context context.EvalInterface
 }
 
 // RequestInfo contains permission info carried in an admission request

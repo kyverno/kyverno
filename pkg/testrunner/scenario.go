@@ -14,6 +14,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,19 +52,19 @@ type sMutation struct {
 	// path to the patched resource to be compared with
 	PatchedResource string `yaml:"patchedresource,omitempty"`
 	// expected respone from the policy engine
-	PolicyResponse engine.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
 type sValidation struct {
 	// expected respone from the policy engine
-	PolicyResponse engine.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
 type sGeneration struct {
 	// generated resources
 	GeneratedResources []kyverno.ResourceSpec `yaml:"generatedResources"`
 	// expected respone from the policy engine
-	PolicyResponse engine.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
 //getRelativePath expects a path relative to project and builds the complete path
@@ -146,7 +147,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		t.FailNow()
 	}
 
-	var er engine.EngineResponse
+	var er response.EngineResponse
 
 	er = engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
 	t.Log("---Mutation---")
@@ -230,8 +231,8 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 	t.Log("success: response resource returned matches expected resource")
 }
 
-func validateResponse(t *testing.T, er engine.PolicyResponse, expected engine.PolicyResponse) {
-	if reflect.DeepEqual(expected, (engine.PolicyResponse{})) {
+func validateResponse(t *testing.T, er response.PolicyResponse, expected response.PolicyResponse) {
+	if reflect.DeepEqual(expected, (response.PolicyResponse{})) {
 		t.Log("no response expected")
 		return
 	}
@@ -263,7 +264,7 @@ func validateResponse(t *testing.T, er engine.PolicyResponse, expected engine.Po
 	}
 }
 
-func compareResourceSpec(t *testing.T, resource engine.ResourceSpec, expectedResource engine.ResourceSpec) {
+func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedResource response.ResourceSpec) {
 	// kind
 	if resource.Kind != expectedResource.Kind {
 		t.Errorf("kind: expected %s, recieved %s", expectedResource.Kind, resource.Kind)
@@ -283,7 +284,7 @@ func compareResourceSpec(t *testing.T, resource engine.ResourceSpec, expectedRes
 	}
 }
 
-func compareRules(t *testing.T, rule engine.RuleResponse, expectedRule engine.RuleResponse) {
+func compareRules(t *testing.T, rule response.RuleResponse, expectedRule response.RuleResponse) {
 	// name
 	if rule.Name != expectedRule.Name {
 		t.Errorf("rule name: expected %s, recieved %+v", expectedRule.Name, rule.Name)

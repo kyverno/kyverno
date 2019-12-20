@@ -276,23 +276,3 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 		t.Error("result does not match")
 	}
 }
-
-func Test_CheckVariables(t *testing.T) {
-	patternRaw := []byte(`
-	{
-		"metadata": {
-			"temp1": "test",
-      "var1": "{{request.userInfo.name}}"
-		},
-		"spec": {
-      "var": "{{request.userInfo}}"
-		}
-	}
-	`)
-	var pattern interface{}
-	json.Unmarshal(patternRaw, &pattern)
-	if CheckVariables(pattern, []string{"request.userInfo.*"}) {
-		t.Error("found")
-	}
-	t.Fail()
-}
