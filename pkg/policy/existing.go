@@ -10,18 +10,18 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []engine.EngineResponse {
+func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []response.EngineResponse {
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
-	var engineResponses []engine.EngineResponse
+	var engineResponses []response.EngineResponse
 	// get resource that are satisfy the resource description defined in the rules
 	resourceMap := listResources(pc.client, policy, pc.configHandler)
 	for _, resource := range resourceMap {

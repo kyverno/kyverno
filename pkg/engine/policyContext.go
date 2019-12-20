@@ -1,8 +1,9 @@
 package engine
 
 import (
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -15,6 +16,7 @@ type PolicyContext struct {
 	NewResource unstructured.Unstructured
 	// old Resource - Update operations
 	OldResource   unstructured.Unstructured
+	Context *context.Context
 	AdmissionInfo RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client

@@ -23,6 +23,8 @@ func Validate(p kyverno.ClusterPolicy) error {
 	}
 
 	for i, rule := range p.Spec.Rules {
+		// check for background
+
 		// only one type of rule is allowed per rule
 		if err := validateRuleType(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
