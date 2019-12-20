@@ -155,6 +155,11 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
+	if !p.Spec.Background {
+		return
+	}
 	glog.V(4).Infof("Adding Policy %s", p.Name)
 	// register with policy meta-store
 	pc.pMetaStore.Register(*p)
@@ -164,6 +169,11 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
+	if !curP.Spec.Background {
+		return
+	}
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
@@ -189,16 +199,12 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	glog.V(4).Infof("Deleting Policy %s", p.Name)
 	// Unregister from policy meta-store
 	pc.pMetaStore.UnRegister(*p)
+	// we process policies that are not set of background processing as we need to perform policy violation
+	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
-	// Only process policies that are enabled for "background" execution
-	// policy.spec.background -> "True"
-	if !policy.Spec.Background {
-		return
-	}
-
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
 		glog.Error(err)
