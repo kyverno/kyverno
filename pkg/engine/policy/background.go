@@ -1,21 +1,22 @@
 package policy
 
 import (
+	"fmt"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 //ContainsUserInfo returns true if contains userInfo
-func ContainsUserInfo(policy kyverno.ClusterPolicy) bool {
+func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 	// iterate of the policy rules to identify if userInfo is used
-	for _, rule := range policy.Spec.Rules {
-		if len(rule.MatchResources.ClusterRoles) > 0 {
-			// user-role has been defined
-			return true
+	for idx, rule := range policy.Spec.Rules {
+		if err := userInfoDefined(rule.MatchResources.UserInfo); err != nil {
+			return fmt.Errorf("path: spec/rules[%d]/match/%s", idx, err)
 		}
-		if len(rule.ExcludeResources.ClusterRoles) > 0 {
-			// user-role has been defined
-			return true
+
+		if err := userInfoDefined(rule.ExcludeResources.UserInfo); err != nil {
+			return fmt.Errorf("path: spec/rules[%d]/exclude/%s", idx, err)
 		}
 
 		// variable defined with user information
@@ -25,17 +26,30 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) bool {
 		// variables to filter
 		// - request.userInfo
 		filterVars := []string{"request.userInfo*"}
-		if exists := variables.CheckVariables(rule.Mutation.Overlay, filterVars); exists {
-			return false
+		if err := variables.CheckVariables(rule.Mutation.Overlay, filterVars, "/"); err != nil {
+			return fmt.Errorf("path: spec/rules[%d]/mutate/overlay%s", idx, err)
 		}
-		if exists := variables.CheckVariables(rule.Validation.Pattern, filterVars); exists {
-			return false
+		if err := variables.CheckVariables(rule.Validation.Pattern, filterVars, "/"); err != nil {
+			return fmt.Errorf("path: spec/rules[%d]/validate/pattern%s", idx, err)
 		}
-		for _, pattern := range rule.Validation.AnyPattern {
-			if exists := variables.CheckVariables(pattern, filterVars); exists {
-				return false
+		for idx2, pattern := range rule.Validation.AnyPattern {
+			if err := variables.CheckVariables(pattern, filterVars, "/"); err != nil {
+				return fmt.Errorf("path: spec/rules[%d]/validate/anyPattern[%d]%s", idx, idx2, err)
 			}
 		}
 	}
-	return false
+	return nil
+}
+
+func userInfoDefined(ui kyverno.UserInfo) error {
+	if len(ui.Roles) > 0 {
+		return fmt.Errorf("roles")
+	}
+	if len(ui.ClusterRoles) > 0 {
+		return fmt.Errorf("clusterRoles")
+	}
+	if len(ui.Subjects) > 0 {
+		return fmt.Errorf("subjects")
+	}
+	return nil
 }

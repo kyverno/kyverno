@@ -1,46 +1,51 @@
 package variables
 
 import (
+	"fmt"
 	"regexp"
+	"strconv"
 )
 
-func CheckVariables(pattern interface{}, variables []string) bool {
+//CheckVariables checks if the variable regex has been used
+func CheckVariables(pattern interface{}, variables []string, path string) error {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
-		return checkMap(typedPattern, variables)
+		return checkMap(typedPattern, variables, path)
 	case []interface{}:
-		return checkArray(typedPattern, variables)
+		return checkArray(typedPattern, variables, path)
 	case string:
-		return checkValue(typedPattern, variables)
+		return checkValue(typedPattern, variables, path)
 	default:
-		return false
+		return nil
 	}
 }
 
-func checkMap(patternMap map[string]interface{}, variables []string) bool {
-	for _, patternElement := range patternMap {
-		exists := CheckVariables(patternElement, variables)
-		if exists {
-			return exists
+func checkMap(patternMap map[string]interface{}, variables []string, path string) error {
+	for patternKey, patternElement := range patternMap {
+
+		if err := CheckVariables(patternElement, variables, path+patternKey+"/"); err != nil {
+			return err
 		}
 	}
-	return false
+	return nil
 }
 
-func checkArray(patternList []interface{}, variables []string) bool {
-	for _, patternElement := range patternList {
-		exists := CheckVariables(patternElement, variables)
-		if exists {
-			return exists
+func checkArray(patternList []interface{}, variables []string, path string) error {
+	for idx, patternElement := range patternList {
+		if err := CheckVariables(patternElement, variables, path+strconv.Itoa(idx)+"/"); err != nil {
+			return err
 		}
 	}
-	return false
+	return nil
 }
 
-func checkValue(valuePattern string, variables []string) bool {
+func checkValue(valuePattern string, variables []string, path string) error {
 	operatorVariable := getOperator(valuePattern)
 	variable := valuePattern[len(operatorVariable):]
-	return checkValueVariable(variable, variables)
+	if checkValueVariable(variable, variables) {
+		return fmt.Errorf(path + valuePattern)
+	}
+	return nil
 }
 
 func checkValueVariable(valuePattern string, variables []string) bool {

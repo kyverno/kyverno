@@ -21,10 +21,16 @@ func Validate(p kyverno.ClusterPolicy) error {
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
+	if p.Spec.Background {
+		if err := ContainsUserInfo(p); err != nil {
+			// policy.spec.background -> "true"
+			// - cannot use variables with request.userInfo
+			// - cannot define userInfo(roles, cluserRoles, subjects) for filtering (match & exclude)
+			return fmt.Errorf("userInfo not allowed in background policy mode. Failure path %s", err)
+		}
+	}
 
 	for i, rule := range p.Spec.Rules {
-		// check for background
-
 		// only one type of rule is allowed per rule
 		if err := validateRuleType(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)

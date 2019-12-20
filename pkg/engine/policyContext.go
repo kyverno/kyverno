@@ -16,7 +16,6 @@ type PolicyContext struct {
 	NewResource unstructured.Unstructured
 	// old Resource - Update operations
 	OldResource   unstructured.Unstructured
-	Context *context.Context
 	AdmissionInfo RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client

@@ -193,6 +193,12 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 }
 
 func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
+	if !policy.Spec.Background {
+		return
+	}
+
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
 		glog.Error(err)
