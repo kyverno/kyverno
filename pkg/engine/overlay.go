@@ -289,7 +289,7 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 
 		if len(anchors) > 0 {
 			// If we have anchors - choose corresponding resource element and mutate it
-			patches, err := applyOverlayWithAnchors(resource, overlayElement, anchors, path)
+			patches, err := applyOverlayWithAnchors(resource, overlayElement, path)
 			if err != nil {
 				return nil, err
 			}
@@ -320,21 +320,17 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 	return appliedPatches, nil
 }
 
-func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, anchors map[string]interface{}, path string) ([][]byte, error) {
+func applyOverlayWithAnchors(resource []interface{}, overlay interface{}, path string) ([][]byte, error) {
 	var appliedPatches [][]byte
 
 	for i, resourceElement := range resource {
-		typedResource := resourceElement.(map[string]interface{})
-
 		currentPath := path + strconv.Itoa(i) + "/"
 		// currentPath example: /spec/template/spec/containers/3/
-		if !skipArrayObject(typedResource, anchors) {
-			patches, err := applyOverlay(resourceElement, overlay, currentPath)
-			if err != nil {
-				return nil, err
-			}
-			appliedPatches = append(appliedPatches, patches...)
+		patches, err := applyOverlay(resourceElement, overlay, currentPath)
+		if err != nil {
+			return nil, err
 		}
+		appliedPatches = append(appliedPatches, patches...)
 	}
 
 	return appliedPatches, nil
