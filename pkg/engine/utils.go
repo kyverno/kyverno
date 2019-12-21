@@ -2,8 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,10 +10,10 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -316,28 +314,6 @@ func removeAnchor(key string) string {
 	}
 
 	return key
-}
-
-// convertToFloat converts string and any other value to float64
-func convertToFloat(value interface{}) (float64, error) {
-	switch typed := value.(type) {
-	case string:
-		var err error
-		floatValue, err := strconv.ParseFloat(typed, 64)
-		if err != nil {
-			return 0, err
-		}
-
-		return floatValue, nil
-	case float64:
-		return typed, nil
-	case int64:
-		return float64(typed), nil
-	case int:
-		return float64(typed), nil
-	default:
-		return 0, fmt.Errorf("Could not convert %T to float64", value)
-	}
 }
 
 type resourceInfo struct {

@@ -63,7 +63,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 	case string:
 		return string(operatorVariable) + value.(string)
 	default:
-		glog.Infof("cannot user operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
+		glog.Infof("cannot use operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
 		var emptyInterface interface{}
 		return emptyInterface
 	}

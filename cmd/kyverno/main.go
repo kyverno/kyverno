@@ -60,12 +60,13 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig)
+	// - invalidate local cache of registered resource every 10 seconds
+	client, err := dclient.NewClient(clientConfig, 10*time.Second, stopCh)
 	if err != nil {
 		glog.Fatalf("Error creating client: %v\n", err)
 	}
 	// CRD CHECK
-	// - verify if the CRD for Policy & PolicyViolation are avialalbe
+	// - verify if the CRD for Policy & PolicyViolation are available
 	if !utils.CRDInstalled(client.DiscoveryClient) {
 		glog.Fatalf("Required CRDs unavailable")
 	}

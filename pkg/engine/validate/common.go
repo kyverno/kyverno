@@ -37,6 +37,22 @@ func convertToFloat(value interface{}) (float64, error) {
 	}
 }
 
+// convertToString converts value to string
+func convertToString(value interface{}) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		return string(typed), nil
+	case float64:
+		return fmt.Sprintf("%f", typed), nil
+	case int64:
+		return strconv.FormatInt(typed, 10), nil
+	case int:
+		return strconv.Itoa(typed), nil
+	default:
+		return "", fmt.Errorf("Could not convert %T to string", value)
+	}
+}
+
 func getRawKeyIfWrappedWithAttributes(str string) string {
 	if len(str) < 2 {
 		return str
