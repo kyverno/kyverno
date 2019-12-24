@@ -1,9 +1,59 @@
 package v1
 
 import (
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+//GenerateRequest is a request to process generate rule
+type GenerateRequest struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              GenerateRequestSpec   `json:"spec"`
+	Status            GenerateRequestStatus `json:"status"`
+}
+
+//GenerateRequestSpec stores the request specification
+type GenerateRequestSpec struct {
+	Policy   string                 `json:"policy"`
+	Resource ResourceSpec           `json:"resource"`
+	Context  GenerateRequestContext `json:"context"`
+}
+
+//GenerateRequestContext stores the context to be shared
+type GenerateRequestContext struct {
+	UserInfo authenticationv1.UserInfo `json:"userInfo"`
+}
+
+//GenerateRequestStatus stores the status of generated request
+type GenerateRequestStatus struct {
+	State GenerateRequestState
+}
+
+//GenerateRequestState defines the state of
+type GenerateRequestState string
+
+const (
+	//Pending - the Request is yet to be processed or resource has not been created
+	Pending GenerateRequestState = "Pending"
+	//Failed - the Generate Request Controller failed to process the rules
+	Failed GenerateRequestState = "Failed"
+	//Completed - the Generate Request Controller created resources defined in the policy
+	Completed GenerateRequestState = "Completed"
+)
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+//GenerateRequestList stores the list of generate requests
+type GenerateRequestList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []GenerateRequest `json:"items"`
+}
 
 // +genclient
 // +genclient:nonNamespaced
@@ -192,8 +242,7 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	Kind string `json:"kind"`
-	// Is not used in processing, but will is present for backward compatablitiy
+	Kind      string `json:"kind"`
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name"`
 }

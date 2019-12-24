@@ -144,3 +144,11 @@ func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno
 	return policies, nil
 
 }
+
+// GenerateRequestListerExpansion allows custom methods to be added to
+// GenerateRequestLister.
+type GenerateRequestListerExpansion interface{}
+
+// GenerateRequestNamespaceListerExpansion allows custom methods to be added to
+// GenerateRequestNamespaceLister.
+type GenerateRequestNamespaceListerExpansion interface{}
