@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/rbac"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -44,7 +45,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		startTime := time.Now()
-		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+		if !rbac.MatchAdmissionInfo(rule, policyContext.AdmissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
 			continue

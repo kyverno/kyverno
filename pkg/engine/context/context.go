@@ -6,7 +6,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	authenticationv1 "k8s.io/api/authentication/v1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
 //Interface ... normal functions
@@ -15,8 +15,8 @@ type Interface interface {
 	AddJSON(dataRaw []byte) error
 	// merges resource json under request.object
 	AddResource(dataRaw []byte) error
-	// merges userInfo json under request.userInfo
-	AddUserInfo(userInfo authenticationv1.UserInfo) error
+	// merges userInfo json under kyverno.userInfo
+	AddUserInfo(userInfo kyverno.UserInfo) error
 	EvalInterface
 }
 
@@ -104,15 +104,11 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
-func (ctx *Context) AddUserInfo(userInfo authenticationv1.UserInfo) error {
+func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
 	}{
-		Request: struct {
-			UserInfo interface{} `json:"userInfo"`
-		}{
-			UserInfo: userInfo,
-		},
+		Request: userRequestInfo,
 	}
 
 	objRaw, err := json.Marshal(modifiedResource)

@@ -1,10 +1,11 @@
-package engine
+package rbac
 
 import (
 	"flag"
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/request"
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,14 +17,14 @@ func Test_matchAdmissionInfo(t *testing.T) {
 	flag.Set("v", "3")
 	tests := []struct {
 		rule     kyverno.Rule
-		info     RequestInfo
+		info     request.RequestInfo
 		expected bool
 	}{
 		{
 			rule: kyverno.Rule{
 				MatchResources: kyverno.MatchResources{},
 			},
-			info:     RequestInfo{},
+			info:     request.RequestInfo{},
 			expected: true,
 		},
 		{
@@ -34,7 +35,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns-a:role-a"},
 			},
 			expected: true,
@@ -47,7 +48,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns-a:role"},
 			},
 			expected: false,
@@ -60,7 +61,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: RequestInfo{
+			info: request.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					Username: "serviceaccount:mynamespace:mysa",
 				},
@@ -75,7 +76,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: RequestInfo{
+			info: request.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					UID: "1",
 				},
@@ -90,7 +91,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: RequestInfo{
+			info: request.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					Username: "kubernetes-admin",
 					Groups:   []string{"system:masters", "system:authenticated"},
@@ -101,29 +102,29 @@ func Test_matchAdmissionInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Assert(t, test.expected == matchAdmissionInfo(test.rule, test.info))
+		assert.Assert(t, test.expected == MatchAdmissionInfo(test.rule, test.info))
 	}
 }
 
 func Test_validateMatch(t *testing.T) {
 	requestInfo := []struct {
-		info     RequestInfo
+		info     request.RequestInfo
 		expected bool
 	}{
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{},
 			},
 			expected: false,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns-b:role-b"},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns:role"},
 			},
 			expected: false,
@@ -141,35 +142,35 @@ func Test_validateMatch(t *testing.T) {
 	}
 
 	requestInfo = []struct {
-		info     RequestInfo
+		info     request.RequestInfo
 		expected bool
 	}{
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{},
 			},
 			expected: false,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"role-b"},
 			},
 			expected: false,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"clusterrole-b"},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"fake-a", "fake-b"},
 			},
 			expected: false,
@@ -189,23 +190,23 @@ func Test_validateMatch(t *testing.T) {
 
 func Test_validateExclude(t *testing.T) {
 	requestInfo := []struct {
-		info     RequestInfo
+		info     request.RequestInfo
 		expected bool
 	}{
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns-b:role-b"},
 			},
 			expected: false,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				Roles: []string{"ns:role"},
 			},
 			expected: true,
@@ -223,29 +224,29 @@ func Test_validateExclude(t *testing.T) {
 	}
 
 	requestInfo = []struct {
-		info     RequestInfo
+		info     request.RequestInfo
 		expected bool
 	}{
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"role-b"},
 			},
 			expected: true,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"clusterrole-b"},
 			},
 			expected: false,
 		},
 		{
-			info: RequestInfo{
+			info: request.RequestInfo{
 				ClusterRoles: []string{"fake-a", "fake-b"},
 			},
 			expected: true,

@@ -26,7 +26,17 @@ type GenerateRequestSpec struct {
 
 //GenerateRequestContext stores the context to be shared
 type GenerateRequestContext struct {
-	UserInfo authenticationv1.UserInfo `json:"userInfo"`
+	UserRequestInfo RequestInfo `json:"userInfo,omitempty"`
+}
+
+// RequestInfo contains permission info carried in an admission request
+type RequestInfo struct {
+	// Roles is a list of possible role send the request
+	Roles []string `json:"roles"`
+	// ClusterRoles is a list of possible clusterRoles send the request
+	ClusterRoles []string `json:"clusterRoles"`
+	// UserInfo is the userInfo carried in the admission request
+	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo"`
 }
 
 //GenerateRequestStatus stores the status of generated request

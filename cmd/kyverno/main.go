@@ -21,6 +21,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
+	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -151,6 +152,9 @@ func main() {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
 
+	// GENERATE REQUEST GENERATOR
+	grgen := generate.NewGenerator(pclient, stopCh)
+
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
 	nsc := namespace.NewNamespaceController(
@@ -198,6 +202,7 @@ func main() {
 		configData,
 		policyMetaStore,
 		pvgen,
+		grgen,
 		rWebhookWatcher,
 		cleanUp)
 	if err != nil {
@@ -206,7 +211,7 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-
+	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)

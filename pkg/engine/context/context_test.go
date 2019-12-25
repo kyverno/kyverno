@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/engine/request"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -46,6 +47,10 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		Username: "admin",
 		UID:      "014fbff9a07c",
 	}
+	userRequestInfo := request.RequestInfo{
+		Roles:             nil,
+		ClusterRoles:      nil,
+		AdmissionUserInfo: userInfo}
 
 	var expectedResult string
 	ctx := NewContext()
@@ -60,7 +65,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("exected result does not match")
 	}
 
-	ctx.AddUserInfo(userInfo)
+	ctx.AddUserInfo(userRequestInfo)
 	result, err = ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
