@@ -26,8 +26,14 @@ type Generator struct {
 	pLister kyvernolister.ClusterPolicyLister
 	// returns true if the cluster policy store has been synced at least once
 	pSynced  cache.InformerSynced
+  // queue to store event generation requests
 	queue    workqueue.RateLimitingInterface
-	recorder record.EventRecorder
+	// events generated at policy controller
+	policyCtrRecorder record.EventRecorder
+	// events generated at admission control
+	admissionCtrRecorder record.EventRecorder
+	// events generated at namespaced policy controller to process 'generate' rule
+	genPolicyRecorder record.EventRecorder
 }
 
 //Interface to generate event
@@ -39,17 +45,19 @@ type Interface interface {
 func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
 
 	gen := Generator{
-		client:   client,
-		pLister:  pInformer.Lister(),
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
-		pSynced:  pInformer.Informer().HasSynced,
-		recorder: initRecorder(client),
-	}
+		client:               client,
+		pLister:              pInformer.Lister(),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		pSynced:              pInformer.Informer().HasSynced,
+		policyCtrRecorder:    initRecorder(client, PolicyController),
+		admissionCtrRecorder: initRecorder(client, AdmissionController),
+		genPolicyRecorder:    initRecorder(client, GeneratePolicyController),
 
+	}
 	return &gen
 }
 
-func initRecorder(client *client.Client) record.EventRecorder {
+func initRecorder(client *client.Client, eventSource Source) record.EventRecorder {
 	// Initliaze Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -68,7 +76,7 @@ func initRecorder(client *client.Client) record.EventRecorder {
 			Interface: eventInterface})
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{Component: eventSource})
+		v1.EventSource{Component: eventSource.String()})
 	return recorder
 }
 
@@ -113,7 +121,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		glog.Warningf("Error syncing events %v: %v", key, err)
+		glog.Warningf("Error syncing events %v(re-queuing request, the resource might not have been created yet): %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
@@ -159,47 +167,45 @@ func (gen *Generator) syncHandler(key Info) error {
 		//TODO: policy is clustered resource so wont need namespace
 		robj, err = gen.pLister.Get(key.Name)
 		if err != nil {
-			glog.Errorf("Error creating event: unable to get policy %s, will retry ", key.Name)
+			glog.V(4).Infof("Error creating event: unable to get policy %s, will retry ", key.Name)
 			return err
 		}
 	default:
 		robj, err = gen.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			glog.Errorf("Error creating event: unable to get resource %s, %s, will retry ", key.Kind, key.Namespace+"/"+key.Name)
+			glog.V(4).Infof("Error creating event: unable to get resource %s, %s, will retry ", key.Kind, key.Namespace+"/"+key.Name)
 			return err
 		}
 	}
 
+	// set the event type based on reason
+	eventType := v1.EventTypeWarning
 	if key.Reason == PolicyApplied.String() {
-		gen.recorder.Event(robj, v1.EventTypeNormal, key.Reason, key.Message)
-	} else {
-		gen.recorder.Event(robj, v1.EventTypeWarning, key.Reason, key.Message)
+		eventType = v1.EventTypeNormal
+	}
+
+	// based on the source of event generation, use different event recorders
+	switch key.Source {
+	case AdmissionController:
+		gen.admissionCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+	case PolicyController:
+		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+	case GeneratePolicyController:
+		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
+	default:
+		glog.Info("info.source not defined for the event generator request")
 	}
 	return nil
 }
 
-//TODO: check if we need this ?
-//NewEvent returns a new event
-func NewEvent(rkind string, rnamespace string, rname string, reason Reason, message MsgKey, args ...interface{}) *Info {
-	msgText, err := getEventMsg(message, args...)
-	if err != nil {
-		glog.Error(err)
-	}
-	return &Info{
-		Kind:      rkind,
-		Name:      rname,
-		Namespace: rnamespace,
-		Reason:    reason.String(),
-		Message:   msgText,
-	}
-}
-
-func NewEventNew(
+//NewEvent builds a event creation request
+func NewEvent(
 	rkind,
 	rapiVersion,
 	rnamespace,
 	rname,
 	reason string,
+	source Source,
 	message MsgKey,
 	args ...interface{}) Info {
 	msgText, err := getEventMsg(message, args...)
@@ -211,6 +217,7 @@ func NewEventNew(
 		Name:      rname,
 		Namespace: rnamespace,
 		Reason:    reason,
+		Source:    source,
 		Message:   msgText,
 	}
 }
