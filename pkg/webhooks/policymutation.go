@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	podControllers           = "DaemonSet,Deployment,Job,ReplicaSet,StatefulSet"
-	podControllersAnnotation = "policies.kyverno.io/podcontroller.list"
+	podControllers           = "DaemonSet,Deployment,Job,StatefulSet"
+	podControllersAnnotation = "policies.kyverno.io/autogen-controllers"
 )
 
 func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -276,7 +276,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 	return kyvernoRule{}
 }
 
-// defaultPodControllerAnnotation generates annotation "policies.kyverno.io/podcontroller.list=all"
+// defaultPodControllerAnnotation generates annotation "policies.kyverno.io/autogen-controllers=all"
 // ann passes in the annotation of the policy
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
@@ -304,7 +304,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 		Op    string      `json:"op"`
 		Value interface{} `json:"value"`
 	}{
-		"/metadata/annotations/policies.kyverno.io~1podcontroller.list",
+		"/metadata/annotations/policies.kyverno.io~1autogen-controllers",
 		"add",
 		"all",
 	}
