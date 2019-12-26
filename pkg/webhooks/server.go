@@ -241,17 +241,20 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	}
 
 	// GENERATE
+	// Only applied during resource creation
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
-	ok, msg = ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
-	if !ok {
-		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
+	if request.Operation == v1beta1.Create {
+		ok, msg = ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
+		if !ok {
+			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: msg,
+				},
+			}
 		}
 	}
 	// Succesfful processing of mutation & validation rules in policy

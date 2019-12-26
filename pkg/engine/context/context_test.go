@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/nirmata/kyverno/pkg/engine/request"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -47,7 +47,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		Username: "admin",
 		UID:      "014fbff9a07c",
 	}
-	userRequestInfo := request.RequestInfo{
+	userRequestInfo := kyverno.RequestInfo{
 		Roles:             nil,
 		ClusterRoles:      nil,
 		AdmissionUserInfo: userInfo}

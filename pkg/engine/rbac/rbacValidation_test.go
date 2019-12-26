@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/request"
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -17,14 +16,14 @@ func Test_matchAdmissionInfo(t *testing.T) {
 	flag.Set("v", "3")
 	tests := []struct {
 		rule     kyverno.Rule
-		info     request.RequestInfo
+		info     kyverno.RequestInfo
 		expected bool
 	}{
 		{
 			rule: kyverno.Rule{
 				MatchResources: kyverno.MatchResources{},
 			},
-			info:     request.RequestInfo{},
+			info:     kyverno.RequestInfo{},
 			expected: true,
 		},
 		{
@@ -35,7 +34,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns-a:role-a"},
 			},
 			expected: true,
@@ -48,7 +47,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns-a:role"},
 			},
 			expected: false,
@@ -61,7 +60,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					Username: "serviceaccount:mynamespace:mysa",
 				},
@@ -76,7 +75,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					UID: "1",
 				},
@@ -91,7 +90,7 @@ func Test_matchAdmissionInfo(t *testing.T) {
 					},
 				},
 			},
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				AdmissionUserInfo: authenticationv1.UserInfo{
 					Username: "kubernetes-admin",
 					Groups:   []string{"system:masters", "system:authenticated"},
@@ -108,23 +107,23 @@ func Test_matchAdmissionInfo(t *testing.T) {
 
 func Test_validateMatch(t *testing.T) {
 	requestInfo := []struct {
-		info     request.RequestInfo
+		info     kyverno.RequestInfo
 		expected bool
 	}{
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{},
 			},
 			expected: false,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns-b:role-b"},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns:role"},
 			},
 			expected: false,
@@ -142,35 +141,35 @@ func Test_validateMatch(t *testing.T) {
 	}
 
 	requestInfo = []struct {
-		info     request.RequestInfo
+		info     kyverno.RequestInfo
 		expected bool
 	}{
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{},
 			},
 			expected: false,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"role-b"},
 			},
 			expected: false,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"clusterrole-b"},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"fake-a", "fake-b"},
 			},
 			expected: false,
@@ -190,23 +189,23 @@ func Test_validateMatch(t *testing.T) {
 
 func Test_validateExclude(t *testing.T) {
 	requestInfo := []struct {
-		info     request.RequestInfo
+		info     kyverno.RequestInfo
 		expected bool
 	}{
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns-b:role-b"},
 			},
 			expected: false,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				Roles: []string{"ns:role"},
 			},
 			expected: true,
@@ -224,29 +223,29 @@ func Test_validateExclude(t *testing.T) {
 	}
 
 	requestInfo = []struct {
-		info     request.RequestInfo
+		info     kyverno.RequestInfo
 		expected bool
 	}{
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"role-b"},
 			},
 			expected: true,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"clusterrole-b"},
 			},
 			expected: false,
 		},
 		{
-			info: request.RequestInfo{
+			info: kyverno.RequestInfo{
 				ClusterRoles: []string{"fake-a", "fake-b"},
 			},
 			expected: true,

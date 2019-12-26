@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/request"
 	utils "github.com/nirmata/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -18,7 +17,7 @@ const (
 func MatchAdmissionInfo(rule kyverno.Rule, requestInfo kyverno.RequestInfo) bool {
 	// when processing existing resource, it does not contain requestInfo
 	// skip permission checking
-	if reflect.DeepEqual(requestInfo, request.RequestInfo{}) {
+	if reflect.DeepEqual(requestInfo, kyverno.RequestInfo{}) {
 		return true
 	}
 

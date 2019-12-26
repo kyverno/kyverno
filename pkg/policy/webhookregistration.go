@@ -31,7 +31,7 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 
 func hasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
 	for _, policy := range policies {
-		if (*policy).HasMutateOrValidate() {
+		if (*policy).HasMutateOrValidateOrGenerate() {
 			return true
 		}
 	}

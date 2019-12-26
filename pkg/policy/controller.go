@@ -157,12 +157,12 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
+	// register with policy meta-store
+	pc.pMetaStore.Register(*p)
 	if !p.Spec.Background {
 		return
 	}
 	glog.V(4).Infof("Adding Policy %s", p.Name)
-	// register with policy meta-store
-	pc.pMetaStore.Register(*p)
 	pc.enqueuePolicy(p)
 }
 
@@ -171,14 +171,14 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.ClusterPolicy)
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
-	if !curP.Spec.Background {
-		return
-	}
-	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
 	pc.pMetaStore.UnRegister(*oldP)
 	pc.pMetaStore.Register(*curP)
+	if !curP.Spec.Background {
+		return
+	}
+	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
 
@@ -304,7 +304,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
+	if policy.HasMutateOrValidateOrGenerate() {
 		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	}
 

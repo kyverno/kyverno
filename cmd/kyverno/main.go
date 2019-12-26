@@ -12,7 +12,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -157,16 +156,16 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(
-		pclient,
-		client,
-		kubeInformer.Core().V1().Namespaces(),
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pc.GetPolicyStatusAggregator(),
-		egen,
-		configData,
-		pvgen,
-		policyMetaStore)
+	// nsc := namespace.NewNamespaceController(
+	// 	pclient,
+	// 	client,
+	// 	kubeInformer.Core().V1().Namespaces(),
+	// 	pInformer.Kyverno().V1().ClusterPolicies(),
+	// 	pc.GetPolicyStatusAggregator(),
+	// 	egen,
+	// 	configData,
+	// 	pvgen,
+	// 	policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig)
@@ -217,7 +216,7 @@ func main() {
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
-	go nsc.Run(1, stopCh)
+	// go nsc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

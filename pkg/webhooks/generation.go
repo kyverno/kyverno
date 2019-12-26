@@ -11,17 +11,19 @@ import (
 )
 
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
-	glog.V(4).Infof("Handle Generate: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 	var engineResponses []response.EngineResponse
 
 	// convert RAW to unstructured
 	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
-		//TODO: skip applying the amiddions control ?
+		//TODO: skip applying the admission control ?
 		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
 		return true, ""
 	}
+
+	// CREATE resources, do not have name, assigned in admission-request
+	glog.V(4).Infof("Handle Generate: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
 	userRequestInfo := kyverno.RequestInfo{
 		Roles:             roles,
@@ -40,8 +42,10 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
+		glog.V(4).Infof("policy name %s", policy.Name)
 		policyContext.Policy = policy
 		engineResponse := engine.GenerateNew(policyContext)
+		glog.V(4).Infof("%v", engineResponse)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
@@ -50,7 +54,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// Adds Generate Request to a channel(queue size 1000) to generators
 	if err := createGenerateRequest(ws.grGenerator, userRequestInfo, engineResponses...); err != nil {
 		//TODO: send appropriate error
-		return false, ""
+		return false, "Kyverno blocked: failed to create Generate Requests"
 	}
 	// Generate Stats wont be used here, as we delegate the generate rule
 	// - Filter policies that apply on this resource
