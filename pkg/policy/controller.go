@@ -157,28 +157,29 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
+	// register with policy meta-store
+	pc.pMetaStore.Register(*p)
 	if !p.Spec.Background {
 		return
 	}
 	glog.V(4).Infof("Adding Policy %s", p.Name)
-	// register with policy meta-store
-	pc.pMetaStore.Register(*p)
 	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
+	// TODO: optimize this : policy meta-store
+	// Update policy-> (remove,add)
+	pc.pMetaStore.UnRegister(*oldP)
+	pc.pMetaStore.Register(*curP)
+
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
 	if !curP.Spec.Background {
 		return
 	}
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
-	// TODO: optimize this : policy meta-store
-	// Update policy-> (remove,add)
-	pc.pMetaStore.UnRegister(*oldP)
-	pc.pMetaStore.Register(*curP)
 	pc.enqueuePolicy(curP)
 }
 
