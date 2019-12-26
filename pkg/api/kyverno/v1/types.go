@@ -41,7 +41,8 @@ type RequestInfo struct {
 
 //GenerateRequestStatus stores the status of generated request
 type GenerateRequestStatus struct {
-	State GenerateRequestState
+	State   GenerateRequestState `json:"state"`
+	Message string               `json:"message,omitempty"`
 }
 
 //GenerateRequestState defines the state of
