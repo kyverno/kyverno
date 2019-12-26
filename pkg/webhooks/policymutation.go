@@ -10,14 +10,10 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	podControllers           = "DaemonSet,Deployment,Job,StatefulSet"
-	podControllersAnnotation = "policies.kyverno.io/autogen-controllers"
 )
 
 func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -114,7 +110,7 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, stri
 // generatePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
 func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, errs []error) {
 	ann := policy.GetAnnotations()
-	controllers, ok := ann[podControllersAnnotation]
+	controllers, ok := ann[engine.PodControllersAnnotation]
 
 	// scenario A
 	if !ok {
@@ -215,7 +211,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 			glog.Warningf("Rule '%s' skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", rule.Name)
 			return kyvernoRule{}
 		}
-		controllers = podControllers
+		controllers = engine.PodControllers
 	}
 
 	controllerRule := &kyvernoRule{
@@ -276,12 +272,12 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 	return kyvernoRule{}
 }
 
-// defaultPodControllerAnnotation generates annotation "policies.kyverno.io/autogen-controllers=all"
+// defaultPodControllerAnnotation generates annotation "pod-policies.kyverno.io/autogen-controllers=all"
 // ann passes in the annotation of the policy
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[podControllersAnnotation] = "all"
+		ann[engine.PodControllersAnnotation] = "all"
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`
@@ -304,7 +300,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 		Op    string      `json:"op"`
 		Value interface{} `json:"value"`
 	}{
-		"/metadata/annotations/policies.kyverno.io~1autogen-controllers",
+		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
 		"all",
 	}
