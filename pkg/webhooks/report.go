@@ -32,12 +32,13 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 				var e event.Info
 				// UPDATE
 				// event on resource
-				e = event.NewEventNew(
+				e = event.NewEvent(
 					er.PolicyResponse.Resource.Kind,
 					er.PolicyResponse.Resource.APIVersion,
 					er.PolicyResponse.Resource.Namespace,
 					er.PolicyResponse.Resource.Name,
 					reason.String(),
+					event.AdmissionController,
 					event.FPolicyApplyBlockUpdate,
 					filedRulesStr,
 					er.PolicyResponse.Policy,
@@ -46,14 +47,15 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 				events = append(events, e)
 
 				// event on policy
-				e = event.NewEventNew(
+				e = event.NewEvent(
 					"ClusterPolicy",
 					kyverno.SchemeGroupVersion.String(),
 					"",
 					er.PolicyResponse.Policy,
 					reason.String(),
+					event.AdmissionController,
 					event.FPolicyBlockResourceUpdate,
-					er.PolicyResponse.Resource.Namespace+"/"+er.PolicyResponse.Resource.Name,
+					er.PolicyResponse.Resource.GetKey(),
 					filedRulesStr,
 				)
 				glog.V(4).Infof("UPDATE event on policy %s", er.PolicyResponse.Policy)
@@ -62,14 +64,15 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 			} else {
 				// CREATE
 				// event on policy
-				e := event.NewEventNew(
+				e := event.NewEvent(
 					"ClusterPolicy",
 					kyverno.SchemeGroupVersion.String(),
 					"",
 					er.PolicyResponse.Policy,
-					event.RequestBlocked.String(),
+					reason.String(),
+					event.AdmissionController,
 					event.FPolicyApplyBlockCreate,
-					er.PolicyResponse.Resource.Namespace+"/"+er.PolicyResponse.Resource.Name,
+					er.PolicyResponse.Resource.GetKey(),
 					filedRulesStr,
 				)
 				glog.V(4).Infof("CREATE event on policy %s", er.PolicyResponse.Policy)
@@ -85,12 +88,13 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 			successRules := er.GetSuccessRules()
 			successRulesStr := strings.Join(successRules, ";")
 			// event on resource
-			e := event.NewEventNew(
+			e := event.NewEvent(
 				er.PolicyResponse.Resource.Kind,
 				er.PolicyResponse.Resource.APIVersion,
 				er.PolicyResponse.Resource.Namespace,
 				er.PolicyResponse.Resource.Name,
 				event.PolicyApplied.String(),
+				event.AdmissionController,
 				event.SRulesApply,
 				successRulesStr,
 				er.PolicyResponse.Policy,
