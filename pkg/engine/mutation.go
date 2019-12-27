@@ -94,6 +94,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		// insert annotation to podtemplate if resource is pod controller
 		if strings.Contains(PodControllers, resource.GetKind()) {
+			ann := resource.GetAnnotations()
+			if _, ok := ann[PodControllersAnnotation]; !ok {
+				continue
+			}
+
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
