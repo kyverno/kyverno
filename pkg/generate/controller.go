@@ -30,7 +30,7 @@ type Controller struct {
 	eventGen event.Interface
 	// handler for GR CR
 	syncHandler func(grKey string) error
-	// handler to enqueu GR
+	// handler to enqueue GR
 	enqueueGR func(gr *kyverno.GenerateRequest)
 
 	// grStatusControl is used to update GR status
@@ -39,7 +39,7 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 	// pLister can list/get cluster policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
-	// grLister can list/get generat request from the shated informer's store
+	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 	// pSynced returns true if the Cluster policy store has been synced at least once
 	pSynced cache.InformerSynced
