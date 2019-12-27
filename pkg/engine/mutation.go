@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
@@ -93,6 +94,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		// insert annotation to podtemplate if resource is pod controller
+		// skip inserting on existing resource
+		if reflect.DeepEqual(policyContext.AdmissionInfo, RequestInfo{}) {
+			continue
+		}
+
 		if strings.Contains(PodControllers, resource.GetKind()) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
@@ -101,7 +107,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				continue
 			}
 
-			if ruleResponse.Patches != nil {
+			if ruleResponse.Success && ruleResponse.Patches != nil {
 				glog.V(2).Infof("Inserted annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			}

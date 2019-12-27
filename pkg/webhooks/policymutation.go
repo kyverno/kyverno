@@ -31,7 +31,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 		}
 	}
 	// Generate JSON Patches for defaults
-	patches, updateMsgs := generateJSONPatchesForDefaults(policy)
+	patches, updateMsgs := generateJSONPatchesForDefaults(policy, request.Operation)
 	if patches != nil {
 		patchType := v1beta1.PatchTypeJSONPatch
 		glog.V(4).Infof("defaulted values %v policy %s", updateMsgs, policy.Name)
@@ -50,7 +50,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 	}
 }
 
-func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []string) {
+func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1beta1.Operation) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
@@ -60,17 +60,20 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []st
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	patch, errs := generatePodControllerRule(*policy)
-	if len(errs) > 0 {
-		var errMsgs []string
-		for _, err := range errs {
-			errMsgs = append(errMsgs, err.Error())
+	// TODO(shuting): enable this feature on policy UPDATE
+	if operation == v1beta1.Create {
+		patch, errs := generatePodControllerRule(*policy)
+		if len(errs) > 0 {
+			var errMsgs []string
+			for _, err := range errs {
+				errMsgs = append(errMsgs, err.Error())
+			}
+			glog.Errorf("failed auto generatig rule for pod controllers: %s", errMsgs)
+			updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 		}
-		glog.Errorf("failed auto generatig rule for pod controllers: %s", errMsgs)
-		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
-	}
 
-	patches = append(patches, patch...)
+		patches = append(patches, patch...)
+	}
 	return utils.JoinPatches(patches), updateMsgs
 }
 
