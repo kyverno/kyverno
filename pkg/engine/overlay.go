@@ -16,9 +16,9 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 // processOverlay processes validation patterns on the resource
@@ -370,9 +370,10 @@ func preparePath(path string) string {
 	}
 
 	annPath := "/metadata/annotations/"
+	idx := strings.Index(path, annPath)
 	// escape slash in annotation patch
 	if strings.Contains(path, annPath) {
-		p := path[len(annPath):]
+		p := path[idx+len(annPath):]
 		path = annPath + strings.ReplaceAll(p, "/", "~1")
 	}
 	return path

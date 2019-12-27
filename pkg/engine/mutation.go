@@ -97,11 +97,13 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
-				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				continue
 			}
 
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			if ruleResponse.Patches != nil {
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			}
 		}
 	}
 	// send the patched resource
@@ -112,8 +114,18 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 // podTemplateRule mutate pod template with annotation
 // pod-policies.kyverno.io/autogen-applied=true
 var podTemplateRule = kyverno.Rule{
-	Name: "autogen-add-podtemplate-annotation",
+	Name: "autogen-annotate-podtemplate",
 	Mutation: kyverno.Mutation{
-		Overlay: `{"spec":{"template":{"metadata":{"annotations":{"+(pod-policies.kyverno.io/autogen-applied)":"true"}}}}}"`,
+		Overlay: map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"pod-policies.kyverno.io/autogen-applied": "true",
+						},
+					},
+				},
+			},
+		},
 	},
 }

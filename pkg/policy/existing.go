@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,12 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 			continue
 		}
+
+		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
+		if skipPodApplication(resource) {
+			continue
+		}
+
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 		engineResponse := applyPolicy(policy, resource, pc.statusAggregator)
@@ -355,4 +362,18 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 
 func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
+}
+
+func skipPodApplication(resource unstructured.Unstructured) bool {
+	if resource.GetKind() != "Pod" {
+		return false
+	}
+
+	annotation := resource.GetAnnotations()
+	if _, ok := annotation[engine.PodTemplateAnnotation]; ok {
+		glog.V(4).Infof("Policies already processed on pod controllers, skip processing policy on Pod/%s/%s", resource.GetNamespace(), resource.GetName())
+		return true
+	}
+
+	return false
 }
