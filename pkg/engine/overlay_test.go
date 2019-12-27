@@ -1038,5 +1038,36 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 		}
 	 }`)
 
+	t.Log(string(doc))
 	compareJSONAsMap(t, expectedResult, doc)
+}
+
+func Test_wrapBoolean(t *testing.T) {
+	tests := []struct {
+		test     string
+		expected string
+	}{
+		{
+			test:     `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict":true} }`,
+			expected: `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict":"true"} }`,
+		},
+		{
+			test:     `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict": true} }`,
+			expected: `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict":"true"} }`,
+		},
+		{
+			test:     `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict": false } }`,
+			expected: `{ "op": "add", "path": "/metadata/annotations", "value":{"cluster-autoscaler.kubernetes.io/safe-to-evict":"false"} }`,
+		},
+		{
+			test:     `{ "op": "add", "path": "/metadata/annotations/cluster-autoscaler.kubernetes.io~1safe-to-evict", "value": false }`,
+			expected: `{ "op": "add", "path": "/metadata/annotations/cluster-autoscaler.kubernetes.io~1safe-to-evict", "value":"false"}`,
+		},
+	}
+
+	for _, testcase := range tests {
+		out := wrapBoolean(testcase.test)
+		t.Log(out)
+		assert.Assert(t, testcase.expected == out)
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -352,12 +353,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	// explicitly handle boolean type in annotation
 	// keep the type boolean as it is in any other fields
 	if strings.Contains(path, "/metadata/annotations") {
-		if i := strings.Index(patchStr, ":true"); i > 0 {
-			patchStr = fmt.Sprintf("%s:\"true\"%s", patchStr[:i], patchStr[i+len("true")+1:])
-		}
-		if i := strings.Index(patchStr, ":false"); i > 0 {
-			patchStr = fmt.Sprintf("%s:\"false\"%s", patchStr[:i], patchStr[i+len("false")+1:])
-		}
+		patchStr = wrapBoolean(patchStr)
 	}
 
 	// check the patch
@@ -475,4 +471,17 @@ func hasNestedAnchors(overlay interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func wrapBoolean(patchStr string) string {
+	reTrue := regexp.MustCompile(`:\s*true\s*`)
+	if idx := reTrue.FindStringIndex(patchStr); len(idx) != 0 {
+		return fmt.Sprintf("%s:\"true\"%s", patchStr[:idx[0]], patchStr[idx[1]:])
+	}
+
+	reFalse := regexp.MustCompile(`:\s*false\s*`)
+	if idx := reFalse.FindStringIndex(patchStr); len(idx) != 0 {
+		return fmt.Sprintf("%s:\"false\"%s", patchStr[:idx[0]], patchStr[idx[1]:])
+	}
+	return patchStr
 }
