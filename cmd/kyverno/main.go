@@ -12,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/generate"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -20,7 +21,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	"github.com/nirmata/kyverno/pkg/webhooks/generate"
+	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -152,8 +153,17 @@ func main() {
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := generate.NewGenerator(pclient, stopCh)
+	grgen := webhookgenerate.NewGenerator(pclient, stopCh)
 
+	// GENERATE CONTROLLER
+	// - applies generate rules on resources based on generate requests created by webhook
+	grc := generate.NewController(
+		pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().GenerateRequests(),
+		egen,
+	)
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
 	// nsc := namespace.NewNamespaceController(
@@ -217,6 +227,7 @@ func main() {
 	go pc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
 	// go nsc.Run(1, stopCh)
+	go grc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

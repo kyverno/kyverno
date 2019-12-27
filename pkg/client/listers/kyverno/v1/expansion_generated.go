@@ -147,8 +147,25 @@ func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno
 
 // GenerateRequestListerExpansion allows custom methods to be added to
 // GenerateRequestLister.
-type GenerateRequestListerExpansion interface{}
+type GenerateRequestListerExpansion interface {
+}
 
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
-type GenerateRequestNamespaceListerExpansion interface{}
+type GenerateRequestNamespaceListerExpansion interface {
+	GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error)
+}
+
+func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error) {
+	var list []*kyvernov1.GenerateRequest
+	grs, err := s.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+	for idx, gr := range grs {
+		if gr.Spec.Policy == policy {
+			list = append(list, grs[idx])
+		}
+	}
+	return list, err
+}
