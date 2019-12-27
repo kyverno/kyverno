@@ -94,11 +94,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		// insert annotation to podtemplate if resource is pod controller
 		if strings.Contains(PodControllers, resource.GetKind()) {
-			ann := resource.GetAnnotations()
-			if _, ok := ann[PodControllersAnnotation]; !ok {
-				continue
-			}
-
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
@@ -107,6 +102,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			}
 
 			if ruleResponse.Patches != nil {
+				glog.V(2).Infof("Inserted annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			}
 		}

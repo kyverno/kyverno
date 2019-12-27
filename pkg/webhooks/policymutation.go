@@ -241,6 +241,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 
 	if rule.Validation.Pattern != nil {
 		newValidate := &kyverno.Validation{
+			Message: rule.Validation.Message,
 			Pattern: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": rule.Validation.Pattern,
@@ -264,6 +265,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 		}
 
 		controllerRule.Validation = &kyverno.Validation{
+			Message:    rule.Validation.Message,
 			AnyPattern: patterns,
 		}
 		return *controllerRule
