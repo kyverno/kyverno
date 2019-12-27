@@ -36,7 +36,7 @@ type Client struct {
 }
 
 //NewClient creates new instance of client
-func NewClient(config *rest.Config) (*Client, error) {
+func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}) (*Client, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -52,6 +52,13 @@ func NewClient(config *rest.Config) (*Client, error) {
 	}
 	// Set discovery client
 	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
+	// client will invalidate registered resources cache every x seconds,
+	// As there is no way to identify if the registered resource is available or not
+	// we will be invalidating the local cache, so the next request get a fresh cache
+	// If a resource is removed then and cache is not invalidate yet, we will not detect the removal
+	// but the re-sync shall re-evaluate
+	go discoveryClient.Poll(resync, stopCh)
+
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
 }
@@ -264,6 +271,25 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+}
+
+//Poll will keep invalidate the local cache
+func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struct{}) {
+	// start a ticker
+	ticker := time.NewTicker(resync)
+	defer func() { ticker.Stop() }()
+	glog.Infof("Starting registered resources sync: every %d seconds", resync)
+	for {
+		select {
+		case <-stopCh:
+			glog.Info("Stopping registered resources sync")
+			return
+		case <-ticker.C:
+			// set cache as stale
+			glog.V(6).Info("invalidating local client cache for registered resources")
+			c.cachedClient.Invalidate()
+		}
+	}
 }
 
 //GetGVRFromKind get the Group Version Resource from kind

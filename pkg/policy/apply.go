@@ -1,8 +1,10 @@
 package policy
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -108,7 +110,6 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		if len(rule.Patches) == 0 {
 			continue
 		}
-
 		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(rule.Patches))
 		if err != nil {
 			glog.V(4).Infof("unable to decode patch %s: %v", rule.Patches, err)
@@ -121,12 +122,32 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 			glog.V(4).Infof("unable to apply patch %s: %v", rule.Patches, err)
 			return engine.EngineResponse{}, err
 		}
-
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			glog.V(4).Infof("policy %s rule %s condition not satisifed by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)
 			engineResponse.PolicyResponse.Rules[index].Success = false
-			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("rule not satisfied by existing resource.")
+			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("mutation json patches not found at resource path %s", extractPatchPath(rule.Patches))
 		}
 	}
 	return engineResponse, nil
+}
+
+type jsonPatch struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value"`
+}
+
+func extractPatchPath(patches [][]byte) string {
+	var resultPath []string
+	// extract the patch path and value
+	for _, patch := range patches {
+		glog.V(4).Infof("expected json patch not found in resource: %s", string(patch))
+		var data jsonPatch
+		if err := json.Unmarshal(patch, &data); err != nil {
+			glog.V(4).Infof("Failed to decode the generated patch %v: Error %v", string(patch), err)
+			continue
+		}
+		resultPath = append(resultPath, data.Path)
+	}
+	return strings.Join(resultPath, ";")
 }

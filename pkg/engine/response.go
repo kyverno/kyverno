@@ -38,6 +38,11 @@ type ResourceSpec struct {
 	Name       string `json:"name"`
 }
 
+//GetKey returns the key
+func (rs ResourceSpec) GetKey() string {
+	return rs.Kind + "/" + rs.Namespace + "/" + rs.Name
+}
+
 //PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
 	// time required to process the policy rules on a resource
