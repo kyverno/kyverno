@@ -13,6 +13,7 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/generate"
+	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -164,6 +165,13 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		egen,
 	)
+	// GENERATE REQUEST CLEANUP
+	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
+	grcc := generatecleanup.NewController(
+		pclient,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().GenerateRequests(),
+	)
 	// GENERATE CONTROLLER
 	// - watches for Namespace resource and generates resource based on the policy generate rule
 	// nsc := namespace.NewNamespaceController(
@@ -228,6 +236,7 @@ func main() {
 	go egen.Run(1, stopCh)
 	// go nsc.Run(1, stopCh)
 	go grc.Run(1, stopCh)
+	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
