@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -343,13 +344,19 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 
 	path = preparePath(path)
 	value := prepareJSONValue(overlay)
-	patchStr := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value": %s }`, op, path, value)
+	patchStr := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value":%s }`, op, path, value)
+
+	// explicitly handle boolean type in annotation
+	// keep the type boolean as it is in any other fields
+	if strings.Contains(path, "/metadata/annotations") {
+		patchStr = wrapBoolean(patchStr)
+	}
 
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
 		glog.V(3).Info(err)
-		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s", op, value, path)
+		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s, err: %v", op, value, path, err)
 	}
 
 	return []byte(patchStr), nil
@@ -372,13 +379,14 @@ func preparePath(path string) string {
 // converts overlay to JSON string to be inserted into the JSON Patch
 func prepareJSONValue(overlay interface{}) string {
 	var err error
+	// Need to remove anchors from the overlay struct
+	overlayWithoutAnchors := removeAnchorFromSubTree(overlay)
+	jsonOverlay, err := json.Marshal(overlayWithoutAnchors)
 	if err != nil || hasOnlyAnchors(overlay) {
 		glog.V(3).Info(err)
 		return ""
 	}
-	// Need to remove anchors from the overlay struct
-	overlayWithoutAnchors := removeAnchorFromSubTree(overlay)
-	jsonOverlay, err := json.Marshal(overlayWithoutAnchors)
+
 	return string(jsonOverlay)
 }
 
@@ -459,4 +467,17 @@ func hasNestedAnchors(overlay interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func wrapBoolean(patchStr string) string {
+	reTrue := regexp.MustCompile(`:\s*true\s*`)
+	if idx := reTrue.FindStringIndex(patchStr); len(idx) != 0 {
+		return fmt.Sprintf("%s:\"true\"%s", patchStr[:idx[0]], patchStr[idx[1]:])
+	}
+
+	reFalse := regexp.MustCompile(`:\s*false\s*`)
+	if idx := reFalse.FindStringIndex(patchStr); len(idx) != 0 {
+		return fmt.Sprintf("%s:\"false\"%s", patchStr[:idx[0]], patchStr[idx[1]:])
+	}
+	return patchStr
 }

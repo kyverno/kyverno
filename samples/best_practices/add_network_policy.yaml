@@ -12,7 +12,7 @@ metadata:
       desired traffic to application pods from select sources.
 spec:
   rules:
-  - name: "default-deny-ingress"
+  - name: default-deny-ingress
     match:
       resources: 
         kinds:

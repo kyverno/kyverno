@@ -14,7 +14,7 @@ metadata:
   name: disallow-latest-tag
 spec:
   rules:
-  - name: require-tag
+  - name: require-image-tag
     match:
       resources:
         kinds:
@@ -25,7 +25,7 @@ spec:
         spec:
           containers:
           - image: "*:*"
-  - name: validate-tag
+  - name: validate-image-tag
     match:
       resources:
         kinds:

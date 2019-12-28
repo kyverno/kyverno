@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: pod-with-hostpath
   annotations:
-    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    cluster-autoscaler.kubernetes.io/safe-to-evict: true
 spec:
   containers:
   - image: k8s.gcr.io/test-webserver

@@ -13,17 +13,17 @@ This policy matches and mutates pods with `emptyDir` and `hostPath` volumes, to 
 [add_safe_to_evict_annotation.yaml](best_practices/add_safe_to_evict.yaml)
 
 ````yaml
-apiVersion: "kyverno.io/v1"
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata: 
-  name: "add-safe-to-evict"
+  name: add-safe-to-evict
 spec: 
   rules: 
   - name: "annotate-empty-dir"
     match: 
       resources: 
         kinds: 
-        - "Pod"
+        - Pod
     mutate: 
       overlay:
         metadata:
@@ -32,11 +32,11 @@ spec:
         spec:          
           volumes: 
           - (emptyDir): {}
-  - name: "annotate-host-path"
+  - name: annotate-host-path
     match: 
       resources: 
         kinds: 
-        - "Pod"
+        - Pod
     mutate: 
       overlay:
         metadata:
@@ -48,4 +48,3 @@ spec:
               path: "*"
 
 ````
-

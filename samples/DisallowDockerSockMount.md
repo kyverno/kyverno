@@ -25,6 +25,6 @@ spec:
       pattern:
         spec:
           =(volumes):
-            =(hostPath):
-              path: "!/var/run/docker.sock"
+            - =(hostPath):
+                path: "!/var/run/docker.sock"
 ````

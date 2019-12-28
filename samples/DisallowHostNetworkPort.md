@@ -15,18 +15,28 @@ metadata:
   name: disallow-host-network-port
 spec:
   rules:
-  - name: validate-host-network-port
+  - name: validate-host-network
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "Using host networking is not allowed"
+      message: "Use of hostNetwork is not allowed"
       pattern:
         spec:
-          (hostNetwork): false
+          =(hostNetwork): false
+  - name: validate-host-port
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Use of hostPort is not allowed"
+      pattern:
+        spec:
           containers:
           - name: "*"
-            ports:
-            - hostPort: null
+            =(ports):
+              - X(hostPort): null
+
 ````
