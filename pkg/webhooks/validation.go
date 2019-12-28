@@ -15,7 +15,7 @@ import (
 // handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 

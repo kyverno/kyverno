@@ -118,6 +118,7 @@ func NewWebhookServer(
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
 	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
@@ -159,7 +160,11 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		admissionReview.Response = ws.handleVerifyRequest(request)
 	case config.MutatingWebhookServicePath:
 		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handleAdmissionRequest(request)
+			admissionReview.Response = ws.handleMutateAdmissionRequest(request)
+		}
+	case config.ValidatingWebhookServicePath:
+		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+			admissionReview.Response = ws.handleValidateAdmissionRequest(request)
 		}
 	case config.PolicyValidatingWebhookServicePath:
 		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
@@ -184,7 +189,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -219,19 +224,18 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 		}
 	}
 
-	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
-
-	// VALIDATION
-	ok, msg = ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
-	if !ok {
-		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
+	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+		// VALIDATION
+		ok, msg = ws.HandleValidation(request, policies, roles, clusterRoles)
+		if !ok {
+			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: msg,
+				},
+			}
 		}
 	}
 
@@ -244,6 +248,49 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 		},
 		Patch:     patches,
 		PatchType: &patchType,
+	}
+}
+
+func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
+	if err != nil {
+		// Unable to connect to policy Lister to access policies
+		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
+		return &v1beta1.AdmissionResponse{Allowed: true}
+	}
+
+	var roles, clusterRoles []string
+
+	// getRoleRef only if policy has roles/clusterroles defined
+	startTime := time.Now()
+	if containRBACinfo(policies) {
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		if err != nil {
+			// TODO(shuting): continue apply policy if error getting roleRef?
+			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
+		}
+	}
+	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
+
+	// VALIDATION
+	ok, msg := ws.HandleValidation(request, policies, roles, clusterRoles)
+	if !ok {
+		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+		Result: &metav1.Status{
+			Status: "Success",
+		},
 	}
 }
 
