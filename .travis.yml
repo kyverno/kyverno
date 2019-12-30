@@ -20,9 +20,9 @@ install: true
 
 script: 
 # build initContainer
-  - make docker-build-initContainer || travis_terminate 1;
+  - make initContainer || travis_terminate 1;
 # build kyverno container
-  - make docker-build-kyverno || travis_terminate 1;
+  - make kyverno || travis_terminate 1;
 # tests
   - make test-all || travis_terminate 1;
 
