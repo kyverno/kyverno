@@ -31,9 +31,6 @@ func main() {
 	defer glog.Flush()
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
-	// arguments
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-
 	// create client config
 	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
@@ -80,6 +77,15 @@ func main() {
 		glog.Errorf("failed to cleanup webhook configurations")
 		os.Exit(1)
 	}
+}
+
+func init() {
+	// arguments
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.Set("logtostderr", "true")
+	flag.Set("stderrthreshold", "WARNING")
+	flag.Set("v", "2")
+	flag.Parse()
 }
 
 func removeWebhookIfExists(client *client.Client, kind string, name string) error {
