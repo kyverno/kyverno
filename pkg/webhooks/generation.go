@@ -42,10 +42,8 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
-		glog.V(4).Infof("policy name %s", policy.Name)
 		policyContext.Policy = policy
 		engineResponse := engine.GenerateNew(policyContext)
-		glog.V(4).Infof("%v", engineResponse)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
