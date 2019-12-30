@@ -190,13 +190,12 @@ type Validation struct {
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
-	Kind  string      `json:"kind"`
-	Name  string      `json:"name"`
-	Data  interface{} `json:"data"`
-	Clone CloneFrom   `json:"clone"`
+	Resource ResourceSpec `json:"resource"`
+	Data     interface{}  `json:"data"`
+	Clone    CloneFrom    `json:"clone"`
 }
 
-// CloneFrom - location of a Secret or a ConfigMap
+// CloneFrom - location of the resource
 // which will be used as source when applying 'generate'
 type CloneFrom struct {
 	Namespace string `json:"namespace"`

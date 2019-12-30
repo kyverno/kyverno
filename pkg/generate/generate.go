@@ -5,9 +5,14 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/validate"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
@@ -44,6 +49,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
+		Policy:        *policy,
 		Context:       ctx,
 		AdmissionInfo: gr.Spec.Context.UserRequestInfo,
 	}
@@ -55,8 +61,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// Apply the generate rule on resource
-
-	return nil
+	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error) error {
@@ -68,8 +73,159 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr)
 }
 
-func applyGeneratePolicy(policy kyverno.ClusterPolicy) {
+func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext, state kyverno.GenerateRequestState) error {
 	// Get the response as the actions to be performed on the resource
 	// - DATA (rule.Generation.Data)
 	// - - substitute values
+	policy := policyContext.Policy
+	resource := policyContext.NewResource
+	ctx := policyContext.Context
+
+	// To manage existing resources, we compare the creation time for the default resiruce to be generated and policy creation time
+	processExisting := func() bool {
+		rcreationTime := resource.GetCreationTimestamp()
+		pcreationTime := policy.GetCreationTimestamp()
+		return rcreationTime.Before(&pcreationTime)
+	}()
+
+	for _, rule := range policy.Spec.Rules {
+		if !rule.HasGenerate() {
+			continue
+		}
+		if err := applyRule(client, rule, resource, ctx, state, processExisting); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState, processExisting bool) error {
+	var rdata map[string]interface{}
+	var err error
+	// DATA
+	if rule.Generation.Data != nil {
+		if rdata, err = handleData(rule.Generation, client, resource, ctx, state); err != nil {
+			switch e := err.(type) {
+			case *ParseFailed, *NotFound, *ConfigNotFound:
+				// handled errors
+			case *Violation:
+				// create policy violation
+				return e
+			default:
+				// errors that cant be handled
+				return e
+			}
+		}
+		if rdata == nil {
+			// existing resource contains the configuration
+			return nil
+		}
+	}
+	// CLONE
+	if rule.Generation.Clone != (kyverno.CloneFrom{}) {
+		if rdata, err = handleClone(rule.Generation, client, resource, ctx, state); err != nil {
+			switch e := err.(type) {
+			case *NotFound:
+				// handled errors
+				return e
+			default:
+				// errors that cant be handled
+				return e
+			}
+		}
+		if rdata == nil {
+			// resource already exists
+		}
+	}
+	if processExisting {
+		// handle existing resources
+		// policy was generated after the resource
+		// we do not create new resource
+		return err
+	}
+	// Create the generate resource
+	newResource := &unstructured.Unstructured{}
+	newResource.SetUnstructuredContent(rdata)
+	newResource.SetName(rule.Generation.Resource.Name)
+	newResource.SetNamespace(rule.Generation.Resource.Namespace)
+	// Reset resource version
+	newResource.SetResourceVersion("")
+	_, err = client.CreateResource(rule.Generation.Resource.Kind, rule.Generation.Resource.Namespace, rule.Generation.Resource.Name, false)
+	if err != nil {
+		return err
+	}
+	// New Resource created succesfully
+	return nil
+}
+
+func handleData(generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+	newData := variables.SubstituteVariables(ctx, generateRule.Data)
+
+	// check if resource exists
+	obj, err := client.GetResource(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+	if errors.IsNotFound(err) {
+		// Resource does not exist
+		if state == kyverno.Pending {
+			// Processing the request first time
+			rdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&newData)
+			if err != nil {
+				return nil, NewParseFailed(newData, err)
+			}
+			return rdata, nil
+		}
+		// State : Failed,Completed
+		// request has been processed before, so dont create the resource
+		// report Violation to notify the error
+		return nil, NewViolation(NewNotFound(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name))
+	}
+	if err != nil {
+		//something wrong while fetching resource
+		return nil, err
+	}
+	// Resource exists; verfiy the content of the resource
+	ok, err := checkResource(ctx, newData, obj)
+	if err != nil {
+		//something wrong with configuration
+		return nil, err
+	}
+	if !ok {
+		return nil, NewConfigNotFound(newData, generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+	}
+	// Existing resource does contain the required
+	return nil, nil
+}
+
+func handleClone(generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+	// check if resource exists
+	_, err := client.GetResource(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+	if err == nil {
+		// resource exists
+		return nil, nil
+	}
+	if !errors.IsNotFound(err) {
+		//something wrong while fetching resource
+		return nil, err
+	}
+
+	// get reference clone resource
+	obj, err := client.GetResource(generateRule.Resource.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
+	if errors.IsNotFound(err) {
+		return nil, NewNotFound(generateRule.Resource.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
+	}
+	if err != nil {
+		//something wrong while fetching resource
+		return nil, err
+	}
+	return obj.UnstructuredContent(), nil
+}
+
+func checkResource(ctx context.EvalInterface, newResourceSpec interface{}, resource *unstructured.Unstructured) (bool, error) {
+	// check if the resource spec if a subset of the resource
+	path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, newResourceSpec)
+	if err != nil {
+		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
+		return false, err
+	}
+	return true, nil
 }
