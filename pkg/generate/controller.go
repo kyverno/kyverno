@@ -11,6 +11,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -45,6 +46,8 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+	// policy violation generator
+	pvGenerator policyviolation.GeneratorInterface
 }
 
 func NewController(
@@ -53,11 +56,13 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
+	pvGenerator policyviolation.GeneratorInterface,
 ) *Controller {
 	c := Controller{
 		client:        client,
 		kyvernoClient: kyvernoclient,
 		eventGen:      eventGen,
+		pvGenerator:   pvGenerator,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
 		// as we dont want a deleted GR to be re-queue
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
@@ -222,6 +227,5 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-
 	return c.processGR(*gr)
 }

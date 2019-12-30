@@ -164,6 +164,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		egen,
+		pvgen,
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout

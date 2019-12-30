@@ -17,15 +17,16 @@ func NewParseFailed(spec interface{}, err error) *ParseFailed {
 }
 
 type Violation struct {
-	err error
+	rule string
+	err  error
 }
 
 func (e *Violation) Error() string {
 	return fmt.Sprintf("creating Violation; error %s", e.err)
 }
 
-func NewViolation(err error) *Violation {
-	return &Violation{err: err}
+func NewViolation(rule string, err error) *Violation {
+	return &Violation{rule: rule, err: err}
 }
 
 type NotFound struct {

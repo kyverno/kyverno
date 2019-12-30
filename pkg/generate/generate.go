@@ -10,6 +10,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +26,14 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	}
 	// 2 - Apply the generate policy on the resource
 	err = c.applyGenerate(*resource, gr)
+	switch e := err.(type) {
+	case *Violation:
+		c.pvGenerator.Add(generatePV(gr, *resource, e))
+	default:
+		glog.V(4).Info(e)
+	}
+	// create events on policy and resource
+
 	// 3 - Update Status
 	return updateStatus(c.statusControl, gr, err)
 }
@@ -105,7 +114,7 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	var err error
 	// DATA
 	if rule.Generation.Data != nil {
-		if rdata, err = handleData(rule.Generation, client, resource, ctx, state); err != nil {
+		if rdata, err = handleData(rule.Name, rule.Generation, client, resource, ctx, state); err != nil {
 			switch e := err.(type) {
 			case *ParseFailed, *NotFound, *ConfigNotFound:
 				// handled errors
@@ -159,7 +168,7 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	return nil
 }
 
-func handleData(generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
 	newData := variables.SubstituteVariables(ctx, generateRule.Data)
 
 	// check if resource exists
@@ -177,7 +186,7 @@ func handleData(generateRule kyverno.Generation, client *dclient.Client, resourc
 		// State : Failed,Completed
 		// request has been processed before, so dont create the resource
 		// report Violation to notify the error
-		return nil, NewViolation(NewNotFound(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name))
+		return nil, NewViolation(ruleName, NewNotFound(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name))
 	}
 	if err != nil {
 		//something wrong while fetching resource
@@ -228,4 +237,19 @@ func checkResource(ctx context.EvalInterface, newResourceSpec interface{}, resou
 		return false, err
 	}
 	return true, nil
+}
+
+func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, err *Violation) policyviolation.Info {
+
+	info := policyviolation.Info{
+		Blocked:    false,
+		PolicyName: gr.Spec.Policy,
+		Resource:   resource,
+		Rules: []kyverno.ViolatedRule{kyverno.ViolatedRule{
+			Name:    err.rule,
+			Type:    "Generation",
+			Message: err.Error(),
+		}},
+	}
+	return info
 }
