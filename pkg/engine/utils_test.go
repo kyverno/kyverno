@@ -1,12 +1,32 @@
 package engine
 
 import (
+	"encoding/json"
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
+	rawMap := []byte(`{
+		"name":"nirmata-*",
+		"notAnchor1":123,
+		"namespace":"kube-?olicy",
+		"notAnchor2":"sample-text",
+		"object":{
+			"key1":"value1",
+			"(key2)":"value2"
+		}
+	}`)
+
+	var unmarshalled map[string]interface{}
+	json.Unmarshal(rawMap, &unmarshalled)
+
+	actualMap := getAnchorsFromMap(unmarshalled)
+	assert.Assert(t, len(actualMap) == 0)
+}
 
 // Match multiple kinds
 func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {

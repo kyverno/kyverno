@@ -29,7 +29,9 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		{
 			rule: kyverno.Rule{
 				MatchResources: kyverno.MatchResources{
-					Roles: []string{"ns-a:role-a"},
+					UserInfo: kyverno.UserInfo{
+						Roles: []string{"ns-a:role-a"},
+					},
 				},
 			},
 			info: RequestInfo{
@@ -40,7 +42,9 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		{
 			rule: kyverno.Rule{
 				MatchResources: kyverno.MatchResources{
-					Roles: []string{"ns-a:role-a"},
+					UserInfo: kyverno.UserInfo{
+						Roles: []string{"ns-a:role-a"},
+					},
 				},
 			},
 			info: RequestInfo{
@@ -51,7 +55,9 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		{
 			rule: kyverno.Rule{
 				MatchResources: kyverno.MatchResources{
-					Subjects: testSubjects(),
+					UserInfo: kyverno.UserInfo{
+						Subjects: testSubjects(),
+					},
 				},
 			},
 			info: RequestInfo{
@@ -64,7 +70,9 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		{
 			rule: kyverno.Rule{
 				ExcludeResources: kyverno.ExcludeResources{
-					Subjects: testSubjects(),
+					UserInfo: kyverno.UserInfo{
+						Subjects: testSubjects(),
+					},
 				},
 			},
 			info: RequestInfo{
@@ -77,7 +85,9 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		{
 			rule: kyverno.Rule{
 				ExcludeResources: kyverno.ExcludeResources{
-					Subjects: testSubjects(),
+					UserInfo: kyverno.UserInfo{
+						Subjects: testSubjects(),
+					},
 				},
 			},
 			info: RequestInfo{
@@ -121,7 +131,9 @@ func Test_validateMatch(t *testing.T) {
 	}
 
 	matchRoles := kyverno.MatchResources{
-		Roles: []string{"ns-a:role-a", "ns-b:role-b"},
+		UserInfo: kyverno.UserInfo{
+			Roles: []string{"ns-a:role-a", "ns-b:role-b"},
+		},
 	}
 
 	for _, info := range requestInfo {
@@ -165,7 +177,9 @@ func Test_validateMatch(t *testing.T) {
 	}
 
 	matchClusterRoles := kyverno.MatchResources{
-		ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
+		UserInfo: kyverno.UserInfo{
+			ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
+		},
 	}
 
 	for _, info := range requestInfo {
@@ -199,7 +213,9 @@ func Test_validateExclude(t *testing.T) {
 	}
 
 	excludeRoles := kyverno.ExcludeResources{
-		Roles: []string{"ns-a:role-a", "ns-b:role-b"},
+		UserInfo: kyverno.UserInfo{
+			Roles: []string{"ns-a:role-a", "ns-b:role-b"},
+		},
 	}
 
 	for _, info := range requestInfo {
@@ -237,7 +253,9 @@ func Test_validateExclude(t *testing.T) {
 	}
 
 	excludeClusterRoles := kyverno.ExcludeResources{
-		ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
+		UserInfo: kyverno.UserInfo{
+			ClusterRoles: []string{"clusterrole-a", "clusterrole-b"},
+		},
 	}
 
 	for _, info := range requestInfo {

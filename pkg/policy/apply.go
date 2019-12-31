@@ -11,13 +11,15 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []engine.EngineResponse) {
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []response.EngineResponse) {
 	startTime := time.Now()
 	var policyStats []PolicyStat
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
@@ -26,7 +28,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}()
 
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
 		ps := PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
@@ -56,12 +58,15 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			policyStatus.SendStat(stat)
 		}
 	}
-	var engineResponses []engine.EngineResponse
-	var engineResponse engine.EngineResponse
+	var engineResponses []response.EngineResponse
+	var engineResponse response.EngineResponse
 	var err error
+	// build context
+	ctx := context.NewContext()
+	ctx.AddResource(transformResource(resource))
 
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, policyStatus)
+	engineResponse, err = mutation(policy, resource, policyStatus, ctx)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
 		glog.Errorf("unable to process mutation rules: %v", err)
@@ -71,7 +76,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	sendStat(false)
 
 	//VALIDATION
-	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, NewResource: resource})
+	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
 	// gather stats
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
@@ -81,8 +86,9 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	//TODO: GENERATION
 	return engineResponses
 }
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (engine.EngineResponse, error) {
-	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource})
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, ctx context.EvalInterface) (response.EngineResponse, error) {
+
+	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx})
 	if !engineResponse.IsSuccesful() {
 		glog.V(4).Infof("mutation had errors reporting them")
 		return engineResponse, nil
@@ -97,11 +103,11 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 }
 
 // getFailedOverallRuleInfo gets detailed info for over-all mutation failure
-func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse engine.EngineResponse) (engine.EngineResponse, error) {
+func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse response.EngineResponse) (response.EngineResponse, error) {
 	rawResource, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("unable to marshal resource: %v\n", err)
-		return engine.EngineResponse{}, err
+		return response.EngineResponse{}, err
 	}
 
 	// resource does not match so there was a mutation rule violated
@@ -113,14 +119,14 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(rule.Patches))
 		if err != nil {
 			glog.V(4).Infof("unable to decode patch %s: %v", rule.Patches, err)
-			return engine.EngineResponse{}, err
+			return response.EngineResponse{}, err
 		}
 
 		// apply the patches returned by mutate to the original resource
 		patchedResource, err := patch.Apply(rawResource)
 		if err != nil {
 			glog.V(4).Infof("unable to apply patch %s: %v", rule.Patches, err)
-			return engine.EngineResponse{}, err
+			return response.EngineResponse{}, err
 		}
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			glog.V(4).Infof("policy %s rule %s condition not satisifed by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)

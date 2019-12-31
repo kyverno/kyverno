@@ -885,7 +885,7 @@ func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRawAnchorOnPeers, &resource)
+	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)

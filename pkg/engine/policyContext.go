@@ -1,8 +1,9 @@
 package engine
 
 import (
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -18,6 +19,8 @@ type PolicyContext struct {
 	AdmissionInfo RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client
+	// Contexts to store resources
+	Context context.EvalInterface
 }
 
 // RequestInfo contains permission info carried in an admission request

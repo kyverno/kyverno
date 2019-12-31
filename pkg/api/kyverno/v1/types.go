@@ -64,6 +64,7 @@ type Policy struct {
 type Spec struct {
 	Rules                   []Rule `json:"rules"`
 	ValidationFailureAction string `json:"validationFailureAction"`
+	Background              bool   `json:"background,omitempty"`
 }
 
 // Rule is set of mutation, validation and generation actions
@@ -79,18 +80,21 @@ type Rule struct {
 
 //MatchResources contains resource description of the resources that the rule is to apply on
 type MatchResources struct {
-	Roles               []string         `json:"roles"`
-	ClusterRoles        []string         `json:"clusterRoles"`
-	Subjects            []rbacv1.Subject `json:"subjects"`
+	UserInfo
 	ResourceDescription `json:"resources"`
 }
 
 //ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule
 type ExcludeResources struct {
-	Roles               []string         `json:"roles"`
-	ClusterRoles        []string         `json:"clusterRoles"`
-	Subjects            []rbacv1.Subject `json:"subjects"`
+	UserInfo
 	ResourceDescription `json:"resources"`
+}
+
+// UserInfo filter based on users
+type UserInfo struct {
+	Roles        []string         `json:"roles"`
+	ClusterRoles []string         `json:"clusterRoles"`
+	Subjects     []rbacv1.Subject `json:"subjects"`
 }
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.

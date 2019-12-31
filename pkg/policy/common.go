@@ -3,7 +3,9 @@ package policy
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -20,4 +22,13 @@ func buildPolicyLabel(policyName string) (labels.Selector, error) {
 		return nil, fmt.Errorf("Policy %s has invalid label selector: %v", policyName, err)
 	}
 	return policySelector, nil
+}
+
+func transformResource(resource unstructured.Unstructured) []byte {
+	data, err := resource.MarshalJSON()
+	if err != nil {
+		glog.Errorf("failed to marshall resource %v: %v", resource, err)
+		return nil
+	}
+	return data
 }

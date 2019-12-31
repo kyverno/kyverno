@@ -5,12 +5,12 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) {
+func (nsc *NamespaceController) report(engineResponses []response.EngineResponse) {
 	// generate events
 	eventInfos := generateEvents(engineResponses)
 	nsc.eventGen.Add(eventInfos...)
@@ -19,7 +19,7 @@ func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) 
 	nsc.pvGenerator.Add(pvInfos...)
 }
 
-func generatePVs(ers []engine.EngineResponse) []policyviolation.Info {
+func generatePVs(ers []response.EngineResponse) []policyviolation.Info {
 	var pvInfos []policyviolation.Info
 	for _, er := range ers {
 		// ignore creation of PV for resoruces that are yet to be assigned a name
@@ -38,7 +38,7 @@ func generatePVs(ers []engine.EngineResponse) []policyviolation.Info {
 	return pvInfos
 }
 
-func buildPVInfo(er engine.EngineResponse) policyviolation.Info {
+func buildPVInfo(er response.EngineResponse) policyviolation.Info {
 	info := policyviolation.Info{
 		Blocked:    false,
 		PolicyName: er.PolicyResponse.Policy,
@@ -48,7 +48,7 @@ func buildPVInfo(er engine.EngineResponse) policyviolation.Info {
 	return info
 }
 
-func buildViolatedRules(er engine.EngineResponse) []kyverno.ViolatedRule {
+func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
 		if rule.Success {
@@ -64,7 +64,7 @@ func buildViolatedRules(er engine.EngineResponse) []kyverno.ViolatedRule {
 	return violatedRules
 }
 
-func generateEvents(ers []engine.EngineResponse) []event.Info {
+func generateEvents(ers []response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	for _, er := range ers {
 		if er.IsSuccesful() {
@@ -75,7 +75,7 @@ func generateEvents(ers []engine.EngineResponse) []event.Info {
 	return eventInfos
 }
 
-func generateEventsPerEr(er engine.EngineResponse) []event.Info {
+func generateEventsPerEr(er response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	glog.V(4).Infof("reporting results for policy '%s' application on resource '%s/%s/%s'", er.PolicyResponse.Policy, er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 	for _, rule := range er.PolicyResponse.Rules {

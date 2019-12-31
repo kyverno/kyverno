@@ -2,8 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,10 +10,10 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"github.com/nirmata/kyverno/pkg/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -280,29 +278,11 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 }
 
 func isStringIsReference(str string) bool {
-	if len(str) < len(referenceSign) {
+	if len(str) < len(operator.ReferenceSign) {
 		return false
 	}
 
 	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
-}
-
-// Checks if array object matches anchors. If not - skip - return true
-func skipArrayObject(object, anchors map[string]interface{}) bool {
-	for key, pattern := range anchors {
-		key = key[1 : len(key)-1]
-
-		value, ok := object[key]
-		if !ok {
-			return true
-		}
-
-		if !ValidateValueWithPattern(value, pattern) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // removeAnchor remove special characters around anchored key
@@ -316,22 +296,6 @@ func removeAnchor(key string) string {
 	}
 
 	return key
-}
-
-// convertToString converts value to string
-func convertToString(value interface{}) (string, error) {
-	switch typed := value.(type) {
-	case string:
-		return string(typed), nil
-	case float64:
-		return fmt.Sprintf("%f", typed), nil
-	case int64:
-		return strconv.FormatInt(typed, 10), nil
-	case int:
-		return strconv.Itoa(typed), nil
-	default:
-		return "", fmt.Errorf("Could not convert %T to string", value)
-	}
 }
 
 type resourceInfo struct {

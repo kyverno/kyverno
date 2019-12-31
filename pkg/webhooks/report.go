@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 
 	"github.com/golang/glog"
@@ -13,7 +13,7 @@ import (
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []event.Info {
+func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []event.Info {
 	var events []event.Info
 	if !isResponseSuccesful(engineResponses) {
 		for _, er := range engineResponses {
@@ -106,7 +106,7 @@ func generateEvents(engineResponses []engine.EngineResponse, onUpdate bool) []ev
 	return events
 }
 
-func generatePV(ers []engine.EngineResponse, blocked bool) []policyviolation.Info {
+func generatePV(ers []response.EngineResponse, blocked bool) []policyviolation.Info {
 	var pvInfos []policyviolation.Info
 	// generate PV for each
 	for _, er := range ers {
@@ -121,7 +121,7 @@ func generatePV(ers []engine.EngineResponse, blocked bool) []policyviolation.Inf
 	return pvInfos
 }
 
-func buildPVInfo(er engine.EngineResponse, blocked bool) policyviolation.Info {
+func buildPVInfo(er response.EngineResponse, blocked bool) policyviolation.Info {
 	info := policyviolation.Info{
 		Blocked:    blocked,
 		PolicyName: er.PolicyResponse.Policy,
@@ -131,7 +131,7 @@ func buildPVInfo(er engine.EngineResponse, blocked bool) policyviolation.Info {
 	return info
 }
 
-func buildViolatedRules(er engine.EngineResponse, blocked bool) []kyverno.ViolatedRule {
+func buildViolatedRules(er response.EngineResponse, blocked bool) []kyverno.ViolatedRule {
 	blockMsg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
 	var violatedRules []kyverno.ViolatedRule
 	// if resource was blocked we create dependent

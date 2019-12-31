@@ -1180,3 +1180,257 @@ func Test_Validate_ServiceAccount(t *testing.T) {
 	assert.Assert(t, err != nil)
 	assert.Assert(t, path == "exclude.subjects")
 }
+
+func Test_BackGroundUserInfo_match_roles(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+ {
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "disallow-root-user"
+	},
+	"spec": {
+	  "rules": [
+		{
+		  "name": "match.roles",
+		  "match": {
+			"roles": [
+			  "a",
+			  "b"
+			]
+		  }
+		}
+	  ]
+	}
+  }
+ `)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/match/roles" {
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "match.clusterRoles",
+			  "match": {
+				"clusterRoles": [
+				  "a",
+				  "b"
+				]
+			  }
+			}
+		  ]
+		}
+	  }
+ `)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/match/clusterRoles" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "match.subjects",
+			  "match": {
+				"subjects": [
+				  {
+					"Name": "a"
+				  },
+				  {
+					"Name": "b"
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  } `)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/match/subjects" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "mutate.overlay1",
+			  "mutate": {
+				"overlay": {
+				  "var1": "{{request.userInfo}}"
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/mutate/overlay/var1/{{request.userInfo}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "mutate.overlay2",
+			  "mutate": {
+				"overlay": {
+				  "var1": "{{request.userInfo.userName}}"
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/mutate/overlay/var1/{{request.userInfo.userName}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate.overlay",
+			  "validate": {
+				"pattern": {
+				  "var1": "{{request.userInfo}}"
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/validate/pattern/var1/{{request.userInfo}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate.anyPattern",
+			  "validate": {
+				"anyPattern": [
+				  {
+					"var1": "temp"
+				  },
+				  {
+					"var1": "{{request.userInfo}}"
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{request.userInfo}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}

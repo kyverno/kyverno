@@ -8,13 +8,13 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) cleanUpPolicyViolation(pResponse engine.PolicyResponse) {
+func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {
 	// 1- check if there is violation on resource (label:Selector)
 	// 2- check if there is violation on owner
 	//    - recursively get owner by queries the api server for owner information of the resource

@@ -5,7 +5,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 
 const (
@@ -23,13 +23,13 @@ type rulePatch struct {
 	Path     string `json:"path"`
 }
 
-type response struct {
+type annresponse struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
+func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte {
 	var annotations map[string]string
 
 	for _, er := range engineResponses {
@@ -43,7 +43,7 @@ func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 		annotations = make(map[string]string)
 	}
 
-	var patchResponse response
+	var patchResponse annresponse
 	value := annotationFromEngineResponses(engineResponses)
 	if value == nil {
 		// no patches or error while processing patches
@@ -52,7 +52,7 @@ func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 
 	if _, ok := annotations[policyAnnotation]; ok {
 		// create update patch string
-		patchResponse = response{
+		patchResponse = annresponse{
 			Op:    "replace",
 			Path:  "/metadata/annotations/" + policyAnnotation,
 			Value: string(value),
@@ -60,7 +60,7 @@ func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 	} else {
 		// mutate rule has annotation patches
 		if len(annotations) > 0 {
-			patchResponse = response{
+			patchResponse = annresponse{
 				Op:    "add",
 				Path:  "/metadata/annotations/" + policyAnnotation,
 				Value: string(value),
@@ -68,7 +68,7 @@ func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
 			annotations[policyAnnotation] = string(value)
-			patchResponse = response{
+			patchResponse = annresponse{
 				Op:    "add",
 				Path:  "/metadata/annotations",
 				Value: annotations,
@@ -87,7 +87,7 @@ func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 	return patchByte
 }
 
-func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []byte {
+func annotationFromEngineResponses(engineResponses []response.EngineResponse) []byte {
 	var policyPatches []policyPatch
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
@@ -117,7 +117,7 @@ func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []by
 	return result
 }
 
-func annotationFromPolicyResponse(policyResponse engine.PolicyResponse) []rulePatch {
+func annotationFromPolicyResponse(policyResponse response.PolicyResponse) []rulePatch {
 	var rulePatches []rulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches {
