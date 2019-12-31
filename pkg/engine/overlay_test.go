@@ -1040,3 +1040,88 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 
 	compareJSONAsMap(t, expectedResult, doc)
 }
+
+func TestApplyOverlay_ConditionOnArray(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "myapp",
+			  "dedicated": "spark"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "myapp-container",
+				 "image": "busybox",
+				 "command": [
+					"sh",
+					"-c",
+					"echo Hello Kubernetes! && sleep 3600"
+				 ]
+			  }
+		   ],
+		   "affinity": {
+			  "nodeAffinity": {
+				 "a": {
+					"b": [
+					   {
+						  "matchExpressions": [
+							 {
+								"key": "dedicated",
+								"operator": "NotIn",
+								"values": [
+								   "spark"
+								]
+							 }
+						  ]
+					   }
+					]
+				 }
+			  }
+		   }
+		}
+	 }
+	`)
+
+	overlayRaw := []byte(`
+	{
+		"spec": {
+		   "affinity": {
+			  "nodeAffinity": {
+				 "a": {
+					"b": [
+					   {
+						  "matchExpressions": [
+							 {
+								"(key)": "dedicated",
+								"operator": "In",
+								"(values)": [
+								   "spark"
+								]
+							 }
+						  ]
+					   }
+					]
+				 }
+			  }
+		   }
+		}
+	 }
+	`)
+	var resource, overlay interface{}
+
+	assert.NilError(t, json.Unmarshal(resourceRaw, &resource))
+	assert.NilError(t, json.Unmarshal(overlayRaw, &overlay))
+
+	expectedPatches := []byte(`[
+{ "op": "replace", "path": "/spec/affinity/nodeAffinity/a/b/0/matchExpressions/0/operator", "value": "In" }
+]`)
+	p, err := applyOverlay(resource, overlay, "/")
+	assert.NilError(t, err)
+	assert.Assert(t, string(JoinPatches(p)) == string(expectedPatches))
+}

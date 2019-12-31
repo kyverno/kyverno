@@ -81,7 +81,7 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	// search for the path in ctx
 	variable, err := ctx.Query(searchPath)
 	if err != nil {
-		glog.V(4).Infof("variable substituion failed for query %s: %v", searchPath, err)
+		glog.V(4).Infof("variable substitution failed for query %s: %v", searchPath, err)
 		return emptyInterface
 	}
 	return variable
