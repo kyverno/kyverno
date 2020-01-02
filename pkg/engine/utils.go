@@ -285,24 +285,6 @@ func isStringIsReference(str string) bool {
 	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
 }
 
-// // Checks if array object matches anchors. If not - skip - return true
-// func skipArrayObject(object, anchors map[string]interface{}) bool {
-// 	for key, pattern := range anchors {
-// 		key = key[1 : len(key)-1]
-
-// 		value, ok := object[key]
-// 		if !ok {
-// 			return true
-// 		}
-
-// 		if !ValidateValueWithPattern(value, pattern) {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
-
 // removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
 	if anchor.IsConditionAnchor(key) {

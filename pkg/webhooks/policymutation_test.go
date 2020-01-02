@@ -240,11 +240,11 @@ func TestGeneratePodControllerRule(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "name": "add-safe-to-evict",
 		   "annotations": {
 			  "a": "b",
 			  "pod-policies.kyverno.io/autogen-controllers": "all"
-		   }
+		   },
+		   "name": "add-safe-to-evict"
 		},
 		"spec": {
 		   "rules": [
@@ -441,6 +441,7 @@ func TestGeneratePodControllerRule(t *testing.T) {
 					}
 				 },
 				 "validate": {
+					"message": "Running as root user is not allowed. Set runAsNonRoot to true",
 					"anyPattern": [
 					   {
 						  "spec": {
@@ -485,6 +486,7 @@ func TestGeneratePodControllerRule(t *testing.T) {
 					}
 				 },
 				 "validate": {
+					"message": "Use of the Docker Unix socket is not allowed",
 					"pattern": {
 					   "spec": {
 						  "template": {
@@ -505,5 +507,7 @@ func TestGeneratePodControllerRule(t *testing.T) {
 		   ]
 		}
 	 }`)
+	t.Log(string(expectPolicy))
+	t.Log(string(p))
 	compareJSONAsMap(t, expectPolicy, p)
 }

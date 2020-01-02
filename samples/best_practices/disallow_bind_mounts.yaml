@@ -1,7 +1,7 @@
-apiVersion: "kyverno.io/v1"
-kind: "ClusterPolicy"
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
 metadata: 
-  name: "disallow-bind-mounts"
+  name: disallow-bind-mounts
   annotations:
     policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: The volume of type `hostPath` allows pods to use host bind 
@@ -13,11 +13,11 @@ metadata:
 
 spec: 
   rules: 
-  - name: "validate-hostPath"
+  - name: validate-hostPath
     match: 
       resources: 
         kinds: 
-        - "Pod"
+        - Pod
     validate: 
       message: "Host path volumes are not allowed"
       pattern: 

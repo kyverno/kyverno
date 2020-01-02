@@ -24,7 +24,7 @@ spec:
         - Namespace
     generate:
       kind: ResourceQuota
-      name: "default-resourcequota"
+      name: default-resourcequota
       data:
         spec:
           hard:
@@ -39,7 +39,7 @@ spec:
         - Namespace
     generate:
       kind: LimitRange
-      name: "default-limitrange"
+      name: default-limitrange
       data:
         spec:
           limits:

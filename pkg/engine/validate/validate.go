@@ -245,9 +245,6 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 
 	path := ""
 
-	/*for i := len(keys) - 1; i >= 0; i-- {
-		path = keys[i] + path + "/"
-	}*/
 	for _, elem := range keys {
 		path = "/" + elem + path
 	}

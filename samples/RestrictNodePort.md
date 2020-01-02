@@ -15,19 +15,18 @@ Although NodePort services can be useful, their use should be limited to service
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-node-port
+  name: restrict-nodeport
 spec:
   rules:
-  - name: validate-node-port
+  - name: validate-nodeport
     match:
       resources:
         kinds:
         - Service
     validate:
-      message: "Service of type NodePort is not allowed"
+      message: "Services of type NodePort are not allowed"
       pattern: 
         spec:
           type: "!NodePort"
 
 ````
-

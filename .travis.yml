@@ -19,7 +19,11 @@ before_install:
 install: true
 
 script: 
-  - make build || travis_terminate 1;
+# build initContainer
+  - make initContainer || travis_terminate 1;
+# build kyverno container
+  - make kyverno || travis_terminate 1;
+# tests
   - make test-all || travis_terminate 1;
 
 after_script:
