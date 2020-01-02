@@ -30,7 +30,6 @@ spec:
             runAsNonRoot: true
       - spec:
           containers:
-          - name: "*"
-            securityContext:
+          - securityContext:
               runAsNonRoot: true
 ````
