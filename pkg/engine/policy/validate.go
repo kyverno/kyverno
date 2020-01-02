@@ -303,10 +303,10 @@ func validateGeneration(gen kyverno.Generation) (string, error) {
 	}
 	// check kind is non empty
 	// check name is non empty
-	if gen.Resource.Name == "" {
+	if gen.Name == "" {
 		return "name", fmt.Errorf("name cannot be empty")
 	}
-	if gen.Resource.Kind == "" {
+	if gen.Kind == "" {
 		return "kind", fmt.Errorf("kind cannot be empty")
 	}
 	if !reflect.DeepEqual(gen.Clone, kyverno.CloneFrom{}) {

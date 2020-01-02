@@ -156,11 +156,11 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	// Create the generate resource
 	newResource := &unstructured.Unstructured{}
 	newResource.SetUnstructuredContent(rdata)
-	newResource.SetName(rule.Generation.Resource.Name)
-	newResource.SetNamespace(rule.Generation.Resource.Namespace)
+	newResource.SetName(rule.Generation.Name)
+	newResource.SetNamespace(rule.Generation.Namespace)
 	// Reset resource version
 	newResource.SetResourceVersion("")
-	_, err = client.CreateResource(rule.Generation.Resource.Kind, rule.Generation.Resource.Namespace, rule.Generation.Resource.Name, false)
+	_, err = client.CreateResource(rule.Generation.Kind, rule.Generation.Namespace, rule.Generation.Name, false)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	newData := variables.SubstituteVariables(ctx, generateRule.Data)
 
 	// check if resource exists
-	obj, err := client.GetResource(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	if errors.IsNotFound(err) {
 		// Resource does not exist
 		if state == kyverno.Pending {
@@ -186,7 +186,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 		// State : Failed,Completed
 		// request has been processed before, so dont create the resource
 		// report Violation to notify the error
-		return nil, NewViolation(ruleName, NewNotFound(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name))
+		return nil, NewViolation(ruleName, NewNotFound(generateRule.Kind, generateRule.Namespace, generateRule.Name))
 	}
 	if err != nil {
 		//something wrong while fetching resource
@@ -199,7 +199,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 		return nil, err
 	}
 	if !ok {
-		return nil, NewConfigNotFound(newData, generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+		return nil, NewConfigNotFound(newData, generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	}
 	// Existing resource does contain the required
 	return nil, nil
@@ -207,7 +207,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 
 func handleClone(generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
 	// check if resource exists
-	_, err := client.GetResource(generateRule.Resource.Kind, generateRule.Resource.Namespace, generateRule.Resource.Name)
+	_, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	if err == nil {
 		// resource exists
 		return nil, nil
@@ -218,9 +218,9 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 	}
 
 	// get reference clone resource
-	obj, err := client.GetResource(generateRule.Resource.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
+	obj, err := client.GetResource(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	if errors.IsNotFound(err) {
-		return nil, NewNotFound(generateRule.Resource.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
+		return nil, NewNotFound(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	}
 	if err != nil {
 		//something wrong while fetching resource

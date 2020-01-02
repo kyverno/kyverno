@@ -57,6 +57,12 @@ func NewController(
 	c.enqueueGR = c.enqueue
 	c.syncHandler = c.syncGenerateRequest
 
+	c.pLister = pInformer.Lister()
+	c.grLister = grInformer.Lister().GenerateRequests("kyverno")
+
+	c.pSynced = pInformer.Informer().HasSynced
+	c.grSynced = grInformer.Informer().HasSynced
+
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
 	}, 30)
