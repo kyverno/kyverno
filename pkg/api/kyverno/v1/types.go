@@ -56,13 +56,13 @@ type PolicyViolationList struct {
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              Spec         `json:"spec,omitempty"`
+	Spec              Spec         `json:"spec"`
 	Status            PolicyStatus `json:"status"`
 }
 
 // Spec describes policy behavior by its rules
 type Spec struct {
-	Rules                   []Rule `json:"rules,omitempty"`
+	Rules                   []Rule `json:"rules"`
 	ValidationFailureAction string `json:"validationFailureAction"`
 	Background              bool   `json:"background,omitempty"`
 }
