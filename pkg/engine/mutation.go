@@ -1,10 +1,19 @@
 package engine
 
 import (
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+)
+
+const (
+	PodControllers           = "DaemonSet,Deployment,Job,StatefulSet"
+	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
+	PodTemplateAnnotation    = "pod-policies.kyverno.io/autogen-applied"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -39,7 +48,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	for _, rule := range policy.Spec.Rules {
 		//TODO: to be checked before calling the resources as well
-		if !rule.HasMutate() {
+		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
 			continue
 		}
 
@@ -83,8 +92,47 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
 		}
+
+		// insert annotation to podtemplate if resource is pod controller
+		// skip inserting on existing resource
+		if reflect.DeepEqual(policyContext.AdmissionInfo, RequestInfo{}) {
+			continue
+		}
+
+		if strings.Contains(PodControllers, resource.GetKind()) {
+			var ruleResponse response.RuleResponse
+			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
+			if !ruleResponse.Success {
+				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
+				continue
+			}
+
+			if ruleResponse.Success && ruleResponse.Patches != nil {
+				glog.V(2).Infof("Inserted annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			}
+		}
 	}
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
+}
+
+// podTemplateRule mutate pod template with annotation
+// pod-policies.kyverno.io/autogen-applied=true
+var podTemplateRule = kyverno.Rule{
+	Name: "autogen-annotate-podtemplate",
+	Mutation: kyverno.Mutation{
+		Overlay: map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"pod-policies.kyverno.io/autogen-applied": "true",
+						},
+					},
+				},
+			},
+		},
+	},
 }

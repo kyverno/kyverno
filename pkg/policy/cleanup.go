@@ -50,7 +50,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 		if reflect.DeepEqual(pv, kyverno.PolicyViolation{}) {
 			continue
 		}
-		glog.V(4).Infof("cleanup namespaced violation %s on %s", pv.Name, pv.Spec.ResourceSpec.ToKey())
+		glog.V(4).Infof("cleanup namespaced violation %s on %s.%s", pv.Name, pResponse.Resource.Namespace, pv.Spec.ResourceSpec.ToKey())
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
 			glog.Errorf("failed to delete namespaced policy violation %s on %s: %v", pv.Name, pv.Spec.ResourceSpec.ToKey(), err)
 			continue
