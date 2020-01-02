@@ -68,7 +68,7 @@ func CRDInstalled(discovery client.IDiscovery) bool {
 		glog.Infof("CRD %s found ", kind)
 		return true
 	}
-	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") {
+	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") || !check("PolicyViolation") {
 		return false
 	}
 	return true
