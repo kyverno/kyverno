@@ -59,7 +59,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		glog.Error(err)
 		return true, ""
 	}
-
 	userRequestInfo := kyverno.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,

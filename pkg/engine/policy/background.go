@@ -7,7 +7,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
-//ContainsUserInfo returns true if contains userInfo
+//ContainsUserInfo returns error is userInfo is defined
 func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 	// iterate of the policy rules to identify if userInfo is used
 	for idx, rule := range policy.Spec.Rules {

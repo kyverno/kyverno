@@ -7,17 +7,17 @@ The volume of type `hostPath` allows pods to use host bind mounts (i.e. director
 [disallow_bind_mounts.yaml](best_practices/disallow_bind_mounts.yaml) 
 
 ````yaml
-apiVersion: "kyverno.io/v1"
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata: 
-  name: "disallow-bind-mounts"
+  name: disallow-bind-mounts
 spec: 
   rules: 
-  - name: "validate-hostPath"
+  - name: validate-hostPath
     match: 
       resources: 
         kinds: 
-        - "Pod"
+        - Pod
     validate: 
       message: "Host path volumes are not allowed"
       pattern: 

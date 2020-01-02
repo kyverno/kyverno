@@ -169,12 +169,13 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
-	// Only process policies that are enabled for "background" execution
-	// policy.spec.background -> "True"
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
 	pc.pMetaStore.UnRegister(*oldP)
 	pc.pMetaStore.Register(*curP)
+
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
 	if !curP.Spec.Background {
 		return
 	}

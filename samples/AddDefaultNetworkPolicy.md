@@ -15,7 +15,7 @@ metadata:
   name: add-networkpolicy
 spec:
   rules:
-  - name: "default-deny-ingress"
+  - name: default-deny-ingress
     match:
       resources: 
         kinds:
