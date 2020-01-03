@@ -160,6 +160,7 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 		}
 		if rdata == nil {
 			// resource already exists
+			return nil
 		}
 	}
 	if processExisting {
@@ -243,7 +244,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	glog.V(4).Info(err)
 	if errors.IsNotFound(err) {
-		glog.V(4).Info("NotFound")
+		glog.V(4).Info("handleData NotFound")
 		glog.V(4).Info(string(state))
 		// Resource does not exist
 		if state == "" {
@@ -284,10 +285,12 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 	// check if resource exists
 	_, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	if err == nil {
+		glog.V(4).Info("handleClone Exists")
 		// resource exists
 		return nil, nil
 	}
 	if !errors.IsNotFound(err) {
+		glog.V(4).Info("handleClone NotFound")
 		//something wrong while fetching resource
 		return nil, err
 	}
@@ -295,12 +298,15 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 	// get reference clone resource
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	if errors.IsNotFound(err) {
+		glog.V(4).Info("handleClone reference not Found")
 		return nil, NewNotFound(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	}
 	if err != nil {
+		glog.V(4).Info("handleClone reference Error")
 		//something wrong while fetching resource
 		return nil, err
 	}
+	glog.V(4).Info("handleClone refrerence sending")
 	return obj.UnstructuredContent(), nil
 }
 
