@@ -133,6 +133,7 @@ func (gen *Generator) enqueue(info Info) {
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
 		gen.enqueue(info)
+		glog.V(3).Infof("Added policy violation: %s", info.toKey())
 	}
 }
 
@@ -234,9 +235,13 @@ func (gen *Generator) syncHandler(info Info) error {
 	pvs := builder.generate(info)
 	for _, pv := range pvs {
 		// Create Policy Violations
+		glog.V(3).Infof("Creating policy violation: %s", info.toKey())
 		err := handler.create(pv)
 		if err != nil {
 			failure = true
+			glog.V(3).Infof("Failed to create policy violation: %v", err)
+		} else {
+			glog.V(3).Infof("Policy violation created: %s", info.toKey())
 		}
 	}
 	if failure {

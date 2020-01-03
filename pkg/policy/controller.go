@@ -227,6 +227,12 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 		glog.Error("failed to sync informer cache")
 		return
 	}
+
+	// if policies exist before Kyverno get created, resource webhook configuration
+	// could not be registered as clusterpolicy.spec.background=false by default
+	// the policy controller would starts only when the first incoming policy is queued
+	pc.registerResourceWebhookConfiguration()
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
