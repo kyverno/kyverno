@@ -86,7 +86,6 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1b
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy) ([]byte, string) {
 	// default 'Background' flag to 'true' if not specified
 	defaultVal := true
-	//TODO
 	if policy.Spec.Background == nil {
 		glog.V(4).Infof("default policy %s 'Background' to '%s'", policy.Name, strconv.FormatBool(true))
 		jsonPatch := struct {
