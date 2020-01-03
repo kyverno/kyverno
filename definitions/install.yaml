@@ -419,6 +419,10 @@ spec:
     type: string
     description: The resource namespace that caused the violation
     JSONPath: .spec.resource.namespace
+  - name: status
+    type : string
+    description: Current state of generate request
+    JSONPath: .status.state
   - name: Age
     type: date
     JSONPath: .metadata.creationTimestamp
