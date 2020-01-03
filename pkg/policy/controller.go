@@ -228,11 +228,6 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 
-	// if policies exist before Kyverno get created, resource webhook configuration
-	// could not be registered as clusterpolicy.spec.background=false by default
-	// the policy controller would starts only when the first incoming policy is queued
-	pc.registerResourceWebhookConfiguration()
-
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
@@ -250,6 +245,11 @@ func (pc *PolicyController) worker() {
 }
 
 func (pc *PolicyController) processNextWorkItem() bool {
+	// if policies exist before Kyverno get created, resource webhook configuration
+	// could not be registered as clusterpolicy.spec.background=false by default
+	// the policy controller would starts only when the first incoming policy is queued
+	pc.registerResourceWebhookConfiguration()
+
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
