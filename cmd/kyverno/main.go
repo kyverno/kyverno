@@ -256,7 +256,7 @@ func cleanupOldCrd(client *dclient.Client) {
 	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
 	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
 		if err := client.DeleteResource("CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
-			glog.Info("Failed to remove previous CRD namespacedpolicyviolations: %v", err)
+			glog.Infof("Failed to remove previous CRD namespacedpolicyviolations: %v", err)
 		}
 	}
 }
