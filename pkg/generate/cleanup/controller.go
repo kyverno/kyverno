@@ -102,7 +102,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
 	if err != nil {
-		glog.Error("failed to Generate Requests for policy %s: %v", p.Name, err)
+		glog.Errorf("failed to Generate Requests for policy %s: %v", p.Name, err)
 		return
 	}
 	for _, gr := range grs {
@@ -216,7 +216,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if errors.IsNotFound(err) {
-		glog.Info("Generate Request %s has been deleted", key)
+		glog.Infof("Generate Request %s has been deleted", key)
 		return nil
 	}
 	if err != nil {

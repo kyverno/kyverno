@@ -22,7 +22,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	resource, err := getResource(c.client, gr.Spec.Resource)
 	if err != nil {
 		// Dont update status
-		glog.V(4).Info("resource does not exist or is yet to be created, requeuing: %v", err)
+		glog.V(4).Infof("resource does not exist or is yet to be created, requeuing: %v", err)
 		return err
 	}
 
@@ -218,7 +218,7 @@ func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalIn
 	if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
 		gen.Clone.Namespace = newcloneNamespace
 	}
-	glog.V(4).Info("var updated %v", gen.Name)
+	glog.V(4).Infof("var updated %v", gen.Name)
 	return gen
 }
 

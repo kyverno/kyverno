@@ -113,7 +113,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(curP.Name)
 	if err != nil {
-		glog.Error("failed to Generate Requests for policy %s: %v", curP.Name, err)
+		glog.Errorf("failed to Generate Requests for policy %s: %v", curP.Name, err)
 		return
 	}
 	// re-evaluate the GR as the policy was updated

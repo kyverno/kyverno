@@ -114,7 +114,7 @@ func Test_variablesubstitution(t *testing.T) {
 	}
 		`)
 
-	resultMap := []byte(`"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"name":"ns-owner-user1"}`)
+	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"name":"ns-owner-user1"}`)
 	// userInfo
 	userReqInfo := kyverno.RequestInfo{
 		AdmissionUserInfo: authenticationv1.UserInfo{
