@@ -92,7 +92,7 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy) ([]byte, string) {
 		jsonPatch := struct {
 			Path  string `json:"path"`
 			Op    string `json:"op"`
-			Value *bool  `json:"value`
+			Value *bool  `json:"value"`
 		}{
 			"/spec/background",
 			"add",
