@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -22,7 +21,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -79,7 +77,7 @@ func main() {
 	}
 
 	// TODO(shuting): To be removed for v1.2.0
-	cleanupOldCrd(client)
+	utils.CleanupOldCrd(client)
 
 	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
@@ -250,13 +248,4 @@ func init() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	config.LogDefaultFlags()
 	flag.Parse()
-}
-
-func cleanupOldCrd(client *dclient.Client) {
-	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
-	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
-		if err := client.DeleteResource("CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
-			glog.Infof("Failed to remove previous CRD namespacedpolicyviolations: %v", err)
-		}
-	}
 }
