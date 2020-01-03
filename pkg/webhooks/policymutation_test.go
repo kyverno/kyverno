@@ -66,6 +66,187 @@ func TestGeneratePodControllerRule_PredefinedAnnotation(t *testing.T) {
 	assert.Assert(t, len(patches) == 0)
 }
 
+func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "annotations": {
+			"a": "b",
+			"pod-policies.kyverno.io/autogen-controllers": "null"
+		  },
+		  "name": "add-safe-to-evict"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "annotate-empty-dir",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "metadata": {
+					"annotations": {
+					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+					}
+				  },
+				  "spec": {
+					"volumes": [
+					  {
+						"(emptyDir)": {
+						}
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+	patches, errs := generatePodControllerRule(policy)
+	assert.Assert(t, len(errs) == 0)
+	assert.Assert(t, len(patches) == 0)
+}
+
+func TestGeneratePodControllerRule_Mutate(t *testing.T) {
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "annotations": {
+			"a": "b",
+			"pod-policies.kyverno.io/autogen-controllers": "all"
+		  },
+		  "name": "add-safe-to-evict"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "annotate-empty-dir",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "metadata": {
+					"annotations": {
+					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+					}
+				  },
+				  "spec": {
+					"volumes": [
+					  {
+						"(emptyDir)": {
+						}
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+	patches, errs := generatePodControllerRule(policy)
+	assert.Assert(t, len(errs) == 0)
+
+	p, err := engine.ApplyPatches(policyRaw, patches)
+	assert.NilError(t, err)
+
+	expectedPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "annotations": {
+			"a": "b",
+			"pod-policies.kyverno.io/autogen-controllers": "all"
+		  },
+		  "name": "add-safe-to-evict"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "annotate-empty-dir",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "metadata": {
+					"annotations": {
+					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+					}
+				  },
+				  "spec": {
+					"volumes": [
+					  {
+						"(emptyDir)": {
+						}
+					  }
+					]
+				  }
+				}
+			  }
+			},
+			{
+			  "name": "autogen-annotate-empty-dir",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"DaemonSet",
+					"Deployment",
+					"Job",
+					"StatefulSet"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "spec": {
+					"template": {
+					  "metadata": {
+						"annotations": {
+						  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+						}
+					  },
+					  "spec": {
+						"volumes": [
+						  {
+							"(emptyDir)": {
+							}
+						  }
+						]
+					  }
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	compareJSONAsMap(t, p, expectedPolicy)
+}
 func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 	policyRaw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
@@ -100,133 +281,55 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 	compareJSONAsMap(t, p, expectedPolicy)
 }
 
-func TestGeneratePodControllerRule(t *testing.T) {
+func TestGeneratePodControllerRule_ValidateAnyPattern(t *testing.T) {
 	policyRaw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "name": "add-safe-to-evict",
-		   "annotations": {
-			  "a": "b"
-		   }
+		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "Deployment"
+		  },
+		  "name": "add-safe-to-evict"
 		},
 		"spec": {
-		   "rules": [
-			  {
-				 "name": "annotate-empty-dir",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "metadata": {
-						  "annotations": {
-							 "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
-						  }
-					   },
-					   "spec": {
-						  "volumes": [
-							 {
-								"(emptyDir)": {}
-							 }
-						  ]
-					   }
-					}
-				 }
+		  "rules": [
+			{
+			  "name": "validate-runAsNonRoot",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
 			  },
-			  {
-				 "name": "annotate-host-path",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
+			  "validate": {
+				"message": "Running as root user is not allowed. Set runAsNonRoot to true",
+				"anyPattern": [
+				  {
+					"spec": {
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
 					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "metadata": {
-						  "annotations": {
-							 "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+				  },
+				  {
+					"spec": {
+					  "containers": [
+						{
+						  "name": "*",
+						  "securityContext": {
+							"runAsNonRoot": true
 						  }
-					   },
-					   "spec": {
-						  "volumes": [
-							 {
-								"(hostPath)": {
-								   "path": "*"
-								}
-							 }
-						  ]
-					   }
+						}
+					  ]
 					}
-				 }
-			  },
-			  {
-				 "name": "validate-runAsNonRoot",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Running as root user is not allowed. Set runAsNonRoot to true",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "securityContext": {
-								"runAsNonRoot": true
-							 }
-						  }
-					   },
-					   {
-						  "spec": {
-							 "containers": [
-								{
-								   "name": "*",
-								   "securityContext": {
-									  "runAsNonRoot": true
-								   }
-								}
-							 ]
-						  }
-					   }
-					]
-				 }
-			  },
-			  {
-				 "name": "validate-docker-sock-mount",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Use of the Docker Unix socket is not allowed",
-					"pattern": {
-					   "spec": {
-						  "=(volumes)": [
-							 {
-								"=(hostPath)": {
-								   "path": "!/var/run/docker.sock"
-								}
-							 }
-						  ]
-					   }
-					}
-				 }
+				  }
+				]
 			  }
-		   ]
+			}
+		  ]
 		}
-	 }`)
+	  }`)
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
@@ -236,278 +339,212 @@ func TestGeneratePodControllerRule(t *testing.T) {
 	p, err := engine.ApplyPatches(policyRaw, patches)
 	assert.NilError(t, err)
 
-	expectPolicy := []byte(`{
+	expectedPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "annotations": {
-			  "a": "b",
-			  "pod-policies.kyverno.io/autogen-controllers": "all"
-		   },
-		   "name": "add-safe-to-evict"
+		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "Deployment"
+		  },
+		  "name": "add-safe-to-evict"
 		},
 		"spec": {
-		   "rules": [
-			  {
-				 "name": "annotate-empty-dir",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "metadata": {
-						  "annotations": {
-							 "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
-						  }
-					   },
-					   "spec": {
-						  "volumes": [
-							 {
-								"(emptyDir)": {}
-							 }
-						  ]
-					   }
-					}
-				 }
+		  "rules": [
+			{
+			  "name": "validate-runAsNonRoot",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
 			  },
-			  {
-				 "name": "annotate-host-path",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
+			  "validate": {
+				"message": "Running as root user is not allowed. Set runAsNonRoot to true",
+				"anyPattern": [
+				  {
+					"spec": {
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
 					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "metadata": {
-						  "annotations": {
-							 "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+				  },
+				  {
+					"spec": {
+					  "containers": [
+						{
+						  "name": "*",
+						  "securityContext": {
+							"runAsNonRoot": true
 						  }
-					   },
-					   "spec": {
-						  "volumes": [
-							 {
-								"(hostPath)": {
-								   "path": "*"
-								}
-							 }
-						  ]
-					   }
+						}
+					  ]
 					}
-				 }
-			  },
-			  {
-				 "name": "validate-runAsNonRoot",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Running as root user is not allowed. Set runAsNonRoot to true",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "securityContext": {
-								"runAsNonRoot": true
-							 }
-						  }
-					   },
-					   {
-						  "spec": {
-							 "containers": [
-								{
-								   "name": "*",
-								   "securityContext": {
-									  "runAsNonRoot": true
-								   }
-								}
-							 ]
-						  }
-					   }
-					]
-				 }
-			  },
-			  {
-				 "name": "validate-docker-sock-mount",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Use of the Docker Unix socket is not allowed",
-					"pattern": {
-					   "spec": {
-						  "=(volumes)": [
-							 {
-								"=(hostPath)": {
-								   "path": "!/var/run/docker.sock"
-								}
-							 }
-						  ]
-					   }
-					}
-				 }
-			  },
-			  {
-				 "name": "autogen-annotate-empty-dir",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "DaemonSet",
-						  "Deployment",
-						  "Job",
-						  "StatefulSet"
-					   ]
-					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "spec": {
-						  "template": {
-							 "metadata": {
-								"annotations": {
-								   "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
-								}
-							 },
-							 "spec": {
-								"volumes": [
-								   {
-									  "(emptyDir)": {}
-								   }
-								]
-							 }
-						  }
-					   }
-					}
-				 }
-			  },
-			  {
-				 "name": "autogen-annotate-host-path",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "DaemonSet",
-						  "Deployment",
-						  "Job",
-						  "StatefulSet"
-					   ]
-					}
-				 },
-				 "mutate": {
-					"overlay": {
-					   "spec": {
-						  "template": {
-							 "metadata": {
-								"annotations": {
-								   "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
-								}
-							 },
-							 "spec": {
-								"volumes": [
-								   {
-									  "(hostPath)": {
-										 "path": "*"
-									  }
-								   }
-								]
-							 }
-						  }
-					   }
-					}
-				 }
-			  },
-			  {
-				 "name": "autogen-validate-runAsNonRoot",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "DaemonSet",
-						  "Deployment",
-						  "Job",
-						  "StatefulSet"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Running as root user is not allowed. Set runAsNonRoot to true",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "securityContext": {
-									  "runAsNonRoot": true
-								   }
-								}
-							 }
-						  }
-					   },
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "containers": [
-									  {
-										 "name": "*",
-										 "securityContext": {
-											"runAsNonRoot": true
-										 }
-									  }
-								   ]
-								}
-							 }
-						  }
-					   }
-					]
-				 }
-			  },
-			  {
-				 "name": "autogen-validate-docker-sock-mount",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "DaemonSet",
-						  "Deployment",
-						  "Job",
-						  "StatefulSet"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "Use of the Docker Unix socket is not allowed",
-					"pattern": {
-					   "spec": {
-						  "template": {
-							 "spec": {
-								"=(volumes)": [
-								   {
-									  "=(hostPath)": {
-										 "path": "!/var/run/docker.sock"
-									  }
-								   }
-								]
-							 }
-						  }
-					   }
-					}
-				 }
+				  }
+				]
 			  }
-		   ]
+			},
+			{
+			  "name": "autogen-validate-runAsNonRoot",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Running as root user is not allowed. Set runAsNonRoot to true",
+				"anyPattern": [
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "securityContext": {
+							"runAsNonRoot": true
+						  }
+						}
+					  }
+					}
+				  },
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "*",
+							  "securityContext": {
+								"runAsNonRoot": true
+							  }
+							}
+						  ]
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
 		}
-	 }`)
-	t.Log(string(expectPolicy))
-	t.Log(string(p))
-	compareJSONAsMap(t, expectPolicy, p)
+	  }`)
+	compareJSONAsMap(t, p, expectedPolicy)
+}
+
+func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "add-safe-to-evict"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate-docker-sock-mount",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Use of the Docker Unix socket is not allowed",
+				"pattern": {
+				  "spec": {
+					"=(volumes)": [
+					  {
+						"=(hostPath)": {
+						  "path": "!/var/run/docker.sock"
+						}
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+	patches, errs := generatePodControllerRule(policy)
+	assert.Assert(t, len(errs) == 0)
+
+	p, err := engine.ApplyPatches(policyRaw, patches)
+	assert.NilError(t, err)
+
+	expectedPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "all"
+		  },
+		  "name": "add-safe-to-evict"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate-docker-sock-mount",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Use of the Docker Unix socket is not allowed",
+				"pattern": {
+				  "spec": {
+					"=(volumes)": [
+					  {
+						"=(hostPath)": {
+						  "path": "!/var/run/docker.sock"
+						}
+					  }
+					]
+				  }
+				}
+			  }
+			},
+			{
+			  "name": "autogen-validate-docker-sock-mount",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"DaemonSet",
+					"Deployment",
+					"Job",
+					"StatefulSet"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Use of the Docker Unix socket is not allowed",
+				"pattern": {
+				  "spec": {
+					"template": {
+					  "spec": {
+						"=(volumes)": [
+						  {
+							"=(hostPath)": {
+							  "path": "!/var/run/docker.sock"
+							}
+						  }
+						]
+					  }
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	compareJSONAsMap(t, p, expectedPolicy)
 }
