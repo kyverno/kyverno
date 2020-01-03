@@ -134,9 +134,9 @@ type Rule struct {
 	Name             string           `json:"name"`
 	MatchResources   MatchResources   `json:"match"`
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
-	Mutation         Mutation         `json:"mutate"`
-	Validation       Validation       `json:"validate"`
-	Generation       Generation       `json:"generate"`
+	Mutation         Mutation         `json:"mutate,omitempty"`
+	Validation       Validation       `json:"validate,omitempty"`
+	Generation       Generation       `json:"generate,omitempty"`
 }
 
 //MatchResources contains resource description of the resources that the rule is to apply on
@@ -153,23 +153,23 @@ type ExcludeResources struct {
 
 // UserInfo filter based on users
 type UserInfo struct {
-	Roles        []string         `json:"roles"`
-	ClusterRoles []string         `json:"clusterRoles"`
-	Subjects     []rbacv1.Subject `json:"subjects"`
+	Roles        []string         `json:"roles,omitempty"`
+	ClusterRoles []string         `json:"clusterRoles,omitempty"`
+	Subjects     []rbacv1.Subject `json:"subjects,omitempty"`
 }
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.
 type ResourceDescription struct {
-	Kinds      []string              `json:"kinds"`
-	Name       string                `json:"name"`
+	Kinds      []string              `json:"kinds,omitempty"`
+	Name       string                `json:"name,omitempty"`
 	Namespaces []string              `json:"namespaces,omitempty"`
-	Selector   *metav1.LabelSelector `json:"selector"`
+	Selector   *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
-	Overlay interface{} `json:"overlay"`
-	Patches []Patch     `json:"patches"`
+	Overlay interface{} `json:"overlay,omitempty"`
+	Patches []Patch     `json:"patches,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false
@@ -183,9 +183,9 @@ type Patch struct {
 
 // Validation describes the way how Validating Webhook will check the resource on creation
 type Validation struct {
-	Message    string        `json:"message"`
-	Pattern    interface{}   `json:"pattern"`
-	AnyPattern []interface{} `json:"anyPattern"`
+	Message    string        `json:"message,omitempty"`
+	Pattern    interface{}   `json:"pattern,omitempty"`
+	AnyPattern []interface{} `json:"anyPattern,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created
@@ -198,8 +198,8 @@ type Generation struct {
 // CloneFrom - location of the resource
 // which will be used as source when applying 'generate'
 type CloneFrom struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 //PolicyStatus provides status for violations
