@@ -53,7 +53,7 @@ func failedEventsPV(err error, gr kyverno.GenerateRequest, resource unstructured
 	re.Name = resource.GetName()
 	re.Reason = event.PolicyViolation.String()
 	re.Source = event.GeneratePolicyController
-	re.Message = fmt.Sprintf("policy %s failed to apply created violation: %v", err)
+	re.Message = fmt.Sprintf("policy %s failed to apply created violation: %v", gr.Spec.Policy, err)
 	events = append(events, re)
 
 	return events
