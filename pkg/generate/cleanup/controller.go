@@ -71,13 +71,13 @@ func NewController(
 
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
-	}, 30)
+	}, 2*time.Minute)
 
 	grInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
 		DeleteFunc: c.deleteGR,
-	}, 30)
+	}, 2*time.Minute)
 
 	return &c
 }
@@ -116,14 +116,8 @@ func (c *Controller) addGR(obj interface{}) {
 }
 
 func (c *Controller) updateGR(old, cur interface{}) {
-	oldGr := old.(*kyverno.GenerateRequest)
-	curGr := cur.(*kyverno.GenerateRequest)
-	if oldGr.ResourceVersion == curGr.ResourceVersion {
-		// Periodic resync will send update events for all known Namespace.
-		// Two different versions of the same replica set will always have different RVs.
-		return
-	}
-	c.enqueueGR(curGr)
+	gr := cur.(*kyverno.GenerateRequest)
+	c.enqueueGR(gr)
 }
 
 func (c *Controller) deleteGR(obj interface{}) {

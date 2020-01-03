@@ -72,13 +72,13 @@ func NewController(
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
 		// Deletion of policy will be handled by cleanup controller
-	}, 30)
+	}, 2*time.Minute)
 
 	grInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
 		DeleteFunc: c.deleteGR,
-	}, 30)
+	}, 2*time.Minute)
 
 	c.enqueueGR = c.enqueue
 	c.syncHandler = c.syncGenerateRequest
