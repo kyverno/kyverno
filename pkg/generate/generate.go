@@ -31,12 +31,20 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	err = c.applyGenerate(*resource, *gr)
 	switch e := err.(type) {
 	case *Violation:
+		// Generate event
+		// - resource -> rule failed and created PV
+		// - policy -> failed to apply of resource and created PV
 		c.pvGenerator.Add(generatePV(*gr, *resource, e))
 	default:
+		// Generate event
+		// - resource -> rule failed
+		// - policy -> failed tp apply on resource
 		glog.V(4).Info(e)
 	}
-	// create events on policy and resource
-	// 3 - Update Status
+	// 3 - Report Events
+	reportEvents(err, c.eventGen, *gr, *resource)
+
+	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err)
 }
 
