@@ -60,6 +60,12 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1b
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
+	// default 'Background'
+	if patch, updateMsg := defaultBackgroundFlag(policy); patch != nil {
+		patches = append(patches, patch)
+		updateMsgs = append(updateMsgs, updateMsg)
+	}
+
 	// TODO(shuting): enable this feature on policy UPDATE
 	if operation == v1beta1.Create {
 		patch, errs := generatePodControllerRule(*policy)
@@ -75,6 +81,32 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1b
 		patches = append(patches, patch...)
 	}
 	return utils.JoinPatches(patches), updateMsgs
+}
+
+func defaultBackgroundFlag(policy *kyverno.ClusterPolicy) ([]byte, string) {
+	// default 'Background' flag to 'true' if not specified
+	defaultVal := true
+	//TODO
+	if policy.Spec.Background == nil {
+		glog.V(4).Infof("default policy %s 'Background' to '%s'", policy.Name, strconv.FormatBool(true))
+		jsonPatch := struct {
+			Path  string `json:"path"`
+			Op    string `json:"op"`
+			Value *bool  `json:"value`
+		}{
+			"/spec/background",
+			"add",
+			&defaultVal,
+		}
+		patchByte, err := json.Marshal(jsonPatch)
+		if err != nil {
+			glog.Errorf("failed to set default 'Background' to '%s' for policy %s", strconv.FormatBool(true), policy.Name)
+			return nil, ""
+		}
+		glog.V(4).Infof("generate JSON Patch to set default 'Background' to '%s' for policy %s", strconv.FormatBool(true), policy.Name)
+		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
+	}
+	return nil, ""
 }
 
 func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, string) {

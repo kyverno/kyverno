@@ -159,7 +159,12 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	// policy.spec.background -> "True"
 	// register with policy meta-store
 	pc.pMetaStore.Register(*p)
-	if !p.Spec.Background {
+	if p.Spec.Background == nil {
+		// skipped policy mutation default -> do not process
+		return
+	}
+
+	if !*p.Spec.Background {
 		return
 	}
 	glog.V(4).Infof("Adding Policy %s", p.Name)
@@ -174,9 +179,14 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	pc.pMetaStore.UnRegister(*oldP)
 	pc.pMetaStore.Register(*curP)
 
+	if curP.Spec.Background == nil {
+		// skipped policy mutation default -> do not process
+		return
+	}
+
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
-	if !curP.Spec.Background {
+	if !*curP.Spec.Background {
 		return
 	}
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)

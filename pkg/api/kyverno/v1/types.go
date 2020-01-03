@@ -64,7 +64,7 @@ type Policy struct {
 type Spec struct {
 	Rules                   []Rule `json:"rules"`
 	ValidationFailureAction string `json:"validationFailureAction"`
-	Background              bool   `json:"background,omitempty"`
+	Background              *bool  `json:"background"`
 }
 
 // Rule is set of mutation, validation and generation actions
