@@ -10,6 +10,8 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -21,6 +23,8 @@ const (
 )
 
 type Controller struct {
+	// dyanmic client implementation
+	client *dclient.Client
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 	// handler for GR CR
@@ -44,11 +48,13 @@ type Controller struct {
 
 func NewController(
 	kyvernoclient *kyvernoclient.Clientset,
+	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 ) *Controller {
 	c := Controller{
 		kyvernoClient: kyvernoclient,
+		client:        client,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
 		// as we dont want a deleted GR to be re-queue
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request-cleanup"),
@@ -77,7 +83,7 @@ func NewController(
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	gr, ok := obj.(*kyverno.ClusterPolicy)
+	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -90,9 +96,18 @@ func (c *Controller) deletePolicy(obj interface{}) {
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting Policy %s", gr.Name)
+	glog.V(4).Infof("Deleting Policy %s", p.Name)
 	// clean up the GR
 	// Get the corresponding GR
+	// get the list of GR for the current Policy version
+	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+	if err != nil {
+		glog.Error("failed to Generate Requests for policy %s: %v", p.Name, err)
+		return
+	}
+	for _, gr := range grs {
+		c.addGR(gr)
+	}
 }
 
 func (c *Controller) addGR(obj interface{}) {
@@ -125,7 +140,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting Policy %s", gr.Name)
+	glog.V(4).Infof("Deleting GR %s", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
 }
@@ -136,6 +151,7 @@ func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 		glog.Error(err)
 		return
 	}
+	glog.V(4).Infof("cleanup enqueu: %v", gr.Name)
 	c.queue.Add(key)
 }
 
@@ -198,7 +214,15 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	defer func() {
 		glog.V(4).Infof("Finished syncing GR %q (%v)", key, time.Since(startTime))
 	}()
-	gr, err := c.grLister.Get(key)
+	_, grName, err := cache.SplitMetaNamespaceKey(key)
+	if errors.IsNotFound(err) {
+		glog.Info("Generate Request %s has been deleted", key)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	gr, err := c.grLister.Get(grName)
 	if err != nil {
 		return err
 	}

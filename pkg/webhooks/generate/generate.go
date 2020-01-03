@@ -88,7 +88,8 @@ func retryCreateResource(client *kyvernoclient.Clientset, grSpec kyverno.Generat
 		gr.SetGenerateName("gr-")
 		gr.SetNamespace("kyverno")
 		// Initial state "Pending"
-		gr.Status.State = kyverno.Pending
+		// TODO: status is not updated
+		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		_, err = client.KyvernoV1().GenerateRequests("kyverno").Create(&gr)
 		glog.V(4).Infof("retry %v create generate request", i)

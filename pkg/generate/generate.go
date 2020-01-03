@@ -12,11 +12,12 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
+func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	// 1 - Check if the resource exists
 	resource, err := getResource(c.client, gr.Spec.Resource)
 	if err != nil {
@@ -24,26 +25,29 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 		glog.V(4).Info("resource does not exist or is yet to be created, requeuing: %v", err)
 		return err
 	}
+
+	glog.V(4).Infof("processGR %v", gr.Status.State)
 	// 2 - Apply the generate policy on the resource
-	err = c.applyGenerate(*resource, gr)
+	err = c.applyGenerate(*resource, *gr)
 	switch e := err.(type) {
 	case *Violation:
-		c.pvGenerator.Add(generatePV(gr, *resource, e))
+		c.pvGenerator.Add(generatePV(*gr, *resource, e))
 	default:
 		glog.V(4).Info(e)
 	}
 	// create events on policy and resource
-
 	// 3 - Update Status
-	return updateStatus(c.statusControl, gr, err)
+	return updateStatus(c.statusControl, *gr, err)
 }
 
 func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) error {
 	// Get the list of rules to be applied
 	// get policy
+	glog.V(4).Info("applyGenerate")
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		glog.V(4).Infof("policy %s not found: %v", gr.Spec.Policy, err)
+		return nil
 	}
 	// build context
 	ctx := context.NewContext()
@@ -62,13 +66,15 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		Context:       ctx,
 		AdmissionInfo: gr.Spec.Context.UserRequestInfo,
 	}
+
+	glog.V(4).Info("GenerateNew")
 	// check if the policy still applies to the resource
 	engineResponse := engine.GenerateNew(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 		return fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
-
+	glog.V(4).Infof("%v", gr)
 	// Apply the generate rule on resource
 	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
 }
@@ -89,7 +95,7 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
-
+	glog.V(4).Info("applyGeneratePolicy")
 	// To manage existing resources, we compare the creation time for the default resiruce to be generated and policy creation time
 	processExisting := func() bool {
 		rcreationTime := resource.GetCreationTimestamp()
@@ -112,9 +118,18 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState, processExisting bool) error {
 	var rdata map[string]interface{}
 	var err error
+
+	// variable substitution
+	// - name
+	// - namespace
+	// - clone.name
+	// - clone.namespace
+	gen := variableSubsitutionForAttributes(rule.Generation, ctx)
 	// DATA
-	if rule.Generation.Data != nil {
-		if rdata, err = handleData(rule.Name, rule.Generation, client, resource, ctx, state); err != nil {
+	glog.V(4).Info("applyRule")
+	if gen.Data != nil {
+		if rdata, err = handleData(rule.Name, gen, client, resource, ctx, state); err != nil {
+			glog.V(4).Info(err)
 			switch e := err.(type) {
 			case *ParseFailed, *NotFound, *ConfigNotFound:
 				// handled errors
@@ -132,8 +147,8 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 		}
 	}
 	// CLONE
-	if rule.Generation.Clone != (kyverno.CloneFrom{}) {
-		if rdata, err = handleClone(rule.Generation, client, resource, ctx, state); err != nil {
+	if gen.Clone != (kyverno.CloneFrom{}) {
+		if rdata, err = handleClone(gen, client, resource, ctx, state); err != nil {
 			switch e := err.(type) {
 			case *NotFound:
 				// handled errors
@@ -155,17 +170,70 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	}
 	// Create the generate resource
 	newResource := &unstructured.Unstructured{}
+	glog.V(4).Info(rdata)
 	newResource.SetUnstructuredContent(rdata)
-	newResource.SetName(rule.Generation.Name)
-	newResource.SetNamespace(rule.Generation.Namespace)
+	newResource.SetName(gen.Name)
+	newResource.SetNamespace(gen.Namespace)
 	// Reset resource version
 	newResource.SetResourceVersion("")
-	_, err = client.CreateResource(rule.Generation.Kind, rule.Generation.Namespace, rule.Generation.Name, false)
+	// set the ownerReferences
+	ownerRefs := newResource.GetOwnerReferences()
+	// add ownerRefs
+	newResource.SetOwnerReferences(ownerRefs)
+
+	glog.V(4).Infof("creating resource %v", newResource)
+	_, err = client.CreateResource(gen.Kind, gen.Namespace, newResource, false)
 	if err != nil {
+		glog.Info(err)
 		return err
 	}
+	glog.V(4).Infof("created new resource %s %s %s ", gen.Kind, gen.Namespace, gen.Name)
 	// New Resource created succesfully
 	return nil
+}
+
+func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalInterface) kyverno.Generation {
+	// Name
+	name := gen.Name
+	namespace := gen.Namespace
+	newNameVar := variables.SubstituteVariables(ctx, name)
+
+	if newName, ok := newNameVar.(string); ok {
+		gen.Name = newName
+	}
+
+	newNamespaceVar := variables.SubstituteVariables(ctx, namespace)
+	if newNamespace, ok := newNamespaceVar.(string); ok {
+		gen.Namespace = newNamespace
+	}
+	// Clone
+	cloneName := gen.Clone.Name
+	cloneNamespace := gen.Clone.Namespace
+
+	newcloneNameVar := variables.SubstituteVariables(ctx, cloneName)
+	if newcloneName, ok := newcloneNameVar.(string); ok {
+		gen.Clone.Name = newcloneName
+	}
+	newcloneNamespaceVar := variables.SubstituteVariables(ctx, cloneNamespace)
+	if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
+		gen.Clone.Namespace = newcloneNamespace
+	}
+	glog.V(4).Info("var updated %v", gen.Name)
+	return gen
+}
+
+func createOwnerReference(ownerRefs []metav1.OwnerReference, resource unstructured.Unstructured) {
+	controllerFlag := true
+	blockOwnerDeletionFlag := true
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         resource.GetAPIVersion(),
+		Kind:               resource.GetKind(),
+		Name:               resource.GetName(),
+		UID:                resource.GetUID(),
+		Controller:         &controllerFlag,
+		BlockOwnerDeletion: &blockOwnerDeletionFlag,
+	}
+	ownerRefs = append(ownerRefs, ownerRef)
 }
 
 func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
@@ -173,21 +241,27 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 
 	// check if resource exists
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
+	glog.V(4).Info(err)
 	if errors.IsNotFound(err) {
+		glog.V(4).Info("NotFound")
+		glog.V(4).Info(string(state))
 		// Resource does not exist
-		if state == kyverno.Pending {
+		if state == "" {
 			// Processing the request first time
 			rdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&newData)
+			glog.V(4).Info(err)
 			if err != nil {
 				return nil, NewParseFailed(newData, err)
 			}
 			return rdata, nil
 		}
+		glog.V(4).Info("Creating violation")
 		// State : Failed,Completed
 		// request has been processed before, so dont create the resource
 		// report Violation to notify the error
 		return nil, NewViolation(ruleName, NewNotFound(generateRule.Kind, generateRule.Namespace, generateRule.Name))
 	}
+	glog.V(4).Info(err)
 	if err != nil {
 		//something wrong while fetching resource
 		return nil, err
@@ -196,6 +270,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	ok, err := checkResource(ctx, newData, obj)
 	if err != nil {
 		//something wrong with configuration
+		glog.V(4).Info(err)
 		return nil, err
 	}
 	if !ok {

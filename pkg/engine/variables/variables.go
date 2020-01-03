@@ -2,6 +2,7 @@ package variables
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -72,7 +73,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	var emptyInterface interface{}
 	// extract variable {{<variable>}}
-	variableRegex := regexp.MustCompile("^{{(.*)}}$")
+	variableRegex := regexp.MustCompile("{{(.*)}}")
 	groups := variableRegex.FindStringSubmatch(valuePattern)
 	if len(groups) < 2 {
 		return valuePattern
@@ -83,6 +84,11 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	if err != nil {
 		glog.V(4).Infof("variable substitution failed for query %s: %v", searchPath, err)
 		return emptyInterface
+	}
+	// only replace the value if returned value is scalar
+	if val, ok := variable.(string); ok {
+		newVal := strings.Replace(valuePattern, groups[0], val, -1)
+		return newVal
 	}
 	return variable
 }

@@ -159,7 +159,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting Policy %s", gr.Name)
+	glog.V(4).Infof("Deleting GR %s", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
 }
@@ -223,9 +223,15 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	defer func() {
 		glog.V(4).Infof("Finished syncing GR %q (%v)", key, time.Since(startTime))
 	}()
-	gr, err := c.grLister.Get(key)
+	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	return c.processGR(*gr)
+
+	gr, err := c.grLister.Get(grName)
+	if err != nil {
+		glog.V(4).Info(err)
+		return err
+	}
+	return c.processGR(gr)
 }
