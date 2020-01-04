@@ -2,9 +2,9 @@ package v1
 
 import "reflect"
 
-func (p ClusterPolicy) HasMutateOrValidate() bool {
+func (p ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() || rule.HasValidate() {
+		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
 	}

@@ -6,7 +6,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	authenticationv1 "k8s.io/api/authentication/v1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
 //Interface ... normal functions
@@ -15,8 +15,8 @@ type Interface interface {
 	AddJSON(dataRaw []byte) error
 	// merges resource json under request.object
 	AddResource(dataRaw []byte) error
-	// merges userInfo json under request.userInfo
-	AddUserInfo(userInfo authenticationv1.UserInfo) error
+	// merges userInfo json under kyverno.userInfo
+	AddUserInfo(userInfo kyverno.UserInfo) error
 	EvalInterface
 }
 
@@ -27,7 +27,8 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu      sync.RWMutex
+	mu sync.RWMutex
+	// data    map[string]interface{}
 	jsonRaw []byte
 }
 
@@ -54,7 +55,28 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
-//AddResource adds data at path: request.object
+// //Add adds resource with the key
+// // we always overwrite the resoruce if already present
+// func (ctx *Context) Add(key string, resource []byte) error {
+// 	ctx.mu.Lock()
+// 	defer ctx.mu.Unlock()
+// 	// insert/update
+// 	// umarshall before adding
+// 	var data interface{}
+// 	if err := json.Unmarshal(resource, &data); err != nil {
+// 		glog.V(4).Infof("failed to unmarshall resource in context: %v", err)
+// 		fmt.Println(err)
+// 		return err
+// 	}
+// 	ctx.data[key] = data
+// 	return nil
+// }
+
+// func (ctx *Context) getData() interface{} {
+// 	return ctx.data
+// }
+
+//Add data at path: request.object
 func (ctx *Context) AddResource(dataRaw []byte) error {
 
 	// unmarshall the resource struct
@@ -82,16 +104,11 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
-//AddUserInfo adds data at path: request.userInfo
-func (ctx *Context) AddUserInfo(userInfo authenticationv1.UserInfo) error {
+func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
 	}{
-		Request: struct {
-			UserInfo interface{} `json:"userInfo"`
-		}{
-			UserInfo: userInfo,
-		},
+		Request: userRequestInfo,
 	}
 
 	objRaw, err := json.Marshal(modifiedResource)

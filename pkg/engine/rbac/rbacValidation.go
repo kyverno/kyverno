@@ -1,4 +1,4 @@
-package engine
+package rbac
 
 import (
 	"reflect"
@@ -14,10 +14,10 @@ const (
 )
 
 // matchAdmissionInfo return true if the rule can be applied to the request
-func matchAdmissionInfo(rule kyverno.Rule, requestInfo RequestInfo) bool {
+func MatchAdmissionInfo(rule kyverno.Rule, requestInfo kyverno.RequestInfo) bool {
 	// when processing existing resource, it does not contain requestInfo
 	// skip permission checking
-	if reflect.DeepEqual(requestInfo, RequestInfo{}) {
+	if reflect.DeepEqual(requestInfo, kyverno.RequestInfo{}) {
 		return true
 	}
 
@@ -34,7 +34,7 @@ func matchAdmissionInfo(rule kyverno.Rule, requestInfo RequestInfo) bool {
 // 		subjects: subject1, subject2
 // validateMatch return true if (role1 || role2) and (clusterRole1 || clusterRole2)
 // and (subject1 || subject2) are found in requestInfo, OR operation for each list
-func validateMatch(match kyverno.MatchResources, requestInfo RequestInfo) bool {
+func validateMatch(match kyverno.MatchResources, requestInfo kyverno.RequestInfo) bool {
 	if len(match.Roles) > 0 {
 		if !matchRoleRefs(match.Roles, requestInfo.Roles) {
 			return false
@@ -61,7 +61,7 @@ func validateMatch(match kyverno.MatchResources, requestInfo RequestInfo) bool {
 // 		subjects: subject1, subject2
 // validateExclude return true if none of the above found in requestInfo
 // otherwise return false immediately means rule should not be applied
-func validateExclude(exclude kyverno.ExcludeResources, requestInfo RequestInfo) bool {
+func validateExclude(exclude kyverno.ExcludeResources, requestInfo kyverno.RequestInfo) bool {
 	if len(exclude.Roles) > 0 {
 		if matchRoleRefs(exclude.Roles, requestInfo.Roles) {
 			return false

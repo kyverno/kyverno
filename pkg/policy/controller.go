@@ -321,7 +321,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
+	if policy.HasMutateOrValidateOrGenerate() {
 		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	}
 

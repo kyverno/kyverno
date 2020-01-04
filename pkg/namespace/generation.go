@@ -233,7 +233,7 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 		Client:      client,
 		Context:     ctx,
 	}
-	engineResponse := engine.Generate(policyContext)
+	engineResponse := engine.GenerateNew(policyContext)
 	// gather stats
 	gatherStat(p.Name, engineResponse.PolicyResponse)
 	//send stats

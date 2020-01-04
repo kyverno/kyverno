@@ -16,7 +16,7 @@ type PolicyContext struct {
 	NewResource unstructured.Unstructured
 	// old Resource - Update operations
 	OldResource   unstructured.Unstructured
-	AdmissionInfo RequestInfo
+	AdmissionInfo kyverno.RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client
 	// Contexts to store resources

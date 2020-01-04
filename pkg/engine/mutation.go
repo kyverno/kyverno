@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/engine/rbac"
 )
 
 const (
@@ -54,7 +55,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		startTime := time.Now()
-		if !matchAdmissionInfo(rule, policyContext.AdmissionInfo) {
+		if !rbac.MatchAdmissionInfo(rule, policyContext.AdmissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), policyContext.AdmissionInfo)
 			continue
