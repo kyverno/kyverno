@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 const (
@@ -68,6 +69,13 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
+
+		// evaluate pre-conditions
+		if !variables.EvaluateConditions(ctx, rule.Conditions) {
+			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+			continue
+		}
+
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse

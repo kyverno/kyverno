@@ -55,6 +55,14 @@ func (gen *Generation) DeepCopyInto(out *Generation) {
 	}
 }
 
+// DeepCopyInto is declared because k8s:deepcopy-gen is
+// not able to generate this method for interface{} member
+func (cond *Condition) DeepCopyInto(out *Condition) {
+	if out != nil {
+		*out = *cond
+	}
+}
+
 //ToKey generates the key string used for adding label to polivy violation
 func (rs ResourceSpec) ToKey() string {
 	return rs.Kind + "." + rs.Name
