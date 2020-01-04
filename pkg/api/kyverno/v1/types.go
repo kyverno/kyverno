@@ -73,10 +73,26 @@ type Rule struct {
 	Name             string           `json:"name"`
 	MatchResources   MatchResources   `json:"match"`
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
+	Conditions       []Condition      `json:"preconditions,omitempty"`
 	Mutation         Mutation         `json:"mutate,omitempty"`
 	Validation       Validation       `json:"validate,omitempty"`
 	Generation       Generation       `json:"generate,omitempty"`
 }
+
+type Condition struct {
+	Key      interface{}       `json:"key"`
+	Operator ConditionOperator `json:"operator"`
+	Value    interface{}       `json:"value"`
+}
+
+type ConditionOperator string
+
+const (
+	Equal    ConditionOperator = "Equal"
+	NotEqual ConditionOperator = "NotEqual"
+	In       ConditionOperator = "In"
+	NotIn    ConditionOperator = "NotIn"
+)
 
 //MatchResources contains resource description of the resources that the rule is to apply on
 type MatchResources struct {
