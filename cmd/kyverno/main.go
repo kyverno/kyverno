@@ -177,18 +177,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 	)
-	// GENERATE CONTROLLER
-	// - watches for Namespace resource and generates resource based on the policy generate rule
-	// nsc := namespace.NewNamespaceController(
-	// 	pclient,
-	// 	client,
-	// 	kubeInformer.Core().V1().Namespaces(),
-	// 	pInformer.Kyverno().V1().ClusterPolicies(),
-	// 	pc.GetPolicyStatusAggregator(),
-	// 	egen,
-	// 	configData,
-	// 	pvgen,
-	// 	policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig)
@@ -239,7 +227,6 @@ func main() {
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
-	// go nsc.Run(1, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
