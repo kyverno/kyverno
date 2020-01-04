@@ -1,9 +1,12 @@
 package engine
 
 import (
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -12,10 +15,11 @@ func GenerateNew(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	admissionInfo := policyContext.AdmissionInfo
-	return filterRules(policy, resource, admissionInfo)
+	ctx := policyContext.Context
+	return filterRules(policy, resource, admissionInfo, ctx)
 }
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -25,6 +29,12 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !MatchesResourceDescription(resource, rule) {
 		return nil
 	}
+
+	// evaluate pre-conditions
+	if !variables.EvaluateConditions(ctx, rule.Conditions) {
+		glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+		return nil
+	}
 	// build rule Response
 	return &response.RuleResponse{
 		Name: rule.Name,
@@ -32,7 +42,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 }
 
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) response.EngineResponse {
+func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) response.EngineResponse {
 	resp := response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policy.Name,
@@ -45,7 +55,7 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		if ruleResp := filterRule(rule, resource, admissionInfo); ruleResp != nil {
+		if ruleResp := filterRule(rule, resource, admissionInfo, ctx); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
