@@ -44,7 +44,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 			`)
 
 	userInfo := authenticationv1.UserInfo{
-		Username: "admin",
+		Username: "system:serviceaccount:admin",
 		UID:      "014fbff9a07c",
 	}
 	userRequestInfo := kyverno.RequestInfo{
@@ -77,6 +77,17 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	}
 
 	result, err = ctx.Query("request.userInfo.username")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult = "system:serviceaccount:admin"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
+	// Add service account
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	result, err = ctx.Query("serviceAccount")
 	if err != nil {
 		t.Error(err)
 	}

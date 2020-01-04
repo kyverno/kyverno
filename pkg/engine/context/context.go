@@ -17,6 +17,8 @@ type Interface interface {
 	AddResource(dataRaw []byte) error
 	// merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyverno.UserInfo) error
+	// merges serrviceaccount under serviceaccount
+	AddSA(userName string) error
 	EvalInterface
 }
 
@@ -54,27 +56,6 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	}
 	return nil
 }
-
-// //Add adds resource with the key
-// // we always overwrite the resoruce if already present
-// func (ctx *Context) Add(key string, resource []byte) error {
-// 	ctx.mu.Lock()
-// 	defer ctx.mu.Unlock()
-// 	// insert/update
-// 	// umarshall before adding
-// 	var data interface{}
-// 	if err := json.Unmarshal(resource, &data); err != nil {
-// 		glog.V(4).Infof("failed to unmarshall resource in context: %v", err)
-// 		fmt.Println(err)
-// 		return err
-// 	}
-// 	ctx.data[key] = data
-// 	return nil
-// }
-
-// func (ctx *Context) getData() interface{} {
-// 	return ctx.data
-// }
 
 //Add data at path: request.object
 func (ctx *Context) AddResource(dataRaw []byte) error {
@@ -117,4 +98,26 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 		return err
 	}
 	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) AddSA(userName string) error {
+	saPrefix := "system:serviceaccount:"
+	var sa string
+	if len(userName) <= len(saPrefix) {
+		sa = ""
+	} else {
+		sa = userName[len(saPrefix):]
+	}
+	saObj := struct {
+		SA string `json:"serviceAccount"`
+	}{
+		SA: sa,
+	}
+
+	saRaw, err := json.Marshal(saObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	return ctx.AddJSON(saRaw)
 }

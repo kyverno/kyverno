@@ -39,7 +39,7 @@ spec:
           name: "nsowner-{{request.userInfo.username}}"
         subjects:
         - kind: ServiceAccount
-          name: "{{request.userInfo.username}}"
+          name: "{{serviceAccount}}" # refer pre-defined context value (removes the suffix system:serviceaccount: from userName)
           namespace: "{{request.object.metadata.name}}"
   - name: generate-admin-role-binding
     match:
@@ -58,5 +58,5 @@ spec:
           name: admin
         subjects:
         - kind: ServiceAccount
-          name: "{{request.userInfo.username}}"
+          name: "{{serviceAccount}}"
           namespace: "{{request.object.metadata.name}}"
