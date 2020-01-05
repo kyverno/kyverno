@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -100,20 +101,30 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	return ctx.AddJSON(objRaw)
 }
 
+// removes prefix 'system:serviceaccount:' and namespace, then loads only username
 func (ctx *Context) AddSA(userName string) error {
 	saPrefix := "system:serviceaccount:"
 	var sa string
+	saName := ""
 	if len(userName) <= len(saPrefix) {
 		sa = ""
 	} else {
 		sa = userName[len(saPrefix):]
 	}
+	// filter namespace
+	groups := strings.Split(sa, ":")
+	if len(groups) >= 2 {
+		glog.V(4).Infof("serviceAccount namespace: %s", groups[0])
+		glog.V(4).Infof("serviceAccount name: %s", groups[1])
+		saName = groups[1]
+	}
+
+	glog.Infof("Loading variable serviceAccount with value: %s", saName)
 	saObj := struct {
 		SA string `json:"serviceAccount"`
 	}{
-		SA: sa,
+		SA: saName,
 	}
-	glog.Infof("Loaded variable serviceAccount with value: %s", sa)
 	saRaw, err := json.Marshal(saObj)
 	if err != nil {
 		glog.V(4).Infof("failed to marshall the updated context data")

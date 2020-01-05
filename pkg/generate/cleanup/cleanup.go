@@ -59,7 +59,7 @@ func deleteGeneratedResources(client *dclient.Client, gr kyverno.GenerateRequest
 	for _, genResource := range gr.Status.GeneratedResources {
 		err := client.DeleteResource(genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if errors.IsNotFound(err) {
-			glog.V(4).Info("resource %s/%s/%s not found, will no delete", genResource.Kind, genResource.Namespace, genResource.Name)
+			glog.V(4).Infof("resource %s/%s/%s not found, will no delete", genResource.Kind, genResource.Namespace, genResource.Name)
 			continue
 		}
 		if err != nil {

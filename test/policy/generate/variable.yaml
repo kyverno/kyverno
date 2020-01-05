@@ -40,13 +40,12 @@ spec:
         subjects:
         - kind: ServiceAccount
           name: "{{serviceAccount}}" # refer pre-defined context value (removes the suffix system:serviceaccount: from userName)
-          namespace: "{{request.object.metadata.name}}"
+          namespace: nirmata
   - name: generate-admin-role-binding
     match:
       resources:
         kinds:
         - Namespace
-        name: devtest
     generate:
       kind: RoleBinding
       name: "ns-admin-{{request.userInfo.username}}-binding"
@@ -59,4 +58,4 @@ spec:
         subjects:
         - kind: ServiceAccount
           name: "{{serviceAccount}}"
-          namespace: "{{request.object.metadata.name}}"
+          namespace: nirmata

@@ -91,7 +91,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectedResult = "nirmata:toledo-damien-gmail-com-binding"
+	expectedResult = "toledo-damien-gmail-com-binding"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")
