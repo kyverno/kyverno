@@ -113,7 +113,7 @@ func (ctx *Context) AddSA(userName string) error {
 	}{
 		SA: sa,
 	}
-
+	glog.Info("Loaded variable serviceAccount with value: %s", sa)
 	saRaw, err := json.Marshal(saObj)
 	if err != nil {
 		glog.V(4).Infof("failed to marshall the updated context data")

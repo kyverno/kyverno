@@ -71,7 +71,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	ctx.AddResource(resourceRaw)
 	ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
 	ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
-
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
 		Policy:        *policy,
