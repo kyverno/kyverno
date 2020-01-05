@@ -180,6 +180,7 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
+		kubedynamicInformer,
 	)
 
 	// CONFIGURE CERTIFICATES

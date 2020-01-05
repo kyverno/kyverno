@@ -26,6 +26,9 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	if gr.Status.State == kyverno.Completed {
 		glog.V(4).Info("checking if owner exists")
 		if !ownerResourceExists(c.client, gr) {
+			if err := deleteGeneratedResources(c.client, gr); err != nil {
+				return err
+			}
 			glog.V(4).Info("delete GR")
 			return c.control.Delete(gr.Name)
 		}
@@ -50,4 +53,18 @@ func ownerResourceExists(client *dclient.Client, gr kyverno.GenerateRequest) boo
 	}
 	glog.V(4).Info("cleanup Resource does exits")
 	return true
+}
+
+func deleteGeneratedResources(client *dclient.Client, gr kyverno.GenerateRequest) error {
+	for _, genResource := range gr.Status.GeneratedResources {
+		err := client.DeleteResource(genResource.Kind, genResource.Namespace, genResource.Name, false)
+		if errors.IsNotFound(err) {
+			glog.V(4).Info("resource %s/%s/%s not found, will no delete", genResource.Kind, genResource.Namespace, genResource.Name)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
