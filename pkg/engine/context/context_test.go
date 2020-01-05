@@ -44,7 +44,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 			`)
 
 	userInfo := authenticationv1.UserInfo{
-		Username: "system:serviceaccount:admin",
+		Username: "system:serviceaccount:nirmata:toledo-damien-gmail-com-binding",
 		UID:      "014fbff9a07c",
 	}
 	userRequestInfo := kyverno.RequestInfo{
@@ -80,7 +80,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectedResult = "system:serviceaccount:admin"
+	expectedResult = "system:serviceaccount:nirmata:toledo-damien-gmail-com-binding"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")
@@ -91,7 +91,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectedResult = "admin"
+	expectedResult = "nirmata:toledo-damien-gmail-com-binding"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")

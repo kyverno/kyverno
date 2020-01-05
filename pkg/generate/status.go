@@ -7,8 +7,8 @@ import (
 )
 
 type StatusControlInterface interface {
-	Failed(gr kyverno.GenerateRequest, message string) error
-	Success(gr kyverno.GenerateRequest) error
+	Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error
+	Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
 }
 
 // StatusControl is default implementaation of GRStatusControlInterface
@@ -17,10 +17,11 @@ type StatusControl struct {
 }
 
 //FailedGR sets gr status.state to failed with message
-func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string) error {
+func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error {
 	gr.Status.State = kyverno.Failed
 	gr.Status.Message = message
-
+	// Update Generated Resources
+	gr.Status.GeneratedResources = genResources
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {
 		glog.V(4).Infof("FAILED: updated gr %s status to %s", gr.Name, string(kyverno.Failed))
@@ -31,9 +32,11 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string) error
 }
 
 // SuccessGR sets the gr status.state to completed and clears message
-func (sc StatusControl) Success(gr kyverno.GenerateRequest) error {
+func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
 	gr.Status.State = kyverno.Completed
 	gr.Status.Message = ""
+	// Update Generated Resources
+	gr.Status.GeneratedResources = genResources
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {

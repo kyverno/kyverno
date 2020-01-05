@@ -18,8 +18,11 @@ import (
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
+	var err error
+	var resource *unstructured.Unstructured
+	var genResources []kyverno.ResourceSpec
 	// 1 - Check if the resource exists
-	resource, err := getResource(c.client, gr.Spec.Resource)
+	resource, err = getResource(c.client, gr.Spec.Resource)
 	if err != nil {
 		// Dont update status
 		glog.V(4).Infof("resource does not exist or is yet to be created, requeuing: %v", err)
@@ -28,7 +31,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 	glog.V(4).Infof("processGR %v", gr.Status.State)
 	// 2 - Apply the generate policy on the resource
-	err = c.applyGenerate(*resource, *gr)
+	genResources, err = c.applyGenerate(*resource, *gr)
 	switch e := err.(type) {
 	case *Violation:
 		// Generate event
@@ -45,24 +48,24 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	reportEvents(err, c.eventGen, *gr, *resource)
 
 	// 4 - Update Status
-	return updateStatus(c.statusControl, *gr, err)
+	return updateStatus(c.statusControl, *gr, err, genResources)
 }
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) error {
+func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	// Get the list of rules to be applied
 	// get policy
 	glog.V(4).Info("applyGenerate")
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		glog.V(4).Infof("policy %s not found: %v", gr.Spec.Policy, err)
-		return nil
+		return nil, nil
 	}
 	// build context
 	ctx := context.NewContext()
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		glog.V(4).Infof("failed to marshal resource: %v", err)
-		return err
+		return nil, err
 	}
 
 	ctx.AddResource(resourceRaw)
@@ -81,25 +84,26 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	engineResponse := engine.GenerateNew(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
-		return fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
+		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 	glog.V(4).Infof("%v", gr)
 	// Apply the generate rule on resource
 	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
 }
 
-func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error) error {
+func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec) error {
 	if err != nil {
-		return statusControl.Failed(gr, err.Error())
+		return statusControl.Failed(gr, err.Error(), genResources)
 	}
 
 	// Generate request successfully processed
-	return statusControl.Success(gr)
+	return statusControl.Success(gr, genResources)
 }
 
-func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext, state kyverno.GenerateRequestState) error {
+func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext, state kyverno.GenerateRequestState) ([]kyverno.ResourceSpec, error) {
+	// List of generatedResources
+	var genResources []kyverno.ResourceSpec
 	// Get the response as the actions to be performed on the resource
-	// - DATA (rule.Generation.Data)
 	// - - substitute values
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
@@ -116,17 +120,20 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 		if !rule.HasGenerate() {
 			continue
 		}
-		if err := applyRule(client, rule, resource, ctx, state, processExisting); err != nil {
-			return err
+		genResource, err := applyRule(client, rule, resource, ctx, state, processExisting)
+		if err != nil {
+			return nil, err
 		}
+		genResources = append(genResources, genResource)
 	}
 
-	return nil
+	return genResources, nil
 }
 
-func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState, processExisting bool) error {
+func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState, processExisting bool) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
+	var noGenResource kyverno.ResourceSpec
 
 	// variable substitution
 	// - name
@@ -134,6 +141,13 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	// - clone.name
 	// - clone.namespace
 	gen := variableSubsitutionForAttributes(rule.Generation, ctx)
+	// Resource to be generated
+	newGenResource := kyverno.ResourceSpec{
+		Kind:      gen.Kind,
+		Namespace: gen.Namespace,
+		Name:      gen.Name,
+	}
+
 	// DATA
 	glog.V(4).Info("applyRule")
 	if gen.Data != nil {
@@ -144,15 +158,15 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 				// handled errors
 			case *Violation:
 				// create policy violation
-				return e
+				return noGenResource, e
 			default:
 				// errors that cant be handled
-				return e
+				return noGenResource, e
 			}
 		}
 		if rdata == nil {
 			// existing resource contains the configuration
-			return nil
+			return newGenResource, nil
 		}
 	}
 	// CLONE
@@ -161,22 +175,22 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 			switch e := err.(type) {
 			case *NotFound:
 				// handled errors
-				return e
+				return noGenResource, e
 			default:
 				// errors that cant be handled
-				return e
+				return noGenResource, e
 			}
 		}
 		if rdata == nil {
 			// resource already exists
-			return nil
+			return newGenResource, nil
 		}
 	}
 	if processExisting {
 		// handle existing resources
 		// policy was generated after the resource
 		// we do not create new resource
-		return err
+		return noGenResource, err
 	}
 	// Create the generate resource
 	newResource := &unstructured.Unstructured{}
@@ -195,11 +209,10 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	_, err = client.CreateResource(gen.Kind, gen.Namespace, newResource, false)
 	if err != nil {
 		glog.Info(err)
-		return err
+		return noGenResource, err
 	}
 	glog.V(4).Infof("created new resource %s %s %s ", gen.Kind, gen.Namespace, gen.Name)
-	// New Resource created succesfully
-	return nil
+	return newGenResource, nil
 }
 
 func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalInterface) kyverno.Generation {
