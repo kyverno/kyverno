@@ -12,8 +12,11 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -48,6 +51,11 @@ type Controller struct {
 	grSynced cache.InformerSynced
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
+	// dyanmic sharedinformer factory
+	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
+	//TODO: list of generic informers
+	// only support Namespaces for re-evalutation on resource updates
+	nsInformer informers.GenericInformer
 }
 
 func NewController(
@@ -57,6 +65,7 @@ func NewController(
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
+	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -65,7 +74,8 @@ func NewController(
 		pvGenerator:   pvGenerator,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
 		// as we dont want a deleted GR to be re-queue
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
+		dynamicInformer: dynamicInformer,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 
@@ -89,7 +99,29 @@ func NewController(
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = pInformer.Informer().HasSynced
 
+	//TODO: dynamic registration
+	// Only supported for namespaces
+	nsInformer := dynamicInformer.ForResource(client.DiscoveryClient.GetGVRFromKind("Namespace"))
+	c.nsInformer = nsInformer
+	c.nsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateGenericResource,
+	}, 2*time.Minute)
 	return &c
+}
+
+func (c *Controller) updateGenericResource(old, cur interface{}) {
+	curR := cur.(*unstructured.Unstructured)
+
+	grs, err := c.grLister.GetGenerateRequestsForResource(curR.GetKind(), curR.GetNamespace(), curR.GetName())
+	if err != nil {
+		glog.Errorf("failed to Generate Requests for resource %s/%s/%s: %v", curR.GetKind(), curR.GetNamespace(), curR.GetName(), err)
+		return
+	}
+	// re-evaluate the GR as the resource was updated
+	for _, gr := range grs {
+		c.enqueueGR(gr)
+	}
+
 }
 
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {

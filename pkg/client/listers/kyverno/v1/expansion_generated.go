@@ -154,6 +154,24 @@ type GenerateRequestListerExpansion interface {
 // GenerateRequestNamespaceLister.
 type GenerateRequestNamespaceListerExpansion interface {
 	GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error)
+	GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error)
+}
+
+func (s generateRequestNamespaceLister) GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error) {
+	var list []*kyvernov1.GenerateRequest
+	grs, err := s.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+	for idx, gr := range grs {
+		if gr.Spec.Resource.Kind == kind &&
+			gr.Spec.Resource.Namespace == namespace &&
+			gr.Spec.Resource.Name == name {
+			list = append(list, grs[idx])
+
+		}
+	}
+	return list, err
 }
 
 func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error) {
