@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -88,7 +87,7 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	if isAllVarStrings(varMap) {
 		newVal := valuePattern
 		for key, value := range varMap {
-			if val, ok := value.value.(string); ok {
+			if val, ok := value.(string); ok {
 				newVal = strings.Replace(newVal, key, val, -1)
 			}
 		}
@@ -97,7 +96,7 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 
 	// we do not support mutliple substitution per statement for non-string types
 	for _, value := range varMap {
-		return value.value
+		return value
 	}
 	return emptyInterface
 	// // substitute the values in the
@@ -109,14 +108,10 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	// return variable
 }
 
-type varValue struct {
-	value     interface{}
-	valueKind reflect.Kind
-}
-
 // returns map of variables as keys and variable values as values
-func getValues(ctx context.EvalInterface, groups [][]string) map[string]varValue {
-	subs := map[string]varValue{}
+func getValues(ctx context.EvalInterface, groups [][]string) map[string]interface{} {
+	var emptyInterface interface{}
+	subs := map[string]interface{}{}
 	for _, group := range groups {
 		if len(group) == 2 {
 			// 0th is string
@@ -124,19 +119,22 @@ func getValues(ctx context.EvalInterface, groups [][]string) map[string]varValue
 			variable, err := ctx.Query(group[1])
 			if err != nil {
 				glog.V(4).Infof("variable substitution failed for query %s: %v", group[0], err)
-				subs[group[0]] = varValue{value: "", valueKind: reflect.String}
+				subs[group[0]] = emptyInterface
 				continue
 			}
-			varType := reflect.TypeOf(variable)
-			subs[group[0]] = varValue{value: variable, valueKind: varType.Kind()}
+			if variable == nil {
+				subs[group[0]] = emptyInterface
+			} else {
+				subs[group[0]] = variable
+			}
 		}
 	}
 	return subs
 }
 
-func isAllVarStrings(subVar map[string]varValue) bool {
+func isAllVarStrings(subVar map[string]interface{}) bool {
 	for _, value := range subVar {
-		if value.valueKind != reflect.String {
+		if _, ok := value.(string); !ok {
 			return false
 		}
 	}
