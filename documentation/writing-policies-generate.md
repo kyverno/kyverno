@@ -2,10 +2,11 @@
 
 # Generate Configurations 
 
-```generate``` is used to create default resources for a namespace. This feature is useful for managing resources that are required in each namespace.
+```generate``` is used to create/generate resources when a specific resource has been created. 
 
 ## Example 1
-
+- rule 
+Creates a ConfigMap with name `default-config` for all 
 ````yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -13,7 +14,7 @@ metadata:
   name: basic-policy
 spec:
   rules:
-    - name: "Basic config generator for all namespaces"
+    - name: "Generrate ConfigMap"
       match:
         resources:
           kinds: 
@@ -22,12 +23,13 @@ spec:
           matchLabels:
             LabelForSelector : "namespace2"
       generate:
-        kind: ConfigMap
-        name: default-config
+        kind: ConfigMap # Kind of resource 
+        name: default-config # Name of the new Resource
+        namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
         clone:
           namespace: default
           name: config-template
-    - name: "Basic config generator for all namespaces"
+    - name: "Generate Secret"
       match:
         resources:
           kinds: 
@@ -38,6 +40,7 @@ spec:
       generate:
         kind: Secret
         name: mongo-creds
+        namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
         data:
           data:
             DB_USER: YWJyYWthZGFicmE=
@@ -69,6 +72,7 @@ spec:
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic
+      namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
       data:
         spec:
         podSelector:

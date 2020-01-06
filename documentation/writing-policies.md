@@ -70,14 +70,45 @@ spec :
         clusterroles:
           - cluster-admin
           - admin
-    
+      # rule is evaluated if the preconditions are satisfied
+      # all preconditions are AND/&& operation
+      preconditions:
+      - key: name # compares (key operator value) 
+        operator: Equal
+        value: name # constant "name" == "name"
+      - key: "{{serviceAccount}}" # refer to a pre-defined variable serviceAccount
+        operator: NotEqual
+        value: "user1" # if service 
      # Each rule can contain a single validate, mutate, or generate directive
      ...
 ````
 
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
+# Variables:
+Variables can be used to refer attributes that are loaded in the context using [JMESPATH](http://jmespath.org/) search path.
+Format: `{{<JMESPATH>}}`
+Resources available in context:
+- Resource: `{{request.object}}`
+- UserInfo: `{{request.userInfo}}`
 
+## Pre-defined Variables
+- `serviceAccount` : the variable removes the suffix system:serviceaccount:<namespace>: and stores the userName. Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `user1`.
+
+
+Examples:
+
+1. Refer to resource name(type string)
+
+`{{request.object.metadata.name}}`
+
+2. Build name from multiple variables(type string)
+
+`"ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-binding"`
+
+3. Refer to metadata struct/object(type object)
+
+`{{request.object.metadata}}`
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
