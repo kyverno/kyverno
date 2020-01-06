@@ -45,8 +45,6 @@ func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 		glog.Error("Unsupported type %V", typedKey)
 		return false
 	}
-	// in correct types, return false for condition
-	return false
 }
 
 func (neh NotEqualHandler) validateValueWithSicePattern(key []interface{}, value interface{}) bool {
