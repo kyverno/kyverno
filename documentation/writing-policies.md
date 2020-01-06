@@ -86,7 +86,7 @@ spec :
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
 # Variables:
-Variables can be used to refer attributes that are loaded in the context using [JMESPATH](http://jmespath.org/) search path.
+Variables can be used to reference attributes that are loaded in the context using a [JMESPATH](http://jmespath.org/) search path.
 Format: `{{<JMESPATH>}}`
 Resources available in context:
 - Resource: `{{request.object}}`

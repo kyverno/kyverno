@@ -2,7 +2,7 @@
 
 # Generate Configurations 
 
-```generate``` is used to create/generate resources when a specific resource has been created. 
+```generate``` is used to create resources for a namespace. This feature is useful for creating default that are required in each namespace. 
 
 ## Example 1
 - rule 
@@ -14,7 +14,7 @@ metadata:
   name: basic-policy
 spec:
   rules:
-    - name: "Generrate ConfigMap"
+    - name: "Generate ConfigMap"
       match:
         resources:
           kinds: 
