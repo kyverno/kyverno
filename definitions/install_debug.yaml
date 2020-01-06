@@ -170,6 +170,14 @@ spec:
                                       type: array
                                       items:
                                         type: string
+                  preconditions:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - key  # can be of any type
+                      - operator # typed
+                      - value # can be of any type
                   mutate:
                     type: object
                     properties:
