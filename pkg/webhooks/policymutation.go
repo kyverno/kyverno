@@ -105,7 +105,7 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, stri
 // scenario A: not exist, set default to "all", which generates on all pod controllers
 //               - if name / selector exist in resource description -> skip
 //                 as these fields may not be applicable to pod controllers
-// scenario B: "null", user explicitely disable this feature -> skip
+// scenario B: "none", user explicitely disable this feature -> skip
 // scenario C: some certain controllers that user set -> generate on defined controllers
 //             copy entrie match / exclude block, it's users' responsibility to
 //             make sure all fields are applicable to pod cotrollers
@@ -127,7 +127,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, 
 	}
 
 	// scenario B
-	if controllers == "null" {
+	if controllers == "none" {
 		return nil, nil
 	}
 

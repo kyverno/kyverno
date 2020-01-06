@@ -73,7 +73,7 @@ func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
 		"metadata": {
 		  "annotations": {
 			"a": "b",
-			"pod-policies.kyverno.io/autogen-controllers": "null"
+			"pod-policies.kyverno.io/autogen-controllers": "none"
 		  },
 		  "name": "add-safe-to-evict"
 		},
