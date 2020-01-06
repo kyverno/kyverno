@@ -15,7 +15,7 @@ spec:
         name: devtest
     generate:
       kind: ClusterRole
-      name: "ns-owner-{{request.userInfo.username}}"
+      name: "ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}"
       data:
         rules:
         - apiGroups: [""]
@@ -31,7 +31,7 @@ spec:
         name: devtest
     generate:
       kind: ClusterRoleBinding
-      name: "ns-owner-{{request.userInfo.username}}-binding"
+      name: "ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-binding"
       data:
         roleRef:
           apiGroup: rbac.authorization.k8s.io
@@ -48,7 +48,7 @@ spec:
         - Namespace
     generate:
       kind: RoleBinding
-      name: "ns-admin-{{request.userInfo.username}}-binding"
+      name: "ns-admin-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-binding"
       namespace: "{{request.object.metadata.name}}"
       data:
         roleRef:
