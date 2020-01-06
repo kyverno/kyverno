@@ -13,6 +13,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/policy"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -167,6 +168,13 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	if !*p.Spec.Background {
 		return
 	}
+	// If userInfo is used then skip the policy
+	// ideally this should be handled by background flag only
+	if err := policy.ContainsUserInfo(*p); err != nil {
+		// contains userInfo used in policy
+		return
+	}
+
 	glog.V(4).Infof("Adding Policy %s", p.Name)
 	pc.enqueuePolicy(p)
 }
@@ -187,6 +195,12 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
 	if !*curP.Spec.Background {
+		return
+	}
+	// If userInfo is used then skip the policy
+	// ideally this should be handled by background flag only
+	if err := policy.ContainsUserInfo(*curP); err != nil {
+		// contains userInfo used in policy
 		return
 	}
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
