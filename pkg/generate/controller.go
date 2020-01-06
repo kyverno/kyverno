@@ -156,7 +156,6 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 func (c *Controller) addGR(obj interface{}) {
 	gr := obj.(*kyverno.GenerateRequest)
-	// glog.V(4).Infof("Adding GR %s; Policy %s; Resource %v", gr.Name, gr.Spec.Policy, gr.Spec.Resource)
 	c.enqueueGR(gr)
 }
 
@@ -168,7 +167,6 @@ func (c *Controller) updateGR(old, cur interface{}) {
 		// Two different versions of the same replica set will always have different RVs.
 		return
 	}
-	// glog.V(4).Infof("Updated GR %s; Policy %s; Resource %v", curGr.Name, curGr.Spec.Policy, curGr.Spec.Resource)
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the Generate Request fails due to incorrect policy, it will be requeued during policy update
 	if curGr.Status.State == kyverno.Failed {
@@ -196,6 +194,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 	c.enqueueGR(gr)
 }
 
+//Run ...
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()

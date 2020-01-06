@@ -12,7 +12,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -29,7 +28,6 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 		return err
 	}
 
-	glog.V(4).Infof("processGR %v", gr.Status.State)
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
 	switch e := err.(type) {
@@ -54,7 +52,6 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	// Get the list of rules to be applied
 	// get policy
-	glog.V(4).Info("applyGenerate")
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		glog.V(4).Infof("policy %s not found: %v", gr.Spec.Policy, err)
@@ -71,6 +68,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	ctx.AddResource(resourceRaw)
 	ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
 	ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
 		Policy:        *policy,
@@ -78,14 +76,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		AdmissionInfo: gr.Spec.Context.UserRequestInfo,
 	}
 
-	glog.V(4).Info("GenerateNew")
 	// check if the policy still applies to the resource
 	engineResponse := engine.GenerateNew(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
-	glog.V(4).Infof("%v", gr)
+
 	// Apply the generate rule on resource
 	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
 }
@@ -107,7 +104,6 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
-	glog.V(4).Info("applyGeneratePolicy")
 	// To manage existing resources, we compare the creation time for the default resiruce to be generated and policy creation time
 	processExisting := func() bool {
 		rcreationTime := resource.GetCreationTimestamp()
@@ -148,7 +144,6 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	}
 
 	// DATA
-	glog.V(4).Info("applyRule")
 	if gen.Data != nil {
 		if rdata, err = handleData(rule.Name, gen, client, resource, ctx, state); err != nil {
 			glog.V(4).Info(err)
@@ -171,6 +166,7 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	// CLONE
 	if gen.Clone != (kyverno.CloneFrom{}) {
 		if rdata, err = handleClone(gen, client, resource, ctx, state); err != nil {
+			glog.V(4).Info(err)
 			switch e := err.(type) {
 			case *NotFound:
 				// handled errors
@@ -193,16 +189,11 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	}
 	// Create the generate resource
 	newResource := &unstructured.Unstructured{}
-	glog.V(4).Info(rdata)
 	newResource.SetUnstructuredContent(rdata)
 	newResource.SetName(gen.Name)
 	newResource.SetNamespace(gen.Namespace)
 	// Reset resource version
 	newResource.SetResourceVersion("")
-	// set the ownerReferences
-	ownerRefs := newResource.GetOwnerReferences()
-	// add ownerRefs
-	newResource.SetOwnerReferences(ownerRefs)
 
 	glog.V(4).Infof("creating resource %v", newResource)
 	_, err = client.CreateResource(gen.Kind, gen.Namespace, newResource, false)
@@ -240,22 +231,7 @@ func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalIn
 	if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
 		gen.Clone.Namespace = newcloneNamespace
 	}
-	glog.V(4).Infof("var updated %v", gen.Name)
 	return gen
-}
-
-func createOwnerReference(ownerRefs []metav1.OwnerReference, resource unstructured.Unstructured) {
-	controllerFlag := true
-	blockOwnerDeletionFlag := true
-	ownerRef := metav1.OwnerReference{
-		APIVersion:         resource.GetAPIVersion(),
-		Kind:               resource.GetKind(),
-		Name:               resource.GetName(),
-		UID:                resource.GetUID(),
-		Controller:         &controllerFlag,
-		BlockOwnerDeletion: &blockOwnerDeletionFlag,
-	}
-	ownerRefs = append(ownerRefs, ownerRef)
 }
 
 func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
@@ -265,7 +241,6 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	glog.V(4).Info(err)
 	if errors.IsNotFound(err) {
-		glog.V(4).Info("handleData NotFound")
 		glog.V(4).Info(string(state))
 		// Resource does not exist
 		if state == "" {
@@ -283,7 +258,6 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 		// report Violation to notify the error
 		return nil, NewViolation(ruleName, NewNotFound(generateRule.Kind, generateRule.Namespace, generateRule.Name))
 	}
-	glog.V(4).Info(err)
 	if err != nil {
 		//something wrong while fetching resource
 		return nil, err
@@ -306,12 +280,10 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 	// check if resource exists
 	_, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	if err == nil {
-		glog.V(4).Info("handleClone Exists")
 		// resource exists
 		return nil, nil
 	}
 	if !errors.IsNotFound(err) {
-		glog.V(4).Info("handleClone NotFound")
 		//something wrong while fetching resource
 		return nil, err
 	}
@@ -319,15 +291,12 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 	// get reference clone resource
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	if errors.IsNotFound(err) {
-		glog.V(4).Info("handleClone reference not Found")
 		return nil, NewNotFound(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	}
 	if err != nil {
-		glog.V(4).Info("handleClone reference Error")
 		//something wrong while fetching resource
 		return nil, err
 	}
-	glog.V(4).Info("handleClone refrerence sending")
 	return obj.UnstructuredContent(), nil
 }
 
