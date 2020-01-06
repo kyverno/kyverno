@@ -160,19 +160,23 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	// policy.spec.background -> "True"
 	// register with policy meta-store
 	pc.pMetaStore.Register(*p)
-	if p.Spec.Background == nil {
-		// skipped policy mutation default -> do not process
-		return
-	}
 
-	if !*p.Spec.Background {
-		return
-	}
-	// If userInfo is used then skip the policy
-	// ideally this should be handled by background flag only
-	if err := policy.ContainsUserInfo(*p); err != nil {
-		// contains userInfo used in policy
-		return
+	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
+	if p.Spec.Background == nil {
+		// if userInfo is not defined in policy we process the policy
+		if err := policy.ContainsUserInfo(*p); err != nil {
+			return
+		}
+	} else {
+		if !*p.Spec.Background {
+			return
+		}
+		// If userInfo is used then skip the policy
+		// ideally this should be handled by background flag only
+		if err := policy.ContainsUserInfo(*p); err != nil {
+			// contains userInfo used in policy
+			return
+		}
 	}
 
 	glog.V(4).Infof("Adding Policy %s", p.Name)
@@ -187,21 +191,24 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	pc.pMetaStore.UnRegister(*oldP)
 	pc.pMetaStore.Register(*curP)
 
-	if curP.Spec.Background == nil {
-		// skipped policy mutation default -> do not process
-		return
-	}
-
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
-	if !*curP.Spec.Background {
-		return
-	}
-	// If userInfo is used then skip the policy
-	// ideally this should be handled by background flag only
-	if err := policy.ContainsUserInfo(*curP); err != nil {
-		// contains userInfo used in policy
-		return
+	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
+	if curP.Spec.Background == nil {
+		// if userInfo is not defined in policy we process the policy
+		if err := policy.ContainsUserInfo(*curP); err != nil {
+			return
+		}
+	} else {
+		if !*curP.Spec.Background {
+			return
+		}
+		// If userInfo is used then skip the policy
+		// ideally this should be handled by background flag only
+		if err := policy.ContainsUserInfo(*curP); err != nil {
+			// contains userInfo used in policy
+			return
+		}
 	}
 	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	pc.enqueuePolicy(curP)
