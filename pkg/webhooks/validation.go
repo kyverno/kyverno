@@ -98,15 +98,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	reportTime := time.Now()
 
 	// If Validation fails then reject the request
-	// violations are created with resource owner(if exist) on "enforce"
-	// and if there are any then we dont block the resource creation
-	// Even if one the policy being applied
-
+	// no violations will be created on "enforce"
+	// event will be reported on "owner"
 	blocked := toBlockResource(engineResponses)
-	if !isResponseSuccesful(engineResponses) && blocked {
+	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
-		pvInfos := generatePV(engineResponses, true)
-		ws.pvGenerator.Add(pvInfos...)
 		// ADD EVENTS
 		events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 		ws.eventGen.Add(events...)

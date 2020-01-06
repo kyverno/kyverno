@@ -26,7 +26,7 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
-		if er.PolicyResponse.ValidationFailureAction == Enforce {
+		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
 			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
 			return true
 		}
