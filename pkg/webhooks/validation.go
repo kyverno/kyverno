@@ -53,7 +53,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 
 	// Get new and old resource
-	newR, oldR, err := extractResources(request)
+	newR, oldR, err := extractResources(patchedResource, request)
 	if err != nil {
 		// as resource cannot be parsed, we skip processing
 		glog.Error(err)

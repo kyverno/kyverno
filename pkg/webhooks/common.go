@@ -115,40 +115,40 @@ func containRBACinfo(policies []kyverno.ClusterPolicy) bool {
 }
 
 // extracts the new and old resource as unstructured
-func extractResources(request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
-	var err error
+
 	// New Resource
-	newRaw := request.Object.Raw
 	if newRaw == nil {
 		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
 	}
-	new, err := convertToUnstructured(newRaw)
+
+	new, err := convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
 	}
-	new.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	new.SetNamespace(request.Namespace)
+
 	// Old Resource - Optional
 	oldRaw := request.OldObject.Raw
 	if oldRaw == nil {
-		return *new, emptyResource, nil
+		return new, emptyResource, nil
 	}
-	old, err := convertToUnstructured((oldRaw))
+
+	old, err := convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
 	}
-	old.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	old.SetNamespace(request.Namespace)
-	return *new, *old, err
+	return new, old, err
 }
 
-func convertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
+// convertResource converts raw bytes to an unstructured object
+func convertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
+	obj, err := engine.ConvertToUnstructured(raw)
 	if err != nil {
-		glog.V(4).Infof("failed to unmarshall resource: %v", err)
-		return nil, err
+		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
 	}
-	return resource, nil
+
+	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
+	obj.SetNamespace(namespace)
+	return *obj, nil
 }

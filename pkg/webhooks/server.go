@@ -17,7 +17,6 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
@@ -27,7 +26,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -209,23 +207,20 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// convert RAW to unstructured
-	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
+	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
-		msg := fmt.Sprintf("unable to convert raw resource to unstructured: %v", err)
-		glog.Errorf(msg)
+		glog.Errorf(err.Error())
+
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
 				Status:  "Failure",
-				Message: msg,
+				Message: err.Error(),
 			},
 		}
 	}
 
-	// if not then set it from the api request
-	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	resource.SetNamespace(request.Namespace)
-	if checkPodTemplateAnn(*resource) {
+	if checkPodTemplateAnn(resource) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -235,7 +230,7 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	}
 
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, *resource, policies, roles, clusterRoles)
+	ok, patches, msg := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
