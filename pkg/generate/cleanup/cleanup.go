@@ -16,18 +16,18 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	// 1-Corresponding policy has been deleted
 	_, err := c.pLister.Get(gr.Spec.Policy)
 	if errors.IsNotFound(err) {
-		glog.V(4).Info("delete GR %s", gr.Name)
+		glog.V(4).Infof("delete GR %s", gr.Name)
 		return c.control.Delete(gr.Name)
 	}
 
 	// 2- Check for elapsed time since update
 	if gr.Status.State == kyverno.Completed {
-		glog.V(4).Info("checking if owner exists for gr %s", gr.Name)
+		glog.V(4).Infof("checking if owner exists for gr %s", gr.Name)
 		if !ownerResourceExists(c.client, gr) {
 			if err := deleteGeneratedResources(c.client, gr); err != nil {
 				return err
 			}
-			glog.V(4).Info("delete GR %s", gr.Name)
+			glog.V(4).Infof("delete GR %s", gr.Name)
 			return c.control.Delete(gr.Name)
 		}
 		return nil
@@ -36,7 +36,7 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	if time.Since(createTime.UTC()) > timeout {
 		// the GR was in state ["",Failed] for more than timeout
 		glog.V(4).Infof("GR %s was not processed succesfully in %d minutes", gr.Name, timoutMins)
-		glog.V(4).Info("delete GR %s", gr.Name)
+		glog.V(4).Infof("delete GR %s", gr.Name)
 		return c.control.Delete(gr.Name)
 	}
 	return nil
