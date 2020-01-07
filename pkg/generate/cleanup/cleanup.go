@@ -60,6 +60,7 @@ func deleteGeneratedResources(client *dclient.Client, gr kyverno.GenerateRequest
 		if err != nil {
 			return err
 		}
+		
 	}
 	return nil
 }

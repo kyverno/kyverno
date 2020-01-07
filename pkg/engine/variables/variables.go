@@ -99,13 +99,6 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 		return value
 	}
 	return emptyInterface
-	// // substitute the values in the
-	// // only replace the value if returned value is scalar
-	// if val, ok := variable.(string); ok {
-	// 	newVal := strings.Replace(valuePattern, groups[0], val, -1)
-	// 	return newVal
-	// }
-	// return variable
 }
 
 // returns map of variables as keys and variable values as values
