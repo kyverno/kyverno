@@ -2,7 +2,7 @@
 
 # Generate Configurations 
 
-```generate``` is used to create resources for a namespace. This feature is useful for creating default that are required in each namespace. 
+```generate``` is used to create additional resources when a resource is created. This is useful to create supporting resources, such as role bindings for a new namespace.
 
 ## Example 1
 - rule 
