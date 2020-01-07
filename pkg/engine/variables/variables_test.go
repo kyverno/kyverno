@@ -5,8 +5,140 @@ import (
 	"reflect"
 	"testing"
 
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
+
+func Test_variablesub1(t *testing.T) {
+	patternMap := []byte(`
+	{
+		"kind": "ClusterRole",
+		"name": "ns-owner-{{request.userInfo.username}}",
+		"data": {
+			"rules": [
+				{
+					"apiGroups": [
+						""
+					],
+					"resources": [
+						"namespaces"
+					],
+					"verbs": [
+						"*"
+					],
+					"resourceNames": [
+						"{{request.object.metadata.name}}"
+					]
+				}
+			]
+		}
+	}
+	`)
+
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}
+		`)
+	// userInfo
+	userReqInfo := kyverno.RequestInfo{
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "user1",
+		},
+	}
+
+	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-user1"}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(patternMap, &pattern)
+	json.Unmarshal(resourceRaw, &resource)
+	// context
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+	ctx.AddUserInfo(userReqInfo)
+	value := SubstituteVariables(ctx, pattern)
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultMap))
+		t.Log(string(resultRaw))
+		t.Error("result does not match")
+	}
+}
+func Test_variablesubstitution(t *testing.T) {
+	patternMap := []byte(`
+	{
+		"name": "ns-owner-{{request.userInfo.username}}",
+		"data": {
+			"rules": [
+				{
+					"apiGroups": [
+						""
+					],
+					"resources": [
+						"namespaces"
+					],
+					"verbs": [
+						"*"
+					],
+					"resourceNames": [
+						"{{request.object.metadata.name}}"
+					]
+				}
+			]
+		}
+	}
+`)
+
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}
+		`)
+
+	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"name":"ns-owner-user1"}`)
+	// userInfo
+	userReqInfo := kyverno.RequestInfo{
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "user1",
+		},
+	}
+	var pattern, resource interface{}
+	json.Unmarshal(patternMap, &pattern)
+	json.Unmarshal(resourceRaw, &resource)
+	// context
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+	ctx.AddUserInfo(userReqInfo)
+	value := SubstituteVariables(ctx, pattern)
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultMap))
+		t.Log(string(resultRaw))
+		t.Error("result does not match")
+	}
+}
 
 func Test_variableSubstitutionValue(t *testing.T) {
 

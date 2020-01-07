@@ -48,7 +48,7 @@ func checkIfPolicyWithMutateAndGenerateExists(pLister kyvernolister.ClusterPolic
 		glog.Error()
 	}
 	for _, policy := range policies {
-		if policy.HasMutateOrValidate() {
+		if policy.HasMutateOrValidateOrGenerate() {
 			// as there exists one policy with mutate or validate rule
 			// so there must be a webhook configuration on resource
 			return true

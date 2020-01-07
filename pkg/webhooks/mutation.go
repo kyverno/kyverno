@@ -53,19 +53,20 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	}
 
 	var engineResponses []response.EngineResponse
+
+	userRequestInfo := kyverno.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+
 	// build context
 	ctx := context.NewContext()
 	// load incoming resource into the context
 	ctx.AddResource(request.Object.Raw)
-	ctx.AddUserInfo(request.UserInfo)
-
+	ctx.AddUserInfo(userRequestInfo)
 	policyContext := engine.PolicyContext{
-		NewResource: resource,
-		Context:     ctx,
-		AdmissionInfo: engine.RequestInfo{
-			Roles:             roles,
-			ClusterRoles:      clusterRoles,
-			AdmissionUserInfo: request.UserInfo},
+		NewResource:   resource,
+		AdmissionInfo: userRequestInfo,
 	}
 
 	for _, policy := range policies {

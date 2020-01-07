@@ -28,6 +28,8 @@ type Interface interface {
 	ClusterPolicies() ClusterPolicyInformer
 	// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
 	ClusterPolicyViolations() ClusterPolicyViolationInformer
+	// GenerateRequests returns a GenerateRequestInformer.
+	GenerateRequests() GenerateRequestInformer
 	// PolicyViolations returns a PolicyViolationInformer.
 	PolicyViolations() PolicyViolationInformer
 }
@@ -51,6 +53,11 @@ func (v *version) ClusterPolicies() ClusterPolicyInformer {
 // ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
 func (v *version) ClusterPolicyViolations() ClusterPolicyViolationInformer {
 	return &clusterPolicyViolationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// GenerateRequests returns a GenerateRequestInformer.
+func (v *version) GenerateRequests() GenerateRequestInformer {
+	return &generateRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyViolations returns a PolicyViolationInformer.

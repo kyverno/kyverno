@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -143,4 +143,29 @@ func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyverno
 
 	return policies, nil
 
+}
+
+// GenerateRequestListerExpansion allows custom methods to be added to
+// GenerateRequestLister.
+type GenerateRequestListerExpansion interface {
+}
+
+// GenerateRequestNamespaceListerExpansion allows custom methods to be added to
+// GenerateRequestNamespaceLister.
+type GenerateRequestNamespaceListerExpansion interface {
+	GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error)
+}
+
+func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error) {
+	var list []*kyvernov1.GenerateRequest
+	grs, err := s.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+	for idx, gr := range grs {
+		if gr.Spec.Policy == policy {
+			list = append(list, grs[idx])
+		}
+	}
+	return list, err
 }
