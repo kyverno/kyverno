@@ -93,7 +93,10 @@ Resources available in context:
 - UserInfo: `{{request.userInfo}}`
 
 ## Pre-defined Variables
-- `serviceAccount` : the variable removes the suffix system:serviceaccount:<namespace>: and stores the userName. Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `user1`.
+- `serviceAccountName` : the variable removes the suffix system:serviceaccount:<namespace>: and stores the userName. 
+Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `user1`.
+- `serviceAccountNamespace` : extracts the `namespace` of the serviceAccount. 
+Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `nirmata`.
 
 
 Examples:

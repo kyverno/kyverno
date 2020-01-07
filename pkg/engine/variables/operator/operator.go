@@ -12,7 +12,7 @@ type OperatorHandler interface {
 	validateValuewithIntPattern(key int64, value interface{}) bool
 	validateValuewithFloatPattern(key float64, value interface{}) bool
 	validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool
-	validateValueWithSicePattern(key []interface{}, value interface{}) bool
+	validateValueWithSlicePattern(key []interface{}, value interface{}) bool
 }
 
 type VariableSubstitutionHandler = func(ctx context.EvalInterface, pattern interface{}) interface{}
@@ -23,8 +23,6 @@ func CreateOperatorHandler(ctx context.EvalInterface, op kyverno.ConditionOperat
 		return NewEqualHandler(ctx, subHandler)
 	case kyverno.NotEqual:
 		return NewNotEqualHandler(ctx, subHandler)
-	case kyverno.In:
-	case kyverno.NotIn:
 	default:
 		glog.Errorf("unsupported operator: %s", string(op))
 	}

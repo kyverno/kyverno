@@ -18,7 +18,7 @@ type Interface interface {
 	AddResource(dataRaw []byte) error
 	// merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyverno.UserInfo) error
-	// merges serrviceaccount under serviceaccount
+	// merges serrviceaccount
 	AddSA(userName string) error
 	EvalInterface
 }
@@ -106,6 +106,7 @@ func (ctx *Context) AddSA(userName string) error {
 	saPrefix := "system:serviceaccount:"
 	var sa string
 	saName := ""
+	saNamespace := ""
 	if len(userName) <= len(saPrefix) {
 		sa = ""
 	} else {
@@ -117,18 +118,38 @@ func (ctx *Context) AddSA(userName string) error {
 		glog.V(4).Infof("serviceAccount namespace: %s", groups[0])
 		glog.V(4).Infof("serviceAccount name: %s", groups[1])
 		saName = groups[1]
+		saNamespace = groups[0]
 	}
 
-	glog.Infof("Loading variable serviceAccount with value: %s", saName)
-	saObj := struct {
-		SA string `json:"serviceAccount"`
+	glog.Infof("Loading variable serviceAccountName with value: %s", saName)
+	saNameObj := struct {
+		SA string `json:"serviceAccountName"`
 	}{
 		SA: saName,
 	}
-	saRaw, err := json.Marshal(saObj)
+	saNameRaw, err := json.Marshal(saNameObj)
 	if err != nil {
 		glog.V(4).Infof("failed to marshall the updated context data")
 		return err
 	}
-	return ctx.AddJSON(saRaw)
+	if err := ctx.AddJSON(saNameRaw); err != nil {
+		return err
+	}
+
+	glog.Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
+	saNsObj := struct {
+		SA string `json:"serviceAccountNamespace"`
+	}{
+		SA: saNamespace,
+	}
+	saNsRaw, err := json.Marshal(saNsObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	if err := ctx.AddJSON(saNsRaw); err != nil {
+		return err
+	}
+
+	return nil
 }

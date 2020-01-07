@@ -37,8 +37,9 @@ spec:
           name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
         subjects:
         - kind: ServiceAccount
-          name: "{{serviceAccount}}" # refer pre-defined context value (removes the suffix system:serviceaccount: from userName)
-          namespace: nirmata
+        #  pre-defined context value (removes the suffix system:serviceaccount:<namespace>:<name> from userName)
+          name: "{{serviceAccountName}}" # <name>
+          namespace: "{{serviceAccountNamespace}}" # <namespace>
   - name: generate-admin-role-binding
     match:
       resources:
@@ -55,5 +56,5 @@ spec:
           name: admin
         subjects:
         - kind: ServiceAccount
-          name: "{{serviceAccount}}"
-          namespace: nirmata
+          name: "{{serviceAccountName}}"
+          namespace: "{{serviceAccountNamespace}}"

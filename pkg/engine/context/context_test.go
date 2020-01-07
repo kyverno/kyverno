@@ -85,9 +85,9 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")
 	}
-	// Add service account
+	// Add service account Name
 	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
-	result, err = ctx.Query("serviceAccount")
+	result, err = ctx.Query("serviceAccountName")
 	if err != nil {
 		t.Error(err)
 	}
@@ -96,4 +96,16 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")
 	}
+
+	// Add service account Namespace
+	result, err = ctx.Query("serviceAccountNamespace")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult = "nirmata"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
+
 }

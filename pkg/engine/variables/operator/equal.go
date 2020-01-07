@@ -40,14 +40,14 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	case map[string]interface{}:
 		return eh.validateValueWithMapPattern(typedKey, nValue)
 	case []interface{}:
-		return eh.validateValueWithSicePattern(typedKey, nValue)
+		return eh.validateValueWithSlicePattern(typedKey, nValue)
 	default:
 		glog.Errorf("Unsupported type %v", typedKey)
 		return false
 	}
 }
 
-func (eh EqualHandler) validateValueWithSicePattern(key []interface{}, value interface{}) bool {
+func (eh EqualHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	if val, ok := value.([]interface{}); ok {
 		return reflect.DeepEqual(key, val)
 	}

@@ -40,14 +40,14 @@ func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	case map[string]interface{}:
 		return neh.validateValueWithMapPattern(typedKey, nValue)
 	case []interface{}:
-		return neh.validateValueWithSicePattern(typedKey, nValue)
+		return neh.validateValueWithSlicePattern(typedKey, nValue)
 	default:
 		glog.Error("Unsupported type %V", typedKey)
 		return false
 	}
 }
 
-func (neh NotEqualHandler) validateValueWithSicePattern(key []interface{}, value interface{}) bool {
+func (neh NotEqualHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	if val, ok := value.([]interface{}); ok {
 		return !reflect.DeepEqual(key, val)
 	}
