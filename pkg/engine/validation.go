@@ -12,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -107,6 +108,13 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
+
+		// evaluate pre-conditions
+		if !variables.EvaluateConditions(ctx, rule.Conditions) {
+			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+			continue
+		}
+
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validatePatterns(ctx, resource, rule)
 			incrementAppliedCount(resp)

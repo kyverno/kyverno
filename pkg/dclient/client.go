@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -60,6 +61,10 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
+}
+
+func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
+	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
 }
 
 //GetKubePolicyDeployment returns kube policy depoyment value

@@ -87,6 +87,9 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
 		kubeClient,
 		10*time.Second)
+	// KUBERNETES Dynamic informer
+	// - cahce resync time: 10 seconds
+	kubedynamicInformer := client.NewDynamicSharedInformerFactory(10 * time.Second)
 
 	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
@@ -168,6 +171,7 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		egen,
 		pvgen,
+		kubedynamicInformer,
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
@@ -176,6 +180,7 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
+		kubedynamicInformer,
 	)
 
 	// CONFIGURE CERTIFICATES
@@ -221,6 +226,7 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
+	kubedynamicInformer.Start(stopCh)
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)

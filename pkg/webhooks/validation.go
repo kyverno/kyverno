@@ -68,6 +68,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// load incoming resource into the context
 	ctx.AddResource(request.Object.Raw)
 	ctx.AddUserInfo(userRequestInfo)
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 
 	policyContext := engine.PolicyContext{
 		NewResource:   newR,

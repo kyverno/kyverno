@@ -12,15 +12,14 @@ spec:
       resources:
         kinds:
         - Namespace
-        name: devtest
     generate:
       kind: ClusterRole
-      name: "ns-owner-{{request.userInfo.username}}"
+      name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
       data:
         rules:
         - apiGroups: [""]
           resources: ["namespaces"]
-          verbs: ["*"]
+          verbs: ["delete"]
           resourceNames:
             - "{{request.object.metadata.name}}"
   - name: generate-owner-role-binding
@@ -28,28 +27,27 @@ spec:
       resources:
         kinds:
         - Namespace
-        name: devtest
     generate:
       kind: ClusterRoleBinding
-      name: "ns-owner-{{request.userInfo.username}}-binding"
+      name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       data:
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
-          name: "nsowner-{{request.userInfo.username}}"
+          name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
         subjects:
         - kind: ServiceAccount
-          name: "{{request.userInfo.username}}"
-          namespace: "{{request.object.metadata.name}}"
+        #  pre-defined context value (removes the suffix system:serviceaccount:<namespace>:<name> from userName)
+          name: "{{serviceAccountName}}" # <name>
+          namespace: "{{serviceAccountNamespace}}" # <namespace>
   - name: generate-admin-role-binding
     match:
       resources:
         kinds:
         - Namespace
-        name: devtest
     generate:
       kind: RoleBinding
-      name: "ns-admin-{{request.userInfo.username}}-binding"
+      name: "ns-admin-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       namespace: "{{request.object.metadata.name}}"
       data:
         roleRef:
@@ -58,5 +56,5 @@ spec:
           name: admin
         subjects:
         - kind: ServiceAccount
-          name: "{{request.userInfo.username}}"
-          namespace: "{{request.object.metadata.name}}"
+          name: "{{serviceAccountName}}"
+          namespace: "{{serviceAccountNamespace}}"

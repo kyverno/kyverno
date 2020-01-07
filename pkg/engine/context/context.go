@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -17,6 +18,8 @@ type Interface interface {
 	AddResource(dataRaw []byte) error
 	// merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyverno.UserInfo) error
+	// merges serrviceaccount
+	AddSA(userName string) error
 	EvalInterface
 }
 
@@ -96,4 +99,57 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 		return err
 	}
 	return ctx.AddJSON(objRaw)
+}
+
+// removes prefix 'system:serviceaccount:' and namespace, then loads only username
+func (ctx *Context) AddSA(userName string) error {
+	saPrefix := "system:serviceaccount:"
+	var sa string
+	saName := ""
+	saNamespace := ""
+	if len(userName) <= len(saPrefix) {
+		sa = ""
+	} else {
+		sa = userName[len(saPrefix):]
+	}
+	// filter namespace
+	groups := strings.Split(sa, ":")
+	if len(groups) >= 2 {
+		glog.V(4).Infof("serviceAccount namespace: %s", groups[0])
+		glog.V(4).Infof("serviceAccount name: %s", groups[1])
+		saName = groups[1]
+		saNamespace = groups[0]
+	}
+
+	glog.Infof("Loading variable serviceAccountName with value: %s", saName)
+	saNameObj := struct {
+		SA string `json:"serviceAccountName"`
+	}{
+		SA: saName,
+	}
+	saNameRaw, err := json.Marshal(saNameObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	if err := ctx.AddJSON(saNameRaw); err != nil {
+		return err
+	}
+
+	glog.Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
+	saNsObj := struct {
+		SA string `json:"serviceAccountNamespace"`
+	}{
+		SA: saNamespace,
+	}
+	saNsRaw, err := json.Marshal(saNsObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	if err := ctx.AddJSON(saNsRaw); err != nil {
+		return err
+	}
+
+	return nil
 }

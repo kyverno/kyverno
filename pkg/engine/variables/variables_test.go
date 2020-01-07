@@ -76,6 +76,72 @@ func Test_variablesub1(t *testing.T) {
 		t.Error("result does not match")
 	}
 }
+
+func Test_variablesub_multiple(t *testing.T) {
+	patternMap := []byte(`
+	{
+		"kind": "ClusterRole",
+		"name": "ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-bindings",
+		"data": {
+			"rules": [
+				{
+					"apiGroups": [
+						""
+					],
+					"resources": [
+						"namespaces"
+					],
+					"verbs": [
+						"*"
+					],
+					"resourceNames": [
+						"{{request.object.metadata.name}}"
+					]
+				}
+			]
+		}
+	}
+	`)
+
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}
+		`)
+	// userInfo
+	userReqInfo := kyverno.RequestInfo{
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "user1",
+		},
+	}
+
+	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-n1-user1-bindings"}`)
+
+	var pattern, resource interface{}
+	json.Unmarshal(patternMap, &pattern)
+	json.Unmarshal(resourceRaw, &resource)
+	// context
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+	ctx.AddUserInfo(userReqInfo)
+	value := SubstituteVariables(ctx, pattern)
+	resultRaw, err := json.Marshal(value)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultMap))
+		t.Log(string(resultRaw))
+		t.Error("result does not match")
+	}
+}
 func Test_variablesubstitution(t *testing.T) {
 	patternMap := []byte(`
 	{

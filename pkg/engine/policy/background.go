@@ -20,12 +20,23 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 		}
 
 		// variable defined with user information
+		// - condition.key
+		// - condition.value
 		// - mutate.overlay
 		// - validate.pattern
 		// - validate.anyPattern[*]
 		// variables to filter
 		// - request.userInfo
 		filterVars := []string{"request.userInfo*"}
+		for condIdx, condition := range rule.Conditions {
+			if err := variables.CheckVariables(condition.Key, filterVars, "/"); err != nil {
+				return fmt.Errorf("path: spec/rules[%d]/condition[%d]/key%s", idx, condIdx, err)
+			}
+			if err := variables.CheckVariables(condition.Value, filterVars, "/"); err != nil {
+				return fmt.Errorf("path: spec/rules[%d]/condition[%d]/value%s", idx, condIdx, err)
+			}
+		}
+
 		if err := variables.CheckVariables(rule.Mutation.Overlay, filterVars, "/"); err != nil {
 			return fmt.Errorf("path: spec/rules[%d]/mutate/overlay%s", idx, err)
 		}

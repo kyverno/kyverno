@@ -73,24 +73,65 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	var emptyInterface interface{}
 	// extract variable {{<variable>}}
-	variableRegex := regexp.MustCompile("{{(.*)}}")
-	groups := variableRegex.FindStringSubmatch(valuePattern)
-	if len(groups) < 2 {
+	validRegex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	groups := validRegex.FindAllStringSubmatch(valuePattern, -1)
+	// can have multiple variables in a single value pattern
+	// var Map <variable,value>
+	varMap := getValues(ctx, groups)
+	if len(varMap) == 0 {
+		// there are no varaiables
+		// return the original value
 		return valuePattern
 	}
-	searchPath := groups[1]
-	// search for the path in ctx
-	variable, err := ctx.Query(searchPath)
-	if err != nil {
-		glog.V(4).Infof("variable substitution failed for query %s: %v", searchPath, err)
-		return emptyInterface
-	}
-	// only replace the value if returned value is scalar
-	if val, ok := variable.(string); ok {
-		newVal := strings.Replace(valuePattern, groups[0], val, -1)
+	// only substitute values if all the variable values are of type string
+	if isAllVarStrings(varMap) {
+		newVal := valuePattern
+		for key, value := range varMap {
+			if val, ok := value.(string); ok {
+				newVal = strings.Replace(newVal, key, val, -1)
+			}
+		}
 		return newVal
 	}
-	return variable
+
+	// we do not support mutliple substitution per statement for non-string types
+	for _, value := range varMap {
+		return value
+	}
+	return emptyInterface
+}
+
+// returns map of variables as keys and variable values as values
+func getValues(ctx context.EvalInterface, groups [][]string) map[string]interface{} {
+	var emptyInterface interface{}
+	subs := map[string]interface{}{}
+	for _, group := range groups {
+		if len(group) == 2 {
+			// 0th is string
+			// 1st is the capture group
+			variable, err := ctx.Query(group[1])
+			if err != nil {
+				glog.V(4).Infof("variable substitution failed for query %s: %v", group[0], err)
+				subs[group[0]] = emptyInterface
+				continue
+			}
+			if variable == nil {
+				subs[group[0]] = emptyInterface
+			} else {
+				subs[group[0]] = variable
+			}
+		}
+	}
+	return subs
+}
+
+func isAllVarStrings(subVar map[string]interface{}) bool {
+	for _, value := range subVar {
+		if _, ok := value.(string); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func getOperator(pattern string) string {

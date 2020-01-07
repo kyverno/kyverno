@@ -64,6 +64,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// load incoming resource into the context
 	ctx.AddResource(request.Object.Raw)
 	ctx.AddUserInfo(userRequestInfo)
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
 		AdmissionInfo: userRequestInfo,
