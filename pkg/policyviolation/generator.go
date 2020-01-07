@@ -77,7 +77,6 @@ func (ds *dataStore) delete(keyHash string) {
 
 //Info is a request to create PV
 type Info struct {
-	Blocked    bool
 	PolicyName string
 	Resource   unstructured.Unstructured
 	Rules      []kyverno.ViolatedRule
@@ -85,7 +84,6 @@ type Info struct {
 
 func (i Info) toKey() string {
 	keys := []string{
-		strconv.FormatBool(i.Blocked),
 		i.PolicyName,
 		i.Resource.GetKind(),
 		i.Resource.GetNamespace(),
@@ -230,20 +228,17 @@ func (gen *Generator) syncHandler(info Info) error {
 	}
 
 	failure := false
-	// Generate Policy Violations
-	// as there can be multiple owners we can have multiple violations
-	pvs := builder.generate(info)
-	for _, pv := range pvs {
-		// Create Policy Violations
-		glog.V(3).Infof("Creating policy violation: %s", info.toKey())
-		err := handler.create(pv)
-		if err != nil {
-			failure = true
-			glog.V(3).Infof("Failed to create policy violation: %v", err)
-		} else {
-			glog.V(3).Infof("Policy violation created: %s", info.toKey())
-		}
+	pv := builder.generate(info)
+
+	// Create Policy Violations
+	glog.V(3).Infof("Creating policy violation: %s", info.toKey())
+	if err := handler.create(pv); err != nil {
+		failure = true
+		glog.V(3).Infof("Failed to create policy violation: %v", err)
+	} else {
+		glog.V(3).Infof("Policy violation created: %s", info.toKey())
 	}
+
 	if failure {
 		// even if there is a single failure we requeue the request
 		return errors.New("Failed to process some policy violations, re-queuing")

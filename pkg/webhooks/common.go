@@ -43,7 +43,7 @@ func getErrorMsg(engineReponses []response.EngineResponse) string {
 		if !er.IsSuccesful() {
 			// resource in engineReponses is identical as this was called per admission request
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s", er.PolicyResponse.Policy))
+			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
 					str = append(str, rule.ToString())
@@ -51,7 +51,7 @@ func getErrorMsg(engineReponses []response.EngineResponse) string {
 			}
 		}
 	}
-	return fmt.Sprintf("Resource %s: %s", resourceInfo, strings.Join(str, "\n"))
+	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
 }
 
 //ArrayFlags to store filterkinds

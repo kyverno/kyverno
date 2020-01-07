@@ -1,12 +1,10 @@
 package webhooks
 
 import (
-	"fmt"
 	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -104,58 +102,4 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 
 	}
 	return events
-}
-
-func generatePV(ers []response.EngineResponse, blocked bool) []policyviolation.Info {
-	var pvInfos []policyviolation.Info
-	// generate PV for each
-	for _, er := range ers {
-		// ignore creation of PV for resoruces that are yet to be assigned a name
-		if er.IsSuccesful() {
-			continue
-		}
-		glog.V(4).Infof("Building policy violation for engine response %v", er)
-		// build policy violation info
-		pvInfos = append(pvInfos, buildPVInfo(er, blocked))
-	}
-	return pvInfos
-}
-
-func buildPVInfo(er response.EngineResponse, blocked bool) policyviolation.Info {
-	info := policyviolation.Info{
-		Blocked:    blocked,
-		PolicyName: er.PolicyResponse.Policy,
-		Resource:   er.PatchedResource,
-		Rules:      buildViolatedRules(er, blocked),
-	}
-	return info
-}
-
-func buildViolatedRules(er response.EngineResponse, blocked bool) []kyverno.ViolatedRule {
-	blockMsg := fmt.Sprintf("Request Blocked for resource %s/%s; ", er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Kind)
-	var violatedRules []kyverno.ViolatedRule
-	// if resource was blocked we create dependent
-	dependant := kyverno.ManagedResourceSpec{
-		Kind:            er.PolicyResponse.Resource.Kind,
-		CreationBlocked: true,
-	}
-
-	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Success {
-			continue
-		}
-		vrule := kyverno.ViolatedRule{
-			Name: rule.Name,
-			Type: rule.Type,
-		}
-
-		if blocked {
-			vrule.Message = blockMsg + rule.Message
-			vrule.ManagedResource = dependant
-		} else {
-			vrule.Message = rule.Message
-		}
-		violatedRules = append(violatedRules, vrule)
-	}
-	return violatedRules
 }
