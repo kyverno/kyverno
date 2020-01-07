@@ -18,15 +18,15 @@ import (
 // InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func (c *Client) InitTLSPemPair(configuration *rest.Config) (*tls.TlsPemPair, error) {
+func (c *Client) InitTLSPemPair(configuration *rest.Config, FQDNCN bool) (*tls.TlsPemPair, error) {
 	certProps, err := c.GetTLSCertProps(configuration)
 	if err != nil {
 		return nil, err
 	}
 	tlsPair := c.ReadTlsPair(certProps)
-	if tls.IsTlsPairShouldBeUpdated(tlsPair) {
+	if tls.IsTLSPairShouldBeUpdated(tlsPair) {
 		glog.Info("Generating new key/certificate pair for TLS")
-		tlsPair, err = c.GenerateTlsPemPair(certProps)
+		tlsPair, err = c.generateTLSPemPair(certProps, FQDNCN)
 		if err != nil {
 			return nil, err
 		}
@@ -40,15 +40,15 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config) (*tls.TlsPemPair, er
 	return tlsPair, nil
 }
 
-//GenerateTlsPemPair Issues TLS certificate for webhook server using given PEM private key
+//generateTlsPemPair Issues TLS certificate for webhook server using given PEM private key
 // Returns signed and approved TLS certificate in PEM format
-func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemPair, error) {
-	privateKey, err := tls.TlsGeneratePrivateKey()
+func (c *Client) generateTLSPemPair(props tls.TlsCertificateProps, FQDNCN bool) (*tls.TlsPemPair, error) {
+	privateKey, err := tls.TLSGeneratePrivateKey()
 	if err != nil {
 		return nil, err
 	}
 
-	certRequest, err := tls.TlsCertificateGenerateRequest(privateKey, props)
+	certRequest, err := tls.CertificateGenerateRequest(privateKey, props, FQDNCN)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create certificate request: %v", err)
 	}
@@ -65,7 +65,7 @@ func (c *Client) GenerateTlsPemPair(props tls.TlsCertificateProps) (*tls.TlsPemP
 
 	return &tls.TlsPemPair{
 		Certificate: tlsCert,
-		PrivateKey:  tls.TlsPrivateKeyToPem(privateKey),
+		PrivateKey:  tls.TLSPrivateKeyToPem(privateKey),
 	}, nil
 }
 

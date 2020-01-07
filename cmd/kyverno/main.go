@@ -27,12 +27,12 @@ import (
 var (
 	kubeconfig     string
 	serverIP       string
-	cpu            bool
-	memory         bool
 	webhookTimeout int
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
+	// User FQDN as CSR CN
+	FQDNCN bool
 )
 
 func main() {
@@ -168,7 +168,7 @@ func main() {
 		policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
-	tlsPair, err := client.InitTLSPemPair(clientConfig)
+	tlsPair, err := client.InitTLSPemPair(clientConfig, FQDNCN)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -246,6 +246,8 @@ func init() {
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
+	flag.BoolVar(&FQDNCN, "FQDNAsCN", false, "use FQDN as Common Name in CSR")
 	config.LogDefaultFlags()
 	flag.Parse()
 }
