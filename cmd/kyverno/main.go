@@ -12,7 +12,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/namespace"
+	"github.com/nirmata/kyverno/pkg/generate"
+	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -21,6 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
+	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -154,18 +156,27 @@ func main() {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
 
+	// GENERATE REQUEST GENERATOR
+	grgen := webhookgenerate.NewGenerator(pclient, stopCh)
+
 	// GENERATE CONTROLLER
-	// - watches for Namespace resource and generates resource based on the policy generate rule
-	nsc := namespace.NewNamespaceController(
+	// - applies generate rules on resources based on generate requests created by webhook
+	grc := generate.NewController(
 		pclient,
 		client,
-		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pc.GetPolicyStatusAggregator(),
+		pInformer.Kyverno().V1().GenerateRequests(),
 		egen,
-		configData,
 		pvgen,
-		policyMetaStore)
+	)
+	// GENERATE REQUEST CLEANUP
+	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
+	grcc := generatecleanup.NewController(
+		pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().GenerateRequests(),
+	)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig)
@@ -201,6 +212,7 @@ func main() {
 		configData,
 		policyMetaStore,
 		pvgen,
+		grgen,
 		rWebhookWatcher,
 		cleanUp)
 	if err != nil {
@@ -209,13 +221,14 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-
+	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
-	go nsc.Run(1, stopCh)
+	go grc.Run(1, stopCh)
+	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

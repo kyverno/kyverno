@@ -310,10 +310,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
-	}
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
 	// cluster policy violations
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy.Name)
