@@ -15,7 +15,6 @@ import (
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -104,7 +103,7 @@ type GeneratorInterface interface {
 
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset,
-	dclient *client.Client,
+	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
 	gen := Generator{
