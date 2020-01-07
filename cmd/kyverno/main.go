@@ -78,6 +78,9 @@ func main() {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
 
+	// TODO(shuting): To be removed for v1.2.0
+	utils.CleanupOldCrd(client)
+
 	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
 	// - cache resync time: 10 seconds
