@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -28,6 +27,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -187,18 +187,6 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	if request.Kind.Kind == "Pod" {
-		if bytes.Contains(request.Object.Raw, []byte(engine.PodTemplateAnnotation)) {
-			glog.V(4).Infof("Policies already processed on pod controllers, skip processing policy on Pod UID=%s", request.UID)
-			return &v1beta1.AdmissionResponse{
-				Allowed: true,
-				Result: &metav1.Status{
-					Status: "Success",
-				},
-			}
-		}
-	}
-
 	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -220,8 +208,34 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	}
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
+	// convert RAW to unstructured
+	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
+	if err != nil {
+		msg := fmt.Sprintf("unable to convert raw resource to unstructured: %v", err)
+		glog.Errorf(msg)
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
+		}
+	}
+
+	// if not then set it from the api request
+	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
+	resource.SetNamespace(request.Namespace)
+	if checkPodTemplateAnn(*resource) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
+	ok, patches, msg := ws.HandleMutation(request, *resource, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
