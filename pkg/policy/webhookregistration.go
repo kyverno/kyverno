@@ -24,3 +24,7 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 
 	return nil
 }
+
+func (pc *PolicyController) registerResourceWebhookConfiguration() {
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
+}
