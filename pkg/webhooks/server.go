@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -18,7 +17,6 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
@@ -192,18 +190,6 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	if request.Kind.Kind == "Pod" {
-		if bytes.Contains(request.Object.Raw, []byte(engine.PodTemplateAnnotation)) {
-			glog.V(4).Infof("Policies already processed on pod controllers, skip processing policy on Pod UID=%s", request.UID)
-			return &v1beta1.AdmissionResponse{
-				Allowed: true,
-				Result: &metav1.Status{
-					Status: "Success",
-				},
-			}
-		}
-	}
-
 	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -225,8 +211,31 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	}
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
+	// convert RAW to unstructured
+	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		glog.Errorf(err.Error())
+
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: err.Error(),
+			},
+		}
+	}
+
+	if checkPodTemplateAnn(resource) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
+	ok, patches, msg := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{

@@ -9,11 +9,11 @@ import (
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -51,17 +51,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 			ws.policyStatus.SendStat(stat)
 		}
 	}
-	// convert RAW to unstructured
-	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
-	if err != nil {
-		//TODO: skip applying the amiddions control ?
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-		return true, nil, ""
-	}
 
-	// if not then set it from the api request
-	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	resource.SetNamespace(request.Namespace)
 	var engineResponses []response.EngineResponse
 
 	userRequestInfo := kyverno.RequestInfo{
@@ -75,7 +65,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	ctx.AddResource(request.Object.Raw)
 	ctx.AddUserInfo(userRequestInfo)
 	policyContext := engine.PolicyContext{
-		NewResource:   *resource,
+		NewResource:   resource,
 		AdmissionInfo: userRequestInfo,
 	}
 
