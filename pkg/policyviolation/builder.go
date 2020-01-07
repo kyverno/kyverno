@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 
@@ -34,16 +33,10 @@ type Builder interface {
 	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate
 }
 
-type pvBuilder struct {
-	// dynamic client
-	dclient *client.Client
-}
+type pvBuilder struct{}
 
-func newPvBuilder(dclient *client.Client) *pvBuilder {
-	pvb := pvBuilder{
-		dclient: dclient,
-	}
-	return &pvb
+func newPvBuilder() *pvBuilder {
+	return &pvBuilder{}
 }
 
 func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {

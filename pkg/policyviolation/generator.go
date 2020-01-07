@@ -218,7 +218,7 @@ func (gen *Generator) syncHandler(info Info) error {
 	glog.V(4).Infof("recieved info:%v", info)
 	var handler pvGenerator
 	var builder Builder
-	builder = newPvBuilder(gen.dclient)
+	builder = newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
 		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
