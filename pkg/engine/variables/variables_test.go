@@ -81,7 +81,7 @@ func Test_variablesub_multiple(t *testing.T) {
 	patternMap := []byte(`
 	{
 		"kind": "ClusterRole",
-		"name": "ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}",
+		"name": "ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-bindings",
 		"data": {
 			"rules": [
 				{
@@ -122,7 +122,7 @@ func Test_variablesub_multiple(t *testing.T) {
 		},
 	}
 
-	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-n1-user1"}`)
+	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-n1-user1-bindings"}`)
 
 	var pattern, resource interface{}
 	json.Unmarshal(patternMap, &pattern)
