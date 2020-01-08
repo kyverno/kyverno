@@ -105,7 +105,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		// insert annotation to podtemplate if resource is pod controller
 		// skip inserting on existing resource
-		if reflect.DeepEqual(policyContext.AdmissionInfo, RequestInfo{}) {
+		if reflect.DeepEqual(policyContext.AdmissionInfo, kyverno.RequestInfo{}) {
 			continue
 		}
 
