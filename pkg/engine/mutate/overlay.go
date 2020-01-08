@@ -1,4 +1,4 @@
-package engine
+package mutate
 
 import (
 	"encoding/json"
@@ -18,15 +18,16 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 // processOverlay processes validation patterns on the resource
-func processOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
-	resp.Type = Mutation.String()
+	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
@@ -83,10 +84,10 @@ func processOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 	}
 
 	var patchResource []byte
-	patchResource, err = ApplyPatches(resourceRaw, patches)
+	patchResource, err = utils.ApplyPatches(resourceRaw, patches)
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
-		glog.V(2).Infof("%s, patches=%s", msg, string(JoinPatches(patches)))
+		glog.V(2).Infof("%s, patches=%s", msg, string(utils.JoinPatches(patches)))
 		resp.Success = false
 		resp.Message = msg
 		return resp, resource
@@ -285,7 +286,7 @@ func applyOverlayToArrayOfMaps(resource, overlay []interface{}, path string) ([]
 	lastElementIdx := len(resource)
 	for i, overlayElement := range overlay {
 		typedOverlay := overlayElement.(map[string]interface{})
-		anchors := getAnchorsFromMap(typedOverlay)
+		anchors := utils.GetAnchorsFromMap(typedOverlay)
 
 		if len(anchors) > 0 {
 			// If we have anchors - choose corresponding resource element and mutate it
@@ -430,7 +431,7 @@ func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} 
 func hasOnlyAnchors(overlay interface{}) bool {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:
-		if anchors := getAnchorsFromMap(typed); len(anchors) == len(typed) {
+		if anchors := utils.GetAnchorsFromMap(typed); len(anchors) == len(typed) {
 			return true
 		}
 
@@ -456,7 +457,7 @@ func hasOnlyAnchors(overlay interface{}) bool {
 func hasNestedAnchors(overlay interface{}) bool {
 	switch typed := overlay.(type) {
 	case map[string]interface{}:
-		if anchors := getAnchorsFromMap(typed); len(anchors) > 0 {
+		if anchors := utils.GetAnchorsFromMap(typed); len(anchors) > 0 {
 			return true
 		}
 

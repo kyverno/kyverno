@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 )
 
@@ -23,7 +24,7 @@ func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
 	var unmarshalled map[string]interface{}
 	json.Unmarshal(rawMap, &unmarshalled)
 
-	actualMap := getAnchorsFromMap(unmarshalled)
+	actualMap := utils.GetAnchorsFromMap(unmarshalled)
 	assert.Equal(t, len(actualMap), 2)
 	assert.Equal(t, actualMap["(name)"].(string), "nirmata-*")
 	assert.Equal(t, actualMap["(namespace)"].(string), "kube-?olicy")
@@ -115,7 +116,7 @@ func TestValidate_ServiceTest(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
@@ -213,7 +214,7 @@ func TestValidate_MapHasFloats(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
@@ -304,7 +305,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
 		"Validation rule 'validate-tag' succeeded.",
@@ -402,7 +403,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
 		"Validation rule 'validate-tag' succeeded.",
@@ -479,7 +480,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation error: A namespace is required; Validation rule check-default-namespace anyPattern[0] failed at path /metadata/namespace/.;Validation rule check-default-namespace anyPattern[1] failed at path /metadata/namespace/."}
@@ -560,7 +561,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation error: Host network and port are not allowed; Validation rule 'validate-host-network-port' failed at path '/spec/containers/0/ports/0/hostPort/'"}
@@ -649,7 +650,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'validate-host-path' succeeded."}
@@ -737,7 +738,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation error: Host path '/var/lib/' is not allowed; Validation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/path/'"}
@@ -806,7 +807,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
@@ -878,7 +879,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
@@ -950,7 +951,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation error: pod: validate run as non root user; Validation rule 'pod rule 2' failed at path '/spec/securityContext/runAsNonRoot/'"}
@@ -1024,7 +1025,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'pod image rule' succeeded."}
@@ -1098,7 +1099,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/1/name/' for resource Pod//myapp-pod."}
@@ -1172,7 +1173,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod."}
@@ -1247,7 +1248,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'pod image rule' succeeded."}
@@ -1334,7 +1335,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation error: Host path is not allowed; Validation rule 'validate-host-path' failed at path '/spec/volumes/0/hostPath/'"}
@@ -1420,7 +1421,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
 
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	msgs := []string{"Validation rule 'validate-host-path' succeeded."}

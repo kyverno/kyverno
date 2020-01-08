@@ -1,4 +1,4 @@
-package engine
+package mutate
 
 import (
 	"encoding/json"
@@ -6,72 +6,24 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// JoinPatches joins array of serialized JSON patches to the single JSONPatch array
-func JoinPatches(patches [][]byte) []byte {
-	var result []byte
-	if len(patches) == 0 {
-		return result
-	}
-
-	result = append(result, []byte("[\n")...)
-	for index, patch := range patches {
-		result = append(result, patch...)
-		if index != len(patches)-1 {
-			result = append(result, []byte(",\n")...)
-		}
-	}
-	result = append(result, []byte("\n]")...)
-	return result
-}
 
 // applyPatch applies patch for resource, returns patched resource.
 func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 	patchesList := [][]byte{patchRaw}
-	return ApplyPatches(resource, patchesList)
+	return utils.ApplyPatches(resource, patchesList)
 }
 
-// ApplyPatches patches given resource with given patches and returns patched document
-func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
-	joinedPatches := JoinPatches(patches)
-	patch, err := jsonpatch.DecodePatch(joinedPatches)
-	if err != nil {
-		return nil, err
-	}
-
-	patchedDocument, err := patch.Apply(resource)
-	if err != nil {
-		return resource, err
-	}
-	return patchedDocument, err
-}
-
-//ApplyPatchNew patches given resource with given joined patches
-func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
-	jsonpatch, err := jsonpatch.DecodePatch(patch)
-	if err != nil {
-		return nil, err
-	}
-
-	patchedResource, err := jsonpatch.Apply(resource)
-	if err != nil {
-		return nil, err
-	}
-	return patchedResource, err
-
-}
-
-func processPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started JSON patch rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
-	resp.Type = Mutation.String()
+	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished JSON patch rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)

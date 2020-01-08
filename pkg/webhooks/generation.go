@@ -6,6 +6,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
@@ -14,7 +15,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	var engineResponses []response.EngineResponse
 
 	// convert RAW to unstructured
-	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
+	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
 		//TODO: skip applying the admission control ?
 		glog.Errorf("unable to convert raw resource to unstructured: %v", err)

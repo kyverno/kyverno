@@ -7,9 +7,10 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/mutate"
+	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 )
 
 const (
@@ -80,7 +81,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// Process Overlay
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = processOverlay(ctx, rule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
 			if ruleResponse.Success == true && ruleResponse.Patches == nil {
 				// overlay pattern does not match the resource conditions
 				glog.V(4).Infof(ruleResponse.Message)
@@ -96,7 +97,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// Process Patches
 		if rule.Mutation.Patches != nil {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = processPatches(rule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessPatches(rule, patchedResource)
 			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount()
@@ -110,7 +111,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		if strings.Contains(PodControllers, resource.GetKind()) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = processOverlay(ctx, podTemplateRule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
 				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				continue

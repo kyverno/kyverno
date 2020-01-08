@@ -7,6 +7,7 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 )
 
@@ -67,7 +68,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	json.Unmarshal(rawPolicy, &policy)
-	resourceUnstructured, err := ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	ctx.AddResource(rawResource)

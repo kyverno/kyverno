@@ -350,7 +350,6 @@ func validatePattern(patternElement interface{}, path string, supportedAnchors [
 	default:
 		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
 	}
-	return "", nil
 }
 
 func validateMap(patternMap map[string]interface{}, path string, supportedAnchors []anchor.IsAnchor) (string, error) {
