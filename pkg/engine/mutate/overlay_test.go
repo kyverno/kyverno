@@ -1,4 +1,4 @@
-package engine
+package mutate
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 )
 
@@ -69,7 +70,7 @@ func TestProcessOverlayPatches_NestedListWithAnchor(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
-	patch := JoinPatches(patches)
+	patch := utils.JoinPatches(patches)
 	decoded, err := jsonpatch.DecodePatch(patch)
 	assert.NilError(t, err)
 	assert.Assert(t, decoded != nil)
@@ -169,7 +170,7 @@ func TestProcessOverlayPatches_InsertIntoArray(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
-	patch := JoinPatches(patches)
+	patch := utils.JoinPatches(patches)
 
 	decoded, err := jsonpatch.DecodePatch(patch)
 	assert.NilError(t, err)
@@ -290,7 +291,7 @@ func TestProcessOverlayPatches_TestInsertToArray(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
-	patch := JoinPatches(patches)
+	patch := utils.JoinPatches(patches)
 
 	decoded, err := jsonpatch.DecodePatch(patch)
 	assert.NilError(t, err)
@@ -373,7 +374,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`{  
 		"apiVersion":"apps/v1",
@@ -461,7 +462,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err = ApplyPatches(resourceRaw, patches)
+	doc, err = utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 
 	compareJSONAsMap(t, expectedResult, doc)
@@ -526,7 +527,7 @@ func TestProcessOverlayPatches_AddingAnchor(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`{  
 		"metadata":{  
@@ -611,7 +612,7 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`
 	{  
@@ -689,7 +690,7 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err = ApplyPatches(resourceRaw, patches)
+	doc, err = utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 
 	compareJSONAsMap(t, expectedResult, doc)
@@ -753,7 +754,7 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`	{  
 		"apiVersion":"v1",
@@ -892,7 +893,7 @@ func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 	expectedResult := []byte(`{
 		"apiVersion": "apps/v1",
@@ -1003,7 +1004,7 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
-	doc, err := ApplyPatches(resourceRaw, patches)
+	doc, err := utils.ApplyPatches(resourceRaw, patches)
 	assert.NilError(t, err)
 
 	expectedResult := []byte(`
@@ -1154,5 +1155,5 @@ func TestApplyOverlay_ConditionOnArray(t *testing.T) {
 ]`)
 	p, err := applyOverlay(resource, overlay, "/")
 	assert.NilError(t, err)
-	assert.Assert(t, string(JoinPatches(p)) == string(expectedPatches))
+	assert.Assert(t, string(utils.JoinPatches(p)) == string(expectedPatches))
 }

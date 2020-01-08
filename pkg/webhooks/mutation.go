@@ -3,9 +3,10 @@ package webhooks
 import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -101,7 +102,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 
 	if isResponseSuccesful(engineResponses) {
 		sendStat(false)
-		patch := engine.JoinPatches(patches)
+		patch := engineutils.JoinPatches(patches)
 		return true, patch, ""
 	}
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -95,7 +95,7 @@ func processResourceWithPatches(patch []byte, resource []byte) []byte {
 		return nil
 	}
 
-	resource, err := engine.ApplyPatchNew(resource, patch)
+	resource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
 		glog.Errorf("failed to patch resource: %v", err)
 		return nil
@@ -143,7 +143,7 @@ func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 
 // convertResource converts raw bytes to an unstructured object
 func convertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
-	obj, err := engine.ConvertToUnstructured(raw)
+	obj, err := engineutils.ConvertToUnstructured(raw)
 	if err != nil {
 		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
 	}

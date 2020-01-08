@@ -9,7 +9,6 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -208,44 +207,6 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
-// getAnchorsFromMap gets the conditional anchor map
-func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) {
-			result[key] = value
-		}
-	}
-
-	return result
-}
-
-// getAnchorAndElementsFromMap gets the condition anchor map and resource map without anchor
-func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
-	anchors := make(map[string]interface{})
-	elementsWithoutanchor := make(map[string]interface{})
-	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) {
-			anchors[key] = value
-		} else if !anchor.IsAddingAnchor(key) {
-			elementsWithoutanchor[key] = value
-		}
-	}
-
-	return anchors, elementsWithoutanchor
-}
-
-func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
-	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
-			return key, value
-		}
-	}
-
-	return "", nil
-}
-
 func findKind(kinds []string, kindGVK string) bool {
 	for _, kind := range kinds {
 		if kind == kindGVK {
@@ -253,28 +214,6 @@ func findKind(kinds []string, kindGVK string) bool {
 		}
 	}
 	return false
-}
-
-// func isConditionAnchor(str string) bool {
-// 	if len(str) < 2 {
-// 		return false
-// 	}
-
-// 	return (str[0] == '(' && str[len(str)-1] == ')')
-// }
-
-func getRawKeyIfWrappedWithAttributes(str string) string {
-	if len(str) < 2 {
-		return str
-	}
-
-	if str[0] == '(' && str[len(str)-1] == ')' {
-		return str[1 : len(str)-1]
-	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
-		return str[2 : len(str)-1]
-	} else {
-		return str
-	}
 }
 
 func isStringIsReference(str string) bool {
@@ -285,48 +224,7 @@ func isStringIsReference(str string) bool {
 	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
 }
 
-// removeAnchor remove special characters around anchored key
-func removeAnchor(key string) string {
-	if anchor.IsConditionAnchor(key) {
-		return key[1 : len(key)-1]
-	}
-
-	if anchor.IsExistanceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
-		return key[2 : len(key)-1]
-	}
-
-	return key
-}
-
 type resourceInfo struct {
 	Resource unstructured.Unstructured
 	Gvk      *metav1.GroupVersionKind
-}
-
-func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
-	if err != nil {
-		glog.V(4).Infof("failed to unmarshall resource: %v", err)
-		return nil, err
-	}
-	return resource, nil
-}
-
-type RuleType int
-
-const (
-	Mutation RuleType = iota
-	Validation
-	Generation
-	All
-)
-
-func (ri RuleType) String() string {
-	return [...]string{
-		"Mutation",
-		"Validation",
-		"Generation",
-		"All",
-	}[ri]
 }

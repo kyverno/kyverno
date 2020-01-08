@@ -11,6 +11,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -168,7 +169,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 	startTime := time.Now()
 	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
-	resp.Type = Validation.String()
+	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying validation rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
