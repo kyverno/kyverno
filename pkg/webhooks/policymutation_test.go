@@ -166,7 +166,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 	patches, errs := generatePodControllerRule(policy)
 	assert.Assert(t, len(errs) == 0)
 
-	p, err := engine.ApplyPatches(policyRaw, patches)
+	p, err := utils.ApplyPatches(policyRaw, patches)
 	assert.NilError(t, err)
 
 	expectedPolicy := []byte(`{
@@ -474,7 +474,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 	patches, errs := generatePodControllerRule(policy)
 	assert.Assert(t, len(errs) == 0)
 
-	p, err := engine.ApplyPatches(policyRaw, patches)
+	p, err := utils.ApplyPatches(policyRaw, patches)
 	assert.NilError(t, err)
 
 	expectedPolicy := []byte(`{

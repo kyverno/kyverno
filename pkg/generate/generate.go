@@ -313,7 +313,6 @@ func checkResource(ctx context.EvalInterface, newResourceSpec interface{}, resou
 func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, err *Violation) policyviolation.Info {
 
 	info := policyviolation.Info{
-		Blocked:    false,
 		PolicyName: gr.Spec.Policy,
 		Resource:   resource,
 		Rules: []kyverno.ViolatedRule{kyverno.ViolatedRule{
