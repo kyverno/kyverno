@@ -1434,3 +1434,81 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 		t.Error("Incorrect Path")
 	}
 }
+
+func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate.anyPattern",
+			  "validate": {
+				"anyPattern": [
+				  {
+					"var1": "temp"
+				  },
+				  {
+					"var1": "{{request.userInfo}}-{{temp}}"
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{request.userInfo}}-{{temp}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}
+
+func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "disallow-root-user"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "validate.anyPattern",
+			  "validate": {
+				"anyPattern": [
+				  {
+					"var1": "temp"
+				  },
+				  {
+					"var1": "{{serviceAccountName}}"
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }	`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	err = ContainsUserInfo(*policy)
+
+	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{serviceAccountName}}" {
+		t.Log(err)
+		t.Error("Incorrect Path")
+	}
+}

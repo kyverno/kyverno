@@ -49,12 +49,23 @@ func checkValue(valuePattern string, variables []string, path string) error {
 }
 
 func checkValueVariable(valuePattern string, variables []string) bool {
-	variableRegex := regexp.MustCompile("^{{(.*)}}$")
-	groups := variableRegex.FindStringSubmatch(valuePattern)
-	if len(groups) < 2 {
+	variableRegex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	groups := variableRegex.FindAllStringSubmatch(valuePattern, -1)
+	if len(groups) == 0 {
+		// no variable defined
 		return false
 	}
-	return variablePatternSearch(groups[1], variables)
+	// if variables are defined, check against the list of variables to be filtered
+	for _, group := range groups {
+		if len(group) == 2 {
+			// group[0] -> {{variable}}
+			// group[1] -> variable
+			if variablePatternSearch(group[1], variables) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func variablePatternSearch(pattern string, regexs []string) bool {
