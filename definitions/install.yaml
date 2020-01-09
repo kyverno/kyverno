@@ -170,6 +170,14 @@ spec:
                                       type: array
                                       items:
                                         type: string
+                  preconditions:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - key  # can be of any type
+                      - operator # typed
+                      - value # can be of any type
                   mutate:
                     type: object
                     properties:
@@ -382,6 +390,72 @@ spec:
                         type: string
                       creationBlocked:
                         type: boolean
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: generaterequests.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+  scope: Namespaced
+  names:
+    kind: GenerateRequest
+    plural: generaterequests
+    singular: generaterequest
+    shortNames:
+    - gr
+  subresources:
+    status: {}
+  additionalPrinterColumns:
+  - name: Policy
+    type: string
+    description: The policy that resulted in the violation
+    JSONPath: .spec.policy
+  - name: ResourceKind
+    type: string
+    description: The resource kind that cause the violation
+    JSONPath: .spec.resource.kind
+  - name: ResourceName
+    type: string
+    description: The resource name that caused the violation
+    JSONPath: .spec.resource.name
+  - name: ResourceNamespace
+    type: string
+    description: The resource namespace that caused the violation
+    JSONPath: .spec.resource.namespace
+  - name: status
+    type : string
+    description: Current state of generate request
+    JSONPath: .status.state
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - policy
+          - resource
+          properties:
+            policy:
+              type: string
+            resource:
+              type: object
+              required:
+              - kind 
+              - name
+              properties:
+                kind:
+                  type: string
+                name: 
+                  type: string
+                namespace:
+                  type: string    
 ---
 kind: Namespace
 apiVersion: v1

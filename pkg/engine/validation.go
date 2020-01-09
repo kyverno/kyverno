@@ -9,8 +9,11 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -84,14 +87,14 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	return response.EngineResponse{}
 }
 
-func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo RequestInfo) *response.EngineResponse {
+func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
 		startTime := time.Now()
-		if !matchAdmissionInfo(rule, admissionInfo) {
+		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 			continue
@@ -106,6 +109,13 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
+
+		// evaluate pre-conditions
+		if !variables.EvaluateConditions(ctx, rule.Conditions) {
+			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+			continue
+		}
+
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validatePatterns(ctx, resource, rule)
 			incrementAppliedCount(resp)
@@ -159,7 +169,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 	startTime := time.Now()
 	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
-	resp.Type = Validation.String()
+	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying validation rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)

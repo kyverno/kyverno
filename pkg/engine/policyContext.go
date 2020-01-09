@@ -4,7 +4,6 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -16,19 +15,9 @@ type PolicyContext struct {
 	NewResource unstructured.Unstructured
 	// old Resource - Update operations
 	OldResource   unstructured.Unstructured
-	AdmissionInfo RequestInfo
+	AdmissionInfo kyverno.RequestInfo
 	// Dynamic client - used by generate
 	Client *client.Client
 	// Contexts to store resources
 	Context context.EvalInterface
-}
-
-// RequestInfo contains permission info carried in an admission request
-type RequestInfo struct {
-	// Roles is a list of possible role send the request
-	Roles []string
-	// ClusterRoles is a list of possible clusterRoles send the request
-	ClusterRoles []string
-	// UserInfo is the userInfo carried in the admission request
-	AdmissionUserInfo authenticationv1.UserInfo
 }

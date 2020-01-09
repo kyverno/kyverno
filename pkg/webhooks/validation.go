@@ -54,26 +54,28 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 
 	// Get new and old resource
-	newR, oldR, err := extractResources(request)
+	newR, oldR, err := extractResources(patchedResource, request)
 	if err != nil {
 		// as resource cannot be parsed, we skip processing
 		glog.Error(err)
 		return true, ""
 	}
+	userRequestInfo := kyverno.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
 	// build context
 	ctx := context.NewContext()
 	// load incoming resource into the context
 	ctx.AddResource(request.Object.Raw)
-	ctx.AddUserInfo(request.UserInfo)
+	ctx.AddUserInfo(userRequestInfo)
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 
 	policyContext := engine.PolicyContext{
-		NewResource: newR,
-		OldResource: oldR,
-		Context:     ctx,
-		AdmissionInfo: engine.RequestInfo{
-			Roles:             roles,
-			ClusterRoles:      clusterRoles,
-			AdmissionUserInfo: request.UserInfo},
+		NewResource:   newR,
+		OldResource:   oldR,
+		Context:       ctx,
+		AdmissionInfo: userRequestInfo,
 	}
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {

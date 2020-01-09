@@ -179,7 +179,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				Client:      client,
 			}
 
-			er = engine.Generate(policyContext)
+			er = engine.GenerateNew(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namesapces as resource

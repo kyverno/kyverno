@@ -24,6 +24,7 @@ spec:
     generate: 
       kind: NetworkPolicy
       name: default-deny-ingress
+      namespace: "{{request.object.metadata.name}}"
       data:
         spec:
           # select all pods in the namespace

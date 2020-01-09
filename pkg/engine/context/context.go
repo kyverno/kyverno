@@ -2,11 +2,12 @@ package context
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
-	authenticationv1 "k8s.io/api/authentication/v1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
 //Interface ... normal functions
@@ -15,8 +16,10 @@ type Interface interface {
 	AddJSON(dataRaw []byte) error
 	// merges resource json under request.object
 	AddResource(dataRaw []byte) error
-	// merges userInfo json under request.userInfo
-	AddUserInfo(userInfo authenticationv1.UserInfo) error
+	// merges userInfo json under kyverno.userInfo
+	AddUserInfo(userInfo kyverno.UserInfo) error
+	// merges serrviceaccount
+	AddSA(userName string) error
 	EvalInterface
 }
 
@@ -27,7 +30,8 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu      sync.RWMutex
+	mu sync.RWMutex
+	// data    map[string]interface{}
 	jsonRaw []byte
 }
 
@@ -54,7 +58,7 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
-//AddResource adds data at path: request.object
+//Add data at path: request.object
 func (ctx *Context) AddResource(dataRaw []byte) error {
 
 	// unmarshall the resource struct
@@ -82,16 +86,11 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
-//AddUserInfo adds data at path: request.userInfo
-func (ctx *Context) AddUserInfo(userInfo authenticationv1.UserInfo) error {
+func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
 	}{
-		Request: struct {
-			UserInfo interface{} `json:"userInfo"`
-		}{
-			UserInfo: userInfo,
-		},
+		Request: userRequestInfo,
 	}
 
 	objRaw, err := json.Marshal(modifiedResource)
@@ -100,4 +99,57 @@ func (ctx *Context) AddUserInfo(userInfo authenticationv1.UserInfo) error {
 		return err
 	}
 	return ctx.AddJSON(objRaw)
+}
+
+// removes prefix 'system:serviceaccount:' and namespace, then loads only username
+func (ctx *Context) AddSA(userName string) error {
+	saPrefix := "system:serviceaccount:"
+	var sa string
+	saName := ""
+	saNamespace := ""
+	if len(userName) <= len(saPrefix) {
+		sa = ""
+	} else {
+		sa = userName[len(saPrefix):]
+	}
+	// filter namespace
+	groups := strings.Split(sa, ":")
+	if len(groups) >= 2 {
+		glog.V(4).Infof("serviceAccount namespace: %s", groups[0])
+		glog.V(4).Infof("serviceAccount name: %s", groups[1])
+		saName = groups[1]
+		saNamespace = groups[0]
+	}
+
+	glog.Infof("Loading variable serviceAccountName with value: %s", saName)
+	saNameObj := struct {
+		SA string `json:"serviceAccountName"`
+	}{
+		SA: saName,
+	}
+	saNameRaw, err := json.Marshal(saNameObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	if err := ctx.AddJSON(saNameRaw); err != nil {
+		return err
+	}
+
+	glog.Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
+	saNsObj := struct {
+		SA string `json:"serviceAccountNamespace"`
+	}{
+		SA: saNamespace,
+	}
+	saNsRaw, err := json.Marshal(saNsObj)
+	if err != nil {
+		glog.V(4).Infof("failed to marshall the updated context data")
+		return err
+	}
+	if err := ctx.AddJSON(saNsRaw); err != nil {
+		return err
+	}
+
+	return nil
 }

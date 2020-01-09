@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -43,9 +44,13 @@ func Test_addResourceAndUserContext(t *testing.T) {
 			`)
 
 	userInfo := authenticationv1.UserInfo{
-		Username: "admin",
+		Username: "system:serviceaccount:nirmata:user1",
 		UID:      "014fbff9a07c",
 	}
+	userRequestInfo := kyverno.RequestInfo{
+		Roles:             nil,
+		ClusterRoles:      nil,
+		AdmissionUserInfo: userInfo}
 
 	var expectedResult string
 	ctx := NewContext()
@@ -60,7 +65,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("exected result does not match")
 	}
 
-	ctx.AddUserInfo(userInfo)
+	ctx.AddUserInfo(userRequestInfo)
 	result, err = ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
@@ -75,7 +80,29 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectedResult = "admin"
+	expectedResult = "system:serviceaccount:nirmata:user1"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
+	// Add service account Name
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	result, err = ctx.Query("serviceAccountName")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult = "user1"
+	t.Log(result)
+	if !reflect.DeepEqual(expectedResult, result) {
+		t.Error("exected result does not match")
+	}
+
+	// Add service account Namespace
+	result, err = ctx.Query("serviceAccountNamespace")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedResult = "nirmata"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
 		t.Error("exected result does not match")

@@ -2,9 +2,9 @@ package v1
 
 import "reflect"
 
-func (p ClusterPolicy) HasMutateOrValidate() bool {
+func (p ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() || rule.HasValidate() {
+		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
 	}
@@ -52,6 +52,14 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 func (gen *Generation) DeepCopyInto(out *Generation) {
 	if out != nil {
 		*out = *gen
+	}
+}
+
+// DeepCopyInto is declared because k8s:deepcopy-gen is
+// not able to generate this method for interface{} member
+func (cond *Condition) DeepCopyInto(out *Condition) {
+	if out != nil {
+		*out = *cond
 	}
 }
 

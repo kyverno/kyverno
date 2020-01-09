@@ -21,7 +21,11 @@ func Validate(p kyverno.ClusterPolicy) error {
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
-	if p.Spec.Background {
+	if p.Spec.Background == nil {
+		//skipped policy mutation default -> skip validation -> will not be processed for background processing
+		return nil
+	}
+	if *p.Spec.Background {
 		if err := ContainsUserInfo(p); err != nil {
 			// policy.spec.background -> "true"
 			// - cannot use variables with request.userInfo
@@ -346,7 +350,6 @@ func validatePattern(patternElement interface{}, path string, supportedAnchors [
 	default:
 		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
 	}
-	return "", nil
 }
 
 func validateMap(patternMap map[string]interface{}, path string, supportedAnchors []anchor.IsAnchor) (string, error) {
