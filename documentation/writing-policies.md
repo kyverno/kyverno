@@ -76,7 +76,7 @@ spec :
       - key: name # compares (key operator value) 
         operator: Equal
         value: name # constant "name" == "name"
-      - key: "{{serviceAccount}}" # refer to a pre-defined variable serviceAccount
+      - key: "{{serviceAccountName}}" # refer to a pre-defined variable serviceAccountName
         operator: NotEqual
         value: "user1" # if service 
      # Each rule can contain a single validate, mutate, or generate directive
