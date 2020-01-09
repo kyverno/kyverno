@@ -49,7 +49,7 @@ func checkValue(valuePattern string, variables []string, path string) error {
 }
 
 func checkValueVariable(valuePattern string, variables []string) bool {
-	variableRegex := regexp.MustCompile("^{{(.*)}}$")
+	variableRegex := regexp.MustCompile(variableRegex)
 	groups := variableRegex.FindStringSubmatch(valuePattern)
 	if len(groups) < 2 {
 		return false
