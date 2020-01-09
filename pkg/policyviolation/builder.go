@@ -15,7 +15,8 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse) (pvInfos []Inf
 			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
 		}
-		if er.IsSuccesful() {
+		// skip when response succeed AND referenced paths exist
+		if er.IsSuccesful() && !er.IsPathNotPresent() {
 			continue
 		}
 		glog.V(4).Infof("Building policy violation for engine response %v", er)

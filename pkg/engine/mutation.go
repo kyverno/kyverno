@@ -82,11 +82,20 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
-			if ruleResponse.Success == true && ruleResponse.Patches == nil {
-				// overlay pattern does not match the resource conditions
-				glog.V(4).Infof(ruleResponse.Message)
-				continue
-			} else if ruleResponse.Success == true {
+			if ruleResponse.Success == true {
+				// - variable substitution path is not present
+				if ruleResponse.PathNotPresent {
+					glog.V(4).Infof(ruleResponse.Message)
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+					continue
+				}
+
+				// - overlay pattern does not match the resource conditions
+				if ruleResponse.Patches == nil {
+					glog.V(4).Infof(ruleResponse.Message)
+					continue
+				}
+
 				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 

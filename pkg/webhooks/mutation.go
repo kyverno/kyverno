@@ -8,6 +8,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -95,6 +96,10 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	if annPatches := generateAnnotationPatches(engineResponses); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
+
+	// generate violation when referenced path does not exist
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	ws.pvGenerator.Add(pvInfos...)
 
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))

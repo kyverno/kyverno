@@ -22,7 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
-// processOverlay processes validation patterns on the resource
+// processOverlay processes mutation overlay on the resource
 func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
@@ -32,6 +32,16 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
+
+	// if referenced is not present, we skip processing the rule and report violation
+	if err := variables.ValidateVariables(ctx, rule.Mutation.Overlay); err != nil {
+		glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error())
+		resp.Success = true
+		resp.PathNotPresent = true
+		resp.Message = err.Error()
+		return resp, resource
+	}
+
 	// substitute variables
 	// first pass we substitute all the JMESPATH substitution for the variable
 	// variable: {{<JMESPATH>}}

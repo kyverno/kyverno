@@ -88,3 +88,68 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 		t.Error("patches dont match")
 	}
 }
+
+func Test_variableSubstitutionPathNotExist(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "check-root-user"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "check-root-user",
+					"image": "nginxinc/nginx-unprivileged",
+					"securityContext": {
+						"runAsNonRoot": true
+					}
+				}
+			]
+		}
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitue-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "spec": {
+					"name": "{{request.object.metadata.name1}}"
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(policyraw, &policy)
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+
+	policyContext := PolicyContext{
+		Policy:      policy,
+		Context:     ctx,
+		NewResource: *resourceUnstructured}
+	er := Mutate(policyContext)
+	assert.Assert(t, er.PolicyResponse.Rules[0].PathNotPresent, true)
+}
