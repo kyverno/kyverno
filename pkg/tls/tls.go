@@ -53,7 +53,7 @@ func certificateRequestToPem(csrRaw []byte) []byte {
 }
 
 //CertificateGenerateRequest Generates raw certificate signing request
-func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificateProps, FQDNCN bool) (*certificates.CertificateSigningRequest, error) {
+func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificateProps, fqdncn bool) (*certificates.CertificateSigningRequest, error) {
 	dnsNames := make([]string, 3)
 	dnsNames[0] = props.Service
 	dnsNames[1] = props.Service + "." + props.Namespace
@@ -61,7 +61,7 @@ func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificate
 	commonName := GenerateInClusterServiceName(props)
 	dnsNames[2] = commonName
 	csCommonName := props.Service
-	if FQDNCN {
+	if fqdncn {
 		// use FQDN as CommonName as a workaournd for https://github.com/nirmata/kyverno/issues/542
 		csCommonName = commonName
 	}
