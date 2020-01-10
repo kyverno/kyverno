@@ -1,7 +1,9 @@
 package generate
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -11,7 +13,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -240,7 +242,7 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	// check if resource exists
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	glog.V(4).Info(err)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		glog.V(4).Info(string(state))
 		// Resource does not exist
 		if state == "" {
@@ -283,14 +285,14 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 		// resource exists
 		return nil, nil
 	}
-	if !errors.IsNotFound(err) {
+	if !apierrors.IsNotFound(err) {
 		//something wrong while fetching resource
 		return nil, err
 	}
 
 	// get reference clone resource
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return nil, NewNotFound(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
 	}
 	if err != nil {
@@ -303,9 +305,9 @@ func handleClone(generateRule kyverno.Generation, client *dclient.Client, resour
 func checkResource(ctx context.EvalInterface, newResourceSpec interface{}, resource *unstructured.Unstructured) (bool, error) {
 	// check if the resource spec if a subset of the resource
 	path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, newResourceSpec)
-	if err != nil {
+	if !reflect.DeepEqual(err, validate.ValidationError{}) {
 		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
-		return false, err
+		return false, errors.New(err.ErrorMsg)
 	}
 	return true, nil
 }
