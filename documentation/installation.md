@@ -114,12 +114,34 @@ Here is a script that generates a self-signed CA, a TLS certificate-key pair, an
 
 # Configure a namespace admin to access policy violations
 
-During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure [definitions/rolebinding.yaml](../definitions/rolebinding.yaml) then apply to the cluster.
+During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
 
 - Replace `metadata.namespace` with namespace of the admin
 - Configure `subjects` field to bind admin's role to the ClusterRole `policyviolation`
 
-
+````yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: policyviolation
+  # change namespace below to create rolebinding for the namespace admin
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policyviolation
+subjects:
+# configure below to access policy violation for the namespace admin
+- kind: ServiceAccount
+  name: default
+  namespace: default
+# - apiGroup: rbac.authorization.k8s.io
+#   kind: User
+#   name: 
+# - apiGroup: rbac.authorization.k8s.io
+#   kind: Group
+#   name: 
+````
 # Installing outside of the cluster (debug mode)
 
 To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
