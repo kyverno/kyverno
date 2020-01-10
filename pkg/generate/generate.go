@@ -232,17 +232,20 @@ func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalIn
 	if newNamespace, ok := newNamespaceVar.(string); ok {
 		gen.Namespace = newNamespace
 	}
-	// Clone
-	cloneName := gen.Clone.Name
-	cloneNamespace := gen.Clone.Namespace
 
-	newcloneNameVar := variables.SubstituteVariables(ctx, cloneName)
-	if newcloneName, ok := newcloneNameVar.(string); ok {
-		gen.Clone.Name = newcloneName
-	}
-	newcloneNamespaceVar := variables.SubstituteVariables(ctx, cloneNamespace)
-	if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
-		gen.Clone.Namespace = newcloneNamespace
+	if gen.Clone != (kyverno.CloneFrom{}) {
+		// Clone
+		cloneName := gen.Clone.Name
+		cloneNamespace := gen.Clone.Namespace
+
+		newcloneNameVar := variables.SubstituteVariables(ctx, cloneName)
+		if newcloneName, ok := newcloneNameVar.(string); ok {
+			gen.Clone.Name = newcloneName
+		}
+		newcloneNamespaceVar := variables.SubstituteVariables(ctx, cloneNamespace)
+		if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
+			gen.Clone.Namespace = newcloneNamespace
+		}
 	}
 	return gen
 }
