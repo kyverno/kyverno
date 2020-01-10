@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -16,29 +17,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, newR unstructured.Unstructured) {
-	// set policy information
-	resp.PolicyResponse.Policy = policy.Name
-	// resource details
-	resp.PolicyResponse.Resource.Name = newR.GetName()
-	resp.PolicyResponse.Resource.Namespace = newR.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = newR.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = newR.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
-
-}
-
-func endResultResponse(resp *response.EngineResponse, startTime time.Time) {
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
-	glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
-}
-
-func incrementAppliedCount(resp *response.EngineResponse) {
-	// rules applied succesfully count
-	resp.PolicyResponse.RulesAppliedCount++
-}
 
 //Validate applies validation rules from policy on the resource
 func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
@@ -85,6 +63,29 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// if there are no changes with old and new response then sent empty response
 	// skip processing
 	return response.EngineResponse{}
+}
+
+func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, newR unstructured.Unstructured) {
+	// set policy information
+	resp.PolicyResponse.Policy = policy.Name
+	// resource details
+	resp.PolicyResponse.Resource.Name = newR.GetName()
+	resp.PolicyResponse.Resource.Namespace = newR.GetNamespace()
+	resp.PolicyResponse.Resource.Kind = newR.GetKind()
+	resp.PolicyResponse.Resource.APIVersion = newR.GetAPIVersion()
+	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+
+}
+
+func endResultResponse(resp *response.EngineResponse, startTime time.Time) {
+	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
+	glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
+}
+
+func incrementAppliedCount(resp *response.EngineResponse) {
+	// rules applied succesfully count
+	resp.PolicyResponse.RulesAppliedCount++
 }
 
 func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
@@ -178,14 +179,23 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 	// either pattern or anyPattern can be specified in Validation rule
 	if rule.Validation.Pattern != nil {
 		path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, rule.Validation.Pattern)
-		if err != nil {
-			// rule application failed
-			glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
-			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
-				rule.Validation.Message, rule.Name, path)
+		if !reflect.DeepEqual(err, validate.ValidationError{}) {
+			switch err.StatusCode {
+			case validate.PathNotPresent:
+				resp.Success = true
+				resp.PathNotPresent = true
+				resp.Message = fmt.Sprintf("referenced path not present: %s", err.ErrorMsg)
+				glog.V(4).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resp.Message)
+			case validate.Rulefailure:
+				// rule application failed
+				glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
+					rule.Validation.Message, rule.Name, path)
+			}
 			return resp
 		}
+
 		// rule application succesful
 		glog.V(4).Infof("rule %s pattern validated succesfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		resp.Success = true
@@ -194,39 +204,54 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 	}
 
 	// using anyPattern we can define multiple patterns and only one of them has to be succesfully validated
+	// return directly if one pattern succeed
+	// if none succeed, report violation / policyerror(TODO)
 	if rule.Validation.AnyPattern != nil {
-		var errs []error
-		var failedPaths []string
+		var ruleFailureErrs []error
+		var failedPaths, invalidPaths []string
 		for index, pattern := range rule.Validation.AnyPattern {
 			path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, pattern)
-			if err == nil {
-				// this pattern was succesfully validated
+			// this pattern was succesfully validated
+			if reflect.DeepEqual(err, validate.ValidationError{}) {
 				glog.V(4).Infof("anyPattern %v succesfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				resp.Success = true
 				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, index)
 				return resp
 			}
-			if err != nil {
+
+			switch err.StatusCode {
+			case validate.PathNotPresent:
+				invalidPaths = append(invalidPaths, err.ErrorMsg)
+			case validate.Rulefailure:
 				glog.V(4).Infof("Validation error: %s; Validation rule %s anyPattern[%d] failed at path %s for %s/%s/%s",
 					rule.Validation.Message, rule.Name, index, path, resource.GetKind(), resource.GetNamespace(), resource.GetName())
-				errs = append(errs, err)
+				ruleFailureErrs = append(ruleFailureErrs, errors.New(err.ErrorMsg))
 				failedPaths = append(failedPaths, path)
 			}
 		}
-		// If none of the anyPatterns are validated
-		if len(errs) > 0 {
-			glog.V(4).Infof("none of anyPattern were processed: %v", errs)
-			resp.Success = false
-			var errorStr []string
-			for index, err := range errs {
-				glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)
-				str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s.", rule.Name, index, failedPaths[index])
-				errorStr = append(errorStr, str)
-			}
-			resp.Message = fmt.Sprintf("Validation error: %s; %s", rule.Validation.Message, strings.Join(errorStr, ";"))
 
+		// PathNotPresent
+		if len(invalidPaths) != 0 {
+			resp.Success = true
+			resp.PathNotPresent = true
+			resp.Message = fmt.Sprintf("referenced path not present: %s", strings.Join(invalidPaths, ";"))
+			glog.V(4).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resp.Message)
 			return resp
 		}
+
+		// none of the anyPatterns succeed: len(ruleFailureErrs) > 0
+		glog.V(4).Infof("none of anyPattern comply with resource: %v", ruleFailureErrs)
+		resp.Success = false
+		var errorStr []string
+		for index, err := range ruleFailureErrs {
+			glog.V(4).Infof("anyPattern[%d] failed at path %s: %v", index, failedPaths[index], err)
+			str := fmt.Sprintf("Validation rule %s anyPattern[%d] failed at path %s.", rule.Name, index, failedPaths[index])
+			errorStr = append(errorStr, str)
+		}
+
+		resp.Message = fmt.Sprintf("Validation error: %s; %s", rule.Validation.Message, strings.Join(errorStr, " "))
+		return resp
 	}
+
 	return response.RuleResponse{}
 }

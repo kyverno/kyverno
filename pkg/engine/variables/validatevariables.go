@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -9,7 +8,8 @@ import (
 )
 
 // ValidateVariables validates if referenced path is present
-func ValidateVariables(ctx context.EvalInterface, pattern interface{}) error {
+// return empty string if all paths are valid, otherwise return invalid path
+func ValidateVariables(ctx context.EvalInterface, pattern interface{}) string {
 	var pathsNotPresent []string
 	variableList := extractVariables(pattern)
 	for i := 0; i < len(variableList)-1; i = i + 2 {
@@ -22,10 +22,10 @@ func ValidateVariables(ctx context.EvalInterface, pattern interface{}) error {
 	}
 
 	if len(variableList) != 0 && len(pathsNotPresent) != 0 {
-		return fmt.Errorf("referenced paths are not present: %s", strings.Join(pathsNotPresent, ";"))
+		return strings.Join(pathsNotPresent, ";")
 	}
 
-	return nil
+	return ""
 }
 
 // extractVariables extracts variables in the pattern

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 )
@@ -483,7 +484,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation error: A namespace is required; Validation rule check-default-namespace anyPattern[0] failed at path /metadata/namespace/.;Validation rule check-default-namespace anyPattern[1] failed at path /metadata/namespace/."}
+	msgs := []string{"Validation error: A namespace is required; Validation rule check-default-namespace anyPattern[0] failed at path /metadata/namespace/. Validation rule check-default-namespace anyPattern[1] failed at path /metadata/namespace/."}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -1430,4 +1431,349 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 		assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccesful())
+}
+
+func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "check-root-user"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "check-root-user-a",
+					"image": "nginxinc/nginx-unprivileged",
+					"securityContext": {
+						"runAsNonRoot": true
+					}
+				}
+			]
+		}
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitue-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+				  "spec": {
+					"containers": [
+					  {
+						"name": "{{request.object.metadata.name1}}*"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	json.Unmarshal(policyraw, &policy)
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+
+	policyContext := PolicyContext{
+		Policy:      policy,
+		Context:     ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success, true)
+	assert.Assert(t, er.PolicyResponse.Rules[0].PathNotPresent, true)
+}
+
+func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "template": {
+			"spec": {
+			  "containers": [
+				{
+				  "name": "test-pod",
+				  "image": "nginxinc/nginx-unprivileged"
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitue-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"anyPattern": [
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name1}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  },
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+
+	policyContext := PolicyContext{
+		Policy:      policy,
+		Context:     ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success == true)
+	assert.Assert(t, er.PolicyResponse.Rules[0].PathNotPresent == false)
+	expectMsg := "Validation rule 'test-path-not-exist' anyPattern[1] succeeded."
+	assert.Assert(t, er.PolicyResponse.Rules[0].Message == expectMsg)
+}
+
+func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "template": {
+			"spec": {
+			  "containers": [
+				{
+				  "name": "test-pod",
+				  "image": "nginxinc/nginx-unprivileged"
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitue-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"anyPattern": [
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name1}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  },
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name2}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+
+	policyContext := PolicyContext{
+		Policy:      policy,
+		Context:     ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success, true)
+	assert.Assert(t, er.PolicyResponse.Rules[0].PathNotPresent, true)
+}
+
+func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "template": {
+			"spec": {
+			  "containers": [
+				{
+				  "name": "pod-test-pod",
+				  "image": "nginxinc/nginx-unprivileged"
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitue-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"anyPattern": [
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  },
+				  {
+					"spec": {
+					  "template": {
+						"spec": {
+						  "containers": [
+							{
+							  "name": "{{request.object.metadata.name}}*"
+							}
+						  ]
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(resourceRaw)
+
+	policyContext := PolicyContext{
+		Policy:      policy,
+		Context:     ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+
+	expectedMsg := "Validation error: ; Validation rule test-path-not-exist anyPattern[0] failed at path /spec/template/spec/containers/0/name/. Validation rule test-path-not-exist anyPattern[1] failed at path /spec/template/spec/containers/0/name/."
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success == false)
+	assert.Assert(t, er.PolicyResponse.Rules[0].PathNotPresent == false)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Message == expectedMsg)
 }

@@ -99,8 +99,8 @@ func Test_ValidateVariables_NoVariable(t *testing.T) {
 	ctx.AddResource(resourceRaw)
 	ctx.AddUserInfo(userReqInfo)
 
-	err := ValidateVariables(ctx, pattern)
-	assert.NilError(t, err)
+	invalidPaths := ValidateVariables(ctx, pattern)
+	assert.Assert(t, len(invalidPaths) == 0)
 }
 
 func Test_ValidateVariables(t *testing.T) {
@@ -155,6 +155,6 @@ func Test_ValidateVariables(t *testing.T) {
 	ctx.AddResource(resourceRaw)
 	ctx.AddUserInfo(userReqInfo)
 
-	err := ValidateVariables(ctx, pattern)
-	assert.Assert(t, err != nil)
+	invalidPaths := ValidateVariables(ctx, pattern)
+	assert.Assert(t, len(invalidPaths) > 0)
 }

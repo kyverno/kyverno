@@ -34,11 +34,11 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 	}()
 
 	// if referenced is not present, we skip processing the rule and report violation
-	if err := variables.ValidateVariables(ctx, rule.Mutation.Overlay); err != nil {
-		glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error())
+	if invalidPaths := variables.ValidateVariables(ctx, rule.Mutation.Overlay); len(invalidPaths) != 0 {
 		resp.Success = true
 		resp.PathNotPresent = true
-		resp.Message = err.Error()
+		resp.Message = fmt.Sprintf("referenced path not present: %s", invalidPaths)
+		glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resp.Message)
 		return resp, resource
 	}
 
