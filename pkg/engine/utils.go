@@ -9,7 +9,10 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -227,4 +230,34 @@ func isStringIsReference(str string) bool {
 type resourceInfo struct {
 	Resource unstructured.Unstructured
 	Gvk      *metav1.GroupVersionKind
+}
+
+// validateGeneralRuleInfoVariables validate variable subtition defined in
+// - MatchResources
+// - ExcludeResources
+// - Conditions
+func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
+	var invalidPaths []string
+	if path := variables.ValidateVariables(ctx, rule.MatchResources); len(path) != 0 {
+		invalidPaths = append(invalidPaths, path)
+	}
+
+	if path := variables.ValidateVariables(ctx, rule.ExcludeResources); len(path) != 0 {
+		invalidPaths = append(invalidPaths, path)
+	}
+
+	if path := variables.ValidateVariables(ctx, rule.Conditions); len(path) != 0 {
+		invalidPaths = append(invalidPaths, path)
+	}
+	return strings.Join(invalidPaths, ";")
+}
+
+func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
+	return response.RuleResponse{
+		Name:           rname,
+		Type:           rtype,
+		Message:        msg,
+		Success:        true,
+		PathNotPresent: true,
+	}
 }

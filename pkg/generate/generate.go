@@ -85,6 +85,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 
+	if pv := buildPathNotPresentPV(engineResponse); pv != nil {
+		c.pvGenerator.Add(pv...)
+		// variable substitiution fails in ruleInfo (match,exclude,condition)
+		// the overall policy should not apply to resource
+		return nil, fmt.Errorf("referenced path not present in generate policy %s", policy.Name)
+	}
+
 	// Apply the generate rule on resource
 	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
 }
@@ -132,6 +139,10 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	var err error
 	var noGenResource kyverno.ResourceSpec
 
+	if invalidPaths := variables.ValidateVariables(ctx, rule.Generation.ResourceSpec); len(invalidPaths) != 0 {
+		return noGenResource, NewViolation(rule.Name, fmt.Errorf("path not present in generate resource spec: %s", invalidPaths))
+	}
+
 	// variable substitution
 	// - name
 	// - namespace
@@ -167,7 +178,7 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	}
 	// CLONE
 	if gen.Clone != (kyverno.CloneFrom{}) {
-		if rdata, err = handleClone(gen, client, resource, ctx, state); err != nil {
+		if rdata, err = handleClone(rule.Name, gen, client, resource, ctx, state); err != nil {
 			glog.V(4).Info(err)
 			switch e := err.(type) {
 			case *NotFound:
@@ -237,6 +248,10 @@ func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalIn
 }
 
 func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+	if invalidPaths := variables.ValidateVariables(ctx, generateRule.Data); len(invalidPaths) != 0 {
+		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate data: %s", invalidPaths))
+	}
+
 	newData := variables.SubstituteVariables(ctx, generateRule.Data)
 
 	// check if resource exists
@@ -278,7 +293,11 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 	return nil, nil
 }
 
-func handleClone(generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+func handleClone(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
+	if invalidPaths := variables.ValidateVariables(ctx, generateRule.Clone); len(invalidPaths) != 0 {
+		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate clone: %s", invalidPaths))
+	}
+
 	// check if resource exists
 	_, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
 	if err == nil {

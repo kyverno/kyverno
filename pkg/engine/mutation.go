@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/mutate"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
@@ -52,6 +54,14 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	for _, rule := range policy.Spec.Rules {
 		//TODO: to be checked before calling the resources as well
 		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
+			continue
+		}
+
+		// TODO(shuting): add unit test for validateGeneralRuleInfoVariables
+		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
+			glog.Infof("referenced path not present in rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
+				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present: %s", paths)))
 			continue
 		}
 
