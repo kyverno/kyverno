@@ -2,6 +2,7 @@ package variables
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -42,9 +43,7 @@ func Test_ExtractVariables(t *testing.T) {
 	vars := extractVariables(pattern)
 	result := []string{"{{request.userInfo.username}}", "request.userInfo.username", "{{request.object.metadata.name}}", "request.object.metadata.name"}
 
-	if !reflect.DeepEqual(vars, result) {
-		t.Errorf("result does not match, var: %s", vars)
-	}
+	assert.Assert(t, reflect.DeepEqual(vars, result), fmt.Sprintf("result does not match, var: %s", vars))
 }
 
 func Test_ValidateVariables_NoVariable(t *testing.T) {

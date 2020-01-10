@@ -392,3 +392,44 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	assert.Assert(t, !MatchesResourceDescription(*resource, rule))
 }
+
+// func Test_validateGeneralRuleInfoVariables(t *testing.T) {
+// 	policyRaw := []byte(`{
+// 		"apiVersion": "kyverno.io/v1",
+// 		"kind": "ClusterPolicy",
+// 		"metadata": {
+// 		  "name": "test-validate-variables"
+// 		},
+// 		"spec": {
+// 		  "rules": [
+// 			{
+// 			  "name": "test-match",
+// 			  "match": {
+// 				"Subjects": [
+// 				  {
+// 					"kind": "User",
+// 					"name": "{{request.userInfo.username1}}}"
+// 				  }
+// 				]
+// 			  }
+// 			}
+// 		  ]
+// 		}
+// 	  }`)
+
+// 	userReqInfo := kyverno.RequestInfo{
+// 		AdmissionUserInfo: authenticationv1.UserInfo{
+// 			Username: "user1",
+// 		},
+// 	}
+
+// 	var policy interface{}
+// 	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+
+// 	ctx := context.NewContext()
+// 	// ctx.AddResource(resourceRaw)
+// 	ctx.AddUserInfo(userReqInfo)
+
+// 	invalidPaths := validateGeneralRuleInfoVariables(ctx, policy.Spec.Rules[0])
+// 	assert.Assert(t, len(invalidPaths) == 1, fmt.Sprintf("got path len = %d", len(invalidPaths)))
+// }
