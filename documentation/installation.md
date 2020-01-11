@@ -10,6 +10,8 @@ There are 2 ways to configure the secure communications link between Kyverno and
 
 Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
+**Deploying on EKS requires enabling a command-line argument `--fqdncn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
+
 To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access:
 
 ````sh
@@ -130,11 +132,6 @@ To run controller in this mode you should prepare TLS key/certificate pair for d
 
 2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
-# Try Kyverno without a Kubernetes cluster
-
-The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) allows you to write and test policies without installing Kyverno in a Kubernetes cluster. Some features are not supported without a Kubernetes cluster.
-
-
 # Filter kuberenetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`
 
@@ -152,7 +149,8 @@ data:
 ```
 
 By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configmap
-[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/init_configMap.yaml).
+[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
+
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
