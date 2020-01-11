@@ -237,19 +237,25 @@ type resourceInfo struct {
 // - ExcludeResources
 // - Conditions
 func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var invalidPaths []string
-	if path := variables.ValidateVariables(ctx, rule.MatchResources); len(path) != 0 {
-		invalidPaths = append(invalidPaths, path)
+	var tempRule kyverno.Rule
+	var tempRulePattern interface{}
+
+	tempRule.MatchResources = rule.MatchResources
+	tempRule.ExcludeResources = rule.ExcludeResources
+	tempRule.Conditions = rule.Conditions
+
+	raw, err := json.Marshal(tempRule)
+	if err != nil {
+		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
+		return ""
 	}
 
-	if path := variables.ValidateVariables(ctx, rule.ExcludeResources); len(path) != 0 {
-		invalidPaths = append(invalidPaths, path)
+	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
+		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
+		return ""
 	}
 
-	if path := variables.ValidateVariables(ctx, rule.Conditions); len(path) != 0 {
-		invalidPaths = append(invalidPaths, path)
-	}
-	return strings.Join(invalidPaths, ";")
+	return variables.ValidateVariables(ctx, tempRulePattern)
 }
 
 func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {

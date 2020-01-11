@@ -57,11 +57,10 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			continue
 		}
 
-		// TODO(shuting): add unit test for validateGeneralRuleInfoVariables
 		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
 			glog.Infof("referenced path not present in rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
-				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present: %s", paths)))
+				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present in rule info: %s", paths)))
 			continue
 		}
 

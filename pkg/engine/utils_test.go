@@ -1,11 +1,15 @@
 package engine
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	context "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -393,43 +397,105 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	assert.Assert(t, !MatchesResourceDescription(*resource, rule))
 }
 
-// func Test_validateGeneralRuleInfoVariables(t *testing.T) {
-// 	policyRaw := []byte(`{
-// 		"apiVersion": "kyverno.io/v1",
-// 		"kind": "ClusterPolicy",
-// 		"metadata": {
-// 		  "name": "test-validate-variables"
-// 		},
-// 		"spec": {
-// 		  "rules": [
-// 			{
-// 			  "name": "test-match",
-// 			  "match": {
-// 				"Subjects": [
-// 				  {
-// 					"kind": "User",
-// 					"name": "{{request.userInfo.username1}}}"
-// 				  }
-// 				]
-// 			  }
-// 			}
-// 		  ]
-// 		}
-// 	  }`)
+func Test_validateGeneralRuleInfoVariables(t *testing.T) {
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "image-with-hostpath",
+		   "labels": {
+			  "app.type": "prod",
+			  "namespace": "my-namespace"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "image-with-hostpath",
+				 "image": "docker.io/nautiker/curl",
+				 "volumeMounts": [
+					{
+					   "name": "var-lib-etcd",
+					   "mountPath": "/var/lib"
+					}
+				 ]
+			  }
+		   ],
+		   "volumes": [
+			  {
+				 "name": "var-lib-etcd",
+				 "emptyDir": {}
+			  }
+		   ]
+		}
+	 }
+			`)
 
-// 	userReqInfo := kyverno.RequestInfo{
-// 		AdmissionUserInfo: authenticationv1.UserInfo{
-// 			Username: "user1",
-// 		},
-// 	}
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test-validate-variables"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-match",
+			  "match": {
+				"Subjects": [
+				  {
+					"kind": "User",
+					"name": "{{request.userInfo.username1}}}"
+				  }
+				],
+				"resources": {
+				  "kind": "{{request.object.kind}}"
+				}
+			  }
+			},
+			{
+			  "name": "test-exclude",
+			  "match": {
+				"resources": {
+				  "namespaces": [
+					"{{request.object.namespace}}"
+				  ]
+				}
+			  }
+			},
+			{
+			  "name": "test-condition",
+			  "preconditions": [
+				{
+				  "key": "{{serviceAccountName}}",
+				  "operator": "NotEqual",
+				  "value": "testuser"
+				}
+			  ]
+			}
+		  ]
+		}
+	  }`)
 
-// 	var policy interface{}
-// 	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+	userReqInfo := kyverno.RequestInfo{
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "user1",
+		},
+	}
 
-// 	ctx := context.NewContext()
-// 	// ctx.AddResource(resourceRaw)
-// 	ctx.AddUserInfo(userReqInfo)
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
 
-// 	invalidPaths := validateGeneralRuleInfoVariables(ctx, policy.Spec.Rules[0])
-// 	assert.Assert(t, len(invalidPaths) == 1, fmt.Sprintf("got path len = %d", len(invalidPaths)))
-// }
+	ctx := context.NewContext()
+	ctx.AddResource(rawResource)
+	ctx.AddUserInfo(userReqInfo)
+	ctx.AddSA("system:serviceaccount:test:testuser")
+
+	expectPaths := []string{"request.userInfo.username1", "request.object.namespace", ""}
+
+	for i, rule := range policy.Spec.Rules {
+		invalidPaths := validateGeneralRuleInfoVariables(ctx, rule)
+		assert.Assert(t, invalidPaths == expectPaths[i], fmt.Sprintf("result not match, got invalidPaths %s", invalidPaths))
+	}
+}

@@ -33,7 +33,7 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
 
-	// if referenced is not present, we skip processing the rule and report violation
+	// if referenced path not present, we skip processing the rule and report violation
 	if invalidPaths := variables.ValidateVariables(ctx, rule.Mutation.Overlay); len(invalidPaths) != 0 {
 		resp.Success = true
 		resp.PathNotPresent = true
