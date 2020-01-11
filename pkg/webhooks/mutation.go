@@ -71,6 +71,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
 		AdmissionInfo: userRequestInfo,
+		Context:       ctx,
 	}
 
 	for _, policy := range policies {

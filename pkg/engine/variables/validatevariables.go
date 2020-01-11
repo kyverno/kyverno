@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
@@ -14,6 +15,7 @@ func ValidateVariables(ctx context.EvalInterface, pattern interface{}) string {
 	variableList := extractVariables(pattern)
 	for i := 0; i < len(variableList)-1; i = i + 2 {
 		p := variableList[i+1]
+		glog.V(3).Infof("validating variables %s", p)
 		val, err := ctx.Query(p)
 		// reference path is not present
 		if err == nil && val == nil {
