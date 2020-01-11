@@ -16,6 +16,9 @@ spec:
       kind: ClusterRole
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         rules:
         - apiGroups: [""]
           resources: ["namespaces"]
@@ -31,6 +34,9 @@ spec:
       kind: ClusterRoleBinding
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
@@ -50,6 +56,9 @@ spec:
       name: "ns-admin-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       namespace: "{{request.object.metadata.name}}"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
