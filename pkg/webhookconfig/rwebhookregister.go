@@ -93,9 +93,10 @@ func (rww *ResourceWebhookRegister) RegisterResourceWebhook() {
 
 func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
 	// wait for cache to populate first time
-	if !cache.WaitForCacheSync(stopCh, rww.mwebhookconfigSynced) {
+	if !cache.WaitForCacheSync(stopCh, rww.mwebhookconfigSynced, rww.vwebhookconfigSynced) {
 		glog.Error("configuration: failed to sync webhook informer cache")
 	}
+
 }
 
 func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
