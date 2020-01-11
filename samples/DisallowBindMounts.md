@@ -22,6 +22,6 @@ spec:
       message: "Host path volumes are not allowed"
       pattern: 
         spec: 
-          volumes: 
+          =(volumes): 
           - X(hostPath): null
 ````
