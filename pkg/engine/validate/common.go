@@ -7,6 +7,13 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
+type ValidationFailureReason int
+
+const (
+	PathNotPresent ValidationFailureReason = iota
+	Rulefailure
+)
+
 func isStringIsReference(str string) bool {
 	if len(str) < len(operator.ReferenceSign) {
 		return false
@@ -65,4 +72,14 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 	} else {
 		return str
 	}
+}
+
+type ValidationError struct {
+	StatusCode ValidationFailureReason
+	ErrorMsg   string
+}
+
+// newValidatePatternError returns an validation error using the ValidationFailureReason and errorMsg
+func newValidatePatternError(reason ValidationFailureReason, msg string) ValidationError {
+	return ValidationError{StatusCode: reason, ErrorMsg: msg}
 }

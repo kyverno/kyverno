@@ -9,6 +9,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
+const variableRegex = `\{\{([^{}]*)\}\}`
+
 //SubstituteVariables substitutes the JMESPATH with variable substitution
 // supported substitutions
 // - no operator + variable(string,object)
@@ -73,7 +75,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	var emptyInterface interface{}
 	// extract variable {{<variable>}}
-	validRegex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	validRegex := regexp.MustCompile(variableRegex)
 	groups := validRegex.FindAllStringSubmatch(valuePattern, -1)
 	// can have multiple variables in a single value pattern
 	// var Map <variable,value>
