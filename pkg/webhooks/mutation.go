@@ -3,15 +3,19 @@ package webhooks
 import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/response"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -19,7 +23,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 	var policyStats []policyctr.PolicyStat
 
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
@@ -49,24 +53,25 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 			ws.policyStatus.SendStat(stat)
 		}
 	}
-	// convert RAW to unstructured
-	resource, err := engine.ConvertToUnstructured(request.Object.Raw)
-	if err != nil {
-		//TODO: skip applying the amiddions control ?
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
-		return true, nil, ""
-	}
 
-	// if not then set it from the api request
-	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: request.Kind.Group, Version: request.Kind.Version, Kind: request.Kind.Kind})
-	resource.SetNamespace(request.Namespace)
-	var engineResponses []engine.EngineResponse
+	var engineResponses []response.EngineResponse
+
+	userRequestInfo := kyverno.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+
+	// build context
+	ctx := context.NewContext()
+	// load incoming resource into the context
+	ctx.AddResource(request.Object.Raw)
+	ctx.AddUserInfo(userRequestInfo)
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+
 	policyContext := engine.PolicyContext{
-		NewResource: *resource,
-		AdmissionInfo: engine.RequestInfo{
-			Roles:             roles,
-			ClusterRoles:      clusterRoles,
-			AdmissionUserInfo: request.UserInfo},
+		NewResource:   resource,
+		AdmissionInfo: userRequestInfo,
+		Context:       ctx,
 	}
 
 	for _, policy := range policies {
@@ -93,13 +98,17 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, polic
 		patches = append(patches, annPatches)
 	}
 
+	// generate violation when referenced path does not exist
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	ws.pvGenerator.Add(pvInfos...)
+
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
 	if isResponseSuccesful(engineResponses) {
 		sendStat(false)
-		patch := engine.JoinPatches(patches)
+		patch := engineutils.JoinPatches(patches)
 		return true, patch, ""
 	}
 

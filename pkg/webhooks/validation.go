@@ -4,25 +4,30 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engine "github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
-// handleValidation handles validating webhook admission request
+// HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	var policyStats []policyctr.PolicyStat
 	evalTime := time.Now()
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.ValidationExecutionTime = policyResponse.ProcessingTime
@@ -51,28 +56,47 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 
 	// Get new and old resource
-	newR, oldR, err := extractResources(request)
-	if err != nil {
-		// as resource cannot be parsed, we skip processing
-		glog.Error(err)
-		return true, ""
+	var newR, oldR unstructured.Unstructured
+	var err error
+	if patchedResource != nil {
+		newR, oldR, err = extractResources(patchedResource, request)
+		if err != nil {
+			// as resource cannot be parsed, we skip processing
+			glog.Error(err)
+			return true, ""
+		}
+	} else {
+		newR, oldR, err = extractResourcesWithoutPatchData(request)
+		if err != nil {
+			// as resource cannot be parsed, we skip processing
+			glog.Error(err)
+			return true, ""
+		}
 	}
+	userRequestInfo := kyverno.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+	// build context
+	ctx := context.NewContext()
+	// load incoming resource into the context
+	ctx.AddResource(request.Object.Raw)
+	ctx.AddUserInfo(userRequestInfo)
+	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 
 	policyContext := engine.PolicyContext{
-		NewResource: newR,
-		OldResource: oldR,
-		AdmissionInfo: engine.RequestInfo{
-			Roles:             roles,
-			ClusterRoles:      clusterRoles,
-			AdmissionUserInfo: request.UserInfo},
+		NewResource:   newR,
+		OldResource:   oldR,
+		Context:       ctx,
+		AdmissionInfo: userRequestInfo,
 	}
-	var engineResponses []engine.EngineResponse
+	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
 		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			newR.GetKind(), newR.GetNamespace(), newR.GetName(), request.UID, request.Operation)
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
-		if reflect.DeepEqual(engineResponse, engine.EngineResponse{}) {
+		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
 			continue
@@ -90,25 +114,18 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	reportTime := time.Now()
 
 	// If Validation fails then reject the request
-	// violations are created with resource owner(if exist) on "enforce"
-	// and if there are any then we dont block the resource creation
-	// Even if one the policy being applied
-
+	// no violations will be created on "enforce"
+	// the event will be reported on owner by k8s
 	blocked := toBlockResource(engineResponses)
-	if !isResponseSuccesful(engineResponses) && blocked {
+	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
-		pvInfos := generatePV(engineResponses, true)
-		ws.pvGenerator.Add(pvInfos...)
-		// ADD EVENTS
-		events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
-		ws.eventGen.Add(events...)
 		sendStat(true)
 		return false, getErrorMsg(engineResponses)
 	}
+
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-
-	pvInfos := generatePV(engineResponses, blocked)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))

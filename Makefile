@@ -3,24 +3,23 @@
 ##################################
 # DEFAULTS
 ##################################
+GIT_VERSION := $(shell git describe --dirty --always --tags)
+GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
+TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+
 REGISTRY=index.docker.io
 REPO=$(REGISTRY)/nirmata/kyverno
 IMAGE_TAG=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
-GIT_VERSION := $(shell git describe --dirty --always --tags)
-GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
-GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
-TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-
 ##################################
 # KYVERNO
 ##################################
 
 KYVERNO_PATH:= cmd/kyverno
-build:
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+build: kyverno
 
 ##################################
 # INIT CONTAINER 
@@ -52,10 +51,13 @@ docker-push-initContainer:
 .PHONY: docker-build-kyverno docker-tag-repo-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
+kyverno:
+	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+
 docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-push-kyverno
 
 docker-build-kyverno:
-	GO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:

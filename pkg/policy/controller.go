@@ -13,6 +13,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/engine/policy"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -155,20 +156,61 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
-	glog.V(4).Infof("Adding Policy %s", p.Name)
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
 	// register with policy meta-store
 	pc.pMetaStore.Register(*p)
+
+	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
+	if p.Spec.Background == nil {
+		// if userInfo is not defined in policy we process the policy
+		if err := policy.ContainsUserInfo(*p); err != nil {
+			return
+		}
+	} else {
+		if !*p.Spec.Background {
+			return
+		}
+		// If userInfo is used then skip the policy
+		// ideally this should be handled by background flag only
+		if err := policy.ContainsUserInfo(*p); err != nil {
+			// contains userInfo used in policy
+			return
+		}
+	}
+
+	glog.V(4).Infof("Adding Policy %s", p.Name)
 	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
-	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
 	pc.pMetaStore.UnRegister(*oldP)
 	pc.pMetaStore.Register(*curP)
+
+	// Only process policies that are enabled for "background" execution
+	// policy.spec.background -> "True"
+	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
+	if curP.Spec.Background == nil {
+		// if userInfo is not defined in policy we process the policy
+		if err := policy.ContainsUserInfo(*curP); err != nil {
+			return
+		}
+	} else {
+		if !*curP.Spec.Background {
+			return
+		}
+		// If userInfo is used then skip the policy
+		// ideally this should be handled by background flag only
+		if err := policy.ContainsUserInfo(*curP); err != nil {
+			// contains userInfo used in policy
+			return
+		}
+	}
+	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
 
@@ -189,6 +231,8 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	glog.V(4).Infof("Deleting Policy %s", p.Name)
 	// Unregister from policy meta-store
 	pc.pMetaStore.UnRegister(*p)
+	// we process policies that are not set of background processing as we need to perform policy violation
+	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(p)
 }
 
@@ -214,6 +258,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 		glog.Error("failed to sync informer cache")
 		return
 	}
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
@@ -231,6 +276,11 @@ func (pc *PolicyController) worker() {
 }
 
 func (pc *PolicyController) processNextWorkItem() bool {
+	// if policies exist before Kyverno get created, resource webhook configuration
+	// could not be registered as clusterpolicy.spec.background=false by default
+	// the policy controller would starts only when the first incoming policy is queued
+	pc.registerResourceWebhookConfiguration()
+
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
@@ -291,10 +341,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	// if the policy contains mutating & validation rules and it config does not exist we create one
-	if policy.HasMutateOrValidate() {
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
-	}
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
 	// cluster policy violations
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy.Name)
