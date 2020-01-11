@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -119,6 +119,9 @@ func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 	var emptyResource unstructured.Unstructured
 
 	// New Resource
+	if newRaw == nil {
+		newRaw = request.Object.Raw
+	}
 	if newRaw == nil {
 		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
 	}
