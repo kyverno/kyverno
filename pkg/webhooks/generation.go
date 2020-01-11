@@ -41,6 +41,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	policyContext := engine.PolicyContext{
 		NewResource:   *resource,
 		AdmissionInfo: userRequestInfo,
+		Context:       ctx,
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/mutate"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
@@ -55,6 +57,13 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			continue
 		}
 
+		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
+			glog.Infof("referenced path not present in rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
+				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present in rule info: %s", paths)))
+			continue
+		}
+
 		startTime := time.Now()
 		if !rbac.MatchAdmissionInfo(rule, policyContext.AdmissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
@@ -82,11 +91,20 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
-			if ruleResponse.Success == true && ruleResponse.Patches == nil {
-				// overlay pattern does not match the resource conditions
-				glog.V(4).Infof(ruleResponse.Message)
-				continue
-			} else if ruleResponse.Success == true {
+			if ruleResponse.Success == true {
+				// - variable substitution path is not present
+				if ruleResponse.PathNotPresent {
+					glog.V(4).Infof(ruleResponse.Message)
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+					continue
+				}
+
+				// - overlay pattern does not match the resource conditions
+				if ruleResponse.Patches == nil {
+					glog.V(4).Infof(ruleResponse.Message)
+					continue
+				}
+
 				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 
