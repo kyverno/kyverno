@@ -57,7 +57,6 @@ func (ps *PolicyStore) Run(stopCh <-chan struct{}) {
 
 //Register a new policy
 func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
-	glog.V(4).Infof("adding resources %s", policy.Name)
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	var pmap policyMap

@@ -15,6 +15,7 @@ import (
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -76,6 +77,7 @@ func (ds *dataStore) delete(keyHash string) {
 
 //Info is a request to create PV
 type Info struct {
+	Blocked    bool
 	PolicyName string
 	Resource   unstructured.Unstructured
 	Rules      []kyverno.ViolatedRule
@@ -83,6 +85,7 @@ type Info struct {
 
 func (i Info) toKey() string {
 	keys := []string{
+		strconv.FormatBool(i.Blocked),
 		i.PolicyName,
 		i.Resource.GetKind(),
 		i.Resource.GetNamespace(),
@@ -101,7 +104,7 @@ type GeneratorInterface interface {
 
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset,
-	dclient *dclient.Client,
+	dclient *client.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
 	gen := Generator{
@@ -130,7 +133,6 @@ func (gen *Generator) enqueue(info Info) {
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
 		gen.enqueue(info)
-		glog.V(3).Infof("Added policy violation: %s", info.toKey())
 	}
 }
 
@@ -217,7 +219,7 @@ func (gen *Generator) syncHandler(info Info) error {
 	glog.V(4).Infof("recieved info:%v", info)
 	var handler pvGenerator
 	var builder Builder
-	builder = newPvBuilder()
+	builder = newPvBuilder(gen.dclient)
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
 		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
@@ -227,17 +229,16 @@ func (gen *Generator) syncHandler(info Info) error {
 	}
 
 	failure := false
-	pv := builder.generate(info)
-
-	// Create Policy Violations
-	glog.V(3).Infof("Creating policy violation: %s", info.toKey())
-	if err := handler.create(pv); err != nil {
-		failure = true
-		glog.V(3).Infof("Failed to create policy violation: %v", err)
-	} else {
-		glog.V(3).Infof("Policy violation created: %s", info.toKey())
+	// Generate Policy Violations
+	// as there can be multiple owners we can have multiple violations
+	pvs := builder.generate(info)
+	for _, pv := range pvs {
+		// Create Policy Violations
+		err := handler.create(pv)
+		if err != nil {
+			failure = true
+		}
 	}
-
 	if failure {
 		// even if there is a single failure we requeue the request
 		return errors.New("Failed to process some policy violations, re-queuing")

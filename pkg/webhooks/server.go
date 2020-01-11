@@ -24,7 +24,6 @@ import (
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
-	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
@@ -65,9 +64,7 @@ type WebhookServer struct {
 	// store to hold policy meta data for faster lookup
 	pMetaStore policystore.LookupInterface
 	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
-	// generate request generator
-	grGenerator            *generate.Generator
+	pvGenerator            policyviolation.GeneratorInterface
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 }
 
@@ -86,7 +83,6 @@ func NewWebhookServer(
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
-	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
@@ -118,7 +114,6 @@ func NewWebhookServer(
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,
 		pvGenerator:               pvGenerator,
 		pMetaStore:                pMetaStore,
-		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 	}
 	mux := http.NewServeMux()
@@ -216,31 +211,8 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	}
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
-	// convert RAW to unstructured
-	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		glog.Errorf(err.Error())
-
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: err.Error(),
-			},
-		}
-	}
-
-	if checkPodTemplateAnn(resource) {
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-			Result: &metav1.Status{
-				Status: "Success",
-			},
-		}
-	}
-
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+	ok, patches, msg := ws.HandleMutation(request, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -252,12 +224,9 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
-
 	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 		// VALIDATION
-		ok, msg = ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+		ok, msg = ws.HandleValidation(request, policies, roles, clusterRoles)
 		if !ok {
 			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 			return &v1beta1.AdmissionResponse{
@@ -270,23 +239,6 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	// GENERATE
-	// Only applied during resource creation
-	// Success -> Generate Request CR created successsfully
-	// Failed -> Failed to create Generate Request CR
-	if request.Operation == v1beta1.Create {
-		ok, msg = ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
-		if !ok {
-			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
-			}
-		}
-	}
 	// Succesfful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
@@ -322,7 +274,7 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// VALIDATION
-	ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
+	ok, msg := ws.HandleValidation(request, policies, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
@@ -360,7 +312,6 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
 	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
-
 }
 
 // Stop TLS server and returns control after the server is shut down

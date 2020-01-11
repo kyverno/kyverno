@@ -10,6 +10,7 @@ metadata:
       to a specific host and data persisted in the `hostPath` volume is coupled to the life of the 
       node leading to potential pod scheduling failures. It is highly recommended that applications 
       are designed to be decoupled from the underlying infrastructure (in this case, nodes).
+
 spec: 
   rules: 
   - name: validate-hostPath
@@ -21,5 +22,5 @@ spec:
       message: "Host path volumes are not allowed"
       pattern: 
         spec: 
-          =(volumes): 
+          volumes: 
           - X(hostPath): null

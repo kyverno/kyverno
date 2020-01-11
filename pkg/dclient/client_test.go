@@ -3,6 +3,8 @@ package client
 import (
 	"testing"
 
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -113,6 +115,41 @@ func TestCSRInterface(t *testing.T) {
 	_, err = iCSR.List(meta.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing CSR interface not working: %s", err)
+	}
+}
+
+func TestGenerateResource(t *testing.T) {
+	f := newFixture(t)
+	//GenerateResource -> copy From
+	// 1 create namespace
+	// 2 generate resource
+	// create namespace
+	ns, err := f.client.CreateResource("Namespace", "", newUnstructured("v1", "Namespace", "", "ns1"), false)
+	if err != nil {
+		t.Errorf("CreateResource not working: %s", err)
+	}
+	gen := kyverno.Generation{Kind: "TheKind",
+		Name:  "gen-kind",
+		Clone: kyverno.CloneFrom{Namespace: "ns-foo", Name: "name-foo"}}
+	err = f.client.GenerateResource(gen, ns.GetName(), false)
+	if err != nil {
+		t.Errorf("GenerateResource not working: %s", err)
+	}
+	_, err = f.client.GetResource("TheKind", "ns1", "gen-kind")
+	if err != nil {
+		t.Errorf("GetResource not working: %s", err)
+	}
+	// GenerateResource -> data
+	gen = kyverno.Generation{Kind: "TheKind",
+		Name: "name2-baz-new",
+		Data: newUnstructured("group2/version", "TheKind", "ns1", "name2-baz-new")}
+	err = f.client.GenerateResource(gen, ns.GetName(), false)
+	if err != nil {
+		t.Errorf("GenerateResource not working: %s", err)
+	}
+	_, err = f.client.GetResource("TheKind", "ns1", "name2-baz-new")
+	if err != nil {
+		t.Errorf("GetResource not working: %s", err)
 	}
 }
 

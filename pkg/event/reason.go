@@ -10,8 +10,6 @@ const (
 	PolicyApplied
 	//RequestBlocked the request to create/update the resource was blocked( generated from admission-controller)
 	RequestBlocked
-	//PolicyFailed policy failed
-	PolicyFailed
 )
 
 func (r Reason) String() string {
@@ -19,6 +17,5 @@ func (r Reason) String() string {
 		"PolicyViolation",
 		"PolicyApplied",
 		"RequestBlocked",
-		"PolicyFailed",
 	}[r]
 }

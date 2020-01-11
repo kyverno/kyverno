@@ -56,6 +56,50 @@ func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) (*unstr
 	return obj, nil
 }
 
+// GetOwners returns a list of owners
+func GetOwners(dclient *client.Client, resource unstructured.Unstructured) []kyverno.ResourceSpec {
+	ownerMap := map[kyverno.ResourceSpec]interface{}{}
+	GetOwner(dclient, ownerMap, resource)
+	var owners []kyverno.ResourceSpec
+	for owner := range ownerMap {
+		owners = append(owners, owner)
+	}
+	return owners
+}
+
+// GetOwner of a resource by iterating over ownerReferences
+func GetOwner(dclient *client.Client, ownerMap map[kyverno.ResourceSpec]interface{}, resource unstructured.Unstructured) {
+	var emptyInterface interface{}
+	resourceSpec := kyverno.ResourceSpec{
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+	}
+	if _, ok := ownerMap[resourceSpec]; ok {
+		// owner seen before
+		// breaking loop
+		return
+	}
+	rOwners := resource.GetOwnerReferences()
+	// if there are no resource owners then its top level resource
+	if len(rOwners) == 0 {
+		// add resource to map
+		ownerMap[resourceSpec] = emptyInterface
+		return
+	}
+	for _, rOwner := range rOwners {
+		// lookup resource via client
+		// owner has to be in same namespace
+		owner, err := dclient.GetResource(rOwner.Kind, resource.GetNamespace(), rOwner.Name)
+		if err != nil {
+			glog.Errorf("Failed to get resource owner for %s/%s/%s, err: %v", rOwner.Kind, resource.GetNamespace(), rOwner.Name, err)
+			// as we want to process other owners
+			continue
+		}
+		GetOwner(dclient, ownerMap, *owner)
+	}
+}
+
 func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) {
 	ls := &metav1.LabelSelector{}
 	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)

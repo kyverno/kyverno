@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
 )
 
 //Contains Check if strint is contained in a list of string
@@ -69,17 +68,8 @@ func CRDInstalled(discovery client.IDiscovery) bool {
 		glog.Infof("CRD %s found ", kind)
 		return true
 	}
-	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") || !check("PolicyViolation") {
+	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") {
 		return false
 	}
 	return true
-}
-
-func CleanupOldCrd(client *dclient.Client) {
-	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
-	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
-		if err := client.DeleteResource("CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
-			glog.Infof("Failed to remove previous CRD namespacedpolicyviolations: %v", err)
-		}
-	}
 }

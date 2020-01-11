@@ -106,8 +106,6 @@ spec:
     generate:
       kind: ConfigMap
       name: zk-kafka-address
-      # create the resource in the new namespace
-      namespace: "{{request.object.name}}"
       data:
         kind: ConfigMap
         data:

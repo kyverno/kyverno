@@ -29,7 +29,6 @@ type KyvernoV1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPoliciesGetter
 	ClusterPolicyViolationsGetter
-	GenerateRequestsGetter
 	PolicyViolationsGetter
 }
 
@@ -44,10 +43,6 @@ func (c *KyvernoV1Client) ClusterPolicies() ClusterPolicyInterface {
 
 func (c *KyvernoV1Client) ClusterPolicyViolations() ClusterPolicyViolationInterface {
 	return newClusterPolicyViolations(c)
-}
-
-func (c *KyvernoV1Client) GenerateRequests(namespace string) GenerateRequestInterface {
-	return newGenerateRequests(c, namespace)
 }
 
 func (c *KyvernoV1Client) PolicyViolations(namespace string) PolicyViolationInterface {

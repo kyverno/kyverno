@@ -1,76 +1,164 @@
 package engine
 
 import (
+	"time"
+
 	"fmt"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// GenerateNew
-// 1. validate variables to be susbtitute in the general ruleInfo (match,exclude,condition)
-//    - the caller has to check the ruleResponse to determine whether the path exist
-// 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func GenerateNew(policyContext PolicyContext) (resp response.EngineResponse) {
+//Generate apply generation rules on a resource
+func Generate(policyContext PolicyContext) (response EngineResponse) {
 	policy := policyContext.Policy
-	resource := policyContext.NewResource
-	admissionInfo := policyContext.AdmissionInfo
-	ctx := policyContext.Context
-	return filterRules(policy, resource, admissionInfo, ctx)
-}
+	ns := policyContext.NewResource
+	client := policyContext.Client
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) *response.RuleResponse {
-	if !rule.HasGenerate() {
-		return nil
+	startTime := time.Now()
+	// policy information
+	func() {
+		// set policy information
+		response.PolicyResponse.Policy = policy.Name
+		// resource details
+		response.PolicyResponse.Resource.Name = ns.GetName()
+		response.PolicyResponse.Resource.Kind = ns.GetKind()
+		response.PolicyResponse.Resource.APIVersion = ns.GetAPIVersion()
+	}()
+	glog.V(4).Infof("started applying generation rules of policy %q (%v)", policy.Name, startTime)
+	defer func() {
+		response.PolicyResponse.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("finished applying generation rules policy %v (%v)", policy.Name, response.PolicyResponse.ProcessingTime)
+		glog.V(4).Infof("Generation Rules appplied succesfully count %v for policy %q", response.PolicyResponse.RulesAppliedCount, policy.Name)
+	}()
+	incrementAppliedRuleCount := func() {
+		// rules applied succesfully count
+		response.PolicyResponse.RulesAppliedCount++
 	}
-	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-		return nil
-	}
-	if !MatchesResourceDescription(resource, rule) {
-		return nil
-	}
-
-	// evaluate pre-conditions
-	if !variables.EvaluateConditions(ctx, rule.Conditions) {
-		glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
-		return nil
-	}
-	// build rule Response
-	return &response.RuleResponse{
-		Name: rule.Name,
-		Type: "Generation",
-	}
-}
-
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) response.EngineResponse {
-	resp := response.EngineResponse{
-		PolicyResponse: response.PolicyResponse{
-			Policy: policy.Name,
-			Resource: response.ResourceSpec{
-				Kind:      resource.GetKind(),
-				Name:      resource.GetName(),
-				Namespace: resource.GetNamespace(),
-			},
-		},
-	}
-
 	for _, rule := range policy.Spec.Rules {
-		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
-			glog.Infof("referenced path not present in generate rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
-				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present: %s", paths)))
+		if !rule.HasGenerate() {
 			continue
 		}
+		glog.V(4).Infof("applying policy %s generate rule %s on resource %s/%s/%s", policy.Name, rule.Name, ns.GetKind(), ns.GetNamespace(), ns.GetName())
+		ruleResponse := applyRuleGenerator(client, ns, rule, policy.GetCreationTimestamp())
+		response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ruleResponse)
+		incrementAppliedRuleCount()
+	}
+	// set resource in reponse
+	response.PatchedResource = ns
+	return response
+}
 
-		if ruleResp := filterRule(rule, resource, admissionInfo, ctx); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+func applyRuleGenerator(client *client.Client, ns unstructured.Unstructured, rule kyverno.Rule, policyCreationTime metav1.Time) (response RuleResponse) {
+	startTime := time.Now()
+	glog.V(4).Infof("started applying generation rule %q (%v)", rule.Name, startTime)
+	response.Name = rule.Name
+	response.Type = Generation.String()
+	defer func() {
+		response.RuleStats.ProcessingTime = time.Since(startTime)
+		glog.V(4).Infof("finished applying generation rule %q (%v)", response.Name, response.RuleStats.ProcessingTime)
+	}()
+
+	var err error
+	resource := &unstructured.Unstructured{}
+	var rdata map[string]interface{}
+	// To manage existing resource , we compare the creation time for the default resource to be generate and policy creation time
+	processExisting := func() bool {
+		nsCreationTime := ns.GetCreationTimestamp()
+		return nsCreationTime.Before(&policyCreationTime)
+	}()
+	if rule.Generation.Data != nil {
+		glog.V(4).Info("generate rule: creates new resource")
+		// 1> Check if resource exists
+		obj, err := client.GetResource(rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+		if err == nil {
+			glog.V(4).Infof("generate rule: resource %s/%s/%s already present. checking if it contains the required configuration", rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+			// 2> If already exsists, then verify the content is contained
+			// found the resource
+			// check if the rule is create, if yes, then verify if the specified configuration is present in the resource
+			ok, err := checkResource(rule.Generation.Data, obj)
+			if err != nil {
+				glog.V(4).Infof("generate rule: unable to check if configuration %v, is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+				response.Success = false
+				response.Message = fmt.Sprintf("unable to check if configuration %v, is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+				return response
+			}
+			if !ok {
+				glog.V(4).Infof("generate rule: configuration %v not present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+				response.Success = false
+				response.Message = fmt.Sprintf("configuration %v not present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+				return response
+			}
+			response.Success = true
+			response.Message = fmt.Sprintf("required configuration %v is present in resource '%s/%s' in namespace '%s'", rule.Generation.Data, rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+			return response
+		}
+		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&rule.Generation.Data)
+		if err != nil {
+			glog.Error(err)
+			response.Success = false
+			response.Message = fmt.Sprintf("failed to parse the specified resource spec %v: %v", rule.Generation.Data, err)
+			return response
 		}
 	}
-	return resp
+	if rule.Generation.Clone != (kyverno.CloneFrom{}) {
+		glog.V(4).Info("generate rule: clone resource")
+		// 1> Check if resource exists
+		_, err := client.GetResource(rule.Generation.Kind, ns.GetName(), rule.Generation.Name)
+		if err == nil {
+			glog.V(4).Infof("generate rule: resource '%s/%s' already present in namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+			response.Success = true
+			response.Message = fmt.Sprintf("resource '%s/%s' already present in namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+			return response
+		}
+		// 2> If clone already exists return
+		resource, err = client.GetResource(rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+		if err != nil {
+			glog.V(4).Infof("generate rule: clone reference resource '%s/%s' not present in namespace '%s': %v", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace, err)
+			response.Success = false
+			response.Message = fmt.Sprintf("clone reference resource '%s/%s' not present in namespace '%s': %v", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace, err)
+			return response
+		}
+		glog.V(4).Infof("generate rule: clone reference resource '%s/%s'  present in namespace '%s'", rule.Generation.Kind, rule.Generation.Clone.Name, rule.Generation.Clone.Namespace)
+		rdata = resource.UnstructuredContent()
+	}
+	if processExisting {
+		glog.V(4).Infof("resource '%s/%s' not found in existing namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+		response.Success = false
+		response.Message = fmt.Sprintf("resource '%s/%s' not found in existing namespace '%s'", rule.Generation.Kind, rule.Generation.Name, ns.GetName())
+		// for existing resources we generate an error which indirectly generates a policy violation
+		return response
+	}
+	resource.SetUnstructuredContent(rdata)
+	resource.SetName(rule.Generation.Name)
+	resource.SetNamespace(ns.GetName())
+	// Reset resource version
+	resource.SetResourceVersion("")
+	_, err = client.CreateResource(rule.Generation.Kind, ns.GetName(), resource, false)
+	if err != nil {
+		glog.V(4).Infof("generate rule: unable to create resource %s/%s/%s: %v", rule.Generation.Kind, resource.GetNamespace(), resource.GetName(), err)
+		response.Success = false
+		response.Message = fmt.Sprintf("unable to create resource %s/%s/%s: %v", rule.Generation.Kind, resource.GetNamespace(), resource.GetName(), err)
+		return response
+	}
+	glog.V(4).Infof("generate rule: created resource %s/%s/%s", rule.Generation.Kind, resource.GetNamespace(), resource.GetName())
+	response.Success = true
+	response.Message = fmt.Sprintf("created resource %s/%s/%s", rule.Generation.Kind, resource.GetNamespace(), resource.GetName())
+	return response
+}
+
+//checkResource checks if the config is present in th eresource
+func checkResource(config interface{}, resource *unstructured.Unstructured) (bool, error) {
+
+	// we are checking if config is a subset of resource with default pattern
+	path, err := validateResourceWithPattern(resource.Object, config)
+	if err != nil {
+		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
+		return false, err
+	}
+	return true, nil
 }

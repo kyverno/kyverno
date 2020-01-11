@@ -22,13 +22,15 @@ spec:
         - Pod
     validate:
       message: "Privileged mode is not allowed. Set privileged to false"
-      pattern:
-        spec:
+      anyPattern:
+      - spec:
+          securityContext:
+            privileged: false
+      - spec:
           containers:
-          - =(securityContext):
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5707-L5711
-              # k8s default to false
-              =(privileged): false
+          - name: "*"
+            securityContext:
+              privileged: false
   - name: validate-allowPrivilegeEscalation
     match:
       resources:
@@ -36,10 +38,13 @@ spec:
         - Pod
     validate:
       message: "Privileged mode is not allowed. Set allowPrivilegeEscalation to false"
-      pattern:
-        spec:
+      anyPattern:
+      - spec:
+          securityContext:
+            allowPrivilegeEscalation: false
+      - spec:
           containers:
-          - securityContext:
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5754
+          - name: "*"
+            securityContext:
               allowPrivilegeEscalation: false
 ````

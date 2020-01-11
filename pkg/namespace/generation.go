@@ -8,8 +8,6 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -87,7 +85,7 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []response.EngineResponse {
+func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []engine.EngineResponse {
 	//	convert to unstructured
 	unstr, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&namespace)
 	if err != nil {
@@ -101,7 +99,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []r
 	// get all the policies that have a generate rule and resource description satifies the namespace
 	// apply policy on resource
 	policies := listpolicies(ns, nsc.pMetaStore)
-	var engineResponses []response.EngineResponse
+	var engineResponses []engine.EngineResponse
 	for _, policy := range policies {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !nsc.rm.ProcessResource(policy.Name, policy.ResourceVersion, ns.GetKind(), ns.GetNamespace(), ns.GetName(), ns.GetResourceVersion()) {
@@ -187,10 +185,10 @@ func listpolicies(ns unstructured.Unstructured, pMetaStore policystore.LookupInt
 	return filteredpolicies
 }
 
-func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) response.EngineResponse {
+func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) engine.EngineResponse {
 	var policyStats []policyctr.PolicyStat
 	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
+	gatherStat := func(policyName string, policyResponse engine.PolicyResponse) {
 		ps := policyctr.PolicyStat{}
 		ps.PolicyName = policyName
 		ps.Stats.GenerationExecutionTime = policyResponse.ProcessingTime
@@ -223,30 +221,16 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 	defer func() {
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
-	// build context
-	ctx := context.NewContext()
-	ctx.AddResource(transformResource(resource))
-
 	policyContext := engine.PolicyContext{
 		NewResource: resource,
 		Policy:      p,
 		Client:      client,
-		Context:     ctx,
 	}
-	engineResponse := engine.GenerateNew(policyContext)
+	engineResponse := engine.Generate(policyContext)
 	// gather stats
 	gatherStat(p.Name, engineResponse.PolicyResponse)
 	//send stats
 	sendStat(false)
 
 	return engineResponse
-}
-
-func transformResource(resource unstructured.Unstructured) []byte {
-	data, err := resource.MarshalJSON()
-	if err != nil {
-		glog.Errorf("failed to marshall resource %v: %v", resource, err)
-		return nil
-	}
-	return data
 }

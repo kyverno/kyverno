@@ -47,7 +47,3 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
   branch = "release-1.14"
-
-[[override]]
-  name = "github.com/jmespath/go-jmespath"
-  branch = "master"

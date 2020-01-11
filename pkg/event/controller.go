@@ -25,9 +25,9 @@ type Generator struct {
 	// list/get cluster policy
 	pLister kyvernolister.ClusterPolicyLister
 	// returns true if the cluster policy store has been synced at least once
-	pSynced cache.InformerSynced
-	// queue to store event generation requests
-	queue workqueue.RateLimitingInterface
+	pSynced  cache.InformerSynced
+  // queue to store event generation requests
+	queue    workqueue.RateLimitingInterface
 	// events generated at policy controller
 	policyCtrRecorder record.EventRecorder
 	// events generated at admission control
@@ -52,6 +52,7 @@ func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterP
 		policyCtrRecorder:    initRecorder(client, PolicyController),
 		admissionCtrRecorder: initRecorder(client, AdmissionController),
 		genPolicyRecorder:    initRecorder(client, GeneratePolicyController),
+
 	}
 	return &gen
 }
@@ -172,7 +173,7 @@ func (gen *Generator) syncHandler(key Info) error {
 	default:
 		robj, err = gen.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			glog.V(4).Infof("Error creating event: unable to get resource %s/%s/%s, will retry ", key.Kind, key.Namespace, key.Name)
+			glog.V(4).Infof("Error creating event: unable to get resource %s, %s, will retry ", key.Kind, key.Namespace+"/"+key.Name)
 			return err
 		}
 	}

@@ -38,8 +38,10 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 
 	if admissionResp.Allowed {
 		// if the policy contains mutating & validation rules and it config does not exist we create one
-		// queue the request
-		ws.resourceWebhookWatcher.RegisterResourceWebhook()
+		if policy.HasMutateOrValidate() {
+			// queue the request
+			ws.resourceWebhookWatcher.RegisterResourceWebhook()
+		}
 	}
 	return admissionResp
 }

@@ -4,21 +4,67 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 )
 
-func (nsc *NamespaceController) report(engineResponses []response.EngineResponse) {
+func (nsc *NamespaceController) report(engineResponses []engine.EngineResponse) {
 	// generate events
 	eventInfos := generateEvents(engineResponses)
 	nsc.eventGen.Add(eventInfos...)
 	// generate policy violations
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	pvInfos := generatePVs(engineResponses)
 	nsc.pvGenerator.Add(pvInfos...)
 }
 
-func generateEvents(ers []response.EngineResponse) []event.Info {
+func generatePVs(ers []engine.EngineResponse) []policyviolation.Info {
+	var pvInfos []policyviolation.Info
+	for _, er := range ers {
+		// ignore creation of PV for resoruces that are yet to be assigned a name
+		if er.PolicyResponse.Resource.Name == "" {
+			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
+			continue
+		}
+		if er.IsSuccesful() {
+			continue
+		}
+		glog.V(4).Infof("Building policy violation for engine response %v", er)
+		// build policy violation info
+		pvInfos = append(pvInfos, buildPVInfo(er))
+	}
+
+	return pvInfos
+}
+
+func buildPVInfo(er engine.EngineResponse) policyviolation.Info {
+	info := policyviolation.Info{
+		Blocked:    false,
+		PolicyName: er.PolicyResponse.Policy,
+		Resource:   er.PatchedResource,
+		Rules:      buildViolatedRules(er),
+	}
+	return info
+}
+
+func buildViolatedRules(er engine.EngineResponse) []kyverno.ViolatedRule {
+	var violatedRules []kyverno.ViolatedRule
+	for _, rule := range er.PolicyResponse.Rules {
+		if rule.Success {
+			continue
+		}
+		vrule := kyverno.ViolatedRule{
+			Name:    rule.Name,
+			Type:    rule.Type,
+			Message: rule.Message,
+		}
+		violatedRules = append(violatedRules, vrule)
+	}
+	return violatedRules
+}
+
+func generateEvents(ers []engine.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	for _, er := range ers {
 		if er.IsSuccesful() {
@@ -29,7 +75,7 @@ func generateEvents(ers []response.EngineResponse) []event.Info {
 	return eventInfos
 }
 
-func generateEventsPerEr(er response.EngineResponse) []event.Info {
+func generateEventsPerEr(er engine.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	glog.V(4).Infof("reporting results for policy '%s' application on resource '%s/%s/%s'", er.PolicyResponse.Policy, er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 	for _, rule := range er.PolicyResponse.Rules {

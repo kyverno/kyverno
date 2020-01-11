@@ -6,8 +6,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -25,13 +23,13 @@ type rulePatch struct {
 	Path     string `json:"path"`
 }
 
-type annresponse struct {
+type response struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value"`
 }
 
-func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte {
+func generateAnnotationPatches(engineResponses []engine.EngineResponse) []byte {
 	var annotations map[string]string
 
 	for _, er := range engineResponses {
@@ -45,7 +43,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 		annotations = make(map[string]string)
 	}
 
-	var patchResponse annresponse
+	var patchResponse response
 	value := annotationFromEngineResponses(engineResponses)
 	if value == nil {
 		// no patches or error while processing patches
@@ -54,7 +52,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 
 	if _, ok := annotations[policyAnnotation]; ok {
 		// create update patch string
-		patchResponse = annresponse{
+		patchResponse = response{
 			Op:    "replace",
 			Path:  "/metadata/annotations/" + policyAnnotation,
 			Value: string(value),
@@ -62,7 +60,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 	} else {
 		// mutate rule has annotation patches
 		if len(annotations) > 0 {
-			patchResponse = annresponse{
+			patchResponse = response{
 				Op:    "add",
 				Path:  "/metadata/annotations/" + policyAnnotation,
 				Value: string(value),
@@ -70,7 +68,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
 			annotations[policyAnnotation] = string(value)
-			patchResponse = annresponse{
+			patchResponse = response{
 				Op:    "add",
 				Path:  "/metadata/annotations",
 				Value: annotations,
@@ -89,7 +87,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 	return patchByte
 }
 
-func annotationFromEngineResponses(engineResponses []response.EngineResponse) []byte {
+func annotationFromEngineResponses(engineResponses []engine.EngineResponse) []byte {
 	var policyPatches []policyPatch
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
@@ -119,7 +117,7 @@ func annotationFromEngineResponses(engineResponses []response.EngineResponse) []
 	return result
 }
 
-func annotationFromPolicyResponse(policyResponse response.PolicyResponse) []rulePatch {
+func annotationFromPolicyResponse(policyResponse engine.PolicyResponse) []rulePatch {
 	var rulePatches []rulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches {
@@ -144,16 +142,4 @@ func annotationFromPolicyResponse(policyResponse response.PolicyResponse) []rule
 	}
 
 	return rulePatches
-}
-
-// checkPodTemplateAnn checks if a Pod has annotation "pod-policies.kyverno.io/autogen-applied"
-func checkPodTemplateAnn(resource unstructured.Unstructured) bool {
-	if resource.GetKind() == "Pod" {
-		ann := resource.GetAnnotations()
-		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
-			return true
-		}
-	}
-
-	return false
 }

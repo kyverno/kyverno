@@ -20,10 +20,9 @@ spec:
       anyPattern:
       - spec:
           securityContext:
-            # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L3165
             runAsNonRoot: true
       - spec:
           containers:
-          - securityContext:
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5742
+          - name: "*"
+            securityContext:
               runAsNonRoot: true

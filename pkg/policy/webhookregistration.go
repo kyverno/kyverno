@@ -2,6 +2,7 @@ package policy
 
 import (
 	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -19,12 +20,20 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 		return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
 	}
 
-	glog.V(4).Info("no policies with mutating or validating webhook configurations, remove resource webhook configuration if one exists")
-	return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
+	// if polices only have generate rules, we dont need the webhook
+	if !hasMutateOrValidatePolicies(policies) {
+		glog.V(4).Info("no policies with mutating or validating webhook configurations, remove resource webhook configuration if one exists")
+		return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
+	}
 
 	return nil
 }
 
-func (pc *PolicyController) registerResourceWebhookConfiguration() {
-	pc.resourceWebhookWatcher.RegisterResourceWebhook()
+func hasMutateOrValidatePolicies(policies []*kyverno.ClusterPolicy) bool {
+	for _, policy := range policies {
+		if (*policy).HasMutateOrValidate() {
+			return true
+		}
+	}
+	return false
 }

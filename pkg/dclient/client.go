@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
 	csrtype "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -61,10 +61,6 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
-}
-
-func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
-	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
 }
 
 //GetKubePolicyDeployment returns kube policy depoyment value
@@ -190,6 +186,46 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
+}
+
+// GenerateResource creates resource of the specified kind(supports 'clone' & 'data')
+func (c *Client) GenerateResource(generator kyverno.Generation, namespace string, processExistingResources bool) error {
+	var err error
+	resource := &unstructured.Unstructured{}
+
+	var rdata map[string]interface{}
+	// data -> create new resource
+	if generator.Data != nil {
+		rdata, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&generator.Data)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+	}
+	// clone -> copy from existing resource
+	if generator.Clone != (kyverno.CloneFrom{}) {
+		resource, err = c.GetResource(generator.Kind, generator.Clone.Namespace, generator.Clone.Name)
+		if err != nil {
+			return err
+		}
+		rdata = resource.UnstructuredContent()
+	}
+
+	resource.SetUnstructuredContent(rdata)
+	resource.SetName(generator.Name)
+	resource.SetNamespace(namespace)
+	resource.SetResourceVersion("")
+
+	err = c.waitUntilNamespaceIsCreated(namespace)
+	if err != nil {
+		glog.Errorf("Can't create a resource %s: %v", generator.Name, err)
+		return nil
+	}
+	_, err = c.CreateResource(generator.Kind, namespace, resource, false)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //To-Do remove this to use unstructured type

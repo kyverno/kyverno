@@ -12,8 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/generate"
-	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
+	"github.com/nirmata/kyverno/pkg/namespace"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -22,20 +21,19 @@ import (
 	"github.com/nirmata/kyverno/pkg/version"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
-	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
 var (
 	kubeconfig                     string
 	serverIP                       string
-	webhookTimeout                 int
 	runValidationInMutatingWebhook string
+	cpu                            bool
+	memory                         bool
+	webhookTimeout                 int
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
-	// User FQDN as CSR CN
-	fqdncn bool
 )
 
 func main() {
@@ -78,18 +76,12 @@ func main() {
 		glog.Fatalf("Error creating kubernetes client: %v\n", err)
 	}
 
-	// TODO(shuting): To be removed for v1.2.0
-	utils.CleanupOldCrd(client)
-
 	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
 	// - cache resync time: 10 seconds
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
 		kubeClient,
 		10*time.Second)
-	// KUBERNETES Dynamic informer
-	// - cahce resync time: 10 seconds
-	kubedynamicInformer := client.NewDynamicSharedInformerFactory(10 * time.Second)
 
 	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
@@ -161,32 +153,21 @@ func main() {
 		glog.Fatalf("error creating policy controller: %v\n", err)
 	}
 
-	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, stopCh)
-
 	// GENERATE CONTROLLER
-	// - applies generate rules on resources based on generate requests created by webhook
-	grc := generate.NewController(
+	// - watches for Namespace resource and generates resource based on the policy generate rule
+	nsc := namespace.NewNamespaceController(
 		pclient,
 		client,
+		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
+		pc.GetPolicyStatusAggregator(),
 		egen,
+		configData,
 		pvgen,
-		kubedynamicInformer,
-	)
-	// GENERATE REQUEST CLEANUP
-	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
-	grcc := generatecleanup.NewController(
-		pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
-		kubedynamicInformer,
-	)
+		policyMetaStore)
 
 	// CONFIGURE CERTIFICATES
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(clientConfig)
 	if err != nil {
 		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
 	}
@@ -219,7 +200,6 @@ func main() {
 		configData,
 		policyMetaStore,
 		pvgen,
-		grgen,
 		rWebhookWatcher,
 		cleanUp)
 	if err != nil {
@@ -228,15 +208,13 @@ func main() {
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
-	kubedynamicInformer.Start(stopCh)
-	go grgen.Run(1)
+
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
 	go pc.Run(1, stopCh)
 	go egen.Run(1, stopCh)
-	go grc.Run(1, stopCh)
-	go grcc.Run(1, stopCh)
+	go nsc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
@@ -269,8 +247,6 @@ func init() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 
-	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	config.LogDefaultFlags()
 	flag.Parse()
 }

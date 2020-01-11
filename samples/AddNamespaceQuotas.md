@@ -25,7 +25,6 @@ spec:
     generate:
       kind: ResourceQuota
       name: default-resourcequota
-      namespace: "{{request.object.metadata.name}}"
       data:
         spec:
           hard:
@@ -41,7 +40,6 @@ spec:
     generate:
       kind: LimitRange
       name: default-limitrange
-      namespace: "{{request.object.metadata.name}}"
       data:
         spec:
           limits:

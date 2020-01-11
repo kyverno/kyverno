@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -9,13 +11,11 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -210,6 +210,44 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
+// getAnchorsFromMap gets the conditional anchor map
+func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for key, value := range anchorsMap {
+		if anchor.IsConditionAnchor(key) {
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+// getAnchorAndElementsFromMap gets the condition anchor map and resource map without anchor
+func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	anchors := make(map[string]interface{})
+	elementsWithoutanchor := make(map[string]interface{})
+	for key, value := range anchorsMap {
+		if anchor.IsConditionAnchor(key) {
+			anchors[key] = value
+		} else if !anchor.IsAddingAnchor(key) {
+			elementsWithoutanchor[key] = value
+		}
+	}
+
+	return anchors, elementsWithoutanchor
+}
+
+func getAnchorFromMap(anchorsMap map[string]interface{}) (string, interface{}) {
+	for key, value := range anchorsMap {
+		if anchor.IsConditionAnchor(key) || anchor.IsExistanceAnchor(key) {
+			return key, value
+		}
+	}
+
+	return "", nil
+}
+
 func findKind(kinds []string, kindGVK string) bool {
 	for _, kind := range kinds {
 		if kind == kindGVK {
@@ -219,12 +257,81 @@ func findKind(kinds []string, kindGVK string) bool {
 	return false
 }
 
+// func isConditionAnchor(str string) bool {
+// 	if len(str) < 2 {
+// 		return false
+// 	}
+
+// 	return (str[0] == '(' && str[len(str)-1] == ')')
+// }
+
+func getRawKeyIfWrappedWithAttributes(str string) string {
+	if len(str) < 2 {
+		return str
+	}
+
+	if str[0] == '(' && str[len(str)-1] == ')' {
+		return str[1 : len(str)-1]
+	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
+		return str[2 : len(str)-1]
+	} else {
+		return str
+	}
+}
+
 func isStringIsReference(str string) bool {
-	if len(str) < len(operator.ReferenceSign) {
+	if len(str) < len(referenceSign) {
 		return false
 	}
 
 	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
+}
+
+// Checks if array object matches anchors. If not - skip - return true
+func skipArrayObject(object, anchors map[string]interface{}) bool {
+	for key, pattern := range anchors {
+		key = key[1 : len(key)-1]
+
+		value, ok := object[key]
+		if !ok {
+			return true
+		}
+
+		if !ValidateValueWithPattern(value, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// removeAnchor remove special characters around anchored key
+func removeAnchor(key string) string {
+	if anchor.IsConditionAnchor(key) {
+		return key[1 : len(key)-1]
+	}
+
+	if anchor.IsExistanceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
+		return key[2 : len(key)-1]
+	}
+
+	return key
+}
+
+// convertToString converts value to string
+func convertToString(value interface{}) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		return string(typed), nil
+	case float64:
+		return fmt.Sprintf("%f", typed), nil
+	case int64:
+		return strconv.FormatInt(typed, 10), nil
+	case int:
+		return strconv.Itoa(typed), nil
+	default:
+		return "", fmt.Errorf("Could not convert %T to string", value)
+	}
 }
 
 type resourceInfo struct {
@@ -232,38 +339,30 @@ type resourceInfo struct {
 	Gvk      *metav1.GroupVersionKind
 }
 
-// validateGeneralRuleInfoVariables validate variable subtition defined in
-// - MatchResources
-// - ExcludeResources
-// - Conditions
-func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var tempRule kyverno.Rule
-	var tempRulePattern interface{}
-
-	tempRule.MatchResources = rule.MatchResources
-	tempRule.ExcludeResources = rule.ExcludeResources
-	tempRule.Conditions = rule.Conditions
-
-	raw, err := json.Marshal(tempRule)
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
 	if err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
+		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		return nil, err
 	}
-
-	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	return variables.ValidateVariables(ctx, tempRulePattern)
+	return resource, nil
 }
 
-func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
-	return response.RuleResponse{
-		Name:           rname,
-		Type:           rtype,
-		Message:        msg,
-		Success:        true,
-		PathNotPresent: true,
-	}
+type RuleType int
+
+const (
+	Mutation RuleType = iota
+	Validation
+	Generation
+	All
+)
+
+func (ri RuleType) String() string {
+	return [...]string{
+		"Mutation",
+		"Validation",
+		"Generation",
+		"All",
+	}[ri]
 }
