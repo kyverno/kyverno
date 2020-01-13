@@ -6,12 +6,23 @@ metadata:
     policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: Create roles and role bindings for a new namespace
 spec:
+  background: false
   rules:
   - name: generate-owner-role
     match:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: ClusterRole
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
@@ -30,6 +41,16 @@ spec:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: ClusterRoleBinding
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
@@ -51,6 +72,16 @@ spec:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: RoleBinding
       name: "ns-admin-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
