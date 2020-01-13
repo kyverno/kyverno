@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -92,7 +92,7 @@ const (
 
 func processResourceWithPatches(patch []byte, resource []byte) []byte {
 	if patch == nil {
-		return nil
+		return resource
 	}
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)
