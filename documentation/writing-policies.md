@@ -98,7 +98,6 @@ Example  userName=`system:serviceaccount:nirmata:user1` will store variable valu
 - `serviceAccountNamespace` : extracts the `namespace` of the serviceAccount. 
 Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `nirmata`.
 
-
 Examples:
 
 1. Refer to resource name(type string)
@@ -112,6 +111,25 @@ Examples:
 3. Refer to metadata struct/object(type object)
 
 `{{request.object.metadata}}`
+
+# PreConditions:
+Apart from using `match` & `exclude` conditions on resource to filter which resources to apply the rule on, `preconditions` can be used to define custom filters.
+```yaml
+  - name: generate-owner-role
+    match:
+      resources:
+        kinds:
+        - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+```
+In the above example, if the variable `{{request.userInfo.username}}` is blank then we dont apply the rule on resource.
+
+Operators supported:
+- Equal
+- NotEqual
 
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
