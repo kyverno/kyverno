@@ -6,7 +6,18 @@ metadata:
     policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: Create roles and role bindings for a new namespace
 spec:
+  background: true
   rules:
+  - name: add-sa-annotation
+    match:
+      resources:
+        kinds:
+        - Namespace
+    mutate:
+      overlay:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
   - name: generate-owner-role
     match:
       resources:
