@@ -2,9 +2,10 @@ package context
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/glog"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 )
 
 //Query the JSON context with JMESPATH search path
@@ -14,7 +15,7 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	queryPath, err := jmespath.Compile(query)
 	if err != nil {
 		glog.V(4).Infof("incorrect query %s: %v", query, err)
-		return emptyResult, err
+		return emptyResult, fmt.Errorf("incorrect query %s: %v", query, err)
 	}
 	// search
 	ctx.mu.RLock()
@@ -22,14 +23,14 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 
 	var data interface{}
 	if err := json.Unmarshal(ctx.jsonRaw, &data); err != nil {
-		glog.V(4).Infof("failed to unmarshall context")
-		return emptyResult, err
+		glog.V(4).Infof("failed to unmarshall context: %v", err)
+		return emptyResult, fmt.Errorf("failed to unmarshall context: %v", err)
 	}
 
 	result, err := queryPath.Search(data)
 	if err != nil {
 		glog.V(4).Infof("failed to search query %s: %v", query, err)
-		return emptyResult, err
+		return emptyResult, fmt.Errorf("failed to search query %s: %v", query, err)
 	}
 	return result, nil
 }

@@ -10,6 +10,8 @@ There are 2 ways to configure the secure communications link between Kyverno and
 
 Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
+**Deploying on EKS requires enabling a command-line argument `--fqdncn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
+
 To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access:
 
 ````sh
@@ -114,12 +116,34 @@ Here is a script that generates a self-signed CA, a TLS certificate-key pair, an
 
 # Configure a namespace admin to access policy violations
 
-During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure [definitions/rolebinding.yaml](../definitions/rolebinding.yaml) then apply to the cluster.
+During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
 
 - Replace `metadata.namespace` with namespace of the admin
 - Configure `subjects` field to bind admin's role to the ClusterRole `policyviolation`
 
-
+````yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: policyviolation
+  # change namespace below to create rolebinding for the namespace admin
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policyviolation
+subjects:
+# configure below to access policy violation for the namespace admin
+- kind: ServiceAccount
+  name: default
+  namespace: default
+# - apiGroup: rbac.authorization.k8s.io
+#   kind: User
+#   name: 
+# - apiGroup: rbac.authorization.k8s.io
+#   kind: Group
+#   name: 
+````
 # Installing outside of the cluster (debug mode)
 
 To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
@@ -129,11 +153,6 @@ To run controller in this mode you should prepare TLS key/certificate pair for d
 1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate TLS certificate for debug webhook server and register this webhook in the cluster. Also it registers CustomResource Policy.
 
 2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
-
-# Try Kyverno without a Kubernetes cluster
-
-The [Kyverno CLI](documentation/testing-policies.md#test-using-the-kyverno-cli) allows you to write and test policies without installing Kyverno in a Kubernetes cluster. Some features are not supported without a Kubernetes cluster.
-
 
 # Filter kuberenetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`
@@ -152,7 +171,8 @@ data:
 ```
 
 By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configmap
-[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/init_configMap.yaml).
+[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
+
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>

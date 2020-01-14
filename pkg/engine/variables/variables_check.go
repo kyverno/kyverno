@@ -49,10 +49,10 @@ func checkValue(valuePattern string, variables []string, path string) error {
 }
 
 func checkValueVariable(valuePattern string, variables []string) bool {
-	variableRegex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	variableRegex := regexp.MustCompile(variableRegex)
 	groups := variableRegex.FindAllStringSubmatch(valuePattern, -1)
 	if len(groups) == 0 {
-		// no variable defined
+		// no variables
 		return false
 	}
 	// if variables are defined, check against the list of variables to be filtered

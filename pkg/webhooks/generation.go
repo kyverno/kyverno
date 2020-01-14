@@ -33,7 +33,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// build context
 	ctx := context.NewContext()
 	// load incoming resource into the context
-	// ctx.AddResource(request.Object.Raw)
+	ctx.AddResource(request.Object.Raw)
 	ctx.AddUserInfo(userRequestInfo)
 	// load service account in context
 	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
@@ -41,6 +41,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	policyContext := engine.PolicyContext{
 		NewResource:   *resource,
 		AdmissionInfo: userRequestInfo,
+		Context:       ctx,
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource

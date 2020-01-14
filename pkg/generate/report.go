@@ -5,7 +5,9 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -107,4 +109,14 @@ func successEvents(gr kyverno.GenerateRequest, resource unstructured.Unstructure
 	events = append(events, re)
 
 	return events
+}
+
+// buildPathNotPresentPV build violation info when referenced path not found
+func buildPathNotPresentPV(er response.EngineResponse) []policyviolation.Info {
+	for _, rr := range er.PolicyResponse.Rules {
+		if rr.PathNotPresent {
+			return policyviolation.GeneratePVsFromEngineResponse([]response.EngineResponse{er})
+		}
+	}
+	return nil
 }
