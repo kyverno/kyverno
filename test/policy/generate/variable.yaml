@@ -8,6 +8,16 @@ metadata:
 spec:
   background: false
   rules:
+  - name: add-sa-annotation
+    match:
+      resources:
+        kinds:
+        - Namespace
+    mutate:
+      overlay:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
   - name: generate-owner-role
     match:
       resources:
