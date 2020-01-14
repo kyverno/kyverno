@@ -34,4 +34,5 @@ require (
 	k8s.io/utils v0.0.0-20200109141947-94aeca20bf09 // indirect
 )
 
+// Added for go1.13 migration https://github.com/golang/go/issues/32805
 replace github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
