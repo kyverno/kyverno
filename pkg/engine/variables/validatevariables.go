@@ -13,25 +13,27 @@ import (
 func ValidateVariables(ctx context.EvalInterface, pattern interface{}) string {
 	var pathsNotPresent []string
 	variableList := extractVariables(pattern)
-	for i := 0; i < len(variableList)-1; i = i + 2 {
-		p := variableList[i+1]
-		glog.V(3).Infof("validating variables %s", p)
-		val, err := ctx.Query(p)
-		// reference path is not present
-		if err == nil && val == nil {
-			pathsNotPresent = append(pathsNotPresent, p)
+	for _, variable := range variableList {
+		if len(variable) == 2 {
+			varName := variable[0]
+			varValue := variable[1]
+			glog.V(3).Infof("validating variable %s", varName)
+			val, err := ctx.Query(varValue)
+			if err == nil && val == nil {
+				// path is not present, returns nil interface
+				pathsNotPresent = append(pathsNotPresent, varValue)
+			}
 		}
 	}
 
-	if len(variableList) != 0 && len(pathsNotPresent) != 0 {
+	if len(pathsNotPresent) != 0 {
 		return strings.Join(pathsNotPresent, ";")
 	}
-
 	return ""
 }
 
 // extractVariables extracts variables in the pattern
-func extractVariables(pattern interface{}) []string {
+func extractVariables(pattern interface{}) [][]string {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
 		return extractMap(typedPattern)
@@ -44,8 +46,8 @@ func extractVariables(pattern interface{}) []string {
 	}
 }
 
-func extractMap(patternMap map[string]interface{}) []string {
-	var variableList []string
+func extractMap(patternMap map[string]interface{}) [][]string {
+	var variableList [][]string
 
 	for _, patternElement := range patternMap {
 		if vars := extractVariables(patternElement); vars != nil {
@@ -55,8 +57,8 @@ func extractMap(patternMap map[string]interface{}) []string {
 	return variableList
 }
 
-func extractArray(patternList []interface{}) []string {
-	var variableList []string
+func extractArray(patternList []interface{}) [][]string {
+	var variableList [][]string
 
 	for _, patternElement := range patternList {
 		if vars := extractVariables(patternElement); vars != nil {
@@ -66,17 +68,22 @@ func extractArray(patternList []interface{}) []string {
 	return variableList
 }
 
-func extractValue(valuePattern string) []string {
+func extractValue(valuePattern string) [][]string {
 	operatorVariable := getOperator(valuePattern)
 	variable := valuePattern[len(operatorVariable):]
 	return extractValueVariable(variable)
 }
 
-func extractValueVariable(valuePattern string) []string {
+// returns multiple variable match groups
+func extractValueVariable(valuePattern string) [][]string {
 	variableRegex := regexp.MustCompile(variableRegex)
-	groups := variableRegex.FindStringSubmatch(valuePattern)
-	if len(groups)%2 != 0 {
+	groups := variableRegex.FindAllStringSubmatch(valuePattern, -1)
+	if len(groups) == 0 {
+		// no variables
 		return nil
 	}
+	// group[*] <- all the matches
+	// group[*][0] <- group match
+	// group[*][1] <- group capture value
 	return groups
 }

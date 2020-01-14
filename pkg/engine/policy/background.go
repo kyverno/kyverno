@@ -26,8 +26,10 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 		// - validate.pattern
 		// - validate.anyPattern[*]
 		// variables to filter
-		// - request.userInfo
-		filterVars := []string{"request.userInfo*"}
+		// - request.userInfo*
+		// - serviceAccountName
+		// - serviceAccountNamespace
+		filterVars := []string{"request.userInfo*", "serviceAccountName", "serviceAccountNamespace"}
 		for condIdx, condition := range rule.Conditions {
 			if err := variables.CheckVariables(condition.Key, filterVars, "/"); err != nil {
 				return fmt.Errorf("path: spec/rules[%d]/condition[%d]/key%s", idx, condIdx, err)
