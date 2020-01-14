@@ -387,11 +387,11 @@ func preparePath(path string) string {
 	}
 
 	annPath := "/metadata/annotations/"
-	idx := strings.Index(path, annPath)
 	// escape slash in annotation patch
 	if strings.Contains(path, annPath) {
+		idx := strings.Index(path, annPath)
 		p := path[idx+len(annPath):]
-		path = annPath + strings.ReplaceAll(p, "/", "~1")
+		path = path[:idx+len(annPath)] + strings.ReplaceAll(p, "/", "~1")
 	}
 	return path
 }
