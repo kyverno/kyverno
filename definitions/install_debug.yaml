@@ -30,7 +30,9 @@ spec:
               enum: 
               - enforce # blocks the resorce api-reques if a rule fails.
               - audit # allows resource creation and reports the failed validation rules as violations. Default
-            rules:
+            background:
+              type: boolean
+              rules:
               type: array
               items:
                 type: object
