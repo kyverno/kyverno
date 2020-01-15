@@ -92,7 +92,7 @@ const (
 
 func processResourceWithPatches(patch []byte, resource []byte) []byte {
 	if patch == nil {
-		return nil
+		return resource
 	}
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)

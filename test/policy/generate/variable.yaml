@@ -6,16 +6,40 @@ metadata:
     policies.kyverno.io/category: Workload Isolation
     policies.kyverno.io/description: Create roles and role bindings for a new namespace
 spec:
+  background: false
   rules:
+  - name: add-sa-annotation
+    match:
+      resources:
+        kinds:
+        - Namespace
+    mutate:
+      overlay:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
   - name: generate-owner-role
     match:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: ClusterRole
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         rules:
         - apiGroups: [""]
           resources: ["namespaces"]
@@ -27,10 +51,23 @@ spec:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: ClusterRoleBinding
       name: "ns-owner-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
@@ -45,11 +82,24 @@ spec:
       resources:
         kinds:
         - Namespace
+    preconditions:
+    - key: "{{request.userInfo.username}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountName}}"
+      operator: NotEqual
+      value: ""
+    - key: "{{serviceAccountNamespace}}"
+      operator: NotEqual
+      value: ""
     generate:
       kind: RoleBinding
       name: "ns-admin-{{request.object.metadata.name}}-{{request.userInfo.username}}-binding"
       namespace: "{{request.object.metadata.name}}"
       data:
+        metadata:
+          annotations:
+            nirmata.io/ns-creator: "{{serviceAccountName}}"
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
