@@ -15,7 +15,8 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
+// return generated patches
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -108,13 +109,20 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
-	if isResponseSuccesful(engineResponses) {
-		sendStat(false)
-		patch := engineutils.JoinPatches(patches)
-		return true, patch, ""
+	sendStat(false)
+
+	// debug info
+	if len(patches) != 0 {
+		glog.V(3).Infof("Patches generated for %s/%s/%s, operation=%v:\n %v",
+			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.Operation, string(engineutils.JoinPatches(patches)))
 	}
 
-	sendStat(true)
-	glog.Errorf("Failed to mutate the resource, %s\n", getErrorMsg(engineResponses))
-	return false, nil, getErrorMsg(engineResponses)
+	// if any of the policies fails, print out the error
+	if !isResponseSuccesful(engineResponses) {
+		glog.Errorf("Failed to mutate the resource, report as violation: %s\n", getErrorMsg(engineResponses))
+	}
+
+	// patches holds all the successful patches
+	// if no patch is created, it returns nil
+	return engineutils.JoinPatches(patches)
 }

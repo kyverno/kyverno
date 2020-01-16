@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// isResponseSuccesful return true if all responses are successful
 func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
