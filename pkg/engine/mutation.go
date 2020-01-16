@@ -143,8 +143,7 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-	// TODO: replace with mutationFailureAction ?
-	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+	// TODO(shuting): set response with mutationFailureAction
 }
 
 func endMutateResultResponse(resp *response.EngineResponse, startTime time.Time) {

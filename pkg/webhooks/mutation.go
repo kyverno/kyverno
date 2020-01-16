@@ -17,8 +17,8 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-// return value: blocked, generated patches, error message
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
+// return value: generated patches
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -105,14 +105,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// report time
 	reportTime := time.Now()
 
-	// ENFORCE - block resource creation
-	blocked := toBlockResource(engineResponses)
-	if blocked {
-		glog.V(4).Infof("resource %s/%s/%s is blocked\n", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-		sendStat(blocked)
-		return true, nil, getEnforceFailureErrorMsg(engineResponses)
-	}
-
 	// AUDIT
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
@@ -122,7 +114,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
-	sendStat(blocked)
+	sendStat(false)
 
 	// debug info
 	func() {
@@ -141,5 +133,5 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), resource.GetKind(), resource.GetNamespace(), resource.GetName())
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
-	return false, engineutils.JoinPatches(patches), ""
+	return engineutils.JoinPatches(patches)
 }
