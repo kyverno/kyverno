@@ -105,7 +105,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 					continue
 				}
 
-				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				glog.V(4).Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
@@ -156,7 +156,7 @@ var podTemplateRule = kyverno.Rule{
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							"+(pod-policies.kyverno.io/autogen-applied)": "true",
+							"pod-policies.kyverno.io/autogen-applied": "true",
 						},
 					},
 				},
