@@ -156,7 +156,7 @@ var podTemplateRule = kyverno.Rule{
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							"pod-policies.kyverno.io/autogen-applied": "true",
+							"+(pod-policies.kyverno.io/autogen-applied)": "true",
 						},
 					},
 				},
