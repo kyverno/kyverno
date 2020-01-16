@@ -119,7 +119,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// debug info
 	func() {
 		if len(patches) != 0 {
-			glog.V(3).Infof("Patches generated for %s/%s/%s, operation=%v:\n %v",
+			glog.V(4).Infof("Patches generated for %s/%s/%s, operation=%v:\n %v",
 				resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.Operation, string(engineutils.JoinPatches(patches)))
 		}
 
