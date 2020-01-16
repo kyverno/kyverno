@@ -91,6 +91,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
+
+		policyContext.NewResource = engineResponse.PatchedResource
 	}
 
 	// generate annotations
