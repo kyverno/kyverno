@@ -107,7 +107,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
 		sendStat(true)
-		return false, getErrorMsg(engineResponses)
+		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
 	// ADD POLICY VIOLATIONS
