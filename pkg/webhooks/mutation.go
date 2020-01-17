@@ -1,8 +1,6 @@
 package webhooks
 
 import (
-	"time"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -17,8 +15,7 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-// return value: generated patches
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) (bool, []byte, string) {
 	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
@@ -82,6 +79,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
 		policyContext.Policy = policy
+		// TODO: this can be
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		// Gather policy application statistics
@@ -93,8 +91,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
-
-		policyContext.NewResource = engineResponse.PatchedResource
 	}
 
 	// generate annotations
@@ -102,11 +98,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		patches = append(patches, annPatches)
 	}
 
-	// report time
-	reportTime := time.Now()
-
-	// AUDIT
-	// generate violation when response fails
+	// generate violation when referenced path does not exist
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
 
@@ -114,24 +106,13 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
-	sendStat(false)
+	if isResponseSuccesful(engineResponses) {
+		sendStat(false)
+		patch := engineutils.JoinPatches(patches)
+		return true, patch, ""
+	}
 
-	// debug info
-	func() {
-		if len(patches) != 0 {
-			glog.V(4).Infof("Patches generated for %s/%s/%s, operation=%v:\n %v",
-				resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.Operation, string(engineutils.JoinPatches(patches)))
-		}
-
-		// if any of the policies fails, print out the error
-		if !isResponseSuccesful(engineResponses) {
-			glog.Errorf("Failed to mutate the resource, report as violation: %s\n", getErrorMsg(engineResponses))
-		}
-	}()
-
-	// report time end
-	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), resource.GetKind(), resource.GetNamespace(), resource.GetName())
-
-	// patches holds all the successful patches, if no patch is created, it returns nil
-	return engineutils.JoinPatches(patches)
+	sendStat(true)
+	glog.Errorf("Failed to mutate the resource, %s\n", getErrorMsg(engineResponses))
+	return false, nil, getErrorMsg(engineResponses)
 }
