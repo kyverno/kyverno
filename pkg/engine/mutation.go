@@ -13,6 +13,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -28,22 +29,10 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
 
-	// policy information
-	func() {
-		// set policy information
-		resp.PolicyResponse.Policy = policy.Name
-		// resource details
-		resp.PolicyResponse.Resource.Name = resource.GetName()
-		resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-		resp.PolicyResponse.Resource.Kind = resource.GetKind()
-		resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-	}()
+	startMutateResultResponse(&resp, policy, resource)
 	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
-	defer func() {
-		resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("finished applying mutation rules policy %v (%v)", policy.Name, resp.PolicyResponse.ProcessingTime)
-		glog.V(4).Infof("Mutation Rules appplied count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, policy.Name)
-	}()
+	defer endMutateResultResponse(&resp, startTime)
+
 	incrementAppliedRuleCount := func() {
 		// rules applied succesfully count
 		resp.PolicyResponse.RulesAppliedCount++
@@ -146,6 +135,23 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	return resp
 }
 
+func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {
+	// set policy information
+	resp.PolicyResponse.Policy = policy.Name
+	// resource details
+	resp.PolicyResponse.Resource.Name = resource.GetName()
+	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
+	resp.PolicyResponse.Resource.Kind = resource.GetKind()
+	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
+	// TODO(shuting): set response with mutationFailureAction
+}
+
+func endMutateResultResponse(resp *response.EngineResponse, startTime time.Time) {
+	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	glog.V(4).Infof("finished applying mutation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
+	glog.V(4).Infof("Mutation Rules appplied count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
+}
+
 // podTemplateRule mutate pod template with annotation
 // pod-policies.kyverno.io/autogen-applied=true
 var podTemplateRule = kyverno.Rule{
@@ -156,7 +162,7 @@ var podTemplateRule = kyverno.Rule{
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							"pod-policies.kyverno.io/autogen-applied": "true",
+							"+(pod-policies.kyverno.io/autogen-applied)": "true",
 						},
 					},
 				},
