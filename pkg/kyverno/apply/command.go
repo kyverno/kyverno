@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -149,7 +148,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, kubeConfig string) ([
 	for _, kind := range resourceTypes {
 		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(kindToListApi[strings.ToLower(kind)]).Do().Raw()
 		if err != nil {
-			log.Println(2, err)
+			return nil, err
 		}
 
 		listObject, err := engineutils.ConvertToUnstructured(listObjectRaw)
