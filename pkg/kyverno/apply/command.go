@@ -28,6 +28,25 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
+var kindToListApi = map[string]string{
+	"resourcequota":         "/api/v1/resourcequotas",
+	"serviceaccount":        "/api/v1/serviceaccounts",
+	"limitrange":            "/api/v1/limitranges",
+	"replicationcontroller": "/api/v1/replicationcontrollers",
+	"persistentvolume":      "/api/v1/persistentvolumes",
+	"event":                 "/api/v1/events",
+	"persistentvolumeclaim": "/api/v1/persistentvolumeclaims",
+	"podtemplate":           "/api/v1/podtemplates",
+	"componentstatus":       "/api/v1/componentstatuses",
+	"secret":                "/api/v1/secrets",
+	"service":               "/api/v1/services",
+	"namespace":             "/api/v1/namespaces",
+	"node":                  "/api/v1/nodes",
+	"endpoint":              "/api/v1/endpoints",
+	"pod":                   "/api/v1/pods",
+	"configmap":             "/api/v1/configmaps",
+}
+
 func Command() *cobra.Command {
 	var resourcePath, kubeConfig string
 
@@ -127,13 +146,8 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, kubeConfig string) ([
 		return nil, err
 	}
 
-	//var kindToListApi = map[string]string{
-	//	"pod": "/api/v1/pods",
-	//	"services": "/api/v1/services",
-	//}
-
 	for _, kind := range resourceTypes {
-		listObjectRaw, err := dClient.RESTClient().Get().RequestURI("/api/v1/" + strings.ToLower(kind) + "s").Do().Raw()
+		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(kindToListApi[strings.ToLower(kind)]).Do().Raw()
 		if err != nil {
 			log.Println(2, err)
 		}
