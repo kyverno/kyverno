@@ -257,7 +257,8 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				return err
 			}
 
-			fmt.Printf("\n\n" + strings.ReplaceAll(string(yamlEncodedResource), "\n", "\n"))
+			fmt.Printf("\n\n" + string(yamlEncodedResource))
+			fmt.Printf("\n\n")
 		}
 	}
 
@@ -273,6 +274,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		if len(validateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nValidation:")
 			fmt.Printf("\nResource is valid")
+			fmt.Printf("\n\n")
 		}
 	}
 
