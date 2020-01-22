@@ -121,7 +121,7 @@ func (ctx *Context) AddSA(userName string) error {
 		saNamespace = groups[0]
 	}
 
-	glog.Infof("Loading variable serviceAccountName with value: %s", saName)
+	glog.V(4).Infof("Loading variable serviceAccountName with value: %s", saName)
 	saNameObj := struct {
 		SA string `json:"serviceAccountName"`
 	}{
@@ -136,7 +136,7 @@ func (ctx *Context) AddSA(userName string) error {
 		return err
 	}
 
-	glog.Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
+	glog.V(4).Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
 	saNsObj := struct {
 		SA string `json:"serviceAccountNamespace"`
 	}{
