@@ -3,16 +3,17 @@
 ##################################
 # DEFAULTS
 ##################################
-REGISTRY=index.docker.io
-REPO=$(REGISTRY)/nirmata/kyverno
-IMAGE_TAG=$(GIT_VERSION)
-GOOS ?= $(shell go env GOOS)
-LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-
 GIT_VERSION := $(shell git describe --dirty --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+
+REGISTRY=index.docker.io
+REPO=$(REGISTRY)/nirmata/kyverno
+IMAGE_TAG=$(GIT_VERSION)
+GOOS ?= $(shell go env GOOS)
+PACKAGE ?=github.com/nirmata/kyverno
+LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
 ##################################
 # KYVERNO

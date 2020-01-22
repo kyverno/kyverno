@@ -235,23 +235,15 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 	}
 
 	// MUTATION
-	ok, patches, msg := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
-	if !ok {
-		glog.V(4).Infof("Deny admission request:  %v/%s/%s", request.Kind, request.Namespace, request.Name)
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
-		}
-	}
+	// mutation failure should not block the resource creation
+	// any mutation failure is reported as the violation
+	patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 
 	// patch the resource with patches before handling validation rules
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	// VALIDATION
-	ok, msg = ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+	ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
 	if !ok {
 		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{

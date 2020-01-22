@@ -10,6 +10,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
@@ -100,25 +101,18 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	reportTime := time.Now()
 
 	// If Validation fails then reject the request
-	// violations are created with resource owner(if exist) on "enforce"
-	// and if there are any then we dont block the resource creation
-	// Even if one the policy being applied
-
+	// no violations will be created on "enforce"
+	// the event will be reported on owner by k8s
 	blocked := toBlockResource(engineResponses)
-	if !isResponseSuccesful(engineResponses) && blocked {
+	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
-		pvInfos := generatePV(engineResponses, true)
-		ws.pvGenerator.Add(pvInfos...)
-		// ADD EVENTS
-		events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
-		ws.eventGen.Add(events...)
 		sendStat(true)
-		return false, getErrorMsg(engineResponses)
+		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
+
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-
-	pvInfos := generatePV(engineResponses, blocked)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))

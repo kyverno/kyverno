@@ -6,13 +6,14 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// isResponseSuccesful return true if all responses are successful
 func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
@@ -26,7 +27,7 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
-		if er.PolicyResponse.ValidationFailureAction == Enforce {
+		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
 			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
 			return true
 		}
@@ -35,6 +36,26 @@ func toBlockResource(engineReponses []response.EngineResponse) bool {
 	return false
 }
 
+// getEnforceFailureErrorMsg gets the error messages for failed enforce policy
+func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
+	var str []string
+	var resourceInfo string
+
+	for _, er := range engineReponses {
+		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			for _, rule := range er.PolicyResponse.Rules {
+				if !rule.Success {
+					str = append(str, rule.ToString())
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+}
+
+// getErrorMsg gets all failed engine response message
 func getErrorMsg(engineReponses []response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
@@ -43,7 +64,7 @@ func getErrorMsg(engineReponses []response.EngineResponse) string {
 		if !er.IsSuccesful() {
 			// resource in engineReponses is identical as this was called per admission request
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s", er.PolicyResponse.Policy))
+			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
 					str = append(str, rule.ToString())
@@ -51,7 +72,7 @@ func getErrorMsg(engineReponses []response.EngineResponse) string {
 			}
 		}
 	}
-	return fmt.Sprintf("Resource %s: %s", resourceInfo, strings.Join(str, "\n"))
+	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
 }
 
 //ArrayFlags to store filterkinds
@@ -92,7 +113,7 @@ const (
 
 func processResourceWithPatches(patch []byte, resource []byte) []byte {
 	if patch == nil {
-		return nil
+		return resource
 	}
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)

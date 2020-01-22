@@ -9,6 +9,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
+const variableRegex = `\{\{([^{}]*)\}\}`
+
 //SubstituteVariables substitutes the JMESPATH with variable substitution
 // supported substitutions
 // - no operator + variable(string,object)
@@ -73,7 +75,7 @@ func substituteValue(ctx context.EvalInterface, valuePattern string) interface{}
 func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 	var emptyInterface interface{}
 	// extract variable {{<variable>}}
-	validRegex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	validRegex := regexp.MustCompile(variableRegex)
 	groups := validRegex.FindAllStringSubmatch(valuePattern, -1)
 	// can have multiple variables in a single value pattern
 	// var Map <variable,value>
@@ -108,17 +110,18 @@ func getValues(ctx context.EvalInterface, groups [][]string) map[string]interfac
 	for _, group := range groups {
 		if len(group) == 2 {
 			// 0th is string
-			// 1st is the capture group
-			variable, err := ctx.Query(group[1])
+			varName := group[0]
+			varValue := group[1]
+			variable, err := ctx.Query(varValue)
 			if err != nil {
-				glog.V(4).Infof("variable substitution failed for query %s: %v", group[0], err)
-				subs[group[0]] = emptyInterface
+				glog.V(4).Infof("variable substitution failed for query %s: %v", varName, err)
+				subs[varName] = emptyInterface
 				continue
 			}
 			if variable == nil {
-				subs[group[0]] = emptyInterface
+				subs[varName] = emptyInterface
 			} else {
-				subs[group[0]] = variable
+				subs[varName] = variable
 			}
 		}
 	}

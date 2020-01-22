@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -15,53 +14,8 @@ func (nsc *NamespaceController) report(engineResponses []response.EngineResponse
 	eventInfos := generateEvents(engineResponses)
 	nsc.eventGen.Add(eventInfos...)
 	// generate policy violations
-	pvInfos := generatePVs(engineResponses)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	nsc.pvGenerator.Add(pvInfos...)
-}
-
-func generatePVs(ers []response.EngineResponse) []policyviolation.Info {
-	var pvInfos []policyviolation.Info
-	for _, er := range ers {
-		// ignore creation of PV for resoruces that are yet to be assigned a name
-		if er.PolicyResponse.Resource.Name == "" {
-			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
-			continue
-		}
-		if er.IsSuccesful() {
-			continue
-		}
-		glog.V(4).Infof("Building policy violation for engine response %v", er)
-		// build policy violation info
-		pvInfos = append(pvInfos, buildPVInfo(er))
-	}
-
-	return pvInfos
-}
-
-func buildPVInfo(er response.EngineResponse) policyviolation.Info {
-	info := policyviolation.Info{
-		Blocked:    false,
-		PolicyName: er.PolicyResponse.Policy,
-		Resource:   er.PatchedResource,
-		Rules:      buildViolatedRules(er),
-	}
-	return info
-}
-
-func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
-	var violatedRules []kyverno.ViolatedRule
-	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Success {
-			continue
-		}
-		vrule := kyverno.ViolatedRule{
-			Name:    rule.Name,
-			Type:    rule.Type,
-			Message: rule.Message,
-		}
-		violatedRules = append(violatedRules, vrule)
-	}
-	return violatedRules
 }
 
 func generateEvents(ers []response.EngineResponse) []event.Info {

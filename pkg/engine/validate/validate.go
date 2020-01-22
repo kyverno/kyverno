@@ -17,13 +17,22 @@ import (
 
 // validateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
-//TODO: for failure, we return the path at which it failed along with error
-func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, error) {
+func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, ValidationError) {
+	// if referenced path is not present, we skip processing the rule and report violation
+	if invalidPaths := variables.ValidateVariables(ctx, pattern); len(invalidPaths) != 0 {
+		return "", newValidatePatternError(PathNotPresent, invalidPaths)
+	}
+
 	// first pass we substitute all the JMESPATH substitution for the variable
 	// variable: {{<JMESPATH>}}
 	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
 	pattern = variables.SubstituteVariables(ctx, pattern)
-	return validateResourceElement(resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	if err != nil {
+		return path, newValidatePatternError(Rulefailure, err.Error())
+	}
+
+	return "", ValidationError{}
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)

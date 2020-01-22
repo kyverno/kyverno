@@ -1,16 +1,22 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-//GenerateNew returns the list of rules that are applicable on this policy and resource
+// GenerateNew
+// 1. validate variables to be susbtitute in the general ruleInfo (match,exclude,condition)
+//    - the caller has to check the ruleResponse to determine whether the path exist
+// 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func GenerateNew(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
@@ -55,6 +61,13 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}
 
 	for _, rule := range policy.Spec.Rules {
+		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
+			glog.Infof("referenced path not present in generate rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
+				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present: %s", paths)))
+			continue
+		}
+
 		if ruleResp := filterRule(rule, resource, admissionInfo, ctx); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}

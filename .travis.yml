@@ -1,6 +1,6 @@
 language: go
 go:
-  - "1.12"
+  - "1.13"
 
 # safelist
 branches: 
@@ -14,11 +14,9 @@ before_install:
      exit
    fi
    
-# Skip the install step. Don't `go get` dependencies. Only build with the code
-# in vendor/
-install: true
+install: go get ./...
 
-script: 
+script:
 # build initContainer
   - make initContainer || travis_terminate 1;
 # build kyverno container
