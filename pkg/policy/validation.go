@@ -47,7 +47,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	for kind := range allPossibleKinds {
-		resource, _ := generateEmptyResource(validationGlobalState.definitions[kind]).(map[string]interface{})
+		resource, _ := generateEmptyResource(validationGlobalState.definitions["io.k8s.api.core.v1."+kind]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
 		policyContext := engine.PolicyContext{
 			Policy:      policy,
@@ -71,6 +71,7 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 			return err
 		}
 	}
+	kind = "io.k8s.api.core.v1." + kind
 
 	schema := validationGlobalState.models.LookupModel(kind)
 	if schema == nil {
