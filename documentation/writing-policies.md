@@ -131,5 +131,22 @@ Operators supported:
 - Equal
 - NotEqual
 
+# Background processing
+Kyverno applies policies in foreground and background mode.
+- `foreground`: leverages admission control webhooks to intercept the resource api-request and apply policy on it.
+- `background`: policy-controller applies policies on the existing resoruces after configured re-conciliation time.
+
+A policy is always enable for `foreground` processing, but `background` processing is configurable using a boolean flag at `{spec.background}`.
+
+```
+spec:
+  background: true
+  rules:
+  - name: default-deny-ingress
+```
+- Unless specified the default value is `true`
+- As the userInformation is only avaiable in the incoming api-request, a policy using userInfo filters and variables reffering to `{{request.userInfo}}` can only be processed in foreground mode.
+- When a new policy is created, the policy validation will throw an error if using `userInfo` with a policy defined in background mode.
+
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
