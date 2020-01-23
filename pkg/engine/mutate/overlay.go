@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -108,6 +110,14 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
 		resp.Success = false
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
+	}
+
+	err = policy.ValidateResource(patchedResource.UnstructuredContent(), patchedResource.GetKind())
+	if err != nil {
+		glog.V(4).Infoln(err)
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to validate patchedResource: %v", err)
 		return resp, resource
 	}
 

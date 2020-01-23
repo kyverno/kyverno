@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -79,6 +81,14 @@ func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
 		resp.Success = false
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
+		return resp, resource
+	}
+
+	err = policy.ValidateResource(patchedResource.UnstructuredContent(), patchedResource.GetKind())
+	if err != nil {
+		glog.V(4).Infoln(err)
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to validate patchedResource: %v", err)
 		return resp, resource
 	}
 
