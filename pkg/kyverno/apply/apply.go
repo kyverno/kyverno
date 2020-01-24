@@ -112,7 +112,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 			glog.Warning(r.Message)
 		}
 	} else if len(engineResponse.PolicyResponse.Rules) > 0 {
-		glog.Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
+		glog.Infof("Mutation from policy %s has applied successfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 
 		// Process Validation
 		engineResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
@@ -124,7 +124,7 @@ func applyPolicyOnRaw(policy *kyverno.ClusterPolicy, rawResource []byte, gvk *me
 			}
 			return patchedResource, fmt.Errorf("policy %s on resource %s/%s not satisfied", policy.Name, rname, rns)
 		} else if len(engineResponse.PolicyResponse.Rules) > 0 {
-			glog.Infof("Validation from policy %s has applied succesfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
+			glog.Infof("Validation from policy %s has applied successfully to %s %s/%s", policy.Name, gvk.Kind, rname, rns)
 		}
 	}
 	return patchedResource, nil

@@ -62,6 +62,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 	return &client, nil
 }
 
+//NewDynamicSharedInformerFactory returns a new instance of DynamicSharedInformerFactory
 func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
 }
@@ -224,14 +225,17 @@ func (c *Client) waitUntilNamespaceIsCreated(name string) error {
 	return lastError
 }
 
+//IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 }
 
+// SetDiscovery sets the discovery client implementation
 func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 	c.DiscoveryClient = discoveryClient
 }
 
+//ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }

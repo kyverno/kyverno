@@ -9,6 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
+//NewEqualHandler returns handler to manage Equal operations
 func NewEqualHandler(ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
 	return EqualHandler{
 		ctx:        ctx,
@@ -16,11 +17,13 @@ func NewEqualHandler(ctx context.EvalInterface, subHandler VariableSubstitutionH
 	}
 }
 
+//EqualHandler provides implementation to handle NotEqual Operator
 type EqualHandler struct {
 	ctx        context.EvalInterface
 	subHandler VariableSubstitutionHandler
 }
 
+//Evaluate evaluates expression with Equal Operator
 func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	// substitute the variables
 	nKey := eh.subHandler(eh.ctx, key)

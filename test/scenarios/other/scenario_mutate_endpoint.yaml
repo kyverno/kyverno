@@ -16,4 +16,4 @@ expected:
         - name: pEP
           type: Mutation
           success: true
-          message: succesfully process JSON patches
+          message: successfully process JSON patches

@@ -10,15 +10,15 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
-//Interface ... normal functions
+//Interface to manage context operations
 type Interface interface {
-	// merges the json with context
+	//AddJSON  merges the json with context
 	AddJSON(dataRaw []byte) error
-	// merges resource json under request.object
+	//AddResource merges resource json under request.object
 	AddResource(dataRaw []byte) error
-	// merges userInfo json under kyverno.userInfo
+	//AddUserInfo merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyverno.UserInfo) error
-	// merges serrviceaccount
+	//AddSA merges serrviceaccount
 	AddSA(userName string) error
 	EvalInterface
 }
@@ -58,7 +58,7 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
-//Add data at path: request.object
+//AddResource data at path: request.object
 func (ctx *Context) AddResource(dataRaw []byte) error {
 
 	// unmarshall the resource struct
@@ -86,6 +86,7 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
+//AddUserInfo adds userInfo at path request.userInfo
 func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
@@ -101,7 +102,7 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	return ctx.AddJSON(objRaw)
 }
 
-// removes prefix 'system:serviceaccount:' and namespace, then loads only username
+//AddSA removes prefix 'system:serviceaccount:' and namespace, then loads only SA name and SA namespace
 func (ctx *Context) AddSA(userName string) error {
 	saPrefix := "system:serviceaccount:"
 	var sa string

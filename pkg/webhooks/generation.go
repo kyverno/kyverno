@@ -11,6 +11,7 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
+//HandleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	var engineResponses []response.EngineResponse
 
@@ -47,7 +48,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
 		policyContext.Policy = policy
-		engineResponse := engine.GenerateNew(policyContext)
+		engineResponse := engine.Generate(policyContext)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)

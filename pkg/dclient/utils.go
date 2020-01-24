@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	// Kind names are case sensitive
-	//CSRs CertificateSigningRequest
+	// CSRs CertificateSigningRequest
 	CSRs string = "CertificateSigningRequest"
 	// Secrets Secret
 	Secrets string = "Secret"
@@ -25,7 +24,7 @@ const (
 const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
 const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 
-//---testing utilities
+//NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
 	client := fake.NewSimpleDynamicClient(scheme, objects...)
 	// the typed and dynamic client are initalized with similar resources

@@ -8,69 +8,73 @@ import (
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
-	KubePolicyNamespace = "kyverno"
-	WebhookServiceName  = "kyverno-svc"
+// These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
 
-	MutatingWebhookConfigurationName      = "kyverno-resource-mutating-webhook-cfg"
+const (
+	//KubePolicyNamespace default kyverno namespace
+	KubePolicyNamespace = "kyverno"
+	//WebhookServiceName default kyverno webhook service name
+	WebhookServiceName = "kyverno-svc"
+
+	//MutatingWebhookConfigurationName default resource mutating webhook configuration name
+	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
+	//MutatingWebhookConfigurationDebugName default resource mutating webhook configuration name for debug mode
 	MutatingWebhookConfigurationDebugName = "kyverno-resource-mutating-webhook-cfg-debug"
-	MutatingWebhookName                   = "nirmata.kyverno.resource.mutating-webhook"
+	//MutatingWebhookName default resource mutating webhook name
+	MutatingWebhookName = "nirmata.kyverno.resource.mutating-webhook"
 
 	// ValidatingWebhookConfigurationName  = "kyverno-validating-webhook-cfg"
 	// ValidatingWebhookConfigurationDebug = "kyverno-validating-webhook-cfg-debug"
 	// ValidatingWebhookName               = "nirmata.kyverno.policy-validating-webhook"
 
-	VerifyMutatingWebhookConfigurationName      = "kyverno-verify-mutating-webhook-cfg"
+	//VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
+	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
+	//VerifyMutatingWebhookConfigurationDebugName default verify mutating webhook configuration name for debug mode
 	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
-	VerifyMutatingWebhookName                   = "nirmata.kyverno.verify-mutating-webhook"
+	//VerifyMutatingWebhookName default verify mutating webhook name
+	VerifyMutatingWebhookName = "nirmata.kyverno.verify-mutating-webhook"
 
-	PolicyValidatingWebhookConfigurationName      = "kyverno-policy-validating-webhook-cfg"
+	//PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
+	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
+	//PolicyValidatingWebhookConfigurationDebugName default policy validating webhook configuration name for debug mode
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
-	PolicyValidatingWebhookName                   = "nirmata.kyverno.policy-validating-webhook"
+	//PolicyValidatingWebhookName default policy validating webhook name
+	PolicyValidatingWebhookName = "nirmata.kyverno.policy-validating-webhook"
 
-	PolicyMutatingWebhookConfigurationName      = "kyverno-policy-mutating-webhook-cfg"
+	//PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
+	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
+	//PolicyMutatingWebhookConfigurationDebugName default policy mutating webhook configuration name for debug mode
 	PolicyMutatingWebhookConfigurationDebugName = "kyverno-policy-mutating-webhook-cfg-debug"
-	PolicyMutatingWebhookName                   = "nirmata.kyverno.policy-mutating-webhook"
+	//PolicyMutatingWebhookName default policy mutating webhook name
+	PolicyMutatingWebhookName = "nirmata.kyverno.policy-mutating-webhook"
 
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
-	DeploymentKind           = "Deployment"
-	DeploymentAPIVersion     = "extensions/v1beta1"
+
+	// DeploymentKind define the default deployment resource kind
+	DeploymentKind = "Deployment"
+
+	// DeploymentAPIVersion define the default deployment resource apiVersion
+	DeploymentAPIVersion = "extensions/v1beta1"
+	// KubePolicyDeploymentName define the default deployment namespace
 	KubePolicyDeploymentName = "kyverno"
 )
 
 var (
-	MutatingWebhookServicePath         = "/mutate"
-	ValidatingWebhookServicePath       = "/validate"
+	//MutatingWebhookServicePath is the path for mutation webhook
+	MutatingWebhookServicePath = "/mutate"
+	//ValidatingWebhookServicePath is the path for validation webhook
+	ValidatingWebhookServicePath = "/validate"
+	//PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
-	PolicyMutatingWebhookServicePath   = "/policymutate"
-	VerifyMutatingWebhookServicePath   = "/verifymutate"
-
-	SupportedKinds = []string{
-		"ConfigMap",
-		"CronJob",
-		"DaemonSet",
-		"Deployment",
-		"Endpoints",
-		"HorizontalPodAutoscaler",
-		"Ingress",
-		"Job",
-		"LimitRange",
-		"Namespace",
-		"NetworkPolicy",
-		"PersistentVolumeClaim",
-		"PodDisruptionBudget",
-		"PodTemplate",
-		"ResourceQuota",
-		"Secret",
-		"Service",
-		"StatefulSet",
-	}
+	//PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
+	PolicyMutatingWebhookServicePath = "/policymutate"
+	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
+	VerifyMutatingWebhookServicePath = "/verifymutate"
 )
 
-//LogDefaults sets default glog flags
+//LogDefaultFlags sets default glog flags
 func LogDefaultFlags() {
 	var err error
 	err = flag.Set("logtostderr", "true")
