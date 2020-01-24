@@ -6,12 +6,17 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+//RuleType defines the type for rule
 type RuleType int
 
 const (
+	//Mutation type for mutation rule
 	Mutation RuleType = iota
+	//Validation type for validation rule
 	Validation
+	//Generation type for generation rule
 	Generation
+	//All type for other rule operations(future)
 	All
 )
 
@@ -73,6 +78,7 @@ func JoinPatches(patches [][]byte) []byte {
 	return result
 }
 
+//ConvertToUnstructured converts the resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
@@ -82,7 +88,7 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	return resource, nil
 }
 
-// getAnchorsFromMap gets the conditional anchor map
+// GetAnchorsFromMap gets the conditional anchor map
 func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 

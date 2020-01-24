@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	MutatingWebhookConfigurationKind   string = "MutatingWebhookConfiguration"
+	//MutatingWebhookConfigurationKind defines the kind for MutatingWebhookConfiguration
+	MutatingWebhookConfigurationKind string = "MutatingWebhookConfiguration"
+	//ValidatingWebhookConfigurationKind defines the kind for ValidatingWebhookConfiguration
 	ValidatingWebhookConfigurationKind string = "ValidatingWebhookConfiguration"
 )
 
@@ -260,7 +262,7 @@ func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(w
 	} else if err != nil {
 		glog.Errorf("failed to delete policy webhook configuration %s: %v", mutatingConfig, err)
 	} else {
-		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", mutatingConfig)
+		glog.V(4).Infof("successfully deleted policy webhook configuration %s", mutatingConfig)
 	}
 }
 
@@ -282,6 +284,6 @@ func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration
 	} else if err != nil {
 		glog.Errorf("failed to delete policy webhook configuration %s: %v", validatingConfig, err)
 	} else {
-		glog.V(4).Infof("succesfully deleted policy webhook configuration %s", validatingConfig)
+		glog.V(4).Infof("successfully deleted policy webhook configuration %s", validatingConfig)
 	}
 }

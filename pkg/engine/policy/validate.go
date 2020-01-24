@@ -268,14 +268,14 @@ func validateValidation(v kyverno.Validation) (string, error) {
 	}
 
 	if v.Pattern != nil {
-		if path, err := validatePattern(v.Pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistanceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
+		if path, err := validatePattern(v.Pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistenceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
 	if len(v.AnyPattern) != 0 {
 		for i, pattern := range v.AnyPattern {
-			if path, err := validatePattern(pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistanceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
+			if path, err := validatePattern(pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistenceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}
@@ -322,7 +322,7 @@ func validateGeneration(gen kyverno.Generation) (string, error) {
 		//TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
 		if path, err := validatePattern(gen.Data, "/", []anchor.IsAnchor{}); err != nil {
-			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resoruces: %v", err)
+			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}
 	return "", nil
@@ -371,16 +371,16 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 				return path + "/" + key, fmt.Errorf("Unsupported anchor %s", key)
 			}
 
-			// addition check for existance anchor
+			// addition check for existence anchor
 			// value must be of type list
-			if anchor.IsExistanceAnchor(key) {
+			if anchor.IsExistenceAnchor(key) {
 				typedValue, ok := value.([]interface{})
 				if !ok {
-					return path + "/" + key, fmt.Errorf("Existance anchor should have value of type list")
+					return path + "/" + key, fmt.Errorf("Existence anchor should have value of type list")
 				}
 				// validate there is only one entry in the list
 				if len(typedValue) == 0 || len(typedValue) > 1 {
-					return path + "/" + key, fmt.Errorf("Existance anchor: single value expected, multiple specified")
+					return path + "/" + key, fmt.Errorf("Existence anchor: single value expected, multiple specified")
 				}
 			}
 		}

@@ -47,7 +47,7 @@ func (rs ResourceSpec) GetKey() string {
 type PolicyStats struct {
 	// time required to process the policy rules on a resource
 	ProcessingTime time.Duration `json:"processingTime"`
-	// Count of rules that were applied succesfully
+	// Count of rules that were applied successfully
 	RulesAppliedCount int `json:"rulesAppliedCount"`
 }
 

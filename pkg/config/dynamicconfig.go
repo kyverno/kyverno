@@ -20,6 +20,7 @@ import (
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
 
+// ConfigData stores the configuration
 type ConfigData struct {
 	client kubernetes.Interface
 	// configMap Name
@@ -119,7 +120,7 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 	if cm.Name != cd.cmName {
 		return
 	}
-	// remove the configuration paramaters
+	// remove the configuration parameters
 	cd.unload(*cm)
 }
 
@@ -182,7 +183,7 @@ type k8Resource struct {
 	Name      string
 }
 
-//ParseKinds parses the kinds if a single string contains comma seperated kinds
+//ParseKinds parses the kinds if a single string contains comma separated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func parseKinds(list string) []k8Resource {
 	resources := []k8Resource{}

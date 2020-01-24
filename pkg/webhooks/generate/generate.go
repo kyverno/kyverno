@@ -12,17 +12,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+//GenerateRequests provides interface to manage generate requests
 type GenerateRequests interface {
 	Create(gr kyverno.GenerateRequestSpec) error
 }
 
+// Generator defines the implmentation to mange generate request resource
 type Generator struct {
-	// channel to recieve request
+	// channel to receive request
 	ch     chan kyverno.GenerateRequestSpec
 	client *kyvernoclient.Clientset
 	stopCh <-chan struct{}
 }
 
+//NewGenerator returns a new instance of Generate-Request resource generator
 func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}) *Generator {
 	gen := &Generator{
 		ch:     make(chan kyverno.GenerateRequestSpec, 1000),
@@ -32,7 +35,7 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}) *Gene
 	return gen
 }
 
-// blocking if channel is full
+//Create to create generate request resoruce (blocking call if channel is full)
 func (g *Generator) Create(gr kyverno.GenerateRequestSpec) error {
 	glog.V(4).Infof("create GR %v", gr)
 	// Send to channel
@@ -60,7 +63,7 @@ func (g *Generator) Run(workers int) {
 
 func (g *Generator) process() {
 	for r := range g.ch {
-		glog.V(4).Infof("recived generate request %v", r)
+		glog.V(4).Infof("received generate request %v", r)
 		if err := g.generate(r); err != nil {
 			glog.Errorf("Failed to create Generate Request CR: %v", err)
 		}
@@ -75,7 +78,7 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec) error {
 	return nil
 }
 
-// -> recieving channel to take requests to create request
+// -> receiving channel to take requests to create request
 // use worker pattern to read and create the CR resource
 
 func retryCreateResource(client *kyvernoclient.Clientset, grSpec kyverno.GenerateRequestSpec) error {

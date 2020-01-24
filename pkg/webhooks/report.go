@@ -80,7 +80,7 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 		return events
 	}
 	if !onUpdate {
-		// All policies were applied succesfully
+		// All policies were applied successfully
 		// CREATE
 		for _, er := range engineResponses {
 			successRules := er.GetSuccessRules()

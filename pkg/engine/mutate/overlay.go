@@ -111,7 +111,7 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		return resp, resource
 	}
 
-	// rule application succesfuly
+	// rule application successfully
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully processed overlay")
 	resp.Patches = patches

@@ -14,7 +14,7 @@ import (
 type PolicyStatusAggregator struct {
 	// time since we start aggregating the stats
 	startTime time.Time
-	// channel to recieve stats
+	// channel to receive stats
 	ch chan PolicyStat
 	//TODO: lock based on key, possibly sync.Map ?
 	//sync RW for policyData
@@ -47,13 +47,13 @@ func (psa *PolicyStatusAggregator) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (psa *PolicyStatusAggregator) process() {
-	// As mutation and validation are handled seperately
-	// ideally we need to combine the exection time from both for a policy
+	// As mutation and validation are handled separately
+	// ideally we need to combine the execution time from both for a policy
 	// but its tricky to detect here the type of rules policy contains
 	// so we dont combine the results, but instead compute the execution time for
-	// mutation & validation rules seperately
+	// mutation & validation rules separately
 	for r := range psa.ch {
-		glog.V(4).Infof("recieved policy stats %v", r)
+		glog.V(4).Infof("received policy stats %v", r)
 		psa.aggregate(r)
 	}
 }
@@ -178,6 +178,7 @@ type PolicyStat struct {
 	Stats      PolicyStatInfo
 }
 
+//PolicyStatInfo provides statistics for policy
 type PolicyStatInfo struct {
 	MutationExecutionTime   time.Duration
 	ValidationExecutionTime time.Duration
@@ -187,6 +188,7 @@ type PolicyStatInfo struct {
 	Rules                   []RuleStatinfo
 }
 
+//RuleStatinfo provides statistics for rule
 type RuleStatinfo struct {
 	RuleName         string
 	ExecutionTime    time.Duration

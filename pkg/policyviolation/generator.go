@@ -214,7 +214,7 @@ func (gen *Generator) processNextWorkitem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	glog.V(4).Infof("recieved info:%v", info)
+	glog.V(4).Infof("received info:%v", info)
 	var handler pvGenerator
 	var builder Builder
 	builder = newPvBuilder()

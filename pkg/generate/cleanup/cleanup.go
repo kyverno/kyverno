@@ -35,7 +35,7 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	createTime := gr.GetCreationTimestamp()
 	if time.Since(createTime.UTC()) > timeout {
 		// the GR was in state ["",Failed] for more than timeout
-		glog.V(4).Infof("GR %s was not processed succesfully in %d minutes", gr.Name, timoutMins)
+		glog.V(4).Infof("GR %s was not processed successfully in %d minutes", gr.Name, timoutMins)
 		glog.V(4).Infof("delete GR %s", gr.Name)
 		return c.control.Delete(gr.Name)
 	}
@@ -60,7 +60,7 @@ func deleteGeneratedResources(client *dclient.Client, gr kyverno.GenerateRequest
 		if err != nil {
 			return err
 		}
-		
+
 	}
 	return nil
 }

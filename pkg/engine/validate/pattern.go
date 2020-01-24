@@ -55,7 +55,7 @@ func ValidateValueWithPattern(value, pattern interface{}) bool {
 
 func validateValueWithMapPattern(value interface{}, typedPattern map[string]interface{}) bool {
 	// verify the type of the resource value is map[string]interface,
-	// we only check for existance of object, not the equality of content and value
+	// we only check for existence of object, not the equality of content and value
 	//TODO: check if adding
 	_, ok := value.(map[string]interface{})
 	if !ok {

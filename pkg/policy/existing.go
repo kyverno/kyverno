@@ -40,7 +40,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 		engineResponse := applyPolicy(policy, resource, pc.statusAggregator)
-		// get engine response for mutation & validation indipendently
+		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
@@ -225,12 +225,16 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 	}
 }
 
+//Condition defines condition type
 type Condition int
 
 const (
+	//NotEvaluate to not evaluate condition
 	NotEvaluate Condition = 0
-	Process     Condition = 1
-	Skip        Condition = 2
+	// Process to evaluate condition
+	Process Condition = 1
+	// Skip to ignore/skip the condition
+	Skip Condition = 2
 )
 
 // merge b into a map

@@ -14,11 +14,11 @@ expected:
       - name: "Basic config generator for all namespaces"
         type: Generation
         messages: 
-          - "Rule Basic config generator for all namespaces: Generation succesfully."
+          - "Rule Basic config generator for all namespaces: Generation successfully."
       - name: "Basic clone config generator for all namespaces"
         type: Generation
         messages: 
-          - "Rule Basic clone config generator for all namespaces: Generation succesfully."
+          - "Rule Basic clone config generator for all namespaces: Generation successfully."
 
 ---
 input:
@@ -36,11 +36,11 @@ expected:
       - name: "copy-comfigmap"
         type: Generation
         messages: 
-          - "Rule copy-comfigmap: Generation succesfully."
+          - "Rule copy-comfigmap: Generation successfully."
       - name: "zk-kafka-address"
         type: Generation
         messages: 
-          - "Rule zk-kafka-address: Generation succesfully."
+          - "Rule zk-kafka-address: Generation successfully."
 
 ---
 input:
@@ -55,4 +55,4 @@ expected:
       - name: deny-all-traffic
         type: Generation
         messages:
-          - "Rule deny-all-traffic: Generation succesfully."
+          - "Rule deny-all-traffic: Generation successfully."

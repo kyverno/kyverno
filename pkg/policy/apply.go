@@ -129,7 +129,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 			return response.EngineResponse{}, err
 		}
 		if !jsonpatch.Equal(patchedResource, rawResource) {
-			glog.V(4).Infof("policy %s rule %s condition not satisifed by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)
+			glog.V(4).Infof("policy %s rule %s condition not satisfied by existing resource", engineResponse.PolicyResponse.Policy, rule.Name)
 			engineResponse.PolicyResponse.Rules[index].Success = false
 			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("mutation json patches not found at resource path %s", extractPatchPath(rule.Patches))
 		}

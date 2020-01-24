@@ -10,7 +10,7 @@ func removeAnchor(key string) string {
 		return key[1 : len(key)-1]
 	}
 
-	if anchor.IsExistanceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
+	if anchor.IsExistenceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 
