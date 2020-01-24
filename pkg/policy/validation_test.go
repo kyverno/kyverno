@@ -8,7 +8,10 @@ import (
 )
 
 func Test_ValidateMutationPolicy(t *testing.T) {
-	setValidationGlobalState()
+	err := setValidationGlobalState()
+	if err != nil {
+		t.Fatalf("Could not set global state")
+	}
 
 	tcs := []struct {
 		description string
@@ -46,7 +49,7 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 
 	for i, tc := range tcs {
 		policy := v1.ClusterPolicy{}
-		json.Unmarshal(tc.policy, &policy)
+		_ = json.Unmarshal(tc.policy, &policy)
 
 		var errMessage string
 		err := ValidatePolicyMutation(policy)

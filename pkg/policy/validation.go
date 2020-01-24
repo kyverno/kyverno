@@ -40,7 +40,7 @@ func init() {
 }
 
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
-	if validationGlobalState.isSet == false {
+	if !validationGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
 		return nil
 	}
@@ -71,7 +71,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		if len(resp.GetSuccessRules()) != len(rules) {
 			var errMessages []string
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.Success == false {
+				if !rule.Success {
 					errMessages = append(errMessages, fmt.Sprintf("Invalid rule : %v, %v", rule.Name, rule.Message))
 				}
 			}
@@ -87,7 +87,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 }
 
 func ValidateResource(patchedResource interface{}, kind string) error {
-	if validationGlobalState.isSet == false {
+	if !validationGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
 		return nil
 	}
