@@ -65,9 +65,8 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 	glog.V(2).Infof("starting default resync for webhook checker with resync time %d nanoseconds", defaultResync)
 	maxDeadline := deadline * time.Duration(MaxRetryCount)
 	ticker := time.NewTicker(defaultResync)
-	var statuscontrol StatusInterface
 	/// interface to update and increment kyverno webhook status via annotations
-	statuscontrol = NewVerifyControl(client, eventGen)
+	statuscontrol := NewVerifyControl(client, eventGen)
 	// send the initial update status
 	if checkIfPolicyWithMutateAndGenerateExists(pLister) {
 		if err := statuscontrol.SuccessStatus(); err != nil {

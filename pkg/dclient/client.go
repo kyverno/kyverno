@@ -210,21 +210,6 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 	return &csr, nil
 }
 
-// Waits until namespace is created with maximum duration maxWaitTimeForNamespaceCreation
-func (c *Client) waitUntilNamespaceIsCreated(name string) error {
-	timeStart := time.Now()
-
-	var lastError error
-	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
-		_, lastError = c.GetResource(Namespaces, "", name)
-		if lastError == nil {
-			break
-		}
-		time.Sleep(namespaceCreationWaitInterval)
-	}
-	return lastError
-}
-
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
