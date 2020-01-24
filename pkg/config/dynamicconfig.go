@@ -19,7 +19,6 @@ import (
 // read the conifgMap with name in env:INIT_CONFIG
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
-const cmDataField string = "resourceFilters"
 
 type ConfigData struct {
 	client kubernetes.Interface

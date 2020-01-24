@@ -10,7 +10,6 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -217,19 +216,6 @@ func findKind(kinds []string, kindGVK string) bool {
 		}
 	}
 	return false
-}
-
-func isStringIsReference(str string) bool {
-	if len(str) < len(operator.ReferenceSign) {
-		return false
-	}
-
-	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
-}
-
-type resourceInfo struct {
-	Resource unstructured.Unstructured
-	Gvk      *metav1.GroupVersionKind
 }
 
 // validateGeneralRuleInfoVariables validate variable subtition defined in

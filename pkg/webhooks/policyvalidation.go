@@ -43,12 +43,3 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 	}
 	return admissionResp
 }
-
-func failResponseWithMsg(msg string) *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{
-		Allowed: false,
-		Result: &metav1.Status{
-			Message: msg,
-		},
-	}
-}

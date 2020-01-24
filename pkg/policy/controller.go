@@ -38,8 +38,6 @@ const (
 	maxRetries = 15
 )
 
-var controllerKind = kyverno.SchemeGroupVersion.WithKind("ClusterPolicy")
-
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
@@ -188,7 +186,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.ClusterPolicy)
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
-	pc.pMetaStore.UnRegister(*oldP)
+	err := pc.pMetaStore.UnRegister(*oldP)
+	if err != nil {
+		glog.Infof("Failed to unregister policy %s", oldP.Name)
+	}
 	pc.pMetaStore.Register(*curP)
 
 	// Only process policies that are enabled for "background" execution
@@ -230,7 +231,9 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	}
 	glog.V(4).Infof("Deleting Policy %s", p.Name)
 	// Unregister from policy meta-store
-	pc.pMetaStore.UnRegister(*p)
+	if err := pc.pMetaStore.UnRegister(*p); err != nil {
+		glog.Infof("failed to unregister policy %s", p.Name)
+	}
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(p)

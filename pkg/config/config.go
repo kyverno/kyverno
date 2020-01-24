@@ -72,9 +72,19 @@ var (
 
 //LogDefaults sets default glog flags
 func LogDefaultFlags() {
-	flag.Set("logtostderr", "true")
-	flag.Set("stderrthreshold", "WARNING")
+	var err error
+	err = flag.Set("logtostderr", "true")
+	if err != nil {
+		glog.Fatalf("failed to set flag 'logtostderr' to 'true':%v", err)
+	}
+	err = flag.Set("stderrthreshold", "WARNING")
+	if err != nil {
+		glog.Fatalf("failed to set flag 'stderrthreshold' to 'WARNING':%v", err)
+	}
 	flag.Set("v", "2")
+	if err != nil {
+		glog.Fatalf("failed to set flag 'v' to '2':%v", err)
+	}
 }
 
 //CreateClientConfig creates client config

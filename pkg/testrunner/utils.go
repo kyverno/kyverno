@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	defaultYamlSeparator = "---"
-	projectPath          = "src/github.com/nirmata/kyverno"
+	projectPath = "src/github.com/nirmata/kyverno"
 )
 
 // LoadFile loads file in byte buffer

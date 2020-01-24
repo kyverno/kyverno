@@ -92,19 +92,6 @@ func (i *ArrayFlags) Set(value string) error {
 	return nil
 }
 
-// extract the kinds that the policy rules apply to
-func getApplicableKindsForPolicy(p *kyverno.ClusterPolicy) []string {
-	kinds := []string{}
-	// iterate over the rules an identify all kinds
-	// Matching
-	for _, rule := range p.Spec.Rules {
-		for _, k := range rule.MatchResources.Kinds {
-			kinds = append(kinds, k)
-		}
-	}
-	return kinds
-}
-
 // Policy Reporting Modes
 const (
 	Enforce = "enforce" // blocks the request on failure

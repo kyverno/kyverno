@@ -299,12 +299,20 @@ func Test_Eval_NoEqual_Const_float64_Fail(t *testing.T) {
 
 func Test_Eval_Equal_Const_object_Pass(t *testing.T) {
 	ctx := context.NewContext()
+	var err error
 
 	obj1Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	obj2Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -319,12 +327,20 @@ func Test_Eval_Equal_Const_object_Pass(t *testing.T) {
 
 func Test_Eval_Equal_Const_object_Fail(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	obj2Raw := []byte(`{ "dir": { "file1": "b" } }`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -339,12 +355,20 @@ func Test_Eval_Equal_Const_object_Fail(t *testing.T) {
 
 func Test_Eval_NotEqual_Const_object_Pass(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	obj2Raw := []byte(`{ "dir": { "file1": "b" } }`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -359,12 +383,20 @@ func Test_Eval_NotEqual_Const_object_Pass(t *testing.T) {
 
 func Test_Eval_NotEqual_Const_object_Fail(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	obj2Raw := []byte(`{ "dir": { "file1": "a" } }`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -381,12 +413,20 @@ func Test_Eval_NotEqual_Const_object_Fail(t *testing.T) {
 
 func Test_Eval_Equal_Const_list_Pass(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	obj2Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -401,12 +441,18 @@ func Test_Eval_Equal_Const_list_Pass(t *testing.T) {
 
 func Test_Eval_Equal_Const_list_Fail(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	obj2Raw := []byte(`[ { "name": "b", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -421,12 +467,18 @@ func Test_Eval_Equal_Const_list_Fail(t *testing.T) {
 
 func Test_Eval_NotEqual_Const_list_Pass(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	obj2Raw := []byte(`[ { "name": "b", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -441,12 +493,18 @@ func Test_Eval_NotEqual_Const_list_Pass(t *testing.T) {
 
 func Test_Eval_NotEqual_Const_list_Fail(t *testing.T) {
 	ctx := context.NewContext()
-
+	var err error
 	obj1Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	obj2Raw := []byte(`[ { "name": "a", "file": "a" }, { "name": "b", "file": "b" } ]`)
 	var obj1, obj2 interface{}
-	json.Unmarshal(obj1Raw, &obj1)
-	json.Unmarshal(obj2Raw, &obj2)
+	err = json.Unmarshal(obj1Raw, &obj1)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(obj2Raw, &obj2)
+	if err != nil {
+		t.Error(err)
+	}
 	// no variables
 	condition := kyverno.Condition{
 		Key:      obj1,
@@ -477,7 +535,10 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err := ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
 	condition := kyverno.Condition{
 		Key:      "{{request.object.metadata.name}}",
 		Operator: kyverno.Equal,
@@ -505,7 +566,10 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err := ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
 	condition := kyverno.Condition{
 		Key:      "{{request.object.metadata.name}}",
 		Operator: kyverno.Equal,
