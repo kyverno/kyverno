@@ -29,8 +29,6 @@ import (
 var (
 	kubeconfig                     string
 	serverIP                       string
-	cpu                            bool
-	memory                         bool
 	webhookTimeout                 int
 	runValidationInMutatingWebhook string
 	//TODO: this has been added to backward support command line arguments
