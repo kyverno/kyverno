@@ -17,9 +17,9 @@ const (
 	MutatingWebhookConfigurationDebugName = "kyverno-resource-mutating-webhook-cfg-debug"
 	MutatingWebhookName                   = "nirmata.kyverno.resource.mutating-webhook"
 
-	ValidatingWebhookConfigurationName      = "kyverno-resource-validating-webhook-cfg"
-	ValidatingWebhookConfigurationDebugName = "kyverno-resource-validating-webhook-cfg-debug"
-	ValidatingWebhookName                   = "nirmata.kyverno.resource.validating-webhook"
+	ValidatingWebhookConfigurationName      = "kyverno-validating-webhook-cfg"
+	ValidatingWebhookConfigurationDebugName = "kyverno-validating-webhook-cfg-debug"
+	ValidatingWebhookName                   = "nirmata.kyverno.policy-validating-webhook"
 
 	VerifyMutatingWebhookConfigurationName      = "kyverno-verify-mutating-webhook-cfg"
 	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
