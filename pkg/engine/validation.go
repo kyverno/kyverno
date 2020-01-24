@@ -74,7 +74,6 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 	resp.PolicyResponse.Resource.Kind = newR.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = newR.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
-
 }
 
 func endResultResponse(resp *response.EngineResponse, startTime time.Time) {

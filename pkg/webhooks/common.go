@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// isResponseSuccesful return true if all responses are successful
 func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() {
@@ -35,6 +36,26 @@ func toBlockResource(engineReponses []response.EngineResponse) bool {
 	return false
 }
 
+// getEnforceFailureErrorMsg gets the error messages for failed enforce policy
+func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
+	var str []string
+	var resourceInfo string
+
+	for _, er := range engineReponses {
+		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			for _, rule := range er.PolicyResponse.Rules {
+				if !rule.Success {
+					str = append(str, rule.ToString())
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+}
+
+// getErrorMsg gets all failed engine response message
 func getErrorMsg(engineReponses []response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
