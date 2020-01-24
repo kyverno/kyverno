@@ -37,25 +37,38 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		}
 	}
 
-	var allPossibleKinds = make(map[string]bool)
+	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
+		rule.MatchResources.Selector = nil
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
-				allPossibleKinds[kind] = true
+				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
 		}
 	}
 
-	for kind := range allPossibleKinds {
+	for kind, rules := range kindToRules {
+		newPolicy := policy
+		newPolicy.Spec.Rules = rules
+
 		resource, _ := generateEmptyResource(validationGlobalState.definitions["io.k8s.api.core.v1."+kind]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 		policyContext := engine.PolicyContext{
-			Policy:      policy,
+			Policy:      newPolicy,
 			NewResource: newResource,
 			Context:     context.NewContext(),
 		}
 		resp := engine.Mutate(policyContext)
+		if len(resp.GetSuccessRules()) != len(rules) {
+			var errMessages []string
+			for _, rule := range resp.PolicyResponse.Rules {
+				if rule.Success == false {
+					errMessages = append(errMessages, fmt.Sprintf("Invalid rule : %v, %v", rule.Name, rule.Message))
+				}
+			}
+			return fmt.Errorf(strings.Join(errMessages, "\n"))
+		}
 		err := ValidateResource(resp.PatchedResource.UnstructuredContent(), kind)
 		if err != nil {
 			return err
@@ -135,40 +148,23 @@ func getSchemaDocument(path string) (*openapi_v2.Document, error) {
 func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 
 	types := kindSchema.GetType().GetValue()
-	if len(types) != 1 {
-		if kindSchema.GetXRef() != "" {
-			return generateEmptyResource(validationGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
-		}
-		properties := kindSchema.GetProperties().GetAdditionalProperties()
-		if len(properties) == 0 {
-			return nil
-		}
 
-		var props = make(map[string]interface{})
-		var wg sync.WaitGroup
-		var mutex sync.Mutex
-		wg.Add(len(properties))
-		for _, property := range properties {
-			go func(property *openapi_v2.NamedSchema) {
-				prop := generateEmptyResource(property.GetValue())
-				mutex.Lock()
-				props[property.GetName()] = prop
-				mutex.Unlock()
-				wg.Done()
-			}(property)
-		}
-		wg.Wait()
-		return props
+	if kindSchema.GetXRef() != "" {
+		return generateEmptyResource(validationGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
+	}
+
+	if len(types) != 1 {
+		return nil
 	}
 
 	switch types[0] {
 	case "object":
+		var props = make(map[string]interface{})
 		properties := kindSchema.GetProperties().GetAdditionalProperties()
 		if len(properties) == 0 {
-			return nil
+			return props
 		}
 
-		var props = make(map[string]interface{})
 		var wg sync.WaitGroup
 		var mutex sync.Mutex
 		wg.Add(len(properties))
