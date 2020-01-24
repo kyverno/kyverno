@@ -27,7 +27,7 @@ const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 //NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
 	client := fake.NewSimpleDynamicClient(scheme, objects...)
-	// the typed and dynamic client are initalized with similar resources
+	// the typed and dynamic client are initialized with similar resources
 	kclient := kubernetesfake.NewSimpleClientset(objects...)
 	return &Client{
 		client:  client,

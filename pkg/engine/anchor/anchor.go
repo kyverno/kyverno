@@ -174,7 +174,7 @@ type ExistenceHandler struct {
 
 //Handle processes the existence anchor handler
 func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
-	// skip is used by existance anchor to not process further if condition is not satisfied
+	// skip is used by existence anchor to not process further if condition is not satisfied
 	anchorKey := removeAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
