@@ -95,10 +95,16 @@ func Test_ValidateVariables_NoVariable(t *testing.T) {
 	assert.NilError(t, json.Unmarshal(patternRaw, &pattern))
 	assert.NilError(t, json.Unmarshal(resourceRaw, &resource))
 
+	var err error
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(userReqInfo)
-
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
 	invalidPaths := ValidateVariables(ctx, pattern)
 	assert.Assert(t, len(invalidPaths) == 0)
 }
@@ -152,8 +158,15 @@ func Test_ValidateVariables(t *testing.T) {
 	assert.NilError(t, json.Unmarshal(resourceRaw, &resource))
 
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(userReqInfo)
+	var err error
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
 
 	invalidPaths := ValidateVariables(ctx, pattern)
 	assert.Assert(t, len(invalidPaths) > 0)

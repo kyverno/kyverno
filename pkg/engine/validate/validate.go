@@ -274,3 +274,11 @@ func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]i
 	}
 	return "", nil
 }
+
+func isStringIsReference(str string) bool {
+	if len(str) < len(operator.ReferenceSign) {
+		return false
+	}
+
+	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
+}

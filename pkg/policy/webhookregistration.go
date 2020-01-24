@@ -20,9 +20,8 @@ func (pc *PolicyController) removeResourceWebhookConfiguration() error {
 	}
 
 	glog.V(4).Info("no policies with mutating or validating webhook configurations, remove resource webhook configuration if one exists")
-	return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
 
-	return nil
+	return pc.resourceWebhookWatcher.RemoveResourceWebhookConfiguration()
 }
 
 func (pc *PolicyController) registerResourceWebhookConfiguration() {

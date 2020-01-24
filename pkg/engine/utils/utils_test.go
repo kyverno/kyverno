@@ -1,9 +1,9 @@
 package utils
 
-import(
-	"testing"
+import (
 	"encoding/json"
 	"gotest.tools/assert"
+	"testing"
 )
 
 func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
@@ -19,8 +19,10 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 	}`)
 
 	var unmarshalled map[string]interface{}
-	json.Unmarshal(rawMap, &unmarshalled)
-
+	err := json.Unmarshal(rawMap, &unmarshalled)
+	if err != nil {
+		t.Error(err)
+	}
 	actualMap := GetAnchorsFromMap(unmarshalled)
 	assert.Assert(t, len(actualMap) == 0)
 }

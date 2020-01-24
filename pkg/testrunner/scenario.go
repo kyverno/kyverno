@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	ospath "path"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -107,24 +106,6 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadFile(path)
-}
-
-//getFiles loads all scneario files in specified folder path
-func getFiles(t *testing.T, folder string) ([]string, error) {
-	t.Logf("loading scneario files for folder %s", folder)
-	files, err := ioutil.ReadDir(folder)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-
-	var yamls []string
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".yml" || filepath.Ext(file.Name()) == ".yaml" {
-			yamls = append(yamls, ospath.Join(folder, file.Name()))
-		}
-	}
-	return yamls, nil
 }
 
 func runScenario(t *testing.T, s *scenarioT) bool {

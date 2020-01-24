@@ -500,7 +500,6 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	if _, err := validateValidation(validation); err != nil {
 		assert.Assert(t, err != nil)
 	}
-	rawValidation = nil
 	rawValidation = []byte(`
 	{
 		"message": "validate container security contexts",
@@ -567,7 +566,6 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	}
 
 	// case 2
-	rawValidate = nil
 	validate = kyverno.Validation{}
 	rawValidate = []byte(`
 	{
