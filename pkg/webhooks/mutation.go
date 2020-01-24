@@ -90,6 +90,11 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
 		}
+		err := policyctr.ValidateResource(engineResponse.PatchedResource.UnstructuredContent(), engineResponse.PatchedResource.GetKind())
+		if err != nil {
+			glog.V(4).Infoln(err)
+			continue
+		}
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
 		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())

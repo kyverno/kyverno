@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -72,12 +70,6 @@ func Validate(p kyverno.ClusterPolicy) error {
 			}
 		}
 	}
-
-	err := policy.ValidatePolicyMutation(p)
-	if err != nil {
-		return fmt.Errorf("Policy has invalid mutations : %v", err)
-	}
-
 	return nil
 }
 

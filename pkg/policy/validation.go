@@ -49,6 +49,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for kind := range allPossibleKinds {
 		resource, _ := generateEmptyResource(validationGlobalState.definitions["io.k8s.api.core.v1."+kind]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
+		newResource.SetKind(kind)
 		policyContext := engine.PolicyContext{
 			Policy:      policy,
 			NewResource: newResource,

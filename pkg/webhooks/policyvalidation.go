@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	policy2 "github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
@@ -28,6 +30,15 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 			}}
 	}
 	if err := policyvalidate.Validate(*policy); err != nil {
+		admissionResp = &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: err.Error(),
+			},
+		}
+	}
+
+	if err := policy2.ValidatePolicyMutation(*policy); err != nil {
 		admissionResp = &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
