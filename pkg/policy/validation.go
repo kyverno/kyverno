@@ -1,12 +1,14 @@
 package policy
 
 import (
+	"compress/gzip"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -29,12 +31,17 @@ var validationGlobalState struct {
 	isSet       bool
 }
 
+func init() {
+	err := setValidationGlobalState()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	if validationGlobalState.isSet == false {
-		err := setValidationGlobalState()
-		if err != nil {
-			return err
-		}
+		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
+		return nil
 	}
 
 	var kindToRules = make(map[string][]v1.Rule)
@@ -80,11 +87,10 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 
 func ValidateResource(patchedResource interface{}, kind string) error {
 	if validationGlobalState.isSet == false {
-		err := setValidationGlobalState()
-		if err != nil {
-			return err
-		}
+		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
+		return nil
 	}
+
 	kind = "io.k8s.api.core.v1." + kind
 
 	schema := validationGlobalState.models.LookupModel(kind)
@@ -105,39 +111,45 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 }
 
 func setValidationGlobalState() error {
-	var err error
-	validationGlobalState.document, err = getSchemaDocument("./swagger.json")
-	if err != nil {
-		return err
+	if validationGlobalState.isSet == false {
+		var err error
+		validationGlobalState.document, err = getSchemaDocument()
+		if err != nil {
+			return err
+		}
+
+		validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
+
+		for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
+			validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
+		}
+
+		validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
+		if err != nil {
+			return err
+		}
+
+		validationGlobalState.isSet = true
 	}
-
-	validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-
-	for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
-		validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
-	}
-
-	validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
-	if err != nil {
-		return err
-	}
-
-	validationGlobalState.isSet = true
 	return nil
 }
 
-func getSchemaDocument(path string) (*openapi_v2.Document, error) {
-	_, err := os.Stat(path)
+func getSchemaDocument() (*openapi_v2.Document, error) {
+	docReq, _ := http.NewRequest("GET", "https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/swagger.json", nil)
+	docReq.Header.Set("accept-encoding", "gzip")
+	doc, err := http.DefaultClient.Do(docReq)
+	if err != nil {
+		return nil, fmt.Errorf("Could not fetch openapi document from the internet, underlying error : %v", err)
+	}
+
+	gzipReader, err := gzip.NewReader(doc.Body)
+	defer gzipReader.Close()
 	if err != nil {
 		return nil, err
 	}
 
-	specRaw, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
 	var spec yaml.MapSlice
-	err = yaml.Unmarshal(specRaw, &spec)
+	err = yaml.NewDecoder(gzipReader).Decode(&spec)
 	if err != nil {
 		return nil, err
 	}

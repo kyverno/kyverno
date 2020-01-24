@@ -8,6 +8,7 @@ import (
 )
 
 func Test_ValidateMutationPolicy(t *testing.T) {
+	setValidationGlobalState()
 
 	tcs := []struct {
 		description string
