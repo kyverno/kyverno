@@ -112,7 +112,7 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 }
 
 func setValidationGlobalState() error {
-	if validationGlobalState.isSet == false {
+	if !validationGlobalState.isSet {
 		var err error
 		validationGlobalState.document, err = getSchemaDocument()
 		if err != nil {
