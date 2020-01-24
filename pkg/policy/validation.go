@@ -230,16 +230,10 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 		return 0
 	case "boolean":
 		if kindSchema.GetDefault() != nil {
-			if string(kindSchema.GetDefault().Value.Value) == "true" {
-				return true
-			}
-			return false
+			return string(kindSchema.GetDefault().Value.Value) == "true"
 		}
 		if kindSchema.GetExample() != nil {
-			if string(kindSchema.GetExample().GetValue().Value) == "true" {
-				return true
-			}
-			return false
+			return string(kindSchema.GetExample().GetValue().Value) == "true"
 		}
 		return false
 	}
