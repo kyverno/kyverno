@@ -25,10 +25,11 @@ import (
 )
 
 var validationGlobalState struct {
-	document    *openapi_v2.Document
-	definitions map[string]*openapi_v2.Schema
-	models      proto.Models
-	isSet       bool
+	document             *openapi_v2.Document
+	definitions          map[string]*openapi_v2.Schema
+	kindToDefinitionName map[string]string
+	models               proto.Models
+	isSet                bool
 }
 
 func init() {
@@ -58,7 +59,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newPolicy := policy
 		newPolicy.Spec.Rules = rules
 
-		resource, _ := generateEmptyResource(validationGlobalState.definitions["io.k8s.api.core.v1."+kind]).(map[string]interface{})
+		resource, _ := generateEmptyResource(validationGlobalState.definitions[validationGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 		policyContext := engine.PolicyContext{
@@ -91,7 +92,7 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 		return nil
 	}
 
-	kind = "io.k8s.api.core.v1." + kind
+	kind = validationGlobalState.kindToDefinitionName[kind]
 
 	schema := validationGlobalState.models.LookupModel(kind)
 	if schema == nil {
@@ -119,9 +120,11 @@ func setValidationGlobalState() error {
 		}
 
 		validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-
+		validationGlobalState.kindToDefinitionName = make(map[string]string)
 		for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
 			validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
+			path := strings.Split(definition.GetName(), ".")
+			validationGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 		}
 
 		validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
