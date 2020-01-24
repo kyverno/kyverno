@@ -39,6 +39,36 @@ func init() {
 	}
 }
 
+func UseCustomOpenApiDocument(customDoc []byte) error {
+	var spec yaml.MapSlice
+	err := yaml.Unmarshal(customDoc, &spec)
+	if err != nil {
+		return err
+	}
+
+	validationGlobalState.document, err = openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+	if err != nil {
+		return err
+	}
+
+	validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
+	validationGlobalState.kindToDefinitionName = make(map[string]string)
+	for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
+		validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
+		path := strings.Split(definition.GetName(), ".")
+		validationGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+	}
+
+	validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
+	if err != nil {
+		return err
+	}
+
+	validationGlobalState.isSet = true
+
+	return nil
+}
+
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	if !validationGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
