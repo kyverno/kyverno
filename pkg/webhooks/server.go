@@ -267,7 +267,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create {
-		ok, msg = ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
+		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
 			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 			return &v1beta1.AdmissionResponse{
