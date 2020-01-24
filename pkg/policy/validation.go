@@ -1,12 +1,12 @@
 package policy
 
 import (
-	"compress/gzip"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/nirmata/kyverno/data"
 
 	"github.com/golang/glog"
 
@@ -138,26 +138,8 @@ func setValidationGlobalState() error {
 }
 
 func getSchemaDocument() (*openapi_v2.Document, error) {
-	docReq, _ := http.NewRequest("GET", "https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/swagger.json", nil)
-	docReq.Header.Set("accept-encoding", "gzip")
-	doc, err := http.DefaultClient.Do(docReq)
-	if err != nil {
-		return nil, fmt.Errorf("Could not fetch openapi document from the internet, underlying error : %v", err)
-	}
-
-	gzipReader, err := gzip.NewReader(doc.Body)
-	defer func() {
-		err := gzipReader.Close()
-		if err != nil {
-			glog.V(4).Info("Could not close gzip reader")
-		}
-	}()
-	if err != nil {
-		return nil, err
-	}
-
 	var spec yaml.MapSlice
-	err = yaml.NewDecoder(gzipReader).Decode(&spec)
+	err := yaml.Unmarshal([]byte(data.SwaggerDoc), &spec)
 	if err != nil {
 		return nil, err
 	}
