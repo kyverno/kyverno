@@ -146,7 +146,12 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 	}
 
 	gzipReader, err := gzip.NewReader(doc.Body)
-	defer gzipReader.Close()
+	defer func() {
+		err := gzipReader.Close()
+		if err != nil {
+			glog.V(4).Info("Could not close gzip reader")
+		}
+	}()
 	if err != nil {
 		return nil, err
 	}
