@@ -239,47 +239,6 @@ func mergeresources(a, b map[string]unstructured.Unstructured) {
 		a[k] = v
 	}
 }
-func mergeLabelSectors(include, exclude *metav1.LabelSelector) *metav1.LabelSelector {
-	if exclude == nil {
-		return include
-	}
-	// negate the exclude information
-	// copy the label selector
-	//TODO: support exclude expressions in exclude
-	ls := include.DeepCopy()
-	for k, v := range exclude.MatchLabels {
-		lsreq := metav1.LabelSelectorRequirement{
-			Key:      k,
-			Operator: metav1.LabelSelectorOpNotIn,
-			Values:   []string{v},
-		}
-		ls.MatchExpressions = append(ls.MatchExpressions, lsreq)
-	}
-	return ls
-}
-
-func kindIsExcluded(kind string, list []string) bool {
-	for _, b := range list {
-		if b == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func excludeNamespaces(namespaces, excludeNs []string) []string {
-	if len(excludeNs) == 0 {
-		return namespaces
-	}
-	filteredNamespaces := []string{}
-	for _, n := range namespaces {
-		if utils.ContainsNamepace(excludeNs, n) {
-			continue
-		}
-		filteredNamespaces = append(filteredNamespaces, n)
-	}
-	return filteredNamespaces
-}
 
 func getAllNamespaces(client *client.Client) []string {
 	var namespaces []string

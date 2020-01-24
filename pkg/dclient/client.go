@@ -29,7 +29,6 @@ import (
 //Client enables interaction with k8 resource
 type Client struct {
 	client          dynamic.Interface
-	cachedClient    discovery.CachedDiscoveryInterface
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery

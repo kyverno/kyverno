@@ -488,9 +488,19 @@ func Test_validateGeneralRuleInfoVariables(t *testing.T) {
 	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
 
 	ctx := context.NewContext()
-	ctx.AddResource(rawResource)
-	ctx.AddUserInfo(userReqInfo)
-	ctx.AddSA("system:serviceaccount:test:testuser")
+	var err error
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddSA("system:serviceaccount:test:testuser")
+	if err != nil {
+		t.Error(err)
+	}
 
 	expectPaths := []string{"request.userInfo.username1", "request.object.namespace", ""}
 

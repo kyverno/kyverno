@@ -18,7 +18,6 @@ const (
 	Less Operator = "<"
 )
 
-const relativePrefix Operator = "./"
 const ReferenceSign Operator = "$()"
 
 // getOperatorFromStringPattern parses opeartor from pattern
