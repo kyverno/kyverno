@@ -18,7 +18,7 @@ const (
 	Less Operator = "<"
 )
 
-//ReferenceSign defines the operator for anchor
+//ReferenceSign defines the operator for anchor reference
 const ReferenceSign Operator = "$()"
 
 // GetOperatorFromStringPattern parses opeartor from pattern
