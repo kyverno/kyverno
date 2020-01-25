@@ -29,6 +29,8 @@ func CLI() {
 
 	cli.AddCommand(commands...)
 
+	cli.SilenceUsage = true
+
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
 	}

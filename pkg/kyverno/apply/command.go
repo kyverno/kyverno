@@ -53,7 +53,13 @@ func Command() *cobra.Command {
 		Use:     "apply",
 		Short:   "Applies policies on resources",
 		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy1 /path/to/policy2 --resource=/path/to/resource\n\nTo apply on a cluster\nkyverno apply /path/to/policy1 /path/to/policy2 --kubeConfig=/path/to/kubeConfig"),
-		RunE: func(cmd *cobra.Command, policyPaths []string) error {
+		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
+			defer func() {
+				if err != nil {
+					err = fmt.Errorf("Failed to apply policies on resources : %v", err)
+				}
+			}()
+
 			if resourcePath == "" && kubeConfig == "" {
 				fmt.Println("Specify path to resource file or kube config")
 			}
