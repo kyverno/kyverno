@@ -173,7 +173,7 @@ func (nsc *NamespaceController) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 
-	for i := 0; i < workerCount; i++ {
+	for i := 0; i < workers; i++ {
 		go wait.Until(nsc.worker, time.Second, stopCh)
 	}
 	<-stopCh

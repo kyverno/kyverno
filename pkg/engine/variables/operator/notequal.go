@@ -9,6 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
+//NewNotEqualHandler returns handler to manage NotEqual operations
 func NewNotEqualHandler(ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
 	return NotEqualHandler{
 		ctx:        ctx,
@@ -16,11 +17,13 @@ func NewNotEqualHandler(ctx context.EvalInterface, subHandler VariableSubstituti
 	}
 }
 
+//NotEqualHandler provides implementation to handle NotEqual Operator
 type NotEqualHandler struct {
 	ctx        context.EvalInterface
 	subHandler VariableSubstitutionHandler
 }
 
+//Evaluate evaluates expression with NotEqual Operator
 func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	// substitute the variables
 	nKey := neh.subHandler(neh.ctx, key)

@@ -66,10 +66,21 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		glog.V(4).Infof("failed to marshal resource: %v", err)
 		return nil, err
 	}
-
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
-	ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		glog.Infof("Failed to load resource in context: %v", err)
+		return nil, err
+	}
+	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
+	if err != nil {
+		glog.Infof("Failed to load userInfo in context: %v", err)
+		return nil, err
+	}
+	err = ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		glog.Infof("Failed to load serviceAccount in context: %v", err)
+		return nil, err
+	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
@@ -79,7 +90,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.GenerateNew(policyContext)
+	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)

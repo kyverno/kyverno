@@ -2,8 +2,6 @@ package event
 
 const eventWorkQueueName = "kyverno-events"
 
-const eventWorkerThreadCount = 1
-
 const workQueueRetryLimit = 5
 
 //Info defines the event details

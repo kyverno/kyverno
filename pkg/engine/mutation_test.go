@@ -114,7 +114,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "substitue-variable"
+		  "name": "substitute-variable"
 		},
 		"spec": {
 		  "rules": [

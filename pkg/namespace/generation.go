@@ -98,7 +98,7 @@ func (nsc *NamespaceController) processNamespace(namespace corev1.Namespace) []r
 
 	ns := unstructured.Unstructured{Object: unstr}
 
-	// get all the policies that have a generate rule and resource description satifies the namespace
+	// get all the policies that have a generate rule and resource description satisfies the namespace
 	// apply policy on resource
 	policies := listpolicies(ns, nsc.pMetaStore)
 	var engineResponses []response.EngineResponse
@@ -233,7 +233,7 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 		Client:      client,
 		Context:     ctx,
 	}
-	engineResponse := engine.GenerateNew(policyContext)
+	engineResponse := engine.Generate(policyContext)
 	// gather stats
 	gatherStat(p.Name, engineResponse.PolicyResponse)
 	//send stats

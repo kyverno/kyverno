@@ -96,7 +96,7 @@ func getValueQuery(ctx context.EvalInterface, valuePattern string) interface{} {
 		return newVal
 	}
 
-	// we do not support mutliple substitution per statement for non-string types
+	// we do not support multiple substitution per statement for non-string types
 	for _, value := range varMap {
 		return value
 	}

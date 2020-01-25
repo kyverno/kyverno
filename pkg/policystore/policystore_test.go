@@ -230,7 +230,10 @@ func Test_Operations(t *testing.T) {
 	}
 
 	// Remove
-	store.UnRegister(policy1)
+	err = store.UnRegister(policy1)
+	if err != nil {
+		t.Error(err)
+	}
 	retPolicies, err = store.LookUp("Pod", "")
 	if err != nil {
 		t.Error(err)
