@@ -59,12 +59,27 @@ func Test_variablesub1(t *testing.T) {
 	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-user1"}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(userReqInfo)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -125,12 +140,29 @@ func Test_variablesub_multiple(t *testing.T) {
 	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-n1-user1-bindings"}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(userReqInfo)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -188,12 +220,29 @@ func Test_variablesubstitution(t *testing.T) {
 		},
 	}
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
+
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(userReqInfo)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -231,12 +280,24 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	resultMap := []byte(`{"spec":{"name":"temp"}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -271,12 +332,24 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	resultMap := []byte(`{"spec":{"name":"!temp"}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -313,12 +386,24 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 	resultMap := []byte(`{"spec":{"name":null}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -360,12 +445,24 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	resultMap := []byte(`{"spec":{"variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -408,12 +505,24 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	resultMap := []byte(`{"spec":{"variable":null}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {
@@ -457,12 +566,24 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	resultMap := []byte(`{"spec":{"var":"temp1","variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(patternMap, &pattern)
-	json.Unmarshal(resourceRaw, &resource)
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// context
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
 	value := SubstituteVariables(ctx, pattern)
 	resultRaw, err := json.Marshal(value)
 	if err != nil {

@@ -27,7 +27,7 @@ const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 //NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
 	client := fake.NewSimpleDynamicClient(scheme, objects...)
-	// the typed and dynamic client are initalized with similar resources
+	// the typed and dynamic client are initialized with similar resources
 	kclient := kubernetesfake.NewSimpleClientset(objects...)
 	return &Client{
 		client:  client,
@@ -89,23 +89,4 @@ func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[
 	u := newUnstructured(apiVersion, kind, namespace, name)
 	u.Object["spec"] = spec
 	return u
-}
-
-func retry(attempts int, sleep time.Duration, fn func() error) error {
-	if err := fn(); err != nil {
-		if s, ok := err.(stop); ok {
-			return s.error
-		}
-		if attempts--; attempts > 0 {
-			time.Sleep(sleep)
-			return retry(attempts, 2*sleep, fn)
-		}
-		return err
-	}
-	return nil
-}
-
-// Custom error
-type stop struct {
-	error
 }
