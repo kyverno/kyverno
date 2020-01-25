@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -70,6 +72,11 @@ func Validate(p kyverno.ClusterPolicy) error {
 			}
 		}
 	}
+
+	if err := openapi.ValidatePolicyMutation(p); err != nil {
+		return fmt.Errorf("Failed to validate policy: %v", err)
+	}
+
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package policy
+package openapi
 
 import (
 	"encoding/json"

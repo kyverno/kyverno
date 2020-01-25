@@ -1,4 +1,4 @@
-package policy
+package openapi
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var validationGlobalState struct {
+var openApiGlobalState struct {
 	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
 	kindToDefinitionName map[string]string
@@ -46,31 +46,31 @@ func UseCustomOpenApiDocument(customDoc []byte) error {
 		return err
 	}
 
-	validationGlobalState.document, err = openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+	openApiGlobalState.document, err = openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
 	if err != nil {
 		return err
 	}
 
-	validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-	validationGlobalState.kindToDefinitionName = make(map[string]string)
-	for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
-		validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
+	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
+	openApiGlobalState.kindToDefinitionName = make(map[string]string)
+	for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
+		openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
-		validationGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
-	validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
+	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
 	if err != nil {
 		return err
 	}
 
-	validationGlobalState.isSet = true
+	openApiGlobalState.isSet = true
 
 	return nil
 }
 
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
-	if !validationGlobalState.isSet {
+	if !openApiGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
 		return nil
 	}
@@ -89,7 +89,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newPolicy := policy
 		newPolicy.Spec.Rules = rules
 
-		resource, _ := generateEmptyResource(validationGlobalState.definitions[validationGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
+		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 		policyContext := engine.PolicyContext{
@@ -117,14 +117,14 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 }
 
 func ValidateResource(patchedResource interface{}, kind string) error {
-	if !validationGlobalState.isSet {
+	if !openApiGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
 		return nil
 	}
 
-	kind = validationGlobalState.kindToDefinitionName[kind]
+	kind = openApiGlobalState.kindToDefinitionName[kind]
 
-	schema := validationGlobalState.models.LookupModel(kind)
+	schema := openApiGlobalState.models.LookupModel(kind)
 	if schema == nil {
 		return fmt.Errorf("pre-validation: couldn't find model %s", kind)
 	}
@@ -142,27 +142,27 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 }
 
 func setValidationGlobalState() error {
-	if !validationGlobalState.isSet {
+	if !openApiGlobalState.isSet {
 		var err error
-		validationGlobalState.document, err = getSchemaDocument()
+		openApiGlobalState.document, err = getSchemaDocument()
 		if err != nil {
 			return err
 		}
 
-		validationGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-		validationGlobalState.kindToDefinitionName = make(map[string]string)
-		for _, definition := range validationGlobalState.document.GetDefinitions().AdditionalProperties {
-			validationGlobalState.definitions[definition.GetName()] = definition.GetValue()
+		openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
+		openApiGlobalState.kindToDefinitionName = make(map[string]string)
+		for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
+			openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
 			path := strings.Split(definition.GetName(), ".")
-			validationGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+			openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 		}
 
-		validationGlobalState.models, err = proto.NewOpenAPIData(validationGlobalState.document)
+		openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
 		if err != nil {
 			return err
 		}
 
-		validationGlobalState.isSet = true
+		openApiGlobalState.isSet = true
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
-		return generateEmptyResource(validationGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
+		return generateEmptyResource(openApiGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
 	}
 
 	if len(types) != 1 {

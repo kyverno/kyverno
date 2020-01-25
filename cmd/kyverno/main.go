@@ -5,6 +5,8 @@ import (
 	"flag"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"k8s.io/client-go/discovery"
 
 	"github.com/golang/glog"
@@ -212,7 +214,7 @@ func main() {
 		glog.Fatalf("OpenApiDoc request failed: %v\n", err)
 	}
 
-	if err := policy.UseCustomOpenApiDocument(openApiDoc); err != nil {
+	if err := openapi.UseCustomOpenApiDocument(openApiDoc); err != nil {
 		glog.Fatalf("Could not set custom OpenApi document: %v\n", err)
 	}
 

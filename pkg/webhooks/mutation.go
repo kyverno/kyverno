@@ -9,6 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -90,7 +91,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
 		}
-		err := policyctr.ValidateResource(engineResponse.PatchedResource.UnstructuredContent(), engineResponse.PatchedResource.GetKind())
+		err := openapi.ValidateResource(engineResponse.PatchedResource.UnstructuredContent(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			glog.V(4).Infoln(err)
 			continue
