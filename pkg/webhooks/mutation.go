@@ -67,10 +67,21 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 
 	// build context
 	ctx := context.NewContext()
+	var err error
 	// load incoming resource into the context
-	ctx.AddResource(request.Object.Raw)
-	ctx.AddUserInfo(userRequestInfo)
-	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddResource(request.Object.Raw)
+	if err != nil {
+		glog.Infof("Failed to load resource in context:%v", err)
+	}
+
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		glog.Infof("Failed to load userInfo in context:%v", err)
+	}
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		glog.Infof("Failed to load service account in context:%v", err)
+	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
@@ -98,7 +109,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		}
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
-		glog.V(4).Infof("Mutation from policy %s has applied succesfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
+		glog.V(4).Infof("Mutation from policy %s has applied successfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 
 		policyContext.NewResource = engineResponse.PatchedResource
 	}

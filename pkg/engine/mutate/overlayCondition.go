@@ -23,7 +23,7 @@ func checkConditions(resource, overlay interface{}, path string) (string, overla
 
 	// resource item exists but has different type
 	// return false if anchor exists in overlay
-	// conditon never be true in this case
+	// condition never be true in this case
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
 		if hasNestedAnchors(overlay) {
 			glog.V(4).Infof("Found anchor on different types of element at path %s: overlay %T, resource %T", path, overlay, resource)

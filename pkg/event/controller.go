@@ -85,7 +85,7 @@ func (gen *Generator) Add(infos ...Info) {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			glog.V(4).Infof("recieved info %v, not creating an event as the resource has not been assigned a name yet", info)
+			glog.V(4).Infof("received info %v, not creating an event as the resource has not been assigned a name yet", info)
 			continue
 		}
 		gen.queue.Add(info)

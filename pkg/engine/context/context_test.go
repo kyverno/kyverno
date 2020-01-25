@@ -9,6 +9,7 @@ import (
 )
 
 func Test_addResourceAndUserContext(t *testing.T) {
+	var err error
 	rawResource := []byte(`
 	{
 		"apiVersion": "v1",
@@ -54,7 +55,10 @@ func Test_addResourceAndUserContext(t *testing.T) {
 
 	var expectedResult string
 	ctx := NewContext()
-	ctx.AddResource(rawResource)
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
 	result, err := ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
@@ -65,7 +69,10 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("exected result does not match")
 	}
 
-	ctx.AddUserInfo(userRequestInfo)
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		t.Error(err)
+	}
 	result, err = ctx.Query("request.object.apiVersion")
 	if err != nil {
 		t.Error(err)
@@ -86,7 +93,10 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("exected result does not match")
 	}
 	// Add service account Name
-	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		t.Error(err)
+	}
 	result, err = ctx.Query("serviceAccountName")
 	if err != nil {
 		t.Error(err)

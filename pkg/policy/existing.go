@@ -40,7 +40,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		// apply the policy on each
 		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 		engineResponse := applyPolicy(policy, resource, pc.statusAggregator)
-		// get engine response for mutation & validation indipendently
+		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
 		pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
@@ -225,12 +225,16 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 	}
 }
 
+//Condition defines condition type
 type Condition int
 
 const (
+	//NotEvaluate to not evaluate condition
 	NotEvaluate Condition = 0
-	Process     Condition = 1
-	Skip        Condition = 2
+	// Process to evaluate condition
+	Process Condition = 1
+	// Skip to ignore/skip the condition
+	Skip Condition = 2
 )
 
 // merge b into a map
@@ -238,47 +242,6 @@ func mergeresources(a, b map[string]unstructured.Unstructured) {
 	for k, v := range b {
 		a[k] = v
 	}
-}
-func mergeLabelSectors(include, exclude *metav1.LabelSelector) *metav1.LabelSelector {
-	if exclude == nil {
-		return include
-	}
-	// negate the exclude information
-	// copy the label selector
-	//TODO: support exclude expressions in exclude
-	ls := include.DeepCopy()
-	for k, v := range exclude.MatchLabels {
-		lsreq := metav1.LabelSelectorRequirement{
-			Key:      k,
-			Operator: metav1.LabelSelectorOpNotIn,
-			Values:   []string{v},
-		}
-		ls.MatchExpressions = append(ls.MatchExpressions, lsreq)
-	}
-	return ls
-}
-
-func kindIsExcluded(kind string, list []string) bool {
-	for _, b := range list {
-		if b == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func excludeNamespaces(namespaces, excludeNs []string) []string {
-	if len(excludeNs) == 0 {
-		return namespaces
-	}
-	filteredNamespaces := []string{}
-	for _, n := range namespaces {
-		if utils.ContainsNamepace(excludeNs, n) {
-			continue
-		}
-		filteredNamespaces = append(filteredNamespaces, n)
-	}
-	return filteredNamespaces
 }
 
 func getAllNamespaces(client *client.Client) []string {

@@ -7,6 +7,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables/operator"
 )
 
+//Evaluate evaluates the condition
 func Evaluate(ctx context.EvalInterface, condition kyverno.Condition) bool {
 	// get handler for the operator
 	handle := operator.CreateOperatorHandler(ctx, condition.Operator, SubstituteVariables)
@@ -16,6 +17,7 @@ func Evaluate(ctx context.EvalInterface, condition kyverno.Condition) bool {
 	return handle.Evaluate(condition.Key, condition.Value)
 }
 
+//EvaluateConditions evaluates multiple conditions
 func EvaluateConditions(ctx context.EvalInterface, conditions []kyverno.Condition) bool {
 	// AND the conditions
 	for _, condition := range conditions {

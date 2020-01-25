@@ -6,6 +6,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
+//OperatorHandler provides interface to manage types
 type OperatorHandler interface {
 	Evaluate(key, value interface{}) bool
 	validateValuewithBoolPattern(key bool, value interface{}) bool
@@ -15,8 +16,10 @@ type OperatorHandler interface {
 	validateValueWithSlicePattern(key []interface{}, value interface{}) bool
 }
 
+//VariableSubstitutionHandler defines the handler function for variable substitution
 type VariableSubstitutionHandler = func(ctx context.EvalInterface, pattern interface{}) interface{}
 
+//CreateOperatorHandler returns the operator handler based on the operator used in condition
 func CreateOperatorHandler(ctx context.EvalInterface, op kyverno.ConditionOperator, subHandler VariableSubstitutionHandler) OperatorHandler {
 	switch op {
 	case kyverno.Equal:

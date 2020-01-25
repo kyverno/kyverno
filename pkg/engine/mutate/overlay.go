@@ -22,7 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
-// processOverlay processes mutation overlay on the resource
+// ProcessOverlay processes mutation overlay on the resource
 func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
@@ -111,7 +111,7 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		return resp, resource
 	}
 
-	// rule application succesfuly
+	// rule application successfully
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully processed overlay")
 	resp.Patches = patches

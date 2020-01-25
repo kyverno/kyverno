@@ -120,7 +120,7 @@ func main() {
 		10*time.Second)
 
 	// Configuration Data
-	// dyamically load the configuration from configMap
+	// dynamically load the configuration from configMap
 	// - resource filters
 	// if the configMap is update, the configuration will be updated :D
 	configData := config.NewConfigData(
@@ -147,7 +147,7 @@ func main() {
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
-	// - status aggregator: recieves stats when a policy is applied
+	// - status aggregator: receives stats when a policy is applied
 	//					    & updates the policy status
 	pc, err := policy.NewPolicyController(pclient,
 		client,
