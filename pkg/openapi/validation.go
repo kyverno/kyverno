@@ -157,6 +157,10 @@ func setValidationGlobalState() error {
 			openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 		}
 
+		for _, path := range openApiGlobalState.document.GetPaths().GetPath() {
+			path.GetName()
+		}
+
 		openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
 		if err != nil {
 			return err

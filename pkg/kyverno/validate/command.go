@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
+	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/spf13/cobra"

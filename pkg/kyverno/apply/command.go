@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -26,25 +25,6 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes/scheme"
 )
-
-var kindToListApi = map[string]string{
-	"resourcequota":         "/api/v1/resourcequotas",
-	"serviceaccount":        "/api/v1/serviceaccounts",
-	"limitrange":            "/api/v1/limitranges",
-	"replicationcontroller": "/api/v1/replicationcontrollers",
-	"persistentvolume":      "/api/v1/persistentvolumes",
-	"event":                 "/api/v1/events",
-	"persistentvolumeclaim": "/api/v1/persistentvolumeclaims",
-	"podtemplate":           "/api/v1/podtemplates",
-	"componentstatus":       "/api/v1/componentstatuses",
-	"secret":                "/api/v1/secrets",
-	"service":               "/api/v1/services",
-	"namespace":             "/api/v1/namespaces",
-	"node":                  "/api/v1/nodes",
-	"endpoint":              "/api/v1/endpoints",
-	"pod":                   "/api/v1/pods",
-	"configmap":             "/api/v1/configmaps",
-}
 
 func Command() *cobra.Command {
 	var resourcePath, kubeConfig string
@@ -152,7 +132,12 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, kubeConfig string) ([
 	}
 
 	for _, kind := range resourceTypes {
-		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(kindToListApi[strings.ToLower(kind)]).Do().Raw()
+		endpoint, err := getListEndpointForKind(kind)
+		if err != nil {
+			return nil, err
+		}
+
+		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(endpoint).Do().Raw()
 		if err != nil {
 			return nil, err
 		}
