@@ -38,13 +38,13 @@ func CLI() {
 
 func configureGlog(cli *cobra.Command) {
 	flag.Parse()
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	cli.PersistentFlags().MarkHidden("alsologtostderr")
-	cli.PersistentFlags().MarkHidden("logtostderr")
-	cli.PersistentFlags().MarkHidden("log_dir")
-	cli.PersistentFlags().MarkHidden("log_backtrace_at")
-	cli.PersistentFlags().MarkHidden("stderrthreshold")
-	cli.PersistentFlags().MarkHidden("vmodule")
+	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
+	_ = cli.PersistentFlags().MarkHidden("logtostderr")
+	_ = cli.PersistentFlags().MarkHidden("log_dir")
+	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
+	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
+	_ = cli.PersistentFlags().MarkHidden("vmodule")
 }
