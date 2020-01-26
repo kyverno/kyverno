@@ -17,7 +17,7 @@ require (
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/spf13/cobra v0.0.5
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	golang.org/x/crypto v0.0.0-20200109152110-61a87790db17 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
