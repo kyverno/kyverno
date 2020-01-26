@@ -4,12 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"path"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
-
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -28,13 +24,22 @@ import (
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/spf13/cobra"
 	yamlv2 "gopkg.in/yaml.v2"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
 func Command() *cobra.Command {
-	var resourcePath, kubeConfig, clusterName string
+	var cmd *cobra.Command
+	var resourcePaths []string
+	var cluster bool
 
-	cmd := &cobra.Command{
+	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
+	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if path should be applied to cluster in the current context")
+
+	kubernetesConfig := genericclioptions.NewConfigFlags(true)
+	kubernetesConfig.AddFlags(cmd.Flags())
+
+	cmd = &cobra.Command{
 		Use:     "apply",
 		Short:   "Applies policies on resources",
 		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy1 /path/to/policy2 --resource=/path/to/resource\n\nTo apply on a cluster\nkyverno apply /path/to/policy1 /path/to/policy2 --kubeConfig=/path/to/kubeConfig"),
@@ -45,38 +50,24 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			if resourcePath == "" && clusterName == "" {
+			if len(resourcePaths) == 0 && !cluster {
 				fmt.Println("Specify path to resource file or cluster name")
 			}
 
-			if kubeConfig == "" {
-				kubeConfig = path.Join(homedir.HomeDir(), ".kube", "config")
+			policies, err := getPolicies(policyPaths)
+			if err != nil {
+				return err
 			}
 
-			var policies []*v1.ClusterPolicy
-			for _, policyPath := range policyPaths {
-				policy, err := getPolicy(policyPath)
-				if err != nil {
-					return err
-				}
-
-				err = policy2.Validate(*policy)
-				if err != nil {
-					return fmt.Errorf("Policy %v is not valid: %v", policy.Name, err)
-				}
-
-				policies = append(policies, policy)
-			}
-
-			var dClient *discovery.DiscoveryClient
-			if clusterName != "" {
-				dClient, err = getDiscoveryClient(kubeConfig, clusterName)
+			var dClient discovery.CachedDiscoveryInterface
+			if cluster {
+				dClient, err = kubernetesConfig.ToDiscoveryClient()
 				if err != nil {
 					return err
 				}
 			}
 
-			resources, err := getResources(policies, resourcePath, dClient)
+			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
 				return err
 			}
@@ -98,31 +89,28 @@ func Command() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&resourcePath, "resource", "", "path to resource file")
-	cmd.Flags().StringVar(&kubeConfig, "kubeConfig", "", "path to .kube/config file")
-	cmd.Flags().StringVar(&clusterName, "cluster", "", "Name of the kubernetes cluster to which the policy will apply to")
 	return cmd
 }
 
-func getDiscoveryClient(kubeConfig, clusterName string) (*discovery.DiscoveryClient, error) {
-	apiConfig, err := clientcmd.LoadFromFile(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
+func getPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
+	var policies []*v1.ClusterPolicy
+	for _, policyPath := range policyPaths {
+		policy, err := getPolicy(policyPath)
+		if err != nil {
+			return nil, err
+		}
 
-	if apiConfig.Clusters[clusterName] == nil {
-		return nil, fmt.Errorf("Cluster does not exist in kubeConfig")
-	}
+		err = policy2.Validate(*policy)
+		if err != nil {
+			return nil, fmt.Errorf("Policy %v is not valid: %v", policy.Name, err)
+		}
 
-	clientConfig, err := clientcmd.BuildConfigFromFlags(apiConfig.Clusters[clusterName].Server, kubeConfig)
-	if err != nil {
-		return nil, err
+		policies = append(policies, policy)
 	}
-
-	return discovery.NewDiscoveryClientForConfig(clientConfig)
+	return policies, nil
 }
 
-func getResources(policies []*v1.ClusterPolicy, resourcePath string, dClient *discovery.DiscoveryClient) ([]*unstructured.Unstructured, error) {
+func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -147,7 +135,7 @@ func getResources(policies []*v1.ClusterPolicy, resourcePath string, dClient *di
 		}
 	}
 
-	if resourcePath != "" {
+	for _, resourcePath := range resourcePaths {
 		resource, err := getResource(resourcePath)
 		if err != nil {
 			return nil, err
@@ -159,7 +147,7 @@ func getResources(policies []*v1.ClusterPolicy, resourcePath string, dClient *di
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *discovery.DiscoveryClient) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {

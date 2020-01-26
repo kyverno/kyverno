@@ -28,6 +28,7 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
+	k8s.io/cli-runtime v0.0.0-20191004110135-b9eb767d2e1a // indirect
 	k8s.io/client-go v11.0.1-0.20190516230509-ae8359b20417+incompatible
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
