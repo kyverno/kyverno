@@ -33,11 +33,7 @@ func Command() *cobra.Command {
 	var resourcePaths []string
 	var cluster bool
 
-	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
-	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if path should be applied to cluster in the current context")
-
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	kubernetesConfig.AddFlags(cmd.Flags())
 
 	cmd = &cobra.Command{
 		Use:     "apply",
@@ -88,6 +84,9 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
+	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 
 	return cmd
 }
