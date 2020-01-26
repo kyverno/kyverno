@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/golang/glog"
+
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,20 +54,23 @@ func Command() *cobra.Command {
 
 			policies, err := getPolicies(policyPaths)
 			if err != nil {
-				return err
+				glog.V(4).Infoln(err)
+				return fmt.Errorf("Issues with policy paths")
 			}
 
 			var dClient discovery.CachedDiscoveryInterface
 			if cluster {
 				dClient, err = kubernetesConfig.ToDiscoveryClient()
 				if err != nil {
-					return err
+					glog.V(4).Infoln(err)
+					return fmt.Errorf("Issues with kubernetes Config")
 				}
 			}
 
 			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
-				return err
+				glog.V(4).Infoln(err)
+				return fmt.Errorf("Issues fetching resources")
 			}
 
 			for i, policy := range policies {
@@ -76,7 +81,8 @@ func Command() *cobra.Command {
 
 					err = applyPolicyOnResource(policy, resource)
 					if err != nil {
-						return err
+						glog.V(4).Infoln(err)
+						return fmt.Errorf("Issues applying policy %v on resource %v", policy.Name, resource.GetName())
 					}
 				}
 			}

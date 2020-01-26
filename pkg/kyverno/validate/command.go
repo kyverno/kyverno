@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/golang/glog"
+
 	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -27,12 +29,14 @@ func Command() *cobra.Command {
 			for _, policyPath := range policyPaths {
 				policy, err := getPolicy(policyPath)
 				if err != nil {
-					return err
+					glog.V(4).Infoln(err)
+					return fmt.Errorf("Issues with policy path %v", policyPath)
 				}
 
 				err = policyvalidate.Validate(*policy)
 				if err != nil {
-					return err
+					glog.V(4).Infoln(err)
+					return fmt.Errorf("%v", policyPath)
 				}
 
 				fmt.Println("Policy " + policy.Name + " is valid")
