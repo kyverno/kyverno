@@ -4,10 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"path"
+
+	policy2 "github.com/nirmata/kyverno/pkg/policy"
+
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/nirmata/kyverno/pkg/config"
 	"k8s.io/client-go/discovery"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -27,7 +32,7 @@ import (
 )
 
 func Command() *cobra.Command {
-	var resourcePath, kubeConfig string
+	var resourcePath, kubeConfig, clusterName string
 
 	cmd := &cobra.Command{
 		Use:     "apply",
@@ -40,8 +45,12 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			if resourcePath == "" && kubeConfig == "" {
-				fmt.Println("Specify path to resource file or kube config")
+			if resourcePath == "" && clusterName == "" {
+				fmt.Println("Specify path to resource file or cluster name")
+			}
+
+			if kubeConfig == "" {
+				kubeConfig = path.Join(homedir.HomeDir(), ".kube", "config")
 			}
 
 			var policies []*v1.ClusterPolicy
@@ -51,10 +60,23 @@ func Command() *cobra.Command {
 					return err
 				}
 
+				err = policy2.Validate(*policy)
+				if err != nil {
+					return fmt.Errorf("Policy %v is not valid: %v", policy.Name, err)
+				}
+
 				policies = append(policies, policy)
 			}
 
-			resources, err := getResources(policies, kubeConfig, resourcePath)
+			var dClient *discovery.DiscoveryClient
+			if clusterName != "" {
+				dClient, err = getDiscoveryClient(kubeConfig, clusterName)
+				if err != nil {
+					return err
+				}
+			}
+
+			resources, err := getResources(policies, resourcePath, dClient)
 			if err != nil {
 				return err
 			}
@@ -78,14 +100,33 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringVar(&resourcePath, "resource", "", "path to resource file")
 	cmd.Flags().StringVar(&kubeConfig, "kubeConfig", "", "path to .kube/config file")
+	cmd.Flags().StringVar(&clusterName, "cluster", "", "Name of the kubernetes cluster to which the policy will apply to")
 	return cmd
 }
 
-func getResources(policies []*v1.ClusterPolicy, kubeConfig, resourcePath string) ([]*unstructured.Unstructured, error) {
+func getDiscoveryClient(kubeConfig, clusterName string) (*discovery.DiscoveryClient, error) {
+	apiConfig, err := clientcmd.LoadFromFile(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if apiConfig.Clusters[clusterName] == nil {
+		return nil, fmt.Errorf("Cluster does not exist in kubeConfig")
+	}
+
+	clientConfig, err := clientcmd.BuildConfigFromFlags(apiConfig.Clusters[clusterName].Server, kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return discovery.NewDiscoveryClientForConfig(clientConfig)
+}
+
+func getResources(policies []*v1.ClusterPolicy, resourcePath string, dClient *discovery.DiscoveryClient) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
-	if kubeConfig != "" {
+	if dClient != nil {
 		var resourceTypesMap = make(map[string]bool)
 		var resourceTypes []string
 		for _, policy := range policies {
@@ -100,7 +141,7 @@ func getResources(policies []*v1.ClusterPolicy, kubeConfig, resourcePath string)
 			resourceTypes = append(resourceTypes, kind)
 		}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, kubeConfig)
+		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
 		if err != nil {
 			return nil, err
 		}
@@ -118,18 +159,8 @@ func getResources(policies []*v1.ClusterPolicy, kubeConfig, resourcePath string)
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, kubeConfig string) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *discovery.DiscoveryClient) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
-
-	clientConfig, err := config.CreateClientConfig(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	dClient, err := discovery.NewDiscoveryClientForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
 
 	for _, kind := range resourceTypes {
 		endpoint, err := getListEndpointForKind(kind)
@@ -229,7 +260,7 @@ func getResource(path string) (*unstructured.Unstructured, error) {
 
 func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) error {
 
-	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s/%s", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName(), resource.GetUID())
+	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName())
 
 	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
 	if !mutateResponse.IsSuccesful() {
