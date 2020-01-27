@@ -83,7 +83,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
-			if ruleResponse.Success == true {
+			if ruleResponse.Success {
 				// - variable substitution path is not present
 				if ruleResponse.PathNotPresent {
 					glog.V(4).Infof(ruleResponse.Message)

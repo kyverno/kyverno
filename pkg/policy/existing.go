@@ -320,7 +320,7 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 
 	key := buildKey(policy, pv, kind, ns, name, rv)
 	_, ok := rm.data[key]
-	return ok == false
+	return !ok
 }
 
 func buildKey(policy, pv, kind, ns, name, rv string) string {
