@@ -359,10 +359,12 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 		// check regex () -> this is anchor
 		// ()
 		// single char ()
-		matched, err := regexp.MatchString(`^.?\(.+\)$`, key)
+		re, err := regexp.Compile(`^.?\(.+\)$`)
 		if err != nil {
 			return path + "/" + key, fmt.Errorf("Unable to parse the field %s: %v", key, err)
 		}
+
+		matched := re.MatchString(key)
 		// check the type of anchor
 		if matched {
 			// some type of anchor

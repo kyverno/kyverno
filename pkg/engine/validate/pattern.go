@@ -139,7 +139,7 @@ func validateValueWithNilPattern(value interface{}) bool {
 	case string:
 		return typed == ""
 	case bool:
-		return typed == false
+		return !typed
 	case nil:
 		return true
 	case map[string]interface{}, []interface{}:
