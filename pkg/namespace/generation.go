@@ -66,7 +66,7 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 
 	key := buildKey(policy, pv, kind, ns, name, rv)
 	_, ok := rm.data[key]
-	return ok == false
+	return !ok
 }
 
 //Drop drop the cache after every rebuild interval mins

@@ -150,7 +150,7 @@ func mutateResourceWithOverlay(resource, pattern interface{}) ([][]byte, error) 
 
 // applyOverlay detects type of current item and goes down through overlay and resource trees applying overlay
 func applyOverlay(resource, overlay interface{}, path string) ([][]byte, error) {
-	var appliedPatches [][]byte
+
 	// resource item exists but has different type - replace
 	// all subtree within this path by overlay
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
@@ -159,8 +159,7 @@ func applyOverlay(resource, overlay interface{}, path string) ([][]byte, error) 
 			return nil, err
 		}
 
-		appliedPatches = append(appliedPatches, patch)
-		//TODO : check if return is needed ?
+		return [][]byte{patch}, nil
 	}
 	return applyOverlayForSameTypes(resource, overlay, path)
 }
