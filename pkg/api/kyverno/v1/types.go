@@ -241,7 +241,7 @@ type PolicyStatus struct {
 	// average time required to process the policy Validation rules on a resource
 	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
 	// statistics per rule
-	Rules []RuleStats `json:"ruleStatus`
+	Rules []RuleStats `json:"ruleStatus"`
 }
 
 //RuleStats provides status per rule

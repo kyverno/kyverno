@@ -2,7 +2,6 @@ package client
 
 import (
 	"strings"
-	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,8 +20,6 @@ const (
 	// Namespaces Namespace
 	Namespaces string = "Namespace"
 )
-const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
-const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 
 //NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
