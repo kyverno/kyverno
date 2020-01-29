@@ -75,6 +75,6 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(w
 	} else if err != nil {
 		glog.Errorf("failed to delete verify webhook configuration %s: %v", mutatingConfig, err)
 	} else {
-		glog.V(4).Infof("succesfully deleted verify webhook configuration %s", mutatingConfig)
+		glog.V(4).Infof("successfully deleted verify webhook configuration %s", mutatingConfig)
 	}
 }

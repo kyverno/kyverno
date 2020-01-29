@@ -5,10 +5,13 @@ import (
 	"strconv"
 )
 
+//ValidationFailureReason defeins type for Validation Failure reason
 type ValidationFailureReason int
 
 const (
+	// PathNotPresent if path is not present
 	PathNotPresent ValidationFailureReason = iota
+	// Rulefailure if the rule failed
 	Rulefailure
 )
 
@@ -42,6 +45,7 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 	}
 }
 
+//ValidationError stores error for validation error
 type ValidationError struct {
 	StatusCode ValidationFailureReason
 	ErrorMsg   string

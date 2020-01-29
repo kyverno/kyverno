@@ -94,6 +94,8 @@ func scanDir(dir string) ([]string, error) {
 
 	return res[1:], nil
 }
+
+//ConvertToUnstructured converts the resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)

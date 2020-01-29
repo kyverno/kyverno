@@ -6,6 +6,7 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 )
 
+//StatusControlInterface provides interface to update status subresource
 type StatusControlInterface interface {
 	Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error
 	Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
@@ -16,7 +17,7 @@ type StatusControl struct {
 	client kyvernoclient.Interface
 }
 
-//FailedGR sets gr status.state to failed with message
+//Failed sets gr status.state to failed with message
 func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error {
 	gr.Status.State = kyverno.Failed
 	gr.Status.Message = message
@@ -31,7 +32,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 	return nil
 }
 
-// SuccessGR sets the gr status.state to completed and clears message
+// Success sets the gr status.state to completed and clears message
 func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
 	gr.Status.State = kyverno.Completed
 	gr.Status.Message = ""

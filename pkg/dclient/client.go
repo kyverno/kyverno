@@ -62,6 +62,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 	return &client, nil
 }
 
+//NewDynamicSharedInformerFactory returns a new instance of DynamicSharedInformerFactory
 func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
 }
@@ -209,29 +210,17 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 	return &csr, nil
 }
 
-// Waits until namespace is created with maximum duration maxWaitTimeForNamespaceCreation
-func (c *Client) waitUntilNamespaceIsCreated(name string) error {
-	timeStart := time.Now()
-
-	var lastError error
-	for time.Now().Sub(timeStart) < namespaceCreationMaxWaitTime {
-		_, lastError = c.GetResource(Namespaces, "", name)
-		if lastError == nil {
-			break
-		}
-		time.Sleep(namespaceCreationWaitInterval)
-	}
-	return lastError
-}
-
+//IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 }
 
+// SetDiscovery sets the discovery client implementation
 func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 	c.DiscoveryClient = discoveryClient
 }
 
+//ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }

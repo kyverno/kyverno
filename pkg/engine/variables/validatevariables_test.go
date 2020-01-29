@@ -37,7 +37,9 @@ func Test_ExtractVariables(t *testing.T) {
 	`)
 
 	var pattern interface{}
-	json.Unmarshal(patternRaw, &pattern)
+	if err := json.Unmarshal(patternRaw, &pattern); err != nil {
+		t.Error(err)
+	}
 
 	vars := extractVariables(pattern)
 

@@ -68,7 +68,7 @@ type PolicyController struct {
 	rm resourceManager
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
-	// recieves stats and aggregates details
+	// receives stats and aggregates details
 	statusAggregator *PolicyStatusAggregator
 	// store to hold policy meta data for faster lookup
 	pMetaStore policystore.UpdateInterface
@@ -450,7 +450,7 @@ type RealPVControl struct {
 	Recorder record.EventRecorder
 }
 
-//DeletePolicyViolation deletes the policy violation
+//DeleteClusterPolicyViolation deletes the policy violation
 func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
 	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
 }

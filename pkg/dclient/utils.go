@@ -2,7 +2,6 @@ package client
 
 import (
 	"strings"
-	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,8 +11,7 @@ import (
 )
 
 const (
-	// Kind names are case sensitive
-	//CSRs CertificateSigningRequest
+	// CSRs CertificateSigningRequest
 	CSRs string = "CertificateSigningRequest"
 	// Secrets Secret
 	Secrets string = "Secret"
@@ -22,13 +20,11 @@ const (
 	// Namespaces Namespace
 	Namespaces string = "Namespace"
 )
-const namespaceCreationMaxWaitTime time.Duration = 30 * time.Second
-const namespaceCreationWaitInterval time.Duration = 100 * time.Millisecond
 
-//---testing utilities
+//NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
 	client := fake.NewSimpleDynamicClient(scheme, objects...)
-	// the typed and dynamic client are initalized with similar resources
+	// the typed and dynamic client are initialized with similar resources
 	kclient := kubernetesfake.NewSimpleClientset(objects...)
 	return &Client{
 		client:  client,
@@ -90,23 +86,4 @@ func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[
 	u := newUnstructured(apiVersion, kind, namespace, name)
 	u.Object["spec"] = spec
 	return u
-}
-
-func retry(attempts int, sleep time.Duration, fn func() error) error {
-	if err := fn(); err != nil {
-		if s, ok := err.(stop); ok {
-			return s.error
-		}
-		if attempts--; attempts > 0 {
-			time.Sleep(sleep)
-			return retry(attempts, 2*sleep, fn)
-		}
-		return err
-	}
-	return nil
-}
-
-// Custom error
-type stop struct {
-	error
 }

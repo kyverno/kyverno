@@ -15,7 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
-// validateResourceWithPattern is a start of element-by-element validation process
+// ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
 func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, ValidationError) {
 	// if referenced path is not present, we skip processing the rule and report violation
@@ -93,7 +93,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 	for key, patternElement := range anchors {
 		// get handler for each pattern in the pattern
 		// - Conditional
-		// - Existance
+		// - Existence
 		// - Equality
 		handler := anchor.CreateElementHandler(key, patternElement, path)
 		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern)

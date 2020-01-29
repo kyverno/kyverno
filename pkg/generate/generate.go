@@ -90,7 +90,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.GenerateNew(policyContext)
+	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)

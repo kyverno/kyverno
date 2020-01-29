@@ -14,8 +14,8 @@ import (
 func reportEvents(err error, eventGen event.Interface, gr kyverno.GenerateRequest, resource unstructured.Unstructured) {
 	if err == nil {
 		// Success Events
-		// - resource -> policy rule applied succesfully
-		// - policy -> rule succesfully applied on resource
+		// - resource -> policy rule applied successfully
+		// - policy -> rule successfully applied on resource
 		events := successEvents(gr, resource)
 		eventGen.Add(events...)
 		return
@@ -95,7 +95,7 @@ func successEvents(gr kyverno.GenerateRequest, resource unstructured.Unstructure
 	pe.Name = gr.Spec.Policy
 	pe.Reason = event.PolicyApplied.String()
 	pe.Source = event.GeneratePolicyController
-	pe.Message = fmt.Sprintf("applied succesfully on resource %s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+	pe.Message = fmt.Sprintf("applied successfully on resource %s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	events = append(events, pe)
 
 	// Resource
@@ -105,7 +105,7 @@ func successEvents(gr kyverno.GenerateRequest, resource unstructured.Unstructure
 	re.Name = resource.GetName()
 	re.Reason = event.PolicyApplied.String()
 	re.Source = event.GeneratePolicyController
-	re.Message = fmt.Sprintf("policy %s succesfully applied", gr.Spec.Policy)
+	re.Message = fmt.Sprintf("policy %s successfully applied", gr.Spec.Policy)
 	events = append(events, re)
 
 	return events
