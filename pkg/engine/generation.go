@@ -6,7 +6,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
@@ -27,9 +26,6 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) *response.RuleResponse {
 	if !rule.HasGenerate() {
-		return nil
-	}
-	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
 		return nil
 	}
 	if !MatchesResourceDescription(resource, rule) {

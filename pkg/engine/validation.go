@@ -10,7 +10,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
@@ -99,12 +98,6 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 			glog.Infof("referenced path not present in rule %s/, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
 				newPathNotPresentRuleResponse(rule.Name, utils.Validation.String(), fmt.Sprintf("path not present: %s", paths)))
-			continue
-		}
-
-		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 			continue
 		}
 		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
