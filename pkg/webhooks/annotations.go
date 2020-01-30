@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"encoding/json"
+	"strings"
 
 	yamlv2 "gopkg.in/yaml.v2"
 
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.io/patches"
+	policyAnnotation = "policies.kyverno.io~1patches"
 )
 
 type rulePatch struct {
@@ -58,7 +59,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 		return nil
 	}
 
-	if _, ok := annotations[policyAnnotation]; ok {
+	if _, ok := annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")]; ok {
 		// create update patch string
 		patchResponse = annresponse{
 			Op:    "replace",
@@ -75,7 +76,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 			}
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
-			annotations[policyAnnotation] = string(value)
+			annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")] = string(value)
 			patchResponse = annresponse{
 				Op:    "add",
 				Path:  "/metadata/annotations",
