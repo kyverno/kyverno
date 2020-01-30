@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.patches"
+	policyAnnotation = "policies.kyverno.io/patches"
 )
 
 type rulePatch struct {
