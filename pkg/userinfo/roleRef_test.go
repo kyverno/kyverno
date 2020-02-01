@@ -167,14 +167,14 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 	flag.Set("v", "3")
 
 	list := []*rbacv1.RoleBinding{
-		&rbacv1.RoleBinding{
+		{
 			metav1.TypeMeta{
 				Kind:       "RoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
 			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
 			[]rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind:      "ServiceAccount",
 					Name:      "saconfig",
 					Namespace: "default",
@@ -185,14 +185,14 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				Name: "myrole",
 			},
 		},
-		&rbacv1.RoleBinding{
+		{
 			metav1.TypeMeta{
 				Kind:       "RoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
 			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
 			[]rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind:      "ServiceAccount",
 					Name:      "saconfig",
 					Namespace: "default",
@@ -219,14 +219,14 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 
 func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 	list := []*rbacv1.ClusterRoleBinding{
-		&rbacv1.ClusterRoleBinding{
+		{
 			metav1.TypeMeta{
 				Kind:       "ClusterRoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
 			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
 			[]rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind: "User",
 					Name: "kube-scheduler",
 				},
@@ -236,14 +236,14 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 				Name: "fakeclusterrole",
 			},
 		},
-		&rbacv1.ClusterRoleBinding{
+		{
 			metav1.TypeMeta{
 				Kind:       "ClusterRoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
 			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
 			[]rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind: "Group",
 					Name: "system:masters",
 				},

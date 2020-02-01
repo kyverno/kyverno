@@ -46,13 +46,13 @@ func main() {
 
 	requests := []request{
 		// Resource
-		request{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationName},
-		request{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationDebugName},
+		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationName},
+		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationDebugName},
 		// Policy
-		request{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationName},
-		request{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationDebugName},
-		request{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationName},
-		request{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationDebugName},
+		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationName},
+		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationDebugName},
+		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationName},
+		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationDebugName},
 	}
 
 	done := make(chan struct{})
