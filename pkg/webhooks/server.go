@@ -10,12 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -195,27 +189,6 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func filterPolicyRulesBasedOnMatchExclude(policies []v1.ClusterPolicy, userRequestInfo v1.RequestInfo, resource unstructured.Unstructured) []v1.ClusterPolicy {
-	var updatedPolcies []v1.ClusterPolicy
-	for _, policy := range policies {
-		var validRules []v1.Rule
-		for _, rule := range policy.Spec.Rules {
-			if !rbac.MatchAdmissionInfo(rule, userRequestInfo) {
-				glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-					rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), userRequestInfo)
-				continue
-			}
-			validRules = append(validRules, rule)
-		}
-		policy.Spec.Rules = validRules
-		if len(policy.Spec.Rules) > 0 {
-			updatedPolcies = append(updatedPolcies, policy)
-		}
-	}
-
-	return updatedPolcies
-}
-
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
 	if err != nil {
@@ -260,14 +233,6 @@ func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionReques
 			},
 		}
 	}
-
-	userRequestInfo := v1.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo,
-	}
-
-	policies = filterPolicyRulesBasedOnMatchExclude(policies, userRequestInfo, resource)
 
 	// MUTATION
 	// mutation failure should not block the resource creation
