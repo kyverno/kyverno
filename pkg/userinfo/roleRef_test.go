@@ -168,37 +168,37 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 
 	list := []*rbacv1.RoleBinding{
 		{
-			metav1.TypeMeta{
+			kind: metav1.TypeMeta{
 				Kind:       "RoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
-			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
+			metadata: metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
+			subjects: []rbacv1.Subject{
 				{
 					Kind:      "ServiceAccount",
 					Name:      "saconfig",
 					Namespace: "default",
 				},
 			},
-			rbacv1.RoleRef{
+			roleRef: rbacv1.RoleRef{
 				Kind: rolekind,
 				Name: "myrole",
 			},
 		},
 		{
-			metav1.TypeMeta{
+			kind: metav1.TypeMeta{
 				Kind:       "RoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
-			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
+			metadata: metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
+			subjects: []rbacv1.Subject{
 				{
 					Kind:      "ServiceAccount",
 					Name:      "saconfig",
 					Namespace: "default",
 				},
 			},
-			rbacv1.RoleRef{
+			roleRef: rbacv1.RoleRef{
 				Kind: clusterrolekind,
 				Name: "myclusterrole",
 			},
@@ -220,35 +220,35 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 	list := []*rbacv1.ClusterRoleBinding{
 		{
-			metav1.TypeMeta{
+			kind: metav1.TypeMeta{
 				Kind:       "ClusterRoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
-			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
+			metadata: metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
+			subjects: []rbacv1.Subject{
 				{
 					Kind: "User",
 					Name: "kube-scheduler",
 				},
 			},
-			rbacv1.RoleRef{
+			roleRef: rbacv1.RoleRef{
 				Kind: clusterrolekind,
 				Name: "fakeclusterrole",
 			},
 		},
 		{
-			metav1.TypeMeta{
+			kind: metav1.TypeMeta{
 				Kind:       "ClusterRoleBinding",
 				APIVersion: "rbac.authorization.k8s.io/v1",
 			},
-			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
+			metadata: metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
+			subjects: []rbacv1.Subject{
 				{
 					Kind: "Group",
 					Name: "system:masters",
 				},
 			},
-			rbacv1.RoleRef{
+			roleRef: rbacv1.RoleRef{
 				Kind: clusterrolekind,
 				Name: "myclusterrole",
 			},
