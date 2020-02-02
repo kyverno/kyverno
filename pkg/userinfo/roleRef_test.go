@@ -193,7 +193,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		},
 	)
 
-	list[0] = newRoleBinding("test2", "mynamespace",
+	list[1] = newRoleBinding("test2", "mynamespace",
 		[]rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
