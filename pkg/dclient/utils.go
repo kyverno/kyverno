@@ -37,15 +37,15 @@ func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, 
 func NewFakeDiscoveryClient(registeredResouces []schema.GroupVersionResource) *fakeDiscoveryClient {
 	// Load some-preregistd resources
 	res := []schema.GroupVersionResource{
-		schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
-		schema.GroupVersionResource{Version: "v1", Resource: "endpoints"},
-		schema.GroupVersionResource{Version: "v1", Resource: "namespaces"},
-		schema.GroupVersionResource{Version: "v1", Resource: "resourcequotas"},
-		schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
-		schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"},
+		{Version: "v1", Resource: "configmaps"},
+		{Version: "v1", Resource: "endpoints"},
+		{Version: "v1", Resource: "namespaces"},
+		{Version: "v1", Resource: "resourcequotas"},
+		{Version: "v1", Resource: "secrets"},
+		{Version: "v1", Resource: "serviceaccounts"},
+		{Group: "apps", Version: "v1", Resource: "daemonsets"},
+		{Group: "apps", Version: "v1", Resource: "deployments"},
+		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 	}
 	registeredResouces = append(registeredResouces, res...)
 	return &fakeDiscoveryClient{registeredResouces: registeredResouces}
