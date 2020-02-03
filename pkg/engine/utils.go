@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/engine/rbac"
+
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
@@ -27,9 +29,15 @@ type EngineStats struct {
 }
 
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
-func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule) bool {
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) bool {
 	matches := rule.MatchResources.ResourceDescription
 	exclude := rule.ExcludeResources.ResourceDescription
+
+	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
+		glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+			rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
+		return false
+	}
 
 	if !findKind(matches.Kinds, resource.GetKind()) {
 		return false

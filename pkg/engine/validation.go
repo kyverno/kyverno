@@ -10,7 +10,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
@@ -101,18 +100,12 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 				newPathNotPresentRuleResponse(rule.Name, utils.Validation.String(), fmt.Sprintf("path not present: %s", paths)))
 			continue
 		}
-
-		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
-			continue
-		}
 		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule)
+		ok := MatchesResourceDescription(resource, rule, admissionInfo)
 		if !ok {
 			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
 			continue

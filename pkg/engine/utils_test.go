@@ -67,7 +67,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 // Match resource name
@@ -125,7 +125,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 // Match resource regex
@@ -183,7 +183,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 // Match expressions for labels to not match
@@ -249,7 +249,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 // Match label expression in matching set
@@ -316,7 +316,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 // check for exclude conditions
@@ -394,7 +394,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription},
 		ExcludeResources: kyverno.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
 
-	assert.Assert(t, !MatchesResourceDescription(*resource, rule))
+	assert.Assert(t, !MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
 }
 
 func Test_validateGeneralRuleInfoVariables(t *testing.T) {
