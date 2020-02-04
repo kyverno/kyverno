@@ -133,10 +133,10 @@ Operators supported:
 
 # Background processing
 Kyverno applies policies in foreground and background mode.
-- `foreground`: leverages admission control webhooks to intercept the resource api-request and apply policy on it.
+- `foreground`: leverages admission control webhooks to intercept, and apply policies on, API requests for resource changes.
 - `background`: policy-controller applies policies on the existing resoruces after configured re-conciliation time.
 
-A policy is always enable for `foreground` processing, but `background` processing is configurable using a boolean flag at `{spec.background}`.
+A policy is always enabled for `foreground` processing, but `background` processing is configurable using a boolean flag at `{spec.background}`.
 
 ```
 spec:
