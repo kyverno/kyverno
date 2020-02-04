@@ -97,8 +97,8 @@ func TestValidateMap(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -193,8 +193,8 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	t.Log(path)
@@ -286,8 +286,8 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -374,8 +374,8 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -465,8 +465,8 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/template/spec/containers/0/")
@@ -556,7 +556,7 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	json.Unmarshal(rawMap, &resource)
 
 	path, err := validateMap(resource, pattern, pattern, "/")
@@ -646,8 +646,8 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	}`)
 
 	var pattern, resource map[string]interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -692,8 +692,8 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	  }`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -727,8 +727,8 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	]`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -781,8 +781,8 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -835,8 +835,8 @@ func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
@@ -889,8 +889,8 @@ func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
@@ -943,8 +943,8 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
@@ -997,8 +997,8 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -1051,8 +1051,8 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
@@ -1105,8 +1105,8 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -1146,8 +1146,8 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -1188,8 +1188,8 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/image/")
@@ -1242,8 +1242,8 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	}`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
@@ -1274,7 +1274,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	var pattern interface{}
 
-	json.Unmarshal(rawPattern, &pattern)
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 
 	pattern, err := actualizePattern(pattern, referencePath, absolutePath)
 

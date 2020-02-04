@@ -237,7 +237,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "label2",
 					Operator: "NotIn",
 					Values: []string{
@@ -303,7 +303,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "app",
 					Operator: "NotIn",
 					Values: []string{
@@ -371,7 +371,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "app",
 					Operator: "NotIn",
 					Values: []string{
@@ -488,9 +488,19 @@ func Test_validateGeneralRuleInfoVariables(t *testing.T) {
 	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
 
 	ctx := context.NewContext()
-	ctx.AddResource(rawResource)
-	ctx.AddUserInfo(userReqInfo)
-	ctx.AddSA("system:serviceaccount:test:testuser")
+	var err error
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddUserInfo(userReqInfo)
+	if err != nil {
+		t.Error(err)
+	}
+	err = ctx.AddSA("system:serviceaccount:test:testuser")
+	if err != nil {
+		t.Error(err)
+	}
 
 	expectPaths := []string{"request.userInfo.username1", "request.object.namespace", ""}
 

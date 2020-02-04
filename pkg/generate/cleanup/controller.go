@@ -25,6 +25,7 @@ const (
 	maxRetries = 5
 )
 
+//Controller manages life-cycle of generate-requests
 type Controller struct {
 	// dyanmic client implementation
 	client *dclient.Client
@@ -54,6 +55,7 @@ type Controller struct {
 	nsInformer informers.GenericInformer
 }
 
+//NewController returns a new controller instance to manage generate-requests
 func NewController(
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
@@ -106,10 +108,10 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 		glog.Errorf("failed to Generate Requests for resource %s/%s/%s: %v", r.GetKind(), r.GetNamespace(), r.GetName(), err)
 		return
 	}
-		// re-evaluate the GR as the resource was deleted
-		for _, gr := range grs {
-			c.enqueueGR(gr)
-		}	
+	// re-evaluate the GR as the resource was deleted
+	for _, gr := range grs {
+		c.enqueueGR(gr)
+	}
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
@@ -179,6 +181,7 @@ func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 	c.queue.Add(key)
 }
 
+//Run starts the generate-request re-conciliation loop
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()

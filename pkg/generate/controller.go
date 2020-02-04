@@ -25,6 +25,7 @@ const (
 	maxRetries = 5
 )
 
+// Controller manages the life-cycle for Generate-Requests and applies generate rule
 type Controller struct {
 	// dyanmic client implementation
 	client *dclient.Client
@@ -58,6 +59,7 @@ type Controller struct {
 	nsInformer informers.GenericInformer
 }
 
+//NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,

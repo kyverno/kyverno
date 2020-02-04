@@ -10,4 +10,4 @@ expected:
       - name: set-image-pull-policy
         type: Mutation
         messages:
-          - "Rule set-image-pull-policy: Overlay succesfully applied."
+          - "Rule set-image-pull-policy: Overlay successfully applied."

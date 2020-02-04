@@ -53,6 +53,9 @@ type PolicyViolationNamespaceListerExpansion interface{}
 // as the lister is specific to a gvk we can harcode the values here
 func (pvl *clusterPolicyViolationLister) ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicyViolation, err error) {
 	policyviolations, err := pvl.List(selector)
+	if err != nil {
+		return nil, err
+	}
 	for index := range policyviolations {
 		policyviolations[index].SetGroupVersionKind(kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicyViolation"))
 	}

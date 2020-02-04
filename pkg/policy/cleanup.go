@@ -8,7 +8,6 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -87,19 +86,4 @@ func getNamespacedPV(nspvLister kyvernolister.PolicyViolationLister, policyName,
 	}
 
 	return kyverno.PolicyViolation{}, nil
-}
-
-func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) {
-	ls := &metav1.LabelSelector{}
-	err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&labelMap, ls, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	policyViolationSelector, err := metav1.LabelSelectorAsSelector(ls)
-	if err != nil {
-		return nil, fmt.Errorf("invalid label selector: %v", err)
-	}
-
-	return policyViolationSelector, nil
 }

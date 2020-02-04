@@ -2,6 +2,7 @@ package v1
 
 import "reflect"
 
+//HasMutateOrValidateOrGenerate checks for rule types
 func (p ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
@@ -11,14 +12,17 @@ func (p ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	return false
 }
 
+//HasMutate checks for mutate rule
 func (r Rule) HasMutate() bool {
 	return !reflect.DeepEqual(r.Mutation, Mutation{})
 }
 
+//HasValidate checks for validate rule
 func (r Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
 }
 
+//HasGenerate checks for generate rule
 func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }

@@ -1457,7 +1457,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "substitue-variable"
+		  "name": "substitute-variable"
 		},
 		"spec": {
 		  "rules": [
@@ -1528,7 +1528,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *t
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "substitue-variable"
+		  "name": "substitute-variable"
 		},
 		"spec": {
 		  "rules": [
@@ -1620,7 +1620,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "substitue-variable"
+		  "name": "substitute-variable"
 		},
 		"spec": {
 		  "rules": [
@@ -1710,7 +1710,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "substitue-variable"
+		  "name": "substitute-variable"
 		},
 		"spec": {
 		  "rules": [

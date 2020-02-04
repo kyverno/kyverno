@@ -19,6 +19,7 @@ func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 	return utils.ApplyPatches(resource, patchesList)
 }
 
+//ProcessPatches applies the patches on the resource and returns the patched resource
 func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started JSON patch rule %q (%v)", rule.Name, startTime)
@@ -82,9 +83,9 @@ func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		return resp, resource
 	}
 
-	// JSON patches processed succesfully
+	// JSON patches processed successfully
 	resp.Success = true
-	resp.Message = fmt.Sprintf("succesfully process JSON patches")
+	resp.Message = fmt.Sprintf("successfully process JSON patches")
 	resp.Patches = patches
 	return resp, patchedResource
 }

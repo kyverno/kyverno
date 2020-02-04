@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	defaultYamlSeparator = "---"
-	projectPath          = "src/github.com/nirmata/kyverno"
+	projectPath = "src/github.com/nirmata/kyverno"
 )
 
 // LoadFile loads file in byte buffer
@@ -38,6 +37,7 @@ func getResourceFromKind(kind string) string {
 	return ""
 }
 
+//ConvertToUnstructured converts a resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)

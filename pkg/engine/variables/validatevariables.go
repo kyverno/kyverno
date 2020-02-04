@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -42,6 +43,7 @@ func extractVariables(pattern interface{}) [][]string {
 	case string:
 		return extractValue(typedPattern)
 	default:
+		fmt.Printf("variable type %T", typedPattern)
 		return nil
 	}
 }

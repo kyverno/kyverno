@@ -67,9 +67,20 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// build context
 	ctx := context.NewContext()
 	// load incoming resource into the context
-	ctx.AddResource(request.Object.Raw)
-	ctx.AddUserInfo(userRequestInfo)
-	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddResource(request.Object.Raw)
+	if err != nil {
+		glog.Infof("Failed to load resource in context:%v", err)
+	}
+
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		glog.Infof("Failed to load userInfo in context:%v", err)
+	}
+
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		glog.Infof("Failed to load service account in context:%v", err)
+	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   newR,

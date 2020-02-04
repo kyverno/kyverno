@@ -22,7 +22,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
-// processOverlay processes mutation overlay on the resource
+// ProcessOverlay processes mutation overlay on the resource
 func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
@@ -111,7 +111,7 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		return resp, resource
 	}
 
-	// rule application succesfuly
+	// rule application successfully
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully processed overlay")
 	resp.Patches = patches
@@ -150,7 +150,7 @@ func mutateResourceWithOverlay(resource, pattern interface{}) ([][]byte, error) 
 
 // applyOverlay detects type of current item and goes down through overlay and resource trees applying overlay
 func applyOverlay(resource, overlay interface{}, path string) ([][]byte, error) {
-	var appliedPatches [][]byte
+
 	// resource item exists but has different type - replace
 	// all subtree within this path by overlay
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
@@ -159,8 +159,7 @@ func applyOverlay(resource, overlay interface{}, path string) ([][]byte, error) 
 			return nil, err
 		}
 
-		appliedPatches = append(appliedPatches, patch)
-		//TODO : check if return is needed ?
+		return [][]byte{patch}, nil
 	}
 	return applyOverlayForSameTypes(resource, overlay, path)
 }

@@ -140,7 +140,7 @@ func NewWebhookServer(
 // Main server endpoint for all requests
 func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
-	// for every request recieved on the ep update last request time,
+	// for every request received on the ep update last request time,
 	// this is used to verify admission control
 	ws.lastReqTime.SetTime(time.Now())
 	admissionReview := ws.bodyToAdmissionReview(r, w)
@@ -159,7 +159,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	request := admissionReview.Request
 	switch r.URL.Path {
 	case config.VerifyMutatingWebhookServicePath:
-		// we do not apply filters as this endpoint is used explicity
+		// we do not apply filters as this endpoint is used explicitly
 		// to watch kyveno deployment and verify if admission control is enabled
 		admissionReview.Response = ws.handleVerifyRequest(request)
 	case config.MutatingWebhookServicePath:

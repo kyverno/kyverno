@@ -17,9 +17,12 @@ import (
 )
 
 const (
-	PodControllers           = "DaemonSet,Deployment,Job,StatefulSet"
+	//PodControllers stores the list of Pod-controllers in csv string
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet"
+	//PodControllersAnnotation defines the annotation key for Pod-Controllers
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-	PodTemplateAnnotation    = "pod-policies.kyverno.io/autogen-applied"
+	//PodTemplateAnnotation defines the annotation key for Pod-Template
+	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -34,7 +37,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	defer endMutateResultResponse(&resp, startTime)
 
 	incrementAppliedRuleCount := func() {
-		// rules applied succesfully count
+		// rules applied successfully count
 		resp.PolicyResponse.RulesAppliedCount++
 	}
 
@@ -80,7 +83,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if rule.Mutation.Overlay != nil {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
-			if ruleResponse.Success == true {
+			if ruleResponse.Success {
 				// - variable substitution path is not present
 				if ruleResponse.PathNotPresent {
 					glog.V(4).Infof(ruleResponse.Message)

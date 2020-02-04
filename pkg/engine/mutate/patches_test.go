@@ -174,10 +174,6 @@ func assertEqDataImpl(t *testing.T, expected, actual []byte, formatModifier stri
 	}
 }
 
-func assertEqData(t *testing.T, expected, actual []byte) {
-	assertEqDataImpl(t, expected, actual, "%x")
-}
-
 func assertEqStringAndData(t *testing.T, str string, data []byte) {
 	assertEqDataImpl(t, []byte(str), data, "%s")
 }

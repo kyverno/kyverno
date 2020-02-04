@@ -8,9 +8,10 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 
+//GeneratePVsFromEngineResponse generate Violations from engine responses
 func GeneratePVsFromEngineResponse(ers []response.EngineResponse) (pvInfos []Info) {
 	for _, er := range ers {
-		// ignore creation of PV for resoruces that are yet to be assigned a name
+		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
 			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
