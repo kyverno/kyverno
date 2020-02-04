@@ -414,3 +414,26 @@ func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, 
 	}
 	return info
 }
+
+func addLabels(unstr *unstructured.Unstructured) {
+	// add managedBY label if not defined
+	labels := unstr.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	// ManagedBy label
+	key := "app.kubernetes.io/managed-by"
+	value := "kyverno"
+	val, ok := labels[key]
+	if ok {
+		if val != value {
+			glog.Infof("resource managed by %s, kyverno wont over-ride the label", val)
+		}
+	}
+	// we dont over-ride the key managed by
+	if !ok {
+		// add lable
+		labels[key] = value
+	}
+
+}
