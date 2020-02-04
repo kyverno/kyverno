@@ -118,8 +118,10 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 			continue
 		}
 
+		// operate on the copy of the conditions, as we perform variable substitution
+		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(ctx, rule.Conditions) {
+		if !variables.EvaluateConditions(ctx, copyConditions) {
 			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
@@ -195,6 +197,12 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				glog.V(4).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resp.Message)
 			case validate.Rulefailure:
 				// rule application failed
+				glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
+				resp.Success = false
+				resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
+					rule.Validation.Message, rule.Name, path)
+			case validate.OtherError:
+				// other error
 				glog.V(4).Infof("Validation rule '%s' failed at '%s' for resource %s/%s/%s. %s: %v", rule.Name, path, resource.GetKind(), resource.GetNamespace(), resource.GetName(), rule.Validation.Message, err)
 				resp.Success = false
 				resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",

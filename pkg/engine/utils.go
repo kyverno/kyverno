@@ -257,3 +257,13 @@ func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleRespon
 		PathNotPresent: true,
 	}
 }
+
+func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	var copy []kyverno.Condition
+	for _, condition := range original {
+		copyCondition := kyverno.Condition{}
+		condition.DeepCopyInto(&copyCondition)
+		copy = append(copy, copyCondition)
+	}
+	return copy
+}

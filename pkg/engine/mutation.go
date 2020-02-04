@@ -73,8 +73,10 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			continue
 		}
 
+		// operate on the copy of the conditions, as we perform variable substitution
+		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(ctx, rule.Conditions) {
+		if !variables.EvaluateConditions(ctx, copyConditions) {
 			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}

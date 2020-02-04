@@ -35,9 +35,10 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !MatchesResourceDescription(resource, rule) {
 		return nil
 	}
-
+	// operate on the copy of the conditions, as we perform variable substitution
+	copyConditions := copyConditions(rule.Conditions)
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(ctx, rule.Conditions) {
+	if !variables.EvaluateConditions(ctx, copyConditions) {
 		glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 		return nil
 	}

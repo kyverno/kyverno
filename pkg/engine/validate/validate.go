@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -23,16 +24,35 @@ func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern in
 		return "", newValidatePatternError(PathNotPresent, invalidPaths)
 	}
 
+	// Operate on copy of the value for variable substitution
+	patternCopy, err := copyInterface(pattern)
+	if err != nil {
+		return "", newValidatePatternError(OtherError, err.Error())
+	}
 	// first pass we substitute all the JMESPATH substitution for the variable
 	// variable: {{<JMESPATH>}}
 	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
-	pattern = variables.SubstituteVariables(ctx, pattern)
-	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	pattern = variables.SubstituteVariables(ctx, patternCopy)
+	path, err := validateResourceElement(resource, patternCopy, patternCopy, "/")
 	if err != nil {
 		return path, newValidatePatternError(Rulefailure, err.Error())
 	}
 
 	return "", ValidationError{}
+}
+
+func copyInterface(original interface{}) (interface{}, error) {
+	tempData, err := json.Marshal(original)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(tempData))
+	var temp interface{}
+	err = json.Unmarshal(tempData, &temp)
+	if err != nil {
+		return nil, err
+	}
+	return temp, nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)

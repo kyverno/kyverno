@@ -13,6 +13,8 @@ const (
 	PathNotPresent ValidationFailureReason = iota
 	// Rulefailure if the rule failed
 	Rulefailure
+	// OtherError if there is any other type of error
+	OtherError
 )
 
 // convertToString converts value to string
