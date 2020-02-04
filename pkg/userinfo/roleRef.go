@@ -18,6 +18,7 @@ const (
 	rolekind        = "Role"
 )
 
+//GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.NewSelector())

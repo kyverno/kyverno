@@ -10,10 +10,11 @@ import (
 )
 
 const (
+	//SaPrefix defines the prefix for service accounts
 	SaPrefix = "system:serviceaccount:"
 )
 
-// matchAdmissionInfo return true if the rule can be applied to the request
+// MatchAdmissionInfo return true if the rule can be applied to the request
 func MatchAdmissionInfo(rule kyverno.Rule, requestInfo kyverno.RequestInfo) bool {
 	// when processing existing resource, it does not contain requestInfo
 	// skip permission checking

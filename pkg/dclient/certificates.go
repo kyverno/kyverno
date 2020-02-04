@@ -119,7 +119,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
 	// TODO: react of SIGINT and SIGTERM
 	timeStart := time.Now()
-	for time.Now().Sub(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
+	for time.Since(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
 		unstrR, err := c.GetResource(CSRs, "", req.ObjectMeta.Name)
 		if err != nil {
 			return nil, err

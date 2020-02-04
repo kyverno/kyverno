@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	ospath "path"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -51,19 +50,19 @@ type sExpected struct {
 type sMutation struct {
 	// path to the patched resource to be compared with
 	PatchedResource string `yaml:"patchedresource,omitempty"`
-	// expected respone from the policy engine
+	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
 type sValidation struct {
-	// expected respone from the policy engine
+	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
 type sGeneration struct {
 	// generated resources
 	GeneratedResources []kyverno.ResourceSpec `yaml:"generatedResources"`
-	// expected respone from the policy engine
+	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
@@ -81,7 +80,7 @@ func loadScenario(t *testing.T, path string) (*scenarioT, error) {
 	}
 
 	var testCases []scaseT
-	// load test cases seperated by '---'
+	// load test cases separated by '---'
 	// each test case defines an input & expected result
 	scenariosBytes := bytes.Split(fileBytes, []byte("---"))
 	for _, scenarioBytes := range scenariosBytes {
@@ -107,24 +106,6 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadFile(path)
-}
-
-//getFiles loads all scneario files in specified folder path
-func getFiles(t *testing.T, folder string) ([]string, error) {
-	t.Logf("loading scneario files for folder %s", folder)
-	files, err := ioutil.ReadDir(folder)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-
-	var yamls []string
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".yml" || filepath.Ext(file.Name()) == ".yaml" {
-			yamls = append(yamls, ospath.Join(folder, file.Name()))
-		}
-	}
-	return yamls, nil
 }
 
 func runScenario(t *testing.T, s *scenarioT) bool {
@@ -179,7 +160,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				Client:      client,
 			}
 
-			er = engine.GenerateNew(policyContext)
+			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namesapces as resource
@@ -238,10 +219,10 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 	}
 	// cant do deepEquals and the stats will be different, or we nil those fields and then do a comparison
 	// forcing only the fields that are specified to be comprared
-	// doing a field by fields comparsion will allow us to provied more details logs and granular error reporting
+	// doing a field by fields comparison will allow us to provied more details logs and granular error reporting
 	// check policy name is same :P
 	if er.Policy != expected.Policy {
-		t.Errorf("Policy name: expected %s, recieved %s", expected.Policy, er.Policy)
+		t.Errorf("Policy name: expected %s, received %s", expected.Policy, er.Policy)
 	}
 	// compare resource spec
 	compareResourceSpec(t, er.Resource, expected.Resource)
@@ -257,7 +238,7 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 	}
 	if len(er.Rules) == len(expected.Rules) {
 		// if there are rules being applied then we compare the rule response
-		// as the rules are applied in the order defined, the comparions of rules will be in order
+		// as the rules are applied in the order defined, the comparison of rules will be in order
 		for index, r := range expected.Rules {
 			compareRules(t, er.Rules[index], r)
 		}
@@ -267,7 +248,7 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedResource response.ResourceSpec) {
 	// kind
 	if resource.Kind != expectedResource.Kind {
-		t.Errorf("kind: expected %s, recieved %s", expectedResource.Kind, resource.Kind)
+		t.Errorf("kind: expected %s, received %s", expectedResource.Kind, resource.Kind)
 	}
 	// //TODO apiVersion
 	// if resource.APIVersion != expectedResource.APIVersion {
@@ -276,28 +257,28 @@ func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedR
 
 	// namespace
 	if resource.Namespace != expectedResource.Namespace {
-		t.Errorf("namespace: expected %s, recieved %s", expectedResource.Namespace, resource.Namespace)
+		t.Errorf("namespace: expected %s, received %s", expectedResource.Namespace, resource.Namespace)
 	}
 	// name
 	if resource.Name != expectedResource.Name {
-		t.Errorf("name: expected %s, recieved %s", expectedResource.Name, resource.Name)
+		t.Errorf("name: expected %s, received %s", expectedResource.Name, resource.Name)
 	}
 }
 
 func compareRules(t *testing.T, rule response.RuleResponse, expectedRule response.RuleResponse) {
 	// name
 	if rule.Name != expectedRule.Name {
-		t.Errorf("rule name: expected %s, recieved %+v", expectedRule.Name, rule.Name)
+		t.Errorf("rule name: expected %s, received %+v", expectedRule.Name, rule.Name)
 		// as the rule names dont match no need to compare the rest of the information
 	}
 	// type
 	if rule.Type != expectedRule.Type {
-		t.Errorf("rule type: expected %s, recieved %s", expectedRule.Type, rule.Type)
+		t.Errorf("rule type: expected %s, received %s", expectedRule.Type, rule.Type)
 	}
 	// message
 	// compare messages if expected rule message is not empty
 	if expectedRule.Message != "" && rule.Message != expectedRule.Message {
-		t.Errorf("rule message: expected %s, recieved %s", expectedRule.Message, rule.Message)
+		t.Errorf("rule message: expected %s, received %s", expectedRule.Message, rule.Message)
 	}
 	// //TODO patches
 	// if reflect.DeepEqual(rule.Patches, expectedRule.Patches) {
@@ -306,7 +287,7 @@ func compareRules(t *testing.T, rule response.RuleResponse, expectedRule respons
 
 	// success
 	if rule.Success != expectedRule.Success {
-		t.Errorf("rule success: expected %t, recieved %t", expectedRule.Success, rule.Success)
+		t.Errorf("rule success: expected %t, received %t", expectedRule.Success, rule.Success)
 	}
 }
 

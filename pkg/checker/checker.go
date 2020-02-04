@@ -18,24 +18,27 @@ const (
 	DefaultResync   time.Duration = 60 * time.Second
 )
 
-// LastReqTime
+// LastReqTime stores the lastrequest times for incoming api-requests
 type LastReqTime struct {
 	t  time.Time
 	mu sync.RWMutex
 }
 
+//Time returns the lastrequest time
 func (t *LastReqTime) Time() time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.t
 }
 
+//SetTime stes the lastrequest time
 func (t *LastReqTime) SetTime(tm time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.t = tm
 }
 
+//NewLastReqTime returns a new instance of LastRequestTime store
 func NewLastReqTime() *LastReqTime {
 	return &LastReqTime{
 		t: time.Now(),
@@ -62,9 +65,8 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 	glog.V(2).Infof("starting default resync for webhook checker with resync time %d nanoseconds", defaultResync)
 	maxDeadline := deadline * time.Duration(MaxRetryCount)
 	ticker := time.NewTicker(defaultResync)
-	var statuscontrol StatusInterface
 	/// interface to update and increment kyverno webhook status via annotations
-	statuscontrol = NewVerifyControl(client, eventGen)
+	statuscontrol := NewVerifyControl(client, eventGen)
 	// send the initial update status
 	if checkIfPolicyWithMutateAndGenerateExists(pLister) {
 		if err := statuscontrol.SuccessStatus(); err != nil {
@@ -73,8 +75,8 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 	}
 
 	defer ticker.Stop()
-	// - has recieved request ->  set webhookstatus as "True"
-	// - no requests recieved
+	// - has received request ->  set webhookstatus as "True"
+	// - no requests received
 	// 						  -> if greater than deadline, send update request
 	// 						  -> if greater than maxDeadline, send failed status update
 	for {
@@ -88,8 +90,8 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 			// get current time
 			timeDiff := time.Since(t.Time())
 			if timeDiff > maxDeadline {
-				glog.Infof("failed to recieve any request for more than %v ", maxDeadline)
-				glog.Info("Admission Control failing: Webhook is not recieving requests forwarded by api-server as per webhook configurations")
+				glog.Infof("failed to receive any request for more than %v ", maxDeadline)
+				glog.Info("Admission Control failing: Webhook is not receiving requests forwarded by api-server as per webhook configurations")
 				// set the status unavailable
 				if err := statuscontrol.FailedStatus(); err != nil {
 					glog.Error(err)
@@ -97,7 +99,7 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 				continue
 			}
 			if timeDiff > deadline {
-				glog.Info("Admission Control failing: Webhook is not recieving requests forwarded by api-server as per webhook configurations")
+				glog.Info("Admission Control failing: Webhook is not receiving requests forwarded by api-server as per webhook configurations")
 				// send request to update the kyverno deployment
 				if err := statuscontrol.IncrementAnnotation(); err != nil {
 					glog.Error(err)

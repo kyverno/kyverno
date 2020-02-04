@@ -66,10 +66,21 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		glog.V(4).Infof("failed to marshal resource: %v", err)
 		return nil, err
 	}
-
-	ctx.AddResource(resourceRaw)
-	ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
-	ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		glog.Infof("Failed to load resource in context: %v", err)
+		return nil, err
+	}
+	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
+	if err != nil {
+		glog.Infof("Failed to load userInfo in context: %v", err)
+		return nil, err
+	}
+	err = ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		glog.Infof("Failed to load serviceAccount in context: %v", err)
+		return nil, err
+	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
@@ -79,7 +90,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.GenerateNew(policyContext)
+	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		glog.V(4).Infof("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
@@ -255,7 +266,10 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate data: %s", invalidPaths))
 	}
 
-	newData := variables.SubstituteVariables(ctx, generateRule.Data)
+	//work on copy
+	copyDataTemp := reflect.Indirect(reflect.ValueOf(generateRule.Data))
+	copyData := copyDataTemp.Interface()
+	newData := variables.SubstituteVariables(ctx, copyData)
 
 	// check if resource exists
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
@@ -339,7 +353,7 @@ func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, 
 	info := policyviolation.Info{
 		PolicyName: gr.Spec.Policy,
 		Resource:   resource,
-		Rules: []kyverno.ViolatedRule{kyverno.ViolatedRule{
+		Rules: []kyverno.ViolatedRule{{
 			Name:    err.rule,
 			Type:    "Generation",
 			Message: err.Error(),

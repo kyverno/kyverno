@@ -11,6 +11,7 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
+//HandleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
 	var engineResponses []response.EngineResponse
 
@@ -33,10 +34,19 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// build context
 	ctx := context.NewContext()
 	// load incoming resource into the context
-	ctx.AddResource(request.Object.Raw)
-	ctx.AddUserInfo(userRequestInfo)
+	err = ctx.AddResource(request.Object.Raw)
+	if err != nil {
+		glog.Infof("Failed to load resource in context:%v", err)
+	}
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		glog.Infof("Failed to load userInfo in context:%v", err)
+	}
 	// load service account in context
-	ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		glog.Infof("Failed to load service account in context:%v", err)
+	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   *resource,
@@ -47,7 +57,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
 		policyContext.Policy = policy
-		engineResponse := engine.GenerateNew(policyContext)
+		engineResponse := engine.Generate(policyContext)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)

@@ -1,8 +1,9 @@
 package anchor
 
-// Anchor function type
+// IsAnchor is a function handler
 type IsAnchor func(str string) bool
 
+//IsConditionAnchor checks for condition anchor
 func IsConditionAnchor(str string) bool {
 	if len(str) < 2 {
 		return false
@@ -11,6 +12,7 @@ func IsConditionAnchor(str string) bool {
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
+//IsNegationAnchor checks for negation anchor
 func IsNegationAnchor(str string) bool {
 	left := "X("
 	right := ")"
@@ -21,6 +23,7 @@ func IsNegationAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
+// IsAddingAnchor checks for addition anchor
 func IsAddingAnchor(key string) bool {
 	const left = "+("
 	const right = ")"
@@ -32,6 +35,7 @@ func IsAddingAnchor(key string) bool {
 	return left == key[:len(left)] && right == key[len(key)-len(right):]
 }
 
+// IsEqualityAnchor checks for equality anchor
 func IsEqualityAnchor(str string) bool {
 	left := "=("
 	right := ")"
@@ -42,7 +46,8 @@ func IsEqualityAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-func IsExistanceAnchor(str string) bool {
+//IsExistenceAnchor checks for existence anchor
+func IsExistenceAnchor(str string) bool {
 	left := "^("
 	right := ")"
 
@@ -53,13 +58,12 @@ func IsExistanceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-
 func removeAnchor(key string) string {
 	if IsConditionAnchor(key) {
 		return key[1 : len(key)-1]
 	}
 
-	if IsExistanceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
+	if IsExistenceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 

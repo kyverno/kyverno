@@ -13,11 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// GenerateNew
+// Generate checks for validity of generate rule on the resource
 // 1. validate variables to be susbtitute in the general ruleInfo (match,exclude,condition)
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func GenerateNew(policyContext PolicyContext) (resp response.EngineResponse) {
+func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	admissionInfo := policyContext.AdmissionInfo

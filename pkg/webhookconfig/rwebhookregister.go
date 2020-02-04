@@ -11,6 +11,7 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+//ResourceWebhookRegister manages the resource webhook registration
 type ResourceWebhookRegister struct {
 	// pendingCreation indicates the status of resource webhook creation
 	pendingCreation      *abool.AtomicBool
@@ -21,6 +22,7 @@ type ResourceWebhookRegister struct {
 	webhookRegistrationClient *WebhookRegistrationClient
 }
 
+// NewResourceWebhookRegister returns a new instance of ResourceWebhookRegister manager
 func NewResourceWebhookRegister(
 	lastReqTime *checker.LastReqTime,
 	mconfigwebhookinformer mconfiginformer.MutatingWebhookConfigurationInformer,
@@ -35,6 +37,7 @@ func NewResourceWebhookRegister(
 	}
 }
 
+//RegisterResourceWebhook registers a resource webhook
 func (rww *ResourceWebhookRegister) RegisterResourceWebhook() {
 	// drop the request if creation is in processing
 	if rww.pendingCreation.IsSet() {
@@ -72,6 +75,7 @@ func (rww *ResourceWebhookRegister) RegisterResourceWebhook() {
 	}
 }
 
+//Run starts the ResourceWebhookRegister manager
 func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, rww.mwebhookconfigSynced) {
@@ -79,6 +83,7 @@ func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
 	}
 }
 
+// RemoveResourceWebhookConfiguration removes the resource webhook configurations
 func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
 	var err error
 	// check informer cache

@@ -37,7 +37,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		resp := validateResource(ctx, policy, newR, admissionInfo)
 		startResultResponse(resp, policy, newR)
 		defer endResultResponse(resp, startTime)
-		// set PatchedResource with orgin resource if empty
+		// set PatchedResource with origin resource if empty
 		// in order to create policy violation
 		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 			resp.PatchedResource = newR
@@ -79,11 +79,11 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 func endResultResponse(resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
-	glog.V(4).Infof("Validation Rules appplied succesfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
+	glog.V(4).Infof("Validation Rules appplied successfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
-	// rules applied succesfully count
+	// rules applied successfully count
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
@@ -134,7 +134,7 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 }
 
 func isSameResponse(oldResponse, newResponse *response.EngineResponse) bool {
-	// if the respones are same then return true
+	// if the response are same then return true
 	return isSamePolicyResponse(oldResponse.PolicyResponse, newResponse.PolicyResponse)
 
 }
@@ -203,14 +203,14 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 			return resp
 		}
 
-		// rule application succesful
-		glog.V(4).Infof("rule %s pattern validated succesfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		// rule application successful
+		glog.V(4).Infof("rule %s pattern validated successfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		resp.Success = true
 		resp.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)
 		return resp
 	}
 
-	// using anyPattern we can define multiple patterns and only one of them has to be succesfully validated
+	// using anyPattern we can define multiple patterns and only one of them has to be successfully validated
 	// return directly if one pattern succeed
 	// if none succeed, report violation / policyerror(TODO)
 	if rule.Validation.AnyPattern != nil {
@@ -218,9 +218,9 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 		var failedPaths, invalidPaths []string
 		for index, pattern := range rule.Validation.AnyPattern {
 			path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, pattern)
-			// this pattern was succesfully validated
+			// this pattern was successfully validated
 			if reflect.DeepEqual(err, validate.ValidationError{}) {
-				glog.V(4).Infof("anyPattern %v succesfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				glog.V(4).Infof("anyPattern %v successfully validated on resource %s/%s/%s", pattern, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 				resp.Success = true
 				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, index)
 				return resp

@@ -7,10 +7,10 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
 )
 
 //Contains Check if strint is contained in a list of string
@@ -75,6 +75,8 @@ func CRDInstalled(discovery client.IDiscovery) bool {
 	return true
 }
 
+//CleanupOldCrd deletes any existing NamespacedPolicyViolation resources in cluster
+// If resource violates policy, new Violations will be generated
 func CleanupOldCrd(client *dclient.Client) {
 	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
 	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {

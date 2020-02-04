@@ -18,10 +18,10 @@ const (
 	Less Operator = "<"
 )
 
-const relativePrefix Operator = "./"
+//ReferenceSign defines the operator for anchor reference
 const ReferenceSign Operator = "$()"
 
-// getOperatorFromStringPattern parses opeartor from pattern
+// GetOperatorFromStringPattern parses opeartor from pattern
 func GetOperatorFromStringPattern(pattern string) Operator {
 	if len(pattern) < 2 {
 		return Equal

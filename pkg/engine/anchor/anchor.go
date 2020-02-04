@@ -19,8 +19,8 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 	switch {
 	case IsConditionAnchor(element):
 		return NewConditionAnchorHandler(element, pattern, path)
-	case IsExistanceAnchor(element):
-		return NewExistanceHandler(element, pattern, path)
+	case IsExistenceAnchor(element):
+		return NewExistenceHandler(element, pattern, path)
 	case IsEqualityAnchor(element):
 		return NewEqualityHandler(element, pattern, path)
 	case IsNegationAnchor(element):
@@ -156,30 +156,30 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 	return "", nil
 }
 
-//NewExistanceHandler returns existence handler
-func NewExistanceHandler(anchor string, pattern interface{}, path string) ValidationHandler {
-	return ExistanceHandler{
+//NewExistenceHandler returns existence handler
+func NewExistenceHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+	return ExistenceHandler{
 		anchor:  anchor,
 		pattern: pattern,
 		path:    path,
 	}
 }
 
-//ExistanceHandler provides handlers to process exitence anchor handler
-type ExistanceHandler struct {
+//ExistenceHandler provides handlers to process exitence anchor handler
+type ExistenceHandler struct {
 	anchor  string
 	pattern interface{}
 	path    string
 }
 
 //Handle processes the existence anchor handler
-func (eh ExistanceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
-	// skip is used by existance anchor to not process further if condition is not satisfied
+func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}) (string, error) {
+	// skip is used by existence anchor to not process further if condition is not satisfied
 	anchorKey := removeAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
-		// Existance anchor can only exist on resource value type of list
+		// Existence anchor can only exist on resource value type of list
 		switch typedResource := value.(type) {
 		case []interface{}:
 			typedPattern, ok := eh.pattern.([]interface{})
@@ -194,8 +194,8 @@ func (eh ExistanceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			}
 			return validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath)
 		default:
-			glog.Error("Invalid type: Existance ^ () anchor can be used only on list/array type resource")
-			return currentPath, fmt.Errorf("Invalid resource type %T: Existance ^ () anchor can be used only on list/array type resource", value)
+			glog.Error("Invalid type: Existence ^ () anchor can be used only on list/array type resource")
+			return currentPath, fmt.Errorf("Invalid resource type %T: Existence ^ () anchor can be used only on list/array type resource", value)
 		}
 	}
 	return "", nil
@@ -213,15 +213,16 @@ func validateExistenceListResource(handler resourceElementHandler, resourceList 
 			return "", nil
 		}
 	}
-	// none of the existance checks worked, so thats a failure sceanario
+	// none of the existence checks worked, so thats a failure sceanario
 	return path, fmt.Errorf("Existence anchor validation failed at path %s", path)
 }
 
+//GetAnchorsResourcesFromMap returns map of anchors
 func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if IsConditionAnchor(key) || IsExistanceAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
+		if IsConditionAnchor(key) || IsExistenceAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
 			anchors[key] = value
 			continue
 		}

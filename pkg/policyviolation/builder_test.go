@@ -9,23 +9,23 @@ import (
 
 func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 	ers := []response.EngineResponse{
-		response.EngineResponse{
+		{
 			PolicyResponse: response.PolicyResponse{
-				Policy: "test-substitue-variable",
+				Policy: "test-substitute-variable",
 				Resource: response.ResourceSpec{
 					Kind:      "Pod",
 					Name:      "test",
 					Namespace: "test",
 				},
 				Rules: []response.RuleResponse{
-					response.RuleResponse{
+					{
 						Name:           "test-path-not-exist",
 						Type:           "Mutation",
 						Message:        "referenced paths are not present: request.object.metadata.name1",
 						Success:        true,
 						PathNotPresent: true,
 					},
-					response.RuleResponse{
+					{
 						Name:           "test-path-exist",
 						Type:           "Mutation",
 						Success:        true,
@@ -34,17 +34,17 @@ func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 				},
 			},
 		},
-		response.EngineResponse{
+		{
 			PolicyResponse: response.PolicyResponse{
-				Policy: "test-substitue-variable2",
+				Policy: "test-substitute-variable2",
 				Resource: response.ResourceSpec{
 					Kind:      "Pod",
 					Name:      "test",
 					Namespace: "test",
 				},
 				Rules: []response.RuleResponse{
-					response.RuleResponse{
-						Name:           "test-path-not-exist-accross-policy",
+					{
+						Name:           "test-path-not-exist-across-policy",
 						Type:           "Mutation",
 						Message:        "referenced paths are not present: request.object.metadata.name1",
 						Success:        true,

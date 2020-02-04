@@ -10,7 +10,6 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -23,7 +22,7 @@ import (
 type EngineStats struct {
 	// average time required to process the policy rules on a resource
 	ExecutionTime time.Duration
-	// Count of rules that were applied succesfully
+	// Count of rules that were applied successfully
 	RulesAppliedCount int
 }
 
@@ -146,12 +145,16 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	}()
 }
 
+//Condition type for conditions
 type Condition int
 
 const (
+	// NotEvaluate to not-evaluate to condition
 	NotEvaluate Condition = 0
-	Process     Condition = 1
-	Skip        Condition = 2
+	// Process to process the condition
+	Process Condition = 1
+	// Skip to skip the condition
+	Skip Condition = 2
 )
 
 // ParseResourceInfoFromObject get kind/namepace/name from resource
@@ -217,19 +220,6 @@ func findKind(kinds []string, kindGVK string) bool {
 		}
 	}
 	return false
-}
-
-func isStringIsReference(str string) bool {
-	if len(str) < len(operator.ReferenceSign) {
-		return false
-	}
-
-	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
-}
-
-type resourceInfo struct {
-	Resource unstructured.Unstructured
-	Gvk      *metav1.GroupVersionKind
 }
 
 // validateGeneralRuleInfoVariables validate variable subtition defined in

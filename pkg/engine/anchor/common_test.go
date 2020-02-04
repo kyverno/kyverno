@@ -41,18 +41,18 @@ func TestWrappedWithParentheses_Empty(t *testing.T) {
 	assert.Assert(t, !IsConditionAnchor(str))
 }
 
-func TestIsExistanceAnchor_Yes(t *testing.T) {
-	assert.Assert(t, IsExistanceAnchor("^(abc)"))
+func TestIsExistenceAnchor_Yes(t *testing.T) {
+	assert.Assert(t, IsExistenceAnchor("^(abc)"))
 }
 
-func TestIsExistanceAnchor_NoRightBracket(t *testing.T) {
-	assert.Assert(t, !IsExistanceAnchor("^(abc"))
+func TestIsExistenceAnchor_NoRightBracket(t *testing.T) {
+	assert.Assert(t, !IsExistenceAnchor("^(abc"))
 }
 
-func TestIsExistanceAnchor_OnlyHat(t *testing.T) {
-	assert.Assert(t, !IsExistanceAnchor("^abc"))
+func TestIsExistenceAnchor_OnlyHat(t *testing.T) {
+	assert.Assert(t, !IsExistenceAnchor("^abc"))
 }
 
-func TestIsExistanceAnchor_ConditionAnchor(t *testing.T) {
-	assert.Assert(t, !IsExistanceAnchor("(abc)"))
+func TestIsExistenceAnchor_ConditionAnchor(t *testing.T) {
+	assert.Assert(t, !IsExistenceAnchor("(abc)"))
 }

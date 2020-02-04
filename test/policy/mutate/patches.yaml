@@ -10,4 +10,4 @@ expected:
       - name: pEP
         type: Mutation
         messages:
-          - "Rule pEP: Patches succesfully applied."
+          - "Rule pEP: Patches successfully applied."
