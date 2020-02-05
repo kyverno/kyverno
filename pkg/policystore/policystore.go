@@ -38,7 +38,7 @@ type UpdateInterface interface {
 type LookupInterface interface {
 	// Lookup based on kind and namespaces
 	LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error)
-	GetAll() ([]kyverno.ClusterPolicy, error)
+	ListAll() ([]kyverno.ClusterPolicy, error)
 }
 
 // NewPolicyStore returns a new policy store
@@ -99,7 +99,7 @@ func (ps *PolicyStore) LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, 
 	return ret, nil
 }
 
-func (ps *PolicyStore) GetAll() ([]kyverno.ClusterPolicy, error) {
+func (ps *PolicyStore) ListAll() ([]kyverno.ClusterPolicy, error) {
 	policyPointers, err := ps.pLister.List(labels.NewSelector())
 	if err != nil {
 		return nil, err
