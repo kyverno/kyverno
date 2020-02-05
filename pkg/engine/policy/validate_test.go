@@ -248,24 +248,25 @@ func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
 	_, err = validateMatchedResourceDescription(rd)
 	assert.NilError(t, err)
 }
-func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
-	var err error
-	matchedResourcedescirption := []byte(`
-	{
-		"selector": {
-		   "matchLabels": {
-			  "app.type": "prod"
-		   }
-		}
-	 }`)
 
-	var rd kyverno.ResourceDescription
-	err = json.Unmarshal(matchedResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	_, err = validateMatchedResourceDescription(rd)
-	assert.Assert(t, err != nil)
-}
+//func Test_Validate_ResourceDescription_MissingKindsOnMatched(t *testing.T) {
+//	var err error
+//	matchedResourcedescirption := []byte(`
+//	{
+//		"selector": {
+//		   "matchLabels": {
+//			  "app.type": "prod"
+//		   }
+//		}
+//	 }`)
+//
+//	var rd kyverno.ResourceDescription
+//	err = json.Unmarshal(matchedResourcedescirption, &rd)
+//	assert.NilError(t, err)
+//
+//	_, err = validateMatchedResourceDescription(rd)
+//	assert.Assert(t, err != nil)
+//}
 
 func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 	var err error
