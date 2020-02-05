@@ -190,7 +190,7 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	policies, err := ws.pMetaStore.LookUp(request.Kind.Kind, request.Namespace)
+	policies, err := ws.pMetaStore.GetAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)

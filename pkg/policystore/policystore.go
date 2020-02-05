@@ -3,6 +3,8 @@ package policystore
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -36,6 +38,7 @@ type UpdateInterface interface {
 type LookupInterface interface {
 	// Lookup based on kind and namespaces
 	LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error)
+	GetAll() ([]kyverno.ClusterPolicy, error)
 }
 
 // NewPolicyStore returns a new policy store
@@ -94,6 +97,20 @@ func (ps *PolicyStore) LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, 
 		ret = append(ret, *policy)
 	}
 	return ret, nil
+}
+
+func (ps *PolicyStore) GetAll() ([]kyverno.ClusterPolicy, error) {
+	policyPointers, err := ps.pLister.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+
+	var policies = make([]kyverno.ClusterPolicy, 0, len(policyPointers))
+	for _, policy := range policyPointers {
+		policies = append(policies, *policy)
+	}
+
+	return policies, nil
 }
 
 //UnRegister Remove policy information
