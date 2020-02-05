@@ -121,105 +121,105 @@ func TestValidate_ServiceTest(t *testing.T) {
 	assert.NilError(t, err)
 
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
+	assert.Assert(t, len(er.PolicyResponse.Rules) == 1)
 }
 
-func TestValidate_MapHasFloats(t *testing.T) {
-	rawPolicy := []byte(`{
-		"apiVersion":"kyverno.nirmata.io/v1",
-		"kind":"ClusterPolicy",
-		"metadata":{
-			"name":"policy-deployment-changed"
-		},
-		"spec":{
-			"rules":[
-				{
-					"name":"First policy v2",
-					"resource":{
-						"kinds":[
-							"Deployment"
-						],
-						"name":"nginx-*"
-					},
-					"mutate":{
-						"patches":[
-							{
-								"path":"/metadata/labels/isMutated",
-								"op":"add",
-								"value":"true"
-							},
-							{
-								"path":"/metadata/labels/app",
-								"op":"replace",
-								"value":"nginx_is_mutated"
-							}
-						]
-					},
-					"validate":{
-						"message":"replicas number is wrong",
-						"pattern":{
-							"metadata":{
-								"labels":{
-									"app":"*"
-								}
-							},
-							"spec":{
-								"replicas":3
-							}
-						}
-					}
-				}
-			]
-		}
-	}`)
-	rawResource := []byte(`{
-		"apiVersion":"apps/v1",
-		"kind":"Deployment",
-		"metadata":{
-			"name":"nginx-deployment",
-			"labels":{
-				"app":"nginx"
-			}
-		},
-		"spec":{
-			"replicas":3,
-			"selector":{
-				"matchLabels":{
-					"app":"nginx"
-				}
-			},
-			"template":{
-				"metadata":{
-					"labels":{
-						"app":"nginx"
-					}
-				},
-				"spec":{
-					"containers":[
-						{
-							"name":"nginx",
-							"image":"nginx:1.7.9",
-							"ports":[
-								{
-									"containerPort":80
-								}
-							]
-						}
-					]
-				}
-			}
-		}
-	}
-	`)
-
-	var policy kyverno.ClusterPolicy
-	json.Unmarshal(rawPolicy, &policy)
-
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
-	assert.NilError(t, err)
-	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
-}
+//func TestValidate_MapHasFloats(t *testing.T) {
+//	rawPolicy := []byte(`{
+//		"apiVersion":"kyverno.nirmata.io/v1",
+//		"kind":"ClusterPolicy",
+//		"metadata":{
+//			"name":"policy-deployment-changed"
+//		},
+//		"spec":{
+//			"rules":[
+//				{
+//					"name":"First policy v2",
+//					"resource":{
+//						"kinds":[
+//							"Deployment"
+//						],
+//						"name":"nginx-*"
+//					},
+//					"mutate":{
+//						"patches":[
+//							{
+//								"path":"/metadata/labels/isMutated",
+//								"op":"add",
+//								"value":"true"
+//							},
+//							{
+//								"path":"/metadata/labels/app",
+//								"op":"replace",
+//								"value":"nginx_is_mutated"
+//							}
+//						]
+//					},
+//					"validate":{
+//						"message":"replicas number is wrong",
+//						"pattern":{
+//							"metadata":{
+//								"labels":{
+//									"app":"*"
+//								}
+//							},
+//							"spec":{
+//								"replicas":3
+//							}
+//						}
+//					}
+//				}
+//			]
+//		}
+//	}`)
+//	rawResource := []byte(`{
+//		"apiVersion":"apps/v1",
+//		"kind":"Deployment",
+//		"metadata":{
+//			"name":"nginx-deployment",
+//			"labels":{
+//				"app":"nginx"
+//			}
+//		},
+//		"spec":{
+//			"replicas":3,
+//			"selector":{
+//				"matchLabels":{
+//					"app":"nginx"
+//				}
+//			},
+//			"template":{
+//				"metadata":{
+//					"labels":{
+//						"app":"nginx"
+//					}
+//				},
+//				"spec":{
+//					"containers":[
+//						{
+//							"name":"nginx",
+//							"image":"nginx:1.7.9",
+//							"ports":[
+//								{
+//									"containerPort":80
+//								}
+//							]
+//						}
+//					]
+//				}
+//			}
+//		}
+//	}
+//	`)
+//
+//	var policy kyverno.ClusterPolicy
+//	json.Unmarshal(rawPolicy, &policy)
+//
+//	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+//	assert.NilError(t, err)
+//	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
+//	assert.Assert(t, len(er.PolicyResponse.Rules) == 0)
+//}
 
 func TestValidate_image_tag_fail(t *testing.T) {
 	// If image tag is latest then imagepull policy needs to be checked
