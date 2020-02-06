@@ -37,11 +37,7 @@ func checkKind(kinds []string, resourceKind string) bool {
 }
 
 func checkName(name, resourceName string) bool {
-	if wildcard.Match(name, resourceName) {
-		return true
-	}
-
-	return false
+	return wildcard.Match(name, resourceName)
 }
 
 func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
@@ -158,11 +154,8 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	// check if any condition has failed
 	var numberOfConditions = 9
 	for numberOfConditions > 0 {
-		select {
-		case hasPassed := <-condition:
-			if !hasPassed {
-				return false
-			}
+		if hasPassed := <-condition; !hasPassed {
+			return false
 		}
 		numberOfConditions -= numberOfConditions
 	}
