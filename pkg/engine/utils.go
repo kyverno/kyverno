@@ -13,7 +13,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,131 +26,142 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
+func checkKind(kinds []string, resourceKind string) bool {
+	for _, kind := range kinds {
+		if resourceKind == kind {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkName(name, resourceName string) bool {
+	if wildcard.Match(name, resourceName) {
+		return true
+	}
+
+	return false
+}
+
+func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
+	for _, namespace := range namespaces {
+		if resourceNameSpace == namespace {
+			return true
+		}
+	}
+	return false
+}
+
+func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		glog.Error(err)
+		return false, err
+	}
+
+	if selector.Matches(labels.Set(resourceLabels)) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
 func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) bool {
 
 	var condition = make(chan bool)
 	defer close(condition)
 
-	matches := rule.MatchResources.ResourceDescription
-
 	go func() {
-		hasSuceeded := rbac.MatchAdmissionInfo(rule, admissionInfo)
-		if !hasSuceeded {
+		hasPassed := rbac.MatchAdmissionInfo(rule, admissionInfo)
+		if !hasPassed {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 		}
-		condition <- hasSuceeded
+		condition <- hasPassed
 	}()
+
+	//
+	// Match
+	//
+	matches := rule.MatchResources.ResourceDescription
 
 	go func() {
-		condition <- findKind(matches.Kinds, resource.GetKind())
+		condition <- checkKind(matches.Kinds, resource.GetKind())
 	}()
-
-	name := resource.GetName()
-	namespace := resource.GetNamespace()
-
 	go func() {
 		if matches.Name != "" {
-			// Matches
-			condition <- wildcard.Match(matches.Name, name)
+			condition <- checkName(matches.Name, resource.GetName())
+		} else {
+			condition <- true
+		}
+	}()
+	go func() {
+		if len(matches.Namespaces) > 0 {
+			condition <- checkNameSpace(matches.Namespaces, resource.GetNamespace())
+		} else {
+			condition <- true
+		}
+	}()
+	go func() {
+		if matches.Selector != nil {
+			hasPassed, err := checkSelector(matches.Selector, resource.GetLabels())
+			if err != nil {
+				condition <- false
+			} else {
+				condition <- hasPassed
+			}
+		} else {
+			condition <- true
 		}
 	}()
 
-	// Matches
-	// check if the resource namespace is defined in the list of namespace pattern
-	go func() {
-		condition <- !(len(matches.Namespaces) > 0 && !utils.ContainsNamepace(matches.Namespaces, namespace))
-	}()
-
-	// Matches
-	go func() {
-		condition <- func() bool {
-			if matches.Selector != nil {
-				selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
-				if err != nil {
-					glog.Error(err)
-					return false
-				}
-				if !selector.Matches(labels.Set(resource.GetLabels())) {
-					return false
-				}
-			}
-			return true
-		}()
-	}()
-
 	//
+	// Exclude
 	//
-	//
-	// Exclude Conditions
-	//
-	//
-	//
-
 	exclude := rule.ExcludeResources.ResourceDescription
 
 	go func() {
-		condition <- func() bool {
-			if exclude.Name == "" {
-				return true
-			}
-			if wildcard.Match(exclude.Name, resource.GetName()) {
-				return false
-			}
-			return true
-		}()
+		if len(exclude.Kinds) > 0 {
+			condition <- !checkKind(exclude.Kinds, resource.GetKind())
+		} else {
+			condition <- true
+		}
 	}()
-
 	go func() {
-		condition <- func() bool {
-			if len(exclude.Namespaces) == 0 {
-				return true
-			}
-			if utils.ContainsNamepace(exclude.Namespaces, resource.GetNamespace()) {
-				return false
-			}
-			return true
-		}()
+		if exclude.Name != "" {
+			condition <- !checkName(exclude.Name, resource.GetName())
+		} else {
+			condition <- true
+		}
 	}()
-
 	go func() {
-		condition <- func() bool {
-			if exclude.Selector == nil {
-				return true
-			}
-			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
-			// if the label selector is incorrect, should be fail or
+		if len(exclude.Namespaces) > 0 {
+			condition <- !checkNameSpace(exclude.Namespaces, resource.GetNamespace())
+		} else {
+			condition <- true
+		}
+	}()
+	go func() {
+		if exclude.Selector != nil {
+			hasPassed, err := checkSelector(exclude.Selector, resource.GetLabels())
 			if err != nil {
-				glog.Error(err)
-				return false
+				condition <- false
+			} else {
+				condition <- !hasPassed
 			}
-			if selector.Matches(labels.Set(resource.GetLabels())) {
-				return false
-			}
-			return true
-		}()
+		} else {
+			condition <- true
+		}
 	}()
 
-	go func() {
-		condition <- func() bool {
-			if len(exclude.Kinds) == 0 {
-				return true
-			}
-
-			if findKind(exclude.Kinds, resource.GetKind()) {
-				return false
-			}
-
-			return true
-		}()
-	}()
-
+	// check if any condition has failed
 	var numberOfConditions = 9
 	for numberOfConditions > 0 {
 		select {
-		case hasSucceeded := <-condition:
-			if !hasSucceeded {
+		case hasPassed := <-condition:
+			if !hasPassed {
 				return false
 			}
 		}
