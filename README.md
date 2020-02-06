@@ -123,12 +123,14 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Mutate](documentation/writing-policies-mutate.md)
-  * [Validate](documentation/writing-policies-validate.md)
-  * [Generate](documentation/writing-policies-generate.md)
+  * [Validate Resources](documentation/writing-policies-validate.md)
+  * [Mutate Resources](documentation/writing-policies-mutate.md)
+  * [Generate Resources](documentation/writing-policies-generate.md)
+  * [Variable Substitution](documentation/writing-policies-variables.md)
+  * [Preconditions](documentation/writing-policies-preconditions.md)
+  * [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
+  * [Background Processing](documentation/writing-policies-background.md)
 * [Testing Policies](documentation/testing-policies.md)
-  * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
-  * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
 * [Sample Policies](/samples/README.md)
 
 ## License

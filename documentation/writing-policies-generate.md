@@ -1,6 +1,6 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Generate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Generate Resources*</small>
 
-# Generate Configurations 
+# Generate Resources 
 
 ```generate``` is used to create additional resources when a resource is created. This is useful to create supporting resources, such as role bindings for a new namespace.
 
@@ -87,5 +87,6 @@ spec:
 In this example, when the policy is applied, any new namespace will receive a NetworkPolicy based on the specified template that by default denies all inbound and outbound traffic.
 
 ---
-<small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>
+
+<small>*Read Next >> [Variables](/documentation/writing-policies-variables.md)*</small>
 
