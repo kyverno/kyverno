@@ -27,9 +27,10 @@ import (
 )
 
 var (
-	kubeconfig     string
-	serverIP       string
-	webhookTimeout int
+	kubeconfig                     string
+	serverIP                       string
+	webhookTimeout                 int
+	runValidationInMutatingWebhook string
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
@@ -40,7 +41,6 @@ var (
 func main() {
 	defer glog.Flush()
 	version.PrintVersionInfo()
-
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
 	//  handle os signals
@@ -103,7 +103,9 @@ func main() {
 	rWebhookWatcher := webhookconfig.NewResourceWebhookRegister(
 		lastReqTime,
 		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1beta1().ValidatingWebhookConfigurations(),
 		webhookRegistrationClient,
+		runValidationInMutatingWebhook,
 	)
 
 	// KYVERNO CRD INFORMER
@@ -265,6 +267,8 @@ func init() {
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
+
 	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
 	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	config.LogDefaultFlags()
