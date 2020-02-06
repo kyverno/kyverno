@@ -1,6 +1,6 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Generate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Generate Resources*</small>
 
-# Generate Configurations 
+# Generate Resources 
 
 ```generate``` is used to create additional resources when a resource is created. This is useful to create supporting resources, such as role bindings for a new namespace.
 
