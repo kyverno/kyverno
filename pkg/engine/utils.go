@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
@@ -30,156 +29,136 @@ type EngineStats struct {
 
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
 func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) bool {
+
+	var condition = make(chan bool)
+	defer close(condition)
+
 	matches := rule.MatchResources.ResourceDescription
-	exclude := rule.ExcludeResources.ResourceDescription
 
-	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-		glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-			rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
-		return false
-	}
+	go func() {
+		hasSuceeded := rbac.MatchAdmissionInfo(rule, admissionInfo)
+		if !hasSuceeded {
+			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
+		}
+		condition <- hasSuceeded
+	}()
 
-	if !findKind(matches.Kinds, resource.GetKind()) {
-		return false
-	}
+	go func() {
+		condition <- findKind(matches.Kinds, resource.GetKind())
+	}()
 
 	name := resource.GetName()
-
 	namespace := resource.GetNamespace()
 
-	if matches.Name != "" {
-		// Matches
-		if !wildcard.Match(matches.Name, name) {
-			return false
+	go func() {
+		if matches.Name != "" {
+			// Matches
+			condition <- wildcard.Match(matches.Name, name)
 		}
-	}
+	}()
 
 	// Matches
 	// check if the resource namespace is defined in the list of namespace pattern
-	if len(matches.Namespaces) > 0 && !utils.ContainsNamepace(matches.Namespaces, namespace) {
-		return false
-	}
+	go func() {
+		condition <- !(len(matches.Namespaces) > 0 && !utils.ContainsNamepace(matches.Namespaces, namespace))
+	}()
 
 	// Matches
-	if matches.Selector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
-		if err != nil {
-			glog.Error(err)
-			return false
-		}
-		if !selector.Matches(labels.Set(resource.GetLabels())) {
-			return false
-		}
-	}
+	go func() {
+		condition <- func() bool {
+			if matches.Selector != nil {
+				selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
+				if err != nil {
+					glog.Error(err)
+					return false
+				}
+				if !selector.Matches(labels.Set(resource.GetLabels())) {
+					return false
+				}
+			}
+			return true
+		}()
+	}()
 
-	excludeName := func(name string) Condition {
-		if exclude.Name == "" {
-			return NotEvaluate
-		}
-		if wildcard.Match(exclude.Name, name) {
-			return Skip
-		}
-		return Process
-	}
+	//
+	//
+	//
+	// Exclude Conditions
+	//
+	//
+	//
 
-	excludeNamespace := func(namespace string) Condition {
-		if len(exclude.Namespaces) == 0 {
-			return NotEvaluate
-		}
-		if utils.ContainsNamepace(exclude.Namespaces, namespace) {
-			return Skip
-		}
-		return Process
-	}
+	exclude := rule.ExcludeResources.ResourceDescription
 
-	excludeSelector := func(labelsMap map[string]string) Condition {
-		if exclude.Selector == nil {
-			return NotEvaluate
-		}
-		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
-		// if the label selector is incorrect, should be fail or
-		if err != nil {
-			glog.Error(err)
-			return Skip
-		}
-		if selector.Matches(labels.Set(labelsMap)) {
-			return Skip
-		}
-		return Process
-	}
-
-	excludeKind := func(kind string) Condition {
-		if len(exclude.Kinds) == 0 {
-			return NotEvaluate
-		}
-
-		if findKind(exclude.Kinds, kind) {
-			return Skip
-		}
-
-		return Process
-	}
-
-	// 0 -> dont check
-	// 1 -> is not to be exclude
-	// 2 -> to be exclude
-	excludeEval := []Condition{}
-
-	if ret := excludeName(resource.GetName()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeNamespace(resource.GetNamespace()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeSelector(resource.GetLabels()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	// Filtered NotEvaluate
-
-	if len(excludeEval) == 0 {
-		// nothing to exclude
-		return true
-	}
-	return func() bool {
-		for _, ret := range excludeEval {
-			if ret == Process {
+	go func() {
+		condition <- func() bool {
+			if exclude.Name == "" {
 				return true
 			}
-		}
-		return false
+			if wildcard.Match(exclude.Name, resource.GetName()) {
+				return false
+			}
+			return true
+		}()
 	}()
-}
 
-//Condition type for conditions
-type Condition int
+	go func() {
+		condition <- func() bool {
+			if len(exclude.Namespaces) == 0 {
+				return true
+			}
+			if utils.ContainsNamepace(exclude.Namespaces, resource.GetNamespace()) {
+				return false
+			}
+			return true
+		}()
+	}()
 
-const (
-	// NotEvaluate to not-evaluate to condition
-	NotEvaluate Condition = 0
-	// Process to process the condition
-	Process Condition = 1
-	// Skip to skip the condition
-	Skip Condition = 2
-)
+	go func() {
+		condition <- func() bool {
+			if exclude.Selector == nil {
+				return true
+			}
+			selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
+			// if the label selector is incorrect, should be fail or
+			if err != nil {
+				glog.Error(err)
+				return false
+			}
+			if selector.Matches(labels.Set(resource.GetLabels())) {
+				return false
+			}
+			return true
+		}()
+	}()
 
-// ParseResourceInfoFromObject get kind/namepace/name from resource
-func ParseResourceInfoFromObject(rawResource []byte) string {
+	go func() {
+		condition <- func() bool {
+			if len(exclude.Kinds) == 0 {
+				return true
+			}
 
-	kind := ParseKindFromObject(rawResource)
-	namespace := ParseNamespaceFromObject(rawResource)
-	name := ParseNameFromObject(rawResource)
-	return strings.Join([]string{kind, namespace, name}, "/")
-}
+			if findKind(exclude.Kinds, resource.GetKind()) {
+				return false
+			}
 
-//ParseKindFromObject get kind from resource
-func ParseKindFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
+			return true
+		}()
+	}()
 
-	return objectJSON["kind"].(string)
+	var numberOfConditions = 9
+	for numberOfConditions > 0 {
+		select {
+		case hasSucceeded := <-condition:
+			if !hasSucceeded {
+				return false
+			}
+		}
+		numberOfConditions -= numberOfConditions
+	}
+
+	return true
 }
 
 //ParseNameFromObject extracts resource name from JSON obj
