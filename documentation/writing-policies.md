@@ -11,6 +11,7 @@ Each Kyverno policy contains one or more rules. Each rule has a `match` clause, 
 The match / exclude clauses have the same structure, and can contain the following elements:
 * resources: select resources by name, namespaces, kinds, and label selectors.
 * subjects: select users and user groups
+* serviceAccounts: select service accounts 
 * roles: select namespaced roles
 * clusterroles: select cluster wide roles
 
