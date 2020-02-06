@@ -131,5 +131,32 @@ Operators supported:
 - Equal
 - NotEqual
 
+# Background processing
+Kyverno applies policies in foreground and background mode.
+- `foreground`: leverages admission control webhooks to intercept, and apply policies on, API requests for resource changes.
+- `background`: policy-controller applies policies on the existing resoruces after configured re-conciliation time.
+
+A policy is always enabled for `foreground` processing, but `background` processing is configurable using a boolean flag at `{spec.background}`.
+
+```
+spec:
+  background: true
+  rules:
+  - name: default-deny-ingress
+```
+- Unless specified the default value is `true`
+- As the userInformation is only avaiable in the incoming api-request, a policy using userInfo filters and variables reffering to `{{request.userInfo}}` can only be processed in foreground mode.
+- When a new policy is created, the policy validation will throw an error if using `userInfo` with a policy defined in background mode.
+
+
+# Auto generating rules for pod controllers
+Writing policies on pods helps address all pod creation flows, but results in errors not being reported when a pod controller object is created. Kyverno solves this issue, by automatically generating rules for pod controllers from a rule written for a pod. 
+
+This behavior is controlled by the  pod-policies.kyverno.io/autogen-controllers annotation. By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=all`, to generate an additional rule that is applied to pod controllers: DaemonSet, Deployment, Job, StatefulSet.
+ 
+Change the annotation `pod-policies.kyverno.io/autogen-controllers` to customize the applicable pod controllers of the auto-gen rule. For example, Kyverno generates the rule for `Deployment` if the annotation of policy is defined as `pod-policies.kyverno.io/autogen-controllers=Deployment`. If `name` or `labelSelector` is specified in the match / exclude block, Kyverno skips generating pod controllers rule as these filters may not be applicable to pod controllers.
+ 
+To disable auto-generating rules for pod controllers, set `pod-policies.kyverno.io/autogen-controllers=none`.
+
 ---
 <small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>

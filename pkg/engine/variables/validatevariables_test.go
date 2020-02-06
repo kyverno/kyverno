@@ -43,8 +43,8 @@ func Test_ExtractVariables(t *testing.T) {
 
 	vars := extractVariables(pattern)
 
-	result := [][]string{[]string{"{{request.userInfo.username}}", "request.userInfo.username"},
-		[]string{"{{request.object.metadata.name}}", "request.object.metadata.name"}}
+	result := [][]string{{"{{request.userInfo.username}}", "request.userInfo.username"},
+		{"{{request.object.metadata.name}}", "request.object.metadata.name"}}
 
 	assert.Assert(t, len(vars) == len(result), fmt.Sprintf("result does not match, var: %s", vars))
 }
