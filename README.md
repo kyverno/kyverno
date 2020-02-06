@@ -123,8 +123,8 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Mutate Resources](documentation/writing-policies-mutate.md)
   * [Validate Resources](documentation/writing-policies-validate.md)
+  * [Mutate Resources](documentation/writing-policies-mutate.md)
   * [Generate Resources](documentation/writing-policies-generate.md)
   * [Variable Substitution](documentation/writing-policies-variables.md)
   * [Preconditions](documentation/writing-policies-preconditions.md)

@@ -191,4 +191,4 @@ Additional examples are available in [samples](/samples/README.md)
 The `validationFailureAction` attribute controls processing behaviors when the resource is not compliant with the policy. If the value is set to `enforce` resource creation or updates are blocked when the resource does not comply, and when the value is set to `audit` a policy violation is reported but the resource creation or update is allowed.
 
 ---
-<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
+<small>*Read Next >> [Mutate Resources](/documentation/writing-policies-mutate.md)*</small>

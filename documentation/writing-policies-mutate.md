@@ -213,4 +213,4 @@ The anchor processing behavior for mutate conditions is as follows:
 Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
 
 ---
-<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
+<small>*Read Next >> [Generate Resources](/documentation/writing-policies-generate.md)*</small>
