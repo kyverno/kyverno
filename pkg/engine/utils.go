@@ -71,7 +71,6 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) bool {
 
 	var condition = make(chan bool)
-	defer close(condition)
 
 	go func() {
 		hasPassed := rbac.MatchAdmissionInfo(rule, admissionInfo)
