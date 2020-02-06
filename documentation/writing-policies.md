@@ -63,4 +63,4 @@ Each rule can validate, mutate, or generate configurations of matching resources
 
 
 ---
-<small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
+<small>*Read Next >> [Validate Resources](/documentation/writing-policies-validate.md)*</small>

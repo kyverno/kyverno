@@ -1,6 +1,6 @@
 <small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Auto-Generation for Pod Controllers*</small>
 
-# Auto generating rules for pod controllers
+# Auto Generating Rules for Pod Controllers
 
 Writing policies on pods helps address all pod creation flows. However, when pod cotrollers are used pod level policies result in errors not being reported when the pod controller object is created. 
 
