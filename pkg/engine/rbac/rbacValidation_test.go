@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"flag"
+	"fmt"
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -100,8 +101,8 @@ func Test_matchAdmissionInfo(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		assert.Assert(t, test.expected == MatchAdmissionInfo(test.rule, test.info))
+	for i, test := range tests {
+		assert.Assert(t, test.expected == MatchAdmissionInfo(test.rule, test.info), "failed for "+fmt.Sprint(i+1))
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -66,130 +67,113 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
-//MatchesResourceDescription checks if the resource matches resource desription of the rule or not
-func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
-
-	var err = make(chan error, 6)
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, resource unstructured.Unstructured) []error {
 	var wg sync.WaitGroup
-	wg.Add(9)
-
+	wg.Add(4)
+	var errs = make(chan error, 4)
 	go func() {
-		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-			err <- fmt.Errorf("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
-		}
-		wg.Done()
-	}()
-
-	//
-	// Match
-	//
-	matches := rule.MatchResources.ResourceDescription
-
-	go func() {
-		if !checkKind(matches.Kinds, resource.GetKind()) {
-			err <- fmt.Errorf("resource kind does not match rule")
-		}
-		wg.Done()
-	}()
-	go func() {
-		if matches.Name != "" {
-			if !checkName(matches.Name, resource.GetName()) {
-				err <- fmt.Errorf("resource name does not match rule")
+		if len(conditionBlock.Kinds) > 0 {
+			if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
+				errs <- fmt.Errorf("resource kind does not match conditionBlock")
 			}
 		}
 		wg.Done()
 	}()
 	go func() {
-		if len(matches.Namespaces) > 0 {
-			if !checkNameSpace(matches.Namespaces, resource.GetNamespace()) {
-				err <- fmt.Errorf("resource namespace does not match rule")
+		if conditionBlock.Name != "" {
+			if !checkName(conditionBlock.Name, resource.GetName()) {
+				errs <- fmt.Errorf("resource name does not match conditionBlock")
 			}
 		}
 		wg.Done()
 	}()
 	go func() {
-		if matches.Selector != nil {
-			hasPassed, rerr := checkSelector(matches.Selector, resource.GetLabels())
-			if rerr != nil {
-				err <- fmt.Errorf("could not parse selector block of the policy in match: %v", rerr)
+		if len(conditionBlock.Namespaces) > 0 {
+			if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
+				errs <- fmt.Errorf("resource namespace does not match conditionBlock")
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if conditionBlock.Selector != nil {
+			hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+			if err != nil {
+				errs <- fmt.Errorf("could not parse selector block of the policy in conditionBlock: %v", err)
 			} else {
 				if !hasPassed {
-					err <- fmt.Errorf("resource does not match given rules selector block")
+					errs <- fmt.Errorf("resource does not match selector of given conditionBlock")
 				}
 			}
 		}
 		wg.Done()
 	}()
+	wg.Wait()
+	close(errs)
 
-	//
-	// Exclude
-	//
-	exclude := rule.ExcludeResources.ResourceDescription
-	var excludeCondition = make(chan bool, 4)
+	var errsIfAny []error
+	for err := range errs {
+		errsIfAny = append(errsIfAny, err)
+	}
+
+	return errsIfAny
+}
+
+//MatchesResourceDescription checks if the resource matches resource description of the rule or not
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
+	var errs = make(chan error, 6)
+	var wg sync.WaitGroup
+	wg.Add(3)
 
 	go func() {
-		if len(exclude.Kinds) > 0 {
-			excludeCondition <- checkKind(exclude.Kinds, resource.GetKind())
+		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
+			errs <- fmt.Errorf("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 		}
 		wg.Done()
 	}()
+
+	// checking if resource matches the rule
 	go func() {
-		if exclude.Name != "" {
-			excludeCondition <- checkName(exclude.Name, resource.GetName())
+		if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, resource)
+			for _, matchErr := range matchErrs {
+				errs <- matchErr
+			}
+		} else {
+			errs <- fmt.Errorf("match block in rule cannot be empty")
 		}
 		wg.Done()
 	}()
+
+	// checking if resource has been excluded
 	go func() {
-		if len(exclude.Namespaces) > 0 {
-			excludeCondition <- checkNameSpace(exclude.Namespaces, resource.GetNamespace())
-		}
-		wg.Done()
-	}()
-	go func() {
-		if exclude.Selector != nil {
-			hasPassed, rerr := checkSelector(exclude.Selector, resource.GetLabels())
-			if rerr != nil {
-				glog.V(4).Infof("could not parse selector block of the policy in exclude: %v", rerr)
-				excludeCondition <- false
-			} else {
-				excludeCondition <- hasPassed
+		if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, resource)
+			if excludeErrs == nil {
+				errs <- fmt.Errorf("resource has been excluded since it matches the exclude block")
 			}
 		}
 		wg.Done()
 	}()
 
 	wg.Wait()
-	close(err)
-	close(excludeCondition)
+	close(errs)
 
-	var isResourceExcluded = true
-	for hasPassed := range excludeCondition {
-		if !hasPassed {
-			isResourceExcluded = false
-			break
-		}
-	}
-	if isResourceExcluded {
-		err <- fmt.Errorf("resource has been excluded since the resource matches the exclude block of the rule")
+	var reasonsForFailure []error
+	for err := range errs {
+		reasonsForFailure = append(reasonsForFailure, err)
 	}
 
-	// receive all failed conditions
-	var failedConditions []error
-	for failedCondition := range err {
-		if failedCondition != nil {
-			failedConditions = append(failedConditions, failedCondition)
-		}
-	}
-
+	// creating final error
 	var errorMessage = "rule has failed to match resource for the following reasons:"
-	for i, failedCondition := range failedConditions {
-		if failedCondition != nil {
-			errorMessage += "\n" + fmt.Sprint(i+1) + ". " + failedCondition.Error()
+	for i, reasonForFailure := range reasonsForFailure {
+		if reasonForFailure != nil {
+			errorMessage += "\n" + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()
 		}
 	}
 
-	if len(failedConditions) > 0 {
+	if len(reasonsForFailure) > 0 {
 		return errors.New(errorMessage)
 	}
 

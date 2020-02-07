@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"reflect"
+	"sync"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	utils "github.com/nirmata/kyverno/pkg/utils"
@@ -63,24 +64,46 @@ func validateMatch(match kyverno.MatchResources, requestInfo kyverno.RequestInfo
 // validateExclude return true if none of the above found in requestInfo
 // otherwise return false immediately means rule should not be applied
 func validateExclude(exclude kyverno.ExcludeResources, requestInfo kyverno.RequestInfo) bool {
-	if len(exclude.Roles) > 0 {
-		if matchRoleRefs(exclude.Roles, requestInfo.Roles) {
-			return false
+	if reflect.DeepEqual(exclude, kyverno.ExcludeResources{}) {
+		return true
+	}
+
+	var conditions = make(chan bool, 3)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		if len(exclude.Roles) > 0 {
+			conditions <- matchRoleRefs(exclude.Roles, requestInfo.Roles)
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		if len(exclude.ClusterRoles) > 0 {
+			conditions <- matchRoleRefs(exclude.ClusterRoles, requestInfo.ClusterRoles)
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		if len(exclude.Subjects) > 0 {
+			conditions <- matchSubjects(exclude.Subjects, requestInfo.AdmissionUserInfo)
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+	close(conditions)
+
+	var isValid bool
+	for hasPassed := range conditions {
+		if !hasPassed {
+			isValid = true
+			break
 		}
 	}
 
-	if len(exclude.ClusterRoles) > 0 {
-		if matchRoleRefs(exclude.ClusterRoles, requestInfo.ClusterRoles) {
-			return false
-		}
-	}
-
-	if len(exclude.Subjects) > 0 {
-		if matchSubjects(exclude.Subjects, requestInfo.AdmissionUserInfo) {
-			return false
-		}
-	}
-	return true
+	return isValid
 }
 
 // matchRoleRefs return true if one of ruleRoleRefs exist in resourceRoleRefs
