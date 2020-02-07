@@ -32,7 +32,7 @@ kind: ClusterPolicy
 metadata:
   name: check-cpu-memory
 spec:
-  # `enforce` blocks request. `audit` reports violations
+  # `enforce` blocks the request. `audit` reports violations
   validationFailureAction: enforce
   rules:
   - name: check-pod-resources
