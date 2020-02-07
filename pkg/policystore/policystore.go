@@ -82,21 +82,6 @@ func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
 	}
 }
 
-////LookUp look up the resources
-//func (ps *PolicyStore) LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error) {
-//	ret := []kyverno.ClusterPolicy{}
-//	// lookup meta-store
-//	policyNames := ps.lookUp(kind, namespace)
-//	for _, policyName := range policyNames {
-//		policy, err := ps.pLister.Get(policyName)
-//		if err != nil {
-//			return nil, err
-//		}
-//		ret = append(ret, *policy)
-//	}
-//	return ret, nil
-//}
-
 func (ps *PolicyStore) ListAll() ([]kyverno.ClusterPolicy, error) {
 	policyPointers, err := ps.pLister.List(labels.NewSelector())
 	if err != nil {
@@ -139,48 +124,6 @@ func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 	}
 	return nil
 }
-
-////LookUp lookups up the policies for kind and namespace
-//// returns a list of <policy, rule> that statisfy the filters
-//func (ps *PolicyStore) lookUp(kind, namespace string) []string {
-//	ps.mu.RLock()
-//	defer ps.mu.RUnlock()
-//	var policyMap policyMap
-//	var ret []string
-//	// kind
-//	kindMap := ps.getKind(kind)
-//	if kindMap == nil {
-//		return []string{}
-//	}
-//	// get namespace specific policies
-//	policyMap = kindMap[namespace]
-//	ret = append(ret, transform(policyMap)...)
-//	// get policies on all namespaces
-//	policyMap = kindMap["*"]
-//	ret = append(ret, transform(policyMap)...)
-//	return unique(ret)
-//}
-//
-//func unique(intSlice []string) []string {
-//	keys := make(map[string]bool)
-//	list := []string{}
-//	for _, entry := range intSlice {
-//		if _, value := keys[entry]; !value {
-//			keys[entry] = true
-//			list = append(list, entry)
-//		}
-//	}
-//	return list
-//}
-//
-//// generates a copy
-//func transform(pmap policyMap) []string {
-//	ret := []string{}
-//	for k := range pmap {
-//		ret = append(ret, k)
-//	}
-//	return ret
-//}
 
 func (ps *PolicyStore) addKind(kind string) namespaceMap {
 	val, ok := ps.data[kind]
