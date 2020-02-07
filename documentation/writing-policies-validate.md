@@ -140,11 +140,11 @@ spec :
             template:
                 spec:
                     ^(containers):
-                        resources:
-                            requests:
-                                memory: "$(<=./../../limits/memory)"
-                            limits:
-                                memory: "2048Mi"
+                    - resources:
+                        requests:
+                            memory: "$(<=./../../limits/memory)"
+                        limits:
+                            memory: "2048Mi"
 ````
 
 ### Logical OR across validation patterns
