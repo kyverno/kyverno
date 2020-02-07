@@ -32,6 +32,8 @@ kind: ClusterPolicy
 metadata:
   name: check-cpu-memory
 spec:
+  # `enforce` blocks request. `audit` reports violations
+  validationFailureAction: enforce
   rules:
   - name: check-pod-resources
     match:
@@ -71,17 +73,15 @@ spec:
     match:
       resources:
         kinds:
-        - Deployment
+        - Pod
     mutate:
       overlay:
         spec:
-          template:
-            spec:
-              containers:
-                # match images which end with :latest   
-                - (image): "*:latest"
-                  # set the imagePullPolicy to "Always"
-                  imagePullPolicy: "Always"
+          containers:
+            # match images which end with :latest   
+            - (image): "*:latest"
+              # set the imagePullPolicy to "Always"
+              imagePullPolicy: "Always"
 ````
 
 ### 3. Generating resources
@@ -100,13 +100,10 @@ spec:
       resources:
         kinds:
           - Namespace
-        selector:
-          matchExpressions:
-          - {key: kafka, operator: Exists}
     generate:
       kind: ConfigMap
       name: zk-kafka-address
-      # create the resource in the new namespace
+      # generate the resource in the new namespace
       namespace: "{{request.object.metadata.name}}"
       data:
         kind: ConfigMap

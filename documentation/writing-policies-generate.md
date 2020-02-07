@@ -5,8 +5,7 @@
 ```generate``` is used to create additional resources when a resource is created. This is useful to create supporting resources, such as role bindings for a new namespace.
 
 ## Example 1
-- rule 
-Creates a ConfigMap with name `default-config` for all 
+
 ````yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -19,28 +18,22 @@ spec:
         resources:
           kinds: 
           - Namespace
-        selector:
-          matchLabels:
-            LabelForSelector : "namespace2"
       generate:
         kind: ConfigMap # Kind of resource 
         name: default-config # Name of the new Resource
-        namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
+        namespace: "{{request.object.metadata.name}}" # namespace that triggers this rule
         clone:
           namespace: default
           name: config-template
-    - name: "Generate Secret"
+    - name: "Generate Secret (insecure)"
       match:
         resources:
           kinds: 
           - Namespace
-        selector:
-          matchLabels:
-            LabelForSelector : "namespace2"
       generate:
         kind: Secret
         name: mongo-creds
-        namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
+        namespace: "{{request.object.metadata.name}}" # namespace that triggers this rule
         data:
           data:
             DB_USER: YWJyYWthZGFicmE=
@@ -50,9 +43,9 @@ spec:
             purpose: mongo
 ````
 
-In this example, when this policy is applied, any new namespace that satisfies the label selector will receive 2 new resources after its creation:
-  * ConfigMap copied from default/config-template.
-  * Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
+In this example new namespaces will receive 2 new resources after its creation:
+  * A ConfigMap cloned from default/config-template.
+  * A Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
 
 
 ## Example 2
@@ -72,7 +65,7 @@ spec:
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic
-      namespace: "{{request.object.metadata.name}}" # Create in the namespace that triggers this rule
+      namespace: "{{request.object.metadata.name}}" # namespace that triggers this rule
       data:
         spec:
         podSelector:
@@ -84,7 +77,7 @@ spec:
             policyname: "default"
 ````
 
-In this example, when the policy is applied, any new namespace will receive a NetworkPolicy based on the specified template that by default denies all inbound and outbound traffic.
+In this example new namespaces will receive a NetworkPolicy that default denies all inbound and outbound traffic.
 
 ---
 
