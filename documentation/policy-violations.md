@@ -1,6 +1,6 @@
 <small>*[documentation](/README.md#documentation) / Policy Violations*</small>
 
-# Policy Violayions
+# Policy Violations
 
 Policy Violations are created to:
 1. Report resources that do not comply with validation rules with `validationFailureAction` set to `audit`.
