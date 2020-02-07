@@ -13,6 +13,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestMatchesResourceDescription(t *testing.T) {
+	tcs := []struct {
+		Description       string
+		AdmissionInfo     kyverno.RequestInfo
+		Resource          []byte
+		Rule              []byte
+		areErrorsExpected bool
+	}{
+		{
+
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Rule:              []byte(`{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
+			areErrorsExpected: false,
+		},
+	}
+
+	for range tcs {
+	}
+
+}
+
 // Match multiple kinds
 func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	rawResource := []byte(`{
