@@ -46,6 +46,8 @@ func main() {
 
 	requests := []request{
 		// Resource
+		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationName},
+		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationDebugName},
 		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationName},
 		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationDebugName},
 		// Policy

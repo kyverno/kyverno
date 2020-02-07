@@ -32,6 +32,8 @@ kind: ClusterPolicy
 metadata:
   name: check-cpu-memory
 spec:
+  # `enforce` blocks the request. `audit` reports violations
+  validationFailureAction: enforce
   rules:
   - name: check-pod-resources
     match:
@@ -71,17 +73,15 @@ spec:
     match:
       resources:
         kinds:
-        - Deployment
+        - Pod
     mutate:
       overlay:
         spec:
-          template:
-            spec:
-              containers:
-                # match images which end with :latest   
-                - (image): "*:latest"
-                  # set the imagePullPolicy to "Always"
-                  imagePullPolicy: "Always"
+          containers:
+            # match images which end with :latest   
+            - (image): "*:latest"
+              # set the imagePullPolicy to "Always"
+              imagePullPolicy: "Always"
 ````
 
 ### 3. Generating resources
@@ -100,13 +100,10 @@ spec:
       resources:
         kinds:
           - Namespace
-        selector:
-          matchExpressions:
-          - {key: kafka, operator: Exists}
     generate:
       kind: ConfigMap
       name: zk-kafka-address
-      # create the resource in the new namespace
+      # generate the resource in the new namespace
       namespace: "{{request.object.metadata.name}}"
       data:
         kind: ConfigMap
@@ -123,12 +120,14 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
-  * [Mutate](documentation/writing-policies-mutate.md)
-  * [Validate](documentation/writing-policies-validate.md)
-  * [Generate](documentation/writing-policies-generate.md)
+  * [Validate Resources](documentation/writing-policies-validate.md)
+  * [Mutate Resources](documentation/writing-policies-mutate.md)
+  * [Generate Resources](documentation/writing-policies-generate.md)
+  * [Variable Substitution](documentation/writing-policies-variables.md)
+  * [Preconditions](documentation/writing-policies-preconditions.md)
+  * [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
+  * [Background Processing](documentation/writing-policies-background.md)
 * [Testing Policies](documentation/testing-policies.md)
-  * [Using kubectl](documentation/testing-policies.md#Test-using-kubectl)
-  * [Using the Kyverno CLI](documentation/testing-policies.md#Test-using-the-Kyverno-CLI)
 * [Sample Policies](/samples/README.md)
 
 ## License

@@ -1,8 +1,8 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate Resources*</small>
 
-# Mutate Configurations
+# Mutate Resources
 
-The ```mutate``` rule contains actions that will be applied to matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
+The ```mutate``` rule can be used to add, replace, or delete elements in matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
 
 By using a ```patch``` in the (JSONPatch - RFC 6902)[http://jsonpatch.com/] format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
 
@@ -213,4 +213,4 @@ The anchor processing behavior for mutate conditions is as follows:
 Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
 
 ---
-<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
+<small>*Read Next >> [Generate Resources](/documentation/writing-policies-generate.md)*</small>
