@@ -68,10 +68,10 @@ spec:
       namespace: "{{request.object.metadata.name}}" # namespace that triggers this rule
       data:
         spec:
-        podSelector:
-          matchLabels: {}
-          matchExpressions: []
-        policyTypes: []
+          # select all pods in the namespace
+          podSelector: {}
+          policyTypes: 
+          - Ingress
         metadata:
           labels:
             policyname: "default"

@@ -134,17 +134,17 @@ spec :
             - Deployment
           # Name is optional and can use wildcards
           name: "*"
-          # Selector is optional
-          selector:
       validate:
         pattern:
           spec:
-            ^(containers):
-              resources:
-                requests:
-                  memory: "$(<=./../../limits/memory)"
-                limits:
-                  memory: "2048Mi"
+            template:
+                spec:
+                    ^(containers):
+                        resources:
+                            requests:
+                                memory: "$(<=./../../limits/memory)"
+                            limits:
+                                memory: "2048Mi"
 ````
 
 ### Logical OR across validation patterns
