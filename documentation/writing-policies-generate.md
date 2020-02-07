@@ -2,7 +2,11 @@
 
 # Generate Resources 
 
-```generate``` is used to create additional resources when a resource is created. This is useful to create supporting resources, such as role bindings for a new namespace.
+The ```generate``` rule can used to create additional resources when a new resource is created. This is useful to create supporting resources, such as new role bindings for a new namespace.
+
+The `generate` rule supports `match` and `exclude` blocks, like other rules. Hence, the trigger for applying this rule can be the creation of any resource and its possible to match or exclude API requests based on subjects, roles, etc. 
+
+Currently, the generate rule only triggers during an API request and does not support [background processing](/documentation/writing-policies-background.md). Keeping resources synchhronized is planned for a future release (see https://github.com/nirmata/kyverno/issues/560).
 
 ## Example 1
 
