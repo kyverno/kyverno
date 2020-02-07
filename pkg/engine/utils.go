@@ -69,7 +69,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
 func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
 
-	var err = make(chan error, 9)
+	var err = make(chan error, 6)
 	var wg sync.WaitGroup
 	wg.Add(9)
 
@@ -126,28 +126,23 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	// Exclude
 	//
 	exclude := rule.ExcludeResources.ResourceDescription
+	var excludeCondition = make(chan bool, 4)
 
 	go func() {
 		if len(exclude.Kinds) > 0 {
-			if checkKind(exclude.Kinds, resource.GetKind()) {
-				err <- fmt.Errorf("resource kind has been excluded by the given rule")
-			}
+			excludeCondition <- checkKind(exclude.Kinds, resource.GetKind())
 		}
 		wg.Done()
 	}()
 	go func() {
 		if exclude.Name != "" {
-			if checkName(exclude.Name, resource.GetName()) {
-				err <- fmt.Errorf("resource name has been excluded by the given rule")
-			}
+			excludeCondition <- checkName(exclude.Name, resource.GetName())
 		}
 		wg.Done()
 	}()
 	go func() {
 		if len(exclude.Namespaces) > 0 {
-			if checkNameSpace(exclude.Namespaces, resource.GetNamespace()) {
-				err <- fmt.Errorf("resource namespace has been excluded by the given rule")
-			}
+			excludeCondition <- checkNameSpace(exclude.Namespaces, resource.GetNamespace())
 		}
 		wg.Done()
 	}()
@@ -155,11 +150,10 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 		if exclude.Selector != nil {
 			hasPassed, rerr := checkSelector(exclude.Selector, resource.GetLabels())
 			if rerr != nil {
-				err <- fmt.Errorf("could not parse selector block of the policy in exclude: %v", rerr)
+				glog.V(4).Infof("could not parse selector block of the policy in exclude: %v", rerr)
+				excludeCondition <- false
 			} else {
-				if hasPassed {
-					err <- fmt.Errorf("resource has been excluded by the given rules selector block")
-				}
+				excludeCondition <- hasPassed
 			}
 		}
 		wg.Done()
@@ -167,7 +161,20 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 
 	wg.Wait()
 	close(err)
-	// recieve all failed conditions
+	close(excludeCondition)
+
+	var isResourceExcluded = true
+	for hasPassed := range excludeCondition {
+		if !hasPassed {
+			isResourceExcluded = false
+			break
+		}
+	}
+	if isResourceExcluded {
+		err <- fmt.Errorf("resource has been excluded since the resource matches the exclude block of the rule")
+	}
+
+	// receive all failed conditions
 	var failedConditions []error
 	for failedCondition := range err {
 		if failedCondition != nil {
