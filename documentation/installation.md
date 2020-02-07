@@ -18,6 +18,8 @@ To install Kyverno in a cluster that supports certificate signing, run the follo
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 ````
 
+Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the `install.yaml` and update the image tag. 
+
 To check the Kyverno controller status, run the command:
 
 ````sh
