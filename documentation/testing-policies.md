@@ -21,3 +21,5 @@ Then compare the original resource definition in CM.yaml with the actual one:
 ````bash
 kubectl get -f CM.yaml -o yaml
 ````
+
+<small>*Read Next >> [Policy Violations](/documentation/policy-violations.md)*</small>
