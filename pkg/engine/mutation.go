@@ -61,9 +61,8 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo)
-		if !ok {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
+		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
 			continue
 		}
 

@@ -67,7 +67,10 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err != nil {
+		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
+
 }
 
 // Match resource name
@@ -125,7 +128,9 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err != nil {
+		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
 }
 
 // Match resource regex
@@ -183,7 +188,9 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err != nil {
+		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
 }
 
 // Match expressions for labels to not match
@@ -249,7 +256,9 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err != nil {
+		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
 }
 
 // Match label expression in matching set
@@ -316,7 +325,9 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	assert.Assert(t, MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err != nil {
+		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
 }
 
 // check for exclude conditions
@@ -394,7 +405,9 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription},
 		ExcludeResources: kyverno.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
 
-	assert.Assert(t, !MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}))
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}); err == nil {
+		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was suposed to fail")
+	}
 }
 
 func Test_validateGeneralRuleInfoVariables(t *testing.T) {

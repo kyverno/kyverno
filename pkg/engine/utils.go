@@ -2,6 +2,9 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
@@ -64,17 +67,18 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 }
 
 //MatchesResourceDescription checks if the resource matches resource desription of the rule or not
-func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) bool {
+func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
 
-	var condition = make(chan bool)
+	var err = make(chan error, 9)
+	var wg sync.WaitGroup
+	wg.Add(9)
 
 	go func() {
-		hasPassed := rbac.MatchAdmissionInfo(rule, admissionInfo)
-		if !hasPassed {
-			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
+		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
+			err <- fmt.Errorf("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
 				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
 		}
-		condition <- hasPassed
+		wg.Done()
 	}()
 
 	//
@@ -83,33 +87,39 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	matches := rule.MatchResources.ResourceDescription
 
 	go func() {
-		condition <- checkKind(matches.Kinds, resource.GetKind())
+		if !checkKind(matches.Kinds, resource.GetKind()) {
+			err <- fmt.Errorf("resource kind does not match rule")
+		}
+		wg.Done()
 	}()
 	go func() {
 		if matches.Name != "" {
-			condition <- checkName(matches.Name, resource.GetName())
-		} else {
-			condition <- true
+			if !checkName(matches.Name, resource.GetName()) {
+				err <- fmt.Errorf("resource name does not match rule")
+			}
 		}
+		wg.Done()
 	}()
 	go func() {
 		if len(matches.Namespaces) > 0 {
-			condition <- checkNameSpace(matches.Namespaces, resource.GetNamespace())
-		} else {
-			condition <- true
+			if !checkNameSpace(matches.Namespaces, resource.GetNamespace()) {
+				err <- fmt.Errorf("resource namespace does not match rule")
+			}
 		}
+		wg.Done()
 	}()
 	go func() {
 		if matches.Selector != nil {
-			hasPassed, err := checkSelector(matches.Selector, resource.GetLabels())
-			if err != nil {
-				condition <- false
+			hasPassed, rerr := checkSelector(matches.Selector, resource.GetLabels())
+			if rerr != nil {
+				err <- fmt.Errorf("could not parse selector block of the policy in match: %v", rerr)
 			} else {
-				condition <- hasPassed
+				if !hasPassed {
+					err <- fmt.Errorf("resource does not match given rules selector block")
+				}
 			}
-		} else {
-			condition <- true
 		}
+		wg.Done()
 	}()
 
 	//
@@ -119,48 +129,64 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 
 	go func() {
 		if len(exclude.Kinds) > 0 {
-			condition <- !checkKind(exclude.Kinds, resource.GetKind())
-		} else {
-			condition <- true
+			if checkKind(exclude.Kinds, resource.GetKind()) {
+				err <- fmt.Errorf("resource kind has been excluded by the given rule")
+			}
 		}
+		wg.Done()
 	}()
 	go func() {
 		if exclude.Name != "" {
-			condition <- !checkName(exclude.Name, resource.GetName())
-		} else {
-			condition <- true
+			if checkName(exclude.Name, resource.GetName()) {
+				err <- fmt.Errorf("resource name has been excluded by the given rule")
+			}
 		}
+		wg.Done()
 	}()
 	go func() {
 		if len(exclude.Namespaces) > 0 {
-			condition <- !checkNameSpace(exclude.Namespaces, resource.GetNamespace())
-		} else {
-			condition <- true
+			if checkNameSpace(exclude.Namespaces, resource.GetNamespace()) {
+				err <- fmt.Errorf("resource namespace has been excluded by the given rule")
+			}
 		}
+		wg.Done()
 	}()
 	go func() {
 		if exclude.Selector != nil {
-			hasPassed, err := checkSelector(exclude.Selector, resource.GetLabels())
-			if err != nil {
-				condition <- false
+			hasPassed, rerr := checkSelector(exclude.Selector, resource.GetLabels())
+			if rerr != nil {
+				err <- fmt.Errorf("could not parse selector block of the policy in exclude: %v", rerr)
 			} else {
-				condition <- !hasPassed
+				if hasPassed {
+					err <- fmt.Errorf("resource has been excluded by the given rules selector block")
+				}
 			}
-		} else {
-			condition <- true
 		}
+		wg.Done()
 	}()
 
-	// check if any condition has failed
-	var numberOfConditions = 9
-	for numberOfConditions > 0 {
-		if hasPassed := <-condition; !hasPassed {
-			return false
+	wg.Wait()
+	close(err)
+	// recieve all failed conditions
+	var failedConditions []error
+	for failedCondition := range err {
+		if failedCondition != nil {
+			failedConditions = append(failedConditions, failedCondition)
 		}
-		numberOfConditions -= numberOfConditions
 	}
 
-	return true
+	var errorMessage = "rule has failed to match resource for the following reasons:"
+	for i, failedCondition := range failedConditions {
+		if failedCondition != nil {
+			errorMessage += "\n" + fmt.Sprint(i+1) + ". " + failedCondition.Error()
+		}
+	}
+
+	if len(failedConditions) > 0 {
+		return errors.New(errorMessage)
+	}
+
+	return nil
 }
 
 //ParseNameFromObject extracts resource name from JSON obj

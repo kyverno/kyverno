@@ -28,7 +28,8 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !rule.HasGenerate() {
 		return nil
 	}
-	if !MatchesResourceDescription(resource, rule, admissionInfo) {
+	if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+		glog.V(4).Infof(err.Error())
 		return nil
 	}
 

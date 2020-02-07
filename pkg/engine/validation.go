@@ -105,9 +105,8 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule, admissionInfo)
-		if !ok {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
+		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
 			continue
 		}
 
