@@ -165,7 +165,7 @@ func (nsc *NamespaceController) processPolicy(policy *kyverno.ClusterPolicy) {
 func listpolicies(ns unstructured.Unstructured, pMetaStore policystore.LookupInterface) []kyverno.ClusterPolicy {
 	var filteredpolicies []kyverno.ClusterPolicy
 	glog.V(4).Infof("listing policies for namespace %s", ns.GetName())
-	policies, err := pMetaStore.LookUp(ns.GetKind(), ns.GetNamespace())
+	policies, err := pMetaStore.ListAll()
 	if err != nil {
 		glog.Errorf("failed to get list policies: %v", err)
 		return nil
