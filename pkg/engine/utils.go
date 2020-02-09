@@ -286,15 +286,6 @@ func ParseNamespaceFromObject(bytes []byte) string {
 	return ""
 }
 
-func findKind(kinds []string, kindGVK string) bool {
-	for _, kind := range kinds {
-		if kind == kindGVK {
-			return true
-		}
-	}
-	return false
-}
-
 // validateGeneralRuleInfoVariables validate variable subtition defined in
 // - MatchResources
 // - ExcludeResources
