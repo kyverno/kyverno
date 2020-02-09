@@ -22,7 +22,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		areErrorsExpected bool
 	}{
 		{
-			Description: "",
+			Description: "Should match pod and not exclude it",
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
@@ -31,7 +31,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 			areErrorsExpected: false,
 		},
 		{
-			Description: "",
+			Description: "Should exclude resource since it matches the exclude block",
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"system:node"},
 			},
@@ -40,8 +40,26 @@ func TestMatchesResourceDescription(t *testing.T) {
 			areErrorsExpected: true,
 		},
 		{
-			Description:       "",
+			Description:       "Should not fail if in sync mode, if admission info is empty it should still match resources with specific clusterroles",
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Should fail since resource does not match policy",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description: "Should not fail since resource does not match exclude block",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"system:node"},
+			},
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world2","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
 			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			areErrorsExpected: false,
 		},
@@ -49,7 +67,10 @@ func TestMatchesResourceDescription(t *testing.T) {
 
 	for i, tc := range tcs {
 		var policy kyverno.Policy
-		json.Unmarshal(tc.Policy, &policy)
+		err := json.Unmarshal(tc.Policy, &policy)
+		if err != nil {
+			t.Errorf("Testcase %d invalid policy raw", i+1)
+		}
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
 		for _, rule := range policy.Spec.Rules {
