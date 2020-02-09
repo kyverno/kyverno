@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
+	"github.com/nirmata/kyverno/pkg/utils"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/golang/glog"
 
@@ -67,10 +69,10 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, resource unstructured.Unstructured) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured) []error {
 	var wg sync.WaitGroup
-	wg.Add(4)
-	var errs = make(chan error, 4)
+	wg.Add(7)
+	var errs = make(chan error, 7)
 	go func() {
 		if len(conditionBlock.Kinds) > 0 {
 			if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
@@ -108,6 +110,36 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 		wg.Done()
 	}()
+
+	if !reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
+		go func() {
+			if len(userInfo.Roles) > 0 {
+				if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+					errs <- fmt.Errorf("user info does not match roles for the given conditionBlock")
+				}
+			}
+			wg.Done()
+		}()
+
+		go func() {
+			if len(userInfo.ClusterRoles) > 0 {
+				if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+					errs <- fmt.Errorf("user info does not match clustersRoles for the given conditionBlock")
+				}
+			}
+			wg.Done()
+		}()
+
+		go func() {
+			if len(userInfo.Subjects) > 0 {
+				if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
+					errs <- fmt.Errorf("user info does not match subject for the given conditionBlock")
+				}
+			}
+			wg.Done()
+		}()
+	}
+
 	wg.Wait()
 	close(errs)
 
@@ -119,24 +151,57 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	return errsIfAny
 }
 
+// matchSubjects return true if one of ruleSubjects exist in userInfo
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
+	const SaPrefix = "system:serviceaccount:"
+
+	userGroups := append(userInfo.Groups, userInfo.Username)
+	for _, subject := range ruleSubjects {
+		switch subject.Kind {
+		case "ServiceAccount":
+			if len(userInfo.Username) <= len(SaPrefix) {
+				continue
+			}
+			subjectServiceAccount := subject.Namespace + ":" + subject.Name
+			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
+				return true
+			}
+		case "User", "Group":
+			if utils.ContainsString(userGroups, subject.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func doesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
+
+	var sliceElementsMap = make(map[string]bool, len(slice))
+	for _, sliceElement := range slice {
+		sliceElementsMap[sliceElement] = true
+	}
+
+	for _, value := range values {
+		if sliceElementsMap[value] {
+			return true
+		}
+	}
+
+	return false
+}
+
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
-	var errs = make(chan error, 6)
+	var errs = make(chan error, 8)
 	var wg sync.WaitGroup
-	wg.Add(3)
-
-	go func() {
-		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-			errs <- fmt.Errorf("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
-		}
-		wg.Done()
-	}()
+	wg.Add(2)
 
 	// checking if resource matches the rule
 	go func() {
 		if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
-			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, resource)
+			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
 			for _, matchErr := range matchErrs {
 				errs <- matchErr
 			}
@@ -149,7 +214,7 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	// checking if resource has been excluded
 	go func() {
 		if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
-			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, resource)
+			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
 			if excludeErrs == nil {
 				errs <- fmt.Errorf("resource has been excluded since it matches the exclude block")
 			}
