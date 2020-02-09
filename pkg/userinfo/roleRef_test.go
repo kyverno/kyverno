@@ -11,27 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func Test_isServiceaccountUserInfo(t *testing.T) {
-	tests := []struct {
-		username string
-		expected bool
-	}{
-		{
-			username: "system:serviceaccount:default:saconfig",
-			expected: true,
-		},
-		{
-			username: "serviceaccount:default:saconfig",
-			expected: false,
-		},
-	}
-
-	for _, test := range tests {
-		res := isServiceaccountUserInfo(test.username)
-		assert.Assert(t, test.expected == res)
-	}
-}
-
 func Test_matchServiceAccount_subject_variants(t *testing.T) {
 	userInfo := authenticationv1.UserInfo{
 		Username: "system:serviceaccount:default:saconfig",
