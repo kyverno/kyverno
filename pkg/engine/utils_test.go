@@ -30,20 +30,37 @@ func TestMatchesResourceDescription(t *testing.T) {
 			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			areErrorsExpected: false,
 		},
+		{
+			Description: "",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"system:node"},
+			},
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description:       "",
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterroles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: false,
+		},
 	}
 
-	for _, tc := range tcs {
+	for i, tc := range tcs {
 		var policy kyverno.Policy
 		json.Unmarshal(tc.Policy, &policy)
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
 		for _, rule := range policy.Spec.Rules {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo)
-			if err != nil && !tc.areErrorsExpected {
-				t.Errorf("Unexpected error: %v", err)
+			if err != nil {
+				if !tc.areErrorsExpected {
+					t.Errorf("Testcase %d Unexpected error: %v", i+1, err)
+				}
 			} else {
 				if tc.areErrorsExpected {
-					t.Errorf("Expected Error but recievd no error")
+					t.Errorf("Testcase %d Expected Error but recieved no error", i+1)
 				}
 			}
 		}

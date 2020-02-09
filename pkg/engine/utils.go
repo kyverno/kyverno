@@ -111,34 +111,32 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		wg.Done()
 	}()
 
-	if !reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
-		go func() {
-			if len(userInfo.Roles) > 0 {
-				if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
-					errs <- fmt.Errorf("user info does not match roles for the given conditionBlock")
-				}
+	go func() {
+		if len(userInfo.Roles) > 0 {
+			if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+				errs <- fmt.Errorf("user info does not match roles for the given conditionBlock")
 			}
-			wg.Done()
-		}()
+		}
+		wg.Done()
+	}()
 
-		go func() {
-			if len(userInfo.ClusterRoles) > 0 {
-				if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
-					errs <- fmt.Errorf("user info does not match clustersRoles for the given conditionBlock")
-				}
+	go func() {
+		if len(userInfo.ClusterRoles) > 0 {
+			if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+				errs <- fmt.Errorf("user info does not match clustersRoles for the given conditionBlock")
 			}
-			wg.Done()
-		}()
+		}
+		wg.Done()
+	}()
 
-		go func() {
-			if len(userInfo.Subjects) > 0 {
-				if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
-					errs <- fmt.Errorf("user info does not match subject for the given conditionBlock")
-				}
+	go func() {
+		if len(userInfo.Subjects) > 0 {
+			if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
+				errs <- fmt.Errorf("user info does not match subject for the given conditionBlock")
 			}
-			wg.Done()
-		}()
-	}
+		}
+		wg.Done()
+	}()
 
 	wg.Wait()
 	close(errs)
@@ -197,6 +195,10 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	var errs = make(chan error, 8)
 	var wg sync.WaitGroup
 	wg.Add(2)
+
+	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
+		rule.MatchResources.UserInfo = kyverno.UserInfo{}
+	}
 
 	// checking if resource matches the rule
 	go func() {
