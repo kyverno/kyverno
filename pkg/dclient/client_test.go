@@ -27,10 +27,10 @@ type fixture struct {
 func newFixture(t *testing.T) *fixture {
 	// init groupversion
 	regResource := []schema.GroupVersionResource{
-		schema.GroupVersionResource{Group: "group", Version: "version", Resource: "thekinds"},
-		schema.GroupVersionResource{Group: "group2", Version: "version", Resource: "thekinds"},
-		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		{Group: "group", Version: "version", Resource: "thekinds"},
+		{Group: "group2", Version: "version", Resource: "thekinds"},
+		{Group: "", Version: "v1", Resource: "namespaces"},
+		{Group: "apps", Version: "v1", Resource: "deployments"},
 	}
 
 	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),

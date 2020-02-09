@@ -14,6 +14,7 @@ require (
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
+	github.com/ory/go-acc v0.1.0 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5

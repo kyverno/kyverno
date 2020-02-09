@@ -266,7 +266,10 @@ func handleData(ruleName string, generateRule kyverno.Generation, client *dclien
 		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate data: %s", invalidPaths))
 	}
 
-	newData := variables.SubstituteVariables(ctx, generateRule.Data)
+	//work on copy
+	copyDataTemp := reflect.Indirect(reflect.ValueOf(generateRule.Data))
+	copyData := copyDataTemp.Interface()
+	newData := variables.SubstituteVariables(ctx, copyData)
 
 	// check if resource exists
 	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
@@ -350,7 +353,7 @@ func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, 
 	info := policyviolation.Info{
 		PolicyName: gr.Spec.Policy,
 		Resource:   resource,
-		Rules: []kyverno.ViolatedRule{kyverno.ViolatedRule{
+		Rules: []kyverno.ViolatedRule{{
 			Name:    err.rule,
 			Type:    "Generation",
 			Message: err.Error(),
