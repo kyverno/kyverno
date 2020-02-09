@@ -128,6 +128,9 @@ func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 
 	// New Resource
 	if newRaw == nil {
+		newRaw = request.Object.Raw
+	}
+	if newRaw == nil {
 		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
 	}
 

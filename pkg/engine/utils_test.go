@@ -319,7 +319,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "label2",
 					Operator: "NotIn",
 					Values: []string{
@@ -387,7 +387,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "app",
 					Operator: "NotIn",
 					Values: []string{
@@ -457,7 +457,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
-				metav1.LabelSelectorRequirement{
+				{
 					Key:      "app",
 					Operator: "NotIn",
 					Values: []string{
