@@ -191,7 +191,11 @@ func doesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule, admissionInfo kyverno.RequestInfo) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo) error {
+	rule := *ruleRef.DeepCopy()
+	resource := *resourceRef.DeepCopy()
+	admissionInfo := *admissionInfoRef.DeepCopy()
+
 	var errs = make(chan error, 8)
 	var wg sync.WaitGroup
 	wg.Add(2)
