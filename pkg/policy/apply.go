@@ -21,43 +21,12 @@ import (
 //TODO: generation rules
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []response.EngineResponse) {
 	startTime := time.Now()
-	var policyStats []PolicyStat
+
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
 		glog.V(4).Infof("Finished applying %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), time.Since(startTime))
 	}()
 
-	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
-		ps := PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
-		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
-		// capture rule level stats
-		for _, rule := range policyResponse.Rules {
-			rs := RuleStatinfo{}
-			rs.RuleName = rule.Name
-			rs.ExecutionTime = rule.RuleStats.ProcessingTime
-			if rule.Success {
-				rs.RuleAppliedCount++
-			} else {
-				rs.RulesFailedCount++
-			}
-			if rule.Patches != nil {
-				rs.MutationCount++
-			}
-			ps.Stats.Rules = append(ps.Stats.Rules, rs)
-		}
-		policyStats = append(policyStats, ps)
-	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		for _, stat := range policyStats {
-			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
-			//SEND
-			policyStatus.SendStat(stat)
-		}
-	}
 	var engineResponses []response.EngineResponse
 	var engineResponse response.EngineResponse
 	var err error
@@ -71,17 +40,10 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	if err != nil {
 		glog.Errorf("unable to process mutation rules: %v", err)
 	}
-	gatherStat(policy.Name, engineResponse.PolicyResponse)
-	//send stats
-	sendStat(false)
 
 	//VALIDATION
 	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
-	// gather stats
-	gatherStat(policy.Name, engineResponse.PolicyResponse)
-	//send stats
-	sendStat(false)
 
 	//TODO: GENERATION
 	return engineResponses
