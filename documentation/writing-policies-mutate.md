@@ -1,8 +1,8 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate*</small>
+<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate Resources*</small>
 
-# Mutate Configurations
+# Mutate Resources
 
-The ```mutate``` rule contains actions that will be applied to matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
+The ```mutate``` rule can be used to add, replace, or delete elements in matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
 
 By using a ```patch``` in the (JSONPatch - RFC 6902)[http://jsonpatch.com/] format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
 
@@ -35,13 +35,13 @@ spec :
           kinds:
           - Deployment
       mutate:
-        patches:
-        - path: "/spec/template/spec/initContainers/0/"
-          op: add
-          value:
-            - image: "nirmata.io/kube-vault-client:v2"
-              name: "init-secrets"
-
+        overlay:
+          spec:
+            template:
+              spec:
+                initContainers:
+                  - name: init-secrets
+                    image: nirmata.io/kube-vault-client:v2
 ````
 
 Here is the example of a patch that removes a label from the secret:
@@ -178,25 +178,30 @@ A variation of an anchor, is to add a field value if it is not already defined. 
 
 An `add anchor` is processed as part of applying the mutation. Typically, every non-anchor tag-value is applied as part of the mutation. If the `add anchor` is set on a tag, the tag and value are only applied if they do not exist in the resource.
 
-For example, this overlay will set the port to 6443, if a port is not already defined:
+For example, this policy matches and mutates pods with `emptyDir` volume, to add the `safe-to-evict` annotation if it is not specified.
 
 ````yaml
 apiVersion: kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy-set-port
-spec :
-  rules:
-  - name: "Set port"
-    match:
-      resources:
-        kinds :
-          - Endpoints
-    mutate:
+kind: ClusterPolicy
+metadata: 
+  name: add-safe-to-evict
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec: 
+  rules: 
+  - name: "annotate-empty-dir"
+    match: 
+      resources: 
+        kinds: 
+        - Pod
+    mutate: 
       overlay:
-        subsets:
-        - (ports):
-            +(port): 6443
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): true
+        spec:          
+          volumes: 
+          - (emptyDir): {}
 ````
 
 #### Anchor processing flow
@@ -213,4 +218,4 @@ The anchor processing behavior for mutate conditions is as follows:
 Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
 
 ---
-<small>*Read Next >> [Generate](/documentation/writing-policies-generate.md)*</small>
+<small>*Read Next >> [Generate Resources](/documentation/writing-policies-generate.md)*</small>

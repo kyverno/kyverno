@@ -3,6 +3,8 @@ package policystore
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -34,8 +36,7 @@ type UpdateInterface interface {
 
 //LookupInterface provides api to lookup policies
 type LookupInterface interface {
-	// Lookup based on kind and namespaces
-	LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error)
+	ListAll() ([]kyverno.ClusterPolicy, error)
 }
 
 // NewPolicyStore returns a new policy store
@@ -81,19 +82,18 @@ func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
 	}
 }
 
-//LookUp look up the resources
-func (ps *PolicyStore) LookUp(kind, namespace string) ([]kyverno.ClusterPolicy, error) {
-	ret := []kyverno.ClusterPolicy{}
-	// lookup meta-store
-	policyNames := ps.lookUp(kind, namespace)
-	for _, policyName := range policyNames {
-		policy, err := ps.pLister.Get(policyName)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, *policy)
+func (ps *PolicyStore) ListAll() ([]kyverno.ClusterPolicy, error) {
+	policyPointers, err := ps.pLister.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
 	}
-	return ret, nil
+
+	var policies = make([]kyverno.ClusterPolicy, 0, len(policyPointers))
+	for _, policy := range policyPointers {
+		policies = append(policies, *policy)
+	}
+
+	return policies, nil
 }
 
 //UnRegister Remove policy information
@@ -123,48 +123,6 @@ func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 		}
 	}
 	return nil
-}
-
-//LookUp lookups up the policies for kind and namespace
-// returns a list of <policy, rule> that statisfy the filters
-func (ps *PolicyStore) lookUp(kind, namespace string) []string {
-	ps.mu.RLock()
-	defer ps.mu.RUnlock()
-	var policyMap policyMap
-	var ret []string
-	// kind
-	kindMap := ps.getKind(kind)
-	if kindMap == nil {
-		return []string{}
-	}
-	// get namespace specific policies
-	policyMap = kindMap[namespace]
-	ret = append(ret, transform(policyMap)...)
-	// get policies on all namespaces
-	policyMap = kindMap["*"]
-	ret = append(ret, transform(policyMap)...)
-	return unique(ret)
-}
-
-func unique(intSlice []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range intSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
-}
-
-// generates a copy
-func transform(pmap policyMap) []string {
-	ret := []string{}
-	for k := range pmap {
-		ret = append(ret, k)
-	}
-	return ret
 }
 
 func (ps *PolicyStore) addKind(kind string) namespaceMap {

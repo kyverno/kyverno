@@ -31,8 +31,10 @@ func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno
 	matches := rule.MatchResources.ResourceDescription
 	exclude := rule.ExcludeResources.ResourceDescription
 
-	if !findKind(matches.Kinds, resource.GetKind()) {
-		return false
+	if len(matches.Kinds) > 0 {
+		if !findKind(matches.Kinds, resource.GetKind()) {
+			return false
+		}
 	}
 
 	name := resource.GetName()

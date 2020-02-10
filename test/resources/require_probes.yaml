@@ -4,9 +4,13 @@ metadata:
   name: myapp-pod
   labels:
     app: myapp
-spec: 
+spec:
   containers:
-  - name: nginx
-    image: nginx
+  - name: goproxy
+    image: k8s.gcr.io/goproxy:0.1
+    ports:
+    - containerPort: 8080
     readinessProbe:
-      periodSeconds: 5
+      tcpSocket:
+        port: 8080
+      periodSeconds: 10

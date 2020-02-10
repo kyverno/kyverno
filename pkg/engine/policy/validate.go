@@ -135,10 +135,6 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 		return "", fmt.Errorf("match resources not specified")
 	}
 
-	if len(rd.Kinds) == 0 {
-		return "match", fmt.Errorf("kind is mandatory")
-	}
-
 	if err := validateResourceDescription(rd); err != nil {
 		return "match", err
 	}

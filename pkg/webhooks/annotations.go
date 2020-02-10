@@ -2,6 +2,9 @@ package webhooks
 
 import (
 	"encoding/json"
+	"strings"
+
+	yamlv2 "gopkg.in/yaml.v2"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
@@ -11,13 +14,8 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.patches"
+	policyAnnotation = "policies.kyverno.io~1patches"
 )
-
-type policyPatch struct {
-	PolicyName  string      `json:"policyname"`
-	RulePatches interface{} `json:"patches"`
-}
 
 type rulePatch struct {
 	RuleName string `json:"rulename"`
@@ -29,6 +27,15 @@ type annresponse struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value"`
+}
+
+var operationToPastTense = map[string]string{
+	"add":     "added",
+	"remove":  "removed",
+	"replace": "replaced",
+	"move":    "moved",
+	"copy":    "copied",
+	"test":    "tested",
 }
 
 func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte {
@@ -52,7 +59,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 		return nil
 	}
 
-	if _, ok := annotations[policyAnnotation]; ok {
+	if _, ok := annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")]; ok {
 		// create update patch string
 		patchResponse = annresponse{
 			Op:    "replace",
@@ -69,7 +76,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 			}
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
-			annotations[policyAnnotation] = string(value)
+			annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")] = string(value)
 			patchResponse = annresponse{
 				Op:    "add",
 				Path:  "/metadata/annotations",
@@ -90,31 +97,31 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte
 }
 
 func annotationFromEngineResponses(engineResponses []response.EngineResponse) []byte {
-	var policyPatches []policyPatch
+	var annotationContent = make(map[string]string)
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
 			glog.V(3).Infof("Policy %s failed, skip preparing annotation\n", engineResponse.PolicyResponse.Policy)
 			continue
 		}
 
-		var pp policyPatch
 		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse)
 		if rulePatches == nil {
 			continue
 		}
 
-		pp.RulePatches = rulePatches
-		pp.PolicyName = engineResponse.PolicyResponse.Policy
-		policyPatches = append(policyPatches, pp)
+		policyName := engineResponse.PolicyResponse.Policy
+		for _, rulePatch := range rulePatches {
+			annotationContent[rulePatch.RuleName+"."+policyName+".kyverno.io"] = operationToPastTense[rulePatch.Op] + " " + rulePatch.Path
+		}
 	}
 
 	// return nil if there's no patches
 	// otherwise result = null, len(result) = 4
-	if len(policyPatches) == 0 {
+	if len(annotationContent) == 0 {
 		return nil
 	}
 
-	result, _ := json.Marshal(policyPatches)
+	result, _ := yamlv2.Marshal(annotationContent)
 
 	return result
 }

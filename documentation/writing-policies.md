@@ -6,11 +6,17 @@ The following picture shows the structure of a Kyverno Policy:
 
 ![KyvernoPolicy](images/Kyverno-Policy-Structure.png)
 
-Each Kyverno policy contains one or more rules. Each rule has a match clause, an optional excludes clause, and a mutate, validate, or generate clause.
+Each Kyverno policy contains one or more rules. Each rule has a `match` clause, an optional `exclude` clause, and one of a `mutate`, `validate`, or `generate` clause.
+
+The match / exclude clauses have the same structure, and can contain the following elements:
+* resources: select resources by name, namespaces, kinds, and label selectors.
+* subjects: select users, user groups, and service accounts
+* roles: select namespaced roles
+* clusterroles: select cluster wide roles
 
 When Kyverno receives an admission controller request, i.e. a validation or mutation webhook, it first checks to see if the resource and user information matches or should be excluded from processing. If both checks pass, then the rule logic to mutate, validate, or generate resources is applied.
 
-The following YAML provides an example for the match and validate clauses.
+The following YAML provides an example for a match clause.
 
 ````yaml
 apiVersion : kyverno.io/v1
@@ -31,11 +37,11 @@ spec :
           kinds: # Required, list of kinds
           - Deployment
           - StatefulSet
-          name: "mongo*" # Optional, a resource name is optional. Name supports wildcards * and ?
-          namespaces: # Optional, list of namespaces. Supports wilcards * and ?
+          name: "mongo*" # Optional, a resource name is optional. Name supports wildcards (* and ?)
+          namespaces: # Optional, list of namespaces. Supports wildcards (* and ?)
           - "dev*"
           - test
-          selector: # Optional, a resource selector is optional. Selector values support wildcards * and ?
+          selector: # Optional, a resource selector is optional. Values support wildcards (* and ?)
               matchLabels:
                   app: mongodb
               matchExpressions:
@@ -47,100 +53,14 @@ spec :
         # Optional, roles to be matched
         roles:
         # Optional, clusterroles to be matched
-        clusterroles:
-      # Resources that need to be excluded
-      exclude: # Optional, resources to be excluded from evaulation
-        resources:
-          kinds:
-          - Daemonsets
-          name: "*"
-          namespaces:
-          - prod
-          - "kube*"
-          selector:
-              matchLabels:
-                  app: mongodb
-              matchExpressions:
-                  - {key: tier, operator: In, values: [database]}
-        # Optional, subjects to be excluded
-        subjects:
-        # Optional, roles to be excluded
-        roles:
-        # Optional, clusterroles to be excluded
-        clusterroles:
-          - cluster-admin
-          - admin
-      # rule is evaluated if the preconditions are satisfied
-      # all preconditions are AND/&& operation
-      preconditions:
-      - key: name # compares (key operator value) 
-        operator: Equal
-        value: name # constant "name" == "name"
-      - key: "{{serviceAccountName}}" # refer to a pre-defined variable serviceAccountName
-        operator: NotEqual
-        value: "user1" # if service 
-     # Each rule can contain a single validate, mutate, or generate directive
-     ...
+        clusterroles: cluster-admin
+
+        ...
+
 ````
 
 Each rule can validate, mutate, or generate configurations of matching resources. A rule definition can contain only a single **mutate**, **validate**, or **generate** child node. These actions are applied to the resource in described order: mutation, validation and then generation.
 
-# Variables:
-Variables can be used to reference attributes that are loaded in the context using a [JMESPATH](http://jmespath.org/) search path.
-Format: `{{<JMESPATH>}}`
-Resources available in context:
-- Resource: `{{request.object}}`
-- UserInfo: `{{request.userInfo}}`
-
-## Pre-defined Variables
-- `serviceAccountName` : the variable removes the suffix system:serviceaccount:<namespace>: and stores the userName. 
-Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `user1`.
-- `serviceAccountNamespace` : extracts the `namespace` of the serviceAccount. 
-Example  userName=`system:serviceaccount:nirmata:user1` will store variable value as `nirmata`.
-
-Examples:
-
-1. Refer to resource name(type string)
-
-`{{request.object.metadata.name}}`
-
-2. Build name from multiple variables(type string)
-
-`"ns-owner-{{request.object.metadata.namespace}}-{{request.userInfo.username}}-binding"`
-
-3. Refer to metadata struct/object(type object)
-
-`{{request.object.metadata}}`
-
-# PreConditions:
-Apart from using `match` & `exclude` conditions on resource to filter which resources to apply the rule on, `preconditions` can be used to define custom filters.
-```yaml
-  - name: generate-owner-role
-    match:
-      resources:
-        kinds:
-        - Namespace
-    preconditions:
-    - key: "{{request.userInfo.username}}"
-      operator: NotEqual
-      value: ""
-```
-In the above example, if the variable `{{request.userInfo.username}}` is blank then we dont apply the rule on resource.
-
-Operators supported:
-- Equal
-- NotEqual
-
-# Auto generating rules for pod controllers
-Writing policies on pods helps address all pod creation flows, but results in errors not being reported when a pod controller object is created. Kyverno solves this issue, by automatically generating rules for pod controllers from a rule written for a pod. 
-
-This behavior is controlled by the  pod-policies.kyverno.io/autogen-controllers annotation. By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=all`, to generate an additional rule that is applied to pod controllers: DaemonSet, Deployment, Job, StatefulSet.
- 
-Change the annotation `pod-policies.kyverno.io/autogen-controllers` to customize the applicable pod controllers of the auto-gen rule. For example, Kyverno generates the rule for `Deployment` if the annotation of policy is defined as `pod-policies.kyverno.io/autogen-controllers=Deployment`. If `name` or `labelSelector` is specified in the match / exclude block, Kyverno skips generating pod controllers rule as these filters may not be applicable to pod controllers.
- 
-To disable auto-generating rules for pod controllers, set `pod-policies.kyverno.io/autogen-controllers=none`.
-
-
 
 ---
-<small>*Read Next >> [Validate](/documentation/writing-policies-validate.md)*</small>
+<small>*Read Next >> [Validate Resources](/documentation/writing-policies-validate.md)*</small>

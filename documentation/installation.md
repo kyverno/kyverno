@@ -10,13 +10,15 @@ There are 2 ways to configure the secure communications link between Kyverno and
 
 Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
-**Deploying on EKS requires enabling a command-line argument `--fqdncn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
+**Deploying on EKS requires enabling a command-line argument `--fqdn-as-cn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
 
 To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access:
 
 ````sh
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 ````
+
+Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the `install.yaml` and update the image tag. 
 
 To check the Kyverno controller status, run the command:
 

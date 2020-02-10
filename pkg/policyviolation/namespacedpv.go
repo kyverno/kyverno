@@ -109,8 +109,9 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	// update resource
 	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(newPv)
 	if err != nil {
-		return fmt.Errorf("failed to update namespaced polciy violation: %v", err)
+		return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 	}
+
 	glog.Infof("namespaced policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 	return nil
 }
