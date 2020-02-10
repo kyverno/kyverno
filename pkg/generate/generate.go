@@ -221,6 +221,11 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	newResource.SetName(gen.Name)
 	newResource.SetNamespace(gen.Namespace)
 
+	// manage labels
+	// - app.kubernetes.io/managed-by: kyverno
+	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+	manageLabels(newResource, resource)
+
 	if mode == Create {
 		// Reset resource version
 		newResource.SetResourceVersion("")
@@ -308,7 +313,7 @@ func copyInterface(original interface{}) (interface{}, error) {
 // manage the creation/update of resource to be generated using the spec defined in the policy
 func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface) (map[string]interface{}, ResourceMode, error) {
 	//work on copy of the data
-	// as the type of data stoed in interface is not know,
+	// as the type of data stored in interface is not know,
 	// we marshall the data and unmarshal it into a new resource to create a copy
 	dataCopy, err := copyInterface(generateRule.Data)
 	if err != nil {
@@ -413,27 +418,4 @@ func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, 
 		}},
 	}
 	return info
-}
-
-func addLabels(unstr *unstructured.Unstructured) {
-	// add managedBY label if not defined
-	labels := unstr.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	// ManagedBy label
-	key := "app.kubernetes.io/managed-by"
-	value := "kyverno"
-	val, ok := labels[key]
-	if ok {
-		if val != value {
-			glog.Infof("resource managed by %s, kyverno wont over-ride the label", val)
-		}
-	}
-	// we dont over-ride the key managed by
-	if !ok {
-		// add lable
-		labels[key] = value
-	}
-
 }

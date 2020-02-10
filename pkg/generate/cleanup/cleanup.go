@@ -1,42 +1,24 @@
 package cleanup
 
 import (
-	"time"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-const timoutMins = 2
-const timeout = time.Minute * timoutMins // 2 minutes
-
 func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
-	// 1-Corresponding policy has been deleted
-	_, err := c.pLister.Get(gr.Spec.Policy)
-	if errors.IsNotFound(err) {
-		glog.V(4).Infof("delete GR %s", gr.Name)
-		return c.control.Delete(gr.Name)
-	}
+	// 1- Corresponding policy has been deleted
+	// then we dont delete the generated resources
 
-	// 2- Check for elapsed time since update
-	if gr.Status.State == kyverno.Completed {
-		glog.V(4).Infof("checking if owner exists for gr %s", gr.Name)
-		if !ownerResourceExists(c.client, gr) {
-			if err := deleteGeneratedResources(c.client, gr); err != nil {
-				return err
-			}
-			glog.V(4).Infof("delete GR %s", gr.Name)
-			return c.control.Delete(gr.Name)
+	// 2- The trigger resource is deleted, then delete the generated resources
+	if !ownerResourceExists(c.client, gr) {
+		if err := deleteGeneratedResources(c.client, gr); err != nil {
+			return err
 		}
-		return nil
-	}
-	createTime := gr.GetCreationTimestamp()
-	if time.Since(createTime.UTC()) > timeout {
-		// the GR was in state ["",Failed] for more than timeout
-		glog.V(4).Infof("GR %s was not processed successfully in %d minutes", gr.Name, timoutMins)
-		glog.V(4).Infof("delete GR %s", gr.Name)
+		// - trigger-resource is delted
+		// - generated-resources are delted
+		// - > Now delete the GenerateRequest CR
 		return c.control.Delete(gr.Name)
 	}
 	return nil
@@ -44,16 +26,22 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 
 func ownerResourceExists(client *dclient.Client, gr kyverno.GenerateRequest) bool {
 	_, err := client.GetResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
-	if err != nil {
+	// trigger resources has been deleted
+	if apierrors.IsNotFound(err) {
 		return false
 	}
+	if err != nil {
+		glog.V(4).Infof("Failed to get resource %s/%s/%s: error : %s", gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, err)
+	}
+	// if there was an error while querying the resources we dont delete the generated resources
+	// but expect the deletion in next reconciliation loop
 	return true
 }
 
 func deleteGeneratedResources(client *dclient.Client, gr kyverno.GenerateRequest) error {
 	for _, genResource := range gr.Status.GeneratedResources {
 		err := client.DeleteResource(genResource.Kind, genResource.Namespace, genResource.Name, false)
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			glog.V(4).Infof("resource %s/%s/%s not found, will no delete", genResource.Kind, genResource.Namespace, genResource.Name)
 			continue
 		}
