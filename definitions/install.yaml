@@ -474,21 +474,96 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: kyvernoRole
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: policyviolation
+  name: kyvernoRole
 rules:
-- apiGroups: ["kyverno.io"]
+# Dynamic creation of webhooks and events 
+- apiGroups:
+  - '*'
   resources:
+  - events
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  verbs:
+  - create
+  - delete
+  - get 
+  - list
+  - patch
+  - update
+  - watch
+# get the roleRef for incoming api-request user
+- apiGroups:
+  - '*'
+  resources:
+  - rolebindings
+  - clusterrolebindings
+  - configmaps
+  verbs:
+  - watch
+# Kyverno CRs
+- apiGroups:
+  - '*'
+  resources:
+  - clusterpolicies
+  - clusterpolicies/status
+  - clusterpolicyviolations
+  - clusterpolicyviolations/status
   - policyviolations
-  verbs: ["get", "list", "watch"]
+  - policyviolations/status
+  - generaterequests
+  - generaterequests/status
+  verbs:
+  - create
+  - delete
+  - get 
+  - list 
+  - patch
+  - update
+  - watch
+# auto rule gen for pod-controllers using annotations will be under same user
+
+# background processing, identify all existing resources
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+# process generate rules to generate resources
+- apiGroups:
+  - '*'
+  resources:
+  - namespaces
+  - networkpolicies
+  - secrets
+  - configmaps
+  - resourcequotas
+  - limitranges
+  verbs:
+  - create
+  - update
+  - delete
+  - get
+# dynamic watches on trigger resources for generate rules
+# re-evaluate the policy if the resource is updated
+- apiGroups:
+  - '*'
+  resources:
+  - namespaces
+  verbs:
+  - watch  
 ---
 apiVersion: v1
 kind: ConfigMap
