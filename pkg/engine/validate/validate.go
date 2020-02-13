@@ -41,6 +41,17 @@ func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern in
 	return "", ValidationError{}
 }
 
+// ValidateResourceWithPattern1 is a start of element-by-element validation process
+// It assumes that validation is started from root, so "/" is passed
+func ValidateResourceWithPattern1(resource, pattern interface{}) (string, error) {
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
+	if err != nil {
+		return path, err
+	}
+
+	return "", nil
+}
+
 func copyInterface(original interface{}) (interface{}, error) {
 	tempData, err := json.Marshal(original)
 	if err != nil {

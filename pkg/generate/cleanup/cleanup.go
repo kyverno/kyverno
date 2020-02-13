@@ -16,8 +16,8 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 		if err := deleteGeneratedResources(c.client, gr); err != nil {
 			return err
 		}
-		// - trigger-resource is delted
-		// - generated-resources are delted
+		// - trigger-resource is deleted
+		// - generated-resources are deleted
 		// - > Now delete the GenerateRequest CR
 		return c.control.Delete(gr.Name)
 	}
