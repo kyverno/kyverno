@@ -51,7 +51,7 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/pattern", idx)
 		}
 		for idx2, pattern := range rule.Validation.AnyPattern {
-			if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
+			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(ctx, pattern); err != nil {
 				return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
 			}
 		}
