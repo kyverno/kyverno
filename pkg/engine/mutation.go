@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/mutate"
 	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -36,26 +34,13 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
 	defer endMutateResultResponse(&resp, startTime)
 
-	incrementAppliedRuleCount := func() {
-		// rules applied successfully count
-		resp.PolicyResponse.RulesAppliedCount++
-	}
-
 	patchedResource := policyContext.NewResource
-
 	for _, rule := range policy.Spec.Rules {
+		var ruleResponse response.RuleResponse
 		//TODO: to be checked before calling the resources as well
 		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
 			continue
 		}
-
-		if paths := validateGeneralRuleInfoVariables(ctx, rule); len(paths) != 0 {
-			glog.Infof("referenced path not present in rule %s, resource %s/%s/%s, path: %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), paths)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
-				newPathNotPresentRuleResponse(rule.Name, utils.Mutation.String(), fmt.Sprintf("path not present in rule info: %s", paths)))
-			continue
-		}
-
 		startTime := time.Now()
 		if !rbac.MatchAdmissionInfo(rule, policyContext.AdmissionInfo) {
 			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
@@ -76,34 +61,38 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// operate on the copy of the conditions, as we perform variable substitution
 		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
+		// - handle variable subsitutions
 		if !variables.EvaluateConditions(ctx, copyConditions) {
 			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
 
+		mutation := rule.Mutation.DeepCopy()
 		// Process Overlay
-		if rule.Mutation.Overlay != nil {
-			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, rule, patchedResource)
-			if ruleResponse.Success {
-				// - variable substitution path is not present
-				if ruleResponse.PathNotPresent {
-					glog.V(4).Infof(ruleResponse.Message)
-					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-					continue
-				}
+		if mutation.Overlay != nil {
+			overlay := mutation.Overlay
+			// subsiitue the variables
+			var err error
+			if overlay, err = variables.SubstituteVars(ctx, overlay); err != nil {
+				// variable subsitution failed
+				ruleResponse.Success = false
+				ruleResponse.Message = err.Error()
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+				continue
+			}
 
+			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, overlay, patchedResource)
+			if ruleResponse.Success {
 				// - overlay pattern does not match the resource conditions
 				if ruleResponse.Patches == nil {
 					glog.V(4).Infof(ruleResponse.Message)
 					continue
 				}
-
 				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount()
+			incrementAppliedRuleCount(&resp)
 		}
 
 		// Process Patches
@@ -112,7 +101,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			ruleResponse, patchedResource = mutate.ProcessPatches(rule, patchedResource)
 			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount()
+			incrementAppliedRuleCount(&resp)
 		}
 
 		// insert annotation to podtemplate if resource is pod controller
@@ -123,7 +112,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		if strings.Contains(PodControllers, resource.GetKind()) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(ctx, podTemplateRule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
 				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				continue
@@ -138,6 +127,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
+}
+func incrementAppliedRuleCount(resp *response.EngineResponse) {
+	resp.PolicyResponse.RulesAppliedCount++
 }
 
 func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {

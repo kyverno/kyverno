@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -11,35 +10,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
-
-// ValidateResourceWithPattern is a start of element-by-element validation process
-// It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, ValidationError) {
-	// if referenced path is not present, we skip processing the rule and report violation
-	if invalidPaths := variables.ValidateVariables(ctx, pattern); len(invalidPaths) != 0 {
-		return "", newValidatePatternError(PathNotPresent, invalidPaths)
-	}
-
-	// Operate on copy of the value for variable substitution
-	patternCopy, err := copyInterface(pattern)
-	if err != nil {
-		return "", newValidatePatternError(OtherError, err.Error())
-	}
-	// first pass we substitute all the JMESPATH substitution for the variable
-	// variable: {{<JMESPATH>}}
-	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
-	patternCopy = variables.SubstituteVariables(ctx, patternCopy)
-	path, err := validateResourceElement(resource, patternCopy, patternCopy, "/")
-	if err != nil {
-		return path, newValidatePatternError(Rulefailure, err.Error())
-	}
-
-	return "", ValidationError{}
-}
 
 // ValidateResourceWithPattern1 is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
@@ -50,20 +22,6 @@ func ValidateResourceWithPattern1(resource, pattern interface{}) (string, error)
 	}
 
 	return "", nil
-}
-
-func copyInterface(original interface{}) (interface{}, error) {
-	tempData, err := json.Marshal(original)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(tempData))
-	var temp interface{}
-	err = json.Unmarshal(tempData, &temp)
-	if err != nil {
-		return nil, err
-	}
-	return temp, nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
@@ -102,7 +60,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 			}
 		}
 		if !ValidateValueWithPattern(resourceElement, patternElement) {
-			return path, fmt.Errorf("Validation rule failed at '%s' to validate value %v with pattern %v", path, resourceElement, patternElement)
+			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
 		}
 
 	default:

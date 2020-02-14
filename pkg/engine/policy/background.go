@@ -4,19 +4,21 @@ import (
 	"fmt"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 //ContainsUserInfo returns error is userInfo is defined
 func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
+	var err error
 	// iterate of the policy rules to identify if userInfo is used
 	for idx, rule := range policy.Spec.Rules {
-		if err := userInfoDefined(rule.MatchResources.UserInfo); err != nil {
-			return fmt.Errorf("path: spec/rules[%d]/match/%s", idx, err)
+		if path := userInfoDefined(rule.MatchResources.UserInfo); path != "" {
+			return fmt.Errorf("userInfo variable used at path: spec/rules[%d]/match/%s", idx, path)
 		}
 
-		if err := userInfoDefined(rule.ExcludeResources.UserInfo); err != nil {
-			return fmt.Errorf("path: spec/rules[%d]/exclude/%s", idx, err)
+		if path := userInfoDefined(rule.ExcludeResources.UserInfo); path != "" {
+			return fmt.Errorf("userInfo variable used at path: spec/rules[%d]/exclude/%s", idx, path)
 		}
 
 		// variable defined with user information
@@ -29,40 +31,43 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 		// - request.userInfo*
 		// - serviceAccountName
 		// - serviceAccountNamespace
+
 		filterVars := []string{"request.userInfo*", "serviceAccountName", "serviceAccountNamespace"}
+		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
-			if err := variables.CheckVariables(condition.Key, filterVars, "/"); err != nil {
-				return fmt.Errorf("path: spec/rules[%d]/condition[%d]/key%s", idx, condIdx, err)
+			if condition.Key, err = variables.SubstituteVars(ctx, condition.Key); err != nil {
+				return fmt.Errorf("userInfo variable used at spec/rules[%d]/condition[%d]/key", idx, condIdx)
 			}
-			if err := variables.CheckVariables(condition.Value, filterVars, "/"); err != nil {
-				return fmt.Errorf("path: spec/rules[%d]/condition[%d]/value%s", idx, condIdx, err)
+
+			if condition.Value, err = variables.SubstituteVars(ctx, condition.Value); err != nil {
+				return fmt.Errorf("userInfo variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
 			}
 		}
 
-		if err := variables.CheckVariables(rule.Mutation.Overlay, filterVars, "/"); err != nil {
-			return fmt.Errorf("path: spec/rules[%d]/mutate/overlay%s", idx, err)
+		if rule.Mutation.Overlay, err = variables.SubstituteVars(ctx, rule.Mutation.Overlay); err != nil {
+			return fmt.Errorf("userInfo variable used at spec/rules[%d]/mutate/overlay", idx)
 		}
-		if err := variables.CheckVariables(rule.Validation.Pattern, filterVars, "/"); err != nil {
-			return fmt.Errorf("path: spec/rules[%d]/validate/pattern%s", idx, err)
+		if rule.Validation.Pattern, err = variables.SubstituteVars(ctx, rule.Validation.Pattern); err != nil {
+			return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/pattern", idx)
 		}
 		for idx2, pattern := range rule.Validation.AnyPattern {
-			if err := variables.CheckVariables(pattern, filterVars, "/"); err != nil {
-				return fmt.Errorf("path: spec/rules[%d]/validate/anyPattern[%d]%s", idx, idx2, err)
+			if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
+				return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
 			}
 		}
 	}
 	return nil
 }
 
-func userInfoDefined(ui kyverno.UserInfo) error {
+func userInfoDefined(ui kyverno.UserInfo) string {
 	if len(ui.Roles) > 0 {
-		return fmt.Errorf("roles")
+		return "roles"
 	}
 	if len(ui.ClusterRoles) > 0 {
-		return fmt.Errorf("clusterRoles")
+		return "clusterRoles"
 	}
 	if len(ui.Subjects) > 0 {
-		return fmt.Errorf("subjects")
+		return "subjects"
 	}
-	return nil
+	return ""
 }

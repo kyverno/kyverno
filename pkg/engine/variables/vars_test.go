@@ -63,7 +63,7 @@ func Test_subVars_success(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err := SubstituteVars(ctx, pattern); err != nil {
+	if _, err := SubstituteVars(ctx, pattern); err != nil {
 		t.Error(err)
 	}
 }
@@ -124,7 +124,7 @@ func Test_subVars_failed(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err := SubstituteVars(ctx, pattern); err == nil {
+	if _, err := SubstituteVars(ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
 }

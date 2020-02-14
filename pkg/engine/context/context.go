@@ -30,16 +30,18 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu sync.RWMutex
-	// data    map[string]interface{}
-	jsonRaw []byte
+	mu            sync.RWMutex
+	jsonRaw       []byte
+	whiteListVars []string
 }
 
 //NewContext returns a new context
-func NewContext() *Context {
+// pass the list of variables to be white-listed
+func NewContext(whiteListVars ...string) *Context {
 	ctx := Context{
 		// data:    map[string]interface{}{},
-		jsonRaw: []byte(`{}`), // empty json struct
+		jsonRaw:       []byte(`{}`), // empty json struct
+		whiteListVars: whiteListVars,
 	}
 	return &ctx
 }

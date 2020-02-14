@@ -126,22 +126,19 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	var err error
 	var mode ResourceMode
 	var noGenResource kyverno.ResourceSpec
-
 	// convert to unstructured Resource
 	genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
 	if err != nil {
 		return noGenResource, err
 	}
-	glog.V(4).Info("applyRule1 %v", genUnst)
 
 	// Variable substitutions
 	// format : {{<variable_name}}
 	// - if there is variables that are not defined the context -> results in error and rule is not applied
 	// - valid variables are replaced with the values
-	if err := variables.SubstituteVars(ctx, genUnst.Object); err != nil {
+	if _, err := variables.SubstituteVars(ctx, genUnst.Object); err != nil {
 		return noGenResource, err
 	}
-	glog.V(4).Info("applyRule2 %v", genUnst.Object)
 	genKind, _, err := unstructured.NestedString(genUnst.Object, "kind")
 	if err != nil {
 		return noGenResource, err
@@ -175,6 +172,10 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 	} else {
 		rdata, mode, err = manageClone(genKind, genNamespace, genName, genCopy, client, resource)
 	}
+	if err != nil {
+		return noGenResource, err
+	}
+
 	if rdata == nil {
 		// existing resource contains the configuration
 		return newGenResource, nil
@@ -265,7 +266,6 @@ func manageClone(kind, namespace, name string, clone map[string]interface{}, cli
 		return nil, Skip, err
 	}
 	newRName, _, err := unstructured.NestedString(clone, "name")
-
 	if err != nil {
 		return nil, Skip, err
 	}
@@ -275,10 +275,11 @@ func manageClone(kind, namespace, name string, clone map[string]interface{}, cli
 		return nil, Skip, nil
 	}
 
+	glog.V(4).Infof("check if resource %s/%s/%s exists", kind, newRNs, newRName)
 	// check if the resource as reference in clone exists?
 	obj, err := client.GetResource(kind, newRNs, newRName)
 	if err != nil {
-		return nil, Skip, err
+		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err)
 	}
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
@@ -300,7 +301,7 @@ const (
 func checkResource(newResourceSpec interface{}, resource *unstructured.Unstructured) error {
 	// check if the resource spec if a subset of the resource
 	if path, err := validate.ValidateResourceWithPattern1(resource.Object, newResourceSpec); err != nil {
-		glog.V(4).Info("Failed to match the resource at path %s: err", path, err)
+		glog.V(4).Infof("Failed to match the resource at path %s: err %v", path, err)
 		return err
 	}
 	return nil

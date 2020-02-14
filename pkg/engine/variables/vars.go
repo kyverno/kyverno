@@ -11,16 +11,19 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
+const variableRegex = `\{\{([^{}]*)\}\}`
+
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
-func SubstituteVars(ctx context.EvalInterface, pattern interface{}) error {
+func SubstituteVars(ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
+	println(&pattern)
 	errs := []error{}
-	subVars(ctx, pattern, "", &errs)
+	pattern = subVars(ctx, pattern, "", &errs)
 	if len(errs) == 0 {
 		// no error while parsing the pattern
-		return nil
+		return pattern, nil
 	}
-	return fmt.Errorf("variable(s) not found or has nil values: %v", errs)
+	return pattern, fmt.Errorf("variable(s) not found or has nil values: %v", errs)
 }
 
 func subVars(ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
@@ -55,9 +58,16 @@ func subArray(ctx context.EvalInterface, patternList []interface{}, path string,
 	return patternList
 }
 
-func subVal(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
-	operatorVariable := getOp(valuePattern)
-	variable := valuePattern[len(operatorVariable):]
+func subVal(ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) interface{} {
+	var emptyInterface interface{}
+	valueStr, ok := valuePattern.(string)
+	if !ok {
+		glog.Infof("failed to convert %v to string", valuePattern)
+		return emptyInterface
+	}
+
+	operatorVariable := getOp(valueStr)
+	variable := valueStr[len(operatorVariable):]
 	// substitute variable with value
 	value, failedVars := getValQuery(ctx, variable)
 	// if there are failedVars at this level
@@ -70,15 +80,17 @@ func subVal(ctx context.EvalInterface, valuePattern string, path string, errs *[
 		// default or operator.Equal
 		// equal + string value
 		// object variable
+		valuePattern = value
 		return value
 	}
 	// operator + string variable
 	switch value.(type) {
 	case string:
+		valuePattern = string(operatorVariable) + value.(string)
 		return string(operatorVariable) + value.(string)
 	default:
 		glog.Infof("cannot use operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
-		var emptyInterface interface{}
+		valuePattern = emptyInterface
 		return emptyInterface
 	}
 
