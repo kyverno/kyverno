@@ -83,9 +83,9 @@ func subVal(ctx context.EvalInterface, valuePattern interface{}, path string, er
 		return value
 	}
 	// operator + string variable
-	switch value.(type) {
+	switch typedValue := value.(type) {
 	case string:
-		return string(operatorVariable) + value.(string)
+		return typedValue + value.(string)
 	default:
 		glog.Infof("cannot use operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
 		return emptyInterface
