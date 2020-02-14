@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	policyvalidate "github.com/nirmata/kyverno/pkg/engine/policy"
+	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,7 +35,6 @@ func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionReques
 			},
 		}
 	}
-
 	if admissionResp.Allowed {
 		// if the policy contains mutating & validation rules and it config does not exist we create one
 		// queue the request
