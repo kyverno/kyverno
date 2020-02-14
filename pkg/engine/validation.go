@@ -192,7 +192,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 			return resp
 		}
 
-		if path, err := validate.ValidateResourceWithPattern1(resource.Object, pattern); err != nil {
+		if path, err := validate.ValidateResourceWithPattern(resource.Object, pattern); err != nil {
 			// validation failed
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
@@ -216,7 +216,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
 				continue
 			}
-			_, err := validate.ValidateResourceWithPattern1(resource.Object, pattern)
+			_, err := validate.ValidateResourceWithPattern(resource.Object, pattern)
 			if err == nil {
 				resp.Success = true
 				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, idx)

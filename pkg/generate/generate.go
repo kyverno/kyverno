@@ -300,7 +300,7 @@ const (
 
 func checkResource(newResourceSpec interface{}, resource *unstructured.Unstructured) error {
 	// check if the resource spec if a subset of the resource
-	if path, err := validate.ValidateResourceWithPattern1(resource.Object, newResourceSpec); err != nil {
+	if path, err := validate.ValidateResourceWithPattern(resource.Object, newResourceSpec); err != nil {
 		glog.V(4).Infof("Failed to match the resource at path %s: err %v", path, err)
 		return err
 	}

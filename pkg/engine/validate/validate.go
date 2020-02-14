@@ -13,9 +13,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
-// ValidateResourceWithPattern1 is a start of element-by-element validation process
+// ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern1(resource, pattern interface{}) (string, error) {
+func ValidateResourceWithPattern(resource, pattern interface{}) (string, error) {
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	if err != nil {
 		return path, err
