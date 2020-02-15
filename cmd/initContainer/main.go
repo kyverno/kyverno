@@ -222,21 +222,21 @@ func isVersionSupported(client *client.Client) {
 	exp := regexp.MustCompile(`v(\d*).(\d*).(\d*)`)
 	groups := exp.FindAllStringSubmatch(serverVersion.String(), -1)
 	if len(groups) != 1 || len(groups[0]) != 4 {
-		glog.Fatalf("Failed to extract kubernetes server version: %v\n", serverVersion, err)
+		glog.Fatalf("Failed to extract kubernetes server version: %v.err %v\n", serverVersion, err)
 	}
 	// convert string to int
 	// assuming the version are always intergers
 	major, err := strconv.Atoi(groups[0][1])
 	if err != nil {
-		glog.Fatalf("Failed to extract kubernetes major server version: %v\n", serverVersion, err)
+		glog.Fatalf("Failed to extract kubernetes major server version: %v.err %v\n", serverVersion, err)
 	}
 	minor, err := strconv.Atoi(groups[0][2])
 	if err != nil {
-		glog.Fatalf("Failed to extract kubernetes minor server version: %v\n", serverVersion, err)
+		glog.Fatalf("Failed to extract kubernetes minor server version: %v.err %v\n", serverVersion, err)
 	}
 	sub, err := strconv.Atoi(groups[0][3])
 	if err != nil {
-		glog.Fatalf("Failed to extract kubernetes sub minor server version: %v\n", serverVersion, err)
+		glog.Fatalf("Failed to extract kubernetes sub minor server version:%v. err %v\n", serverVersion, err)
 	}
 	if major <= 1 && minor <= 12 && sub < 7 {
 		glog.Fatalf("Unsupported kubernetes server version %s. Kyverno is supported from version v1.12.7+", serverVersion)
