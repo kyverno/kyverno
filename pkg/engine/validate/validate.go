@@ -209,7 +209,7 @@ func formAbsolutePath(referencePath, absolutePath string) string {
 //Prepares original pattern, path to value, and call traverse function
 func getValueFromReference(origPattern interface{}, reference string) (interface{}, error) {
 	originalPatternMap := origPattern.(map[string]interface{})
-	reference = reference[1:len(reference)]
+	reference = reference[1:]
 	statements := strings.Split(reference, "/")
 
 	return getValueFromPattern(originalPatternMap, statements, 0)

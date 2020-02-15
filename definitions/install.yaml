@@ -71,8 +71,7 @@ spec:
                               type: string
                       resources:
                         type: object
-                        required:
-                        - kinds
+                        minProperties: 1
                         properties:
                           kinds:
                             type: array

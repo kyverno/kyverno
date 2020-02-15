@@ -1,9 +1,10 @@
 package operator
 
 import (
-	"testing"
 	"gotest.tools/assert"
+	"testing"
 )
+
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
 	assert.Equal(t, GetOperatorFromStringPattern("f"), Equal)
 }
