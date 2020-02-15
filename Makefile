@@ -21,6 +21,7 @@ LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKA
 
 KYVERNO_PATH:= cmd/kyverno
 build: kyverno
+PWD := $(CURDIR)
 
 ##################################
 # INIT CONTAINER 

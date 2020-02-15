@@ -161,49 +161,50 @@ func Test_matchSubjectsMap(t *testing.T) {
 	assert.Assert(t, !res)
 }
 
+func newRoleBinding(name, ns string, subjects []rbacv1.Subject, roles rbacv1.RoleRef) *rbacv1.RoleBinding {
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Subjects:   subjects,
+		RoleRef:    roles,
+	}
+
+	rb.Kind = "RoleBinding"
+	rb.APIVersion = "rbac.authorization.k8s.io/v1"
+	return rb
+}
+
 func Test_getRoleRefByRoleBindings(t *testing.T) {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 	flag.Set("v", "3")
 
-	list := []*rbacv1.RoleBinding{
-		&rbacv1.RoleBinding{
-			metav1.TypeMeta{
-				Kind:       "RoleBinding",
-				APIVersion: "rbac.authorization.k8s.io/v1",
+	list := make([]*rbacv1.RoleBinding, 2)
+
+	list[0] = newRoleBinding("test1", "mynamespace",
+		[]rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "saconfig",
+				Namespace: "default",
 			},
-			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
-				rbacv1.Subject{
-					Kind:      "ServiceAccount",
-					Name:      "saconfig",
-					Namespace: "default",
-				},
-			},
-			rbacv1.RoleRef{
-				Kind: rolekind,
-				Name: "myrole",
-			},
+		}, rbacv1.RoleRef{
+			Kind: rolekind,
+			Name: "myrole",
 		},
-		&rbacv1.RoleBinding{
-			metav1.TypeMeta{
-				Kind:       "RoleBinding",
-				APIVersion: "rbac.authorization.k8s.io/v1",
+	)
+
+	list[1] = newRoleBinding("test2", "mynamespace",
+		[]rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "saconfig",
+				Namespace: "default",
 			},
-			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
-				rbacv1.Subject{
-					Kind:      "ServiceAccount",
-					Name:      "saconfig",
-					Namespace: "default",
-				},
-			},
-			rbacv1.RoleRef{
-				Kind: clusterrolekind,
-				Name: "myclusterrole",
-			},
+		}, rbacv1.RoleRef{
+			Kind: clusterrolekind,
+			Name: "myclusterrole",
 		},
-	}
+	)
 
 	sa := authenticationv1.UserInfo{
 		Username: "system:serviceaccount:default:saconfig",
@@ -217,43 +218,45 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(clusterroles, expectedClusterRole))
 }
 
-func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
-	list := []*rbacv1.ClusterRoleBinding{
-		&rbacv1.ClusterRoleBinding{
-			metav1.TypeMeta{
-				Kind:       "ClusterRoleBinding",
-				APIVersion: "rbac.authorization.k8s.io/v1",
-			},
-			metav1.ObjectMeta{Name: "test1", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
-				rbacv1.Subject{
-					Kind: "User",
-					Name: "kube-scheduler",
-				},
-			},
-			rbacv1.RoleRef{
-				Kind: clusterrolekind,
-				Name: "fakeclusterrole",
-			},
-		},
-		&rbacv1.ClusterRoleBinding{
-			metav1.TypeMeta{
-				Kind:       "ClusterRoleBinding",
-				APIVersion: "rbac.authorization.k8s.io/v1",
-			},
-			metav1.ObjectMeta{Name: "test2", Namespace: "mynamespace"},
-			[]rbacv1.Subject{
-				rbacv1.Subject{
-					Kind: "Group",
-					Name: "system:masters",
-				},
-			},
-			rbacv1.RoleRef{
-				Kind: clusterrolekind,
-				Name: "myclusterrole",
-			},
-		},
+func newClusterRoleBinding(name, ns string, subjects []rbacv1.Subject, roles rbacv1.RoleRef) *rbacv1.ClusterRoleBinding {
+	rb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Subjects:   subjects,
+		RoleRef:    roles,
 	}
+
+	rb.Kind = "ClusterRoleBinding"
+	rb.APIVersion = "rbac.authorization.k8s.io/v1"
+	return rb
+}
+
+func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
+
+	list := make([]*rbacv1.ClusterRoleBinding, 2)
+
+	list[0] = newClusterRoleBinding("test1", "mynamespace",
+		[]rbacv1.Subject{
+			{
+				Kind: "User",
+				Name: "kube-scheduler",
+			},
+		}, rbacv1.RoleRef{
+			Kind: clusterrolekind,
+			Name: "fakeclusterrole",
+		},
+	)
+
+	list[1] = newClusterRoleBinding("test2", "mynamespace",
+		[]rbacv1.Subject{
+			{
+				Kind: "Group",
+				Name: "system:masters",
+			},
+		}, rbacv1.RoleRef{
+			Kind: clusterrolekind,
+			Name: "myclusterrole",
+		},
+	)
 
 	group := authenticationv1.UserInfo{
 		Username: "kubernetes-admin",

@@ -22,8 +22,11 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
+	// SchemeBuilder builds the scheme
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
+
+	// AddToScheme adds all types of this clientset into the given scheme
+	AddToScheme = SchemeBuilder.AddToScheme
 )
 
 // Adds the list of known types to Scheme.
