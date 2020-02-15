@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
-	"github.com/golang/glog"
+	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
+
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -44,33 +48,44 @@ func Command() *cobra.Command {
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {
-					err = fmt.Errorf("Failed to apply policies on resources : %v", err)
+					if !sanitizedError.IsErrorSanitized(err) {
+						glog.V(4).Info(err)
+						err = fmt.Errorf("Internal error")
+					}
 				}
 			}()
 
 			if len(resourcePaths) == 0 && !cluster {
-				fmt.Println("Specify path to resource file or cluster name")
+				return sanitizedError.New(fmt.Sprintf("Specify path to resource file or cluster name"))
 			}
 
 			policies, err := getPolicies(policyPaths)
 			if err != nil {
-				glog.V(4).Infoln(err)
-				return fmt.Errorf("Issues with policy paths")
+				if !sanitizedError.IsErrorSanitized(err) {
+					return sanitizedError.New("Could not parse policy paths")
+				} else {
+					return err
+				}
+			}
+
+			for _, policy := range policies {
+				err := policy2.Validate(*policy)
+				if err != nil {
+					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
+				}
 			}
 
 			var dClient discovery.CachedDiscoveryInterface
 			if cluster {
 				dClient, err = kubernetesConfig.ToDiscoveryClient()
 				if err != nil {
-					glog.V(4).Infoln(err)
-					return fmt.Errorf("Issues with kubernetes Config")
+					return sanitizedError.New(fmt.Errorf("Issues with kubernetes Config").Error())
 				}
 			}
 
 			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
-				glog.V(4).Infoln(err)
-				return fmt.Errorf("Issues fetching resources")
+				return sanitizedError.New(fmt.Errorf("Issues fetching resources").Error())
 			}
 
 			for i, policy := range policies {
@@ -81,8 +96,7 @@ func Command() *cobra.Command {
 
 					err = applyPolicyOnResource(policy, resource)
 					if err != nil {
-						glog.V(4).Infoln(err)
-						return fmt.Errorf("Issues applying policy %v on resource %v", policy.Name, resource.GetName())
+						return sanitizedError.New(fmt.Errorf("Issues applying policy %v on resource %v", policy.Name, resource.GetName()).Error())
 					}
 				}
 			}
@@ -95,24 +109,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 
 	return cmd
-}
-
-func getPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
-	var policies []*v1.ClusterPolicy
-	for _, policyPath := range policyPaths {
-		policy, err := getPolicy(policyPath)
-		if err != nil {
-			return nil, err
-		}
-
-		err = policy2.Validate(*policy)
-		if err != nil {
-			return nil, fmt.Errorf("Policy %v is not valid: %v", policy.Name, err)
-		}
-
-		policies = append(policies, policy)
-	}
-	return policies, nil
 }
 
 func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
@@ -190,6 +186,46 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.Cac
 	return resources, nil
 }
 
+func getPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
+	var policies = make([]*v1.ClusterPolicy, 0, len(paths))
+	for _, path := range paths {
+		fileDesc, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+
+		if fileDesc.IsDir() {
+			files, err := ioutil.ReadDir(path)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+
+				policy, err := getPolicy(filepath.Join(path, file.Name()))
+				if err != nil {
+					return nil, err
+				}
+
+				policies = append(policies, policy)
+			}
+
+		} else {
+			policy, err := getPolicy(path)
+			if err != nil {
+				return nil, err
+			}
+
+			policies = append(policies, policy)
+		}
+	}
+
+	return policies, nil
+}
+
 func getPolicy(path string) (*v1.ClusterPolicy, error) {
 	policy := &v1.ClusterPolicy{}
 
@@ -204,11 +240,11 @@ func getPolicy(path string) (*v1.ClusterPolicy, error) {
 	}
 
 	if err := json.Unmarshal(policyBytes, policy); err != nil {
-		return nil, fmt.Errorf("failed to decode policy %s, err: %v", policy.Name, err)
+		return nil, sanitizedError.New(fmt.Sprintf("failed to decode policy in %s", path))
 	}
 
 	if policy.TypeMeta.Kind != "ClusterPolicy" {
-		return nil, fmt.Errorf("failed to parse policy")
+		return nil, sanitizedError.New(fmt.Sprintf("resource %v is not a cluster policy", policy.Name))
 	}
 
 	return policy, nil
