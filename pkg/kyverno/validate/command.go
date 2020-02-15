@@ -22,7 +22,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "validate",
 		Short:   "Validates kyverno policies",
-		Example: "kyverno validate /path/to/policy1 /path/to/policy2",
+		Example: "kyverno validate /path/to/policy.yaml /path/to/folderOfPolicies",
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {

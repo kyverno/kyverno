@@ -44,7 +44,7 @@ func Command() *cobra.Command {
 	cmd = &cobra.Command{
 		Use:     "apply",
 		Short:   "Applies policies on resources",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy1 /path/to/policy2 --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy1 /path/to/policy2 --cluster"),
+		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {
