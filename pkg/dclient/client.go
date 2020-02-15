@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	patchTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -213,6 +214,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
+	GetServerVersion() (*version.Info, error)
 }
 
 // SetDiscovery sets the discovery client implementation
@@ -263,6 +265,11 @@ func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersio
 		}
 	}
 	return gvr
+}
+
+//GetServerVersion returns the server version of the cluster
+func (c ServerPreferredResources) GetServerVersion() (*version.Info, error) {
+	return c.cachedClient.ServerVersion()
 }
 
 func loadServerResources(k string, cdi discovery.CachedDiscoveryInterface) (schema.GroupVersionResource, error) {
