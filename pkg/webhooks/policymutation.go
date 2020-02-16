@@ -202,7 +202,14 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rule
 	insertIdx := len(policy.Spec.Rules)
 
 	ruleMap := createRuleMap(policy.Spec.Rules)
+	var ruleIndex = make(map[string]int)
+	for index, rule := range policy.Spec.Rules {
+		ruleIndex[rule.Name] = index
+	}
+
 	for _, rule := range policy.Spec.Rules {
+		patchPostion := insertIdx
+
 		genRule = generateRuleForControllers(rule, controllers)
 		if reflect.DeepEqual(genRule, kyvernoRule{}) {
 			continue
@@ -217,6 +224,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rule
 				continue
 			}
 			operation = "replace"
+			patchPostion = ruleIndex[genRule.Name]
 		}
 
 		// generate patch bytes
@@ -225,7 +233,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rule
 			Op    string      `json:"op"`
 			Value interface{} `json:"value"`
 		}{
-			fmt.Sprintf("/spec/rules/%s", strconv.Itoa(insertIdx)),
+			fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)),
 			operation,
 			genRule,
 		}
