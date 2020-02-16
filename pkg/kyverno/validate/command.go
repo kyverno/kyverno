@@ -58,33 +58,52 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+func getPoliciesInDir(path string) ([]*v1.ClusterPolicy, error) {
+	var policies []*v1.ClusterPolicy
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			policiesFromDir, err := getPoliciesInDir(filepath.Join(path, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			policies = append(policies, policiesFromDir...)
+		} else {
+			policy, err := getPolicy(filepath.Join(path, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			policies = append(policies, policy)
+		}
+	}
+
+	return policies, nil
+}
+
 func getPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
 	var policies = make([]*v1.ClusterPolicy, 0, len(paths))
 	for _, path := range paths {
+		path = filepath.Clean(path)
+
 		fileDesc, err := os.Stat(path)
 		if err != nil {
 			return nil, err
 		}
 
 		if fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
+			policiesFromDir, err := getPoliciesInDir(path)
 			if err != nil {
 				return nil, err
 			}
 
-			for _, file := range files {
-				if file.IsDir() {
-					continue
-				}
-
-				policy, err := getPolicy(filepath.Join(path, file.Name()))
-				if err != nil {
-					return nil, err
-				}
-
-				policies = append(policies, policy)
-			}
-
+			policies = append(policies, policiesFromDir...)
 		} else {
 			policy, err := getPolicy(path)
 			if err != nil {
