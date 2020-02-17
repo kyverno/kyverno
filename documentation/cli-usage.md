@@ -7,14 +7,6 @@ Used to validate policies and apply policies on resources.
 ##Installation
 You can get the installation package of the cli for your os in the releases page [here](https://github.com/nirmata/kyverno/releases).
 
-or
-
-If you have installed the kubectl plugin manager `krew` you can install the cli using the command
-
-```
-kubectl krew install kyverno
-```
-
 ## Commands
 
 #### Version
