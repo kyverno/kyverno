@@ -19,8 +19,8 @@ kubectl kyverno version
 
 
 #### Validate
-Validates a policy, can validate multiple files or even an entire folder containing files. Currently supports files files
-with resource description in yaml.
+Validates a policy, can validate multiple policy resource description files or even an entire folder containing policy resource description 
+files. Currently supports files with resource description in yaml.
 
 Example:
 ```
