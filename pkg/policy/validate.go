@@ -32,7 +32,9 @@ func Validate(p kyverno.ClusterPolicy) error {
 			// policy.spec.background -> "true"
 			// - cannot use variables with request.userInfo
 			// - cannot define userInfo(roles, cluserRoles, subjects) for filtering (match & exclude)
-			return fmt.Errorf("userInfo not allowed in background policy mode. Failure path %s", err)
+			return fmt.Errorf("failed at %v. User info related conditions are not allowed in background mode. "+
+				"If you would like to use user info related conditions kindly disable background mode for this policy by "+
+				"setting spec/background to false", err)
 		}
 	}
 
