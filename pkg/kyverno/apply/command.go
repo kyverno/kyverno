@@ -348,5 +348,28 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
+	var policyHasGenerate bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasGenerate() {
+			policyHasGenerate = true
+		}
+	}
+
+	if policyHasGenerate {
+		generateResponse := engine.Generate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+		if len(generateResponse.PolicyResponse.Rules) > 0 {
+			fmt.Printf("\n\nGenerate:")
+			fmt.Printf("\nResource is valid")
+			fmt.Printf("\n\n")
+		} else {
+			fmt.Printf("\n\nGenerate:")
+			fmt.Printf("\nResource is invalid")
+			for i, r := range generateResponse.PolicyResponse.Rules {
+				fmt.Printf("\n%d. %s", i+1, r.Message)
+			}
+			fmt.Printf("\n\n")
+		}
+	}
+
 	return nil
 }
