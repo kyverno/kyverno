@@ -6,13 +6,14 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/nirmata/kyverno/data"
 
 	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 
@@ -234,23 +235,23 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 	case "integer":
 		if kindSchema.GetDefault() != nil {
 			val, _ := strconv.Atoi(string(kindSchema.GetDefault().Value.Value))
-			return val
+			return int64(val)
 		}
 		if kindSchema.GetExample() != nil {
 			val, _ := strconv.Atoi(string(kindSchema.GetExample().GetValue().Value))
-			return val
+			return int64(val)
 		}
-		return 0
+		return int64(0)
 	case "number":
 		if kindSchema.GetDefault() != nil {
 			val, _ := strconv.Atoi(string(kindSchema.GetDefault().Value.Value))
-			return val
+			return int64(val)
 		}
 		if kindSchema.GetExample() != nil {
 			val, _ := strconv.Atoi(string(kindSchema.GetExample().GetValue().Value))
-			return val
+			return int64(val)
 		}
-		return 0
+		return int64(0)
 	case "boolean":
 		if kindSchema.GetDefault() != nil {
 			return string(kindSchema.GetDefault().Value.Value) == "true"
