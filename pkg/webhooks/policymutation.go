@@ -31,7 +31,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 		}
 	}
 	// Generate JSON Patches for defaults
-	patches, updateMsgs := generateJSONPatchesForDefaults(policy, request.Operation)
+	patches, updateMsgs := generateJSONPatchesForDefaults(policy)
 	if patches != nil {
 		patchType := v1beta1.PatchTypeJSONPatch
 		glog.V(4).Infof("defaulted values %v policy %s", updateMsgs, policy.Name)
@@ -50,7 +50,7 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 	}
 }
 
-func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1beta1.Operation) ([]byte, []string) {
+func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
@@ -66,20 +66,18 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, operation v1b
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	// TODO(shuting): enable this feature on policy UPDATE
-	if operation == v1beta1.Create {
-		patch, errs := generatePodControllerRule(*policy)
-		if len(errs) > 0 {
-			var errMsgs []string
-			for _, err := range errs {
-				errMsgs = append(errMsgs, err.Error())
-			}
-			glog.Errorf("failed auto generatig rule for pod controllers: %s", errMsgs)
-			updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
+	patch, errs := generatePodControllerRule(*policy)
+	if len(errs) > 0 {
+		var errMsgs []string
+		for _, err := range errs {
+			errMsgs = append(errMsgs, err.Error())
 		}
-
-		patches = append(patches, patch...)
+		glog.Errorf("failed auto generating rule for pod controllers: %s", errMsgs)
+		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
+
+	patches = append(patches, patch...)
+
 	return utils.JoinPatches(patches), updateMsgs
 }
 
@@ -170,15 +168,63 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, 
 	return
 }
 
+func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
+	var ruleMap = make(map[string]kyvernoRule)
+	for _, rule := range rules {
+		var jsonFriendlyStruct kyvernoRule
+
+		jsonFriendlyStruct.Name = rule.Name
+
+		if !reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
+			jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
+		}
+
+		if !reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+			jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
+		}
+
+		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+			jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
+		}
+
+		if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+			jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
+		}
+
+		ruleMap[rule.Name] = jsonFriendlyStruct
+	}
+	return ruleMap
+}
+
 // generateRulePatches generates rule for podControllers based on scenario A and C
 func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rulePatches [][]byte, errs []error) {
 	var genRule kyvernoRule
 	insertIdx := len(policy.Spec.Rules)
 
+	ruleMap := createRuleMap(policy.Spec.Rules)
+	var ruleIndex = make(map[string]int)
+	for index, rule := range policy.Spec.Rules {
+		ruleIndex[rule.Name] = index
+	}
+
 	for _, rule := range policy.Spec.Rules {
+		patchPostion := insertIdx
+
 		genRule = generateRuleForControllers(rule, controllers)
 		if reflect.DeepEqual(genRule, kyvernoRule{}) {
 			continue
+		}
+
+		operation := "add"
+		if existingAutoGenRule, alreadyExists := ruleMap[genRule.Name]; alreadyExists {
+			existingAutoGenRuleRaw, _ := json.Marshal(existingAutoGenRule)
+			genRuleRaw, _ := json.Marshal(genRule)
+
+			if string(existingAutoGenRuleRaw) == string(genRuleRaw) {
+				continue
+			}
+			operation = "replace"
+			patchPostion = ruleIndex[genRule.Name]
 		}
 
 		// generate patch bytes
@@ -187,8 +233,8 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rule
 			Op    string      `json:"op"`
 			Value interface{} `json:"value"`
 		}{
-			fmt.Sprintf("/spec/rules/%s", strconv.Itoa(insertIdx)),
-			"add",
+			fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)),
+			operation,
 			genRule,
 		}
 		pbytes, err := json.Marshal(jsonPatch)
@@ -227,6 +273,10 @@ type kyvernoRule struct {
 }
 
 func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRule {
+	if strings.HasPrefix(rule.Name, "autogen-") {
+		return kyvernoRule{}
+	}
+
 	match := rule.MatchResources
 	exclude := rule.ExcludeResources
 	if !utils.ContainsString(match.ResourceDescription.Kinds, "Pod") ||
