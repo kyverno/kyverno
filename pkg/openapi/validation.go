@@ -77,8 +77,14 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
-		rule.MatchResources.Selector = nil
 		if rule.HasMutate() {
+			rule.MatchResources = v1.MatchResources{
+				UserInfo: v1.UserInfo{},
+				ResourceDescription: v1.ResourceDescription{
+					Kinds: rule.MatchResources.Kinds,
+				},
+			}
+			rule.ExcludeResources = v1.ExcludeResources{}
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
@@ -155,6 +161,10 @@ func setValidationGlobalState() error {
 			openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
 			path := strings.Split(definition.GetName(), ".")
 			openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		}
+
+		for _, path := range openApiGlobalState.document.GetPaths().GetPath() {
+			path.GetName()
 		}
 
 		openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)

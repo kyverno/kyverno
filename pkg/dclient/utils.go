@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/dynamic/fake"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 )
@@ -62,6 +63,10 @@ func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResourc
 		}
 	}
 	return schema.GroupVersionResource{}
+}
+
+func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
+	return nil, nil
 }
 
 func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) schema.GroupVersionResource {
