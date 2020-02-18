@@ -97,7 +97,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 					continue
 				}
 
-				glog.Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+				glog.V(4).Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
