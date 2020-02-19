@@ -1,9 +1,8 @@
 package generate
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -12,10 +11,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -29,24 +26,10 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 		glog.V(4).Infof("resource does not exist or is yet to be created, requeuing: %v", err)
 		return err
 	}
-
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
-	switch e := err.(type) {
-	case *Violation:
-		// Generate event
-		// - resource -> rule failed and created PV
-		// - policy -> failed to apply of resource and created PV
-		c.pvGenerator.Add(generatePV(*gr, *resource, e))
-	default:
-		// Generate event
-		// - resource -> rule failed
-		// - policy -> failed tp apply on resource
-		glog.V(4).Info(e)
-	}
 	// 3 - Report Events
 	reportEvents(err, c.eventGen, *gr, *resource)
-
 	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
@@ -96,15 +79,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 
-	if pv := buildPathNotPresentPV(engineResponse); pv != nil {
-		c.pvGenerator.Add(pv...)
-		// variable substitiution fails in ruleInfo (match,exclude,condition)
-		// the overall policy should not apply to resource
-		return nil, fmt.Errorf("referenced path not present in generate policy %s", policy.Name)
-	}
-
 	// Apply the generate rule on resource
-	return applyGeneratePolicy(c.client, policyContext, gr.Status.State)
+	return applyGeneratePolicy(c.client, policyContext)
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec) error {
@@ -116,7 +92,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext, state kyverno.GenerateRequestState) ([]kyverno.ResourceSpec, error) {
+func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext) ([]kyverno.ResourceSpec, error) {
 	// List of generatedResources
 	var genResources []kyverno.ResourceSpec
 	// Get the response as the actions to be performed on the resource
@@ -135,7 +111,7 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 		if !rule.HasGenerate() {
 			continue
 		}
-		genResource, err := applyRule(client, rule, resource, ctx, state, processExisting)
+		genResource, err := applyRule(client, rule, resource, ctx, processExisting)
 		if err != nil {
 			return nil, err
 		}
@@ -145,65 +121,64 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 	return genResources, nil
 }
 
-func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState, processExisting bool) (kyverno.ResourceSpec, error) {
+func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
+	var mode ResourceMode
 	var noGenResource kyverno.ResourceSpec
-
-	if invalidPaths := variables.ValidateVariables(ctx, rule.Generation.ResourceSpec); len(invalidPaths) != 0 {
-		return noGenResource, NewViolation(rule.Name, fmt.Errorf("path not present in generate resource spec: %s", invalidPaths))
+	// convert to unstructured Resource
+	genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
+	if err != nil {
+		return noGenResource, err
 	}
 
-	// variable substitution
-	// - name
-	// - namespace
-	// - clone.name
-	// - clone.namespace
-	gen := variableSubsitutionForAttributes(rule.Generation, ctx)
+	// Variable substitutions
+	// format : {{<variable_name}}
+	// - if there is variables that are not defined the context -> results in error and rule is not applied
+	// - valid variables are replaced with the values
+	if _, err := variables.SubstituteVars(ctx, genUnst.Object); err != nil {
+		return noGenResource, err
+	}
+	genKind, _, err := unstructured.NestedString(genUnst.Object, "kind")
+	if err != nil {
+		return noGenResource, err
+	}
+	genName, _, err := unstructured.NestedString(genUnst.Object, "name")
+	if err != nil {
+		return noGenResource, err
+	}
+	genNamespace, _, err := unstructured.NestedString(genUnst.Object, "namespace")
+	if err != nil {
+		return noGenResource, err
+	}
+
 	// Resource to be generated
 	newGenResource := kyverno.ResourceSpec{
-		Kind:      gen.Kind,
-		Namespace: gen.Namespace,
-		Name:      gen.Name,
+		Kind:      genKind,
+		Namespace: genNamespace,
+		Name:      genName,
+	}
+	genData, _, err := unstructured.NestedMap(genUnst.Object, "data")
+	if err != nil {
+		return noGenResource, err
+	}
+	genCopy, _, err := unstructured.NestedMap(genUnst.Object, "clone")
+	if err != nil {
+		return noGenResource, err
 	}
 
-	// DATA
-	if gen.Data != nil {
-		if rdata, err = handleData(rule.Name, gen, client, resource, ctx, state); err != nil {
-			glog.V(4).Info(err)
-			switch e := err.(type) {
-			case *ParseFailed, *NotFound, *ConfigNotFound:
-				// handled errors
-			case *Violation:
-				// create policy violation
-				return noGenResource, e
-			default:
-				// errors that cant be handled
-				return noGenResource, e
-			}
-		}
-		if rdata == nil {
-			// existing resource contains the configuration
-			return newGenResource, nil
-		}
+	if genData != nil {
+		rdata, mode, err = manageData(genKind, genNamespace, genName, genData, client, resource)
+	} else {
+		rdata, mode, err = manageClone(genKind, genNamespace, genName, genCopy, client, resource)
 	}
-	// CLONE
-	if gen.Clone != (kyverno.CloneFrom{}) {
-		if rdata, err = handleClone(rule.Name, gen, client, resource, ctx, state); err != nil {
-			glog.V(4).Info(err)
-			switch e := err.(type) {
-			case *NotFound:
-				// handled errors
-				return noGenResource, e
-			default:
-				// errors that cant be handled
-				return noGenResource, e
-			}
-		}
-		if rdata == nil {
-			// resource already exists
-			return newGenResource, nil
-		}
+	if err != nil {
+		return noGenResource, err
+	}
+
+	if rdata == nil {
+		// existing resource contains the configuration
+		return newGenResource, nil
 	}
 	if processExisting {
 		// handle existing resources
@@ -211,153 +186,141 @@ func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.
 		// we do not create new resource
 		return noGenResource, err
 	}
-	// Create the generate resource
+
+	// build the resource template
 	newResource := &unstructured.Unstructured{}
 	newResource.SetUnstructuredContent(rdata)
-	newResource.SetName(gen.Name)
-	newResource.SetNamespace(gen.Namespace)
-	// Reset resource version
-	newResource.SetResourceVersion("")
+	newResource.SetName(genName)
+	newResource.SetNamespace(genNamespace)
 
-	glog.V(4).Infof("creating resource %v", newResource)
-	_, err = client.CreateResource(gen.Kind, gen.Namespace, newResource, false)
-	if err != nil {
-		glog.Info(err)
-		return noGenResource, err
+	// manage labels
+	// - app.kubernetes.io/managed-by: kyverno
+	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+	manageLabels(newResource, resource)
+
+	if mode == Create {
+		// Reset resource version
+		newResource.SetResourceVersion("")
+		// Create the resource
+		glog.V(4).Infof("Creating new resource %s/%s/%s", genKind, genNamespace, genName)
+		_, err = client.CreateResource(genKind, genNamespace, newResource, false)
+		if err != nil {
+			// Failed to create resource
+			return noGenResource, err
+		}
+		glog.V(4).Infof("Created new resource %s/%s/%s", genKind, genNamespace, genName)
+
+	} else if mode == Update {
+		glog.V(4).Infof("Updating existing resource %s/%s/%s", genKind, genNamespace, genName)
+		// Update the resource
+		_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+		if err != nil {
+			// Failed to update resource
+			return noGenResource, err
+		}
+		glog.V(4).Infof("Updated existing resource %s/%s/%s", genKind, genNamespace, genName)
 	}
-	glog.V(4).Infof("created new resource %s %s %s ", gen.Kind, gen.Namespace, gen.Name)
+
 	return newGenResource, nil
 }
 
-func variableSubsitutionForAttributes(gen kyverno.Generation, ctx context.EvalInterface) kyverno.Generation {
-	// Name
-	name := gen.Name
-	namespace := gen.Namespace
-	newNameVar := variables.SubstituteVariables(ctx, name)
-
-	if newName, ok := newNameVar.(string); ok {
-		gen.Name = newName
-	}
-
-	newNamespaceVar := variables.SubstituteVariables(ctx, namespace)
-	if newNamespace, ok := newNamespaceVar.(string); ok {
-		gen.Namespace = newNamespace
-	}
-
-	if gen.Clone != (kyverno.CloneFrom{}) {
-		// Clone
-		cloneName := gen.Clone.Name
-		cloneNamespace := gen.Clone.Namespace
-
-		newcloneNameVar := variables.SubstituteVariables(ctx, cloneName)
-		if newcloneName, ok := newcloneNameVar.(string); ok {
-			gen.Clone.Name = newcloneName
-		}
-		newcloneNamespaceVar := variables.SubstituteVariables(ctx, cloneNamespace)
-		if newcloneNamespace, ok := newcloneNamespaceVar.(string); ok {
-			gen.Clone.Namespace = newcloneNamespace
-		}
-	}
-	return gen
-}
-
-func handleData(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
-	if invalidPaths := variables.ValidateVariables(ctx, generateRule.Data); len(invalidPaths) != 0 {
-		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate data: %s", invalidPaths))
-	}
-
-	//work on copy
-	copyDataTemp := reflect.Indirect(reflect.ValueOf(generateRule.Data))
-	copyData := copyDataTemp.Interface()
-	newData := variables.SubstituteVariables(ctx, copyData)
-
-	// check if resource exists
-	obj, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
-	glog.V(4).Info(err)
+func manageData(kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
+	// check if resource to be generated exists
+	obj, err := client.GetResource(kind, namespace, name)
 	if apierrors.IsNotFound(err) {
-		glog.V(4).Info(string(state))
-		// Resource does not exist
-		if state == "" {
-			// Processing the request first time
-			rdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&newData)
-			glog.V(4).Info(err)
-			if err != nil {
-				return nil, NewParseFailed(newData, err)
-			}
-			return rdata, nil
-		}
-		glog.V(4).Info("Creating violation")
-		// State : Failed,Completed
-		// request has been processed before, so dont create the resource
-		// report Violation to notify the error
-		return nil, NewViolation(ruleName, NewNotFound(generateRule.Kind, generateRule.Namespace, generateRule.Name))
+		glog.V(4).Infof("Resource %s/%s/%s does not exists, will try to create", kind, namespace, name)
+		return data, Create, nil
 	}
 	if err != nil {
 		//something wrong while fetching resource
-		return nil, err
+		// client-errors
+		return nil, Skip, err
 	}
 	// Resource exists; verfiy the content of the resource
-	ok, err := checkResource(ctx, newData, obj)
-	if err != nil {
-		//something wrong with configuration
-		glog.V(4).Info(err)
-		return nil, err
+	err = checkResource(data, obj)
+	if err == nil {
+		// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
+		return nil, Skip, nil
 	}
-	if !ok {
-		return nil, NewConfigNotFound(newData, generateRule.Kind, generateRule.Namespace, generateRule.Name)
-	}
-	// Existing resource does contain the required
-	return nil, nil
+
+	glog.V(4).Infof("Resource %s/%s/%s exists but missing required configuration, will try to update", kind, namespace, name)
+	return data, Update, nil
+
 }
 
-func handleClone(ruleName string, generateRule kyverno.Generation, client *dclient.Client, resource unstructured.Unstructured, ctx context.EvalInterface, state kyverno.GenerateRequestState) (map[string]interface{}, error) {
-	if invalidPaths := variables.ValidateVariables(ctx, generateRule.Clone); len(invalidPaths) != 0 {
-		return nil, NewViolation(ruleName, fmt.Errorf("path not present in generate clone: %s", invalidPaths))
-	}
-
-	// check if resource exists
-	_, err := client.GetResource(generateRule.Kind, generateRule.Namespace, generateRule.Name)
+func manageClone(kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
+	// check if resource to be generated exists
+	_, err := client.GetResource(kind, namespace, name)
 	if err == nil {
-		// resource exists
-		return nil, nil
+		// resource does exists, not need to process further as it is already in expected state
+		return nil, Skip, nil
 	}
+	//TODO: check this
 	if !apierrors.IsNotFound(err) {
 		//something wrong while fetching resource
-		return nil, err
+		return nil, Skip, err
 	}
 
-	// get reference clone resource
-	obj, err := client.GetResource(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
-	if apierrors.IsNotFound(err) {
-		return nil, NewNotFound(generateRule.Kind, generateRule.Clone.Namespace, generateRule.Clone.Name)
-	}
+	newRNs, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
-		//something wrong while fetching resource
+		return nil, Skip, err
+	}
+	newRName, _, err := unstructured.NestedString(clone, "name")
+	if err != nil {
+		return nil, Skip, err
+	}
+	// Short-circuit if the resource to be generated and the clone is the same
+	if newRNs == namespace && newRName == name {
+		// attempting to clone it self, this will fail -> short-ciruit it
+		return nil, Skip, nil
+	}
+
+	glog.V(4).Infof("check if resource %s/%s/%s exists", kind, newRNs, newRName)
+	// check if the resource as reference in clone exists?
+	obj, err := client.GetResource(kind, newRNs, newRName)
+	if err != nil {
+		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err)
+	}
+	// create the resource based on the reference clone
+	return obj.UnstructuredContent(), Create, nil
+
+}
+
+// ResourceMode defines the mode for generated resource
+type ResourceMode string
+
+const (
+	//Skip : failed to process rule, will not update the resource
+	Skip ResourceMode = "SKIP"
+	//Create : create a new resource
+	Create = "CREATE"
+	//Update : update/overwrite the new resource
+	Update = "UPDATE"
+)
+
+func checkResource(newResourceSpec interface{}, resource *unstructured.Unstructured) error {
+	// check if the resource spec if a subset of the resource
+	if path, err := validate.ValidateResourceWithPattern(resource.Object, newResourceSpec); err != nil {
+		glog.V(4).Infof("Failed to match the resource at path %s: err %v", path, err)
+		return err
+	}
+	return nil
+}
+
+func getUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) {
+	ruleData, err := json.Marshal(rule)
+	if err != nil {
 		return nil, err
 	}
-	return obj.UnstructuredContent(), nil
+	return ConvertToUnstructured(ruleData)
 }
 
-func checkResource(ctx context.EvalInterface, newResourceSpec interface{}, resource *unstructured.Unstructured) (bool, error) {
-	// check if the resource spec if a subset of the resource
-	path, err := validate.ValidateResourceWithPattern(ctx, resource.Object, newResourceSpec)
-	if !reflect.DeepEqual(err, validate.ValidationError{}) {
-		glog.V(4).Infof("config not a subset of resource. failed at path %s: %v", path, err)
-		return false, errors.New(err.ErrorMsg)
+//ConvertToUnstructured converts the resource to unstructured format
+func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		return nil, err
 	}
-	return true, nil
-}
-
-func generatePV(gr kyverno.GenerateRequest, resource unstructured.Unstructured, err *Violation) policyviolation.Info {
-
-	info := policyviolation.Info{
-		PolicyName: gr.Spec.Policy,
-		Resource:   resource,
-		Rules: []kyverno.ViolatedRule{{
-			Name:    err.rule,
-			Type:    "Generation",
-			Message: err.Error(),
-		}},
-	}
-	return info
+	return resource, nil
 }

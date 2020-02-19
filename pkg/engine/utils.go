@@ -1,11 +1,9 @@
 package engine
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -16,9 +14,6 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -70,83 +65,49 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 }
 
 func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured) []error {
-	var wg sync.WaitGroup
-	wg.Add(7)
-	var errs = make(chan error, 7)
-	go func() {
-		if len(conditionBlock.Kinds) > 0 {
-			if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
-				errs <- fmt.Errorf("resource kind does not match conditionBlock")
+	var errs []error
+	if len(conditionBlock.Kinds) > 0 {
+		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
+			errs = append(errs, fmt.Errorf("resource kind does not match conditionBlock"))
+		}
+	}
+	if conditionBlock.Name != "" {
+		if !checkName(conditionBlock.Name, resource.GetName()) {
+			errs = append(errs, fmt.Errorf("resource name does not match conditionBlock"))
+		}
+	}
+	if len(conditionBlock.Namespaces) > 0 {
+		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
+			errs = append(errs, fmt.Errorf("resource namespace does not match conditionBlock"))
+		}
+	}
+	if conditionBlock.Selector != nil {
+		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+		if err != nil {
+			errs = append(errs, fmt.Errorf("could not parse selector block of the policy in conditionBlock: %v", err))
+		} else {
+			if !hasPassed {
+				errs = append(errs, fmt.Errorf("resource does not match selector of given conditionBlock"))
 			}
 		}
-		wg.Done()
-	}()
-	go func() {
-		if conditionBlock.Name != "" {
-			if !checkName(conditionBlock.Name, resource.GetName()) {
-				errs <- fmt.Errorf("resource name does not match conditionBlock")
-			}
+	}
+	if len(userInfo.Roles) > 0 {
+		if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
-		wg.Done()
-	}()
-	go func() {
-		if len(conditionBlock.Namespaces) > 0 {
-			if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
-				errs <- fmt.Errorf("resource namespace does not match conditionBlock")
-			}
+	}
+	if len(userInfo.ClusterRoles) > 0 {
+		if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
-		wg.Done()
-	}()
-	go func() {
-		if conditionBlock.Selector != nil {
-			hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
-			if err != nil {
-				errs <- fmt.Errorf("could not parse selector block of the policy in conditionBlock: %v", err)
-			} else {
-				if !hasPassed {
-					errs <- fmt.Errorf("resource does not match selector of given conditionBlock")
-				}
-			}
+	}
+	if len(userInfo.Subjects) > 0 {
+		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
+			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 		}
-		wg.Done()
-	}()
-
-	go func() {
-		if len(userInfo.Roles) > 0 {
-			if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
-				errs <- fmt.Errorf("user info does not match roles for the given conditionBlock")
-			}
-		}
-		wg.Done()
-	}()
-
-	go func() {
-		if len(userInfo.ClusterRoles) > 0 {
-			if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
-				errs <- fmt.Errorf("user info does not match clustersRoles for the given conditionBlock")
-			}
-		}
-		wg.Done()
-	}()
-
-	go func() {
-		if len(userInfo.Subjects) > 0 {
-			if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
-				errs <- fmt.Errorf("user info does not match subject for the given conditionBlock")
-			}
-		}
-		wg.Done()
-	}()
-
-	wg.Wait()
-	close(errs)
-
-	var errsIfAny []error
-	for err := range errs {
-		errsIfAny = append(errsIfAny, err)
 	}
 
-	return errsIfAny
+	return errs
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
@@ -196,44 +157,26 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
-	var errs = make(chan error, 8)
-	var wg sync.WaitGroup
-	wg.Add(2)
+	var reasonsForFailure []error
 
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 		rule.MatchResources.UserInfo = kyverno.UserInfo{}
 	}
 
 	// checking if resource matches the rule
-	go func() {
-		if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
-			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
-			for _, matchErr := range matchErrs {
-				errs <- matchErr
-			}
-		} else {
-			errs <- fmt.Errorf("match block in rule cannot be empty")
-		}
-		wg.Done()
-	}()
+	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
+		reasonsForFailure = append(reasonsForFailure, matchErrs...)
+	} else {
+		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match block in rule cannot be empty"))
+	}
 
 	// checking if resource has been excluded
-	go func() {
-		if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
-			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
-			if excludeErrs == nil {
-				errs <- fmt.Errorf("resource has been excluded since it matches the exclude block")
-			}
+	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
+		if excludeErrs == nil {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource has been excluded since it matches the exclude block"))
 		}
-		wg.Done()
-	}()
-
-	wg.Wait()
-	close(errs)
-
-	var reasonsForFailure []error
-	for err := range errs {
-		reasonsForFailure = append(reasonsForFailure, err)
 	}
 
 	// creating final error
@@ -250,78 +193,10 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	return nil
 }
-
-//ParseNameFromObject extracts resource name from JSON obj
-func ParseNameFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
+func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	var copy []kyverno.Condition
+	for _, condition := range original {
+		copy = append(copy, *condition.DeepCopy())
 	}
-
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	if name, ok := metaMap["name"].(string); ok {
-		return name
-	}
-	return ""
-}
-
-// ParseNamespaceFromObject extracts the namespace from the JSON obj
-func ParseNamespaceFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
-	}
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-
-	if name, ok := metaMap["namespace"].(string); ok {
-		return name
-	}
-
-	return ""
-}
-
-// validateGeneralRuleInfoVariables validate variable subtition defined in
-// - MatchResources
-// - ExcludeResources
-// - Conditions
-func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var tempRule kyverno.Rule
-	var tempRulePattern interface{}
-
-	tempRule.MatchResources = rule.MatchResources
-	tempRule.ExcludeResources = rule.ExcludeResources
-	tempRule.Conditions = rule.Conditions
-
-	raw, err := json.Marshal(tempRule)
-	if err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	return variables.ValidateVariables(ctx, tempRulePattern)
-}
-
-func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
-	return response.RuleResponse{
-		Name:           rname,
-		Type:           rtype,
-		Message:        msg,
-		Success:        true,
-		PathNotPresent: true,
-	}
+	return copy
 }

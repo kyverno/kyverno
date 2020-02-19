@@ -30,16 +30,18 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu sync.RWMutex
-	// data    map[string]interface{}
-	jsonRaw []byte
+	mu            sync.RWMutex
+	jsonRaw       []byte
+	whiteListVars []string
 }
 
 //NewContext returns a new context
-func NewContext() *Context {
+// pass the list of variables to be white-listed
+func NewContext(whiteListVars ...string) *Context {
 	ctx := Context{
 		// data:    map[string]interface{}{},
-		jsonRaw: []byte(`{}`), // empty json struct
+		jsonRaw:       []byte(`{}`), // empty json struct
+		whiteListVars: whiteListVars,
 	}
 	return &ctx
 }
@@ -122,7 +124,6 @@ func (ctx *Context) AddSA(userName string) error {
 		saNamespace = groups[0]
 	}
 
-	glog.V(4).Infof("Loading variable serviceAccountName with value: %s", saName)
 	saNameObj := struct {
 		SA string `json:"serviceAccountName"`
 	}{
@@ -137,7 +138,6 @@ func (ctx *Context) AddSA(userName string) error {
 		return err
 	}
 
-	glog.V(4).Infof("Loading variable serviceAccountNamespace with value: %s", saNamespace)
 	saNsObj := struct {
 		SA string `json:"serviceAccountNamespace"`
 	}{

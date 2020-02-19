@@ -19,17 +19,15 @@ func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 				},
 				Rules: []response.RuleResponse{
 					{
-						Name:           "test-path-not-exist",
-						Type:           "Mutation",
-						Message:        "referenced paths are not present: request.object.metadata.name1",
-						Success:        true,
-						PathNotPresent: true,
+						Name:    "test-path-not-exist",
+						Type:    "Mutation",
+						Message: "referenced paths are not present: request.object.metadata.name1",
+						Success: false,
 					},
 					{
-						Name:           "test-path-exist",
-						Type:           "Mutation",
-						Success:        true,
-						PathNotPresent: false,
+						Name:    "test-path-exist",
+						Type:    "Mutation",
+						Success: true,
 					},
 				},
 			},
@@ -44,11 +42,10 @@ func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 				},
 				Rules: []response.RuleResponse{
 					{
-						Name:           "test-path-not-exist-across-policy",
-						Type:           "Mutation",
-						Message:        "referenced paths are not present: request.object.metadata.name1",
-						Success:        true,
-						PathNotPresent: true,
+						Name:    "test-path-not-exist-across-policy",
+						Type:    "Mutation",
+						Message: "referenced paths are not present: request.object.metadata.name1",
+						Success: true,
 					},
 				},
 			},
@@ -56,5 +53,5 @@ func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 	}
 
 	pvInfos := GeneratePVsFromEngineResponse(ers)
-	assert.Assert(t, len(pvInfos) == 2)
+	assert.Assert(t, len(pvInfos) == 1)
 }

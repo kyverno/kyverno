@@ -1190,10 +1190,7 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsUserInfo(*policy)
-
-	if err.Error() != "path: spec/rules[0]/match/roles" {
-		t.Error("Incorrect Path")
-	}
+	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/roles")
 }
 
 func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
@@ -1226,10 +1223,7 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/match/clusterRoles" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/clusterRoles")
 }
 
 func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
@@ -1265,10 +1259,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/match/subjects" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/subjects")
 }
 
 func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
@@ -1300,7 +1291,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/mutate/overlay/var1/{{request.userInfo}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1335,7 +1326,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/mutate/overlay/var1/{{request.userInfo.userName}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1370,7 +1361,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/validate/pattern/var1/{{request.userInfo}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/validate/pattern" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1409,7 +1400,7 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{request.userInfo}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1448,7 +1439,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{request.userInfo}}-{{temp}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1487,7 +1478,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 
 	err = ContainsUserInfo(*policy)
 
-	if err.Error() != "path: spec/rules[0]/validate/anyPattern[1]/var1/{{serviceAccountName}}" {
+	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}

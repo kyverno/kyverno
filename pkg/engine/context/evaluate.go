@@ -11,6 +11,11 @@ import (
 //Query the JSON context with JMESPATH search path
 func (ctx *Context) Query(query string) (interface{}, error) {
 	var emptyResult interface{}
+	// check for white-listed variables
+	if ctx.isWhiteListed(query) {
+		return emptyResult, fmt.Errorf("variable %s cannot be used", query)
+	}
+
 	// compile the query
 	queryPath, err := jmespath.Compile(query)
 	if err != nil {
@@ -33,4 +38,13 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 		return emptyResult, fmt.Errorf("failed to search query %s: %v", query, err)
 	}
 	return result, nil
+}
+
+func (ctx *Context) isWhiteListed(variable string) bool {
+	for _, wVar := range ctx.whiteListVars {
+		if wVar == variable {
+			return true
+		}
+	}
+	return false
 }
