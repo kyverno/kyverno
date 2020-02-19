@@ -54,26 +54,26 @@ func newStatusCache() *statusCache {
 
 func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}) *StatusSync {
 	return &StatusSync{
-		statusReceiver: make(chan map[string]v1.PolicyStatus),
-		cache:          newStatusCache(),
-		stop:           stopCh,
-		client:         client,
+		policyStatsReciever: make(chan map[string]v1.PolicyStatus),
+		cache:               newStatusCache(),
+		stop:                stopCh,
+		client:              client,
 	}
 }
 
 type StatusSync struct {
-	statusReceiver chan map[string]v1.PolicyStatus
-	cache          *statusCache
-	stop           <-chan struct{}
-	client         *versioned.Clientset
+	policyStatsReciever chan map[string]v1.PolicyStatus
+	cache               *statusCache
+	stop                <-chan struct{}
+	client              *versioned.Clientset
 }
 
 func (s *StatusSync) Cache() *statusCache {
 	return s.cache
 }
 
-func (s *StatusSync) Receiver() chan<- map[string]v1.PolicyStatus {
-	return s.statusReceiver
+func (s *StatusSync) StatReceiver() chan<- map[string]v1.PolicyStatus {
+	return s.policyStatsReciever
 }
 
 func (s *StatusSync) Start() {
@@ -81,7 +81,7 @@ func (s *StatusSync) Start() {
 	go func() {
 		for {
 			select {
-			case nameToStatus := <-s.statusReceiver:
+			case nameToStatus := <-s.policyStatsReciever:
 				for policyName, status := range nameToStatus {
 					s.cache.Set(policyName, status)
 				}

@@ -110,6 +110,27 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 }
 
 func updateStatusWithMutate(statusSync *policy.StatusSync, policy kyverno.ClusterPolicy, response response.EngineResponse) {
-	status := statusSync.Cache().Get(policy.Name)
-	status
+	stats := kyverno.PolicyStatus{
+		ViolationCount:           0,
+		RulesAppliedCount:        response.PolicyResponse.RulesAppliedCount,
+		ResourcesBlockedCount:    0,
+		AvgExecutionTimeMutation: response.PolicyResponse.ProcessingTime.String(),
+		Rules:                    nil,
+	}
+
+	for _, rule := range response.PolicyResponse.Rules {
+		ruleStats := kyverno.RuleStats{
+			Name:           rule.Name,
+			ExecutionTime:  rule.ProcessingTime.String(),
+			AppliedCount:   0,
+			ViolationCount: 0,
+			MutationCount:  0,
+		}
+
+		if rule.Success {
+			ruleStats.AppliedCount++
+			ruleStats.MutationCount++
+		}
+	}
+
 }
