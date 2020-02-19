@@ -470,22 +470,74 @@ metadata:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: kyverno-admin
+  name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyvernoRole
+  name: kyverno:webhook
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
 ---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno:userinfo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:userinfo
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno:customresources
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:customresources
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno 
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno:policycontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policycontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno 
+---  
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno:generatecontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generatecontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno 
+---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: kyvernoRole
+  name: kyverno:webhook
 rules:
-# Dynamic creation of webhooks and events 
+# Dynamic creation of webhooks, events & certs
 - apiGroups:
   - '*'
   resources:
@@ -502,15 +554,27 @@ rules:
   - patch
   - update
   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kyverno:userinfo
+rules:
 # get the roleRef for incoming api-request user
 - apiGroups:
-  - '*'
+  - "*"
   resources:
   - rolebindings
   - clusterrolebindings
   - configmaps
   verbs:
   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kyverno:customresources
+rules:
 # Kyverno CRs
 - apiGroups:
   - '*'
@@ -531,8 +595,12 @@ rules:
   - patch
   - update
   - watch
-# auto rule gen for pod-controllers using annotations will be under same user
-
+---  
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kyverno:policycontroller
+rules:
 # background processing, identify all existing resources
 - apiGroups:
   - '*'
@@ -541,9 +609,15 @@ rules:
   verbs:
   - get
   - list
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kyverno:generatecontroller
+rules:
 # process generate rules to generate resources
 - apiGroups:
-  - '*'
+  - "*"
   resources:
   - namespaces
   - networkpolicies

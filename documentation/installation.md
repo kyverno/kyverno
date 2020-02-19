@@ -82,20 +82,32 @@ Secret | Data | Content
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
 
 ### 3. Configure Kyverno Role
-Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to ClusterRole `kyvernoRole`, which defines the default resources and operations that are permitted.
+Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to multiple ClusterRole, which defines the default resources and operations that are permitted.
 
-The `generate` rule creates a new resource, and to allow kyverno to create resource kyverno ClusterRole needs access to them. This can be done by adding the resource to default ClusterRole used by kyverno or by creating a new ClusterRole and a ClusterRoleBinding to kyverno's default ServiceAccount.
+ClusterRoles used by kyverno:
+- kyverno:webhook
+- kyverno:userinfo
+- kyverno:customresources
+- kyverno:policycontroller
+- kyverno:generatecontroller
 
+The `generate` rule creates a new resource, and to allow kyverno to create resource kyverno ClusterRole needs permissions to create/update/delete. This can be done by adding the resource to the ClusterRole `kyverno:generatecontroller` used by kyverno or by creating a new ClusterRole and a ClusterRoleBinding to kyverno's default ServiceAccount.
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: kyvernoRoleGenerate
+  name: kyverno:generatecontroller
 rules:
 - apiGroups:
   - "*"
   resources:
+  - namespaces
+  - networkpolicies
+  - secrets
+  - configmaps
+  - resourcequotas
+  - limitranges
   - ResourceA # new Resource to be generated
   - ResourceB
   verbs:
