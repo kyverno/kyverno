@@ -166,9 +166,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
 		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
-		for _, matchErr := range matchErrs {
-			reasonsForFailure = append(reasonsForFailure, matchErr)
-		}
+		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
 		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match block in rule cannot be empty"))
 	}
