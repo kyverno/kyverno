@@ -17,7 +17,7 @@ type OperatorHandler interface {
 }
 
 //VariableSubstitutionHandler defines the handler function for variable substitution
-type VariableSubstitutionHandler = func(ctx context.EvalInterface, pattern interface{}) interface{}
+type VariableSubstitutionHandler = func(ctx context.EvalInterface, pattern interface{}) (interface{}, error)
 
 //CreateOperatorHandler returns the operator handler based on the operator used in condition
 func CreateOperatorHandler(ctx context.EvalInterface, op kyverno.ConditionOperator, subHandler VariableSubstitutionHandler) OperatorHandler {

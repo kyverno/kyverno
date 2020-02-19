@@ -14,39 +14,21 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 // ProcessOverlay processes mutation overlay on the resource
-func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessOverlay(ruleName string, overlay interface{}, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
-	glog.V(4).Infof("started applying overlay rule %q (%v)", rule.Name, startTime)
-	resp.Name = rule.Name
+	glog.V(4).Infof("started applying overlay rule %q (%v)", ruleName, startTime)
+	resp.Name = ruleName
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
-
-	// if referenced path not present, we skip processing the rule and report violation
-	if invalidPaths := variables.ValidateVariables(ctx, rule.Mutation.Overlay); len(invalidPaths) != 0 {
-		resp.Success = true
-		resp.PathNotPresent = true
-		resp.Message = fmt.Sprintf("referenced path not present: %s", invalidPaths)
-		glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resp.Message)
-		return resp, resource
-	}
-
-	// substitute variables
-	// first pass we substitute all the JMESPATH substitution for the variable
-	// variable: {{<JMESPATH>}}
-	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
-	overlay := variables.SubstituteVariables(ctx, rule.Mutation.Overlay)
 
 	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), overlay)
 	// resource does not satisfy the overlay pattern, we don't apply this rule
@@ -55,19 +37,19 @@ func ProcessOverlay(ctx context.EvalInterface, rule kyverno.Rule, resource unstr
 		// condition key is not present in the resource, don't apply this rule
 		// consider as success
 		case conditionNotPresent:
-			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", ruleName, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			resp.Success = true
 			return resp, resource
 		// conditions are not met, don't apply this rule
 		case conditionFailure:
-			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", ruleName, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			//TODO: send zero response and not consider this as applied?
 			resp.Success = true
 			resp.Message = overlayerr.ErrorMsg()
 			return resp, resource
 		// rule application failed
 		case overlayFailure:
-			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), rule.Name)
+			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), ruleName)
 			resp.Success = false
 			resp.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
 			return resp, resource

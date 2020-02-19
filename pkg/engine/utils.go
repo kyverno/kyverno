@@ -9,9 +9,6 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -224,38 +221,10 @@ func findKind(kinds []string, kindGVK string) bool {
 	return false
 }
 
-// validateGeneralRuleInfoVariables validate variable subtition defined in
-// - MatchResources
-// - ExcludeResources
-// - Conditions
-func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var tempRule kyverno.Rule
-	var tempRulePattern interface{}
-
-	tempRule.MatchResources = rule.MatchResources
-	tempRule.ExcludeResources = rule.ExcludeResources
-	tempRule.Conditions = rule.Conditions
-
-	raw, err := json.Marshal(tempRule)
-	if err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
+func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	var copy []kyverno.Condition
+	for _, condition := range original {
+		copy = append(copy, *condition.DeepCopy())
 	}
-
-	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	return variables.ValidateVariables(ctx, tempRulePattern)
-}
-
-func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
-	return response.RuleResponse{
-		Name:           rname,
-		Type:           rtype,
-		Message:        msg,
-		Success:        true,
-		PathNotPresent: true,
-	}
+	return copy
 }

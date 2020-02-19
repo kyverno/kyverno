@@ -10,29 +10,18 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern(ctx context.EvalInterface, resource, pattern interface{}) (string, ValidationError) {
-	// if referenced path is not present, we skip processing the rule and report violation
-	if invalidPaths := variables.ValidateVariables(ctx, pattern); len(invalidPaths) != 0 {
-		return "", newValidatePatternError(PathNotPresent, invalidPaths)
-	}
-
-	// first pass we substitute all the JMESPATH substitution for the variable
-	// variable: {{<JMESPATH>}}
-	// if a JMESPATH fails, we dont return error but variable is substitured with nil and error log
-	pattern = variables.SubstituteVariables(ctx, pattern)
+func ValidateResourceWithPattern(resource, pattern interface{}) (string, error) {
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	if err != nil {
-		return path, newValidatePatternError(Rulefailure, err.Error())
+		return path, err
 	}
 
-	return "", ValidationError{}
+	return "", nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
@@ -71,7 +60,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 			}
 		}
 		if !ValidateValueWithPattern(resourceElement, patternElement) {
-			return path, fmt.Errorf("Validation rule failed at '%s' to validate value %v with pattern %v", path, resourceElement, patternElement)
+			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
 		}
 
 	default:

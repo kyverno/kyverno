@@ -65,8 +65,6 @@ type RuleResponse struct {
 	Success bool `json:"success"`
 	// statistics
 	RuleStats `json:",inline"`
-	// PathNotPresent indicates whether referenced path in variable substitution exist
-	PathNotPresent bool `json:"pathNotPresent"`
 }
 
 //ToString ...
@@ -120,14 +118,4 @@ func (er EngineResponse) getRules(success bool) []string {
 		}
 	}
 	return rules
-}
-
-// IsPathNotPresent checks if the referenced path(in variable substitution) exist
-func (er EngineResponse) IsPathNotPresent() bool {
-	for _, r := range er.PolicyResponse.Rules {
-		if r.PathNotPresent {
-			return true
-		}
-	}
-	return false
 }
