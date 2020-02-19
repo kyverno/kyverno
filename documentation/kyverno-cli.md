@@ -2,7 +2,7 @@
 
 
 # [kyverno CLI](https://github.com/nirmata/kyverno/releases) - kubectl plugin to deal with kyverno policies
-Used to validate policies and apply policies on resources. 
+The Kyverno Command Line Interface (CLI) is designed to validate policies and test the behavior of applying policies to resources before adding the policy to a cluster. It can be used as a kubectl plugin and as a standalone CLI.
 
 ##Installation
 You can get the installation package of the cli for your os in the releases page [here](https://github.com/nirmata/kyverno/releases).
@@ -28,17 +28,17 @@ kubectl kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/fo
 ```
 
 #### Apply
-Applies policies on resources, supports applying multiple policies on multiple resources in a single command.
-Also supports applying the given policies to an entire cluster. Will return output to stdout. You may want to redirect
-output to a file in case you applied a policy to a cluster.
+Applies policies on resources, and supports applying multiple policies on multiple resources in a single command.
+Also supports applying the given policies to an entire cluster. The current kubectl context will be used to access the cluster.
+ Will return results to stdout.
 
 Apply to a resource:
 ```
 kubectl kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml
 ```
-Apply to a cluster:
+Apply to all matching resources in a cluster:
 ```
-kubectl kyverno apply /path/to/policy.yaml --cluster
+kubectl kyverno apply /path/to/policy.yaml --cluster > policy-results.txt
 ```
 Valid command with further complexity:
 ```
