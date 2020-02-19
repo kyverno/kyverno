@@ -10,7 +10,7 @@ import (
 //Evaluate evaluates the condition
 func Evaluate(ctx context.EvalInterface, condition kyverno.Condition) bool {
 	// get handler for the operator
-	handle := operator.CreateOperatorHandler(ctx, condition.Operator, SubstituteVariables)
+	handle := operator.CreateOperatorHandler(ctx, condition.Operator, SubstituteVars)
 	if handle == nil {
 		return false
 	}

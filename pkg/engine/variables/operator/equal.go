@@ -25,25 +25,36 @@ type EqualHandler struct {
 
 //Evaluate evaluates expression with Equal Operator
 func (eh EqualHandler) Evaluate(key, value interface{}) bool {
+	var err error
+	//TODO: decouple variables from evaluation
 	// substitute the variables
-	nKey := eh.subHandler(eh.ctx, key)
-	nValue := eh.subHandler(eh.ctx, value)
+	if key, err = eh.subHandler(eh.ctx, key); err != nil {
+		// Failed to resolve the variable
+		glog.Infof("Failed to resolve variables in key: %s: %v", key, err)
+		return false
+	}
+	if value, err = eh.subHandler(eh.ctx, value); err != nil {
+		// Failed to resolve the variable
+		glog.Infof("Failed to resolve variables in value: %s: %v", value, err)
+		return false
+	}
+
 	// key and value need to be of same type
-	switch typedKey := nKey.(type) {
+	switch typedKey := key.(type) {
 	case bool:
-		return eh.validateValuewithBoolPattern(typedKey, nValue)
+		return eh.validateValuewithBoolPattern(typedKey, value)
 	case int:
-		return eh.validateValuewithIntPattern(int64(typedKey), nValue)
+		return eh.validateValuewithIntPattern(int64(typedKey), value)
 	case int64:
-		return eh.validateValuewithIntPattern(typedKey, nValue)
+		return eh.validateValuewithIntPattern(typedKey, value)
 	case float64:
-		return eh.validateValuewithFloatPattern(typedKey, nValue)
+		return eh.validateValuewithFloatPattern(typedKey, value)
 	case string:
-		return eh.validateValuewithStringPattern(typedKey, nValue)
+		return eh.validateValuewithStringPattern(typedKey, value)
 	case map[string]interface{}:
-		return eh.validateValueWithMapPattern(typedKey, nValue)
+		return eh.validateValueWithMapPattern(typedKey, value)
 	case []interface{}:
-		return eh.validateValueWithSlicePattern(typedKey, nValue)
+		return eh.validateValueWithSlicePattern(typedKey, value)
 	default:
 		glog.Errorf("Unsupported type %v", typedKey)
 		return false

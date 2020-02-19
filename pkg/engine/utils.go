@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,9 +14,6 @@ import (
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -199,78 +195,10 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	return nil
 }
-
-//ParseNameFromObject extracts resource name from JSON obj
-func ParseNameFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
+func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	var copy []kyverno.Condition
+	for _, condition := range original {
+		copy = append(copy, *condition.DeepCopy())
 	}
-
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	if name, ok := metaMap["name"].(string); ok {
-		return name
-	}
-	return ""
-}
-
-// ParseNamespaceFromObject extracts the namespace from the JSON obj
-func ParseNamespaceFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
-	}
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-
-	if name, ok := metaMap["namespace"].(string); ok {
-		return name
-	}
-
-	return ""
-}
-
-// validateGeneralRuleInfoVariables validate variable subtition defined in
-// - MatchResources
-// - ExcludeResources
-// - Conditions
-func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var tempRule kyverno.Rule
-	var tempRulePattern interface{}
-
-	tempRule.MatchResources = rule.MatchResources
-	tempRule.ExcludeResources = rule.ExcludeResources
-	tempRule.Conditions = rule.Conditions
-
-	raw, err := json.Marshal(tempRule)
-	if err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
-	}
-
-	return variables.ValidateVariables(ctx, tempRulePattern)
-}
-
-func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
-	return response.RuleResponse{
-		Name:           rname,
-		Type:           rtype,
-		Message:        msg,
-		Success:        true,
-		PathNotPresent: true,
-	}
+	return copy
 }

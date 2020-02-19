@@ -16,8 +16,8 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse) (pvInfos []Inf
 			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
 		}
-		// skip when response succeed AND referenced paths exist
-		if er.IsSuccesful() && !er.IsPathNotPresent() {
+		// skip when response succeed
+		if er.IsSuccesful() {
 			continue
 		}
 		glog.V(4).Infof("Building policy violation for engine response %v", er)
@@ -82,7 +82,7 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Success && !rule.PathNotPresent {
+		if rule.Success {
 			continue
 		}
 		vrule := kyverno.ViolatedRule{

@@ -58,9 +58,13 @@ func Test_variablesub1(t *testing.T) {
 
 	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-user1"}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -80,12 +84,15 @@ func Test_variablesub1(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(resultMap, resultRaw) {
+
+	if !reflect.DeepEqual(resultRaw, resultMap) {
 		t.Log(string(resultMap))
 		t.Log(string(resultRaw))
 		t.Error("result does not match")
@@ -139,9 +146,13 @@ func Test_variablesub_multiple(t *testing.T) {
 
 	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"ClusterRole","name":"ns-owner-n1-user1-bindings"}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,11 +174,14 @@ func Test_variablesub_multiple(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
+
 	if !reflect.DeepEqual(resultMap, resultRaw) {
 		t.Log(string(resultMap))
 		t.Log(string(resultRaw))
@@ -219,9 +233,13 @@ func Test_variablesubstitution(t *testing.T) {
 			Username: "user1",
 		},
 	}
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -243,8 +261,10 @@ func Test_variablesubstitution(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -279,9 +299,13 @@ func Test_variableSubstitutionValue(t *testing.T) {
 
 	resultMap := []byte(`{"spec":{"name":"temp"}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -298,8 +322,10 @@ func Test_variableSubstitutionValue(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -331,9 +357,13 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	`)
 	resultMap := []byte(`{"spec":{"name":"!temp"}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -350,14 +380,16 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(string(resultRaw))
-	t.Log(string(resultMap))
 	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultRaw))
+		t.Log(string(resultMap))
 		t.Error("result does not match")
 	}
 }
@@ -383,11 +415,14 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 		}
 	}
 	`)
-	resultMap := []byte(`{"spec":{"name":null}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -404,16 +439,11 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
-	if err != nil {
-		t.Error(err)
+	if _, err := SubstituteVars(ctx, patternCopy); err == nil {
+		t.Log("expected to fails")
+		t.Fail()
 	}
-	t.Log(string(resultRaw))
-	t.Log(string(resultMap))
-	if !reflect.DeepEqual(resultMap, resultRaw) {
-		t.Error("result does not match")
-	}
+
 }
 
 func Test_variableSubstitutionObject(t *testing.T) {
@@ -444,9 +474,13 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	`)
 	resultMap := []byte(`{"spec":{"variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -463,14 +497,16 @@ func Test_variableSubstitutionObject(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(string(resultRaw))
-	t.Log(string(resultMap))
 	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultRaw))
+		t.Log(string(resultMap))
 		t.Error("result does not match")
 	}
 }
@@ -504,9 +540,13 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 
 	resultMap := []byte(`{"spec":{"variable":null}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -523,14 +563,16 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(string(resultRaw))
-	t.Log(string(resultMap))
 	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultRaw))
+		t.Log(string(resultMap))
 		t.Error("result does not match")
 	}
 }
@@ -565,9 +607,13 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 
 	resultMap := []byte(`{"spec":{"var":"temp1","variable":{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}}}`)
 
-	var pattern, resource interface{}
+	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	err = json.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -584,14 +630,16 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 		t.Error(err)
 	}
 
-	value := SubstituteVariables(ctx, pattern)
-	resultRaw, err := json.Marshal(value)
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+		t.Error(err)
+	}
+	resultRaw, err := json.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(string(resultRaw))
-	t.Log(string(resultMap))
 	if !reflect.DeepEqual(resultMap, resultRaw) {
+		t.Log(string(resultRaw))
+		t.Log(string(resultMap))
 		t.Error("result does not match")
 	}
 }

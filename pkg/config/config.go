@@ -97,6 +97,6 @@ func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
 		glog.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	glog.Infof("Using configuration from '%s'", kubeconfig)
+	glog.V(4).Infof("Using configuration from '%s'", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
