@@ -6,13 +6,14 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/nirmata/kyverno/data"
 
 	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 
