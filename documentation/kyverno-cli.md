@@ -13,7 +13,7 @@ You can build the CLI binary locally, then move the binary into a directory in y
 git clone https://github.com/nirmata/kyverno.git
 cd github.com/nirmata/kyverno
 make cli
-mv ./cmd/cli/kubectl-kyverno/kyverno /usr/local/bin/nctl
+mv ./cmd/cli/kubectl-kyverno/kyverno /usr/local/bin/kyverno
 ```
 
 ## Commands
