@@ -100,6 +100,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 			filedRulesStr,
 			er.PolicyResponse.Resource.GetKey(),
 		)
+		events = append(events, e)
 		// Event on the resource
 		// event on resource
 		e = event.NewEvent(
