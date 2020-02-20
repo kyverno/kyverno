@@ -4,7 +4,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,10 +25,8 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !rule.HasGenerate() {
 		return nil
 	}
-	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-		return nil
-	}
-	if !MatchesResourceDescription(resource, rule) {
+	if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+		glog.V(4).Infof(err.Error())
 		return nil
 	}
 	// operate on the copy of the conditions, as we perform variable substitution

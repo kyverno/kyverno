@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -16,6 +15,7 @@ import (
 const (
 	clusterrolekind = "ClusterRole"
 	rolekind        = "Role"
+	SaPrefix        = "system:serviceaccount:"
 )
 
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
@@ -88,27 +88,20 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 // subject.kind can only be ServiceAccount, User and Group
 func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	// ServiceAccount
-	if isServiceaccountUserInfo(userInfo.Username) {
+	if strings.Contains(userInfo.Username, SaPrefix) {
 		return matchServiceAccount(subject, userInfo)
+	} else {
+		// User or Group
+		return matchUserOrGroup(subject, userInfo)
 	}
-
-	// User or Group
-	return matchUserOrGroup(subject, userInfo)
-}
-
-func isServiceaccountUserInfo(username string) bool {
-	if strings.Contains(username, rbac.SaPrefix) {
-		return true
-	}
-	return false
 }
 
 // matchServiceAccount checks if userInfo sa matche the subject sa
 // serviceaccount represents as saPrefix:namespace:name in userInfo
 func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	subjectServiceAccount := subject.Namespace + ":" + subject.Name
-	if userInfo.Username[len(rbac.SaPrefix):] != subjectServiceAccount {
-		glog.V(3).Infof("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(rbac.SaPrefix):])
+	if userInfo.Username[len(SaPrefix):] != subjectServiceAccount {
+		glog.V(3).Infof("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(SaPrefix):])
 		return false
 	}
 

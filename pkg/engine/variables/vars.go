@@ -16,7 +16,6 @@ const variableRegex = `\{\{([^{}]*)\}\}`
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
 func SubstituteVars(ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
-	println(&pattern)
 	errs := []error{}
 	pattern = subVars(ctx, pattern, "", &errs)
 	if len(errs) == 0 {

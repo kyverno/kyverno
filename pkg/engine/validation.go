@@ -8,7 +8,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/rbac"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
@@ -92,20 +91,13 @@ func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, r
 			continue
 		}
 		startTime := time.Now()
-
-		if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
-			glog.V(3).Infof("rule '%s' cannot be applied on %s/%s/%s, admission permission: %v",
-				rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), admissionInfo)
-			continue
-		}
 		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
-		ok := MatchesResourceDescription(resource, rule)
-		if !ok {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule ", resource.GetNamespace(), resource.GetName())
+		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
 			continue
 		}
 
