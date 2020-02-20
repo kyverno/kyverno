@@ -129,6 +129,7 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
   * [Background Processing](documentation/writing-policies-background.md)
 * [Testing Policies](documentation/testing-policies.md)
 * [Policy Violations](documentation/policy-violations.md)
+* [Kyverno CLI](documentation/cli-usage.md)
 * [Sample Policies](/samples/README.md)
 
 ## License
