@@ -6,82 +6,21 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/event"
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []event.Info {
+func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate bool) []event.Info {
 	var events []event.Info
-	if !isResponseSuccesful(engineResponses) {
-		for _, er := range engineResponses {
-			if er.IsSuccesful() {
-				// dont create events on success
-				continue
-			}
-			// default behavior is audit
-			reason := event.PolicyViolation
-			if er.PolicyResponse.ValidationFailureAction == Enforce {
-				reason = event.RequestBlocked
-			}
-			failedRules := er.GetFailedRules()
-			filedRulesStr := strings.Join(failedRules, ";")
-			if onUpdate {
-				var e event.Info
-				// UPDATE
-				// event on resource
-				e = event.NewEvent(
-					er.PolicyResponse.Resource.Kind,
-					er.PolicyResponse.Resource.APIVersion,
-					er.PolicyResponse.Resource.Namespace,
-					er.PolicyResponse.Resource.Name,
-					reason.String(),
-					event.AdmissionController,
-					event.FPolicyApplyBlockUpdate,
-					filedRulesStr,
-					er.PolicyResponse.Policy,
-				)
-				glog.V(4).Infof("UPDATE event on resource %s/%s/%s with policy %s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name, er.PolicyResponse.Policy)
-				events = append(events, e)
-
-				// event on policy
-				e = event.NewEvent(
-					"ClusterPolicy",
-					kyverno.SchemeGroupVersion.String(),
-					"",
-					er.PolicyResponse.Policy,
-					reason.String(),
-					event.AdmissionController,
-					event.FPolicyBlockResourceUpdate,
-					er.PolicyResponse.Resource.GetKey(),
-					filedRulesStr,
-				)
-				glog.V(4).Infof("UPDATE event on policy %s", er.PolicyResponse.Policy)
-				events = append(events, e)
-
-			} else {
-				// CREATE
-				// event on policy
-				e := event.NewEvent(
-					"ClusterPolicy",
-					kyverno.SchemeGroupVersion.String(),
-					"",
-					er.PolicyResponse.Policy,
-					reason.String(),
-					event.AdmissionController,
-					event.FPolicyApplyBlockCreate,
-					er.PolicyResponse.Resource.GetKey(),
-					filedRulesStr,
-				)
-				glog.V(4).Infof("CREATE event on policy %s", er.PolicyResponse.Policy)
-				events = append(events, e)
-			}
+	// Scenario 1
+	// - Admission-Response is SUCCESS && CREATE
+	//   - All policies were succesfully
+	//     - report event on resources
+	if isResponseSuccesful(engineResponses) {
+		if !onUpdate {
+			// we only report events on CREATE requests
+			return events
 		}
-		return events
-	}
-	if !onUpdate {
-		// All policies were applied successfully
-		// CREATE
 		for _, er := range engineResponses {
 			successRules := er.GetSuccessRules()
 			successRulesStr := strings.Join(successRules, ";")
@@ -99,7 +38,83 @@ func generateEvents(engineResponses []response.EngineResponse, onUpdate bool) []
 			)
 			events = append(events, e)
 		}
-
+		return events
 	}
+
+	// Scneario 2
+	// - Admission-Response is BLOCKED
+	//   - report event of policy is in enforce mode and failed to apply
+	if blocked {
+		for _, er := range engineResponses {
+			if er.IsSuccesful() {
+				// do not create event on polices that were succesfuly
+				continue
+			}
+			if er.PolicyResponse.ValidationFailureAction != Enforce {
+				// do not create event on "audit" policy
+				continue
+			}
+			// Rules that failed
+			failedRules := er.GetFailedRules()
+			filedRulesStr := strings.Join(failedRules, ";")
+			// Event on Policy
+			e := event.NewEvent(
+				"ClusterPolicy",
+				kyverno.SchemeGroupVersion.String(),
+				"",
+				er.PolicyResponse.Policy,
+				event.RequestBlocked.String(),
+				event.AdmissionController,
+				event.FPolicyBlockResourceUpdate,
+				er.PolicyResponse.Resource.GetKey(),
+				filedRulesStr,
+			)
+			events = append(events, e)
+		}
+		return events
+	}
+
+	// Scenario 3
+	// - Admission-Response is SUCCESS
+	//   - Some/All policies failed (policy violations generated)
+	//     - report event on policy that failed
+	//     - report event on resource that failed
+
+	for _, er := range engineResponses {
+		if er.IsSuccesful() {
+			// do not create event on polices that were succesfuly
+			continue
+		}
+		// Rules that failed
+		failedRules := er.GetFailedRules()
+		filedRulesStr := strings.Join(failedRules, ";")
+		// Event on the policy
+		e := event.NewEvent(
+			"ClusterPolicy",
+			kyverno.SchemeGroupVersion.String(),
+			"",
+			er.PolicyResponse.Policy,
+			event.PolicyFailed.String(),
+			event.AdmissionController,
+			event.FPolicyApplyFailed,
+			filedRulesStr,
+			er.PolicyResponse.Resource.GetKey(),
+		)
+		// Event on the resource
+		// event on resource
+		e = event.NewEvent(
+			er.PolicyResponse.Resource.Kind,
+			er.PolicyResponse.Resource.APIVersion,
+			er.PolicyResponse.Resource.Namespace,
+			er.PolicyResponse.Resource.Name,
+			event.PolicyViolation.String(),
+			event.AdmissionController,
+			event.FResourcePolicyFailed,
+			filedRulesStr,
+			er.PolicyResponse.Policy,
+		)
+		events = append(events, e)
+	}
+
 	return events
 }

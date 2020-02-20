@@ -113,11 +113,25 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
-	// the event will be reported on owner by k8s
 	blocked := toBlockResource(engineResponses)
+
+	// REPORTING EVENTS
+	// Scenario 1:
+	//   resource is blocked, as there is a policy in "enforce" mode that failed.
+	//   create an event on the policy to inform the resource request was blocked
+	// Scenario 2:
+	//   some/all policies failed to apply on the resource. a policy volation is generated.
+	//   create an event on the resource and the policy that failed
+	// Scenario 3:
+	//   all policies were applied succesfully.
+	//   create an event on the resource
+	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update))
+	ws.eventGen.Add(events...)
 	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
 		sendStat(true)
+		// EVENTS
+		// - event on the Policy
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
@@ -125,9 +139,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
-	// ADD EVENTS
-	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
-	ws.eventGen.Add(events...)
 	sendStat(false)
 	// report time end
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
