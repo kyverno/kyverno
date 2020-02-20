@@ -73,9 +73,9 @@ docker-push-kyverno:
 ##################################
 # CLI
 ##################################
-CLI_PATH := cmd/cli
+CLI_PATH := cmd/cli/kubectl-kyverno
 cli:
-	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyvernocli -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
+	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
 
 ##################################
