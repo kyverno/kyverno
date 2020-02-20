@@ -124,7 +124,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyvernoRoleGenerate # clusterRole defined above, to manage generated resources
+  name: kyverno:generatecontroller # clusterRole defined above, to manage generated resources
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account # default kyverno serviceAccount
