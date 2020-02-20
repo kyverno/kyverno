@@ -470,7 +470,7 @@ metadata:
   namespace: kyverno
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:webhook
 roleRef:
@@ -483,7 +483,7 @@ subjects:
   namespace: kyverno
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:userinfo
 roleRef:
@@ -496,7 +496,7 @@ subjects:
   namespace: kyverno
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:customresources
 roleRef:
@@ -509,7 +509,7 @@ subjects:
   namespace: kyverno 
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:policycontroller
 roleRef:
@@ -522,7 +522,7 @@ subjects:
   namespace: kyverno 
 ---  
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:generatecontroller
 roleRef:
@@ -534,7 +534,7 @@ subjects:
   name: kyverno-service-account
   namespace: kyverno 
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:webhook
@@ -557,7 +557,7 @@ rules:
   - update
   - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:userinfo
@@ -572,7 +572,7 @@ rules:
   verbs:
   - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:customresources
@@ -598,7 +598,7 @@ rules:
   - update
   - watch
 ---  
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:policycontroller
@@ -612,7 +612,7 @@ rules:
   - get
   - list
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:generatecontroller
