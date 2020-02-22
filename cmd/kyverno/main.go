@@ -200,6 +200,8 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
+	statusSync := policy.NewStatusSync(pclient, stopCh, policyMetaStore)
+
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -215,7 +217,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		egen,
 		webhookRegistrationClient,
-		policy.NewStatusSync(pclient, stopCh, policyMetaStore),
+		statusSync,
 		configData,
 		policyMetaStore,
 		pvgen,
@@ -238,6 +240,7 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+	go statusSync.Run()
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

@@ -9,9 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 )
 
@@ -22,36 +20,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
-	var policyStats []policyctr.PolicyStat
 	evalTime := time.Now()
-	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
-		ps := policyctr.PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.ValidationExecutionTime = policyResponse.ProcessingTime
-		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
-		// capture rule level stats
-		for _, rule := range policyResponse.Rules {
-			rs := policyctr.RuleStatinfo{}
-			rs.RuleName = rule.Name
-			rs.ExecutionTime = rule.RuleStats.ProcessingTime
-			if rule.Success {
-				rs.RuleAppliedCount++
-			} else {
-				rs.RulesFailedCount++
-			}
-			ps.Stats.Rules = append(ps.Stats.Rules, rs)
-		}
-		policyStats = append(policyStats, ps)
-	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		for _, stat := range policyStats {
-			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
-			//SEND
-			ws.policyStatus.SendStat(stat)
-		}
-	}
 
 	// Get new and old resource
 	newR, oldR, err := extractResources(patchedResource, request)
@@ -100,12 +69,11 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			continue
 		}
 		engineResponses = append(engineResponses, engineResponse)
-		// Gather policy application statistics
-		gatherStat(policy.Name, engineResponse.PolicyResponse)
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, newR.GetNamespace(), newR.GetName())
 			continue
 		}
+		go ws.status.UpdateStatusWithValidateStats(engineResponse)
 	}
 	glog.V(4).Infof("eval: %v %s/%s/%s ", time.Since(evalTime), request.Kind, request.Namespace, request.Name)
 	// report time
@@ -117,7 +85,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	blocked := toBlockResource(engineResponses)
 	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
-		sendStat(true)
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
@@ -128,7 +95,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// ADD EVENTS
 	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
-	sendStat(false)
 	// report time end
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
 	return true, ""

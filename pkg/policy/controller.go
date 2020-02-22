@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -68,8 +67,6 @@ type PolicyController struct {
 	rm resourceManager
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
-	// receives stats and aggregates details
-	statusAggregator *PolicyStatusAggregator
 	// store to hold policy meta data for faster lookup
 	pMetaStore policystore.UpdateInterface
 	// policy violation generator
@@ -144,10 +141,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
-
-	// aggregator
-	// pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
-	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
 
 	return &pc, nil
 }
@@ -265,9 +258,6 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
-	// policy status aggregator
-	//TODO: workers required for aggergation
-	pc.statusAggregator.Run(1, stopCh)
 	<-stopCh
 }
 
@@ -329,8 +319,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		if err := pc.deleteNamespacedPolicyViolations(key); err != nil {
 			return err
 		}
-		// remove the recorded stats for the policy
-		pc.statusAggregator.RemovePolicyStats(key)
 
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
@@ -346,23 +334,12 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
-	// cluster policy violations
-	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy.Name)
-	if err != nil {
-		return err
-	}
-	// namespaced policy violation
-	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy.Name)
-	if err != nil {
-		return err
-	}
-
 	// process policies on existing resources
 	engineResponses := pc.processExistingResources(*policy)
 	// report errors
 	pc.cleanupAndReport(engineResponses)
-	// sync active
-	return pc.syncStatusOnly(policy, cpvList, nspvList)
+
+	return nil
 }
 
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) error {
@@ -389,39 +366,6 @@ func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) erro
 		}
 	}
 	return nil
-}
-
-//syncStatusOnly updates the policy status subresource
-func (pc *PolicyController) syncStatusOnly(p *kyverno.ClusterPolicy, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.PolicyViolation) error {
-	newStatus := pc.calculateStatus(p.Name, pvList, nspvList)
-	if reflect.DeepEqual(newStatus, p.Status) {
-		// no update to status
-		return nil
-	}
-	// update status
-	newPolicy := p
-	newPolicy.Status = newStatus
-	_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(newPolicy)
-	return err
-}
-
-func (pc *PolicyController) calculateStatus(policyName string, pvList []*kyverno.ClusterPolicyViolation, nspvList []*kyverno.PolicyViolation) kyverno.PolicyStatus {
-	violationCount := len(pvList) + len(nspvList)
-	status := kyverno.PolicyStatus{
-		ViolationCount: violationCount,
-	}
-	// get stats
-	stats := pc.statusAggregator.GetPolicyStats(policyName)
-	if !reflect.DeepEqual(stats, (PolicyStatInfo{})) {
-		status.RulesAppliedCount = stats.RulesAppliedCount
-		status.ResourcesBlockedCount = stats.ResourceBlocked
-		status.AvgExecutionTimeMutation = stats.MutationExecutionTime.String()
-		status.AvgExecutionTimeValidation = stats.ValidationExecutionTime.String()
-		status.AvgExecutionTimeGeneration = stats.GenerationExecutionTime.String()
-		// update rule stats
-		status.Rules = convertRules(stats.Rules)
-	}
-	return status
 }
 
 func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy string) ([]*kyverno.PolicyViolation, error) {
@@ -458,20 +402,4 @@ func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
 	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
-}
-
-// convertRules converts the internal rule stats to one used in policy.stats struct
-func convertRules(rules []RuleStatinfo) []kyverno.RuleStats {
-	var stats []kyverno.RuleStats
-	for _, r := range rules {
-		stat := kyverno.RuleStats{
-			Name:           r.RuleName,
-			ExecutionTime:  r.ExecutionTime.String(),
-			AppliedCount:   r.RuleAppliedCount,
-			ViolationCount: r.RulesFailedCount,
-			MutationCount:  r.MutationCount,
-		}
-		stats = append(stats, stat)
-	}
-	return stats
 }

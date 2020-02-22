@@ -19,7 +19,7 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []response.EngineResponse) {
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (responses []response.EngineResponse) {
 	startTime := time.Now()
 
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
@@ -35,7 +35,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	ctx.AddResource(transformResource(resource))
 
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, policyStatus, ctx)
+	engineResponse, err = mutation(policy, resource, ctx)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
 		glog.Errorf("unable to process mutation rules: %v", err)
@@ -48,7 +48,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	//TODO: GENERATION
 	return engineResponses
 }
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, ctx context.EvalInterface) (response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, ctx context.EvalInterface) (response.EngineResponse, error) {
 
 	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx})
 	if !engineResponse.IsSuccesful() {

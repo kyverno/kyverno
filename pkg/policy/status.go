@@ -1,210 +1,249 @@
 package policy
 
 import (
+	"log"
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"github.com/nirmata/kyverno/pkg/policystore"
+
+	"github.com/nirmata/kyverno/pkg/engine/response"
+
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
-//PolicyStatusAggregator stores information abt aggregation
-type PolicyStatusAggregator struct {
-	// time since we start aggregating the stats
-	startTime time.Time
-	// channel to receive stats
-	ch chan PolicyStat
-	//TODO: lock based on key, possibly sync.Map ?
-	//sync RW for policyData
-	mux sync.RWMutex
-	// stores aggregated stats for policy
-	policyData map[string]PolicyStatInfo
+type statusCache struct {
+	mu   sync.RWMutex
+	data map[string]v1.PolicyStatus
 }
 
-//NewPolicyStatAggregator returns a new policy status
-func NewPolicyStatAggregator(client *kyvernoclient.Clientset) *PolicyStatusAggregator {
-	psa := PolicyStatusAggregator{
-		startTime:  time.Now(),
-		ch:         make(chan PolicyStat),
-		policyData: map[string]PolicyStatInfo{},
-	}
-	return &psa
+type StatSync struct {
+	cache       *statusCache
+	stop        <-chan struct{}
+	client      *versioned.Clientset
+	policyStore *policystore.PolicyStore
 }
 
-//Run begins aggregator
-func (psa *PolicyStatusAggregator) Run(workers int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-	glog.V(4).Info("Started aggregator for policy status stats")
-	defer func() {
-		glog.V(4).Info("Shutting down aggregator for policy status stats")
-	}()
-	for i := 0; i < workers; i++ {
-		go wait.Until(psa.process, time.Second, stopCh)
-	}
-	<-stopCh
-}
-
-func (psa *PolicyStatusAggregator) process() {
-	// As mutation and validation are handled separately
-	// ideally we need to combine the execution time from both for a policy
-	// but its tricky to detect here the type of rules policy contains
-	// so we dont combine the results, but instead compute the execution time for
-	// mutation & validation rules separately
-	for r := range psa.ch {
-		glog.V(4).Infof("received policy stats %v", r)
-		psa.aggregate(r)
+func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}, pMetaStore *policystore.PolicyStore) *StatSync {
+	return &StatSync{
+		cache: &statusCache{
+			mu:   sync.RWMutex{},
+			data: make(map[string]v1.PolicyStatus),
+		},
+		stop:        stopCh,
+		client:      client,
+		policyStore: pMetaStore,
 	}
 }
 
-func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
-	func() {
-		glog.V(4).Infof("write lock update policy %s", ps.PolicyName)
-		psa.mux.Lock()
-	}()
-	defer func() {
-		glog.V(4).Infof("write Unlock update policy %s", ps.PolicyName)
-		psa.mux.Unlock()
-	}()
-
-	if len(ps.Stats.Rules) == 0 {
-		glog.V(4).Infof("ignoring stats, as no rule was applied")
-		return
-	}
-
-	info, ok := psa.policyData[ps.PolicyName]
-	if !ok {
-		psa.policyData[ps.PolicyName] = ps.Stats
-		glog.V(4).Infof("added stats for policy %s", ps.PolicyName)
-		return
-	}
-	// aggregate policy information
-	info.RulesAppliedCount = info.RulesAppliedCount + ps.Stats.RulesAppliedCount
-	if ps.Stats.ResourceBlocked == 1 {
-		info.ResourceBlocked++
-	}
-	var zeroDuration time.Duration
-	if info.MutationExecutionTime != zeroDuration {
-		info.MutationExecutionTime = (info.MutationExecutionTime + ps.Stats.MutationExecutionTime) / 2
-		glog.V(4).Infof("updated avg mutation time %v", info.MutationExecutionTime)
-	} else {
-		info.MutationExecutionTime = ps.Stats.MutationExecutionTime
-	}
-	if info.ValidationExecutionTime != zeroDuration {
-		info.ValidationExecutionTime = (info.ValidationExecutionTime + ps.Stats.ValidationExecutionTime) / 2
-		glog.V(4).Infof("updated avg validation time %v", info.ValidationExecutionTime)
-	} else {
-		info.ValidationExecutionTime = ps.Stats.ValidationExecutionTime
-	}
-	if info.GenerationExecutionTime != zeroDuration {
-		info.GenerationExecutionTime = (info.GenerationExecutionTime + ps.Stats.GenerationExecutionTime) / 2
-		glog.V(4).Infof("updated avg generation time %v", info.GenerationExecutionTime)
-	} else {
-		info.GenerationExecutionTime = ps.Stats.GenerationExecutionTime
-	}
-	// aggregate rule details
-	info.Rules = aggregateRules(info.Rules, ps.Stats.Rules)
-	// update
-	psa.policyData[ps.PolicyName] = info
-	glog.V(4).Infof("updated stats for policy %s", ps.PolicyName)
+func (s *StatSync) Run() {
+	// update policy status every 10 seconds - waits for previous updateStatus to complete
+	wait.Until(s.updateStats, 1*time.Second, s.stop)
+	<-s.stop
+	s.updateStats()
 }
 
-func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
-	var zeroDuration time.Duration
-	searchRule := func(list []RuleStatinfo, key string) *RuleStatinfo {
-		for _, v := range list {
-			if v.RuleName == key {
-				return &v
-			}
+func (s *StatSync) updateStats() {
+	s.cache.mu.Lock()
+	var nameToStatus = make(map[string]v1.PolicyStatus, len(s.cache.data))
+	for k, v := range s.cache.data {
+		nameToStatus[k] = v
+	}
+	s.cache.mu.Unlock()
+
+	for policyName, status := range nameToStatus {
+		var policy = &v1.ClusterPolicy{}
+		policy, err := s.policyStore.Get(policyName)
+		if err != nil {
+			continue
 		}
-		return nil
-	}
-	newRules := []RuleStatinfo{}
-	// search for new rules in old rules and update it
-	for _, updateR := range update {
-		if updateR.ExecutionTime != zeroDuration {
-			if rule := searchRule(old, updateR.RuleName); rule != nil {
-				rule.ExecutionTime = (rule.ExecutionTime + updateR.ExecutionTime) / 2
-				rule.RuleAppliedCount = rule.RuleAppliedCount + updateR.RuleAppliedCount
-				rule.RulesFailedCount = rule.RulesFailedCount + updateR.RulesFailedCount
-				rule.MutationCount = rule.MutationCount + updateR.MutationCount
-				newRules = append(newRules, *rule)
-			} else {
-				newRules = append(newRules, updateR)
-			}
+		policy.Status = status
+		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
+		if err != nil {
+			log.Println(err)
 		}
 	}
-	return newRules
 }
 
-//GetPolicyStats returns the policy stats
-func (psa *PolicyStatusAggregator) GetPolicyStats(policyName string) PolicyStatInfo {
-	func() {
-		glog.V(4).Infof("read lock update policy %s", policyName)
-		psa.mux.RLock()
-	}()
-	defer func() {
-		glog.V(4).Infof("read Unlock update policy %s", policyName)
-		psa.mux.RUnlock()
-	}()
-	glog.V(4).Infof("read stats for policy %s", policyName)
-	return psa.policyData[policyName]
+func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse) {
+	s.cache.mu.Lock()
+	var policyStatus v1.PolicyStatus
+	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	if !exist {
+		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		if policy != nil {
+			policyStatus = policy.Status
+		}
+	}
+
+	var nameToRule = make(map[string]v1.RuleStats, 0)
+	for _, rule := range policyStatus.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	for _, rule := range response.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		ruleStat.ExecutionTime = updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver).String()
+
+		if rule.Success {
+			policyStatus.RulesAppliedCount++
+			policyStatus.ResourcesMutatedCount++
+			ruleStat.AppliedCount++
+			ruleStat.ResourcesMutatedCount++
+		} else {
+			policyStatus.ViolationCount++
+			ruleStat.ViolationCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var policyAverageExecutionTime time.Duration
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
+		if err == nil {
+			policyAverageExecutionTime += executionTime
+		}
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
+	policyStatus.Rules = ruleStats
+
+	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.mu.Unlock()
 }
 
-//RemovePolicyStats rmves policy stats records
-func (psa *PolicyStatusAggregator) RemovePolicyStats(policyName string) {
-	func() {
-		glog.V(4).Infof("write lock update policy %s", policyName)
-		psa.mux.Lock()
-	}()
-	defer func() {
-		glog.V(4).Infof("write Unlock update policy %s", policyName)
-		psa.mux.Unlock()
-	}()
-	glog.V(4).Infof("removing stats for policy %s", policyName)
-	delete(psa.policyData, policyName)
+func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineResponse) {
+	s.cache.mu.Lock()
+	var policyStatus v1.PolicyStatus
+	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	if !exist {
+		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		if policy != nil {
+			policyStatus = policy.Status
+		}
+	}
+
+	var nameToRule = make(map[string]v1.RuleStats, 0)
+	for _, rule := range policyStatus.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	for _, rule := range response.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		ruleStat.ExecutionTime = updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver).String()
+
+		if rule.Success {
+			policyStatus.RulesAppliedCount++
+			ruleStat.AppliedCount++
+			if response.PolicyResponse.ValidationFailureAction == "enforce" {
+				policyStatus.ResourcesBlockedCount++
+				ruleStat.ResourcesBlockedCount++
+			}
+		} else {
+			policyStatus.ViolationCount++
+			ruleStat.ViolationCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var policyAverageExecutionTime time.Duration
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
+		if err == nil {
+			policyAverageExecutionTime += executionTime
+		}
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
+	policyStatus.Rules = ruleStats
+
+	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.mu.Unlock()
 }
 
-//PolicyStatusInterface provides methods to modify policyStatus
-type PolicyStatusInterface interface {
-	SendStat(stat PolicyStat)
-	// UpdateViolationCount(policyName string, pvList []*kyverno.PolicyViolation) error
+func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineResponse) {
+	s.cache.mu.Lock()
+	var policyStatus v1.PolicyStatus
+	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	if !exist {
+		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		if policy != nil {
+			policyStatus = policy.Status
+		}
+	}
+
+	var nameToRule = make(map[string]v1.RuleStats, 0)
+	for _, rule := range policyStatus.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	for _, rule := range response.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		ruleStat.ExecutionTime = updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver).String()
+
+		if rule.Success {
+			policyStatus.RulesAppliedCount++
+			ruleStat.AppliedCount++
+		} else {
+			policyStatus.ViolationCount++
+			ruleStat.ViolationCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var policyAverageExecutionTime time.Duration
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
+		if err == nil {
+			policyAverageExecutionTime += executionTime
+		}
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
+	policyStatus.Rules = ruleStats
+
+	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.mu.Unlock()
 }
 
-//PolicyStat stored stats for policy
-type PolicyStat struct {
-	PolicyName string
-	Stats      PolicyStatInfo
-}
-
-//PolicyStatInfo provides statistics for policy
-type PolicyStatInfo struct {
-	MutationExecutionTime   time.Duration
-	ValidationExecutionTime time.Duration
-	GenerationExecutionTime time.Duration
-	RulesAppliedCount       int
-	ResourceBlocked         int
-	Rules                   []RuleStatinfo
-}
-
-//RuleStatinfo provides statistics for rule
-type RuleStatinfo struct {
-	RuleName         string
-	ExecutionTime    time.Duration
-	RuleAppliedCount int
-	RulesFailedCount int
-	MutationCount    int
-}
-
-//SendStat sends the stat information for aggregation
-func (psa *PolicyStatusAggregator) SendStat(stat PolicyStat) {
-	glog.V(4).Infof("sending policy stats: %v", stat)
-	// Send over channel
-	psa.ch <- stat
-}
-
-//GetPolicyStatusAggregator returns interface to send policy status stats
-func (pc *PolicyController) GetPolicyStatusAggregator() PolicyStatusInterface {
-	return pc.statusAggregator
+func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
+	if averageOver == 0 {
+		return newTime
+	}
+	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
+	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
+	denominator := averageOver + 1
+	newAverageTimeInNanoSeconds := numerator / denominator
+	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }

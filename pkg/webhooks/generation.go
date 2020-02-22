@@ -58,6 +58,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	for _, policy := range policies {
 		policyContext.Policy = policy
 		engineResponse := engine.Generate(policyContext)
+		go ws.status.UpdateStatusWithGenerateStats(engineResponse)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)

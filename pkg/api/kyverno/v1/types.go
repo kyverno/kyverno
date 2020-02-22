@@ -232,15 +232,15 @@ type PolicyStatus struct {
 	// average time required to process the policy rules on a resource
 	AvgExecutionTime string `json:"averageExecutionTime"`
 	// Count of rules that failed
-	ViolationCount int `json:"violationCount"`
+	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that were applied
-	RulesAppliedCount int `json:"rulesAppliedCount"`
+	RulesAppliedCount int `json:"rulesAppliedCount,omitempty"`
 	// Count of resources that were blocked for failing a validate, across all rules
-	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
+	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
 	// Count of resources that were successfully mutated, across all rules
-	ResourcesMutatedCount int `json:"resourcesMutatedCount"`
+	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
 
-	Rules []RuleStats `json:"ruleStatus"`
+	Rules []RuleStats `json:"ruleStatus,omitempty"`
 }
 
 //RuleStats provides status per rule
@@ -248,15 +248,15 @@ type RuleStats struct {
 	// Rule name
 	Name string `json:"ruleName"`
 	// average time require to process the rule
-	ExecutionTime string `json:"averageExecutionTime"`
+	ExecutionTime string `json:"averageExecutionTime,omitempty"`
 	// Count of rules that failed
-	ViolationCount int `json:"violationCount"`
+	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that were applied
-	AppliedCount int `json:"appliedCount"`
+	AppliedCount int `json:"appliedCount,omitempty"`
 	// Count of resources for whom update/create api requests were blocked as the resource did not satisfy the policy rules
-	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
+	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
 	// Count of resources that were successfully mutated
-	ResourcesMutatedCount int `json:"resourcesMutatedCount"`
+	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
 }
 
 // PolicyList is a list of Policy resources
