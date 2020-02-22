@@ -56,7 +56,7 @@ type WebhookServer struct {
 	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
-	status policy.StatusSync
+	status policy.StatSync
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 	// channel for cleanup notification
@@ -83,7 +83,7 @@ func NewWebhookServer(
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
-	status *policy.StatusSync,
+	status *policy.StatSync,
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,

@@ -3,8 +3,6 @@ package webhooks
 import (
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -59,8 +57,8 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
+		go ws.status.UpdateStatusWithMutateStats(engineResponse)
 		engineResponses = append(engineResponses, engineResponse)
-		updateStatusWithMutate(ws.status, policy, engineResponse)
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
@@ -107,30 +105,4 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
 	return engineutils.JoinPatches(patches)
-}
-
-func updateStatusWithMutate(statusSync *policy.StatusSync, policy kyverno.ClusterPolicy, response response.EngineResponse) {
-	stats := kyverno.PolicyStatus{
-		ViolationCount:           0,
-		RulesAppliedCount:        response.PolicyResponse.RulesAppliedCount,
-		ResourcesBlockedCount:    0,
-		AvgExecutionTimeMutation: response.PolicyResponse.ProcessingTime.String(),
-		Rules:                    nil,
-	}
-
-	for _, rule := range response.PolicyResponse.Rules {
-		ruleStats := kyverno.RuleStats{
-			Name:           rule.Name,
-			ExecutionTime:  rule.ProcessingTime.String(),
-			AppliedCount:   0,
-			ViolationCount: 0,
-			MutationCount:  0,
-		}
-
-		if rule.Success {
-			ruleStats.AppliedCount++
-			ruleStats.MutationCount++
-		}
-	}
-
 }

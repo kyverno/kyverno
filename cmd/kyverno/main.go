@@ -215,7 +215,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		egen,
 		webhookRegistrationClient,
-		policy.NewStatusSync(pclient, stopCh),
+		policy.NewStatusSync(pclient, stopCh, policyMetaStore),
 		configData,
 		policyMetaStore,
 		pvgen,

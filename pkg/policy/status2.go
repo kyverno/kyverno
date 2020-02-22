@@ -4,6 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policystore"
+
+	"github.com/nirmata/kyverno/pkg/engine/response"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -11,97 +15,103 @@ import (
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
+func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}, pMetaStore *policystore.PolicyStore) *StatSync {
+	return &StatSync{
+		cache: &statusCache{
+			mu:   sync.RWMutex{},
+			data: make(map[string]v1.PolicyStatus),
+		},
+		stop:   stopCh,
+		client: client,
+	}
+}
+
 type statusCache struct {
 	mu   sync.RWMutex
 	data map[string]v1.PolicyStatus
 }
 
-func (c *statusCache) Get(key string) v1.PolicyStatus {
-	c.mu.RLock()
-	status := c.data[key]
-	c.mu.RUnlock()
-	return status
-
+type StatSync struct {
+	cache       *statusCache
+	stop        <-chan struct{}
+	client      *versioned.Clientset
+	policyStore *policystore.PolicyStore
 }
 
-func (c *statusCache) GetAll() map[string]v1.PolicyStatus {
-	c.mu.RLock()
-	mapCopy := make(map[string]v1.PolicyStatus, len(c.data))
-	for k, v := range c.data {
-		mapCopy[k] = v
-	}
-	c.mu.RUnlock()
-	return mapCopy
-
-}
-func (c *statusCache) Set(key string, status v1.PolicyStatus) {
-	c.mu.Lock()
-	c.data[key] = status
-	c.mu.Unlock()
-}
-func (c *statusCache) Clear() {
-	c.mu.Lock()
-	c.data = make(map[string]v1.PolicyStatus)
-	c.mu.Unlock()
-}
-
-func newStatusCache() *statusCache {
-	return &statusCache{
-		mu:   sync.RWMutex{},
-		data: make(map[string]v1.PolicyStatus),
-	}
-}
-
-func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}) *StatusSync {
-	return &StatusSync{
-		policyStatsReciever: make(chan map[string]v1.PolicyStatus),
-		cache:               newStatusCache(),
-		stop:                stopCh,
-		client:              client,
-	}
-}
-
-type StatusSync struct {
-	policyStatsReciever chan map[string]v1.PolicyStatus
-	cache               *statusCache
-	stop                <-chan struct{}
-	client              *versioned.Clientset
-}
-
-func (s *StatusSync) Cache() *statusCache {
-	return s.cache
-}
-
-func (s *StatusSync) StatReceiver() chan<- map[string]v1.PolicyStatus {
-	return s.policyStatsReciever
-}
-
-func (s *StatusSync) Start() {
-	// receive status and store it in cache
-	go func() {
-		for {
-			select {
-			case nameToStatus := <-s.policyStatsReciever:
-				for policyName, status := range nameToStatus {
-					s.cache.Set(policyName, status)
-				}
-			case <-s.stop:
-				return
-			}
-		}
-	}()
-
+func (s *StatSync) Start() {
 	// update policy status every 10 seconds - waits for previous updateStatus to complete
-	wait.Until(s.updateStatus, 10*time.Second, s.stop)
+	wait.Until(s.updateStats, 1*time.Second, s.stop)
 	<-s.stop
+	s.updateStats()
 }
 
-func (s *StatusSync) updateStatus() {
-	for policyName, status := range s.cache.GetAll() {
+func (s *StatSync) updateStats() {
+	s.cache.mu.Lock()
+	for policyName, status := range s.cache.data {
 		var policy = &v1.ClusterPolicy{}
 		policy.Name = policyName
 		policy.Status = status
 		_, _ = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 	}
-	s.cache.Clear()
+	s.cache.data = make(map[string]v1.PolicyStatus)
+	s.cache.mu.Unlock()
+}
+
+func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse) {
+	s.cache.mu.Lock()
+	policyStatus := s.cache.data[response.PolicyResponse.Policy]
+	s.policyStore.ListAll()
+
+	var nameToRule = make(map[string]v1.RuleStats, 0)
+	for _, rule := range policyStatus.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	var policyAverageExecutionTime time.Duration
+	for _, rule := range response.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		newAverageExecutionTime := updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver)
+		policyAverageExecutionTime += newAverageExecutionTime
+		ruleStat.ExecutionTime = newAverageExecutionTime.String()
+
+		if rule.Success {
+			policyStatus.RulesAppliedCount++
+			policyStatus.ResourcesMutatedCount++
+			ruleStat.AppliedCount++
+			ruleStat.ResourcesMutatedCount++
+		} else {
+			policyStatus.ViolationCount++
+			ruleStat.ViolationCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
+	policyStatus.Rules = ruleStats
+
+	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.mu.Unlock()
+}
+
+func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
+	if averageOver == 0 {
+		return newTime
+	}
+	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
+	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
+	denominator := averageOver + 1
+	newAverageTimeInNanoSeconds := numerator / denominator
+	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }

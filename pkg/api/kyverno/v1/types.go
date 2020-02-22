@@ -227,20 +227,19 @@ type CloneFrom struct {
 	Name      string `json:"name,omitempty"`
 }
 
-//PolicyStatus provides status for violations
+// PolicyStatus mostly contains statistics related to policy
 type PolicyStatus struct {
+	// average time required to process the policy rules on a resource
+	AvgExecutionTime string `json:"averageExecutionTime"`
+	// Count of rules that failed
 	ViolationCount int `json:"violationCount"`
 	// Count of rules that were applied
 	RulesAppliedCount int `json:"rulesAppliedCount"`
-	// Count of resources for whom update/create api requests were blocked as the resoruce did not satisfy the policy rules
+	// Count of resources that were blocked for failing a validate, across all rules
 	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
-	// average time required to process the policy Mutation rules on a resource
-	AvgExecutionTimeMutation string `json:"averageMutationRulesExecutionTime"`
-	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeValidation string `json:"averageValidationRulesExecutionTime"`
-	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
-	// statistics per rule
+	// Count of resources that were successfully mutated, across all rules
+	ResourcesMutatedCount int `json:"resourcesMutatedCount"`
+
 	Rules []RuleStats `json:"ruleStatus"`
 }
 
@@ -250,12 +249,14 @@ type RuleStats struct {
 	Name string `json:"ruleName"`
 	// average time require to process the rule
 	ExecutionTime string `json:"averageExecutionTime"`
-	// Count of rules that were applied
-	AppliedCount int `json:"appliedCount"`
 	// Count of rules that failed
 	ViolationCount int `json:"violationCount"`
-	// Count of mutations
-	MutationCount int `json:"mutationsCount"`
+	// Count of rules that were applied
+	AppliedCount int `json:"appliedCount"`
+	// Count of resources for whom update/create api requests were blocked as the resource did not satisfy the policy rules
+	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
+	// Count of resources that were successfully mutated
+	ResourcesMutatedCount int `json:"resourcesMutatedCount"`
 }
 
 // PolicyList is a list of Policy resources
