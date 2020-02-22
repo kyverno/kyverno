@@ -627,6 +627,9 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - clusterroles
+  - rolebindings
+  - clusterrolebindings
   verbs:
   - create
   - update
@@ -639,7 +642,7 @@ rules:
   resources:
   - namespaces
   verbs:
-  - watch  
+  - watch
 ---
 apiVersion: v1
 kind: ConfigMap

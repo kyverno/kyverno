@@ -5,10 +5,6 @@ import (
 	"flag"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/openapi"
-
-	"k8s.io/client-go/discovery"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -202,22 +198,6 @@ func main() {
 	// based on the policy resources created
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
-	}
-
-	// OpenAPI document
-	// Getting openApi document from kubernetes and overriding default openapi document
-	restClient, err := discovery.NewDiscoveryClientForConfig(clientConfig)
-	if err != nil {
-		glog.Fatalf("Could not get rest client to get openApi doc: %v\n", err)
-	}
-
-	openApiDoc, err := restClient.RESTClient().Get().RequestURI("/openapi/v2").Do().Raw()
-	if err != nil {
-		glog.Fatalf("OpenApiDoc request failed: %v\n", err)
-	}
-
-	if err := openapi.UseCustomOpenApiDocument(openApiDoc); err != nil {
-		glog.Fatalf("Could not set custom OpenApi document: %v\n", err)
 	}
 
 	// WEBHOOOK
