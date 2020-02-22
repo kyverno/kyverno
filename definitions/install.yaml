@@ -670,10 +670,10 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.3-rc1
+          image: nirmata/kyvernopre:v1.1.3
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.3-rc1
+          image: nirmata/kyverno:v1.1.3
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
           # customize webhook timout
