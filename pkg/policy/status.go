@@ -2,6 +2,7 @@ package policy
 
 import (
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -118,6 +119,10 @@ func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse)
 		ruleStats = append(ruleStats, ruleStat)
 	}
 
+	sort.Slice(ruleStats, func(i, j int) bool {
+		return ruleStats[i].Name < ruleStats[j].Name
+	})
+
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
 
@@ -154,13 +159,13 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 		if rule.Success {
 			policyStatus.RulesAppliedCount++
 			ruleStat.AppliedCount++
+		} else {
+			policyStatus.ViolationCount++
+			ruleStat.ViolationCount++
 			if response.PolicyResponse.ValidationFailureAction == "enforce" {
 				policyStatus.ResourcesBlockedCount++
 				ruleStat.ResourcesBlockedCount++
 			}
-		} else {
-			policyStatus.ViolationCount++
-			ruleStat.ViolationCount++
 		}
 
 		nameToRule[rule.Name] = ruleStat
@@ -175,6 +180,10 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 		}
 		ruleStats = append(ruleStats, ruleStat)
 	}
+
+	sort.Slice(ruleStats, func(i, j int) bool {
+		return ruleStats[i].Name < ruleStats[j].Name
+	})
 
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
@@ -229,6 +238,10 @@ func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineRespons
 		}
 		ruleStats = append(ruleStats, ruleStat)
 	}
+
+	sort.Slice(ruleStats, func(i, j int) bool {
+		return ruleStats[i].Name < ruleStats[j].Name
+	})
 
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
