@@ -32,7 +32,7 @@ spec:
               - audit # allows resource creation and reports the failed validation rules as violations. Default
             background:
               type: boolean
-              rules:
+            rules:
               type: array
               items:
                 type: object
