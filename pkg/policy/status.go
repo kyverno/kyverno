@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	v12 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+
 	"github.com/nirmata/kyverno/pkg/policystore"
 
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -27,9 +29,17 @@ type StatSync struct {
 	stop        <-chan struct{}
 	client      *versioned.Clientset
 	policyStore *policystore.PolicyStore
+	cpvLister   v12.ClusterPolicyViolationLister
+	pvLister    v12.PolicyViolationLister
 }
 
-func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}, pMetaStore *policystore.PolicyStore) *StatSync {
+func NewStatusSync(
+	client *versioned.Clientset,
+	stopCh <-chan struct{},
+	pMetaStore *policystore.PolicyStore,
+	cpvLister v12.ClusterPolicyViolationLister,
+	pvLister v12.PolicyViolationLister,
+) *StatSync {
 	return &StatSync{
 		cache: &statusCache{
 			mu:   sync.RWMutex{},
@@ -38,6 +48,8 @@ func NewStatusSync(client *versioned.Clientset, stopCh <-chan struct{}, pMetaSto
 		stop:        stopCh,
 		client:      client,
 		policyStore: pMetaStore,
+		cpvLister:   cpvLister,
+		pvLister:    pvLister,
 	}
 }
 
@@ -57,6 +69,10 @@ func (s *StatSync) updateStats() {
 	s.cache.mu.Unlock()
 
 	for policyName, status := range nameToStatus {
+		cpvList, _ := s.getClusterPolicyViolationForPolicy(policyName)
+		pvList, _ := s.getNamespacedPolicyViolationForPolicy(policyName)
+		updateStatusWithViolationCount(&status, cpvList, pvList)
+
 		var policy = &v1.ClusterPolicy{}
 		policy, err := s.policyStore.Get(policyName)
 		if err != nil {
@@ -90,7 +106,7 @@ func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse)
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
 		ruleStat.ExecutionTime = updateAverageTime(
 			rule.ProcessingTime,
 			ruleStat.ExecutionTime,
@@ -102,8 +118,8 @@ func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse)
 			ruleStat.AppliedCount++
 			ruleStat.ResourcesMutatedCount++
 		} else {
-			policyStatus.ViolationCount++
-			ruleStat.ViolationCount++
+			policyStatus.RulesFailedCount++
+			ruleStat.FailedCount++
 		}
 
 		nameToRule[rule.Name] = ruleStat
@@ -150,7 +166,7 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
 		ruleStat.ExecutionTime = updateAverageTime(
 			rule.ProcessingTime,
 			ruleStat.ExecutionTime,
@@ -160,8 +176,8 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 			policyStatus.RulesAppliedCount++
 			ruleStat.AppliedCount++
 		} else {
-			policyStatus.ViolationCount++
-			ruleStat.ViolationCount++
+			policyStatus.RulesFailedCount++
+			ruleStat.FailedCount++
 			if response.PolicyResponse.ValidationFailureAction == "enforce" {
 				policyStatus.ResourcesBlockedCount++
 				ruleStat.ResourcesBlockedCount++
@@ -212,7 +228,7 @@ func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineRespons
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.ViolationCount)
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
 		ruleStat.ExecutionTime = updateAverageTime(
 			rule.ProcessingTime,
 			ruleStat.ExecutionTime,
@@ -222,8 +238,8 @@ func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineRespons
 			policyStatus.RulesAppliedCount++
 			ruleStat.AppliedCount++
 		} else {
-			policyStatus.ViolationCount++
-			ruleStat.ViolationCount++
+			policyStatus.RulesFailedCount++
+			ruleStat.FailedCount++
 		}
 
 		nameToRule[rule.Name] = ruleStat
@@ -259,4 +275,54 @@ func updateAverageTime(newTime time.Duration, oldAverageTimeString string, avera
 	denominator := averageOver + 1
 	newAverageTimeInNanoSeconds := numerator / denominator
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
+}
+
+func (s *StatSync) getClusterPolicyViolationForPolicy(policy string) ([]*v1.ClusterPolicyViolation, error) {
+	policySelector, err := buildPolicyLabel(policy)
+	if err != nil {
+		return nil, err
+	}
+	// Get List of cluster policy violation
+	cpvList, err := s.cpvLister.List(policySelector)
+	if err != nil {
+		return nil, err
+	}
+	return cpvList, nil
+}
+
+func (s *StatSync) getNamespacedPolicyViolationForPolicy(policy string) ([]*v1.PolicyViolation, error) {
+	policySelector, err := buildPolicyLabel(policy)
+	if err != nil {
+		return nil, err
+	}
+	// Get List of cluster policy violation
+	nspvList, err := s.pvLister.List(policySelector)
+	if err != nil {
+		return nil, err
+	}
+	return nspvList, nil
+
+}
+
+func updateStatusWithViolationCount(status *v1.PolicyStatus, cpvList []*v1.ClusterPolicyViolation, pvList []*v1.PolicyViolation) {
+
+	status.ViolationCount = len(cpvList) + len(pvList)
+
+	var ruleNameToNumberOfViolations = make(map[string]int)
+
+	for _, cpv := range cpvList {
+		for _, violatedRule := range cpv.Spec.ViolatedRules {
+			ruleNameToNumberOfViolations[violatedRule.Name]++
+		}
+	}
+
+	for _, pv := range pvList {
+		for _, violatedRule := range pv.Spec.ViolatedRules {
+			ruleNameToNumberOfViolations[violatedRule.Name]++
+		}
+	}
+
+	for i, rule := range status.Rules {
+		status.Rules[i].ViolationCount = ruleNameToNumberOfViolations[rule.Name]
+	}
 }

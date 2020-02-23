@@ -231,8 +231,10 @@ type CloneFrom struct {
 type PolicyStatus struct {
 	// average time required to process the policy rules on a resource
 	AvgExecutionTime string `json:"averageExecutionTime"`
-	// Count of rules that failed
+	// number of violations related to the policy
 	ViolationCount int `json:"violationCount,omitempty"`
+	// Count of rules that failed
+	RulesFailedCount int `json:"rulesFailedCount,omitempty"`
 	// Count of rules that were applied
 	RulesAppliedCount int `json:"rulesAppliedCount,omitempty"`
 	// Count of resources that were blocked for failing a validate, across all rules
@@ -249,8 +251,10 @@ type RuleStats struct {
 	Name string `json:"ruleName"`
 	// average time require to process the rule
 	ExecutionTime string `json:"averageExecutionTime,omitempty"`
-	// Count of rules that failed
+	// number of violations related to this rule
 	ViolationCount int `json:"violationCount,omitempty"`
+	// Count of rules that failed
+	FailedCount int `json:"failedCount,omitempty"`
 	// Count of rules that were applied
 	AppliedCount int `json:"appliedCount,omitempty"`
 	// Count of resources for whom update/create api requests were blocked as the resource did not satisfy the policy rules

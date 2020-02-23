@@ -200,7 +200,12 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
-	statusSync := policy.NewStatusSync(pclient, stopCh, policyMetaStore)
+	statusSync := policy.NewStatusSync(
+		pclient,
+		stopCh,
+		policyMetaStore,
+		pInformer.Kyverno().V1().ClusterPolicyViolations().Lister(),
+		pInformer.Kyverno().V1().PolicyViolations().Lister())
 
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
