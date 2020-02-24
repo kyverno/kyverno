@@ -216,8 +216,8 @@ type Validation struct {
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
 	ResourceSpec
-	Data  interface{} `json:"data"`
-	Clone CloneFrom   `json:"clone"`
+	Data  interface{} `json:"data,omitempty"`
+	Clone CloneFrom   `json:"clone,omitempty"`
 }
 
 // CloneFrom - location of the resource

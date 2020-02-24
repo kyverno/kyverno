@@ -5,16 +5,6 @@ import (
 	"strconv"
 )
 
-//ValidationFailureReason defeins type for Validation Failure reason
-type ValidationFailureReason int
-
-const (
-	// PathNotPresent if path is not present
-	PathNotPresent ValidationFailureReason = iota
-	// Rulefailure if the rule failed
-	Rulefailure
-)
-
 // convertToString converts value to string
 func convertToString(value interface{}) (string, error) {
 	switch typed := value.(type) {
@@ -43,15 +33,4 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 	} else {
 		return str
 	}
-}
-
-//ValidationError stores error for validation error
-type ValidationError struct {
-	StatusCode ValidationFailureReason
-	ErrorMsg   string
-}
-
-// newValidatePatternError returns an validation error using the ValidationFailureReason and errorMsg
-func newValidatePatternError(reason ValidationFailureReason, msg string) ValidationError {
-	return ValidationError{StatusCode: reason, ErrorMsg: msg}
 }

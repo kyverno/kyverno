@@ -1,18 +1,19 @@
 package engine
 
 import (
-	"encoding/json"
-	"strings"
+	"errors"
+	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/utils"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/golang/glog"
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -26,236 +27,176 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-//MatchesResourceDescription checks if the resource matches resource desription of the rule or not
-func MatchesResourceDescription(resource unstructured.Unstructured, rule kyverno.Rule) bool {
-	matches := rule.MatchResources.ResourceDescription
-	exclude := rule.ExcludeResources.ResourceDescription
-
-	if len(matches.Kinds) > 0 {
-		if !findKind(matches.Kinds, resource.GetKind()) {
-			return false
-		}
-	}
-
-	name := resource.GetName()
-
-	namespace := resource.GetNamespace()
-
-	if matches.Name != "" {
-		// Matches
-		if !wildcard.Match(matches.Name, name) {
-			return false
-		}
-	}
-
-	// Matches
-	// check if the resource namespace is defined in the list of namespace pattern
-	if len(matches.Namespaces) > 0 && !utils.ContainsNamepace(matches.Namespaces, namespace) {
-		return false
-	}
-
-	// Matches
-	if matches.Selector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(matches.Selector)
-		if err != nil {
-			glog.Error(err)
-			return false
-		}
-		if !selector.Matches(labels.Set(resource.GetLabels())) {
-			return false
-		}
-	}
-
-	excludeName := func(name string) Condition {
-		if exclude.Name == "" {
-			return NotEvaluate
-		}
-		if wildcard.Match(exclude.Name, name) {
-			return Skip
-		}
-		return Process
-	}
-
-	excludeNamespace := func(namespace string) Condition {
-		if len(exclude.Namespaces) == 0 {
-			return NotEvaluate
-		}
-		if utils.ContainsNamepace(exclude.Namespaces, namespace) {
-			return Skip
-		}
-		return Process
-	}
-
-	excludeSelector := func(labelsMap map[string]string) Condition {
-		if exclude.Selector == nil {
-			return NotEvaluate
-		}
-		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
-		// if the label selector is incorrect, should be fail or
-		if err != nil {
-			glog.Error(err)
-			return Skip
-		}
-		if selector.Matches(labels.Set(labelsMap)) {
-			return Skip
-		}
-		return Process
-	}
-
-	excludeKind := func(kind string) Condition {
-		if len(exclude.Kinds) == 0 {
-			return NotEvaluate
-		}
-
-		if findKind(exclude.Kinds, kind) {
-			return Skip
-		}
-
-		return Process
-	}
-
-	// 0 -> dont check
-	// 1 -> is not to be exclude
-	// 2 -> to be exclude
-	excludeEval := []Condition{}
-
-	if ret := excludeName(resource.GetName()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeNamespace(resource.GetNamespace()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeSelector(resource.GetLabels()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
-		excludeEval = append(excludeEval, ret)
-	}
-	// Filtered NotEvaluate
-
-	if len(excludeEval) == 0 {
-		// nothing to exclude
-		return true
-	}
-	return func() bool {
-		for _, ret := range excludeEval {
-			if ret == Process {
-				return true
-			}
-		}
-		return false
-	}()
-}
-
-//Condition type for conditions
-type Condition int
-
-const (
-	// NotEvaluate to not-evaluate to condition
-	NotEvaluate Condition = 0
-	// Process to process the condition
-	Process Condition = 1
-	// Skip to skip the condition
-	Skip Condition = 2
-)
-
-// ParseResourceInfoFromObject get kind/namepace/name from resource
-func ParseResourceInfoFromObject(rawResource []byte) string {
-
-	kind := ParseKindFromObject(rawResource)
-	namespace := ParseNamespaceFromObject(rawResource)
-	name := ParseNameFromObject(rawResource)
-	return strings.Join([]string{kind, namespace, name}, "/")
-}
-
-//ParseKindFromObject get kind from resource
-func ParseKindFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-
-	return objectJSON["kind"].(string)
-}
-
-//ParseNameFromObject extracts resource name from JSON obj
-func ParseNameFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
-	}
-
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	if name, ok := metaMap["name"].(string); ok {
-		return name
-	}
-	return ""
-}
-
-// ParseNamespaceFromObject extracts the namespace from the JSON obj
-func ParseNamespaceFromObject(bytes []byte) string {
-	var objectJSON map[string]interface{}
-	json.Unmarshal(bytes, &objectJSON)
-	meta, ok := objectJSON["metadata"]
-	if !ok {
-		return ""
-	}
-	metaMap, ok := meta.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-
-	if name, ok := metaMap["namespace"].(string); ok {
-		return name
-	}
-
-	return ""
-}
-
-func findKind(kinds []string, kindGVK string) bool {
+func checkKind(kinds []string, resourceKind string) bool {
 	for _, kind := range kinds {
-		if kind == kindGVK {
+		if resourceKind == kind {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkName(name, resourceName string) bool {
+	return wildcard.Match(name, resourceName)
+}
+
+func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
+	for _, namespace := range namespaces {
+		if resourceNameSpace == namespace {
 			return true
 		}
 	}
 	return false
 }
 
-// validateGeneralRuleInfoVariables validate variable subtition defined in
-// - MatchResources
-// - ExcludeResources
-// - Conditions
-func validateGeneralRuleInfoVariables(ctx context.EvalInterface, rule kyverno.Rule) string {
-	var tempRule kyverno.Rule
-	var tempRulePattern interface{}
-
-	tempRule.MatchResources = rule.MatchResources
-	tempRule.ExcludeResources = rule.ExcludeResources
-	tempRule.Conditions = rule.Conditions
-
-	raw, err := json.Marshal(tempRule)
+func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
+		glog.Error(err)
+		return false, err
 	}
 
-	if err := json.Unmarshal(raw, &tempRulePattern); err != nil {
-		glog.Infof("failed to serilize rule info while validating variable substitution: %v", err)
-		return ""
+	if selector.Matches(labels.Set(resourceLabels)) {
+		return true, nil
 	}
 
-	return variables.ValidateVariables(ctx, tempRulePattern)
+	return false, nil
 }
 
-func newPathNotPresentRuleResponse(rname, rtype, msg string) response.RuleResponse {
-	return response.RuleResponse{
-		Name:           rname,
-		Type:           rtype,
-		Message:        msg,
-		Success:        true,
-		PathNotPresent: true,
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured) []error {
+	var errs []error
+	if len(conditionBlock.Kinds) > 0 {
+		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
+			errs = append(errs, fmt.Errorf("resource kind does not match conditionBlock"))
+		}
 	}
+	if conditionBlock.Name != "" {
+		if !checkName(conditionBlock.Name, resource.GetName()) {
+			errs = append(errs, fmt.Errorf("resource name does not match conditionBlock"))
+		}
+	}
+	if len(conditionBlock.Namespaces) > 0 {
+		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
+			errs = append(errs, fmt.Errorf("resource namespace does not match conditionBlock"))
+		}
+	}
+	if conditionBlock.Selector != nil {
+		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+		if err != nil {
+			errs = append(errs, fmt.Errorf("could not parse selector block of the policy in conditionBlock: %v", err))
+		} else {
+			if !hasPassed {
+				errs = append(errs, fmt.Errorf("resource does not match selector of given conditionBlock"))
+			}
+		}
+	}
+	if len(userInfo.Roles) > 0 {
+		if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.ClusterRoles) > 0 {
+		if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.Subjects) > 0 {
+		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
+			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		}
+	}
+
+	return errs
+}
+
+// matchSubjects return true if one of ruleSubjects exist in userInfo
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
+	const SaPrefix = "system:serviceaccount:"
+
+	userGroups := append(userInfo.Groups, userInfo.Username)
+	for _, subject := range ruleSubjects {
+		switch subject.Kind {
+		case "ServiceAccount":
+			if len(userInfo.Username) <= len(SaPrefix) {
+				continue
+			}
+			subjectServiceAccount := subject.Namespace + ":" + subject.Name
+			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
+				return true
+			}
+		case "User", "Group":
+			if utils.ContainsString(userGroups, subject.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func doesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
+
+	var sliceElementsMap = make(map[string]bool, len(slice))
+	for _, sliceElement := range slice {
+		sliceElementsMap[sliceElement] = true
+	}
+
+	for _, value := range values {
+		if sliceElementsMap[value] {
+			return true
+		}
+	}
+
+	return false
+}
+
+//MatchesResourceDescription checks if the resource matches resource description of the rule or not
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo) error {
+	rule := *ruleRef.DeepCopy()
+	resource := *resourceRef.DeepCopy()
+	admissionInfo := *admissionInfoRef.DeepCopy()
+
+	var reasonsForFailure []error
+
+	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
+		rule.MatchResources.UserInfo = kyverno.UserInfo{}
+	}
+
+	// checking if resource matches the rule
+	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
+		reasonsForFailure = append(reasonsForFailure, matchErrs...)
+	} else {
+		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match block in rule cannot be empty"))
+	}
+
+	// checking if resource has been excluded
+	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
+		if excludeErrs == nil {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource has been excluded since it matches the exclude block"))
+		}
+	}
+
+	// creating final error
+	var errorMessage = "rule has failed to match resource for the following reasons:"
+	for i, reasonForFailure := range reasonsForFailure {
+		if reasonForFailure != nil {
+			errorMessage += "\n" + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()
+		}
+	}
+
+	if len(reasonsForFailure) > 0 {
+		return errors.New(errorMessage)
+	}
+
+	return nil
+}
+func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	var copy []kyverno.Condition
+	for _, condition := range original {
+		copy = append(copy, *condition.DeepCopy())
+	}
+	return copy
 }

@@ -22,4 +22,9 @@ Then compare the original resource definition in CM.yaml with the actual one:
 kubectl get -f CM.yaml -o yaml
 ````
 
+## Test using Kyverno CLI
+
+The Kyverno CLI allows testing policies before they are applied to a cluster. It is documented at [Kyverno CLI](kyverno-cli.md)
+
+
 <small>*Read Next >> [Policy Violations](/documentation/policy-violations.md)*</small>

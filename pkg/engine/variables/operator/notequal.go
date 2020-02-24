@@ -25,25 +25,35 @@ type NotEqualHandler struct {
 
 //Evaluate evaluates expression with NotEqual Operator
 func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
+	var err error
+	//TODO: decouple variables from evaluation
 	// substitute the variables
-	nKey := neh.subHandler(neh.ctx, key)
-	nValue := neh.subHandler(neh.ctx, value)
+	if key, err = neh.subHandler(neh.ctx, key); err != nil {
+		// Failed to resolve the variable
+		glog.Infof("Failed to resolve variables in key: %s: %v", key, err)
+		return false
+	}
+	if value, err = neh.subHandler(neh.ctx, value); err != nil {
+		// Failed to resolve the variable
+		glog.Infof("Failed to resolve variables in value: %s: %v", value, err)
+		return false
+	}
 	// key and value need to be of same type
-	switch typedKey := nKey.(type) {
+	switch typedKey := key.(type) {
 	case bool:
-		return neh.validateValuewithBoolPattern(typedKey, nValue)
+		return neh.validateValuewithBoolPattern(typedKey, value)
 	case int:
-		return neh.validateValuewithIntPattern(int64(typedKey), nValue)
+		return neh.validateValuewithIntPattern(int64(typedKey), value)
 	case int64:
-		return neh.validateValuewithIntPattern(typedKey, nValue)
+		return neh.validateValuewithIntPattern(typedKey, value)
 	case float64:
-		return neh.validateValuewithFloatPattern(typedKey, nValue)
+		return neh.validateValuewithFloatPattern(typedKey, value)
 	case string:
-		return neh.validateValuewithStringPattern(typedKey, nValue)
+		return neh.validateValuewithStringPattern(typedKey, value)
 	case map[string]interface{}:
-		return neh.validateValueWithMapPattern(typedKey, nValue)
+		return neh.validateValueWithMapPattern(typedKey, value)
 	case []interface{}:
-		return neh.validateValueWithSlicePattern(typedKey, nValue)
+		return neh.validateValueWithSlicePattern(typedKey, value)
 	default:
 		glog.Error("Unsupported type %V", typedKey)
 		return false

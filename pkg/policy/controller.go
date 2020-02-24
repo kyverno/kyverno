@@ -12,7 +12,6 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine/policy"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -155,7 +154,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
 	if p.Spec.Background == nil {
 		// if userInfo is not defined in policy we process the policy
-		if err := policy.ContainsUserInfo(*p); err != nil {
+		if err := ContainsUserInfo(*p); err != nil {
 			return
 		}
 	} else {
@@ -164,7 +163,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 		}
 		// If userInfo is used then skip the policy
 		// ideally this should be handled by background flag only
-		if err := policy.ContainsUserInfo(*p); err != nil {
+		if err := ContainsUserInfo(*p); err != nil {
 			// contains userInfo used in policy
 			return
 		}
@@ -190,7 +189,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
 	if curP.Spec.Background == nil {
 		// if userInfo is not defined in policy we process the policy
-		if err := policy.ContainsUserInfo(*curP); err != nil {
+		if err := ContainsUserInfo(*curP); err != nil {
 			return
 		}
 	} else {
@@ -199,7 +198,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		}
 		// If userInfo is used then skip the policy
 		// ideally this should be handled by background flag only
-		if err := policy.ContainsUserInfo(*curP); err != nil {
+		if err := ContainsUserInfo(*curP); err != nil {
 			// contains userInfo used in policy
 			return
 		}
