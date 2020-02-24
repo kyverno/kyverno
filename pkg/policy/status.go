@@ -59,6 +59,7 @@ func (s *StatSync) updateStats() {
 	for k, v := range s.cache.data {
 		nameToStatus[k] = v
 	}
+	s.cache.data = make(map[string]v1.PolicyStatus)
 	s.cache.mu.Unlock()
 
 	for policyName, status := range nameToStatus {
