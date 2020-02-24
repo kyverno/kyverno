@@ -12,7 +12,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	policyctr "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
-	"github.com/nirmata/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -188,36 +187,6 @@ func listpolicies(ns unstructured.Unstructured, pMetaStore policystore.LookupInt
 }
 
 func applyPolicy(client *client.Client, resource unstructured.Unstructured, p kyverno.ClusterPolicy, policyStatus policyctr.PolicyStatusInterface) response.EngineResponse {
-	var policyStats []policyctr.PolicyStat
-	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
-		ps := policyctr.PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.GenerationExecutionTime = policyResponse.ProcessingTime
-		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
-		// capture rule level stats
-		for _, rule := range policyResponse.Rules {
-			rs := policyctr.RuleStatinfo{}
-			rs.RuleName = rule.Name
-			rs.ExecutionTime = rule.RuleStats.ProcessingTime
-			if rule.Success {
-				rs.RuleAppliedCount++
-			} else {
-				rs.RulesFailedCount++
-			}
-			ps.Stats.Rules = append(ps.Stats.Rules, rs)
-		}
-		policyStats = append(policyStats, ps)
-	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		for _, stat := range policyStats {
-			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
-			//SEND
-			policyStatus.SendStat(stat)
-		}
-	}
-
 	startTime := time.Now()
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", p.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
 	defer func() {
@@ -234,11 +203,6 @@ func applyPolicy(client *client.Client, resource unstructured.Unstructured, p ky
 		Context:     ctx,
 	}
 	engineResponse := engine.Generate(policyContext)
-	// gather stats
-	gatherStat(p.Name, engineResponse.PolicyResponse)
-	//send stats
-	sendStat(false)
-
 	return engineResponse
 }
 

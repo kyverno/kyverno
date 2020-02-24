@@ -231,7 +231,7 @@ type CloneFrom struct {
 type PolicyStatus struct {
 	// average time required to process the policy rules on a resource
 	AvgExecutionTime string `json:"averageExecutionTime"`
-	// number of violations related to the policy
+	// number of violations created by this policy
 	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that failed
 	RulesFailedCount int `json:"rulesFailedCount,omitempty"`
@@ -241,6 +241,8 @@ type PolicyStatus struct {
 	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
 	// Count of resources that were successfully mutated, across all rules
 	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
+	// Count of resources that were successfully generated, across all rules
+	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty"`
 
 	Rules []RuleStats `json:"ruleStatus,omitempty"`
 }
@@ -251,7 +253,7 @@ type RuleStats struct {
 	Name string `json:"ruleName"`
 	// average time require to process the rule
 	ExecutionTime string `json:"averageExecutionTime,omitempty"`
-	// number of violations related to this rule
+	// number of violations created by this rule
 	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that failed
 	FailedCount int `json:"failedCount,omitempty"`
@@ -261,6 +263,8 @@ type RuleStats struct {
 	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
 	// Count of resources that were successfully mutated
 	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
+	// Count of resources that were successfully generated
+	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty"`
 }
 
 // PolicyList is a list of Policy resources

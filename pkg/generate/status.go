@@ -4,6 +4,7 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/policy"
 )
 
 //StatusControlInterface provides interface to update status subresource
@@ -14,7 +15,8 @@ type StatusControlInterface interface {
 
 // StatusControl is default implementaation of GRStatusControlInterface
 type StatusControl struct {
-	client kyvernoclient.Interface
+	client       kyvernoclient.Interface
+	policyStatus *policy.StatSync
 }
 
 //Failed sets gr status.state to failed with message
@@ -38,6 +40,8 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	gr.Status.Message = ""
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
+
+	go sc.policyStatus.UpdatePolicyStatusWithGeneratedResourceCount(gr)
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -68,6 +70,7 @@ func NewController(
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
+	policyStatus *policy.StatSync,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -79,7 +82,7 @@ func NewController(
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
 		dynamicInformer: dynamicInformer,
 	}
-	c.statusControl = StatusControl{client: kyvernoclient}
+	c.statusControl = StatusControl{client: kyvernoclient, policyStatus: policyStatus}
 
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy

@@ -135,12 +135,19 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies())
 
+	// Policy Status Handler - deals with all logic related to policy status
+	statusSync := policy.NewStatusSync(
+		pclient,
+		stopCh,
+		policyMetaStore)
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations())
+		pInformer.Kyverno().V1().PolicyViolations(),
+		statusSync)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -174,6 +181,7 @@ func main() {
 		egen,
 		pvgen,
 		kubedynamicInformer,
+		statusSync,
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
@@ -199,13 +207,6 @@ func main() {
 	if err = webhookRegistrationClient.Register(); err != nil {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
-
-	statusSync := policy.NewStatusSync(
-		pclient,
-		stopCh,
-		policyMetaStore,
-		pInformer.Kyverno().V1().ClusterPolicyViolations().Lister(),
-		pInformer.Kyverno().V1().PolicyViolations().Lister())
 
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration

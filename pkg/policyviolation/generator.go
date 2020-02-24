@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -37,9 +39,10 @@ type Generator struct {
 	// returns true if the cluster policy store has been synced at least once
 	pvSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
-	nspvSynced cache.InformerSynced
-	queue      workqueue.RateLimitingInterface
-	dataStore  *dataStore
+	nspvSynced   cache.InformerSynced
+	queue        workqueue.RateLimitingInterface
+	dataStore    *dataStore
+	policyStatus *policy.StatSync
 }
 
 //NewDataStore returns an instance of data store
@@ -103,7 +106,8 @@ type GeneratorInterface interface {
 func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
+	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	policyStatus *policy.StatSync) *Generator {
 	gen := Generator{
 		kyvernoInterface: client.KyvernoV1(),
 		dclient:          dclient,
@@ -113,6 +117,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		nspvSynced:       nspvInformer.Informer().HasSynced,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:        newDataStore(),
+		policyStatus:     policyStatus,
 	}
 	return &gen
 }
@@ -219,10 +224,10 @@ func (gen *Generator) syncHandler(info Info) error {
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
+		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface, gen.policyStatus)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface)
+		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface, gen.policyStatus)
 	}
 
 	failure := false

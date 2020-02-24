@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -29,6 +30,9 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !rule.HasGenerate() {
 		return nil
 	}
+
+	startTime := time.Now()
+
 	if !rbac.MatchAdmissionInfo(rule, admissionInfo) {
 		return nil
 	}
@@ -43,8 +47,12 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 	// build rule Response
 	return &response.RuleResponse{
-		Name: rule.Name,
-		Type: "Generation",
+		Name:    rule.Name,
+		Type:    "Generation",
+		Success: true,
+		RuleStats: response.RuleStats{
+			ProcessingTime: time.Since(startTime),
+		},
 	}
 }
 

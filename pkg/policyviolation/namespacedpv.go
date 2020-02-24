@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
@@ -20,16 +22,20 @@ type namespacedPV struct {
 	nspvLister kyvernolister.PolicyViolationLister
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
+	// update policy status with violationCount
+	policyStatus *policy.StatSync
 }
 
 func newNamespacedPV(dclient *client.Client,
 	nspvLister kyvernolister.PolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
+	policyStatus *policy.StatSync,
 ) *namespacedPV {
 	nspv := namespacedPV{
 		dclient:          dclient,
 		nspvLister:       nspvLister,
 		kyvernoInterface: kyvernoInterface,
+		policyStatus:     policyStatus,
 	}
 	return &nspv
 }
@@ -92,6 +98,8 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 		glog.V(4).Infof("failed to create Cluster Policy Violation: %v", err)
 		return err
 	}
+
+	go nspv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
 	return nil
 }
@@ -112,6 +120,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 		return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 	}
 
+	go nspv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	glog.Infof("namespaced policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 	return nil
 }

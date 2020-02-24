@@ -2,11 +2,10 @@ package policy
 
 import (
 	"log"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
-
-	v12 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 
 	"github.com/nirmata/kyverno/pkg/policystore"
 
@@ -29,16 +28,12 @@ type StatSync struct {
 	stop        <-chan struct{}
 	client      *versioned.Clientset
 	policyStore *policystore.PolicyStore
-	cpvLister   v12.ClusterPolicyViolationLister
-	pvLister    v12.PolicyViolationLister
 }
 
 func NewStatusSync(
 	client *versioned.Clientset,
 	stopCh <-chan struct{},
 	pMetaStore *policystore.PolicyStore,
-	cpvLister v12.ClusterPolicyViolationLister,
-	pvLister v12.PolicyViolationLister,
 ) *StatSync {
 	return &StatSync{
 		cache: &statusCache{
@@ -48,8 +43,6 @@ func NewStatusSync(
 		stop:        stopCh,
 		client:      client,
 		policyStore: pMetaStore,
-		cpvLister:   cpvLister,
-		pvLister:    pvLister,
 	}
 }
 
@@ -69,10 +62,6 @@ func (s *StatSync) updateStats() {
 	s.cache.mu.Unlock()
 
 	for policyName, status := range nameToStatus {
-		cpvList, _ := s.getClusterPolicyViolationForPolicy(policyName)
-		pvList, _ := s.getNamespacedPolicyViolationForPolicy(policyName)
-		updateStatusWithViolationCount(&status, cpvList, pvList)
-
 		var policy = &v1.ClusterPolicy{}
 		policy, err := s.policyStore.Get(policyName)
 		if err != nil {
@@ -86,12 +75,44 @@ func (s *StatSync) updateStats() {
 	}
 }
 
-func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse) {
+func (s *StatSync) UpdatePolicyStatusWithViolationCount(policyName string, violatedRules []v1.ViolatedRule) {
+	s.cache.mu.Lock()
+	status := s.cache.data[policyName]
+
+	var ruleNameToViolations = make(map[string]int)
+	for _, rule := range violatedRules {
+		ruleNameToViolations[rule.Name]++
+	}
+
+	for i := range status.Rules {
+		status.ViolationCount += ruleNameToViolations[status.Rules[i].Name]
+		status.Rules[i].ViolationCount += ruleNameToViolations[status.Rules[i].Name]
+	}
+
+	s.cache.data[policyName] = status
+	s.cache.mu.Unlock()
+}
+
+func (s *StatSync) UpdatePolicyStatusWithGeneratedResourceCount(generateRequest v1.GenerateRequest) {
+	s.cache.mu.Lock()
+	status := s.cache.data[generateRequest.Spec.Policy]
+
+	status.ResourcesGeneratedCount += len(generateRequest.Status.GeneratedResources)
+
+	s.cache.data[generateRequest.Spec.Policy] = status
+	s.cache.mu.Unlock()
+}
+
+func (s *StatSync) UpdateStatusWithMutateStats(resp response.EngineResponse) {
+	if reflect.DeepEqual(response.EngineResponse{}, resp) {
+		return
+	}
+
 	s.cache.mu.Lock()
 	var policyStatus v1.PolicyStatus
-	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	policyStatus, exist := s.cache.data[resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		policy, _ := s.policyStore.Get(resp.PolicyResponse.Policy)
 		if policy != nil {
 			policyStatus = policy.Status
 		}
@@ -102,7 +123,7 @@ func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse)
 		nameToRule[rule.Name] = rule
 	}
 
-	for _, rule := range response.PolicyResponse.Rules {
+	for _, rule := range resp.PolicyResponse.Rules {
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
@@ -142,16 +163,20 @@ func (s *StatSync) UpdateStatusWithMutateStats(response response.EngineResponse)
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
 
-	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.data[resp.PolicyResponse.Policy] = policyStatus
 	s.cache.mu.Unlock()
 }
 
-func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineResponse) {
+func (s *StatSync) UpdateStatusWithValidateStats(resp response.EngineResponse) {
+	if reflect.DeepEqual(response.EngineResponse{}, resp) {
+		return
+	}
+
 	s.cache.mu.Lock()
 	var policyStatus v1.PolicyStatus
-	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	policyStatus, exist := s.cache.data[resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		policy, _ := s.policyStore.Get(resp.PolicyResponse.Policy)
 		if policy != nil {
 			policyStatus = policy.Status
 		}
@@ -162,7 +187,7 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 		nameToRule[rule.Name] = rule
 	}
 
-	for _, rule := range response.PolicyResponse.Rules {
+	for _, rule := range resp.PolicyResponse.Rules {
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
@@ -178,7 +203,7 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 		} else {
 			policyStatus.RulesFailedCount++
 			ruleStat.FailedCount++
-			if response.PolicyResponse.ValidationFailureAction == "enforce" {
+			if resp.PolicyResponse.ValidationFailureAction == "enforce" {
 				policyStatus.ResourcesBlockedCount++
 				ruleStat.ResourcesBlockedCount++
 			}
@@ -204,16 +229,20 @@ func (s *StatSync) UpdateStatusWithValidateStats(response response.EngineRespons
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
 
-	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.data[resp.PolicyResponse.Policy] = policyStatus
 	s.cache.mu.Unlock()
 }
 
-func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineResponse) {
+func (s *StatSync) UpdateStatusWithGenerateStats(resp response.EngineResponse) {
+	if reflect.DeepEqual(response.EngineResponse{}, resp) {
+		return
+	}
+
 	s.cache.mu.Lock()
 	var policyStatus v1.PolicyStatus
-	policyStatus, exist := s.cache.data[response.PolicyResponse.Policy]
+	policyStatus, exist := s.cache.data[resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := s.policyStore.Get(response.PolicyResponse.Policy)
+		policy, _ := s.policyStore.Get(resp.PolicyResponse.Policy)
 		if policy != nil {
 			policyStatus = policy.Status
 		}
@@ -224,7 +253,7 @@ func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineRespons
 		nameToRule[rule.Name] = rule
 	}
 
-	for _, rule := range response.PolicyResponse.Rules {
+	for _, rule := range resp.PolicyResponse.Rules {
 		ruleStat := nameToRule[rule.Name]
 		ruleStat.Name = rule.Name
 
@@ -262,7 +291,7 @@ func (s *StatSync) UpdateStatusWithGenerateStats(response response.EngineRespons
 	policyStatus.AvgExecutionTime = policyAverageExecutionTime.String()
 	policyStatus.Rules = ruleStats
 
-	s.cache.data[response.PolicyResponse.Policy] = policyStatus
+	s.cache.data[resp.PolicyResponse.Policy] = policyStatus
 	s.cache.mu.Unlock()
 }
 
@@ -275,54 +304,4 @@ func updateAverageTime(newTime time.Duration, oldAverageTimeString string, avera
 	denominator := averageOver + 1
 	newAverageTimeInNanoSeconds := numerator / denominator
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
-}
-
-func (s *StatSync) getClusterPolicyViolationForPolicy(policy string) ([]*v1.ClusterPolicyViolation, error) {
-	policySelector, err := buildPolicyLabel(policy)
-	if err != nil {
-		return nil, err
-	}
-	// Get List of cluster policy violation
-	cpvList, err := s.cpvLister.List(policySelector)
-	if err != nil {
-		return nil, err
-	}
-	return cpvList, nil
-}
-
-func (s *StatSync) getNamespacedPolicyViolationForPolicy(policy string) ([]*v1.PolicyViolation, error) {
-	policySelector, err := buildPolicyLabel(policy)
-	if err != nil {
-		return nil, err
-	}
-	// Get List of cluster policy violation
-	nspvList, err := s.pvLister.List(policySelector)
-	if err != nil {
-		return nil, err
-	}
-	return nspvList, nil
-
-}
-
-func updateStatusWithViolationCount(status *v1.PolicyStatus, cpvList []*v1.ClusterPolicyViolation, pvList []*v1.PolicyViolation) {
-
-	status.ViolationCount = len(cpvList) + len(pvList)
-
-	var ruleNameToNumberOfViolations = make(map[string]int)
-
-	for _, cpv := range cpvList {
-		for _, violatedRule := range cpv.Spec.ViolatedRules {
-			ruleNameToNumberOfViolations[violatedRule.Name]++
-		}
-	}
-
-	for _, pv := range pvList {
-		for _, violatedRule := range pv.Spec.ViolatedRules {
-			ruleNameToNumberOfViolations[violatedRule.Name]++
-		}
-	}
-
-	for i, rule := range status.Rules {
-		status.Rules[i].ViolationCount = ruleNameToNumberOfViolations[rule.Name]
-	}
 }

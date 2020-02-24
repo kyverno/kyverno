@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/nirmata/kyverno/pkg/policy"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
@@ -20,16 +22,20 @@ type clusterPV struct {
 	cpvLister kyvernolister.ClusterPolicyViolationLister
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
+	// update policy stats with violationCount
+	policyStatus *policy.StatSync
 }
 
 func newClusterPV(dclient *client.Client,
 	cpvLister kyvernolister.ClusterPolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
+	policyStatus *policy.StatSync,
 ) *clusterPV {
 	cpv := clusterPV{
 		dclient:          dclient,
 		cpvLister:        cpvLister,
 		kyvernoInterface: kyvernoInterface,
+		policyStatus:     policyStatus,
 	}
 	return &cpv
 }
@@ -93,6 +99,8 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 		glog.V(4).Infof("failed to create Cluster Policy Violation: %v", err)
 		return err
 	}
+
+	go cpv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
 	return nil
 }
@@ -115,5 +123,6 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	}
 	glog.Infof("cluster policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 
+	go cpv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	return nil
 }
