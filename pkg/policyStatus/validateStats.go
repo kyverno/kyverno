@@ -36,7 +36,7 @@ func (vs *validateStats) updateStatus() {
 		}
 	}
 
-	var nameToRule = make(map[string]v1.RuleStats, 0)
+	var nameToRule = make(map[string]v1.RuleStats)
 	for _, rule := range policyStatus.Rules {
 		nameToRule[rule.Name] = rule
 	}

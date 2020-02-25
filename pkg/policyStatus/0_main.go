@@ -40,7 +40,11 @@ func NewSync(c *versioned.Clientset, sc <-chan struct{}, pms *policystore.Policy
 	}
 }
 
-func (s *Sync) Run() {
+func (s *Sync) Run(workers int) {
+	for i := 0; i < workers; i++ {
+		go s.updateStatusCache()
+	}
+
 	wait.Until(s.updatePolicyStatus, 5*time.Second, s.stop)
 	<-s.stop
 	s.updatePolicyStatus()

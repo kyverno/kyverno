@@ -248,7 +248,7 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
-	go statusSync.Run()
+	go statusSync.Run(2)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
