@@ -8,14 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,7 +41,7 @@ type Generator struct {
 	nspvSynced   cache.InformerSynced
 	queue        workqueue.RateLimitingInterface
 	dataStore    *dataStore
-	policyStatus *policy.StatSync
+	policyStatus *policyStatus.Sync
 }
 
 //NewDataStore returns an instance of data store
@@ -107,7 +106,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
-	policyStatus *policy.StatSync) *Generator {
+	policyStatus *policyStatus.Sync) *Generator {
 	gen := Generator{
 		kyvernoInterface: client.KyvernoV1(),
 		dclient:          dclient,

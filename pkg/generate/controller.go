@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -13,6 +11,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -70,7 +69,7 @@ func NewController(
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
-	policyStatus *policy.StatSync,
+	policyStatus *policyStatus.Sync,
 ) *Controller {
 	c := Controller{
 		client:        client,

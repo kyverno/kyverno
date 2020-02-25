@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,13 +22,13 @@ type clusterPV struct {
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// update policy stats with violationCount
-	policyStatus *policy.StatSync
+	policyStatus *policyStatus.Sync
 }
 
 func newClusterPV(dclient *client.Client,
 	cpvLister kyvernolister.ClusterPolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
-	policyStatus *policy.StatSync,
+	policyStatus *policyStatus.Sync,
 ) *clusterPV {
 	cpv := clusterPV{
 		dclient:          dclient,

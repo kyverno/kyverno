@@ -5,6 +5,8 @@ import (
 	"flag"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policyStatus"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -136,7 +138,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies())
 
 	// Policy Status Handler - deals with all logic related to policy status
-	statusSync := policy.NewStatusSync(
+	statusSync := policyStatus.NewSync(
 		pclient,
 		stopCh,
 		policyMetaStore)

@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policy"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -20,6 +18,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
@@ -56,7 +55,7 @@ type WebhookServer struct {
 	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
-	status *policy.StatSync
+	status *policyStatus.Sync
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 	// channel for cleanup notification
@@ -83,7 +82,7 @@ func NewWebhookServer(
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
-	statusSync *policy.StatSync,
+	statusSync *policyStatus.Sync,
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
