@@ -81,6 +81,7 @@ type Info struct {
 	PolicyName string
 	Resource   unstructured.Unstructured
 	Rules      []kyverno.ViolatedRule
+	FromSync   bool
 }
 
 func (i Info) toKey() string {
@@ -231,6 +232,10 @@ func (gen *Generator) syncHandler(info Info) error {
 
 	failure := false
 	pv := builder.generate(info)
+
+	if info.FromSync {
+		pv.Annotations["fromSync"] = "true"
+	}
 
 	// Create Policy Violations
 	glog.V(3).Infof("Creating policy violation: %s", info.toKey())
