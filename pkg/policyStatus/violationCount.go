@@ -18,7 +18,13 @@ func (s *Sync) UpdatePolicyStatusWithViolationCount(policyName string, violatedR
 
 func (vc *violationCount) updateStatus() {
 	vc.sync.cache.mutex.Lock()
-	status := vc.sync.cache.data[vc.policyName]
+	status, exist := vc.sync.cache.data[vc.policyName]
+	if !exist {
+		policy, _ := vc.sync.policyStore.Get(vc.policyName)
+		if policy != nil {
+			status = policy.Status
+		}
+	}
 
 	var ruleNameToViolations = make(map[string]int)
 	for _, rule := range vc.violatedRules {

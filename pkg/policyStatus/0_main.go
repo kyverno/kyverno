@@ -37,6 +37,7 @@ func NewSync(c *versioned.Clientset, sc <-chan struct{}, pms *policystore.Policy
 		stop:        sc,
 		client:      c,
 		policyStore: pms,
+		listener:    make(chan statusUpdater),
 	}
 }
 

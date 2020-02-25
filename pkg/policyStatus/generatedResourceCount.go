@@ -16,7 +16,13 @@ func (s *Sync) UpdatePolicyStatusWithGeneratedResourceCount(generateRequest v1.G
 
 func (vc *generatedResourceCount) updateStatus() {
 	vc.sync.cache.mutex.Lock()
-	status := vc.sync.cache.data[vc.generateRequest.Spec.Policy]
+	status, exist := vc.sync.cache.data[vc.generateRequest.Spec.Policy]
+	if !exist {
+		policy, _ := vc.sync.policyStore.Get(vc.generateRequest.Spec.Policy)
+		if policy != nil {
+			status = policy.Status
+		}
+	}
 
 	status.ResourcesGeneratedCount += len(vc.generateRequest.Status.GeneratedResources)
 
