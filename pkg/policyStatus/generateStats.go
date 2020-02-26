@@ -27,12 +27,13 @@ func (gs *generateStats) updateStatus() {
 	}
 
 	gs.s.cache.mutex.Lock()
-	var policyStatus v1.PolicyStatus
 	policyStatus, exist := gs.s.cache.data[gs.resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := gs.s.policyStore.Get(gs.resp.PolicyResponse.Policy)
-		if policy != nil {
-			policyStatus = policy.Status
+		if gs.s.policyStore != nil {
+			policy, _ := gs.s.policyStore.Get(gs.resp.PolicyResponse.Policy)
+			if policy != nil {
+				policyStatus = policy.Status
+			}
 		}
 	}
 

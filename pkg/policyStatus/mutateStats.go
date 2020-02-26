@@ -28,12 +28,13 @@ func (ms *mutateStats) updateStatus() {
 	}
 
 	ms.s.cache.mutex.Lock()
-	var policyStatus v1.PolicyStatus
 	policyStatus, exist := ms.s.cache.data[ms.resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := ms.s.policyStore.Get(ms.resp.PolicyResponse.Policy)
-		if policy != nil {
-			policyStatus = policy.Status
+		if ms.s.policyStore != nil {
+			policy, _ := ms.s.policyStore.Get(ms.resp.PolicyResponse.Policy)
+			if policy != nil {
+				policyStatus = policy.Status
+			}
 		}
 	}
 

@@ -27,12 +27,13 @@ func (vs *validateStats) updateStatus() {
 	}
 
 	vs.s.cache.mutex.Lock()
-	var policyStatus v1.PolicyStatus
 	policyStatus, exist := vs.s.cache.data[vs.resp.PolicyResponse.Policy]
 	if !exist {
-		policy, _ := vs.s.policyStore.Get(vs.resp.PolicyResponse.Policy)
-		if policy != nil {
-			policyStatus = policy.Status
+		if vs.s.policyStore != nil {
+			policy, _ := vs.s.policyStore.Get(vs.resp.PolicyResponse.Policy)
+			if policy != nil {
+				policyStatus = policy.Status
+			}
 		}
 	}
 
