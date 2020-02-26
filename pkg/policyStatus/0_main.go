@@ -46,7 +46,7 @@ func (s *Sync) Run(workers int) {
 		go s.updateStatusCache()
 	}
 
-	wait.Until(s.updatePolicyStatus, 5*time.Second, s.stop)
+	wait.Until(s.updatePolicyStatus, 2*time.Second, s.stop)
 	<-s.stop
 	s.updatePolicyStatus()
 }
@@ -68,11 +68,9 @@ func (s *Sync) updatePolicyStatus() {
 	for k, v := range s.cache.data {
 		nameToStatus[k] = v
 	}
-	s.cache.data = make(map[string]v1.PolicyStatus)
 	s.cache.mutex.Unlock()
 
 	for policyName, status := range nameToStatus {
-		var policy = &v1.ClusterPolicy{}
 		policy, err := s.policyStore.Get(policyName)
 		if err != nil {
 			continue
@@ -80,6 +78,9 @@ func (s *Sync) updatePolicyStatus() {
 		policy.Status = status
 		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 		if err != nil {
+			s.cache.mutex.Lock()
+			delete(s.cache.data, policyName)
+			s.cache.mutex.Unlock()
 			glog.V(4).Info(err)
 		}
 	}
