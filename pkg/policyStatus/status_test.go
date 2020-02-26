@@ -30,7 +30,7 @@ func Test_Stats(t *testing.T) {
 					Policy: "policy1",
 				},
 				Status: v1.GenerateRequestStatus{
-					GeneratedResources: make([]v1.ResourceSpec, 1, 1),
+					GeneratedResources: make([]v1.ResourceSpec, 1),
 				},
 			},
 			{
@@ -38,7 +38,7 @@ func Test_Stats(t *testing.T) {
 					Policy: "policy2",
 				},
 				Status: v1.GenerateRequestStatus{
-					GeneratedResources: make([]v1.ResourceSpec, 1, 1),
+					GeneratedResources: make([]v1.ResourceSpec, 1),
 				},
 			},
 		},
