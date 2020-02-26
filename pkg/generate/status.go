@@ -36,12 +36,16 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 
 // Success sets the gr status.state to completed and clears message
 func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
+	grCopy := gr.DeepCopy()
+
 	gr.Status.State = kyverno.Completed
 	gr.Status.Message = ""
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
 
-	go sc.policyStatus.UpdatePolicyStatusWithGeneratedResourceCount(gr)
+	if grCopy.Status.State != kyverno.Completed {
+		go sc.policyStatus.UpdatePolicyStatusWithGeneratedResourceCount(gr)
+	}
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {

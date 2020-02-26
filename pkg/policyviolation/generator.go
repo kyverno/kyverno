@@ -234,7 +234,9 @@ func (gen *Generator) syncHandler(info Info) error {
 	pv := builder.generate(info)
 
 	if info.FromSync {
-		pv.Annotations["fromSync"] = "true"
+		pv.Annotations = map[string]string{
+			"fromSync": "true",
+		}
 	}
 
 	// Create Policy Violations
