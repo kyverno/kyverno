@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"log"
 	"time"
 
 	"github.com/golang/glog"
@@ -57,9 +56,6 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		policyContext.Policy = policy
-		if resource.GetKind() == "Pod" {
-			log.Println("some")
-		}
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		go ws.status.UpdateStatusWithMutateStats(engineResponse)
