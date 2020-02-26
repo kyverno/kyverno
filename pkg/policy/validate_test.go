@@ -1483,3 +1483,61 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 		t.Error("Incorrect Path")
 	}
 }
+
+func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
+	testcases := []struct {
+		description    string
+		rule           []byte
+		expectedOutput bool
+	}{
+		{
+			description:    "Test mutate overlay - pass",
+			rule:           []byte(`{"name":"test","mutate":{"overlay":{"metadata":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Test mutate overlay - fail",
+			rule:           []byte(`{"name":"test","mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Test mutate patch - pass",
+			rule:           []byte(`{"name":"testPatches","mutate":{"patches":[{"path":"/metadata/labels/isMutated","op":"add","value":"true"},{"path":"/metadata/labels/app","op":"replace","value":"nginx_is_mutated"}]}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Test mutate patch - fail",
+			rule:           []byte(`{"name":"testPatches","mutate":{"patches":[{"path":"/spec/labels/isMutated","op":"add","value":"true"},{"path":"/metadata/labels/app","op":"replace","value":"nginx_is_mutated"}]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Test validate - pass",
+			rule:           []byte(`{"name":"testValidate","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"metadata":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Test validate - fail",
+			rule:           []byte(`{"name":"testValidate","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"spec":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Test validate any pattern - pass",
+			rule:           []byte(`{"name":"testValidateAnyPattern","validate":{"message":"Volumes white list","anyPattern":[{"metadata":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Test validate any pattern - fail",
+			rule:           []byte(`{"name":"testValidateAnyPattern","validate":{"message":"Volumes white list","anyPattern":[{"spec":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
+			expectedOutput: false,
+		},
+	}
+
+	for i, testcase := range testcases {
+		var rule kyverno.Rule
+		_ = json.Unmarshal(testcase.rule, &rule)
+		output := ruleOnlyDealsWithResourceMetaData(rule)
+		if output != testcase.expectedOutput {
+			t.Errorf("Testcase [%d] failed", i+1)
+		}
+	}
+}
