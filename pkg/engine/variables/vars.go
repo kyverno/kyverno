@@ -76,7 +76,6 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *
 	if ok, retVal := processIfSingleVariable(ctx, valuePattern, path, errs); ok {
 		return retVal
 	}
-	regexVar := `\{\{([^{}]*)\}\}`
 	// var emptyInterface interface{}
 	var failedVars []string
 	// process type string
@@ -87,7 +86,7 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *
 			break
 		}
 		// get variables at this level
-		validRegex := regexp.MustCompile(regexVar)
+		validRegex := regexp.MustCompile(variableRegex)
 		groups := validRegex.FindAllStringSubmatch(valueStr, -1)
 		if len(groups) == 0 {
 			// there was no match
@@ -157,14 +156,12 @@ func processIfSingleVariable(ctx context.EvalInterface, valuePattern interface{}
 		return false, nil
 	}
 	// as there will be exactly one variable based on the above regex
-	for _, group := range groups {
-		variable, err := ctx.Query(group[1])
-		if err != nil || variable == nil {
-			*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", group[1], path))
-			// return the same value pattern, and add un-resolvable variable error
-			return true, valuePattern
-		}
-		return true, variable
+	group := groups[0]
+	variable, err := ctx.Query(group[1])
+	if err != nil || variable == nil {
+		*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", group[1], path))
+		// return the same value pattern, and add un-resolvable variable error
+		return true, valuePattern
 	}
-	return false, nil
+	return true, variable
 }
