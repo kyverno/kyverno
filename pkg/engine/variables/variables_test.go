@@ -538,8 +538,6 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 	}
 	`)
 
-	resultMap := []byte(`{"spec":{"variable":null}}`)
-
 	var pattern, patternCopy, resource interface{}
 	var err error
 	err = json.Unmarshal(patternMap, &pattern)
@@ -563,18 +561,10 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err == nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
-	if err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(resultMap, resultRaw) {
-		t.Log(string(resultRaw))
-		t.Log(string(resultMap))
-		t.Error("result does not match")
-	}
+
 }
 
 func Test_variableSubstitutionMultipleObject(t *testing.T) {

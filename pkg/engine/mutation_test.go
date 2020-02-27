@@ -151,7 +151,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		Context:     ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable(s) not found or has nil values: [/spec/name/{{request.object.metadata.name1}}]"
+	expectedErrorStr := "[failed to resolve request.object.metadata.name1 at path /spec/name]"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }
