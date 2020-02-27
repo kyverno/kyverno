@@ -120,9 +120,15 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
-
+	// REPORTING EVENTS
+	// Scenario 1:
+	//   some/all policies failed to apply on the resource. a policy volation is generated.
+	//   create an event on the resource and the policy that failed
+	// Scenario 2:
+	//   all policies were applied succesfully.
+	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, (request.Operation == v1beta1.Update))
+	events := generateEvents(engineResponses, false, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
 	sendStat(false)

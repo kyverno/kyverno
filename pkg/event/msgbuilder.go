@@ -17,6 +17,8 @@ const (
 	FPolicyApplyBlockCreate
 	FPolicyApplyBlockUpdate
 	FPolicyBlockResourceUpdate
+	FPolicyApplyFailed
+	FResourcePolicyFailed
 )
 
 func (k MsgKey) String() string {
@@ -28,6 +30,8 @@ func (k MsgKey) String() string {
 		"Resource %s creation blocked by rule(s) %s",
 		"Rule(s) '%s' of policy '%s' blocked update of the resource",
 		"Resource %s update blocked by rule(s) %s",
+		"Rule(s) '%s' failed to apply on resource %s",
+		"Rule(s) '%s' of policy '%s' failed to apply on the resource",
 	}[k]
 }
 
