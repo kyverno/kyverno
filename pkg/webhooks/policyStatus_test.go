@@ -1,0 +1,219 @@
+package webhooks
+
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+	"time"
+
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/policyStatus"
+)
+
+type dummyStore struct {
+}
+
+func (d *dummyStore) Get(policyName string) (*v1.ClusterPolicy, error) {
+	return &v1.ClusterPolicy{}, nil
+}
+
+func Test_GenerateStats(t *testing.T) {
+	testCase := struct {
+		generateStats  []response.EngineResponse
+		expectedOutput []byte
+	}{
+		expectedOutput: []byte(`{"policy1":{"averageExecutionTime":"494ns","rulesFailedCount":1,"rulesAppliedCount":1,"ruleStatus":[{"ruleName":"rule5","averageExecutionTime":"243ns","appliedCount":1},{"ruleName":"rule6","averageExecutionTime":"251ns","failedCount":1}]},"policy2":{"averageExecutionTime":"433ns","rulesFailedCount":1,"rulesAppliedCount":1,"ruleStatus":[{"ruleName":"rule5","averageExecutionTime":"222ns","appliedCount":1},{"ruleName":"rule6","averageExecutionTime":"211ns","failedCount":1}]}}`),
+		generateStats: []response.EngineResponse{
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy: "policy1",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule5",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 243,
+							},
+						},
+						{
+							Name:    "rule6",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 251,
+							},
+						},
+					},
+				},
+			},
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy: "policy2",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule5",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 222,
+							},
+						},
+						{
+							Name:    "rule6",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 211,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s := policyStatus.NewSync(nil, &dummyStore{})
+
+	for _, generateStat := range testCase.generateStats {
+		receiver := &generateStats{
+			resp: generateStat,
+		}
+		receiver.UpdateStatus(s)
+	}
+
+	output, _ := json.Marshal(s.Cache.Data)
+	if !reflect.DeepEqual(output, testCase.expectedOutput) {
+		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
+	}
+}
+
+func Test_MutateStats(t *testing.T) {
+	testCase := struct {
+		mutateStats    []response.EngineResponse
+		expectedOutput []byte
+	}{
+		expectedOutput: []byte(`{"policy1":{"averageExecutionTime":"494ns","rulesFailedCount":1,"rulesAppliedCount":1,"resourcesMutatedCount":1,"ruleStatus":[{"ruleName":"rule1","averageExecutionTime":"243ns","appliedCount":1,"resourcesMutatedCount":1},{"ruleName":"rule2","averageExecutionTime":"251ns","failedCount":1}]},"policy2":{"averageExecutionTime":"433ns","rulesFailedCount":1,"rulesAppliedCount":1,"resourcesMutatedCount":1,"ruleStatus":[{"ruleName":"rule1","averageExecutionTime":"222ns","appliedCount":1,"resourcesMutatedCount":1},{"ruleName":"rule2","averageExecutionTime":"211ns","failedCount":1}]}}`),
+		mutateStats: []response.EngineResponse{
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy: "policy1",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule1",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 243,
+							},
+						},
+						{
+							Name:    "rule2",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 251,
+							},
+						},
+					},
+				},
+			},
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy: "policy2",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule1",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 222,
+							},
+						},
+						{
+							Name:    "rule2",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 211,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s := policyStatus.NewSync(nil, &dummyStore{})
+	for _, mutateStat := range testCase.mutateStats {
+		receiver := &mutateStats{
+			resp: mutateStat,
+		}
+		receiver.UpdateStatus(s)
+	}
+
+	output, _ := json.Marshal(s.Cache.Data)
+	if !reflect.DeepEqual(output, testCase.expectedOutput) {
+		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
+	}
+}
+
+func Test_ValidateStats(t *testing.T) {
+	testCase := struct {
+		validateStats  []response.EngineResponse
+		expectedOutput []byte
+	}{
+		expectedOutput: []byte(`{"policy1":{"averageExecutionTime":"494ns","rulesFailedCount":1,"rulesAppliedCount":1,"resourcesBlockedCount":1,"ruleStatus":[{"ruleName":"rule3","averageExecutionTime":"243ns","appliedCount":1},{"ruleName":"rule4","averageExecutionTime":"251ns","failedCount":1,"resourcesBlockedCount":1}]},"policy2":{"averageExecutionTime":"433ns","rulesFailedCount":1,"rulesAppliedCount":1,"ruleStatus":[{"ruleName":"rule3","averageExecutionTime":"222ns","appliedCount":1},{"ruleName":"rule4","averageExecutionTime":"211ns","failedCount":1}]}}`),
+		validateStats: []response.EngineResponse{
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy:                  "policy1",
+					ValidationFailureAction: "enforce",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule3",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 243,
+							},
+						},
+						{
+							Name:    "rule4",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 251,
+							},
+						},
+					},
+				},
+			},
+			{
+				PolicyResponse: response.PolicyResponse{
+					Policy: "policy2",
+					Rules: []response.RuleResponse{
+						{
+							Name:    "rule3",
+							Success: true,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 222,
+							},
+						},
+						{
+							Name:    "rule4",
+							Success: false,
+							RuleStats: response.RuleStats{
+								ProcessingTime: time.Nanosecond * 211,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s := policyStatus.NewSync(nil, &dummyStore{})
+	for _, validateStat := range testCase.validateStats {
+		receiver := &validateStats{
+			resp: validateStat,
+		}
+		receiver.UpdateStatus(s)
+	}
+
+	output, _ := json.Marshal(s.Cache.Data)
+	if !reflect.DeepEqual(output, testCase.expectedOutput) {
+		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
+	}
+}

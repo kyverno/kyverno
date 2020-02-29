@@ -99,7 +99,9 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	}
 
 	if newPv.Annotations["fromSync"] != "true" {
-		go nspv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
+		go func() {
+			nspv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
+		}()
 	}
 	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
 	return nil
@@ -122,7 +124,9 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	}
 
 	if newPv.Annotations["fromSync"] != "true" {
-		go nspv.policyStatus.UpdatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
+		go func() {
+			nspv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
+		}()
 	}
 	glog.Infof("namespaced policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 	return nil

@@ -1,10 +1,15 @@
 package webhooks
 
 import (
+	"reflect"
+	"sort"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -58,7 +63,9 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
-		go ws.status.UpdateStatusWithMutateStats(engineResponse)
+		go func() {
+			ws.status.Listener <- updateStatusWithMutateStats(engineResponse)
+		}()
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
@@ -105,4 +112,80 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
 	return engineutils.JoinPatches(patches)
+}
+
+type mutateStats struct {
+	resp response.EngineResponse
+}
+
+func updateStatusWithMutateStats(resp response.EngineResponse) *mutateStats {
+	return &mutateStats{
+		resp: resp,
+	}
+
+}
+
+func (ms *mutateStats) UpdateStatus(s *policyStatus.Sync) {
+	if reflect.DeepEqual(response.EngineResponse{}, ms.resp) {
+		return
+	}
+
+	s.Cache.Mutex.Lock()
+	status, exist := s.Cache.Data[ms.resp.PolicyResponse.Policy]
+	if !exist {
+		if s.PolicyStore != nil {
+			policy, _ := s.PolicyStore.Get(ms.resp.PolicyResponse.Policy)
+			if policy != nil {
+				status = policy.Status
+			}
+		}
+	}
+
+	var nameToRule = make(map[string]v1.RuleStats)
+	for _, rule := range status.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	for _, rule := range ms.resp.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
+		ruleStat.ExecutionTime = updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver).String()
+
+		if rule.Success {
+			status.RulesAppliedCount++
+			status.ResourcesMutatedCount++
+			ruleStat.AppliedCount++
+			ruleStat.ResourcesMutatedCount++
+		} else {
+			status.RulesFailedCount++
+			ruleStat.FailedCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var policyAverageExecutionTime time.Duration
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
+		if err == nil {
+			policyAverageExecutionTime += executionTime
+		}
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	sort.Slice(ruleStats, func(i, j int) bool {
+		return ruleStats[i].Name < ruleStats[j].Name
+	})
+
+	status.AvgExecutionTime = policyAverageExecutionTime.String()
+	status.Rules = ruleStats
+
+	s.Cache.Data[ms.resp.PolicyResponse.Policy] = status
+	s.Cache.Mutex.Unlock()
 }

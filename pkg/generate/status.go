@@ -44,7 +44,9 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	gr.Status.GeneratedResources = genResources
 
 	if oldState != kyverno.Completed {
-		go sc.policyStatus.UpdatePolicyStatusWithGeneratedResourceCount(gr)
+		go func() {
+			sc.policyStatus.Listener <- updatePolicyStatusWithGeneratedResourceCount(gr)
+		}()
 	}
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
@@ -54,4 +56,30 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	}
 	glog.V(4).Infof("updated gr %s status to %s", gr.Name, string(kyverno.Completed))
 	return nil
+}
+
+type generatedResourceCount struct {
+	generateRequest kyverno.GenerateRequest
+}
+
+func updatePolicyStatusWithGeneratedResourceCount(generateRequest kyverno.GenerateRequest) *generatedResourceCount {
+	return &generatedResourceCount{
+		generateRequest: generateRequest,
+	}
+}
+
+func (vc *generatedResourceCount) UpdateStatus(s *policyStatus.Sync) {
+	s.Cache.Mutex.Lock()
+	status, exist := s.Cache.Data[vc.generateRequest.Spec.Policy]
+	if !exist {
+		policy, _ := s.PolicyStore.Get(vc.generateRequest.Spec.Policy)
+		if policy != nil {
+			status = policy.Status
+		}
+	}
+
+	status.ResourcesGeneratedCount += len(vc.generateRequest.Status.GeneratedResources)
+
+	s.Cache.Data[vc.generateRequest.Spec.Policy] = status
+	s.Cache.Mutex.Unlock()
 }

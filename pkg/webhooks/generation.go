@@ -1,8 +1,15 @@
 package webhooks
 
 import (
+	"reflect"
+	"sort"
+	"time"
+
+	"github.com/nirmata/kyverno/pkg/policyStatus"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -61,7 +68,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			go ws.status.UpdateStatusWithGenerateStats(engineResponse)
+			go func() {
+				ws.status.Listener <- updateStatusWithGenerateStats(engineResponse)
+			}()
 		}
 	}
 	// Adds Generate Request to a channel(queue size 1000) to generators
@@ -102,4 +111,88 @@ func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) 
 		},
 	}
 	return gr
+}
+
+type generateStats struct {
+	resp response.EngineResponse
+}
+
+func updateStatusWithGenerateStats(resp response.EngineResponse) *generateStats {
+	return &generateStats{
+		resp: resp,
+	}
+}
+
+func (gs *generateStats) UpdateStatus(s *policyStatus.Sync) {
+	if reflect.DeepEqual(response.EngineResponse{}, gs.resp) {
+		return
+	}
+
+	s.Cache.Mutex.Lock()
+	status, exist := s.Cache.Data[gs.resp.PolicyResponse.Policy]
+	if !exist {
+		if s.PolicyStore != nil {
+			policy, _ := s.PolicyStore.Get(gs.resp.PolicyResponse.Policy)
+			if policy != nil {
+				status = policy.Status
+			}
+		}
+	}
+
+	var nameToRule = make(map[string]v1.RuleStats)
+	for _, rule := range status.Rules {
+		nameToRule[rule.Name] = rule
+	}
+
+	for _, rule := range gs.resp.PolicyResponse.Rules {
+		ruleStat := nameToRule[rule.Name]
+		ruleStat.Name = rule.Name
+
+		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
+		ruleStat.ExecutionTime = updateAverageTime(
+			rule.ProcessingTime,
+			ruleStat.ExecutionTime,
+			averageOver).String()
+
+		if rule.Success {
+			status.RulesAppliedCount++
+			ruleStat.AppliedCount++
+		} else {
+			status.RulesFailedCount++
+			ruleStat.FailedCount++
+		}
+
+		nameToRule[rule.Name] = ruleStat
+	}
+
+	var policyAverageExecutionTime time.Duration
+	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
+	for _, ruleStat := range nameToRule {
+		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
+		if err == nil {
+			policyAverageExecutionTime += executionTime
+		}
+		ruleStats = append(ruleStats, ruleStat)
+	}
+
+	sort.Slice(ruleStats, func(i, j int) bool {
+		return ruleStats[i].Name < ruleStats[j].Name
+	})
+
+	status.AvgExecutionTime = policyAverageExecutionTime.String()
+	status.Rules = ruleStats
+
+	s.Cache.Data[gs.resp.PolicyResponse.Policy] = status
+	s.Cache.Mutex.Unlock()
+}
+
+func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
+	if averageOver == 0 {
+		return newTime
+	}
+	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
+	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
+	denominator := averageOver + 1
+	newAverageTimeInNanoSeconds := numerator / denominator
+	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }

@@ -140,7 +140,6 @@ func main() {
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policyStatus.NewSync(
 		pclient,
-		stopCh,
 		policyMetaStore)
 
 	// POLICY VIOLATION GENERATOR

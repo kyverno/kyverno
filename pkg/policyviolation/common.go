@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/policyStatus"
+
 	backoff "github.com/cenkalti/backoff"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,4 +72,40 @@ func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) 
 	}
 
 	return policyViolationSelector, nil
+}
+
+type violationCount struct {
+	policyName    string
+	violatedRules []v1.ViolatedRule
+}
+
+func updatePolicyStatusWithViolationCount(policyName string, violatedRules []kyverno.ViolatedRule) *violationCount {
+	return &violationCount{
+		policyName:    policyName,
+		violatedRules: violatedRules,
+	}
+}
+
+func (vc *violationCount) UpdateStatus(s *policyStatus.Sync) {
+	s.Cache.Mutex.Lock()
+	status, exist := s.Cache.Data[vc.policyName]
+	if !exist {
+		policy, _ := s.PolicyStore.Get(vc.policyName)
+		if policy != nil {
+			status = policy.Status
+		}
+	}
+
+	var ruleNameToViolations = make(map[string]int)
+	for _, rule := range vc.violatedRules {
+		ruleNameToViolations[rule.Name]++
+	}
+
+	for i := range status.Rules {
+		status.ViolationCount += ruleNameToViolations[status.Rules[i].Name]
+		status.Rules[i].ViolationCount += ruleNameToViolations[status.Rules[i].Name]
+	}
+
+	s.Cache.Data[vc.policyName] = status
+	s.Cache.Mutex.Unlock()
 }
