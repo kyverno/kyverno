@@ -18,7 +18,6 @@ import (
 type Sync struct {
 	cache       *cache
 	listener    chan statusUpdater
-	stop        <-chan struct{}
 	client      *versioned.Clientset
 	policyStore *policystore.PolicyStore
 }
@@ -28,35 +27,34 @@ type cache struct {
 	data  map[string]v1.PolicyStatus
 }
 
-func NewSync(c *versioned.Clientset, sc <-chan struct{}, pms *policystore.PolicyStore) *Sync {
+func NewSync(c *versioned.Clientset, pms *policystore.PolicyStore) *Sync {
 	return &Sync{
 		cache: &cache{
 			mutex: sync.RWMutex{},
 			data:  make(map[string]v1.PolicyStatus),
 		},
-		stop:        sc,
 		client:      c,
 		policyStore: pms,
 		listener:    make(chan statusUpdater),
 	}
 }
 
-func (s *Sync) Run(workers int) {
+func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
-		go s.updateStatusCache()
+		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 2*time.Second, s.stop)
-	<-s.stop
+	wait.Until(s.updatePolicyStatus, 2*time.Second, stopCh)
+	<-stopCh
 	s.updatePolicyStatus()
 }
 
-func (s *Sync) updateStatusCache() {
+func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	for {
 		select {
 		case statusUpdater := <-s.listener:
 			statusUpdater.updateStatus()
-		case <-s.stop:
+		case <-stopCh:
 			return
 		}
 	}
