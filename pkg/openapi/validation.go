@@ -24,7 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var openApiGlobalState struct {
+type openApiStore struct {
 	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
 	kindToDefinitionName map[string]string
@@ -32,31 +32,44 @@ var openApiGlobalState struct {
 	isSet                bool
 }
 
+var openApiGlobalState *openApiStore
+
 func init() {
-	err := setValidationGlobalState()
-	if err != nil {
-		panic(err)
+	if !openApiGlobalState.isSet {
+		defaultDoc, err := getSchemaDocument()
+		if err != nil {
+			panic(err)
+		}
+
+		err = UseCustomOpenApiDocument(defaultDoc)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
 func UseCustomOpenApiDocument(customDoc *openapi_v2.Document) error {
-	openApiGlobalState.document = customDoc
+	var newStore openApiStore
 
-	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-	openApiGlobalState.kindToDefinitionName = make(map[string]string)
-	for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
-		openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
+	newStore.document = customDoc
+
+	newStore.definitions = make(map[string]*openapi_v2.Schema)
+	newStore.kindToDefinitionName = make(map[string]string)
+	for _, definition := range newStore.document.GetDefinitions().AdditionalProperties {
+		newStore.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
-		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		newStore.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
 	var err error
-	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
+	newStore.models, err = proto.NewOpenAPIData(newStore.document)
 	if err != nil {
 		return err
 	}
 
-	openApiGlobalState.isSet = true
+	newStore.isSet = true
+
+	openApiGlobalState = &newStore
 
 	return nil
 }
@@ -135,36 +148,6 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
 	}
 
-	return nil
-}
-
-func setValidationGlobalState() error {
-	if !openApiGlobalState.isSet {
-		var err error
-		openApiGlobalState.document, err = getSchemaDocument()
-		if err != nil {
-			return err
-		}
-
-		openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-		openApiGlobalState.kindToDefinitionName = make(map[string]string)
-		for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
-			openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
-			path := strings.Split(definition.GetName(), ".")
-			openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
-		}
-
-		for _, path := range openApiGlobalState.document.GetPaths().GetPath() {
-			path.GetName()
-		}
-
-		openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
-		if err != nil {
-			return err
-		}
-
-		openApiGlobalState.isSet = true
-	}
 	return nil
 }
 
