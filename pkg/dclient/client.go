@@ -215,6 +215,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
+	discovery.OpenAPISchemaInterface
 }
 
 // SetDiscovery sets the discovery client implementation

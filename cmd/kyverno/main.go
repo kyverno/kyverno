@@ -7,8 +7,6 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 
-	"k8s.io/client-go/discovery"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -204,14 +202,7 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
-	// OpenAPI document
-	// Getting openApi document from kubernetes and overriding default openapi document
-	restClient, err := discovery.NewDiscoveryClientForConfig(clientConfig)
-	if err != nil {
-		glog.Fatalf("Could not get rest client to get openApi doc: %v\n", err)
-	}
-
-	openApiDoc, err := restClient.RESTClient().Get().RequestURI("/openapi/v2").Do().Raw()
+	openApiDoc, err := client.DiscoveryClient.OpenAPISchema()
 	if err != nil {
 		glog.Fatalf("OpenApiDoc request failed: %v\n", err)
 	}
@@ -219,6 +210,8 @@ func main() {
 	if err := openapi.UseCustomOpenApiDocument(openApiDoc); err != nil {
 		glog.Fatalf("Could not set custom OpenApi document: %v\n", err)
 	}
+
+	openApiSync := openapi.NewCRDSync(client)
 
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -245,6 +238,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
+
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
@@ -258,6 +252,7 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+	go openApiSync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

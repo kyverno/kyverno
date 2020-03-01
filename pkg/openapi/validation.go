@@ -39,17 +39,8 @@ func init() {
 	}
 }
 
-func UseCustomOpenApiDocument(customDoc []byte) error {
-	var spec yaml.MapSlice
-	err := yaml.Unmarshal(customDoc, &spec)
-	if err != nil {
-		return err
-	}
-
-	openApiGlobalState.document, err = openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
-	if err != nil {
-		return err
-	}
+func UseCustomOpenApiDocument(customDoc *openapi_v2.Document) error {
+	openApiGlobalState.document = customDoc
 
 	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
 	openApiGlobalState.kindToDefinitionName = make(map[string]string)
@@ -59,6 +50,7 @@ func UseCustomOpenApiDocument(customDoc []byte) error {
 		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
+	var err error
 	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
 	if err != nil {
 		return err
@@ -129,7 +121,6 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 	}
 
 	kind = openApiGlobalState.kindToDefinitionName[kind]
-
 	schema := openApiGlobalState.models.LookupModel(kind)
 	if schema == nil {
 		return fmt.Errorf("pre-validation: couldn't find model %s", kind)
