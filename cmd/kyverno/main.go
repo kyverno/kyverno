@@ -202,15 +202,6 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
-	openApiDoc, err := client.DiscoveryClient.OpenAPISchema()
-	if err != nil {
-		glog.Fatalf("OpenApiDoc request failed: %v\n", err)
-	}
-
-	if err := openapi.UseCustomOpenApiDocument(openApiDoc); err != nil {
-		glog.Fatalf("Could not set custom OpenApi document: %v\n", err)
-	}
-
 	openApiSync := openapi.NewCRDSync(client)
 
 	// WEBHOOOK

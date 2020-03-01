@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
@@ -226,6 +228,10 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 //ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+}
+
+func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) {
+	return c.cachedClient.OpenAPISchema()
 }
 
 //Poll will keep invalidate the local cache

@@ -1,8 +1,9 @@
 package openapi
 
 import (
-	"log"
 	"time"
+
+	"github.com/golang/glog"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,8 +26,13 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *crdSync) syncCrd() {
-	newDoc, _ := c.client.DiscoveryClient.OpenAPISchema()
-	UseCustomOpenApiDocument(newDoc)
-	x := openApiGlobalState
-	log.Println(x)
+	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
+	if err != nil {
+		glog.V(4).Infof("cannot get openapi schema: %v", err)
+	}
+
+	err = UseCustomOpenApiDocument(newDoc)
+	if err != nil {
+		glog.V(4).Infof("Could not set custom OpenApi document: %v\n", err)
+	}
 }
