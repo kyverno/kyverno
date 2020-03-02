@@ -31,7 +31,7 @@ func (c *crdSync) syncCrd() {
 		glog.V(4).Infof("cannot get openapi schema: %v", err)
 	}
 
-	err = UseCustomOpenApiDocument(newDoc)
+	err = useCustomOpenApiDocument(newDoc)
 	if err != nil {
 		glog.V(4).Infof("Could not set custom OpenApi document: %v\n", err)
 	}

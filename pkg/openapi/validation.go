@@ -24,15 +24,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type openApiStore struct {
+var openApiGlobalState struct {
+	mutex                sync.RWMutex
 	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
 	kindToDefinitionName map[string]string
 	models               proto.Models
 	isSet                bool
 }
-
-var openApiGlobalState *openApiStore
 
 func init() {
 	if !openApiGlobalState.isSet {
@@ -41,40 +40,17 @@ func init() {
 			panic(err)
 		}
 
-		err = UseCustomOpenApiDocument(defaultDoc)
+		err = useCustomOpenApiDocument(defaultDoc)
 		if err != nil {
 			panic(err)
 		}
 	}
 }
 
-func UseCustomOpenApiDocument(customDoc *openapi_v2.Document) error {
-	var newStore openApiStore
-
-	newStore.document = customDoc
-
-	newStore.definitions = make(map[string]*openapi_v2.Schema)
-	newStore.kindToDefinitionName = make(map[string]string)
-	for _, definition := range newStore.document.GetDefinitions().AdditionalProperties {
-		newStore.definitions[definition.GetName()] = definition.GetValue()
-		path := strings.Split(definition.GetName(), ".")
-		newStore.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
-	}
-
-	var err error
-	newStore.models, err = proto.NewOpenAPIData(newStore.document)
-	if err != nil {
-		return err
-	}
-
-	newStore.isSet = true
-
-	openApiGlobalState = &newStore
-
-	return nil
-}
-
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+
 	if !openApiGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
 		return nil
@@ -128,6 +104,9 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 }
 
 func ValidateResource(patchedResource interface{}, kind string) error {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+
 	if !openApiGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
 		return nil
@@ -147,6 +126,31 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 
 		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
 	}
+
+	return nil
+}
+
+func useCustomOpenApiDocument(customDoc *openapi_v2.Document) error {
+	openApiGlobalState.mutex.Lock()
+	defer openApiGlobalState.mutex.Unlock()
+
+	openApiGlobalState.document = customDoc
+
+	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
+	openApiGlobalState.kindToDefinitionName = make(map[string]string)
+	for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
+		openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
+		path := strings.Split(definition.GetName(), ".")
+		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+	}
+
+	var err error
+	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
+	if err != nil {
+		return err
+	}
+
+	openApiGlobalState.isSet = true
 
 	return nil
 }
