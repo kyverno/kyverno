@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policyStatus"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -127,7 +125,7 @@ func (c *Controller) applyGeneratePolicy(policyContext engine.PolicyContext, gr 
 	}
 
 	if gr.Status.State == "" {
-		c.policyStatus.Listener <- &generateSyncStats{
+		c.policyStatus.Listener <- generateSyncStats{
 			policyName:               policy.Name,
 			ruleNameToProcessingTime: ruleNameToProcessingTime,
 		}
@@ -141,15 +139,11 @@ type generateSyncStats struct {
 	ruleNameToProcessingTime map[string]time.Duration
 }
 
-func (vc *generateSyncStats) UpdateStatus(s *policyStatus.Sync) {
-	s.Cache.Mutex.Lock()
-	status, exist := s.Cache.Data[vc.policyName]
-	if !exist {
-		policy, _ := s.PolicyStore.Get(vc.policyName)
-		if policy != nil {
-			status = policy.Status
-		}
-	}
+func (vc generateSyncStats) PolicyName() string {
+	return vc.policyName
+}
+
+func (vc generateSyncStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
 
 	for i := range status.Rules {
 		if executionTime, exist := vc.ruleNameToProcessingTime[status.Rules[i].Name]; exist {
@@ -164,8 +158,7 @@ func (vc *generateSyncStats) UpdateStatus(s *policyStatus.Sync) {
 		}
 	}
 
-	s.Cache.Data[vc.policyName] = status
-	s.Cache.Mutex.Unlock()
+	return status
 }
 
 func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {

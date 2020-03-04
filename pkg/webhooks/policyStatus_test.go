@@ -8,15 +8,7 @@ import (
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/policyStatus"
 )
-
-type dummyStore struct {
-}
-
-func (d *dummyStore) Get(policyName string) (*v1.ClusterPolicy, error) {
-	return &v1.ClusterPolicy{}, nil
-}
 
 func Test_GenerateStats(t *testing.T) {
 	testCase := struct {
@@ -70,16 +62,16 @@ func Test_GenerateStats(t *testing.T) {
 		},
 	}
 
-	s := policyStatus.NewSync(nil, &dummyStore{})
+	policyNameToStatus := map[string]v1.PolicyStatus{}
 
 	for _, generateStat := range testCase.generateStats {
-		receiver := &generateStats{
+		receiver := generateStats{
 			resp: generateStat,
 		}
-		receiver.UpdateStatus(s)
+		policyNameToStatus[receiver.PolicyName()] = receiver.UpdateStatus(policyNameToStatus[receiver.PolicyName()])
 	}
 
-	output, _ := json.Marshal(s.Cache.Data)
+	output, _ := json.Marshal(policyNameToStatus)
 	if !reflect.DeepEqual(output, testCase.expectedOutput) {
 		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
 	}
@@ -137,15 +129,15 @@ func Test_MutateStats(t *testing.T) {
 		},
 	}
 
-	s := policyStatus.NewSync(nil, &dummyStore{})
+	policyNameToStatus := map[string]v1.PolicyStatus{}
 	for _, mutateStat := range testCase.mutateStats {
-		receiver := &mutateStats{
+		receiver := mutateStats{
 			resp: mutateStat,
 		}
-		receiver.UpdateStatus(s)
+		policyNameToStatus[receiver.PolicyName()] = receiver.UpdateStatus(policyNameToStatus[receiver.PolicyName()])
 	}
 
-	output, _ := json.Marshal(s.Cache.Data)
+	output, _ := json.Marshal(policyNameToStatus)
 	if !reflect.DeepEqual(output, testCase.expectedOutput) {
 		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
 	}
@@ -204,15 +196,15 @@ func Test_ValidateStats(t *testing.T) {
 		},
 	}
 
-	s := policyStatus.NewSync(nil, &dummyStore{})
+	policyNameToStatus := map[string]v1.PolicyStatus{}
 	for _, validateStat := range testCase.validateStats {
-		receiver := &validateStats{
+		receiver := validateStats{
 			resp: validateStat,
 		}
-		receiver.UpdateStatus(s)
+		policyNameToStatus[receiver.PolicyName()] = receiver.UpdateStatus(policyNameToStatus[receiver.PolicyName()])
 	}
 
-	output, _ := json.Marshal(s.Cache.Data)
+	output, _ := json.Marshal(policyNameToStatus)
 	if !reflect.DeepEqual(output, testCase.expectedOutput) {
 		t.Errorf("\n\nTestcase has failed\nExpected:\n%v\nGot:\n%v\n\n", string(testCase.expectedOutput), string(output))
 	}

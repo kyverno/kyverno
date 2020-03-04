@@ -5,8 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policyStatus"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -68,7 +66,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			ws.status.Listener <- updateStatusWithGenerateStats(engineResponse)
+			ws.status.Listener <- generateStats{
+				resp: engineResponse,
+			}
 		}
 	}
 	// Adds Generate Request to a channel(queue size 1000) to generators
@@ -115,26 +115,13 @@ type generateStats struct {
 	resp response.EngineResponse
 }
 
-func updateStatusWithGenerateStats(resp response.EngineResponse) *generateStats {
-	return &generateStats{
-		resp: resp,
-	}
+func (gs generateStats) PolicyName() string {
+	return gs.resp.PolicyResponse.Policy
 }
 
-func (gs *generateStats) UpdateStatus(s *policyStatus.Sync) {
+func (gs generateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
 	if reflect.DeepEqual(response.EngineResponse{}, gs.resp) {
-		return
-	}
-
-	s.Cache.Mutex.Lock()
-	status, exist := s.Cache.Data[gs.resp.PolicyResponse.Policy]
-	if !exist {
-		if s.PolicyStore != nil {
-			policy, _ := s.PolicyStore.Get(gs.resp.PolicyResponse.Policy)
-			if policy != nil {
-				status = policy.Status
-			}
-		}
+		return status
 	}
 
 	var nameToRule = make(map[string]v1.RuleStats)
@@ -180,8 +167,7 @@ func (gs *generateStats) UpdateStatus(s *policyStatus.Sync) {
 	status.AvgExecutionTime = policyAverageExecutionTime.String()
 	status.Rules = ruleStats
 
-	s.Cache.Data[gs.resp.PolicyResponse.Policy] = status
-	s.Cache.Mutex.Unlock()
+	return status
 }
 
 func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {

@@ -5,8 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policyStatus"
-
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -73,7 +71,9 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			continue
 		}
 		engineResponses = append(engineResponses, engineResponse)
-		ws.status.Listener <- updateStatusWithValidateStats(engineResponse)
+		ws.status.Listener <- validateStats{
+			resp: engineResponse,
+		}
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, newR.GetNamespace(), newR.GetName())
 			continue
@@ -117,26 +117,13 @@ type validateStats struct {
 	resp response.EngineResponse
 }
 
-func updateStatusWithValidateStats(resp response.EngineResponse) *validateStats {
-	return &validateStats{
-		resp: resp,
-	}
+func (vs validateStats) PolicyName() string {
+	return vs.resp.PolicyResponse.Policy
 }
 
-func (vs *validateStats) UpdateStatus(s *policyStatus.Sync) {
+func (vs validateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
 	if reflect.DeepEqual(response.EngineResponse{}, vs.resp) {
-		return
-	}
-
-	s.Cache.Mutex.Lock()
-	status, exist := s.Cache.Data[vs.resp.PolicyResponse.Policy]
-	if !exist {
-		if s.PolicyStore != nil {
-			policy, _ := s.PolicyStore.Get(vs.resp.PolicyResponse.Policy)
-			if policy != nil {
-				status = policy.Status
-			}
-		}
+		return status
 	}
 
 	var nameToRule = make(map[string]v1.RuleStats)
@@ -186,6 +173,5 @@ func (vs *validateStats) UpdateStatus(s *policyStatus.Sync) {
 	status.AvgExecutionTime = policyAverageExecutionTime.String()
 	status.Rules = ruleStats
 
-	s.Cache.Data[vs.resp.PolicyResponse.Policy] = status
-	s.Cache.Mutex.Unlock()
+	return status
 }

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policyStatus"
-
 	backoff "github.com/cenkalti/backoff"
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -79,22 +77,11 @@ type violationCount struct {
 	violatedRules []v1.ViolatedRule
 }
 
-func updatePolicyStatusWithViolationCount(policyName string, violatedRules []kyverno.ViolatedRule) *violationCount {
-	return &violationCount{
-		policyName:    policyName,
-		violatedRules: violatedRules,
-	}
+func (vc violationCount) PolicyName() string {
+	return vc.policyName
 }
 
-func (vc *violationCount) UpdateStatus(s *policyStatus.Sync) {
-	s.Cache.Mutex.Lock()
-	status, exist := s.Cache.Data[vc.policyName]
-	if !exist {
-		policy, _ := s.PolicyStore.Get(vc.policyName)
-		if policy != nil {
-			status = policy.Status
-		}
-	}
+func (vc violationCount) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
 
 	var ruleNameToViolations = make(map[string]int)
 	for _, rule := range vc.violatedRules {
@@ -106,6 +93,5 @@ func (vc *violationCount) UpdateStatus(s *policyStatus.Sync) {
 		status.Rules[i].ViolationCount += ruleNameToViolations[status.Rules[i].Name]
 	}
 
-	s.Cache.Data[vc.policyName] = status
-	s.Cache.Mutex.Unlock()
+	return status
 }

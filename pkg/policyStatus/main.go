@@ -14,7 +14,8 @@ import (
 )
 
 type statusUpdater interface {
-	UpdateStatus(s *Sync)
+	PolicyName() string
+	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
 }
 
 type policyStore interface {
@@ -22,25 +23,25 @@ type policyStore interface {
 }
 
 type Sync struct {
-	Cache       *cache
+	cache       *cache
 	Listener    chan statusUpdater
 	client      *versioned.Clientset
-	PolicyStore policyStore
+	policyStore policyStore
 }
 
 type cache struct {
-	Mutex sync.RWMutex
-	Data  map[string]v1.PolicyStatus
+	mutex sync.RWMutex
+	data  map[string]v1.PolicyStatus
 }
 
 func NewSync(c *versioned.Clientset, p policyStore) *Sync {
 	return &Sync{
-		Cache: &cache{
-			Mutex: sync.RWMutex{},
-			Data:  make(map[string]v1.PolicyStatus),
+		cache: &cache{
+			mutex: sync.RWMutex{},
+			data:  make(map[string]v1.PolicyStatus),
 		},
 		client:      c,
-		PolicyStore: p,
+		policyStore: p,
 		Listener:    make(chan statusUpdater, 20),
 	}
 }
@@ -58,7 +59,19 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	for {
 		select {
 		case statusUpdater := <-s.Listener:
-			statusUpdater.UpdateStatus(s)
+			s.cache.mutex.Lock()
+
+			status, exist := s.cache.data[statusUpdater.PolicyName()]
+			if !exist {
+				policy, _ := s.policyStore.Get(statusUpdater.PolicyName())
+				if policy != nil {
+					status = policy.Status
+				}
+			}
+
+			s.cache.data[statusUpdater.PolicyName()] = statusUpdater.UpdateStatus(status)
+
+			s.cache.mutex.Unlock()
 		case <-stopCh:
 			return
 		}
@@ -66,24 +79,24 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 }
 
 func (s *Sync) updatePolicyStatus() {
-	s.Cache.Mutex.Lock()
-	var nameToStatus = make(map[string]v1.PolicyStatus, len(s.Cache.Data))
-	for k, v := range s.Cache.Data {
+	s.cache.mutex.Lock()
+	var nameToStatus = make(map[string]v1.PolicyStatus, len(s.cache.data))
+	for k, v := range s.cache.data {
 		nameToStatus[k] = v
 	}
-	s.Cache.Mutex.Unlock()
+	s.cache.mutex.Unlock()
 
 	for policyName, status := range nameToStatus {
-		policy, err := s.PolicyStore.Get(policyName)
+		policy, err := s.policyStore.Get(policyName)
 		if err != nil {
 			continue
 		}
 		policy.Status = status
 		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 		if err != nil {
-			s.Cache.Mutex.Lock()
-			delete(s.Cache.Data, policyName)
-			s.Cache.Mutex.Unlock()
+			s.cache.mutex.Lock()
+			delete(s.cache.data, policyName)
+			s.cache.mutex.Unlock()
 			glog.V(4).Info(err)
 		}
 	}
