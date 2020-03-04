@@ -23,6 +23,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.syncCrd, time.Second*10, stopCh)
 	}
+	<-stopCh
 }
 
 func (c *crdSync) syncCrd() {
