@@ -79,10 +79,17 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
+
+		ctx := context.NewContext()
+		err := ctx.AddSA("kyvernoDummyUsername")
+		if err != nil {
+			glog.Infof("Failed to load service account in context:%v", err)
+		}
+
 		policyContext := engine.PolicyContext{
 			Policy:      newPolicy,
 			NewResource: newResource,
-			Context:     context.NewContext(),
+			Context:     ctx,
 		}
 		resp := engine.Mutate(policyContext)
 		if len(resp.GetSuccessRules()) != len(rules) {
@@ -94,7 +101,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			}
 			return fmt.Errorf(strings.Join(errMessages, "\n"))
 		}
-		err := ValidateResource(resp.PatchedResource.UnstructuredContent(), kind)
+		err = ValidateResource(resp.PatchedResource.UnstructuredContent(), kind)
 		if err != nil {
 			return err
 		}
