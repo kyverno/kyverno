@@ -1310,7 +1310,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation error: ; Validation rule 'test-path-not-exist' failed. 'variable(s) not found or has nil values: [/spec/containers/0/name/{{request.object.metadata.name1}}]'")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation error: ; Validation rule 'test-path-not-exist' failed. '[failed to resolve [request.object.metadata.name1] at path /spec/containers/0/name]'")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *testing.T) {
@@ -1490,7 +1490,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Subsitutions failed at paths: [variable(s) not found or has nil values: [/spec/template/spec/containers/0/name/{{request.object.metadata.name1}}] variable(s) not found or has nil values: [/spec/template/spec/containers/0/name/{{request.object.metadata.name2}}]]")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Substitutions failed: [[failed to resolve [request.object.metadata.name1] at path /spec/template/spec/containers/0/name] [failed to resolve [request.object.metadata.name2] at path /spec/template/spec/containers/0/name]]")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {

@@ -223,7 +223,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 		// Subsitution falures
 		if len(failedSubstitutionsErrors) > 0 {
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Subsitutions failed at paths: %v", failedSubstitutionsErrors)
+			resp.Message = fmt.Sprintf("Substitutions failed: %v", failedSubstitutionsErrors)
 			return resp
 		}
 

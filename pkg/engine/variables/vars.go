@@ -8,10 +8,12 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
-const variableRegex = `\{\{([^{}]*)\}\}`
+const (
+	variableRegex  = `\{\{([^{}]*)\}\}`
+	singleVarRegex = `^\{\{([^{}]*)\}\}$`
+)
 
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
@@ -22,7 +24,7 @@ func SubstituteVars(ctx context.EvalInterface, pattern interface{}) (interface{}
 		// no error while parsing the pattern
 		return pattern, nil
 	}
-	return pattern, fmt.Errorf("variable(s) not found or has nil values: %v", errs)
+	return pattern, fmt.Errorf("%v", errs)
 }
 
 func subVars(ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
@@ -32,7 +34,7 @@ func subVars(ctx context.EvalInterface, pattern interface{}, path string, errs *
 	case []interface{}:
 		return subArray(ctx, typedPattern, path, errs)
 	case string:
-		return subVal(ctx, typedPattern, path, errs)
+		return subValR(ctx, typedPattern, path, errs)
 	default:
 		return pattern
 	}
@@ -57,119 +59,109 @@ func subArray(ctx context.EvalInterface, patternList []interface{}, path string,
 	return patternList
 }
 
-func subVal(ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) interface{} {
-	var emptyInterface interface{}
+// subValR resolves the variables if defined
+func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
+
+	// variable values can be scalar values(string,int, float) or they can be obects(map,slice)
+	// - {{variable}}
+	// there is a single variable resolution so the value can be scalar or object
+	// - {{variable1--{{variable2}}}}}
+	// variable2 is evaluted first as an individual variable and can be have scalar or object values
+	// but resolving the outer variable, {{variable--<value>}}
+	// if <value> is scalar then it can replaced, but for object types its tricky
+	// as object cannot be directy replaced, if the object is stringyfied then it loses it structure.
+	// since this might be a potential place for error, required better error reporting and handling
+
+	// object values are only suported for single variable substitution
+	if ok, retVal := processIfSingleVariable(ctx, valuePattern, path, errs); ok {
+		return retVal
+	}
+	// var emptyInterface interface{}
+	var failedVars []string
+	// process type string
+	for {
+		valueStr := valuePattern
+		if len(failedVars) != 0 {
+			glog.Info("some failed variables short-circuiting")
+			break
+		}
+		// get variables at this level
+		validRegex := regexp.MustCompile(variableRegex)
+		groups := validRegex.FindAllStringSubmatch(valueStr, -1)
+		if len(groups) == 0 {
+			// there was no match
+			// not variable defined
+			break
+		}
+		subs := map[string]interface{}{}
+		for _, group := range groups {
+			if _, ok := subs[group[0]]; ok {
+				// value has already been substituted
+				continue
+			}
+			// here we do the querying of the variables from the context
+			variable, err := ctx.Query(group[1])
+			if err != nil {
+				// error while evaluating
+				failedVars = append(failedVars, group[1])
+				continue
+			}
+			// path not found in context and value stored in null/nill
+			if variable == nil {
+				failedVars = append(failedVars, group[1])
+				continue
+			}
+			// get values for each and replace
+			subs[group[0]] = variable
+		}
+		// perform substitutions
+		newVal := valueStr
+		for k, v := range subs {
+			// if value is of type string then cast else consider it as direct replacement
+			if val, ok := v.(string); ok {
+				newVal = strings.Replace(newVal, k, val, -1)
+				continue
+			}
+			// if type is not scalar then consider this as a failed variable
+			glog.Infof("variable %s resolves to non-scalar value %v. Non-Scalar values are not supported for nested variables", k, v)
+			failedVars = append(failedVars, k)
+		}
+		valuePattern = newVal
+	}
+	// update errors if any
+	if len(failedVars) > 0 {
+		*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", failedVars, path))
+	}
+
+	return valuePattern
+}
+
+// processIfSingleVariable will process the evaluation of single variables
+// {{variable-{{variable}}}} -> compound/nested variables
+// {{variable}}{{variable}} -> multiple variables
+// {{variable}} -> single variable
+// if the value can be evaluted return the value
+// -> return value can be scalar or object type
+// -> if the variable is not present in the context then add an error and dont process further
+func processIfSingleVariable(ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) (bool, interface{}) {
 	valueStr, ok := valuePattern.(string)
 	if !ok {
 		glog.Infof("failed to convert %v to string", valuePattern)
-		return emptyInterface
+		return false, nil
 	}
-
-	operatorVariable := getOp(valueStr)
-	variable := valueStr[len(operatorVariable):]
-	// substitute variable with value
-	value, failedVars := getValQuery(ctx, variable)
-	// if there are failedVars at this level
-	// capture as error and the path to the variables
-	for _, failedVar := range failedVars {
-		failedPath := path + "/" + failedVar
-		*errs = append(*errs, NewInvalidPath(failedPath))
+	// get variables at this level
+	validRegex := regexp.MustCompile(singleVarRegex)
+	groups := validRegex.FindAllStringSubmatch(valueStr, -1)
+	if len(groups) == 0 {
+		return false, nil
 	}
-	if operatorVariable == "" {
-		// default or operator.Equal
-		// equal + string value
-		// object variable
-		return value
+	// as there will be exactly one variable based on the above regex
+	group := groups[0]
+	variable, err := ctx.Query(group[1])
+	if err != nil || variable == nil {
+		*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", group[1], path))
+		// return the same value pattern, and add un-resolvable variable error
+		return true, valuePattern
 	}
-	// operator + string variable
-	switch typedValue := value.(type) {
-	case string:
-		return string(operatorVariable) + typedValue
-	default:
-		glog.Infof("cannot use operator with object variables. operator used %s in pattern %v", string(operatorVariable), valuePattern)
-		return emptyInterface
-	}
-
-}
-
-func getOp(pattern string) string {
-	operatorVariable := operator.GetOperatorFromStringPattern(pattern)
-	if operatorVariable == operator.Equal {
-		return ""
-	}
-	return string(operatorVariable)
-}
-
-func getValQuery(ctx context.EvalInterface, valuePattern string) (interface{}, []string) {
-	var emptyInterface interface{}
-	validRegex := regexp.MustCompile(variableRegex)
-	groups := validRegex.FindAllStringSubmatch(valuePattern, -1)
-	// there can be multiple varialbes in a single value pattern
-	varMap, failedVars := getVal(ctx, groups)
-	if len(varMap) == 0 && len(failedVars) == 0 {
-		// no variables
-		// return original value
-		return valuePattern, nil
-	}
-	if isAllStrings(varMap) {
-		newVal := valuePattern
-		for key, value := range varMap {
-			if val, ok := value.(string); ok {
-				newVal = strings.Replace(newVal, key, val, -1)
-			}
-		}
-		return newVal, failedVars
-	}
-	// multiple substitution per statement for non-string types are not supported
-	for _, value := range varMap {
-		return value, failedVars
-	}
-	return emptyInterface, failedVars
-}
-
-func getVal(ctx context.EvalInterface, groups [][]string) (map[string]interface{}, []string) {
-	substiutions := map[string]interface{}{}
-	var failedVars []string
-	for _, group := range groups {
-		// 0th is the string
-		varName := group[0]
-		varValue := group[1]
-		variable, err := ctx.Query(varValue)
-		// err !=nil -> invalid expression
-		// err == nil && variable == nil -> variable is empty or path is not present
-		// a variable with empty value is considered as a failed variable
-		if err != nil || (err == nil && variable == nil) {
-			// could not find the variable at the given path
-			failedVars = append(failedVars, varName)
-			continue
-		}
-		substiutions[varName] = variable
-	}
-	return substiutions, failedVars
-}
-
-func isAllStrings(subVar map[string]interface{}) bool {
-	if len(subVar) == 0 {
-		return false
-	}
-	for _, value := range subVar {
-		if _, ok := value.(string); !ok {
-			return false
-		}
-	}
-	return true
-}
-
-//InvalidPath stores the path to failed variable
-type InvalidPath struct {
-	path string
-}
-
-func (e *InvalidPath) Error() string {
-	return e.path
-}
-
-//NewInvalidPath returns a new Invalid Path error
-func NewInvalidPath(path string) *InvalidPath {
-	return &InvalidPath{path: path}
+	return true, variable
 }

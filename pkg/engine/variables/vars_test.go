@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"gotest.tools/assert"
 )
 
 func Test_subVars_success(t *testing.T) {
@@ -127,4 +128,29 @@ func Test_subVars_failed(t *testing.T) {
 	if _, err := SubstituteVars(ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
+}
+
+func Test_SubvarRecursive(t *testing.T) {
+	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.test}}}}"`)
+	var pattern interface{}
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"test":"name"
+		},
+		"spec": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}
+		`)
+
+	ctx := context.NewContext()
+	assert.Assert(t, ctx.AddResource(resourceRaw))
+	errs := []error{}
+	subValR(ctx, string(patternRaw), "/", &errs)
 }
