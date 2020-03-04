@@ -8,10 +8,6 @@ import (
 )
 
 func Test_ValidateMutationPolicy(t *testing.T) {
-	err := setValidationGlobalState()
-	if err != nil {
-		t.Fatalf("Could not set global state")
-	}
 
 	tcs := []struct {
 		description string
