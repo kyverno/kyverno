@@ -69,9 +69,51 @@ func Validate(p kyverno.ClusterPolicy) error {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", i, path, err)
 			}
 		}
+
+		// If a rules match block does not match any kind,
+		// we should only allow such rules to have metadata in its overlay
+		if len(rule.MatchResources.Kinds) == 0 {
+			if !ruleOnlyDealsWithResourceMetaData(rule) {
+				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+					" the rule does not match an kind")
+			}
+		}
 	}
 
 	return nil
+}
+
+func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
+	overlayMap, _ := rule.Mutation.Overlay.(map[string]interface{})
+	for k := range overlayMap {
+		if k != "metadata" {
+			return false
+		}
+	}
+
+	for _, patch := range rule.Mutation.Patches {
+		if !strings.HasPrefix(patch.Path, "/metadata") {
+			return false
+		}
+	}
+
+	patternMap, _ := rule.Validation.Pattern.(map[string]interface{})
+	for k := range patternMap {
+		if k != "metadata" {
+			return false
+		}
+	}
+
+	for _, pattern := range rule.Validation.AnyPattern {
+		patternMap, _ := pattern.(map[string]interface{})
+		for k := range patternMap {
+			if k != "metadata" {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
