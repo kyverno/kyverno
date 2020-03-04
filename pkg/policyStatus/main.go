@@ -41,7 +41,7 @@ func NewSync(c *versioned.Clientset, p policyStore) *Sync {
 		},
 		client:      c,
 		PolicyStore: p,
-		Listener:    make(chan statusUpdater),
+		Listener:    make(chan statusUpdater, 20),
 	}
 }
 

@@ -73,9 +73,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			continue
 		}
 		engineResponses = append(engineResponses, engineResponse)
-		go func() {
-			ws.status.Listener <- updateStatusWithValidateStats(engineResponse)
-		}()
+		ws.status.Listener <- updateStatusWithValidateStats(engineResponse)
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, newR.GetNamespace(), newR.GetName())
 			continue

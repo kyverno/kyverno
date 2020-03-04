@@ -100,9 +100,7 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 	}
 
 	if newPv.Annotations["fromSync"] != "true" {
-		go func() {
-			cpv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
-		}()
+		cpv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	}
 
 	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
@@ -128,9 +126,7 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	glog.Infof("cluster policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 
 	if newPv.Annotations["fromSync"] != "true" {
-		go func() {
-			cpv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
-		}()
+		cpv.policyStatus.Listener <- updatePolicyStatusWithViolationCount(newPv.Spec.Policy, newPv.Spec.ViolatedRules)
 	}
 	return nil
 }

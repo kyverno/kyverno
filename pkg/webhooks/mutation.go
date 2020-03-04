@@ -63,9 +63,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
-		go func() {
-			ws.status.Listener <- updateStatusWithMutateStats(engineResponse)
-		}()
+		ws.status.Listener <- updateStatusWithMutateStats(engineResponse)
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue

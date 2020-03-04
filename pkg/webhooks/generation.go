@@ -68,9 +68,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			go func() {
-				ws.status.Listener <- updateStatusWithGenerateStats(engineResponse)
-			}()
+			ws.status.Listener <- updateStatusWithGenerateStats(engineResponse)
 		}
 	}
 	// Adds Generate Request to a channel(queue size 1000) to generators
