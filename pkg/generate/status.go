@@ -4,7 +4,6 @@ import (
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	"github.com/nirmata/kyverno/pkg/policyStatus"
 )
 
 //StatusControlInterface provides interface to update status subresource
@@ -15,8 +14,7 @@ type StatusControlInterface interface {
 
 // StatusControl is default implementaation of GRStatusControlInterface
 type StatusControl struct {
-	client       kyvernoclient.Interface
-	policyStatus *policyStatus.Sync
+	client kyvernoclient.Interface
 }
 
 //Failed sets gr status.state to failed with message
@@ -36,18 +34,10 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 
 // Success sets the gr status.state to completed and clears message
 func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
-	oldState := gr.Status.State
-
 	gr.Status.State = kyverno.Completed
 	gr.Status.Message = ""
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
-
-	if oldState != kyverno.Completed {
-		go func() {
-			sc.policyStatus.Listener <- updatePolicyStatusWithGeneratedResourceCount(gr)
-		}()
-	}
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {
@@ -56,30 +46,4 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	}
 	glog.V(4).Infof("updated gr %s status to %s", gr.Name, string(kyverno.Completed))
 	return nil
-}
-
-type generatedResourceCount struct {
-	generateRequest kyverno.GenerateRequest
-}
-
-func updatePolicyStatusWithGeneratedResourceCount(generateRequest kyverno.GenerateRequest) *generatedResourceCount {
-	return &generatedResourceCount{
-		generateRequest: generateRequest,
-	}
-}
-
-func (vc *generatedResourceCount) UpdateStatus(s *policyStatus.Sync) {
-	s.Cache.Mutex.Lock()
-	status, exist := s.Cache.Data[vc.generateRequest.Spec.Policy]
-	if !exist {
-		policy, _ := s.PolicyStore.Get(vc.generateRequest.Spec.Policy)
-		if policy != nil {
-			status = policy.Status
-		}
-	}
-
-	status.ResourcesGeneratedCount += len(vc.generateRequest.Status.GeneratedResources)
-
-	s.Cache.Data[vc.generateRequest.Spec.Policy] = status
-	s.Cache.Mutex.Unlock()
 }

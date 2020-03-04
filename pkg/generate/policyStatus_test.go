@@ -45,7 +45,7 @@ func Test_Stats(t *testing.T) {
 	s := policyStatus.NewSync(nil, &dummyStore{})
 
 	for _, generateCountStat := range testCase.generatedCountStats {
-		receiver := &generatedResourceCount{
+		receiver := &generateSyncStats{
 			generateRequest: generateCountStat,
 		}
 		receiver.UpdateStatus(s)

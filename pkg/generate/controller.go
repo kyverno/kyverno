@@ -58,6 +58,8 @@ type Controller struct {
 	//TODO: list of generic informers
 	// only support Namespaces for re-evalutation on resource updates
 	nsInformer informers.GenericInformer
+
+	policyStatus *policyStatus.Sync
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -80,8 +82,9 @@ func NewController(
 		// as we dont want a deleted GR to be re-queue
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
 		dynamicInformer: dynamicInformer,
+		policyStatus:    policyStatus,
 	}
-	c.statusControl = StatusControl{client: kyvernoclient, policyStatus: policyStatus}
+	c.statusControl = StatusControl{client: kyvernoclient}
 
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy

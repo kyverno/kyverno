@@ -3,6 +3,9 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
+	"github.com/nirmata/kyverno/pkg/policyStatus"
 
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -80,7 +83,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// Apply the generate rule on resource
-	return applyGeneratePolicy(c.client, policyContext)
+	return c.applyGeneratePolicy(policyContext, gr)
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec) error {
@@ -92,7 +95,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyContext) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGeneratePolicy(policyContext engine.PolicyContext, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	// List of generatedResources
 	var genResources []kyverno.ResourceSpec
 	// Get the response as the actions to be performed on the resource
@@ -107,18 +110,75 @@ func applyGeneratePolicy(client *dclient.Client, policyContext engine.PolicyCont
 		return rcreationTime.Before(&pcreationTime)
 	}()
 
+	ruleNameToProcessingTime := make(map[string]time.Duration)
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasGenerate() {
 			continue
 		}
-		genResource, err := applyRule(client, rule, resource, ctx, processExisting)
+
+		startTime := time.Now()
+		genResource, err := applyRule(c.client, rule, resource, ctx, processExisting)
 		if err != nil {
 			return nil, err
 		}
+
+		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
 		genResources = append(genResources, genResource)
 	}
 
+	if gr.Status.State == "" {
+		go func() {
+			c.policyStatus.Listener <- &generateSyncStats{
+				policyName:               policy.Name,
+				ruleNameToProcessingTime: ruleNameToProcessingTime,
+			}
+		}()
+	}
+
 	return genResources, nil
+}
+
+type generateSyncStats struct {
+	policyName               string
+	ruleNameToProcessingTime map[string]time.Duration
+}
+
+func (vc *generateSyncStats) UpdateStatus(s *policyStatus.Sync) {
+	s.Cache.Mutex.Lock()
+	status, exist := s.Cache.Data[vc.policyName]
+	if !exist {
+		policy, _ := s.PolicyStore.Get(vc.policyName)
+		if policy != nil {
+			status = policy.Status
+		}
+	}
+
+	for i := range status.Rules {
+		if executionTime, exist := vc.ruleNameToProcessingTime[status.Rules[i].Name]; exist {
+			status.ResourcesGeneratedCount += 1
+			status.Rules[i].ResourcesGeneratedCount += 1
+			averageOver := int64(status.Rules[i].AppliedCount + status.Rules[i].FailedCount)
+			status.Rules[i].ExecutionTime = updateGenerateExecutionTime(
+				executionTime,
+				status.Rules[i].ExecutionTime,
+				averageOver,
+			).String()
+		}
+	}
+
+	s.Cache.Data[vc.policyName] = status
+	s.Cache.Mutex.Unlock()
+}
+
+func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
+	if averageOver == 0 {
+		return newTime
+	}
+	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
+	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
+	denominator := averageOver
+	newAverageTimeInNanoSeconds := numerator / denominator
+	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
 func applyRule(client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
