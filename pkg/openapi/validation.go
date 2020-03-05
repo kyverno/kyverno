@@ -40,7 +40,7 @@ func init() {
 			panic(err)
 		}
 
-		err = useCustomOpenApiDocument(defaultDoc)
+		err = useOpenApiDocument(defaultDoc)
 		if err != nil {
 			panic(err)
 		}
@@ -75,15 +75,18 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for kind, rules := range kindToRules {
 		newPolicy := policy
 		newPolicy.Spec.Rules = rules
-
 		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
+		if resource == nil {
+			glog.V(4).Infof("Cannot Validate policy: openApi definition now found for %v", kind)
+			return nil
+		}
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
 		ctx := context.NewContext()
 		err := ctx.AddSA("kyvernoDummyUsername")
 		if err != nil {
-			glog.Infof("Failed to load service account in context:%v", err)
+			glog.V(4).Infof("Failed to load service account in context:%v", err)
 		}
 
 		policyContext := engine.PolicyContext{
@@ -101,7 +104,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			}
 			return fmt.Errorf(strings.Join(errMessages, "\n"))
 		}
-		err = ValidateResource(resp.PatchedResource.UnstructuredContent(), kind)
+		err = ValidateResource(*resp.PatchedResource.DeepCopy(), kind)
 		if err != nil {
 			return err
 		}
@@ -110,9 +113,16 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func ValidateResource(patchedResource interface{}, kind string) error {
+// For crd, we do not store definition in document
+func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+	path := proto.NewPath(kind)
+	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
+}
+
+func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
+	var err error
 
 	if !openApiGlobalState.isSet {
 		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
@@ -122,10 +132,14 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 	kind = openApiGlobalState.kindToDefinitionName[kind]
 	schema := openApiGlobalState.models.LookupModel(kind)
 	if schema == nil {
-		return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+		schema, err = getSchemaFromDefinitions(kind)
+		if err != nil || schema == nil {
+			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+		}
+		delete(patchedResource.Object, "kind")
 	}
 
-	if errs := validation.ValidateModel(patchedResource, schema, kind); len(errs) > 0 {
+	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
 		var errorMessages []string
 		for i := range errs {
 			errorMessages = append(errorMessages, errs[i].Error())
@@ -137,7 +151,7 @@ func ValidateResource(patchedResource interface{}, kind string) error {
 	return nil
 }
 
-func useCustomOpenApiDocument(customDoc *openapi_v2.Document) error {
+func useOpenApiDocument(customDoc *openapi_v2.Document) error {
 	openApiGlobalState.mutex.Lock()
 	defer openApiGlobalState.mutex.Unlock()
 
@@ -181,7 +195,11 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 	}
 
 	if len(types) != 1 {
-		return nil
+		if len(kindSchema.GetProperties().GetAdditionalProperties()) > 0 {
+			types = []string{"object"}
+		} else {
+			return nil
+		}
 	}
 
 	switch types[0] {
