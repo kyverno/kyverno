@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/golang/glog"
 
 	"gopkg.in/yaml.v2"
@@ -66,28 +68,45 @@ func (c *crdSync) sync() {
 		return
 	}
 
+	deleteCRDFromPreviousSync()
+
 	for _, crd := range crds.Items {
-		var crdDefinition crdDefinition
-		crdRaw, _ := json.Marshal(crd.Object)
-		_ = json.Unmarshal(crdRaw, &crdDefinition)
-
-		crdName := crdDefinition.Spec.Names.Kind
-		if len(crdDefinition.Spec.Versions) < 1 {
-			glog.V(4).Infof("could not parse crd schema, no versions present")
-			continue
-		}
-
-		var schema yaml.MapSlice
-		schemaRaw, _ := json.Marshal(crdDefinition.Spec.Versions[0].Schema.OpenAPIV3Schema)
-		_ = yaml.Unmarshal(schemaRaw, &schema)
-
-		parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
-		if err != nil {
-			glog.V(4).Infof("could not parse crd schema:%v", err)
-			continue
-		}
-
-		openApiGlobalState.kindToDefinitionName[crdName] = crdName
-		openApiGlobalState.definitions[crdName] = parsedSchema
+		parseCRD(crd)
 	}
+}
+
+func deleteCRDFromPreviousSync() {
+	for _, crd := range openApiGlobalState.crdList {
+		delete(openApiGlobalState.kindToDefinitionName, crd)
+		delete(openApiGlobalState.definitions, crd)
+	}
+
+	openApiGlobalState.crdList = []string{}
+}
+
+func parseCRD(crd unstructured.Unstructured) {
+	var crdDefinition crdDefinition
+	crdRaw, _ := json.Marshal(crd.Object)
+	_ = json.Unmarshal(crdRaw, &crdDefinition)
+
+	crdName := crdDefinition.Spec.Names.Kind
+	if len(crdDefinition.Spec.Versions) < 1 {
+		glog.V(4).Infof("could not parse crd schema, no versions present")
+		return
+	}
+
+	var schema yaml.MapSlice
+	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Versions[0].Schema.OpenAPIV3Schema)
+	_ = yaml.Unmarshal(schemaRaw, &schema)
+
+	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
+	if err != nil {
+		glog.V(4).Infof("could not parse crd schema:%v", err)
+		return
+	}
+
+	openApiGlobalState.crdList = append(openApiGlobalState.crdList, crdName)
+
+	openApiGlobalState.kindToDefinitionName[crdName] = crdName
+	openApiGlobalState.definitions[crdName] = parsedSchema
 }

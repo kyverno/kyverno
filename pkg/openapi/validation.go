@@ -29,32 +29,25 @@ var openApiGlobalState struct {
 	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
 	kindToDefinitionName map[string]string
+	crdList              []string
 	models               proto.Models
-	isSet                bool
 }
 
 func init() {
-	if !openApiGlobalState.isSet {
-		defaultDoc, err := getSchemaDocument()
-		if err != nil {
-			panic(err)
-		}
+	defaultDoc, err := getSchemaDocument()
+	if err != nil {
+		panic(err)
+	}
 
-		err = useOpenApiDocument(defaultDoc)
-		if err != nil {
-			panic(err)
-		}
+	err = useOpenApiDocument(defaultDoc)
+	if err != nil {
+		panic(err)
 	}
 }
 
 func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
-
-	if !openApiGlobalState.isSet {
-		glog.V(4).Info("Cannot Validate policy: Validation global state not set")
-		return nil
-	}
 
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
@@ -73,7 +66,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	for kind, rules := range kindToRules {
-		newPolicy := policy
+		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
 		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
 		if resource == nil {
@@ -89,22 +82,11 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			glog.V(4).Infof("Failed to load service account in context:%v", err)
 		}
 
-		policyContext := engine.PolicyContext{
-			Policy:      newPolicy,
-			NewResource: newResource,
-			Context:     ctx,
+		patchedResource, err := engine.ForceMutate(ctx, *newPolicy.DeepCopy(), newResource)
+		if err != nil {
+			return err
 		}
-		resp := engine.Mutate(policyContext)
-		if len(resp.GetSuccessRules()) != len(rules) {
-			var errMessages []string
-			for _, rule := range resp.PolicyResponse.Rules {
-				if !rule.Success {
-					errMessages = append(errMessages, fmt.Sprintf("Invalid rule : %v, %v", rule.Name, rule.Message))
-				}
-			}
-			return fmt.Errorf(strings.Join(errMessages, "\n"))
-		}
-		err = ValidateResource(*resp.PatchedResource.DeepCopy(), kind)
+		err = ValidateResource(*patchedResource.DeepCopy(), kind)
 		if err != nil {
 			return err
 		}
@@ -113,21 +95,10 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-// For crd, we do not store definition in document
-func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
-	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
-}
-
 func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
 	var err error
-
-	if !openApiGlobalState.isSet {
-		glog.V(4).Info("Cannot Validate resource: Validation global state not set")
-		return nil
-	}
 
 	kind = openApiGlobalState.kindToDefinitionName[kind]
 	schema := openApiGlobalState.models.LookupModel(kind)
@@ -171,8 +142,6 @@ func useOpenApiDocument(customDoc *openapi_v2.Document) error {
 		return err
 	}
 
-	openApiGlobalState.isSet = true
-
 	return nil
 }
 
@@ -184,6 +153,12 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 	}
 
 	return openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+}
+
+// For crd, we do not store definition in document
+func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+	path := proto.NewPath(kind)
+	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
 }
 
 func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
