@@ -3,6 +3,8 @@ package webhooks
 import (
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -99,6 +101,11 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		gatherStat(policy.Name, engineResponse.PolicyResponse)
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
+			continue
+		}
+		err := openapi.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
+		if err != nil {
+			glog.V(4).Infoln(err)
 			continue
 		}
 		// gather patches

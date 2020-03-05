@@ -5,6 +5,8 @@ import (
 	"flag"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -200,6 +202,9 @@ func main() {
 		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
 	}
 
+	// Sync openAPI definitions of resources
+	openApiSync := openapi.NewCRDSync(client)
+
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -238,6 +243,7 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+	go openApiSync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
