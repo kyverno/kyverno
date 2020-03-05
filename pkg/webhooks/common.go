@@ -40,11 +40,12 @@ func toBlockResource(engineReponses []response.EngineResponse) bool {
 func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
-
+	var failedPolicies []string
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+			failedPolicies = append(failedPolicies, er.PolicyResponse.Policy)
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			str = append(str, fmt.Sprintf("failed policy %s", er.PolicyResponse.Policy))
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
 					str = append(str, rule.ToString())
@@ -52,7 +53,19 @@ func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string 
 			}
 		}
 	}
-	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+
+	var failureReason string
+	switch {
+	case len(failedPolicies) > 1:
+		failureReason = fmt.Sprintf("Resource %s blocked by policies %s, kindly refer to logs for further details", resourceInfo, strings.Join(failedPolicies, ", "))
+	case len(failedPolicies) == 1:
+		failureReason = fmt.Sprintf("Resource %s blocked by policy %s, kindly refer to logs for further details", resourceInfo, failedPolicies[0])
+	case len(failedPolicies) == 0:
+		failureReason = fmt.Sprintf("Resource %s has been blocked due to internal error, kindly refer to logs for further details", resourceInfo)
+	}
+
+	glog.V(4).Infof("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+	return failureReason
 }
 
 // getErrorMsg gets all failed engine response message
