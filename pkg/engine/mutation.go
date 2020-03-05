@@ -1,8 +1,10 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -170,8 +172,12 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 		if mutation.Overlay != nil {
 			overlay := mutation.Overlay
-			if overlay, err = variables.SubstituteVars(ctx, overlay); err != nil {
-				return unstructured.Unstructured{}, err
+			if ctx != nil {
+				if overlay, err = variables.SubstituteVars(ctx, overlay); err != nil {
+					return unstructured.Unstructured{}, err
+				}
+			} else {
+				overlay = replaceSubstituteVariables(overlay)
 			}
 
 			resource, err = mutateResourceWithOverlay(resource, overlay)
@@ -190,6 +196,30 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 	}
 
 	return resource, nil
+}
+
+func replaceSubstituteVariables(overlay interface{}) interface{} {
+	overlayRaw, err := json.Marshal(overlay)
+	if err != nil {
+		return overlay
+	}
+
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	for {
+		if len(regex.FindAllStringSubmatch(string(overlayRaw), -1)) > 0 {
+			overlayRaw = regex.ReplaceAll(overlayRaw, []byte(`placeholderValue`))
+		} else {
+			break
+		}
+	}
+
+	var output interface{}
+	err = json.Unmarshal(overlayRaw, &output)
+	if err != nil {
+		return overlay
+	}
+
+	return output
 }
 
 func incrementAppliedRuleCount(resp *response.EngineResponse) {

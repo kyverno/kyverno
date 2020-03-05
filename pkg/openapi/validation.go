@@ -11,7 +11,6 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -76,13 +75,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
-		ctx := context.NewContext()
-		err := ctx.AddSA("kyvernoDummyUsername")
-		if err != nil {
-			glog.V(4).Infof("Failed to load service account in context:%v", err)
-		}
-
-		patchedResource, err := engine.ForceMutate(ctx, *newPolicy.DeepCopy(), newResource)
+		patchedResource, err := engine.ForceMutate(nil, *newPolicy.DeepCopy(), newResource)
 		if err != nil {
 			return err
 		}
