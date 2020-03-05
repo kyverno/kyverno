@@ -168,7 +168,7 @@ Here is a script that generates a self-signed CA, a TLS certificate-key pair, an
 
 # Configure a namespace admin to access policy violations
 
-During Kyverno installation, it creates a ClusterRole `policyviolation` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
+During Kyverno installation, it creates a ClusterRole `kyverno:policyviolations` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
 
 - Replace `metadata.namespace` with namespace of the admin
 - Configure `subjects` field to bind admin's role to the ClusterRole `policyviolation`
