@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/webhooks/generate"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -75,6 +77,8 @@ type PolicyController struct {
 	pvGenerator policyviolation.GeneratorInterface
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
+	// interface to generate generaterequest
+	grGen *generate.Generator
 }
 
 // NewPolicyController create a new PolicyController
@@ -87,7 +91,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	pMetaStore policystore.UpdateInterface,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister) (*PolicyController, error) {
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	grGen *generate.Generator) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -107,6 +112,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pMetaStore:             pMetaStore,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
+		grGen:                  grGen,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

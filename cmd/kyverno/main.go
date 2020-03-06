@@ -142,27 +142,10 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations())
 
-	// POLICY CONTROLLER
-	// - reconciliation policy and policy violation
-	// - process policy on existing resources
-	// - status aggregator: receives stats when a policy is applied
-	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
-		configData,
-		egen,
-		pvgen,
-		policyMetaStore,
-		rWebhookWatcher)
-	if err != nil {
-		glog.Fatalf("error creating policy controller: %v\n", err)
-	}
-
 	// GENERATE REQUEST GENERATOR
 	grgen := webhookgenerate.NewGenerator(pclient, stopCh)
+
+	// GENERATE
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -184,6 +167,26 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		kubedynamicInformer,
 	)
+
+	// POLICY CONTROLLER
+	// - reconciliation policy and policy violation
+	// - process policy on existing resources
+	// - status aggregator: receives stats when a policy is applied
+	//					    & updates the policy status
+	pc, err := policy.NewPolicyController(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().PolicyViolations(),
+		configData,
+		egen,
+		pvgen,
+		policyMetaStore,
+		rWebhookWatcher,
+		grgen)
+	if err != nil {
+		glog.Fatalf("error creating policy controller: %v\n", err)
+	}
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)

@@ -19,7 +19,7 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface) (responses []response.EngineResponse) {
+func (pc *PolicyController) applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (responses []response.EngineResponse) {
 	startTime := time.Now()
 	var policyStats []PolicyStat
 	glog.V(4).Infof("Started apply policy %s on resource %s/%s/%s (%v)", policy.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName(), startTime)
@@ -55,7 +55,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		for _, stat := range policyStats {
 			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
 			//SEND
-			policyStatus.SendStat(stat)
+			pc.statusAggregator.SendStat(stat)
 		}
 	}
 	var engineResponses []response.EngineResponse
@@ -66,7 +66,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	ctx.AddResource(transformResource(resource))
 
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, policyStatus, ctx)
+	engineResponse, err = mutation(policy, resource, pc.statusAggregator, ctx)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
 		glog.Errorf("unable to process mutation rules: %v", err)
@@ -82,6 +82,23 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	gatherStat(policy.Name, engineResponse.PolicyResponse)
 	//send stats
 	sendStat(false)
+
+	engineResponse = engine.Generate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
+	if len(engineResponse.PolicyResponse.Rules) > 0 {
+
+		// TODO check synchronize field before creating a generate request
+
+		err = pc.grGen.Create(kyverno.GenerateRequestSpec{
+			Policy: engineResponse.PolicyResponse.Policy,
+			Resource: kyverno.ResourceSpec{
+				Kind:      engineResponse.PolicyResponse.Resource.Kind,
+				Namespace: engineResponse.PolicyResponse.Resource.Namespace,
+				Name:      engineResponse.PolicyResponse.Resource.Name,
+			},
+		})
+
+		engineResponses = append(engineResponses, engineResponse)
+	}
 
 	//TODO: GENERATION
 	return engineResponses
