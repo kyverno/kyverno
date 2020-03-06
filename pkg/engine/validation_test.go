@@ -294,7 +294,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'check-default-namespace' failed. [anyPattern[0] failed; Validation rule failed at '/metadata/namespace/' to validate value '<nil>' with pattern '?*' anyPattern[1] failed; Validation rule failed at '/metadata/namespace/' to validate value '<nil>' with pattern '!default']"}
+	msgs := []string{"Validation rule 'check-default-namespace' has failed"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -1582,5 +1582,5 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 
 	// expectedMsg := "Validation error: ; Validation rule test-path-not-exist anyPattern[0] failed at path /spec/template/spec/containers/0/name/. Validation rule test-path-not-exist anyPattern[1] failed at path /spec/template/spec/containers/0/name/."
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation rule 'test-path-not-exist' failed. [anyPattern[0] failed; Validation rule failed at '/spec/template/spec/containers/0/name/' to validate value 'pod-test-pod' with pattern 'test*' anyPattern[1] failed; Validation rule failed at '/spec/template/spec/containers/0/name/' to validate value 'pod-test-pod' with pattern 'test*']")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation rule 'test-path-not-exist' has failed")
 }
