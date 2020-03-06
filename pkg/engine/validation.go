@@ -234,7 +234,8 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				errorStr = append(errorStr, err.Error())
 			}
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr)
+			glog.V(4).Infof("Validation rule '%s' failed. %s", rule.Name, errorStr)
+			resp.Message = fmt.Sprintf("Validation rule '%s' has failed", rule.Name)
 			return resp
 		}
 	}
