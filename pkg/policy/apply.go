@@ -96,11 +96,13 @@ func (pc *PolicyController) applyPolicy(policy kyverno.ClusterPolicy, resource u
 				Name:      engineResponse.PolicyResponse.Resource.Name,
 			},
 		})
+		if err != nil {
+			glog.V(4).Infof("could not create generaterequest:%v", err)
+		}
 
 		engineResponses = append(engineResponses, engineResponse)
 	}
 
-	//TODO: GENERATION
 	return engineResponses
 }
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, ctx context.EvalInterface) (response.EngineResponse, error) {
