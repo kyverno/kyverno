@@ -217,6 +217,8 @@ spec:
                     - kind
                     - name
                     properties:
+                      synchronize:
+                        type: boolean
                       kind:
                         type: string
                       name:
