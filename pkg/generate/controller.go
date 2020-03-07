@@ -11,7 +11,7 @@ import (
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policyStatus"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -59,7 +59,7 @@ type Controller struct {
 	// only support Namespaces for re-evalutation on resource updates
 	nsInformer informers.GenericInformer
 
-	policyStatus *policyStatus.Sync
+	policyStatusListener policystatus.Listener
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -71,7 +71,7 @@ func NewController(
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
-	policyStatus *policyStatus.Sync,
+	policyStatus policystatus.Listener,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -80,9 +80,9 @@ func NewController(
 		pvGenerator:   pvGenerator,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
 		// as we dont want a deleted GR to be re-queue
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
-		dynamicInformer: dynamicInformer,
-		policyStatus:    policyStatus,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
+		dynamicInformer:      dynamicInformer,
+		policyStatusListener: policyStatus,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 

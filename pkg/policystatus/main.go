@@ -1,4 +1,4 @@
-package policyStatus
+package policystatus
 
 import (
 	"sync"
@@ -22,9 +22,15 @@ type policyStore interface {
 	Get(policyName string) (*v1.ClusterPolicy, error)
 }
 
+type Listener chan statusUpdater
+
+func (l Listener) Send(s statusUpdater) {
+	l <- s
+}
+
 type Sync struct {
 	cache       *cache
-	Listener    chan statusUpdater
+	Listener    Listener
 	client      *versioned.Clientset
 	policyStore policyStore
 }

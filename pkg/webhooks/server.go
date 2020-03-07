@@ -18,7 +18,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policyStatus"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
@@ -55,7 +55,7 @@ type WebhookServer struct {
 	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
-	status *policyStatus.Sync
+	statusListener policystatus.Listener
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 	// channel for cleanup notification
@@ -82,7 +82,7 @@ func NewWebhookServer(
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
-	statusSync *policyStatus.Sync,
+	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
@@ -112,7 +112,7 @@ func NewWebhookServer(
 		crbSynced:                 crbInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		webhookRegistrationClient: webhookRegistrationClient,
-		status:                    statusSync,
+		statusListener:            statusSync,
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,

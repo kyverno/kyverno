@@ -5,8 +5,6 @@ import (
 	"flag"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/policyStatus"
-
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -17,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/generate"
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/signal"
@@ -138,7 +137,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies())
 
 	// Policy Status Handler - deals with all logic related to policy status
-	statusSync := policyStatus.NewSync(
+	statusSync := policystatus.NewSync(
 		pclient,
 		policyMetaStore)
 
@@ -148,7 +147,7 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
-		statusSync)
+		statusSync.Listener)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -182,7 +181,7 @@ func main() {
 		egen,
 		pvgen,
 		kubedynamicInformer,
-		statusSync,
+		statusSync.Listener,
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
@@ -224,7 +223,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		egen,
 		webhookRegistrationClient,
-		statusSync,
+		statusSync.Listener,
 		configData,
 		policyMetaStore,
 		pvgen,

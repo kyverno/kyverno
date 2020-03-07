@@ -125,10 +125,10 @@ func (c *Controller) applyGeneratePolicy(policyContext engine.PolicyContext, gr 
 	}
 
 	if gr.Status.State == "" {
-		c.policyStatus.Listener <- generateSyncStats{
+		c.policyStatusListener.Send(generateSyncStats{
 			policyName:               policy.Name,
 			ruleNameToProcessingTime: ruleNameToProcessingTime,
-		}
+		})
 	}
 
 	return genResources, nil

@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/policyStatus"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,19 +22,19 @@ type namespacedPV struct {
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// update policy status with violationCount
-	policyStatus *policyStatus.Sync
+	policyStatusListener policystatus.Listener
 }
 
 func newNamespacedPV(dclient *client.Client,
 	nspvLister kyvernolister.PolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
-	policyStatus *policyStatus.Sync,
+	policyStatus policystatus.Listener,
 ) *namespacedPV {
 	nspv := namespacedPV{
-		dclient:          dclient,
-		nspvLister:       nspvLister,
-		kyvernoInterface: kyvernoInterface,
-		policyStatus:     policyStatus,
+		dclient:              dclient,
+		nspvLister:           nspvLister,
+		kyvernoInterface:     kyvernoInterface,
+		policyStatusListener: policyStatus,
 	}
 	return &nspv
 }
@@ -99,7 +99,7 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	}
 
 	if newPv.Annotations["fromSync"] != "true" {
-		nspv.policyStatus.Listener <- violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules}
+		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
 	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
 	return nil
@@ -122,7 +122,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	}
 
 	if newPv.Annotations["fromSync"] != "true" {
-		nspv.policyStatus.Listener <- violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules}
+		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
 	glog.Infof("namespaced policy violation updated for resource %v", newPv.Spec.ResourceSpec)
 	return nil
