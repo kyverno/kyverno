@@ -2,6 +2,10 @@ package policystatus
 
 import "sync"
 
+// keyToMutex allows status to be updated
+//for different policies at the same time
+//while ensuring the status for same policies
+//are updated one at a time.
 type keyToMutex struct {
 	mu    sync.RWMutex
 	keyMu map[string]*sync.RWMutex

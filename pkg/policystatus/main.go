@@ -1,6 +1,7 @@
 package policystatus
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -13,6 +14,22 @@ import (
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
 
+// Policy status implementation works in the following way,
+//Currently policy status maintains a cache of the status of
+//each policy.
+//Every x unit of time the status of policy is updated using
+//the data from the cache.
+//The sync exposes a listener which accepts a statusUpdater
+//interface which dictates how the status should be updated.
+//The status is updated by a worker that receives the interface
+//on a channel.
+//The worker then updates the current status using the methods
+//exposed by the interface.
+//Current implementation is designed to be threadsafe with optimised
+//locking for each policy.
+
+// statusUpdater defines a type to have a method which
+//updates the given status
 type statusUpdater interface {
 	PolicyName() string
 	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
@@ -28,6 +45,10 @@ func (l Listener) Send(s statusUpdater) {
 	l <- s
 }
 
+// Sync is the object which is used to initialize
+//the policyStatus sync, can be considered the parent object
+//since it contains access to all the persistant data present
+//in this package.
 type Sync struct {
 	cache       *cache
 	Listener    Listener
@@ -63,6 +84,8 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
+// updateStatusCache is a worker which updates the current status
+//using the statusUpdater interface
 func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	for {
 		select {
@@ -86,12 +109,18 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			s.cache.dataMu.Unlock()
 
 			s.cache.keyToMutex.Get(statusUpdater.PolicyName()).Unlock()
+			oldStatus, _ := json.Marshal(status)
+			newStatus, _ := json.Marshal(updatedStatus)
+
+			glog.V(4).Infof("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus))
 		case <-stopCh:
 			return
 		}
 	}
 }
 
+// updatePolicyStatus updates the status in the policy resource definition
+//from the status cache, syncing them
 func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Lock()
 	var nameToStatus = make(map[string]v1.PolicyStatus, len(s.cache.data))
