@@ -30,7 +30,7 @@ func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation) *Genera
 	return &g
 }
 
-//Validate validates the generate rule in validation
+//Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
 	if rule.Data == nil && rule.Clone == (kyverno.CloneFrom{}) {

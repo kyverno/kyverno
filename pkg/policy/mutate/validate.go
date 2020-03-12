@@ -23,7 +23,7 @@ func NewMutateFactory(rule kyverno.Mutation) *Mutate {
 	return &m
 }
 
-//Validate validates the 'mutate' rul
+//Validate validates the 'mutate' rule
 func (m *Mutate) Validate() (string, error) {
 	rule := m.rule
 	// JSON Patches
