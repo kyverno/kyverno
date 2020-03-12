@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/generate"
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/signal"
@@ -135,12 +136,18 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies())
 
+	// Policy Status Handler - deals with all logic related to policy status
+	statusSync := policystatus.NewSync(
+		pclient,
+		policyMetaStore)
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations())
+		pInformer.Kyverno().V1().PolicyViolations(),
+		statusSync.Listener)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -174,6 +181,7 @@ func main() {
 		egen,
 		pvgen,
 		kubedynamicInformer,
+		statusSync.Listener,
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
@@ -215,7 +223,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		egen,
 		webhookRegistrationClient,
-		pc.GetPolicyStatusAggregator(),
+		statusSync.Listener,
 		configData,
 		policyMetaStore,
 		pvgen,
@@ -238,6 +246,7 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+	go statusSync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

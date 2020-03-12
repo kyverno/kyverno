@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,9 +38,10 @@ type Generator struct {
 	// returns true if the cluster policy store has been synced at least once
 	pvSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
-	nspvSynced cache.InformerSynced
-	queue      workqueue.RateLimitingInterface
-	dataStore  *dataStore
+	nspvSynced           cache.InformerSynced
+	queue                workqueue.RateLimitingInterface
+	dataStore            *dataStore
+	policyStatusListener policystatus.Listener
 }
 
 //NewDataStore returns an instance of data store
@@ -79,6 +81,7 @@ type Info struct {
 	PolicyName string
 	Resource   unstructured.Unstructured
 	Rules      []kyverno.ViolatedRule
+	FromSync   bool
 }
 
 func (i Info) toKey() string {
@@ -103,16 +106,18 @@ type GeneratorInterface interface {
 func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
+	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	policyStatus policystatus.Listener) *Generator {
 	gen := Generator{
-		kyvernoInterface: client.KyvernoV1(),
-		dclient:          dclient,
-		cpvLister:        pvInformer.Lister(),
-		pvSynced:         pvInformer.Informer().HasSynced,
-		nspvLister:       nspvInformer.Lister(),
-		nspvSynced:       nspvInformer.Informer().HasSynced,
-		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:        newDataStore(),
+		kyvernoInterface:     client.KyvernoV1(),
+		dclient:              dclient,
+		cpvLister:            pvInformer.Lister(),
+		pvSynced:             pvInformer.Informer().HasSynced,
+		nspvLister:           nspvInformer.Lister(),
+		nspvSynced:           nspvInformer.Informer().HasSynced,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:            newDataStore(),
+		policyStatusListener: policyStatus,
 	}
 	return &gen
 }
@@ -219,14 +224,20 @@ func (gen *Generator) syncHandler(info Info) error {
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
+		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface, gen.policyStatusListener)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface)
+		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface, gen.policyStatusListener)
 	}
 
 	failure := false
 	pv := builder.generate(info)
+
+	if info.FromSync {
+		pv.Annotations = map[string]string{
+			"fromSync": "true",
+		}
+	}
 
 	// Create Policy Violations
 	glog.V(3).Infof("Creating policy violation: %s", info.toKey())

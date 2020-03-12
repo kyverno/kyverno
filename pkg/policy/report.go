@@ -18,6 +18,10 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 	pc.eventGen.Add(eventInfos...)
 	// create policy violation
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	for i := range pvInfos {
+		pvInfos[i].FromSync = true
+	}
+
 	pc.pvGenerator.Add(pvInfos...)
 	// cleanup existing violations if any
 	// if there is any error in clean up, we dont re-queue the resource
