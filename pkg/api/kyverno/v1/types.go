@@ -227,21 +227,24 @@ type CloneFrom struct {
 	Name      string `json:"name,omitempty"`
 }
 
-//PolicyStatus provides status for violations
+// PolicyStatus mostly contains statistics related to policy
 type PolicyStatus struct {
-	ViolationCount int `json:"violationCount"`
+	// average time required to process the policy rules on a resource
+	AvgExecutionTime string `json:"averageExecutionTime"`
+	// number of violations created by this policy
+	ViolationCount int `json:"violationCount,omitempty"`
+	// Count of rules that failed
+	RulesFailedCount int `json:"rulesFailedCount,omitempty"`
 	// Count of rules that were applied
-	RulesAppliedCount int `json:"rulesAppliedCount"`
-	// Count of resources for whom update/create api requests were blocked as the resoruce did not satisfy the policy rules
-	ResourcesBlockedCount int `json:"resourcesBlockedCount"`
-	// average time required to process the policy Mutation rules on a resource
-	AvgExecutionTimeMutation string `json:"averageMutationRulesExecutionTime"`
-	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeValidation string `json:"averageValidationRulesExecutionTime"`
-	// average time required to process the policy Validation rules on a resource
-	AvgExecutionTimeGeneration string `json:"averageGenerationRulesExecutionTime"`
-	// statistics per rule
-	Rules []RuleStats `json:"ruleStatus"`
+	RulesAppliedCount int `json:"rulesAppliedCount,omitempty"`
+	// Count of resources that were blocked for failing a validate, across all rules
+	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
+	// Count of resources that were successfully mutated, across all rules
+	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
+	// Count of resources that were successfully generated, across all rules
+	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty"`
+
+	Rules []RuleStats `json:"ruleStatus,omitempty"`
 }
 
 //RuleStats provides status per rule
@@ -249,13 +252,19 @@ type RuleStats struct {
 	// Rule name
 	Name string `json:"ruleName"`
 	// average time require to process the rule
-	ExecutionTime string `json:"averageExecutionTime"`
-	// Count of rules that were applied
-	AppliedCount int `json:"appliedCount"`
+	ExecutionTime string `json:"averageExecutionTime,omitempty"`
+	// number of violations created by this rule
+	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that failed
-	ViolationCount int `json:"violationCount"`
-	// Count of mutations
-	MutationCount int `json:"mutationsCount"`
+	FailedCount int `json:"failedCount,omitempty"`
+	// Count of rules that were applied
+	AppliedCount int `json:"appliedCount,omitempty"`
+	// Count of resources for whom update/create api requests were blocked as the resource did not satisfy the policy rules
+	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty"`
+	// Count of resources that were successfully mutated
+	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty"`
+	// Count of resources that were successfully generated
+	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty"`
 }
 
 // PolicyList is a list of Policy resources
