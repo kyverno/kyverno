@@ -39,10 +39,10 @@ func toBlockResource(engineReponses []response.EngineResponse) bool {
 }
 
 // getEnforceFailureErrorMsg gets the error messages for failed enforce policy
-func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
+func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string {
 	policyToRule := make(map[string]interface{})
 	var resourceName string
-	for _, er := range engineReponses {
+	for _, er := range engineResponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
