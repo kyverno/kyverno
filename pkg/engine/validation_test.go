@@ -294,7 +294,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'check-default-namespace' has failed"}
+	msgs := []string{"A namespace is required"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
