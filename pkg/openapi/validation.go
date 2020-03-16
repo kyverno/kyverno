@@ -115,6 +115,12 @@ func ValidateResource(patchedResource unstructured.Unstructured, kind string) er
 	return nil
 }
 
+func GetDefinitionNameFromKind(kind string) string {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+	return openApiGlobalState.kindToDefinitionName[kind]
+}
+
 func useOpenApiDocument(customDoc *openapi_v2.Document) error {
 	openApiGlobalState.mutex.Lock()
 	defer openApiGlobalState.mutex.Unlock()
