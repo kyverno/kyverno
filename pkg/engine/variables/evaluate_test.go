@@ -6,6 +6,7 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/log"
 )
 
 // STRINGS
@@ -18,7 +19,7 @@ func Test_Eval_Equal_Const_String_Pass(t *testing.T) {
 		Value:    "name",
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -32,7 +33,7 @@ func Test_Eval_Equal_Const_String_Fail(t *testing.T) {
 		Value:    "name1",
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -46,7 +47,7 @@ func Test_Eval_NoEqual_Const_String_Pass(t *testing.T) {
 		Value:    "name1",
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -60,7 +61,7 @@ func Test_Eval_NoEqual_Const_String_Fail(t *testing.T) {
 		Value:    "name",
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -76,7 +77,7 @@ func Test_Eval_Equal_Const_Bool_Pass(t *testing.T) {
 		Value:    true,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -90,7 +91,7 @@ func Test_Eval_Equal_Const_Bool_Fail(t *testing.T) {
 		Value:    false,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -104,7 +105,7 @@ func Test_Eval_NoEqual_Const_Bool_Pass(t *testing.T) {
 		Value:    false,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -118,7 +119,7 @@ func Test_Eval_NoEqual_Const_Bool_Fail(t *testing.T) {
 		Value:    true,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -133,7 +134,7 @@ func Test_Eval_Equal_Const_int_Pass(t *testing.T) {
 		Value:    1,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -147,7 +148,7 @@ func Test_Eval_Equal_Const_int_Fail(t *testing.T) {
 		Value:    2,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -161,7 +162,7 @@ func Test_Eval_NoEqual_Const_int_Pass(t *testing.T) {
 		Value:    2,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -175,7 +176,7 @@ func Test_Eval_NoEqual_Const_int_Fail(t *testing.T) {
 		Value:    1,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -190,7 +191,7 @@ func Test_Eval_Equal_Const_int64_Pass(t *testing.T) {
 		Value:    int64(1),
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -204,7 +205,7 @@ func Test_Eval_Equal_Const_int64_Fail(t *testing.T) {
 		Value:    int64(2),
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -218,7 +219,7 @@ func Test_Eval_NoEqual_Const_int64_Pass(t *testing.T) {
 		Value:    int64(2),
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -232,7 +233,7 @@ func Test_Eval_NoEqual_Const_int64_Fail(t *testing.T) {
 		Value:    int64(1),
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -248,7 +249,7 @@ func Test_Eval_Equal_Const_float64_Pass(t *testing.T) {
 		Value:    1.5,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -262,7 +263,7 @@ func Test_Eval_Equal_Const_float64_Fail(t *testing.T) {
 		Value:    1.6,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -276,7 +277,7 @@ func Test_Eval_NoEqual_Const_float64_Pass(t *testing.T) {
 		Value:    1.6,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -290,7 +291,7 @@ func Test_Eval_NoEqual_Const_float64_Fail(t *testing.T) {
 		Value:    1.5,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -320,7 +321,7 @@ func Test_Eval_Equal_Const_object_Pass(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -348,7 +349,7 @@ func Test_Eval_Equal_Const_object_Fail(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -376,7 +377,7 @@ func Test_Eval_NotEqual_Const_object_Pass(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -404,7 +405,7 @@ func Test_Eval_NotEqual_Const_object_Fail(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -434,7 +435,7 @@ func Test_Eval_Equal_Const_list_Pass(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -460,7 +461,7 @@ func Test_Eval_Equal_Const_list_Fail(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -486,7 +487,7 @@ func Test_Eval_NotEqual_Const_list_Pass(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -512,7 +513,7 @@ func Test_Eval_NotEqual_Const_list_Fail(t *testing.T) {
 		Value:    obj2,
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }
@@ -545,7 +546,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		Value:    "temp",
 	}
 
-	if !Evaluate(ctx, condition) {
+	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
 	}
 }
@@ -576,7 +577,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		Value:    "temp1",
 	}
 
-	if Evaluate(ctx, condition) {
+	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
 }

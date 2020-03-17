@@ -19,8 +19,8 @@ func (wrc *WebhookRegistrationClient) constructVerifyMutatingWebhookConfig(caDat
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.Webhook{
-			generateWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				config.VerifyMutatingWebhookServicePath,
 				caData,
@@ -42,8 +42,8 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.Webhook{
-			generateDebugWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateDebugMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				url,
 				caData,

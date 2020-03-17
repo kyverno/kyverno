@@ -6,6 +6,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/log"
 )
 
 //ContainsUserInfo returns error is userInfo is defined
@@ -35,23 +36,23 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 		filterVars := []string{"request.userInfo*", "serviceAccountName", "serviceAccountNamespace"}
 		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
-			if condition.Key, err = variables.SubstituteVars(ctx, condition.Key); err != nil {
+			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); err != nil {
 				return fmt.Errorf("userInfo variable used at spec/rules[%d]/condition[%d]/key", idx, condIdx)
 			}
 
-			if condition.Value, err = variables.SubstituteVars(ctx, condition.Value); err != nil {
+			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); err != nil {
 				return fmt.Errorf("userInfo variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
 			}
 		}
 
-		if rule.Mutation.Overlay, err = variables.SubstituteVars(ctx, rule.Mutation.Overlay); err != nil {
+		if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.Overlay); err != nil {
 			return fmt.Errorf("userInfo variable used at spec/rules[%d]/mutate/overlay", idx)
 		}
-		if rule.Validation.Pattern, err = variables.SubstituteVars(ctx, rule.Validation.Pattern); err != nil {
+		if rule.Validation.Pattern, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Pattern); err != nil {
 			return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/pattern", idx)
 		}
 		for idx2, pattern := range rule.Validation.AnyPattern {
-			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(ctx, pattern); err != nil {
+			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); err != nil {
 				return fmt.Errorf("userInfo variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
 			}
 		}

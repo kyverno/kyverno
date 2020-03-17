@@ -61,10 +61,43 @@ func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
 	}
 }
 
-func generateDebugWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
+// func generateDebugWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
+// 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
+// 	failurePolicy := admregapi.Ignore
+// 	return admregapi.Webhook{
+// 		Name: name,
+// 		ClientConfig: admregapi.WebhookClientConfig{
+// 			URL:      &url,
+// 			CABundle: caData,
+// 		},
+// 		SideEffects: &sideEffect,
+// 		Rules: []admregapi.RuleWithOperations{
+// 			admregapi.RuleWithOperations{
+// 				Operations: operationTypes,
+// 				Rule: admregapi.Rule{
+// 					APIGroups: []string{
+// 						apiGroups,
+// 					},
+// 					APIVersions: []string{
+// 						apiVersions,
+// 					},
+// 					Resources: []string{
+// 						resource,
+// 					},
+// 				},
+// 			},
+// 		},
+// 		AdmissionReviewVersions: []string{"v1beta1"},
+// 		TimeoutSeconds:          &timeoutSeconds,
+// 		FailurePolicy:           &failurePolicy,
+// 	}
+// }
+
+// debug mutating webhook
+func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
-	return admregapi.Webhook{
+	return admregapi.MutatingWebhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			URL:      &url,
@@ -93,10 +126,116 @@ func generateDebugWebhook(name, url string, caData []byte, validate bool, timeou
 	}
 }
 
-func generateWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
+func generateDebugValidatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
-	return admregapi.Webhook{
+	return admregapi.ValidatingWebhook{
+		Name: name,
+		ClientConfig: admregapi.WebhookClientConfig{
+			URL:      &url,
+			CABundle: caData,
+		},
+		SideEffects: &sideEffect,
+		Rules: []admregapi.RuleWithOperations{
+			admregapi.RuleWithOperations{
+				Operations: operationTypes,
+				Rule: admregapi.Rule{
+					APIGroups: []string{
+						apiGroups,
+					},
+					APIVersions: []string{
+						apiVersions,
+					},
+					Resources: []string{
+						resource,
+					},
+				},
+			},
+		},
+		AdmissionReviewVersions: []string{"v1beta1"},
+		TimeoutSeconds:          &timeoutSeconds,
+		FailurePolicy:           &failurePolicy,
+	}
+}
+
+// func generateWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
+// 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
+// 	failurePolicy := admregapi.Ignore
+// 	return admregapi.Webhook{
+// 		Name: name,
+// 		ClientConfig: admregapi.WebhookClientConfig{
+// 			Service: &admregapi.ServiceReference{
+// 				Namespace: config.KubePolicyNamespace,
+// 				Name:      config.WebhookServiceName,
+// 				Path:      &servicePath,
+// 			},
+// 			CABundle: caData,
+// 		},
+// 		SideEffects: &sideEffect,
+// 		Rules: []admregapi.RuleWithOperations{
+// 			admregapi.RuleWithOperations{
+// 				Operations: operationTypes,
+// 				Rule: admregapi.Rule{
+// 					APIGroups: []string{
+// 						apiGroups,
+// 					},
+// 					APIVersions: []string{
+// 						apiVersions,
+// 					},
+// 					Resources: []string{
+// 						resource,
+// 					},
+// 				},
+// 			},
+// 		},
+// 		AdmissionReviewVersions: []string{"v1beta1"},
+// 		TimeoutSeconds:          &timeoutSeconds,
+// 		FailurePolicy:           &failurePolicy,
+// 	}
+// }
+
+// mutating webhook
+func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
+	sideEffect := admregapi.SideEffectClassNoneOnDryRun
+	failurePolicy := admregapi.Ignore
+	return admregapi.MutatingWebhook{
+		Name: name,
+		ClientConfig: admregapi.WebhookClientConfig{
+			Service: &admregapi.ServiceReference{
+				Namespace: config.KubePolicyNamespace,
+				Name:      config.WebhookServiceName,
+				Path:      &servicePath,
+			},
+			CABundle: caData,
+		},
+		SideEffects: &sideEffect,
+		Rules: []admregapi.RuleWithOperations{
+			admregapi.RuleWithOperations{
+				Operations: operationTypes,
+				Rule: admregapi.Rule{
+					APIGroups: []string{
+						apiGroups,
+					},
+					APIVersions: []string{
+						apiVersions,
+					},
+					Resources: []string{
+						resource,
+					},
+				},
+			},
+		},
+		AdmissionReviewVersions: []string{"v1beta1"},
+		TimeoutSeconds:          &timeoutSeconds,
+		FailurePolicy:           &failurePolicy,
+	}
+}
+
+// validating webhook
+func generateValidatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
+	sideEffect := admregapi.SideEffectClassNoneOnDryRun
+	failurePolicy := admregapi.Ignore
+	return admregapi.ValidatingWebhook{
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{

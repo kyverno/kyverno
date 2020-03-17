@@ -2,9 +2,11 @@ package webhookconfig
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -27,6 +29,7 @@ type WebhookRegistrationClient struct {
 	// serverIP should be used if running Kyverno out of clutser
 	serverIP       string
 	timeoutSeconds int32
+	log            logr.Logger
 }
 
 // NewWebhookRegistrationClient creates new WebhookRegistrationClient instance
@@ -34,19 +37,22 @@ func NewWebhookRegistrationClient(
 	clientConfig *rest.Config,
 	client *client.Client,
 	serverIP string,
-	webhookTimeout int32) *WebhookRegistrationClient {
+	webhookTimeout int32,
+	log logr.Logger) *WebhookRegistrationClient {
 	return &WebhookRegistrationClient{
 		clientConfig:   clientConfig,
 		client:         client,
 		serverIP:       serverIP,
 		timeoutSeconds: webhookTimeout,
+		log:            log.WithName("WebhookRegistrationClient"),
 	}
 }
 
 // Register creates admission webhooks configs on cluster
 func (wrc *WebhookRegistrationClient) Register() error {
+	logger := wrc.log.WithName("Register")
 	if wrc.serverIP != "" {
-		glog.Infof("Registering webhook with url https://%s\n", wrc.serverIP)
+		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
 
 	// For the case if cluster already has this configs
@@ -88,6 +94,7 @@ func (wrc *WebhookRegistrationClient) RemoveWebhookConfigurations(cleanUp chan<-
 // used to forward request to kyverno webhooks to apply policeis
 // Mutationg webhook is be used for Mutating purpose
 func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration() error {
+	logger := wrc.log
 	var caData []byte
 	var config *admregapi.MutatingWebhookConfiguration
 
@@ -108,16 +115,17 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 	}
 	_, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
-		glog.V(4).Infof("resource mutating webhook configuration %s, already exists. not creating one", config.Name)
+		logger.V(4).Info("resource mutating webhook configuration already exists. not creating one", "name", config.Name)
 		return nil
 	}
 	if err != nil {
-		glog.V(4).Infof("failed to create resource mutating webhook configuration %s: %v", config.Name, err)
+		logger.Error(err, "failed to create resource mutating webhook configuration", "name", config.Name)
 		return err
 	}
 	return nil
 }
 
+//CreateResourceValidatingWebhookConfiguration ...
 func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfiguration() error {
 	var caData []byte
 	var config *admregapi.ValidatingWebhookConfiguration
@@ -134,14 +142,15 @@ func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfigurati
 		// clientConfig - service
 		config = wrc.constructValidatingWebhookConfig(caData)
 	}
+	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", config.Name)
 
 	_, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
-		glog.V(4).Infof("resource validating webhook configuration %s, already exists. not creating one", config.Name)
+		logger.V(4).Info("resource already exists. not create one")
 		return nil
 	}
 	if err != nil {
-		glog.V(4).Infof("failed to create resource validating webhook configuration %s: %v", config.Name, err)
+		logger.Error(err, "failed to create resource")
 		return err
 	}
 	return nil
@@ -168,13 +177,13 @@ func (wrc *WebhookRegistrationClient) createPolicyValidatingWebhookConfiguration
 		// clientConfig - service
 		config = wrc.contructPolicyValidatingWebhookConfig(caData)
 	}
+	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", config.Name)
 
 	// create validating webhook configuration resource
 	if _, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
-
-	glog.V(4).Infof("created Validating Webhook Configuration %s ", config.Name)
+	logger.V(4).Info("created resource")
 	return nil
 }
 

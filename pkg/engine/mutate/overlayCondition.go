@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
+	"github.com/nirmata/kyverno/pkg/log"
 )
 
 func meetConditions(resource, overlay interface{}) (string, overlayError) {
@@ -139,7 +140,7 @@ func compareOverlay(resource, overlay interface{}, path string) (string, overlay
 			}
 		}
 	case string, float64, int, int64, bool, nil:
-		if !validate.ValidateValueWithPattern(resource, overlay) {
+		if !validate.ValidateValueWithPattern(log.Log, resource, overlay) {
 			glog.V(4).Infof("Mutate rule: failed validating value %v with overlay %v", resource, overlay)
 			return path, newOverlayError(conditionFailure, fmt.Sprintf("Failed validating value %v with overlay %v", resource, overlay))
 		}

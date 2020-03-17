@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,12 +17,14 @@ type CanIOptions struct {
 	verb      string
 	kind      string
 	client    *client.Client
+	log       logr.Logger
 }
 
 //NewCanI returns a new instance of operation access controler evaluator
-func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
+func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logger) *CanIOptions {
 	o := CanIOptions{
 		client: client,
+		log:    log,
 	}
 
 	o.namespace = namespace
@@ -64,11 +66,12 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// - verb
 	// - resource
 	// - subresource
+	logger := o.log.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
 	resp, err := o.client.CreateResource("SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
-		glog.Errorf("failed to create resource %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+		logger.Error(err, "failed to create resource")
 		return false, err
 	}
 
@@ -76,9 +79,9 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	allowed, ok, err := unstructured.NestedBool(resp.Object, "status", "allowed")
 	if !ok {
 		if err != nil {
-			glog.Errorf("unexpected error when getting status.allowed for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+			logger.Error(err, "failed to get the field", "field", "status.allowed")
 		}
-		glog.Errorf("status.allowed not found for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+		logger.Info("field not found", "field", "status.allowed")
 	}
 
 	if !allowed {
@@ -86,22 +89,21 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 		reason, ok, err := unstructured.NestedString(resp.Object, "status", "reason")
 		if !ok {
 			if err != nil {
-				glog.Errorf("unexpected error when getting status.reason for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+				logger.Error(err, "failed to get the field", "field", "status.reason")
 			}
-			glog.Errorf("status.reason not found for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+			logger.Info("field not found", "field", "status.reason")
 		}
 		// status.evaluationError
 		evaluationError, ok, err := unstructured.NestedString(resp.Object, "status", "evaludationError")
 		if !ok {
 			if err != nil {
-				glog.Errorf("unexpected error when getting status.evaluationError for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+				logger.Error(err, "failed to get the field", "field", "status.evaluationError")
 			}
-			glog.Errorf("status.evaluationError not found for %s/%s/%s", sar.Kind, sar.Namespace, sar.Name)
+			logger.Info("field not found", "field", "status.evaluationError")
 		}
 
 		// Reporting ? (just logs)
-		glog.Errorf("reason to disallow operation: %s", reason)
-		glog.Errorf("evaluationError to disallow operation: %s", evaluationError)
+		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
 	}
 
 	return allowed, nil

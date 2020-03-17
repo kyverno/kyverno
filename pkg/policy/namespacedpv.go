@@ -7,6 +7,7 @@ import (
 )
 
 func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
+	logger := pc.log
 	pv := obj.(*kyverno.PolicyViolation)
 
 	if pv.DeletionTimestamp != nil {
@@ -20,14 +21,15 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", pv.Name)
+		logger.V(4).Info("namepaced policy violation does not belong to any active policy, will be cleanedup", "namespacePolicyViolation", pv.Name)
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
-			glog.Errorf("Failed to deleted policy violation %s: %v", pv.Name, err)
+			logger.Error(err, "failed to delete namespaced policy violation", "namespacedPolicyViolation", pv.Name)
 			return
 		}
-		glog.V(4).Infof("PolicyViolation %s deleted", pv.Name)
+		logger.V(4).Info("resource delete", "namespacePOlicyViolation", pv.Name)
 		return
 	}
+
 	glog.V(4).Infof("Orphan Policy Violation %s added.", pv.Name)
 	for _, p := range ps {
 		pc.enqueuePolicy(p)

@@ -18,8 +18,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.Webhook{
-			generateWebhook(
+		Webhooks: []admregapi.ValidatingWebhook{
+			generateValidatingWebhook(
 				config.PolicyValidatingWebhookName,
 				config.PolicyValidatingWebhookServicePath,
 				caData,
@@ -42,8 +42,8 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyValidatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.Webhook{
-			generateDebugWebhook(
+		Webhooks: []admregapi.ValidatingWebhook{
+			generateDebugValidatingWebhook(
 				config.PolicyValidatingWebhookName,
 				url,
 				caData,
@@ -66,8 +66,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.Webhook{
-			generateWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateMutatingWebhook(
 				config.PolicyMutatingWebhookName,
 				config.PolicyMutatingWebhookServicePath,
 				caData,
@@ -89,8 +89,8 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(c
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.Webhook{
-			generateDebugWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateDebugMutatingWebhook(
 				config.PolicyMutatingWebhookName,
 				url,
 				caData,

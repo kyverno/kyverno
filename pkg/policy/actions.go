@@ -5,6 +5,7 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/log"
 	"github.com/nirmata/kyverno/pkg/policy/generate"
 	"github.com/nirmata/kyverno/pkg/policy/mutate"
 	"github.com/nirmata/kyverno/pkg/policy/validate"
@@ -40,7 +41,7 @@ func validateActions(idx int, rule kyverno.Rule, client *dclient.Client) error {
 
 	// Generate
 	if rule.HasGenerate() {
-		checker = generate.NewGenerateFactory(client, rule.Generation)
+		checker = generate.NewGenerateFactory(client, rule.Generation, log.Log)
 		if path, err := checker.Validate(); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 		}

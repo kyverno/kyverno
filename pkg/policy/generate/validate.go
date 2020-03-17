@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
@@ -18,13 +18,16 @@ type Generate struct {
 	rule kyverno.Generation
 	// authCheck to check access for operations
 	authCheck Operations
+	//logger
+	log logr.Logger
 }
 
 //NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation) *Generate {
+func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
-		authCheck: NewAuth(client),
+		authCheck: NewAuth(client, log),
+		log:       log,
 	}
 
 	return &g
@@ -92,7 +95,7 @@ func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, erro
 			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
 		}
 	} else {
-		glog.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 	return "", nil
 }
@@ -141,7 +144,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 		}
 
 	} else {
-		glog.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
+		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}
 
 	return nil

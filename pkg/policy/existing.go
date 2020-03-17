@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -19,27 +19,28 @@ import (
 )
 
 func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []response.EngineResponse {
+	logger := pc.log.WithValues("policy", policy.Name)
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
 	pc.rm.Drop()
 	var engineResponses []response.EngineResponse
 	// get resource that are satisfy the resource description defined in the rules
-	resourceMap := listResources(pc.client, policy, pc.configHandler)
+	resourceMap := listResources(pc.client, policy, pc.configHandler, logger)
 	for _, resource := range resourceMap {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
-			glog.V(4).Infof("policy %s with resource version %s already processed on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
+			logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 			continue
 		}
 
 		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
-		if skipPodApplication(resource) {
+		if skipPodApplication(resource, logger) {
 			continue
 		}
 
 		// apply the policy on each
-		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-		engineResponse := applyPolicy(policy, resource, pc.statusAggregator)
+		logger.V(4).Info("apply policy on resource", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+		engineResponse := applyPolicy(policy, resource, pc.statusAggregator, logger)
 		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
@@ -48,36 +49,26 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	return engineResponses
 }
 
-func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHandler config.Interface) map[string]unstructured.Unstructured {
+func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 
 	for _, rule := range policy.Spec.Rules {
 		// resources that match
 		for _, k := range rule.MatchResources.Kinds {
-			// if kindIsExcluded(k, rule.ExcludeResources.Kinds) {
-			// 	glog.V(4).Infof("processing policy %s rule %s: kind %s is exluded", policy.Name, rule.Name, k)
-			// 	continue
-			// }
 			var namespaces []string
-			if k == "Namespace" {
-				// TODO
-				// this is handled by generator controller
-				glog.V(4).Infof("skipping processing policy %s rule %s for kind Namespace", policy.Name, rule.Name)
-				continue
-			}
 			if len(rule.MatchResources.Namespaces) > 0 {
 				namespaces = append(namespaces, rule.MatchResources.Namespaces...)
-				glog.V(4).Infof("namespaces specified for inclusion: %v", rule.MatchResources.Namespaces)
+				log.V(4).Info("namespaces included", "namespaces", rule.MatchResources.Namespaces)
 			} else {
-				glog.V(4).Infof("processing policy %s rule %s, namespace not defined, getting all namespaces ", policy.Name, rule.Name)
+				log.V(4).Info("processing all namespaces", "rule", rule.Name)
 				// get all namespaces
-				namespaces = getAllNamespaces(client)
+				namespaces = getAllNamespaces(client, log)
 			}
 
 			// get resources in the namespaces
 			for _, ns := range namespaces {
-				rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler)
+				rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler, log)
 				mergeresources(resourceMap, rMap)
 			}
 
@@ -86,16 +77,16 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHa
 	return resourceMap
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface) map[string]unstructured.Unstructured {
+func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	// merge include and exclude label selector values
 	ls := rule.MatchResources.Selector
 	//	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
 	// list resources
-	glog.V(4).Infof("get resources for kind %s, namespace %s, selector %v", kind, namespace, rule.MatchResources.Selector)
+	log.V(4).Info("list resources to be processed")
 	list, err := client.ListResource(kind, namespace, ls)
 	if err != nil {
-		glog.Infof("unable to get resources: err %v", err)
+		log.Error(err, "failed to list resources", "kind", kind)
 		return nil
 	}
 	// filter based on name
@@ -103,7 +94,6 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		// match name
 		if rule.MatchResources.Name != "" {
 			if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
-				glog.V(4).Infof("skipping resource %s/%s due to include condition name=%s mistatch", r.GetNamespace(), r.GetName(), rule.MatchResources.Name)
 				continue
 			}
 		}
@@ -118,12 +108,11 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 
 	// exclude the resources
 	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, configHandler)
-	//	glog.V(4).Infof("resource map: %v", resourceMap)
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, configHandler, log)
 	return resourceMap
 }
 
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface, log logr.Logger) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return
 	}
@@ -154,7 +143,7 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		selector, err := metav1.LabelSelectorAsSelector(exclude.Selector)
 		// if the label selector is incorrect, should be fail or
 		if err != nil {
-			glog.Error(err)
+			log.Error(err, "failed to build label selector")
 			return Skip
 		}
 		if selector.Matches(labels.Set(labelsMap)) {
@@ -205,8 +194,6 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		}
 		// exclude the filtered resources
 		if configHandler.ToFilter(resource.GetKind(), resource.GetNamespace(), resource.GetName()) {
-			//TODO: improve the text
-			glog.V(4).Infof("excluding resource %s/%s/%s as its satisfies the filtered resources", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			delete(included, uid)
 			continue
 		}
@@ -244,12 +231,13 @@ func mergeresources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-func getAllNamespaces(client *client.Client) []string {
+func getAllNamespaces(client *client.Client, log logr.Logger) []string {
+
 	var namespaces []string
 	// get all namespaces
 	nsList, err := client.ListResource("Namespace", "", nil)
 	if err != nil {
-		glog.Error(err)
+		log.Error(err, "failed to list namespaces")
 		return namespaces
 	}
 	for _, ns := range nsList.Items {
@@ -291,14 +279,11 @@ type resourceManager interface {
 //TODO: or drop based on the size
 func (rm *ResourceManager) Drop() {
 	timeSince := time.Since(rm.time)
-	glog.V(4).Infof("time since last cache reset time %v is %v", rm.time, timeSince)
-	glog.V(4).Infof("cache rebuild time %v", time.Duration(rm.rebuildTime)*time.Second)
 	if timeSince > time.Duration(rm.rebuildTime)*time.Second {
 		rm.mux.Lock()
 		defer rm.mux.Unlock()
 		rm.data = map[string]interface{}{}
 		rm.time = time.Now()
-		glog.V(4).Infof("dropping cache at time %v", rm.time)
 	}
 }
 
@@ -327,14 +312,14 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func skipPodApplication(resource unstructured.Unstructured) bool {
+func skipPodApplication(resource unstructured.Unstructured, log logr.Logger) bool {
 	if resource.GetKind() != "Pod" {
 		return false
 	}
 
 	annotation := resource.GetAnnotations()
 	if _, ok := annotation[engine.PodTemplateAnnotation]; ok {
-		glog.V(4).Infof("Policies already processed on pod controllers, skip processing policy on Pod/%s/%s", resource.GetNamespace(), resource.GetName())
+		log.V(4).Info("Policies already processed on pod controllers, skip processing policy on Pod", "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 		return true
 	}
 

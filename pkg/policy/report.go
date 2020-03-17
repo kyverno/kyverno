@@ -13,29 +13,17 @@ import (
 // - has violation -> report
 // - no violation -> cleanup policy violations
 func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineResponse) {
+	logger := pc.log
 	// generate Events
 	eventInfos := generateEvents(engineResponses)
 	pc.eventGen.Add(eventInfos...)
 	// create policy violation
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	pc.pvGenerator.Add(pvInfos...)
 	// cleanup existing violations if any
 	// if there is any error in clean up, we dont re-queue the resource
 	// it will be re-tried in the next controller cache resync
 	pc.cleanUp(engineResponses)
-}
-
-func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
-	for _, er := range ers {
-		if !er.IsSuccesful() {
-			continue
-		}
-		if len(er.PolicyResponse.Rules) == 0 {
-			continue
-		}
-		// clean up after the policy has been corrected
-		pc.cleanUpPolicyViolation(er.PolicyResponse)
-	}
 }
 
 func generateEvents(ers []response.EngineResponse) []event.Info {

@@ -2,8 +2,9 @@ package config
 
 import (
 	"flag"
+	"os"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -74,29 +75,34 @@ var (
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 )
 
-//LogDefaultFlags sets default glog flags
-func LogDefaultFlags() {
+//LogDefaultFlags sets default flags
+func LogDefaultFlags(log logr.Logger) {
+	logger := log.WithName("LogDefaultFlags")
 	var err error
 	err = flag.Set("logtostderr", "true")
 	if err != nil {
-		glog.Fatalf("failed to set flag 'logtostderr' to 'true':%v", err)
+		logger.Error(err, "failed to set flag", "flag", "logtostderr", "value", "true")
+		os.Exit(1)
 	}
 	err = flag.Set("stderrthreshold", "WARNING")
 	if err != nil {
-		glog.Fatalf("failed to set flag 'stderrthreshold' to 'WARNING':%v", err)
+		logger.Error(err, "failed to set flag", "flag", "stderrthreshold", "value", "WARNING")
+		os.Exit(1)
 	}
 	flag.Set("v", "2")
 	if err != nil {
-		glog.Fatalf("failed to set flag 'v' to '2':%v", err)
+		logger.Error(err, "failed to set flag", "flag", "v", "value", "2")
+		os.Exit(1)
 	}
 }
 
 //CreateClientConfig creates client config
-func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
+func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
+	logger := log.WithName("CreateClientConfig")
 	if kubeconfig == "" {
-		glog.Info("Using in-cluster configuration")
+		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	glog.V(4).Infof("Using configuration from '%s'", kubeconfig)
+	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

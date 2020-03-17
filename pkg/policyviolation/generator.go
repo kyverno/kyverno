@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
@@ -40,6 +40,7 @@ type Generator struct {
 	nspvSynced cache.InformerSynced
 	queue      workqueue.RateLimitingInterface
 	dataStore  *dataStore
+	log        logr.Logger
 }
 
 //NewDataStore returns an instance of data store
@@ -103,7 +104,8 @@ type GeneratorInterface interface {
 func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.PolicyViolationInformer) *Generator {
+	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	log logr.Logger) *Generator {
 	gen := Generator{
 		kyvernoInterface: client.KyvernoV1(),
 		dclient:          dclient,
@@ -113,6 +115,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		nspvSynced:       nspvInformer.Informer().HasSynced,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:        newDataStore(),
+		log:              log,
 	}
 	return &gen
 }
@@ -130,18 +133,18 @@ func (gen *Generator) enqueue(info Info) {
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
 		gen.enqueue(info)
-		glog.V(3).Infof("Added policy violation: %s", info.toKey())
 	}
 }
 
 // Run starts the workers
 func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
+	logger := gen.log
 	defer utilruntime.HandleCrash()
-	glog.Info("Start policy violation generator")
-	defer glog.Info("Shutting down policy violation generator")
+	logger.Info("start")
+	defer logger.Info("shutting down")
 
 	if !cache.WaitForCacheSync(stopCh, gen.pvSynced, gen.nspvSynced) {
-		glog.Error("policy violation generator: failed to sync informer cache")
+		logger.Info("failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
@@ -156,6 +159,7 @@ func (gen *Generator) runWorker() {
 }
 
 func (gen *Generator) handleErr(err error, key interface{}) {
+	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
 		return
@@ -163,23 +167,22 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		glog.V(4).Infof("Error syncing policy violation %v: %v", key, err)
+		logger.Error(err, "failed to sync policy violation", "key", key)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
 		return
 	}
 	gen.queue.Forget(key)
-	glog.Error(err)
 	// remove from data store
 	if keyHash, ok := key.(string); ok {
 		gen.dataStore.delete(keyHash)
 	}
-
-	glog.Warningf("Dropping the key out of the queue: %v", err)
+	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
 func (gen *Generator) processNextWorkitem() bool {
+	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
@@ -191,7 +194,7 @@ func (gen *Generator) processNextWorkitem() bool {
 		var ok bool
 		if keyHash, ok = obj.(string); !ok {
 			gen.queue.Forget(obj)
-			glog.Warningf("Expecting type string but got %v\n", obj)
+			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
 			return nil
 		}
 		// lookup data store
@@ -199,7 +202,7 @@ func (gen *Generator) processNextWorkitem() bool {
 		if reflect.DeepEqual(info, Info{}) {
 			// empty key
 			gen.queue.Forget(obj)
-			glog.Warningf("Got empty key %v\n", obj)
+			logger.Info("empty key")
 			return nil
 		}
 		err := gen.syncHandler(info)
@@ -207,14 +210,14 @@ func (gen *Generator) processNextWorkitem() bool {
 		return nil
 	}(obj)
 	if err != nil {
-		glog.Error(err)
+		logger.Error(err, "failed to process item")
 		return true
 	}
 	return true
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	glog.V(4).Infof("received info:%v", info)
+	logger := gen.log
 	var handler pvGenerator
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
@@ -229,12 +232,12 @@ func (gen *Generator) syncHandler(info Info) error {
 	pv := builder.generate(info)
 
 	// Create Policy Violations
-	glog.V(3).Infof("Creating policy violation: %s", info.toKey())
+	logger.V(4).Info("creating policy violation", "key", info.toKey())
 	if err := handler.create(pv); err != nil {
 		failure = true
-		glog.V(3).Infof("Failed to create policy violation: %v", err)
+		logger.Error(err, "failed to create policy violation")
 	} else {
-		glog.V(3).Infof("Policy violation created: %s", info.toKey())
+		logger.Info("created policy violation", "key", info.toKey())
 	}
 
 	if failure {

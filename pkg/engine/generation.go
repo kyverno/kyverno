@@ -1,11 +1,12 @@
 package engine
 
 import (
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -18,23 +19,23 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	resource := policyContext.NewResource
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.Context
-	return filterRules(policy, resource, admissionInfo, ctx)
+	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	return filterRules(policy, resource, admissionInfo, ctx, logger)
 }
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
 	if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-		glog.V(4).Infof(err.Error())
 		return nil
 	}
 	// operate on the copy of the conditions, as we perform variable substitution
 	copyConditions := copyConditions(rule.Conditions)
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(ctx, copyConditions) {
-		glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+	if !variables.EvaluateConditions(log, ctx, copyConditions) {
+		log.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
 		return nil
 	}
 	// build rule Response
@@ -44,7 +45,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 }
 
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface) response.EngineResponse {
+func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger) response.EngineResponse {
 	resp := response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policy.Name,
@@ -57,7 +58,7 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		if ruleResp := filterRule(rule, resource, admissionInfo, ctx); ruleResp != nil {
+		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

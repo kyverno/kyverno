@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/nirmata/kyverno/pkg/log"
 	"gotest.tools/assert"
 )
 
 func TestValidateValueWithPattern_Bool(t *testing.T) {
-	assert.Assert(t, ValidateValueWithPattern(true, true))
-	assert.Assert(t, !ValidateValueWithPattern(true, false))
-	assert.Assert(t, !ValidateValueWithPattern(false, true))
-	assert.Assert(t, ValidateValueWithPattern(false, false))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, true, true))
+	assert.Assert(t, !ValidateValueWithPattern(log.Log, true, false))
+	assert.Assert(t, !ValidateValueWithPattern(log.Log, false, true))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, false, false))
 }
 
 func TestValidateString_AsteriskTest(t *testing.T) {
@@ -20,8 +21,8 @@ func TestValidateString_AsteriskTest(t *testing.T) {
 	value := "anything"
 	empty := ""
 
-	assert.Assert(t, validateString(value, pattern, operator.Equal))
-	assert.Assert(t, validateString(empty, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, value, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, empty, pattern, operator.Equal))
 }
 
 func TestValidateString_LeftAsteriskTest(t *testing.T) {
@@ -29,32 +30,32 @@ func TestValidateString_LeftAsteriskTest(t *testing.T) {
 	value := "leftright"
 	right := "right"
 
-	assert.Assert(t, validateString(value, pattern, operator.Equal))
-	assert.Assert(t, validateString(right, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, value, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, right, pattern, operator.Equal))
 
 	value = "leftmiddle"
 	middle := "middle"
 
-	assert.Assert(t, !validateString(value, pattern, operator.Equal))
-	assert.Assert(t, !validateString(middle, pattern, operator.Equal))
+	assert.Assert(t, !validateString(log.Log, value, pattern, operator.Equal))
+	assert.Assert(t, !validateString(log.Log, middle, pattern, operator.Equal))
 }
 
 func TestValidateString_MiddleAsteriskTest(t *testing.T) {
 	pattern := "ab*ba"
 	value := "abbeba"
-	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, value, pattern, operator.Equal))
 
 	value = "abbca"
-	assert.Assert(t, !validateString(value, pattern, operator.Equal))
+	assert.Assert(t, !validateString(log.Log, value, pattern, operator.Equal))
 }
 
 func TestValidateString_QuestionMark(t *testing.T) {
 	pattern := "ab?ba"
 	value := "abbba"
-	assert.Assert(t, validateString(value, pattern, operator.Equal))
+	assert.Assert(t, validateString(log.Log, value, pattern, operator.Equal))
 
 	value = "abbbba"
-	assert.Assert(t, !validateString(value, pattern, operator.Equal))
+	assert.Assert(t, !validateString(log.Log, value, pattern, operator.Equal))
 }
 
 func TestValidateValueWithPattern_BoolInJson(t *testing.T) {
@@ -76,7 +77,7 @@ func TestValidateValueWithPattern_BoolInJson(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_NullPatternStringValue(t *testing.T) {
@@ -98,7 +99,7 @@ func TestValidateValueWithPattern_NullPatternStringValue(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, !ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, !ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_NullPatternDefaultString(t *testing.T) {
@@ -120,7 +121,7 @@ func TestValidateValueWithPattern_NullPatternDefaultString(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_NullPatternDefaultFloat(t *testing.T) {
@@ -142,7 +143,7 @@ func TestValidateValueWithPattern_NullPatternDefaultFloat(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_NullPatternDefaultInt(t *testing.T) {
@@ -164,7 +165,7 @@ func TestValidateValueWithPattern_NullPatternDefaultInt(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_NullPatternDefaultBool(t *testing.T) {
@@ -186,77 +187,77 @@ func TestValidateValueWithPattern_NullPatternDefaultBool(t *testing.T) {
 	err = json.Unmarshal(rawValue, &value)
 	assert.Assert(t, err)
 
-	assert.Assert(t, ValidateValueWithPattern(value["key"], pattern["key"]))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value["key"], pattern["key"]))
 }
 
 func TestValidateValueWithPattern_StringsLogicalOr(t *testing.T) {
 	pattern := "192.168.88.1 | 10.100.11.*"
 	value := "10.100.11.54"
-	assert.Assert(t, ValidateValueWithPattern(value, pattern))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value, pattern))
 }
 
 func TestValidateValueWithPattern_EqualTwoFloats(t *testing.T) {
-	assert.Assert(t, ValidateValueWithPattern(7.0, 7.000))
+	assert.Assert(t, ValidateValueWithPattern(log.Log, 7.0, 7.000))
 }
 
 func TestValidateValueWithNilPattern_NullPatternStringValue(t *testing.T) {
-	assert.Assert(t, !validateValueWithNilPattern("value"))
+	assert.Assert(t, !validateValueWithNilPattern(log.Log, "value"))
 }
 
 func TestValidateValueWithNilPattern_NullPatternDefaultString(t *testing.T) {
-	assert.Assert(t, validateValueWithNilPattern(""))
+	assert.Assert(t, validateValueWithNilPattern(log.Log, ""))
 }
 
 func TestValidateValueWithNilPattern_NullPatternDefaultFloat(t *testing.T) {
-	assert.Assert(t, validateValueWithNilPattern(0.0))
+	assert.Assert(t, validateValueWithNilPattern(log.Log, 0.0))
 }
 
 func TestValidateValueWithNilPattern_NullPatternFloat(t *testing.T) {
-	assert.Assert(t, !validateValueWithNilPattern(0.1))
+	assert.Assert(t, !validateValueWithNilPattern(log.Log, 0.1))
 }
 
 func TestValidateValueWithNilPattern_NullPatternDefaultInt(t *testing.T) {
-	assert.Assert(t, validateValueWithNilPattern(0))
+	assert.Assert(t, validateValueWithNilPattern(log.Log, 0))
 }
 
 func TestValidateValueWithNilPattern_NullPatternInt(t *testing.T) {
-	assert.Assert(t, !validateValueWithNilPattern(1))
+	assert.Assert(t, !validateValueWithNilPattern(log.Log, 1))
 }
 
 func TestValidateValueWithNilPattern_NullPatternDefaultBool(t *testing.T) {
-	assert.Assert(t, validateValueWithNilPattern(false))
+	assert.Assert(t, validateValueWithNilPattern(log.Log, false))
 }
 
 func TestValidateValueWithNilPattern_NullPatternTrueBool(t *testing.T) {
-	assert.Assert(t, !validateValueWithNilPattern(true))
+	assert.Assert(t, !validateValueWithNilPattern(log.Log, true))
 }
 
 func TestValidateValueWithFloatPattern_FloatValue(t *testing.T) {
-	assert.Assert(t, validateValueWithFloatPattern(7.9914, 7.9914))
+	assert.Assert(t, validateValueWithFloatPattern(log.Log, 7.9914, 7.9914))
 }
 
 func TestValidateValueWithFloatPattern_FloatValueNotPass(t *testing.T) {
-	assert.Assert(t, !validateValueWithFloatPattern(7.9914, 7.99141))
+	assert.Assert(t, !validateValueWithFloatPattern(log.Log, 7.9914, 7.99141))
 }
 
 func TestValidateValueWithFloatPattern_FloatPatternWithoutFractionIntValue(t *testing.T) {
-	assert.Assert(t, validateValueWithFloatPattern(7, 7.000000))
+	assert.Assert(t, validateValueWithFloatPattern(log.Log, 7, 7.000000))
 }
 
 func TestValidateValueWithFloatPattern_FloatPatternWithoutFraction(t *testing.T) {
-	assert.Assert(t, validateValueWithFloatPattern(7.000000, 7.000000))
+	assert.Assert(t, validateValueWithFloatPattern(log.Log, 7.000000, 7.000000))
 }
 
 func TestValidateValueWithIntPattern_FloatValueWithoutFraction(t *testing.T) {
-	assert.Assert(t, validateValueWithFloatPattern(7.000000, 7))
+	assert.Assert(t, validateValueWithFloatPattern(log.Log, 7.000000, 7))
 }
 
 func TestValidateValueWithIntPattern_FloatValueWitFraction(t *testing.T) {
-	assert.Assert(t, !validateValueWithFloatPattern(7.000001, 7))
+	assert.Assert(t, !validateValueWithFloatPattern(log.Log, 7.000001, 7))
 }
 
 func TestValidateValueWithIntPattern_NotPass(t *testing.T) {
-	assert.Assert(t, !validateValueWithFloatPattern(8, 7))
+	assert.Assert(t, !validateValueWithFloatPattern(log.Log, 8, 7))
 }
 
 func TestGetNumberAndStringPartsFromPattern_NumberAndString(t *testing.T) {
@@ -290,35 +291,35 @@ func TestGetNumberAndStringPartsFromPattern_Empty(t *testing.T) {
 }
 
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr(7.00001, "7.000001", operator.More))
-	assert.Assert(t, validateNumberWithStr(7.00001, "7", operator.NotEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7.000001", operator.More))
+	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7", operator.NotEqual))
 
-	assert.Assert(t, validateNumberWithStr(7.0000, "7", operator.Equal))
-	assert.Assert(t, !validateNumberWithStr(6.000000001, "6", operator.Less))
+	assert.Assert(t, validateNumberWithStr(log.Log, 7.0000, "7", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr(log.Log, 6.000000001, "6", operator.Less))
 }
 
 func TestValidateQuantity_InvalidQuantity(t *testing.T) {
-	assert.Assert(t, !validateNumberWithStr("1024Gi", "", operator.Equal))
-	assert.Assert(t, !validateNumberWithStr("gii", "1024Gi", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr(log.Log, "1024Gi", "", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr(log.Log, "gii", "1024Gi", operator.Equal))
 }
 
 func TestValidateQuantity_Equal(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr("1024Gi", "1024Gi", operator.Equal))
-	assert.Assert(t, validateNumberWithStr("1024Mi", "1Gi", operator.Equal))
-	assert.Assert(t, validateNumberWithStr("0.2", "200m", operator.Equal))
-	assert.Assert(t, validateNumberWithStr("500", "500", operator.Equal))
-	assert.Assert(t, !validateNumberWithStr("2048", "1024", operator.Equal))
-	assert.Assert(t, validateNumberWithStr(1024, "1024", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(log.Log, "1024Gi", "1024Gi", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(log.Log, "1024Mi", "1Gi", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(log.Log, "0.2", "200m", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(log.Log, "500", "500", operator.Equal))
+	assert.Assert(t, !validateNumberWithStr(log.Log, "2048", "1024", operator.Equal))
+	assert.Assert(t, validateNumberWithStr(log.Log, 1024, "1024", operator.Equal))
 }
 
 func TestValidateQuantity_Operation(t *testing.T) {
-	assert.Assert(t, validateNumberWithStr("1Gi", "1000Mi", operator.More))
-	assert.Assert(t, validateNumberWithStr("1G", "1Gi", operator.Less))
-	assert.Assert(t, validateNumberWithStr("500m", "0.5", operator.MoreEqual))
-	assert.Assert(t, validateNumberWithStr("1", "500m", operator.MoreEqual))
-	assert.Assert(t, validateNumberWithStr("0.5", ".5", operator.LessEqual))
-	assert.Assert(t, validateNumberWithStr("0.2", ".5", operator.LessEqual))
-	assert.Assert(t, validateNumberWithStr("0.2", ".5", operator.NotEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, "1Gi", "1000Mi", operator.More))
+	assert.Assert(t, validateNumberWithStr(log.Log, "1G", "1Gi", operator.Less))
+	assert.Assert(t, validateNumberWithStr(log.Log, "500m", "0.5", operator.MoreEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, "1", "500m", operator.MoreEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, "0.5", ".5", operator.LessEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, "0.2", ".5", operator.LessEqual))
+	assert.Assert(t, validateNumberWithStr(log.Log, "0.2", ".5", operator.NotEqual))
 }
 
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
