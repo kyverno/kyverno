@@ -3,7 +3,7 @@ package policy
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -15,7 +15,7 @@ import (
 func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineResponse) {
 	logger := pc.log
 	// generate Events
-	eventInfos := generateEvents(engineResponses)
+	eventInfos := generateEvents(pc.log, engineResponses)
 	pc.eventGen.Add(eventInfos...)
 	// create policy violation
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
@@ -26,26 +26,27 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 	pc.cleanUp(engineResponses)
 }
 
-func generateEvents(ers []response.EngineResponse) []event.Info {
+func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	for _, er := range ers {
 		if er.IsSuccesful() {
 			continue
 		}
-		eventInfos = append(eventInfos, generateEventsPerEr(er)...)
+		eventInfos = append(eventInfos, generateEventsPerEr(log, er)...)
 	}
 	return eventInfos
 }
 
-func generateEventsPerEr(er response.EngineResponse) []event.Info {
+func generateEventsPerEr(log logr.Logger, er response.EngineResponse) []event.Info {
+	logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
 	var eventInfos []event.Info
-	glog.V(4).Infof("reporting results for policy '%s' application on resource '%s/%s/%s'", er.PolicyResponse.Policy, er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+	logger.V(4).Info("reporting results for policy")
 	for _, rule := range er.PolicyResponse.Rules {
 		if rule.Success {
 			continue
 		}
 		// generate event on resource for each failed rule
-		glog.V(4).Infof("generation event on resource '%s/%s/%s' for policy '%s'", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name, er.PolicyResponse.Policy)
+		logger.V(4).Info("generating event on resource")
 		e := event.Info{}
 		e.Kind = er.PolicyResponse.Resource.Kind
 		e.Namespace = er.PolicyResponse.Resource.Namespace
@@ -60,7 +61,7 @@ func generateEventsPerEr(er response.EngineResponse) []event.Info {
 	}
 
 	// generate a event on policy for all failed rules
-	glog.V(4).Infof("generation event on policy '%s'", er.PolicyResponse.Policy)
+	logger.V(4).Info("generating event on policy")
 	e := event.Info{}
 	e.Kind = "ClusterPolicy"
 	e.Namespace = ""

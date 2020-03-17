@@ -3,8 +3,8 @@ package generate
 import (
 	"fmt"
 
-	"github.com/nirmata/kyverno/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func manageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured) {

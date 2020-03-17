@@ -6,7 +6,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //ContainsUserInfo returns error is userInfo is defined

@@ -3,7 +3,6 @@ package webhookconfig
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,8 +34,9 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 }
 
 func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
-	glog.V(4).Infof("Debug PolicyValidatingWebhookConfig is registered with url %s\n", url)
+	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
@@ -82,8 +82,9 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 	}
 }
 func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
-	glog.V(4).Infof("Debug PolicyMutatingWebhookConfig is registered with url %s\n", url)
+	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)
 
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{

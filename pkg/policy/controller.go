@@ -148,7 +148,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 
 	// aggregator
 	// pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient, pInformer)
-	pc.statusAggregator = NewPolicyStatAggregator(kyvernoClient)
+	pc.statusAggregator = NewPolicyStatAggregator(pc.log, kyvernoClient)
 
 	return &pc, nil
 }

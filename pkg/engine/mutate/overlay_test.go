@@ -8,6 +8,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func compareJSONAsMap(t *testing.T, expected, actual []byte) {
@@ -66,7 +67,7 @@ func TestProcessOverlayPatches_NestedListWithAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
@@ -166,7 +167,7 @@ func TestProcessOverlayPatches_InsertIntoArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
@@ -287,7 +288,7 @@ func TestProcessOverlayPatches_TestInsertToArray(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, patches != nil)
 
@@ -370,7 +371,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -458,7 +459,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err = processOverlayPatches(resource, overlay)
+	patches, err = processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -494,7 +495,7 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err = processOverlayPatches(resource, overlay)
+	patches, err = processOverlayPatches(log.Log, resource, overlay)
 	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /spec/template/metadata/labels/app/, [overlayError:0] Failed validating value nginx with overlay nginx1")
 	assert.Assert(t, len(patches) == 0)
 }
@@ -523,7 +524,7 @@ func TestProcessOverlayPatches_AddingAnchor(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -608,7 +609,7 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -686,7 +687,7 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err = processOverlayPatches(resource, overlay)
+	patches, err = processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -750,7 +751,7 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -807,7 +808,7 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, err = processOverlayPatches(resource, overlay)
+	patches, err = processOverlayPatches(log.Log, resource, overlay)
 	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /subsets/0/ports/0/port/, [overlayError:0] Failed validating value 443 with overlay 444")
 	assert.Assert(t, len(patches) == 0)
 }
@@ -889,7 +890,7 @@ func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 
@@ -1000,7 +1001,7 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 	json.Unmarshal(resourceRaw, &resource)
 	json.Unmarshal(overlayRaw, &overlay)
 
-	patches, overlayerr := processOverlayPatches(resource, overlay)
+	patches, overlayerr := processOverlayPatches(log.Log, resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
 	assert.Assert(t, len(patches) != 0)
 

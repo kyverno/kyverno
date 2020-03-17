@@ -5,10 +5,10 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/log"
 	"github.com/nirmata/kyverno/pkg/policy/generate"
 	"github.com/nirmata/kyverno/pkg/policy/mutate"
 	"github.com/nirmata/kyverno/pkg/policy/validate"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Validation provides methods to validate a rule

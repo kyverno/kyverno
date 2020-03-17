@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -101,7 +101,7 @@ func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	subjectServiceAccount := subject.Namespace + ":" + subject.Name
 	if userInfo.Username[len(SaPrefix):] != subjectServiceAccount {
-		glog.V(3).Infof("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(SaPrefix):])
+		log.Log.V(3).Info(fmt.Sprintf("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(SaPrefix):]))
 		return false
 	}
 
@@ -117,6 +117,6 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 		}
 	}
 
-	glog.V(3).Infof("user/group '%v' info not found in request userInfo: %v", subject.Name, keys)
+	log.Log.V(3).Info(fmt.Sprintf("user/group '%v' info not found in request userInfo: %v", subject.Name, keys))
 	return false
 }

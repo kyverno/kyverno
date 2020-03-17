@@ -8,7 +8,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Interface to manage context operations

@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
@@ -16,7 +15,6 @@ import (
 	event "github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/generate"
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
-	"github.com/nirmata/kyverno/pkg/log"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
@@ -27,7 +25,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -39,13 +39,29 @@ var (
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
 	// User FQDN as CSR CN
-	fqdncn    bool
-	verbosity string
-	setupLog  = log.Log.WithName("setup")
+	fqdncn   bool
+	setupLog = log.Log.WithName("setup")
 )
 
 func main() {
-	defer glog.Flush()
+	klog.InitFlags(nil)
+	log.SetLogger(klogr.New())
+	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
+	if err := flag.Set("v", "2"); err != nil {
+		setupLog.Error(err, "failed to set log level")
+		os.Exit(1)
+		// klog.Fatalf("failed to set log level: %v", err)
+	}
+
+	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
+	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
+
+	flag.Parse()
+
 	version.PrintVersionInfo(log.Log)
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
@@ -288,21 +304,4 @@ func main() {
 	// remove webhook configurations
 	<-cleanUp
 	setupLog.Info("Kyverno shutdown successful")
-}
-
-func init() {
-	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
-	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
-
-	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
-	config.LogDefaultFlags(setupLog)
-	flag.StringVar(&verbosity, "verbosity", "", "set verbosity for logs")
-	flag.Parse()
-	log.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = true
-	}))
 }

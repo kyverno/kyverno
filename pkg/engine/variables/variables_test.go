@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/log"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )

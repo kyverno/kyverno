@@ -1,9 +1,9 @@
 package generate
 
 import (
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //StatusControlInterface provides interface to update status subresource
@@ -25,10 +25,10 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 	gr.Status.GeneratedResources = genResources
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {
-		glog.V(4).Infof("FAILED: updated gr %s status to %s", gr.Name, string(kyverno.Failed))
+		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
 	}
-	glog.V(4).Infof("updated gr %s status to %s", gr.Name, string(kyverno.Failed))
+	log.Log.Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Failed))
 	return nil
 }
 
@@ -41,9 +41,9 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 
 	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
 	if err != nil {
-		glog.V(4).Infof("FAILED: updated gr %s status to %s", gr.Name, string(kyverno.Completed))
+		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
 	}
-	glog.V(4).Infof("updated gr %s status to %s", gr.Name, string(kyverno.Completed))
+	log.Log.Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Completed))
 	return nil
 }

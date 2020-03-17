@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/log"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_subVars_success(t *testing.T) {

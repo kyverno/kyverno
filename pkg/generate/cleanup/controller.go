@@ -3,8 +3,6 @@ package cleanup
 import (
 	"time"
 
-	"github.com/golang/glog"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -181,7 +179,7 @@ func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 	logger := c.log
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
-		glog.Error(err)
+		logger.Error(err, "failed to extract key")
 		return
 	}
 	logger.V(4).Info("eneque generate request", "name", gr.Name)

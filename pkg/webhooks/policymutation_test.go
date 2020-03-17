@@ -7,8 +7,8 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
-	"github.com/nirmata/kyverno/pkg/log"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func compareJSONAsMap(t *testing.T, expected, actual []byte) {

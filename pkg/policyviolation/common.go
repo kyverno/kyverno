@@ -5,12 +5,12 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func createOwnerReference(resource *unstructured.Unstructured) metav1.OwnerReference {
@@ -33,7 +33,7 @@ func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) (*unstr
 	var err error
 	getResource := func() error {
 		obj, err = client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
-		glog.V(4).Infof("retry %v getting %s/%s/%s", i, rspec.Kind, rspec.Namespace, rspec.Name)
+		log.Log.V(4).Info(fmt.Sprintf("retry %v getting %s/%s/%s", i, rspec.Kind, rspec.Namespace, rspec.Name))
 		i++
 		return err
 	}

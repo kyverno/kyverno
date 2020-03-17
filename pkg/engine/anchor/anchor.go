@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //ValidationHandler for element processes

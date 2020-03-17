@@ -14,12 +14,13 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/log"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"k8s.io/apimachinery/pkg/api/errors"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -33,6 +34,15 @@ const (
 )
 
 func main() {
+	klog.InitFlags(nil)
+	log.SetLogger(klogr.New())
+	// arguments
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	if err := flag.Set("v", "2"); err != nil {
+		klog.Fatalf("failed to set log level: %v", err)
+	}
+	flag.Parse()
+
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// create client config
@@ -90,18 +100,6 @@ func main() {
 		log.Log.Info("failed to cleanup webhook configurations")
 		os.Exit(1)
 	}
-}
-
-func init() {
-	// arguments
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Set("logtostderr", "true")
-	flag.Set("stderrthreshold", "WARNING")
-	flag.Set("v", "2")
-	flag.Parse()
-	log.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = true
-	}))
 }
 
 func removeWebhookIfExists(client *client.Client, kind string, name string) error {

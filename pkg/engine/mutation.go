@@ -10,8 +10,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/mutate"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -74,7 +74,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				continue
 			}
 
-			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, overlay, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, overlay, patchedResource)
 			if ruleResponse.Success {
 				// - overlay pattern does not match the resource conditions
 				if ruleResponse.Patches == nil {
@@ -90,7 +90,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// Process Patches
 		if rule.Mutation.Patches != nil {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessPatches(rule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessPatches(logger, rule, patchedResource)
 			logger.V(4).Info("patches applied successfully")
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount(&resp)
@@ -104,7 +104,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		if strings.Contains(PodControllers, resource.GetKind()) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, podTemplateRule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
 				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
 				continue

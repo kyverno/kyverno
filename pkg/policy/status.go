@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,24 +21,28 @@ type PolicyStatusAggregator struct {
 	mux sync.RWMutex
 	// stores aggregated stats for policy
 	policyData map[string]PolicyStatInfo
+	// logging implementation
+	log logr.Logger
 }
 
 //NewPolicyStatAggregator returns a new policy status
-func NewPolicyStatAggregator(client *kyvernoclient.Clientset) *PolicyStatusAggregator {
+func NewPolicyStatAggregator(log logr.Logger, client *kyvernoclient.Clientset) *PolicyStatusAggregator {
 	psa := PolicyStatusAggregator{
 		startTime:  time.Now(),
 		ch:         make(chan PolicyStat),
 		policyData: map[string]PolicyStatInfo{},
+		log:        log,
 	}
 	return &psa
 }
 
 //Run begins aggregator
 func (psa *PolicyStatusAggregator) Run(workers int, stopCh <-chan struct{}) {
+	logger := psa.log
 	defer utilruntime.HandleCrash()
-	glog.V(4).Info("Started aggregator for policy status stats")
+	logger.Info("Started aggregator for policy status stats")
 	defer func() {
-		glog.V(4).Info("Shutting down aggregator for policy status stats")
+		logger.Info("Shutting down aggregator for policy status stats")
 	}()
 	for i := 0; i < workers; i++ {
 		go wait.Until(psa.process, time.Second, stopCh)
@@ -53,30 +57,31 @@ func (psa *PolicyStatusAggregator) process() {
 	// so we dont combine the results, but instead compute the execution time for
 	// mutation & validation rules separately
 	for r := range psa.ch {
-		glog.V(4).Infof("received policy stats %v", r)
+		psa.log.V(4).Info("received policy stats", "stats", r)
 		psa.aggregate(r)
 	}
 }
 
 func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
+	logger := psa.log.WithValues("policy", ps.PolicyName)
 	func() {
-		glog.V(4).Infof("write lock update policy %s", ps.PolicyName)
+		logger.V(4).Info("write lock update policy")
 		psa.mux.Lock()
 	}()
 	defer func() {
-		glog.V(4).Infof("write Unlock update policy %s", ps.PolicyName)
+		logger.V(4).Info("write unlock update policy")
 		psa.mux.Unlock()
 	}()
 
 	if len(ps.Stats.Rules) == 0 {
-		glog.V(4).Infof("ignoring stats, as no rule was applied")
+		logger.V(4).Info("ignoring stats, as no rule was applied")
 		return
 	}
 
 	info, ok := psa.policyData[ps.PolicyName]
 	if !ok {
 		psa.policyData[ps.PolicyName] = ps.Stats
-		glog.V(4).Infof("added stats for policy %s", ps.PolicyName)
+		logger.V(4).Info("added stats for policy")
 		return
 	}
 	// aggregate policy information
@@ -87,19 +92,19 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 	var zeroDuration time.Duration
 	if info.MutationExecutionTime != zeroDuration {
 		info.MutationExecutionTime = (info.MutationExecutionTime + ps.Stats.MutationExecutionTime) / 2
-		glog.V(4).Infof("updated avg mutation time %v", info.MutationExecutionTime)
+		logger.V(4).Info("updated avg mutation time", "updatedTime", info.MutationExecutionTime)
 	} else {
 		info.MutationExecutionTime = ps.Stats.MutationExecutionTime
 	}
 	if info.ValidationExecutionTime != zeroDuration {
 		info.ValidationExecutionTime = (info.ValidationExecutionTime + ps.Stats.ValidationExecutionTime) / 2
-		glog.V(4).Infof("updated avg validation time %v", info.ValidationExecutionTime)
+		logger.V(4).Info("updated avg validation time", "updatedTime", info.ValidationExecutionTime)
 	} else {
 		info.ValidationExecutionTime = ps.Stats.ValidationExecutionTime
 	}
 	if info.GenerationExecutionTime != zeroDuration {
 		info.GenerationExecutionTime = (info.GenerationExecutionTime + ps.Stats.GenerationExecutionTime) / 2
-		glog.V(4).Infof("updated avg generation time %v", info.GenerationExecutionTime)
+		logger.V(4).Info("updated avg generation time", "updatedTime", info.GenerationExecutionTime)
 	} else {
 		info.GenerationExecutionTime = ps.Stats.GenerationExecutionTime
 	}
@@ -107,7 +112,7 @@ func (psa *PolicyStatusAggregator) aggregate(ps PolicyStat) {
 	info.Rules = aggregateRules(info.Rules, ps.Stats.Rules)
 	// update
 	psa.policyData[ps.PolicyName] = info
-	glog.V(4).Infof("updated stats for policy %s", ps.PolicyName)
+	logger.V(4).Info("updated stats for policy")
 }
 
 func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
@@ -140,29 +145,31 @@ func aggregateRules(old []RuleStatinfo, update []RuleStatinfo) []RuleStatinfo {
 
 //GetPolicyStats returns the policy stats
 func (psa *PolicyStatusAggregator) GetPolicyStats(policyName string) PolicyStatInfo {
+	logger := psa.log.WithValues("policy", policyName)
 	func() {
-		glog.V(4).Infof("read lock update policy %s", policyName)
+		logger.V(4).Info("read lock update policy")
 		psa.mux.RLock()
 	}()
 	defer func() {
-		glog.V(4).Infof("read Unlock update policy %s", policyName)
+		logger.V(4).Info("read unlock update policy")
 		psa.mux.RUnlock()
 	}()
-	glog.V(4).Infof("read stats for policy %s", policyName)
+	logger.V(4).Info("read stats for policy")
 	return psa.policyData[policyName]
 }
 
 //RemovePolicyStats rmves policy stats records
 func (psa *PolicyStatusAggregator) RemovePolicyStats(policyName string) {
+	logger := psa.log.WithValues("policy", policyName)
 	func() {
-		glog.V(4).Infof("write lock update policy %s", policyName)
+		logger.V(4).Info("write lock update policy")
 		psa.mux.Lock()
 	}()
 	defer func() {
-		glog.V(4).Infof("write Unlock update policy %s", policyName)
+		logger.V(4).Info("write unlock update policy")
 		psa.mux.Unlock()
 	}()
-	glog.V(4).Infof("removing stats for policy %s", policyName)
+	logger.V(4).Info("removing stats for policy")
 	delete(psa.policyData, policyName)
 }
 
@@ -199,7 +206,7 @@ type RuleStatinfo struct {
 
 //SendStat sends the stat information for aggregation
 func (psa *PolicyStatusAggregator) SendStat(stat PolicyStat) {
-	glog.V(4).Infof("sending policy stats: %v", stat)
+	psa.log.V(4).Info("sending policy stats", "stat", stat)
 	// Send over channel
 	psa.ch <- stat
 }

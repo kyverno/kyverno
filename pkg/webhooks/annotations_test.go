@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/log"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func newPolicyResponse(policy, rule string, patchesStr []string, success bool) response.PolicyResponse {

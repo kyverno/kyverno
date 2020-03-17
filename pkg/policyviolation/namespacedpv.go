@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
@@ -20,9 +20,11 @@ type namespacedPV struct {
 	nspvLister kyvernolister.PolicyViolationLister
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
+	// logger
+	log logr.Logger
 }
 
-func newNamespacedPV(dclient *client.Client,
+func newNamespacedPV(log logr.Logger, dclient *client.Client,
 	nspvLister kyvernolister.PolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
 ) *namespacedPV {
@@ -30,6 +32,7 @@ func newNamespacedPV(dclient *client.Client,
 		dclient:          dclient,
 		nspvLister:       nspvLister,
 		kyvernoInterface: kyvernoInterface,
+		log:              log,
 	}
 	return &nspv
 }
@@ -51,6 +54,7 @@ func (nspv *namespacedPV) create(pv kyverno.PolicyViolationTemplate) error {
 }
 
 func (nspv *namespacedPV) getExisting(newPv kyverno.PolicyViolation) (*kyverno.PolicyViolation, error) {
+	logger := nspv.log.WithValues("namespace", newPv.Namespace, "name", newPv.Name)
 	var err error
 	// use labels
 	policyLabelmap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
@@ -60,7 +64,7 @@ func (nspv *namespacedPV) getExisting(newPv kyverno.PolicyViolation) (*kyverno.P
 	}
 	pvs, err := nspv.nspvLister.PolicyViolations(newPv.GetNamespace()).List(ls)
 	if err != nil {
-		glog.Errorf("unable to list namespaced policy violations : %v", err)
+		logger.Error(err, "failed to list namespaced policy violations")
 		return nil, err
 	}
 
@@ -77,7 +81,8 @@ func (nspv *namespacedPV) getExisting(newPv kyverno.PolicyViolation) (*kyverno.P
 
 func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	var err error
-	glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Namespace, newPv.Spec.ResourceSpec.Name)
+	logger := nspv.log.WithValues("policy", newPv.Spec.Policy, "kind", newPv.Spec.ResourceSpec.Kind, "namespace", newPv.Spec.ResourceSpec.Namespace, "name", newPv.Spec.ResourceSpec.Name)
+	logger.V(4).Info("creating new policy violation")
 	obj, err := retryGetResource(nspv.dclient, newPv.Spec.ResourceSpec)
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
@@ -89,18 +94,19 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	// create resource
 	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Create(newPv)
 	if err != nil {
-		glog.V(4).Infof("failed to create Cluster Policy Violation: %v", err)
+		logger.Error(err, "failed to create namespaced policy violation")
 		return err
 	}
-	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
+	logger.Info("namespaced policy violation created")
 	return nil
 }
 
 func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error {
+	logger := nspv.log.WithValues("policy", newPv.Spec.Policy, "kind", newPv.Spec.ResourceSpec.Kind, "namespace", newPv.Spec.ResourceSpec.Namespace, "name", newPv.Spec.ResourceSpec.Name)
 	var err error
 	// check if there is any update
 	if reflect.DeepEqual(newPv.Spec, oldPv.Spec) {
-		glog.V(4).Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+		logger.V(4).Info("policy violation spec did not change, not upadating the resource")
 		return nil
 	}
 	// set name
@@ -111,7 +117,6 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	if err != nil {
 		return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 	}
-
-	glog.Infof("namespaced policy violation updated for resource %v", newPv.Spec.ResourceSpec)
+	logger.Info("namespaced policy violation created")
 	return nil
 }

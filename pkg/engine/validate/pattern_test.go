@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/operator"
-	"github.com/nirmata/kyverno/pkg/log"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestValidateValueWithPattern_Bool(t *testing.T) {

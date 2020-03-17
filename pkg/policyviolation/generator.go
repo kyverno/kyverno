@@ -222,10 +222,10 @@ func (gen *Generator) syncHandler(info Info) error {
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.dclient, gen.cpvLister, gen.kyvernoInterface)
+		handler = newClusterPV(gen.log.WithName("ClusterPV"), gen.dclient, gen.cpvLister, gen.kyvernoInterface)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.dclient, gen.nspvLister, gen.kyvernoInterface)
+		handler = newNamespacedPV(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nspvLister, gen.kyvernoInterface)
 	}
 
 	failure := false
