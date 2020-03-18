@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	yamlv2 "gopkg.in/yaml.v2"
+
 	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -37,22 +39,25 @@ func toBlockResource(engineReponses []response.EngineResponse) bool {
 }
 
 // getEnforceFailureErrorMsg gets the error messages for failed enforce policy
-func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
-	var str []string
-	var resourceInfo string
-
-	for _, er := range engineReponses {
+func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string {
+	policyToRule := make(map[string]interface{})
+	var resourceName string
+	for _, er := range engineResponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
-			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
-					str = append(str, rule.ToString())
+					ruleToReason[rule.Name] = rule.Message
 				}
 			}
+			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+
+			policyToRule[er.PolicyResponse.Policy] = ruleToReason
 		}
 	}
-	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+
+	result, _ := yamlv2.Marshal(policyToRule)
+	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
 }
 
 // getErrorMsg gets all failed engine response message
