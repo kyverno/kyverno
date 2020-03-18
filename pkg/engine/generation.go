@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"time"
+
 	"github.com/go-logr/logr"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -27,6 +30,9 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	if !rule.HasGenerate() {
 		return nil
 	}
+
+	startTime := time.Now()
+
 	if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
 		return nil
 	}
@@ -40,8 +46,12 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 	// build rule Response
 	return &response.RuleResponse{
-		Name: rule.Name,
-		Type: "Generation",
+		Name:    rule.Name,
+		Type:    "Generation",
+		Success: true,
+		RuleStats: response.RuleStats{
+			ProcessingTime: time.Since(startTime),
+		},
 	}
 }
 

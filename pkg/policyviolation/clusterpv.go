@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,17 +23,21 @@ type clusterPV struct {
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// logger
 	log logr.Logger
+	// update policy stats with violationCount
+	policyStatusListener policystatus.Listener
 }
 
 func newClusterPV(log logr.Logger, dclient *client.Client,
 	cpvLister kyvernolister.ClusterPolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
+	policyStatus policystatus.Listener,
 ) *clusterPV {
 	cpv := clusterPV{
-		dclient:          dclient,
-		cpvLister:        cpvLister,
-		kyvernoInterface: kyvernoInterface,
-		log:              log,
+		dclient:              dclient,
+		cpvLister:            cpvLister,
+		kyvernoInterface:     kyvernoInterface,
+		log:                  log,
+		policyStatusListener: policyStatus,
 	}
 	return &cpv
 }
@@ -98,6 +103,11 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 		logger.Error(err, "failed to create cluster policy violation")
 		return err
 	}
+
+	if newPv.Annotations["fromSync"] != "true" {
+		cpv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
+	}
+
 	logger.Info("cluster policy violation created")
 	return nil
 }
@@ -121,5 +131,8 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	}
 	logger.Info("cluster policy violation created")
 
+	if newPv.Annotations["fromSync"] != "true" {
+		cpv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
+	}
 	return nil
 }

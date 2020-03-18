@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,17 +23,21 @@ type namespacedPV struct {
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// logger
 	log logr.Logger
+	// update policy status with violationCount
+	policyStatusListener policystatus.Listener
 }
 
 func newNamespacedPV(log logr.Logger, dclient *client.Client,
 	nspvLister kyvernolister.PolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
+	policyStatus policystatus.Listener,
 ) *namespacedPV {
 	nspv := namespacedPV{
-		dclient:          dclient,
-		nspvLister:       nspvLister,
-		kyvernoInterface: kyvernoInterface,
-		log:              log,
+		dclient:              dclient,
+		nspvLister:           nspvLister,
+		kyvernoInterface:     kyvernoInterface,
+		log:                  log,
+		policyStatusListener: policyStatus,
 	}
 	return &nspv
 }
@@ -97,6 +102,10 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 		logger.Error(err, "failed to create namespaced policy violation")
 		return err
 	}
+
+	if newPv.Annotations["fromSync"] != "true" {
+		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
+	}
 	logger.Info("namespaced policy violation created")
 	return nil
 }
@@ -116,6 +125,10 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(newPv)
 	if err != nil {
 		return fmt.Errorf("failed to update namespaced policy violation: %v", err)
+	}
+
+	if newPv.Annotations["fromSync"] != "true" {
+		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
 	logger.Info("namespaced policy violation created")
 	return nil

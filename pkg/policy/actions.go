@@ -20,7 +20,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule kyverno.Rule, client *dclient.Client) error {
+func validateActions(idx int, rule kyverno.Rule, client *dclient.Client, mock bool) error {
 	var checker Validation
 
 	// Mutate
@@ -41,9 +41,19 @@ func validateActions(idx int, rule kyverno.Rule, client *dclient.Client) error {
 
 	// Generate
 	if rule.HasGenerate() {
-		checker = generate.NewGenerateFactory(client, rule.Generation, log.Log)
-		if path, err := checker.Validate(); err != nil {
-			return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+		//TODO: this check is there to support offline validations
+		// generate uses selfSubjectReviews to verify actions
+		// this need to modified to use different implementation for online and offline mode
+		if mock {
+			checker = generate.NewFakeGenerate(rule.Generation)
+			if path, err := checker.Validate(); err != nil {
+				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+			}
+		} else {
+			checker = generate.NewGenerateFactory(client, rule.Generation, log.Log)
+			if path, err := checker.Validate(); err != nil {
+				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+			}
 		}
 	}
 

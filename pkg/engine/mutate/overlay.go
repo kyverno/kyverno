@@ -118,7 +118,7 @@ func processOverlayPatches(log logr.Logger, resource, overlay interface{}) ([][]
 		}
 	}
 
-	patchBytes, err := mutateResourceWithOverlay(resource, overlay)
+	patchBytes, err := MutateResourceWithOverlay(resource, overlay)
 	if err != nil {
 		return patchBytes, newOverlayError(overlayFailure, err.Error())
 	}
@@ -126,8 +126,8 @@ func processOverlayPatches(log logr.Logger, resource, overlay interface{}) ([][]
 	return patchBytes, overlayError{}
 }
 
-// mutateResourceWithOverlay is a start of overlaying process
-func mutateResourceWithOverlay(resource, pattern interface{}) ([][]byte, error) {
+// MutateResourceWithOverlay is a start of overlaying process
+func MutateResourceWithOverlay(resource, pattern interface{}) ([][]byte, error) {
 	// It assumes that mutation is started from root, so "/" is passed
 	return applyOverlay(resource, pattern, "/")
 }

@@ -100,6 +100,10 @@ func (ps *PolicyStore) ListAll() ([]kyverno.ClusterPolicy, error) {
 	return policies, nil
 }
 
+func (ps *PolicyStore) Get(policyName string) (*kyverno.ClusterPolicy, error) {
+	return ps.pLister.Get(policyName)
+}
+
 //UnRegister Remove policy information
 func (ps *PolicyStore) UnRegister(policy kyverno.ClusterPolicy) error {
 	ps.mu.Lock()

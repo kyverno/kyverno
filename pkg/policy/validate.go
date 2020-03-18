@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -15,7 +17,7 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(p kyverno.ClusterPolicy, client *dclient.Client) error {
+func Validate(p kyverno.ClusterPolicy, client *dclient.Client, mock bool) error {
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
@@ -52,7 +54,7 @@ func Validate(p kyverno.ClusterPolicy, client *dclient.Client) error {
 		// - Mutate
 		// - Validate
 		// - Generate
-		if err := validateActions(i, rule, client); err != nil {
+		if err := validateActions(i, rule, client, mock); err != nil {
 			return err
 		}
 
@@ -64,6 +66,10 @@ func Validate(p kyverno.ClusterPolicy, client *dclient.Client) error {
 					" the rule does not match an kind")
 			}
 		}
+	}
+
+	if err := openapi.ValidatePolicyMutation(p); err != nil {
+		return err
 	}
 
 	return nil

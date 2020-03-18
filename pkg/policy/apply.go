@@ -19,46 +19,14 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, log logr.Logger) (responses []response.EngineResponse) {
-	logger := log.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
 	startTime := time.Now()
-	var policyStats []PolicyStat
+
 	logger.Info("start applying policy", "startTime", startTime)
 	defer func() {
 		logger.Info("finisnhed applying policy", "processingTime", time.Since(startTime))
 	}()
 
-	// gather stats from the engine response
-	gatherStat := func(policyName string, policyResponse response.PolicyResponse) {
-		ps := PolicyStat{}
-		ps.PolicyName = policyName
-		ps.Stats.MutationExecutionTime = policyResponse.ProcessingTime
-		ps.Stats.RulesAppliedCount = policyResponse.RulesAppliedCount
-		// capture rule level stats
-		for _, rule := range policyResponse.Rules {
-			rs := RuleStatinfo{}
-			rs.RuleName = rule.Name
-			rs.ExecutionTime = rule.RuleStats.ProcessingTime
-			if rule.Success {
-				rs.RuleAppliedCount++
-			} else {
-				rs.RulesFailedCount++
-			}
-			if rule.Patches != nil {
-				rs.MutationCount++
-			}
-			ps.Stats.Rules = append(ps.Stats.Rules, rs)
-		}
-		policyStats = append(policyStats, ps)
-	}
-	// send stats for aggregation
-	sendStat := func(blocked bool) {
-		for _, stat := range policyStats {
-			stat.Stats.ResourceBlocked = utils.Btoi(blocked)
-			//SEND
-			policyStatus.SendStat(stat)
-		}
-	}
 	var engineResponses []response.EngineResponse
 	var engineResponse response.EngineResponse
 	var err error
@@ -67,27 +35,20 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	ctx.AddResource(transformResource(resource))
 
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, policyStatus, ctx, logger)
+	engineResponse, err = mutation(policy, resource, ctx, logger)
 	engineResponses = append(engineResponses, engineResponse)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
-	gatherStat(policy.Name, engineResponse.PolicyResponse)
-	//send stats
-	sendStat(false)
 
 	//VALIDATION
 	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
 	engineResponses = append(engineResponses, engineResponse)
-	// gather stats
-	gatherStat(policy.Name, engineResponse.PolicyResponse)
-	//send stats
-	sendStat(false)
 
 	//TODO: GENERATION
 	return engineResponses
 }
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, policyStatus PolicyStatusInterface, ctx context.EvalInterface, log logr.Logger) (response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, ctx context.EvalInterface, log logr.Logger) (response.EngineResponse, error) {
 
 	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx})
 	if !engineResponse.IsSuccesful() {

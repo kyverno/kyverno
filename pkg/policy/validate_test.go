@@ -373,7 +373,7 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil)
+	err = Validate(policy, nil, true)
 	assert.NilError(t, err)
 }
 
@@ -519,7 +519,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil)
+	err = Validate(policy, nil, true)
 	assert.Assert(t, err != nil)
 }
 

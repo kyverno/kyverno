@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
@@ -16,6 +18,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/generate"
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/signal"
@@ -167,12 +170,18 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		log.Log.WithName("EventGenerator"))
 
+	// Policy Status Handler - deals with all logic related to policy status
+	statusSync := policystatus.NewSync(
+		pclient,
+		policyMetaStore)
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
+		statusSync.Listener,
 		log.Log.WithName("PolicyViolationGenerator"),
 	)
 
@@ -211,6 +220,7 @@ func main() {
 		egen,
 		pvgen,
 		kubedynamicInformer,
+		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
 	)
 	// GENERATE REQUEST CLEANUP
@@ -241,6 +251,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Sync openAPI definitions of resources
+	openApiSync := openapi.NewCRDSync(client)
+
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -256,7 +269,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		egen,
 		webhookRegistrationClient,
-		pc.GetPolicyStatusAggregator(),
+		statusSync.Listener,
 		configData,
 		policyMetaStore,
 		pvgen,
@@ -282,6 +295,8 @@ func main() {
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+	go statusSync.Run(1, stopCh)
+	go openApiSync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -217,6 +218,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 type IDiscovery interface {
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
+	OpenAPISchema() (*openapi_v2.Document, error)
 }
 
 // SetDiscovery sets the discovery client implementation
@@ -248,6 +250,10 @@ func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 			c.cachedClient.Invalidate()
 		}
 	}
+}
+
+func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) {
+	return c.cachedClient.OpenAPISchema()
 }
 
 //GetGVRFromKind get the Group Version Resource from kind
