@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -21,6 +20,4 @@ type PolicyContext struct {
 	Client *client.Client
 	// Contexts to store resources
 	Context context.EvalInterface
-	// log
-	log logr.Logger
 }

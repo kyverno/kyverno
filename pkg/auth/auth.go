@@ -49,9 +49,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
 	}
 
-	var sar *authorizationv1.SelfSubjectAccessReview
-
-	sar = &authorizationv1.SelfSubjectAccessReview{
+	sar := &authorizationv1.SelfSubjectAccessReview{
 		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
 				Namespace: o.namespace,
