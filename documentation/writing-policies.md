@@ -13,4 +13,4 @@ Each rule can validate, mutate, or generate configurations of matching resources
 These actions are applied to the resource in described order: mutation, validation and then generation.
 
 ---
-<small>*Read Next >> [Validate Resources](/documentation/writing-policies-match-exclude.md)*</small>
+<small>*Read Next >> [Selecting Resources](/documentation/writing-policies-match-exclude.md)*</small>
