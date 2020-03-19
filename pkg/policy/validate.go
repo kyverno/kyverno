@@ -82,7 +82,7 @@ func Validate(p kyverno.ClusterPolicy) error {
 		}
 	}
 
-	if err := openapi.ValidatePolicyMutation(p); err != nil {
+	if err := openapi.ValidatePolicyFields(p); err != nil {
 		return err
 	}
 

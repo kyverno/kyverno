@@ -1,10 +1,14 @@
 package openapi
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 
 	"github.com/nirmata/kyverno/data"
 
@@ -44,10 +48,29 @@ func init() {
 	}
 }
 
-func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+func ValidatePolicyFields(policy v1.ClusterPolicy) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
 
+	policyRaw, err := json.Marshal(policy)
+	if err != nil {
+		return err
+	}
+
+	policyUnst, err := utils.ConvertToUnstructured(policyRaw)
+	if err != nil {
+		return err
+	}
+
+	err = ValidateResource(*policyUnst.DeepCopy(), "ClusterPolicy")
+	if err != nil {
+		return err
+	}
+
+	return validatePolicyMutation(policy)
+}
+
+func validatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
@@ -156,8 +179,17 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 
 // For crd, we do not store definition in document
 func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+	if kind == "" {
+		return nil, errors.New("invalid kind")
+	}
+
 	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
+	definition := openApiGlobalState.definitions[kind]
+	if definition == nil {
+		return nil, errors.New("could not find definition")
+	}
+
+	return (&proto.Definitions{}).ParseSchema(definition, &path)
 }
 
 func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {

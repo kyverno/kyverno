@@ -52,7 +52,37 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		_ = json.Unmarshal(tc.policy, &policy)
 
 		var errMessage string
-		err := ValidatePolicyMutation(policy)
+		err := validatePolicyMutation(policy)
+		if err != nil {
+			errMessage = err.Error()
+		}
+
+		if errMessage != tc.errMessage {
+			t.Errorf("\nTestcase [%v] failed:\nExpected Error:  %v\nGot Error:  %v", i+1, tc.errMessage, errMessage)
+		}
+	}
+
+}
+
+func Test_ValidatePolicyFields(t *testing.T) {
+
+	tcs := []struct {
+		description string
+		policy      []byte
+		errMessage  string
+	}{
+		{
+			description: "Dealing with invalid fields in the policy",
+			policy:      []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"disallow-root-user"},"validationFailureAction":"enforce","spec":{"background":false,"rules":[{"name":"validate-runAsNonRoot","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod"]}},"validate":{"message":"Running as root user is not allowed. Set runAsNonRoot to true","anyPattern":[{"spec":{"securityContext":{"runAsNonRoot":true}}},{"spec":{"containers":[{"securityContext":{"runAsNonRoot":true}}]}}]}}]}}`),
+		},
+	}
+
+	for i, tc := range tcs {
+		policy := v1.ClusterPolicy{}
+		_ = json.Unmarshal(tc.policy, &policy)
+
+		var errMessage string
+		err := ValidatePolicyFields(policy)
 		if err != nil {
 			errMessage = err.Error()
 		}
