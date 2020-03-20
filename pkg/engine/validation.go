@@ -233,7 +233,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 				errorStr = append(errorStr, err.Error())
 			}
 			resp.Success = false
-			glog.V(4).Infof("Validation rule '%s' failed. %s", rule.Name, errorStr)
+			log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr))
 			if rule.Validation.Message == "" {
 				resp.Message = fmt.Sprintf("Validation rule '%s' has failed", rule.Name)
 			} else {

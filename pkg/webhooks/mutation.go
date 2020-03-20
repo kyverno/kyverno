@@ -7,7 +7,6 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -70,7 +69,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		}
 		err := openapi.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			glog.V(4).Infoln(err)
+			logger.Error(err, "failed to validate resource")
 			continue
 		}
 		// gather patches

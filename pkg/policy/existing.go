@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/golang/glog"
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -40,7 +39,6 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		}
 
 		// apply the policy on each
-		glog.V(4).Infof("apply policy %s with resource version %s on resource %s/%s/%s with resource version %s", policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 		engineResponse := applyPolicy(policy, resource, logger)
 		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)

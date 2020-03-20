@@ -57,7 +57,6 @@ func main() {
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
-		// klog.Fatalf("failed to set log level: %v", err)
 	}
 
 	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
