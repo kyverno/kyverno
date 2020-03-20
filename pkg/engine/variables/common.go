@@ -6,9 +6,5 @@ import "regexp"
 func IsVariable(element string) bool {
 	validRegex := regexp.MustCompile(variableRegex)
 	groups := validRegex.FindAllStringSubmatch(element, -1)
-	if len(groups) == 0 {
-		// there was no match
-		return false
-	}
-	return true
+	return len(groups) != 0
 }
