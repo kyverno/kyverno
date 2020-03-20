@@ -120,6 +120,7 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
+  * [Selecting Resources](/documentation/writing-policies-match-exclude.md)
   * [Validate Resources](documentation/writing-policies-validate.md)
   * [Mutate Resources](documentation/writing-policies-mutate.md)
   * [Generate Resources](documentation/writing-policies-generate.md)
