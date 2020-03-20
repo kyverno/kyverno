@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -52,6 +53,11 @@ func Validate(p kyverno.ClusterPolicy) error {
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
+
+		if err := validateMatchExcludeConflict(rule); err != nil {
+			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
 		// Operation Validation
 		// Mutation
 		if rule.HasMutate() {
@@ -84,6 +90,97 @@ func Validate(p kyverno.ClusterPolicy) error {
 
 	if err := openapi.ValidatePolicyMutation(p); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func validateMatchExcludeConflict(rule kyverno.Rule) error {
+
+	excludeRoles := make(map[string]bool)
+	for _, role := range rule.ExcludeResources.UserInfo.Roles {
+		excludeRoles[role] = true
+	}
+
+	excludeClusterRoles := make(map[string]bool)
+	for _, clusterRoles := range rule.ExcludeResources.UserInfo.ClusterRoles {
+		excludeClusterRoles[clusterRoles] = true
+	}
+
+	excludeSubjects := make(map[string]bool)
+	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
+		subjectRaw, _ := json.Marshal(subject)
+		excludeSubjects[string(subjectRaw)] = true
+	}
+
+	excludeKinds := make(map[string]bool)
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		excludeKinds[kind] = true
+	}
+
+	excludeNamespaces := make(map[string]bool)
+	for _, namespace := range rule.ExcludeResources.ResourceDescription.Namespaces {
+		excludeNamespaces[namespace] = true
+	}
+
+	excludeMatchExpressions := make(map[string]bool)
+	if rule.ExcludeResources.ResourceDescription.Selector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeMatchExpressions[string(matchExpressionRaw)] = true
+		}
+	}
+
+	for _, role := range rule.MatchResources.UserInfo.Roles {
+		if excludeRoles[role] {
+			return errors.New(fmt.Sprintf("excluding role '%v' while also matching it - please remove from both match and exclude", role))
+		}
+	}
+
+	for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
+		if excludeClusterRoles[clusterRole] {
+			return errors.New(fmt.Sprintf("excluding cluster role '%v' while also matching it - please remove from both match and exclude", clusterRole))
+		}
+	}
+
+	for _, subject := range rule.MatchResources.UserInfo.Subjects {
+		subjectRaw, _ := json.Marshal(subject)
+		if excludeSubjects[string(subjectRaw)] {
+			return errors.New(fmt.Sprintf("excluding subject '%v' while also matching it - please remove from both match and exclude", string(subjectRaw)))
+		}
+	}
+
+	if rule.MatchResources.ResourceDescription.Name != "" {
+		if rule.MatchResources.ResourceDescription.Name == rule.ExcludeResources.ResourceDescription.Name {
+			return errors.New(fmt.Sprintf("excluding resource name '%v' while also matching it - please remove from both match and exclude", rule.MatchResources.ResourceDescription.Name))
+		}
+	}
+
+	for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
+		if excludeNamespaces[namespace] {
+			return errors.New(fmt.Sprintf("excluding resource namespace '%v' while also matching it - please remove from both match and exclude", namespace))
+		}
+	}
+
+	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+		if excludeKinds[kind] {
+			return errors.New(fmt.Sprintf("excluding resource kind '%v' while also matching it - please remove from both match and exclude", kind))
+		}
+	}
+
+	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
+		for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			if excludeMatchExpressions[string(matchExpressionRaw)] {
+				return errors.New(fmt.Sprintf("excluding resource match expression '%v' while also matching it - please remove from both match and exclude", string(matchExpressionRaw)))
+			}
+		}
+
+		for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
+			if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] == value {
+				return errors.New(fmt.Sprintf("excluding resource label '%v' while also matching it - please remove from both match and exclude", label))
+			}
+		}
 	}
 
 	return nil
