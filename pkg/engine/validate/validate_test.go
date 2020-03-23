@@ -557,7 +557,8 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 
 	var pattern, resource map[string]interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
-	json.Unmarshal(rawMap, &resource)
+	err := json.Unmarshal(rawMap, &resource)
+	assert.NilError(t, err)
 
 	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
@@ -1344,8 +1345,10 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	]`)
 
 	var pattern, resource interface{}
-	json.Unmarshal(rawPattern, &pattern)
-	json.Unmarshal(rawMap, &resource)
+	err := json.Unmarshal(rawPattern, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(rawMap, &resource)
+	assert.NilError(t, err)
 
 	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/0/object/0/key2/")

@@ -91,9 +91,18 @@ func main() {
 func init() {
 	// arguments
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Set("logtostderr", "true")
-	flag.Set("stderrthreshold", "WARNING")
-	flag.Set("v", "2")
+	err := flag.Set("logtostderr", "true")
+	if err != nil {
+		glog.Errorf("failed to set flag", err)
+	}
+	err = flag.Set("stderrthreshold", "WARNING")
+	if err != nil {
+		glog.Errorf("failed to set flag", err)
+	}
+	err = flag.Set("v", "2")
+	if err != nil {
+		glog.Errorf("failed to set flag", err)
+	}
 	flag.Parse()
 }
 

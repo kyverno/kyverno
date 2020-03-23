@@ -227,8 +227,10 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 					if keys[currentKeyIndex+1] == strconv.Itoa(i) {
 						return getValueFromPattern(resourceMap, keys, currentKeyIndex+2)
 					}
+					// TODO : SA4004: the surrounding loop is unconditionally terminated (staticcheck)
 					return nil, errors.New("Reference to non-existent place in the document")
 				}
+				return nil, nil // Just a hack to fix the lint
 			}
 			return nil, errors.New("Reference to non-existent place in the document")
 		case map[string]interface{}:

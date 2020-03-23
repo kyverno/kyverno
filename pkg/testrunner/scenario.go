@@ -427,7 +427,11 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-	flag.Set("logtostderr", "true")
+	err := flag.Set("logtostderr", "true")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	// flag.Set("v", "8")
 
 	scenario, err := loadScenario(t, path)

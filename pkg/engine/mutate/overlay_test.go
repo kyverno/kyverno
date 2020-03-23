@@ -63,8 +63,10 @@ func TestProcessOverlayPatches_NestedListWithAnchor(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -163,8 +165,10 @@ func TestProcessOverlayPatches_InsertIntoArray(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -284,8 +288,10 @@ func TestProcessOverlayPatches_TestInsertToArray(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -367,8 +373,10 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -456,7 +464,8 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 		}
 	}`)
 
-	json.Unmarshal(overlayRaw, &overlay)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, err = processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
@@ -492,7 +501,8 @@ func TestProcessOverlayPatches_ImagePullPolicy(t *testing.T) {
 		}
 	}`)
 
-	json.Unmarshal(overlayRaw, &overlay)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, err = processOverlayPatches(resource, overlay)
 	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /spec/template/metadata/labels/app/, [overlayError:0] Failed validating value nginx with overlay nginx1")
@@ -520,8 +530,10 @@ func TestProcessOverlayPatches_AddingAnchor(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -605,8 +617,10 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -684,7 +698,8 @@ func TestProcessOverlayPatches_AddingAnchorInsideListElement(t *testing.T) {
 		}
 	}`)
 
-	json.Unmarshal(overlayRaw, &overlay)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, err = processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
@@ -747,8 +762,10 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -805,7 +822,8 @@ func TestProcessOverlayPatches_anchorOnPeer(t *testing.T) {
 	   ]
 	}`)
 
-	json.Unmarshal(overlayRaw, &overlay)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, err = processOverlayPatches(resource, overlay)
 	assert.Error(t, err, "[overlayError:0] Policy not applied, conditions are not met at /subsets/0/ports/0/port/, [overlayError:0] Failed validating value 443 with overlay 444")
@@ -886,8 +904,10 @@ func TestProcessOverlayPatches_insertWithCondition(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))
@@ -997,8 +1017,10 @@ func TestProcessOverlayPatches_InsertIfNotPresentWithConditions(t *testing.T) {
 
 	var resource, overlay interface{}
 
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	err = json.Unmarshal(overlayRaw, &overlay)
+	assert.NilError(t, err)
 
 	patches, overlayerr := processOverlayPatches(resource, overlay)
 	assert.Assert(t, reflect.DeepEqual(overlayerr, overlayError{}))

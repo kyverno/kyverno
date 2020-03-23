@@ -85,7 +85,7 @@ func LogDefaultFlags() {
 	if err != nil {
 		glog.Fatalf("failed to set flag 'stderrthreshold' to 'WARNING':%v", err)
 	}
-	flag.Set("v", "2")
+	err = flag.Set("v", "2")
 	if err != nil {
 		glog.Fatalf("failed to set flag 'v' to '2':%v", err)
 	}

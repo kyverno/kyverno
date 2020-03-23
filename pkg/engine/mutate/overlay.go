@@ -409,7 +409,7 @@ func removeAnchorFromSubTree(overlay interface{}) interface{} {
 }
 
 func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{}, 0)
+	result := make(map[string]interface{})
 	for k, v := range overlay {
 		result[getRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
 	}
