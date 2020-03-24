@@ -6,7 +6,6 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/go-logr/logr v0.1.0
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
 	github.com/googleapis/gnostic v0.3.1
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
