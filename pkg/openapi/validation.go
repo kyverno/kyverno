@@ -71,6 +71,39 @@ func ValidatePolicyFields(policyRaw []byte) error {
 	return validatePolicyMutation(policy)
 }
 
+func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+	var err error
+
+	kind = openApiGlobalState.kindToDefinitionName[kind]
+	schema := openApiGlobalState.models.LookupModel(kind)
+	if schema == nil {
+		schema, err = getSchemaFromDefinitions(kind)
+		if err != nil || schema == nil {
+			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+		}
+		delete(patchedResource.Object, "kind")
+	}
+
+	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
+		var errorMessages []string
+		for i := range errs {
+			errorMessages = append(errorMessages, errs[i].Error())
+		}
+
+		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
+	}
+
+	return nil
+}
+
+func GetDefinitionNameFromKind(kind string) string {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+	return openApiGlobalState.kindToDefinitionName[kind]
+}
+
 func validatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
@@ -110,39 +143,6 @@ func validatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	return nil
-}
-
-func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	var err error
-
-	kind = openApiGlobalState.kindToDefinitionName[kind]
-	schema := openApiGlobalState.models.LookupModel(kind)
-	if schema == nil {
-		schema, err = getSchemaFromDefinitions(kind)
-		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
-		}
-		delete(patchedResource.Object, "kind")
-	}
-
-	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
-		var errorMessages []string
-		for i := range errs {
-			errorMessages = append(errorMessages, errs[i].Error())
-		}
-
-		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
-	}
-
-	return nil
-}
-
-func GetDefinitionNameFromKind(kind string) string {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	return openApiGlobalState.kindToDefinitionName[kind]
 }
 
 func useOpenApiDocument(customDoc *openapi_v2.Document) error {

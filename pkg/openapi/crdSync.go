@@ -55,18 +55,17 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.sync, time.Second*10, stopCh)
 	}
-	<-stopCh
 }
 
 func (c *crdSync) sync() {
-	openApiGlobalState.mutex.Lock()
-	defer openApiGlobalState.mutex.Unlock()
-
 	crds, err := c.client.ListResource("CustomResourceDefinition", "", nil)
 	if err != nil {
 		glog.V(4).Infof("could not fetch crd's from server: %v", err)
 		return
 	}
+
+	openApiGlobalState.mutex.Lock()
+	defer openApiGlobalState.mutex.Unlock()
 
 	deleteCRDFromPreviousSync()
 
