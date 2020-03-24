@@ -52,6 +52,9 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 		glog.V(4).Infof("Could not set custom OpenApi document: %v\n", err)
 	}
 
+	// Sync CRD before kyverno starts
+	c.sync()
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.sync, time.Second*10, stopCh)
 	}
