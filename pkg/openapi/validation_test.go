@@ -2,10 +2,7 @@ package openapi
 
 import (
 	"encoding/json"
-	"log"
 	"testing"
-
-	"github.com/nirmata/kyverno/pkg/utils"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 )
@@ -97,12 +94,12 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 //
 //}
 
-func TestDummy(t *testing.T) {
-	var policy v1.ClusterPolicy
-	policyRaw := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"kyverno.io/v1\",\"kind\":\"ClusterPolicy\",\"metadata\":{\"annotations\":{},\"name\":\"disallow-root-user\"},\"spec\":{\"background\":false,\"rules\":[{\"exclude\":{\"resources\":{\"kinds\":[\"Pod\"]}},\"match\":{\"resources\":{\"kinds\":[\"Pod\"]}},\"name\":\"validate-runAsNonRoot\",\"validate\":{\"anyPattern\":[{\"spec\":{\"securityContext\":{\"runAsNonRoot\":true}}},{\"spec\":{\"containers\":[{\"securityContext\":{\"runAsNonRoot\":true}}]}}],\"message\":\"Running as root user is not allowed. Set runAsNonRoot to true\"}}]},\"validationFailureAction\":\"enforce\"}\n","pod-policies.kyverno.io/autogen-controllers":"all"},"creationTimestamp":"2020-03-24T16:06:22Z","generation":1,"name":"disallow-root-user","uid":"54725f78-a292-4d19-a78f-a859f7539834"},"spec":{"background":false,"rules":[{"exclude":{"resources":{"kinds":["Pod"]}},"match":{"resources":{"kinds":["Pod"]}},"name":"validate-runAsNonRoot","validate":{"anyPattern":[{"spec":{"securityContext":{"runAsNonRoot":true}}},{"spec":{"containers":[{"securityContext":{"runAsNonRoot":true}}]}}],"message":"Running as root user is not allowed. Set runAsNonRoot to true"}},{"exclude":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"name":"autogen-validate-runAsNonRoot","validate":{"anyPattern":[{"spec":{"template":{"spec":{"securityContext":{"runAsNonRoot":true}}}}},{"spec":{"template":{"spec":{"containers":[{"securityContext":{"runAsNonRoot":true}}]}}}}],"message":"Running as root user is not allowed. Set runAsNonRoot to true"}}],"validationFailureAction":"audit"},"validationFailureAction":"enforce"}`)
-	json.Unmarshal(policyRaw, &policy)
-
-	policyRaw1, _ := json.Marshal(policy)
-	policyRaw2 := utils.MarshalPolicy(policy)
-	log.Println(policyRaw1, policyRaw2)
-}
+//func TestDummy(t *testing.T) {
+//	var policy v1.ClusterPolicy
+//	policyRaw := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"kyverno.io/v1\",\"kind\":\"ClusterPolicy\",\"metadata\":{\"annotations\":{},\"name\":\"disallow-root-user\"},\"spec\":{\"background\":false,\"rules\":[{\"exclude\":{\"resources\":{\"kinds\":[\"Pod\"]}},\"match\":{\"resources\":{\"kinds\":[\"Pod\"]}},\"name\":\"validate-runAsNonRoot\",\"validate\":{\"anyPattern\":[{\"spec\":{\"securityContext\":{\"runAsNonRoot\":true}}},{\"spec\":{\"containers\":[{\"securityContext\":{\"runAsNonRoot\":true}}]}}],\"message\":\"Running as root user is not allowed. Set runAsNonRoot to true\"}}]},\"validationFailureAction\":\"enforce\"}\n","pod-policies.kyverno.io/autogen-controllers":"all"},"creationTimestamp":"2020-03-24T16:06:22Z","generation":1,"name":"disallow-root-user","uid":"54725f78-a292-4d19-a78f-a859f7539834"},"spec":{"background":false,"rules":[{"exclude":{"resources":{"kinds":["Pod"]}},"match":{"resources":{"kinds":["Pod"]}},"name":"validate-runAsNonRoot","validate":{"anyPattern":[{"spec":{"securityContext":{"runAsNonRoot":true}}},{"spec":{"containers":[{"securityContext":{"runAsNonRoot":true}}]}}],"message":"Running as root user is not allowed. Set runAsNonRoot to true"}},{"exclude":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"name":"autogen-validate-runAsNonRoot","validate":{"anyPattern":[{"spec":{"template":{"spec":{"securityContext":{"runAsNonRoot":true}}}}},{"spec":{"template":{"spec":{"containers":[{"securityContext":{"runAsNonRoot":true}}]}}}}],"message":"Running as root user is not allowed. Set runAsNonRoot to true"}}],"validationFailureAction":"audit"},"validationFailureAction":"enforce"}`)
+//	json.Unmarshal(policyRaw, &policy)
+//
+//	policyRaw1, _ := json.Marshal(policy)
+//	policyRaw2 := utils.MarshalPolicy(policy)
+//	log.Println(policyRaw1, policyRaw2)
+//}
