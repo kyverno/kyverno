@@ -79,6 +79,7 @@ func ValidateResource(patchedResource unstructured.Unstructured, kind string) er
 	kind = openApiGlobalState.kindToDefinitionName[kind]
 	schema := openApiGlobalState.models.LookupModel(kind)
 	if schema == nil {
+		// Check if kind is a CRD
 		schema, err = getSchemaFromDefinitions(kind)
 		if err != nil || schema == nil {
 			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
@@ -108,13 +109,6 @@ func validatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
-			rule.MatchResources = v1.MatchResources{
-				UserInfo: v1.UserInfo{},
-				ResourceDescription: v1.ResourceDescription{
-					Kinds: rule.MatchResources.Kinds,
-				},
-			}
-			rule.ExcludeResources = v1.ExcludeResources{}
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
