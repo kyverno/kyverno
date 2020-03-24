@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nirmata/kyverno/data"
+	data "github.com/nirmata/kyverno/x/data"
 
 	"github.com/golang/glog"
 
