@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nirmata/kyverno/pkg/utils"
+
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	"github.com/golang/glog"
@@ -43,7 +45,7 @@ func Command() *cobra.Command {
 			}
 
 			for _, policy := range policies {
-				err = policyvalidate.Validate(*policy)
+				err = policyvalidate.Validate(utils.MarshalPolicy(*policy))
 				if err != nil {
 					fmt.Println("Policy " + policy.Name + " is invalid")
 				} else {

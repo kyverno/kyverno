@@ -1,12 +1,15 @@
 package policy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 
@@ -19,7 +22,14 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(p kyverno.ClusterPolicy) error {
+func Validate(policyRaw []byte) error {
+	var p kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &p)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
+		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
@@ -82,7 +92,7 @@ func Validate(p kyverno.ClusterPolicy) error {
 		}
 	}
 
-	if err := openapi.ValidatePolicyFields(p); err != nil {
+	if err := openapi.ValidatePolicyFields(policyRaw); err != nil {
 		return err
 	}
 

@@ -48,11 +48,12 @@ func init() {
 	}
 }
 
-func ValidatePolicyFields(policy v1.ClusterPolicy) error {
+func ValidatePolicyFields(policyRaw []byte) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
 
-	policyRaw, err := json.Marshal(policy)
+	var policy v1.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
 	if err != nil {
 		return err
 	}
