@@ -1628,11 +1628,6 @@ func Test_validateMatchExcludeConflict(t *testing.T) {
 			rule:          []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"selector":{"matchExpressions":[{"key":"tier1","operator":"In","values":["database"]},{"key":"tier2","operator":"In","values":["database"]}]}}}}`),
 			expectedError: false,
 		},
-		//{
-		//	description:   "Testing resource selector match expression - pass",
-		//	rule:          []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"selector":{"matchExpressions":[{"key":"tier1","operator":"In","values":["database"]},{"key":"tier2","operator":"In","values":["database"]}]}}}}`),
-		//	expectedError: false,
-		//},
 	}
 
 	for i, testcase := range testcases {
