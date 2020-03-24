@@ -189,7 +189,13 @@ func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
 		return nil, errors.New("could not find definition")
 	}
 
-	return (&proto.Definitions{}).ParseSchema(definition, &path)
+	// This was added so crd's can access
+	// normal definitions from existing schema such as
+	// `metadata` - this maybe a breaking change.
+	// Removing this may cause policy validate to stop working
+	existingDefinitions, _ := openApiGlobalState.models.(*proto.Definitions)
+
+	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
 func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
