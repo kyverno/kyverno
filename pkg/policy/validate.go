@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -37,6 +38,10 @@ func Validate(p kyverno.ClusterPolicy) error {
 	}
 
 	for i, rule := range p.Spec.Rules {
+		if doesMatchExcludeConflict(rule) {
+			return fmt.Errorf("path: spec.rules[%d]: match and exclude block are conflicting - please do not add same conditions to both match and exclude", i)
+		}
+
 		// only one type of rule is allowed per rule
 		if err := validateRuleType(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
@@ -455,6 +460,28 @@ func checkAnchors(key string, supportedAnchors []anchor.IsAnchor) bool {
 		if f(key) {
 			return true
 		}
+	}
+	return false
+}
+
+// doesMatchExcludeConflict checks if the condition
+// block of match and exclude are the same.
+// If the conditions are the same it passes since
+// the match and exclude will conflict and cancel each other out
+// guaranteeing that no resource will be matched
+func doesMatchExcludeConflict(rule kyverno.Rule) bool {
+	var matchBlock, excludeBlock struct {
+		kyverno.UserInfo
+		kyverno.ResourceDescription `json:"resources"`
+	}
+	matchResourcesRaw, _ := json.Marshal(rule.MatchResources)
+	excludeResourcesRaw, _ := json.Marshal(rule.ExcludeResources)
+
+	_ = json.Unmarshal(matchResourcesRaw, &matchBlock)
+	_ = json.Unmarshal(excludeResourcesRaw, &excludeBlock)
+
+	if reflect.DeepEqual(matchBlock, excludeBlock) {
+		return true
 	}
 	return false
 }

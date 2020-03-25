@@ -1541,3 +1541,36 @@ func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
 		}
 	}
 }
+
+func Test_validateConflictingMatchExclude(t *testing.T) {
+	testcases := []struct {
+		description    string
+		rule           []byte
+		expectedOutput bool
+	}{
+		{
+			description:    "Conflicting match and exclude",
+			rule:           []byte(`{"name":"test","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod"]}}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Empty match",
+			rule:           []byte(`{"name":"test","exclude":{"resources":{"kinds":["Pod"]}}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Empty exclude",
+			rule:           []byte(`{"name":"test","match":{"resources":{"kinds":["Pod"]}}}`),
+			expectedOutput: false,
+		},
+	}
+
+	for i, testcase := range testcases {
+		var rule kyverno.Rule
+		_ = json.Unmarshal(testcase.rule, &rule)
+		output := doesMatchExcludeConflict(rule)
+		if output != testcase.expectedOutput {
+			t.Errorf("Testcase [%d] failed", i+1)
+		}
+	}
+}
