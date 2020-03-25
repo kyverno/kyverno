@@ -480,8 +480,5 @@ func doesMatchExcludeConflict(rule kyverno.Rule) bool {
 	_ = json.Unmarshal(matchResourcesRaw, &matchBlock)
 	_ = json.Unmarshal(excludeResourcesRaw, &excludeBlock)
 
-	if reflect.DeepEqual(matchBlock, excludeBlock) {
-		return true
-	}
-	return false
+	return reflect.DeepEqual(matchBlock, excludeBlock)
 }
