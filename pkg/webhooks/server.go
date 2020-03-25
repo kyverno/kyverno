@@ -13,7 +13,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -27,7 +26,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -36,64 +34,50 @@ import (
 // MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server        http.Server
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	Client        *client.Client
+	KyvernoClient *kyvernoclient.Clientset
 	// list/get cluster policy resource
-	pLister kyvernolister.ClusterPolicyLister
+	PLister kyvernolister.ClusterPolicyLister
 	// returns true if the cluster policy store has synced atleast
-	pSynced cache.InformerSynced
+	PSynced cache.InformerSynced
 	// list/get role binding resource
-	rbLister rbaclister.RoleBindingLister
+	RbLister rbaclister.RoleBindingLister
 	// return true if role bining store has synced atleast once
-	rbSynced cache.InformerSynced
+	RbSynced cache.InformerSynced
 	// list/get cluster role binding resource
-	crbLister rbaclister.ClusterRoleBindingLister
+	CrbLister rbaclister.ClusterRoleBindingLister
 	// return true if cluster role binding store has synced atleast once
-	crbSynced cache.InformerSynced
+	CrbSynced cache.InformerSynced
 	// generate events
-	eventGen event.Interface
+	EventGen event.Interface
 	// webhook registration client
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+	WebhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 	// API to send policy stats for aggregation
-	statusListener policystatus.Listener
+	StatusListener policystatus.Listener
 	// helpers to validate against current loaded configuration
-	configHandler config.Interface
+	ConfigHandler config.Interface
 	// channel for cleanup notification
-	cleanUp chan<- struct{}
+	CleanUp chan<- struct{}
 	// last request time
-	lastReqTime *checker.LastReqTime
+	LastReqTime *checker.LastReqTime
 	// store to hold policy meta data for faster lookup
-	pMetaStore policystore.LookupInterface
+	PMetaStore policystore.LookupInterface
 	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
+	PvGenerator policyviolation.GeneratorInterface
 	// generate request generator
-	grGenerator            *generate.Generator
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
+	GrGenerator            *generate.Generator
+	ResourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *client.Client,
-	tlsPair *tlsutils.TlsPemPair,
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	rbInformer rbacinformer.RoleBindingInformer,
-	crbInformer rbacinformer.ClusterRoleBindingInformer,
-	eventGen event.Interface,
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
-	statusSync policystatus.Listener,
-	configHandler config.Interface,
-	pMetaStore policystore.LookupInterface,
-	pvGenerator policyviolation.GeneratorInterface,
-	grGenerator *generate.Generator,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
-	cleanUp chan<- struct{}) (*WebhookServer, error) {
+	ws *WebhookServer,
+	tlsPair *tlsutils.TlsPemPair) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
-
 	var tlsConfig tls.Config
 	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
 	if err != nil {
@@ -101,32 +85,12 @@ func NewWebhookServer(
 	}
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
-	ws := &WebhookServer{
-		client:                    client,
-		kyvernoClient:             kyvernoClient,
-		pLister:                   pInformer.Lister(),
-		pSynced:                   pInformer.Informer().HasSynced,
-		rbLister:                  rbInformer.Lister(),
-		rbSynced:                  rbInformer.Informer().HasSynced,
-		crbLister:                 crbInformer.Lister(),
-		crbSynced:                 crbInformer.Informer().HasSynced,
-		eventGen:                  eventGen,
-		webhookRegistrationClient: webhookRegistrationClient,
-		statusListener:            statusSync,
-		configHandler:             configHandler,
-		cleanUp:                   cleanUp,
-		lastReqTime:               resourceWebhookWatcher.LastReqTime,
-		pvGenerator:               pvGenerator,
-		pMetaStore:                pMetaStore,
-		grGenerator:               grGenerator,
-		resourceWebhookWatcher:    resourceWebhookWatcher,
-	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
+	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
+	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
+	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -138,64 +102,50 @@ func NewWebhookServer(
 	return ws, nil
 }
 
-// Main server endpoint for all requests
-func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	startTime := time.Now()
-	// for every request received on the ep update last request time,
-	// this is used to verify admission control
-	ws.lastReqTime.SetTime(time.Now())
-	admissionReview := ws.bodyToAdmissionReview(r, w)
-	if admissionReview == nil {
-		return
-	}
-	defer func() {
-		glog.V(4).Infof("request: %v %s/%s/%s", time.Since(startTime), admissionReview.Request.Kind, admissionReview.Request.Namespace, admissionReview.Request.Name)
-	}()
-
-	admissionReview.Response = &v1beta1.AdmissionResponse{
-		Allowed: true,
-	}
-
-	// Do not process the admission requests for kinds that are in filterKinds for filtering
-	request := admissionReview.Request
-	switch r.URL.Path {
-	case config.VerifyMutatingWebhookServicePath:
-		// we do not apply filters as this endpoint is used explicitly
-		// to watch kyveno deployment and verify if admission control is enabled
-		admissionReview.Response = ws.handleVerifyRequest(request)
-	case config.MutatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handleMutateAdmissionRequest(request)
+func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse, filter bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
+		// for every request received on the ep update last request time,
+		// this is used to verify admission control
+		ws.LastReqTime.SetTime(time.Now())
+		admissionReview := ws.bodyToAdmissionReview(r, w)
+		if admissionReview == nil {
+			return
 		}
-	case config.ValidatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handleValidateAdmissionRequest(request)
-		}
-	case config.PolicyValidatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handlePolicyValidation(request)
-		}
-	case config.PolicyMutatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handlePolicyMutation(request)
-		}
-	}
-	admissionReview.Response.UID = request.UID
+		defer func() {
+			glog.V(4).Infof("request: %v %s/%s/%s", time.Since(startTime), admissionReview.Request.Kind, admissionReview.Request.Namespace, admissionReview.Request.Name)
+		}()
 
-	responseJSON, err := json.Marshal(admissionReview)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
+		admissionReview.Response = &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(responseJSON); err != nil {
-		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		// Do not process the admission requests for kinds that are in filterKinds for filtering
+		request := admissionReview.Request
+		if filter {
+			if !ws.ConfigHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+				admissionReview.Response = handler(request)
+			}
+		} else {
+			admissionReview.Response = handler(request)
+		}
+		admissionReview.Response.UID = request.UID
+
+		responseJSON, err := json.Marshal(admissionReview)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if _, err := w.Write(responseJSON); err != nil {
+			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		}
 	}
 }
 
 func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	policies, err := ws.pMetaStore.ListAll()
+	policies, err := ws.PMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
@@ -207,7 +157,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	// getRoleRef only if policy has roles/clusterroles defined
 	startTime := time.Now()
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.RbLister, ws.CrbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
@@ -247,7 +197,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	// patch the resource with patches before handling validation rules
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
-	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+	if ws.ResourceWebhookWatcher != nil && ws.ResourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 		// VALIDATION
 		ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
@@ -292,7 +242,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	policies, err := ws.pMetaStore.ListAll()
+	policies, err := ws.PMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
 		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
@@ -304,7 +254,7 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 	// getRoleRef only if policy has roles/clusterroles defined
 	startTime := time.Now()
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.RbLister, ws.CrbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
@@ -336,7 +286,7 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.PSynced, ws.RbSynced, ws.CrbSynced) {
 		glog.Error("webhook: failed to sync informer cache")
 	}
 
@@ -351,7 +301,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
-	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
+	go ws.LastReqTime.Run(ws.PLister, ws.EventGen, ws.Client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
 
 }
 
@@ -359,7 +309,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 func (ws *WebhookServer) Stop(ctx context.Context) {
 	// cleanUp
 	// remove the static webhookconfigurations
-	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
+	go ws.WebhookRegistrationClient.RemoveWebhookConfigurations(ws.CleanUp)
 	// shutdown http.Server with context timeout
 	err := ws.server.Shutdown(ctx)
 	if err != nil {

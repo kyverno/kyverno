@@ -63,7 +63,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
-		ws.statusListener.Send(mutateStats{resp: engineResponse})
+		ws.StatusListener.Send(mutateStats{resp: engineResponse})
 		if !engineResponse.IsSuccesful() {
 			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
@@ -91,7 +91,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// AUDIT
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
-	ws.pvGenerator.Add(pvInfos...)
+	ws.PvGenerator.Add(pvInfos...)
 	// REPORTING EVENTS
 	// Scenario 1:
 	//   some/all policies failed to apply on the resource. a policy volation is generated.
@@ -101,7 +101,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	//   create an event on the resource
 	// ADD EVENTS
 	events := generateEvents(engineResponses, false, (request.Operation == v1beta1.Update))
-	ws.eventGen.Add(events...)
+	ws.EventGen.Add(events...)
 
 	// debug info
 	func() {

@@ -71,7 +71,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			continue
 		}
 		engineResponses = append(engineResponses, engineResponse)
-		ws.statusListener.Send(validateStats{
+		ws.StatusListener.Send(validateStats{
 			resp: engineResponse,
 		})
 		if !engineResponse.IsSuccesful() {
@@ -98,7 +98,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	//   all policies were applied succesfully.
 	//   create an event on the resource
 	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update))
-	ws.eventGen.Add(events...)
+	ws.EventGen.Add(events...)
 	if blocked {
 		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
 		return false, getEnforceFailureErrorMsg(engineResponses)
@@ -107,7 +107,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
-	ws.pvGenerator.Add(pvInfos...)
+	ws.PvGenerator.Add(pvInfos...)
 	// report time end
 	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
 	return true, ""

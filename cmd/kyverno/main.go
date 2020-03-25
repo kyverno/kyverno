@@ -219,22 +219,26 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	server, err := webhooks.NewWebhookServer(
-		pclient,
-		client,
-		tlsPair,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		kubeInformer.Rbac().V1().RoleBindings(),
-		kubeInformer.Rbac().V1().ClusterRoleBindings(),
-		egen,
-		webhookRegistrationClient,
-		statusSync.Listener,
-		configData,
-		policyMetaStore,
-		pvgen,
-		grgen,
-		rWebhookWatcher,
-		cleanUp)
+	server, err := webhooks.NewWebhookServer(&webhooks.WebhookServer{
+		Client:                    client,
+		KyvernoClient:             pclient,
+		PLister:                   pInformer.Kyverno().V1().ClusterPolicies().Lister(),
+		PSynced:                   pInformer.Kyverno().V1().ClusterPolicies().Informer().HasSynced,
+		RbLister:                  kubeInformer.Rbac().V1().RoleBindings().Lister(),
+		RbSynced:                  kubeInformer.Rbac().V1().RoleBindings().Informer().HasSynced,
+		CrbLister:                 kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		CrbSynced:                 kubeInformer.Rbac().V1().ClusterRoleBindings().Informer().HasSynced,
+		EventGen:                  egen,
+		WebhookRegistrationClient: webhookRegistrationClient,
+		StatusListener:            statusSync.Listener,
+		ConfigHandler:             configData,
+		CleanUp:                   cleanUp,
+		LastReqTime:               rWebhookWatcher.LastReqTime,
+		PvGenerator:               pvgen,
+		PMetaStore:                policyMetaStore,
+		GrGenerator:               grgen,
+		ResourceWebhookWatcher:    rWebhookWatcher,
+	}, tlsPair)
 	if err != nil {
 		glog.Fatalf("Unable to create webhook server: %v\n", err)
 	}
