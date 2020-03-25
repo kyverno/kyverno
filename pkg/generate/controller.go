@@ -65,7 +65,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 
 	c.sync()
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, time.Second, stopCh)
+		go wait.Until(c.sync, 10*time.Second, stopCh)
 	}
 }
 
