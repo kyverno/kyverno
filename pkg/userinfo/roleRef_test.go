@@ -1,7 +1,6 @@
 package userinfo
 
 import (
-	"flag"
 	"reflect"
 	"testing"
 
@@ -153,9 +152,9 @@ func newRoleBinding(name, ns string, subjects []rbacv1.Subject, roles rbacv1.Rol
 }
 
 func Test_getRoleRefByRoleBindings(t *testing.T) {
-	flag.Parse()
-	flag.Set("logtostderr", "true")
-	flag.Set("v", "3")
+	// flag.Parse()
+	// flag.Set("logtostderr", "true")
+	// flag.Set("v", "3")
 
 	list := make([]*rbacv1.RoleBinding, 2)
 

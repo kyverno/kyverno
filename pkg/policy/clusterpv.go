@@ -1,15 +1,13 @@
 package policy
 
 import (
-	"fmt"
-
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 func (pc *PolicyController) addClusterPolicyViolation(obj interface{}) {
 	pv := obj.(*kyverno.ClusterPolicyViolation)
+	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 
 	if pv.DeletionTimestamp != nil {
 		// On a restart of the controller manager, it's possible for an object to
@@ -22,15 +20,15 @@ func (pc *PolicyController) addClusterPolicyViolation(obj interface{}) {
 	ps := pc.getPolicyForClusterPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		glog.V(4).Infof("Cluster Policy Violation %s does not belong to an active policy, will be cleanedup", pv.Name)
+		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
 		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
-			glog.Errorf("Failed to deleted cluster policy violation %s: %v", pv.Name, err)
+			logger.Error(err, "failed to delete resource")
 			return
 		}
-		glog.V(4).Infof("Cluster Policy Violation %s deleted", pv.Name)
+		logger.V(4).Info("resource deleted")
 		return
 	}
-	glog.V(4).Infof("Cluster Policy Violation %s added.", pv.Name)
+	logger.V(4).Info("resource added")
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
@@ -44,19 +42,20 @@ func (pc *PolicyController) updateClusterPolicyViolation(old, cur interface{}) {
 		// Two different versions of the same replica set will always have different RVs.
 		return
 	}
+	logger := pc.log.WithValues("kind", curPV.Kind, "namespace", curPV.Namespace, "name", curPV.Name)
 
 	ps := pc.getPolicyForClusterPolicyViolation(curPV)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		glog.V(4).Infof("Cluster Policy Violation %s does not belong to an active policy, will be cleanedup", curPV.Name)
+		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
 		if err := pc.pvControl.DeleteClusterPolicyViolation(curPV.Name); err != nil {
-			glog.Errorf("Failed to deleted cluster policy violation %s: %v", curPV.Name, err)
+			logger.Error(err, "failed to delete resource")
 			return
 		}
-		glog.V(4).Infof("PolicyViolation %s deleted", curPV.Name)
+		logger.V(4).Info("resource deleted")
 		return
 	}
-	glog.V(4).Infof("Cluster PolicyViolation %s updated", curPV.Name)
+	logger.V(4).Info("resource updated")
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
@@ -67,6 +66,7 @@ func (pc *PolicyController) updateClusterPolicyViolation(old, cur interface{}) {
 // a DeletionFinalStateUnknown marker item.
 
 func (pc *PolicyController) deleteClusterPolicyViolation(obj interface{}) {
+	logger := pc.log
 	pv, ok := obj.(*kyverno.ClusterPolicyViolation)
 	// When a delete is dropped, the relist will notice a PolicyViolation in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -75,33 +75,35 @@ func (pc *PolicyController) deleteClusterPolicyViolation(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
 		pv, ok = tombstone.Obj.(*kyverno.ClusterPolicyViolation)
 		if !ok {
-			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
 	}
+	logger = logger.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	ps := pc.getPolicyForClusterPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		glog.V(4).Infof("Cluster Policy Violation %s does not belong to an active policy, will be cleanedup", pv.Name)
+		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
 		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
-			glog.Errorf("Failed to deleted cluster policy violation %s: %v", pv.Name, err)
+			logger.Error(err, "failed to delete resource")
 			return
 		}
-		glog.V(4).Infof("Cluster Policy Violation %s deleted", pv.Name)
+		logger.V(4).Info("resource deleted")
 		return
 	}
-	glog.V(4).Infof("Cluster PolicyViolation %s updated", pv.Name)
+	logger.V(4).Info("resource updated")
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
 }
 
 func (pc *PolicyController) getPolicyForClusterPolicyViolation(pv *kyverno.ClusterPolicyViolation) []*kyverno.ClusterPolicy {
+	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	policies, err := pc.pLister.GetPolicyForPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
 		return nil
@@ -113,8 +115,7 @@ func (pc *PolicyController) getPolicyForClusterPolicyViolation(pv *kyverno.Clust
 	if len(policies) > 1 {
 		// ControllerRef will ensure we don't do anything crazy, but more than one
 		// item in this list nevertheless constitutes user error.
-		glog.V(4).Infof("user error! more than one policy is selecting policy violation %s with labels: %#v, returning %s",
-			pv.Name, pv.Labels, policies[0].Name)
+		logger.V(4).Info("user error! more than one policy is selecting policy violation", "labels", pv.Labels, "policy", policies[0].Name)
 	}
 	return policies
 }

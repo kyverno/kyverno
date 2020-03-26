@@ -1,7 +1,7 @@
 package operator
 
 import (
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
@@ -17,17 +17,17 @@ type OperatorHandler interface {
 }
 
 //VariableSubstitutionHandler defines the handler function for variable substitution
-type VariableSubstitutionHandler = func(ctx context.EvalInterface, pattern interface{}) (interface{}, error)
+type VariableSubstitutionHandler = func(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error)
 
 //CreateOperatorHandler returns the operator handler based on the operator used in condition
-func CreateOperatorHandler(ctx context.EvalInterface, op kyverno.ConditionOperator, subHandler VariableSubstitutionHandler) OperatorHandler {
+func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator, subHandler VariableSubstitutionHandler) OperatorHandler {
 	switch op {
 	case kyverno.Equal:
-		return NewEqualHandler(ctx, subHandler)
+		return NewEqualHandler(log, ctx, subHandler)
 	case kyverno.NotEqual:
-		return NewNotEqualHandler(ctx, subHandler)
+		return NewNotEqualHandler(log, ctx, subHandler)
 	default:
-		glog.Errorf("unsupported operator: %s", string(op))
+		log.Info("operator not supported", "operator", string(op))
 	}
 	return nil
 }
