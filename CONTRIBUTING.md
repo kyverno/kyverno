@@ -21,11 +21,9 @@ Reviewers should leave a "LGTM" comment once they are satisfied with the patch.
 If the patch was submitted by a maintainer with write access, the pull request
 should be merged by the submitter after review.
 
-## Disclosing vulnerabilities
-
-Please disclose vulnerabilities exclusively to [support@nirmata.com](mailto:support@nirmata.com). Do
-not use GitHub issues.
 
 ## Code Style
 
 We follow the community provided standard [code structure](https://github.com/golang-standards/project-layout).
+
+See : https://github.com/nirmata/kyverno#contributing
