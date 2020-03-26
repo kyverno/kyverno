@@ -72,27 +72,6 @@ var (
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 )
 
-// //LogDefaultFlags sets default flags
-// func LogDefaultFlags(log logr.Logger) {
-// 	logger := log.WithName("LogDefaultFlags")
-// 	var err error
-// 	err = flag.Set("logtostderr", "true")
-// 	if err != nil {
-// 		logger.Error(err, "failed to set flag", "flag", "logtostderr", "value", "true")
-// 		os.Exit(1)
-// 	}
-// 	err = flag.Set("stderrthreshold", "WARNING")
-// 	if err != nil {
-// 		logger.Error(err, "failed to set flag", "flag", "stderrthreshold", "value", "WARNING")
-// 		os.Exit(1)
-// 	}
-// 	flag.Set("v", "2")
-// 	if err != nil {
-// 		logger.Error(err, "failed to set flag", "flag", "v", "value", "2")
-// 		os.Exit(1)
-// 	}
-// }
-
 //CreateClientConfig creates client config
 func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
 	logger := log.WithName("CreateClientConfig")
