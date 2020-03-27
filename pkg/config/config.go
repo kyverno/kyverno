@@ -71,25 +71,6 @@ var (
 	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 )
-<<<<<<< HEAD
-=======
-//LogDefaultFlags sets default glog flags
-func LogDefaultFlags() {
-	var err error
-	err = flag.Set("logtostderr", "true")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'logtostderr' to 'true':%v", err)
-	}
-	err = flag.Set("stderrthreshold", "WARNING")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'stderrthreshold' to 'WARNING':%v", err)
-	}
-	err = flag.Set("v", "2")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'v' to '2':%v", err)
-	}
-}
->>>>>>> 010bc2b43d99e27daf8709baca5b02ac5ca10011
 
 //CreateClientConfig creates client config
 func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {

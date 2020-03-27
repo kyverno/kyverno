@@ -102,27 +102,6 @@ func main() {
 	}
 }
 
-<<<<<<< HEAD
-=======
-func init() {
-	// arguments
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	err := flag.Set("logtostderr", "true")
-	if err != nil {
-		glog.Errorf("failed to set flag %v", err)
-	}
-	err = flag.Set("stderrthreshold", "WARNING")
-	if err != nil {
-		glog.Errorf("failed to set flag %v", err)
-	}
-	err = flag.Set("v", "2")
-	if err != nil {
-		glog.Errorf("failed to set flag %v", err)
-	}
-	flag.Parse()
-}
->>>>>>> 010bc2b43d99e27daf8709baca5b02ac5ca10011
-
 func removeWebhookIfExists(client *client.Client, kind string, name string) error {
 	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
 	var err error
