@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
@@ -27,6 +28,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -38,20 +42,38 @@ var (
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
 	// User FQDN as CSR CN
-	fqdncn bool
+	fqdncn   bool
+	setupLog = log.Log.WithName("setup")
 )
 
 func main() {
-	defer glog.Flush()
-	version.PrintVersionInfo()
+	klog.InitFlags(nil)
+	log.SetLogger(klogr.New())
+	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
+	if err := flag.Set("v", "2"); err != nil {
+		setupLog.Error(err, "failed to set log level")
+		os.Exit(1)
+	}
+
+	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
+	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
+
+	flag.Parse()
+
+	version.PrintVersionInfo(log.Log)
 	// cleanUp Channel
 	cleanUp := make(chan struct{})
 	//  handle os signals
 	stopCh := signal.SetupSignalHandler()
 	// CLIENT CONFIG
-	clientConfig, err := config.CreateClientConfig(kubeconfig)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
 	if err != nil {
-		glog.Fatalf("Error building kubeconfig: %v\n", err)
+		setupLog.Error(err, "Failed to build kubeconfig")
+		os.Exit(1)
 	}
 
 	// KYVENO CRD CLIENT
@@ -60,29 +82,33 @@ func main() {
 	//		- PolicyViolation
 	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
-		glog.Fatalf("Error creating client: %v\n", err)
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
 	}
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
 	// - invalidate local cache of registered resource every 10 seconds
-	client, err := dclient.NewClient(clientConfig, 10*time.Second, stopCh)
+	client, err := dclient.NewClient(clientConfig, 10*time.Second, stopCh, log.Log)
 	if err != nil {
-		glog.Fatalf("Error creating client: %v\n", err)
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
 	}
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
-	if !utils.CRDInstalled(client.DiscoveryClient) {
-		glog.Fatalf("Required CRDs unavailable")
+	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
+		setupLog.Error(fmt.Errorf("pre-requisite CRDs not installed"), "Failed to create watch on kyverno CRDs")
+		os.Exit(1)
 	}
 	// KUBERNETES CLIENT
 	kubeClient, err := utils.NewKubeClient(clientConfig)
 	if err != nil {
-		glog.Fatalf("Error creating kubernetes client: %v\n", err)
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
 	}
 
 	// TODO(shuting): To be removed for v1.2.0
-	utils.CleanupOldCrd(client)
+	utils.CleanupOldCrd(client, log.Log)
 
 	// KUBERNETES RESOURCES INFORMER
 	// watches namespace resource
@@ -99,16 +125,18 @@ func main() {
 		clientConfig,
 		client,
 		serverIP,
-		int32(webhookTimeout))
+		int32(webhookTimeout),
+		log.Log)
 
 	// Resource Mutating Webhook Watcher
-	lastReqTime := checker.NewLastReqTime()
+	lastReqTime := checker.NewLastReqTime(log.Log.WithName("LastReqTime"))
 	rWebhookWatcher := webhookconfig.NewResourceWebhookRegister(
 		lastReqTime,
 		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1beta1().ValidatingWebhookConfigurations(),
 		webhookRegistrationClient,
 		runValidationInMutatingWebhook,
+		log.Log.WithName("ResourceWebhookRegister"),
 	)
 
 	// KYVERNO CRD INFORMER
@@ -127,16 +155,19 @@ func main() {
 	configData := config.NewConfigData(
 		kubeClient,
 		kubeInformer.Core().V1().ConfigMaps(),
-		filterK8Resources)
+		filterK8Resources,
+		log.Log.WithName("ConfigData"),
+	)
 
 	// Policy meta-data store
-	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies())
+	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies(), log.Log.WithName("PolicyStore"))
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
 	egen := event.NewEventGenerator(
 		client,
-		pInformer.Kyverno().V1().ClusterPolicies())
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		log.Log.WithName("EventGenerator"))
 
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
@@ -149,7 +180,9 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
-		statusSync.Listener)
+		statusSync.Listener,
+		log.Log.WithName("PolicyViolationGenerator"),
+	)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -165,13 +198,16 @@ func main() {
 		egen,
 		pvgen,
 		policyMetaStore,
-		rWebhookWatcher)
+		rWebhookWatcher,
+		log.Log.WithName("PolicyController"),
+	)
 	if err != nil {
-		glog.Fatalf("error creating policy controller: %v\n", err)
+		setupLog.Error(err, "Failed to create policy controller")
+		os.Exit(1)
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, stopCh)
+	grgen := webhookgenerate.NewGenerator(pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -184,6 +220,7 @@ func main() {
 		pvgen,
 		kubedynamicInformer,
 		statusSync.Listener,
+		log.Log.WithName("GenerateController"),
 	)
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
@@ -193,12 +230,14 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		kubedynamicInformer,
+		log.Log.WithName("GenerateCleanUpController"),
 	)
 
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
 	if err != nil {
-		glog.Fatalf("Failed to initialize TLS key/certificate pair: %v\n", err)
+		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
+		os.Exit(1)
 	}
 
 	// WEBHOOK REGISTRATION
@@ -207,7 +246,8 @@ func main() {
 	// resource webhook confgiuration is generated dynamically in the webhook server and policy controller
 	// based on the policy resources created
 	if err = webhookRegistrationClient.Register(); err != nil {
-		glog.Fatalf("Failed registering Admission Webhooks: %v\n", err)
+		setupLog.Error(err, "Failed to register Admission webhooks")
+		os.Exit(1)
 	}
 
 	// Sync openAPI definitions of resources
@@ -234,9 +274,12 @@ func main() {
 		pvgen,
 		grgen,
 		rWebhookWatcher,
-		cleanUp)
+		cleanUp,
+		log.Log.WithName("WebhookServer"),
+	)
 	if err != nil {
-		glog.Fatalf("Unable to create webhook server: %v\n", err)
+		setupLog.Error(err, "Failed to create webhook server")
+		os.Exit(1)
 	}
 	// Start the components
 	pInformer.Start(stopCh)
@@ -274,18 +317,5 @@ func main() {
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp
-	glog.Info("successful shutdown of kyverno controller")
-}
-
-func init() {
-	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
-	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
-
-	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
-	config.LogDefaultFlags()
-	flag.Parse()
+	setupLog.Info("Kyverno shutdown successful")
 }

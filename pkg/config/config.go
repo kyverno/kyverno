@@ -1,9 +1,7 @@
 package config
 
 import (
-	"flag"
-
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -73,7 +71,6 @@ var (
 	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 )
-
 //LogDefaultFlags sets default glog flags
 func LogDefaultFlags() {
 	var err error
@@ -92,11 +89,12 @@ func LogDefaultFlags() {
 }
 
 //CreateClientConfig creates client config
-func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
+func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
+	logger := log.WithName("CreateClientConfig")
 	if kubeconfig == "" {
-		glog.Info("Using in-cluster configuration")
+		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	glog.V(4).Infof("Using configuration from '%s'", kubeconfig)
+	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
