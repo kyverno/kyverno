@@ -714,25 +714,13 @@ func TestMeetConditions_AtleastOneExist(t *testing.T) {
 
 	var resource, overlay interface{}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 010bc2b43d99e27daf8709baca5b02ac5ca10011
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	err = json.Unmarshal(overlayRaw, &overlay)
 	assert.NilError(t, err)
-	path, err := meetConditions(resource, overlay)
-<<<<<<< HEAD
-=======
-	json.Unmarshal(resourceRaw, &resource)
-	json.Unmarshal(overlayRaw, &overlay)
 
 	path, err := meetConditions(log.Log, resource, overlay)
->>>>>>> 589f8ece47f95aedc4ee0decee8d29cb77b73dd6
-=======
 
->>>>>>> 010bc2b43d99e27daf8709baca5b02ac5ca10011
 	assert.Assert(t, reflect.DeepEqual(err, overlayError{}))
 	assert.Assert(t, len(path) == 0)
 }
