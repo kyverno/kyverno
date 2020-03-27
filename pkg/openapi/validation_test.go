@@ -47,12 +47,14 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		},
 	}
 
+	o, _ := NewOpenAPIController()
+
 	for i, tc := range tcs {
 		policy := v1.ClusterPolicy{}
 		_ = json.Unmarshal(tc.policy, &policy)
 
 		var errMessage string
-		err := ValidatePolicyMutation(policy)
+		err := o.ValidatePolicyMutation(policy)
 		if err != nil {
 			errMessage = err.Error()
 		}

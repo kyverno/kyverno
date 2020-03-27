@@ -22,7 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var openApiGlobalState struct {
+type Controller struct {
 	mutex                sync.RWMutex
 	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
@@ -31,21 +31,25 @@ var openApiGlobalState struct {
 	models               proto.Models
 }
 
-func init() {
+func NewOpenAPIController() (*Controller, error) {
+	controller := &Controller{}
+
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	err = useOpenApiDocument(defaultDoc)
+	err = controller.useOpenApiDocument(defaultDoc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	return controller, nil
 }
 
-func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
+func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
@@ -66,7 +70,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for kind, rules := range kindToRules {
 		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
-		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
+		resource, _ := o.generateEmptyResource(o.definitions[o.kindToDefinitionName[kind]]).(map[string]interface{})
 		if resource == nil {
 			log.Log.V(4).Info(fmt.Sprintf("Cannot Validate policy: openApi definition now found for %v", kind))
 			return nil
@@ -78,7 +82,7 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		if err != nil {
 			return err
 		}
-		err = ValidateResource(*patchedResource.DeepCopy(), kind)
+		err = o.ValidateResource(*patchedResource.DeepCopy(), kind)
 		if err != nil {
 			return err
 		}
@@ -87,15 +91,15 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
+func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	var err error
 
-	kind = openApiGlobalState.kindToDefinitionName[kind]
-	schema := openApiGlobalState.models.LookupModel(kind)
+	kind = o.kindToDefinitionName[kind]
+	schema := o.models.LookupModel(kind)
 	if schema == nil {
-		schema, err = getSchemaFromDefinitions(kind)
+		schema, err = o.getSchemaFromDefinitions(kind)
 		if err != nil || schema == nil {
 			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
 		}
@@ -114,28 +118,28 @@ func ValidateResource(patchedResource unstructured.Unstructured, kind string) er
 	return nil
 }
 
-func GetDefinitionNameFromKind(kind string) string {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	return openApiGlobalState.kindToDefinitionName[kind]
+func (o *Controller) GetDefinitionNameFromKind(kind string) string {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.kindToDefinitionName[kind]
 }
 
-func useOpenApiDocument(customDoc *openapi_v2.Document) error {
-	openApiGlobalState.mutex.Lock()
-	defer openApiGlobalState.mutex.Unlock()
+func (o *Controller) useOpenApiDocument(customDoc *openapi_v2.Document) error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
 
-	openApiGlobalState.document = customDoc
+	o.document = customDoc
 
-	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-	openApiGlobalState.kindToDefinitionName = make(map[string]string)
-	for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
-		openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
+	o.definitions = make(map[string]*openapi_v2.Schema)
+	o.kindToDefinitionName = make(map[string]string)
+	for _, definition := range o.document.GetDefinitions().AdditionalProperties {
+		o.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
-		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		o.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
 	var err error
-	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
+	o.models, err = proto.NewOpenAPIData(o.document)
 	if err != nil {
 		return err
 	}
@@ -154,17 +158,17 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 }
 
 // For crd, we do not store definition in document
-func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+func (o *Controller) getSchemaFromDefinitions(kind string) (proto.Schema, error) {
 	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
+	return (&proto.Definitions{}).ParseSchema(o.definitions[kind], &path)
 }
 
-func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
+func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
-		return generateEmptyResource(openApiGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
+		return o.generateEmptyResource(o.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
 	}
 
 	if len(types) != 1 {
@@ -188,7 +192,7 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 		wg.Add(len(properties))
 		for _, property := range properties {
 			go func(property *openapi_v2.NamedSchema) {
-				prop := generateEmptyResource(property.GetValue())
+				prop := o.generateEmptyResource(property.GetValue())
 				mutex.Lock()
 				props[property.GetName()] = prop
 				mutex.Unlock()
@@ -200,7 +204,7 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 	case "array":
 		var array []interface{}
 		for _, schema := range kindSchema.GetItems().GetSchema() {
-			array = append(array, generateEmptyResource(schema))
+			array = append(array, o.generateEmptyResource(schema))
 		}
 		return array
 	case "string":

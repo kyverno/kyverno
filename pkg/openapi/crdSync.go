@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,26 +18,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-type crdDefinition struct {
-	Spec struct {
-		Names struct {
-			Kind string `json:"kind"`
-		} `json:"names"`
-		Versions []struct {
-			Schema struct {
-				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
-			} `json:"schema"`
-		} `json:"versions"`
-	} `json:"spec"`
-}
-
 type crdSync struct {
-	client *client.Client
+	client     *client.Client
+	controller *Controller
 }
 
-func NewCRDSync(client *client.Client) *crdSync {
+func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
+	if controller == nil {
+		panic(fmt.Errorf("nil controller sent into crd sync"))
+	}
+
 	return &crdSync{
-		client: client,
+		controller: controller,
+		client:     client,
 	}
 }
 
@@ -46,7 +40,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 		log.Log.Error(err, "cannot get openapi schema")
 	}
 
-	err = useOpenApiDocument(newDoc)
+	err = c.controller.useOpenApiDocument(newDoc)
 	if err != nil {
 		log.Log.Error(err, "Could not set custom OpenApi document")
 	}
@@ -58,8 +52,8 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *crdSync) sync() {
-	openApiGlobalState.mutex.Lock()
-	defer openApiGlobalState.mutex.Unlock()
+	c.controller.mutex.Lock()
+	defer c.controller.mutex.Unlock()
 
 	crds, err := c.client.ListResource("CustomResourceDefinition", "", nil)
 	if err != nil {
@@ -67,24 +61,36 @@ func (c *crdSync) sync() {
 		return
 	}
 
-	deleteCRDFromPreviousSync()
+	c.controller.deleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
-		parseCRD(crd)
+		c.controller.parseCRD(crd)
 	}
 }
 
-func deleteCRDFromPreviousSync() {
-	for _, crd := range openApiGlobalState.crdList {
-		delete(openApiGlobalState.kindToDefinitionName, crd)
-		delete(openApiGlobalState.definitions, crd)
+func (o *Controller) deleteCRDFromPreviousSync() {
+	for _, crd := range o.crdList {
+		delete(o.kindToDefinitionName, crd)
+		delete(o.definitions, crd)
 	}
 
-	openApiGlobalState.crdList = []string{}
+	o.crdList = []string{}
 }
 
-func parseCRD(crd unstructured.Unstructured) {
-	var crdDefinition crdDefinition
+func (o *Controller) parseCRD(crd unstructured.Unstructured) {
+	var crdDefinition struct {
+		Spec struct {
+			Names struct {
+				Kind string `json:"kind"`
+			} `json:"names"`
+			Versions []struct {
+				Schema struct {
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+				} `json:"schema"`
+			} `json:"versions"`
+		} `json:"spec"`
+	}
+
 	crdRaw, _ := json.Marshal(crd.Object)
 	_ = json.Unmarshal(crdRaw, &crdDefinition)
 
@@ -104,8 +110,8 @@ func parseCRD(crd unstructured.Unstructured) {
 		return
 	}
 
-	openApiGlobalState.crdList = append(openApiGlobalState.crdList, crdName)
+	o.crdList = append(o.crdList, crdName)
 
-	openApiGlobalState.kindToDefinitionName[crdName] = crdName
-	openApiGlobalState.definitions[crdName] = parsedSchema
+	o.kindToDefinitionName[crdName] = crdName
+	o.definitions[crdName] = parsedSchema
 }

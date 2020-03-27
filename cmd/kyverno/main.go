@@ -250,8 +250,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		setupLog.Error(err, "Failed to create openAPIController")
+		os.Exit(1)
+	}
+
 	// Sync openAPI definitions of resources
-	openApiSync := openapi.NewCRDSync(client)
+	openApiSync := openapi.NewCRDSync(client, openAPIController)
 
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -276,6 +282,7 @@ func main() {
 		rWebhookWatcher,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
+		openAPIController,
 	)
 	if err != nil {
 		setupLog.Error(err, "Failed to create webhook server")

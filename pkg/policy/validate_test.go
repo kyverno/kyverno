@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
@@ -373,7 +375,9 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil, true)
+	openAPIController, _ := openapi.NewOpenAPIController()
+
+	err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
 
@@ -519,7 +523,9 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil, true)
+	openAPIController, _ := openapi.NewOpenAPIController()
+
+	err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
