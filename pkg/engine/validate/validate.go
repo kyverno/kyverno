@@ -8,15 +8,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern(resource, pattern interface{}) (string, error) {
-	path, err := validateResourceElement(resource, pattern, pattern, "/")
+func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
+	path, err := validateResourceElement(log, resource, pattern, pattern, "/")
 	if err != nil {
 		return path, err
 	}
@@ -27,44 +27,44 @@ func ValidateResourceWithPattern(resource, pattern interface{}) (string, error) 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
-func validateResourceElement(resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
+func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
 	var err error
 	switch typedPatternElement := patternElement.(type) {
 	// map
 	case map[string]interface{}:
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
 		if !ok {
-			glog.V(4).Infof("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
+			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
 
-		return validateMap(typedResourceElement, typedPatternElement, originPattern, path)
+		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path)
 	// array
 	case []interface{}:
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
-			glog.V(4).Infof("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
+			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 
-		return validateArray(typedResourceElement, typedPatternElement, originPattern, path)
+		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
 		if checkedPattern := reflect.ValueOf(patternElement); checkedPattern.Kind() == reflect.String {
 			if isStringIsReference(checkedPattern.String()) { //check for $ anchor
-				patternElement, err = actualizePattern(originPattern, checkedPattern.String(), path)
+				patternElement, err = actualizePattern(log, originPattern, checkedPattern.String(), path)
 				if err != nil {
 					return path, err
 				}
 			}
 		}
-		if !ValidateValueWithPattern(resourceElement, patternElement) {
+		if !ValidateValueWithPattern(log, resourceElement, patternElement) {
 			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
 		}
 
 	default:
-		glog.V(4).Infof("Pattern contains unknown type %T. Path: %s", patternElement, path)
+		log.V(4).Info("Pattern contains unknown type", "path", path, "current", fmt.Sprintf("%T", patternElement))
 		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
 	}
 	return "", nil
@@ -72,7 +72,7 @@ func validateResourceElement(resourceElement, patternElement, originPattern inte
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
@@ -91,7 +91,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 		if err != nil {
 			// If Conditional anchor fails then we dont process the resources
 			if anchor.IsConditionAnchor(key) {
-				glog.V(4).Infof("condition anchor did not satisfy, wont process the resources: %s", err)
+				log.Error(err, "condition anchor did not satisfy, wont process the resource")
 				return "", nil
 			}
 			return handlerPath, err
@@ -109,7 +109,7 @@ func validateMap(resourceMap, patternMap map[string]interface{}, origPattern int
 	return "", nil
 }
 
-func validateArray(resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
+func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
 
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
@@ -119,7 +119,7 @@ func validateArray(resourceArray, patternArray []interface{}, originPattern inte
 	case map[string]interface{}:
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
-		path, err := validateArrayOfMaps(resourceArray, typedPatternElement, originPattern, path)
+		path, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path)
 		if err != nil {
 			return path, err
 		}
@@ -127,7 +127,7 @@ func validateArray(resourceArray, patternArray []interface{}, originPattern inte
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		for i, patternElement := range patternArray {
 			currentPath := path + strconv.Itoa(i) + "/"
-			path, err := validateResourceElement(resourceArray[i], patternElement, originPattern, currentPath)
+			path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath)
 			if err != nil {
 				return path, err
 			}
@@ -137,7 +137,7 @@ func validateArray(resourceArray, patternArray []interface{}, originPattern inte
 	return "", nil
 }
 
-func actualizePattern(origPattern interface{}, referencePattern, absolutePath string) (interface{}, error) {
+func actualizePattern(log logr.Logger, origPattern interface{}, referencePattern, absolutePath string) (interface{}, error) {
 	var foundValue interface{}
 
 	referencePattern = strings.Trim(referencePattern, "$()")
@@ -155,7 +155,7 @@ func actualizePattern(origPattern interface{}, referencePattern, absolutePath st
 	// value :=
 	actualPath := formAbsolutePath(referencePattern, absolutePath)
 
-	valFromReference, err := getValueFromReference(origPattern, actualPath)
+	valFromReference, err := getValueFromReference(log, origPattern, actualPath)
 	if err != nil {
 		return err, nil
 	}
@@ -196,15 +196,15 @@ func formAbsolutePath(referencePath, absolutePath string) string {
 }
 
 //Prepares original pattern, path to value, and call traverse function
-func getValueFromReference(origPattern interface{}, reference string) (interface{}, error) {
+func getValueFromReference(log logr.Logger, origPattern interface{}, reference string) (interface{}, error) {
 	originalPatternMap := origPattern.(map[string]interface{})
 	reference = reference[1:]
 	statements := strings.Split(reference, "/")
 
-	return getValueFromPattern(originalPatternMap, statements, 0)
+	return getValueFromPattern(log, originalPatternMap, statements, 0)
 }
 
-func getValueFromPattern(patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {
+func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {
 
 	for key, pattern := range patternMap {
 		rawKey := getRawKeyIfWrappedWithAttributes(key)
@@ -221,11 +221,11 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 				for i, value := range typedPattern {
 					resourceMap, ok := value.(map[string]interface{})
 					if !ok {
-						glog.V(4).Infof("Pattern and resource have different structures. Expected %T, found %T", pattern, value)
+						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", value))
 						return nil, fmt.Errorf("Validation rule failed, resource does not have expected pattern %v", patternMap)
 					}
 					if keys[currentKeyIndex+1] == strconv.Itoa(i) {
-						return getValueFromPattern(resourceMap, keys, currentKeyIndex+2)
+						return getValueFromPattern(log, resourceMap, keys, currentKeyIndex+2)
 					}
 					// TODO : SA4004: the surrounding loop is unconditionally terminated (staticcheck)
 					return nil, errors.New("Reference to non-existent place in the document")
@@ -235,7 +235,7 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 			return nil, errors.New("Reference to non-existent place in the document")
 		case map[string]interface{}:
 			if keys[currentKeyIndex] == rawKey {
-				return getValueFromPattern(typedPattern, keys, currentKeyIndex+1)
+				return getValueFromPattern(log, typedPattern, keys, currentKeyIndex+1)
 			}
 			return nil, errors.New("Reference to non-existent place in the document")
 		case string, float64, int, int64, bool, nil:
@@ -253,12 +253,12 @@ func getValueFromPattern(patternMap map[string]interface{}, keys []string, curre
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
-func validateArrayOfMaps(resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
 	for i, resourceElement := range resourceMapArray {
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
 		currentPath := path + strconv.Itoa(i) + "/"
-		returnpath, err := validateResourceElement(resourceElement, patternMap, originPattern, currentPath)
+		returnpath, err := validateResourceElement(log, resourceElement, patternMap, originPattern, currentPath)
 		if err != nil {
 			return returnpath, err
 		}

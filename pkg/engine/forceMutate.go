@@ -12,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay interface{}) (unstructured.Unstructured, error) {
@@ -57,7 +58,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 		if mutation.Overlay != nil {
 			overlay := mutation.Overlay
 			if ctx != nil {
-				if overlay, err = variables.SubstituteVars(ctx, overlay); err != nil {
+				if overlay, err = variables.SubstituteVars(log.Log, ctx, overlay); err != nil {
 					return unstructured.Unstructured{}, err
 				}
 			} else {
@@ -72,7 +73,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 		if rule.Mutation.Patches != nil {
 			var resp response.RuleResponse
-			resp, resource = mutate.ProcessPatches(rule, resource)
+			resp, resource = mutate.ProcessPatches(log.Log, rule, resource)
 			if !resp.Success {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
