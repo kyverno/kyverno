@@ -32,8 +32,10 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	var err error
 	// build context
 	ctx := context.NewContext()
-	ctx.AddResource(transformResource(resource))
-
+	err = ctx.AddResource(transformResource(resource))
+	if err != nil {
+		logger.Error(err, "enable to add transform resource to ctx")
+	}
 	//MUTATION
 	engineResponse, err = mutation(policy, resource, ctx, logger)
 	engineResponses = append(engineResponses, engineResponse)
