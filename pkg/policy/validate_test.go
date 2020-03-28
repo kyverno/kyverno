@@ -369,11 +369,7 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	err = Validate(policy, nil, true)
+	err := Validate(rawPolicy, nil, true)
 	assert.NilError(t, err)
 }
 
@@ -515,11 +511,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	 }
 	`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	err = Validate(policy, nil, true)
+	err := Validate(rawPolicy, nil, true)
 	assert.Assert(t, err != nil)
 }
 

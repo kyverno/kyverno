@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -17,7 +18,13 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(p kyverno.ClusterPolicy, client *dclient.Client, mock bool) error {
+func Validate(policyRaw []byte, client *dclient.Client, mock bool) error {
+	var p kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &p)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
@@ -68,7 +75,7 @@ func Validate(p kyverno.ClusterPolicy, client *dclient.Client, mock bool) error 
 		}
 	}
 
-	if err := openapi.ValidatePolicyMutation(p); err != nil {
+	if err := openapi.ValidatePolicyFields(policyRaw); err != nil {
 		return err
 	}
 

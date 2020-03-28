@@ -1,12 +1,15 @@
 package openapi
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	data "github.com/nirmata/kyverno/api"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,20 +46,67 @@ func init() {
 	}
 }
 
-func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+func ValidatePolicyFields(policyRaw []byte) error {
 	openApiGlobalState.mutex.RLock()
 	defer openApiGlobalState.mutex.RUnlock()
 
+	var policy v1.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	if err != nil {
+		return err
+	}
+
+	policyUnst, err := utils.ConvertToUnstructured(policyRaw)
+	if err != nil {
+		return err
+	}
+
+	err = ValidateResource(*policyUnst.DeepCopy(), "ClusterPolicy")
+	if err != nil {
+		return err
+	}
+
+	return validatePolicyMutation(policy)
+}
+
+func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+	var err error
+
+	kind = openApiGlobalState.kindToDefinitionName[kind]
+	schema := openApiGlobalState.models.LookupModel(kind)
+	if schema == nil {
+		// Check if kind is a CRD
+		schema, err = getSchemaFromDefinitions(kind)
+		if err != nil || schema == nil {
+			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+		}
+		delete(patchedResource.Object, "kind")
+	}
+
+	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
+		var errorMessages []string
+		for i := range errs {
+			errorMessages = append(errorMessages, errs[i].Error())
+		}
+
+		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
+	}
+
+	return nil
+}
+
+func GetDefinitionNameFromKind(kind string) string {
+	openApiGlobalState.mutex.RLock()
+	defer openApiGlobalState.mutex.RUnlock()
+	return openApiGlobalState.kindToDefinitionName[kind]
+}
+
+func validatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
-			rule.MatchResources = v1.MatchResources{
-				UserInfo: v1.UserInfo{},
-				ResourceDescription: v1.ResourceDescription{
-					Kinds: rule.MatchResources.Kinds,
-				},
-			}
-			rule.ExcludeResources = v1.ExcludeResources{}
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
@@ -85,39 +135,6 @@ func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	return nil
-}
-
-func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	var err error
-
-	kind = openApiGlobalState.kindToDefinitionName[kind]
-	schema := openApiGlobalState.models.LookupModel(kind)
-	if schema == nil {
-		schema, err = getSchemaFromDefinitions(kind)
-		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
-		}
-		delete(patchedResource.Object, "kind")
-	}
-
-	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
-		var errorMessages []string
-		for i := range errs {
-			errorMessages = append(errorMessages, errs[i].Error())
-		}
-
-		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
-	}
-
-	return nil
-}
-
-func GetDefinitionNameFromKind(kind string) string {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	return openApiGlobalState.kindToDefinitionName[kind]
 }
 
 func useOpenApiDocument(customDoc *openapi_v2.Document) error {
@@ -155,8 +172,23 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 
 // For crd, we do not store definition in document
 func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+	if kind == "" {
+		return nil, errors.New("invalid kind")
+	}
+
 	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
+	definition := openApiGlobalState.definitions[kind]
+	if definition == nil {
+		return nil, errors.New("could not find definition")
+	}
+
+	// This was added so crd's can access
+	// normal definitions from existing schema such as
+	// `metadata` - this maybe a breaking change.
+	// Removing this may cause policy validate to stop working
+	existingDefinitions, _ := openApiGlobalState.models.(*proto.Definitions)
+
+	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
 func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
