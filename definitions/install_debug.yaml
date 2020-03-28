@@ -109,8 +109,6 @@ spec:
                                         type: string
                   exclude:
                     type: object
-                    required:
-                    - resources
                     properties:
                       roles:
                         type: array

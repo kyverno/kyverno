@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -42,7 +42,7 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
 	if err != nil {
-		glog.V(4).Infof("failed to unmarshall resource: %v", err)
+		log.Log.Error(err, "failed to unmarshal resource")
 		return nil, err
 	}
 	return resource, nil
