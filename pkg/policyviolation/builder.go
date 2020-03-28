@@ -3,23 +3,24 @@ package policyviolation
 import (
 	"fmt"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 
 //GeneratePVsFromEngineResponse generate Violations from engine responses
-func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logger) (pvInfos []Info) {
+func GeneratePVsFromEngineResponse(ers []response.EngineResponse) (pvInfos []Info) {
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
-			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
+			glog.V(4).Infof("resource %v, has not been assigned a name, not creating a policy violation for it", er.PolicyResponse.Resource)
 			continue
 		}
 		// skip when response succeed
 		if er.IsSuccesful() {
 			continue
 		}
+		glog.V(4).Infof("Building policy violation for engine response %v", er)
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}

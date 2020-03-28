@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestValidateMap(t *testing.T) {
@@ -101,7 +100,7 @@ func TestValidateMap(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -197,7 +196,7 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	t.Log(path)
 	assert.NilError(t, err)
 }
@@ -290,7 +289,7 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -378,7 +377,7 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -469,7 +468,7 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/template/spec/containers/0/")
 	assert.Assert(t, err != nil)
 }
@@ -558,10 +557,9 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 
 	var pattern, resource map[string]interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
-	err := json.Unmarshal(rawMap, &resource)
-	assert.NilError(t, err)
+	json.Unmarshal(rawMap, &resource)
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -651,7 +649,7 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/")
+	path, err := validateMap(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -697,7 +695,7 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	// assert.Equal(t, path, "/1/object/0/key2/")
 	// assert.NilError(t, err)
@@ -732,7 +730,7 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -786,7 +784,7 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -840,7 +838,7 @@ func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -894,7 +892,7 @@ func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -948,7 +946,7 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1002,7 +1000,7 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -1056,7 +1054,7 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1110,7 +1108,7 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
@@ -1151,7 +1149,7 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
@@ -1193,7 +1191,7 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/image/")
 	assert.Assert(t, err != nil)
 }
@@ -1247,7 +1245,7 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1278,7 +1276,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 
-	pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
+	pattern, err := actualizePattern(pattern, referencePath, absolutePath)
 
 	assert.Assert(t, err == nil)
 }
@@ -1346,12 +1344,10 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	]`)
 
 	var pattern, resource interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.NilError(t, err)
-	err = json.Unmarshal(rawMap, &resource)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPattern, &pattern)
+	json.Unmarshal(rawMap, &resource)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/")
+	path, err := validateResourceElement(resource, pattern, pattern, "/")
 	assert.Equal(t, path, "/0/object/0/key2/")
 	assert.Assert(t, err != nil)
 }

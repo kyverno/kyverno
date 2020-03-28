@@ -5,7 +5,7 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -23,41 +23,37 @@ type Generator struct {
 	ch     chan kyverno.GenerateRequestSpec
 	client *kyvernoclient.Clientset
 	stopCh <-chan struct{}
-	log    logr.Logger
 }
 
 //NewGenerator returns a new instance of Generate-Request resource generator
-func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}) *Generator {
 	gen := &Generator{
 		ch:     make(chan kyverno.GenerateRequestSpec, 1000),
 		client: client,
 		stopCh: stopCh,
-		log:    log,
 	}
 	return gen
 }
 
 //Create to create generate request resoruce (blocking call if channel is full)
 func (g *Generator) Create(gr kyverno.GenerateRequestSpec) error {
-	logger := g.log
-	logger.V(4).Info("creating Generate Request", "request", gr)
+	glog.V(4).Infof("create GR %v", gr)
 	// Send to channel
 	select {
 	case g.ch <- gr:
 		return nil
 	case <-g.stopCh:
-		logger.Info("shutting down channel")
+		glog.Info("shutting down channel")
 		return fmt.Errorf("shutting down gr create channel")
 	}
 }
 
 // Run starts the generate request spec
 func (g *Generator) Run(workers int) {
-	logger := g.log
 	defer utilruntime.HandleCrash()
-	logger.V(4).Info("starting")
+	glog.V(4).Info("Started generate request")
 	defer func() {
-		logger.V(4).Info("shutting down")
+		glog.V(4).Info("Shutting down generate request")
 	}()
 	for i := 0; i < workers; i++ {
 		go wait.Until(g.process, time.Second, g.stopCh)
@@ -66,18 +62,17 @@ func (g *Generator) Run(workers int) {
 }
 
 func (g *Generator) process() {
-	logger := g.log
 	for r := range g.ch {
-		logger.V(4).Info("recieved generate request", "request", r)
+		glog.V(4).Infof("received generate request %v", r)
 		if err := g.generate(r); err != nil {
-			logger.Error(err, "failed to generate request CR")
+			glog.Errorf("Failed to create Generate Request CR: %v", err)
 		}
 	}
 }
 
 func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec) error {
 	// create a generate request
-	if err := retryCreateResource(g.client, grSpec, g.log); err != nil {
+	if err := retryCreateResource(g.client, grSpec); err != nil {
 		return err
 	}
 	return nil
@@ -86,10 +81,7 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec) error {
 // -> receiving channel to take requests to create request
 // use worker pattern to read and create the CR resource
 
-func retryCreateResource(client *kyvernoclient.Clientset,
-	grSpec kyverno.GenerateRequestSpec,
-	log logr.Logger,
-) error {
+func retryCreateResource(client *kyvernoclient.Clientset, grSpec kyverno.GenerateRequestSpec) error {
 	var i int
 	var err error
 	createResource := func() error {
@@ -103,7 +95,7 @@ func retryCreateResource(client *kyvernoclient.Clientset,
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		_, err = client.KyvernoV1().GenerateRequests("kyverno").Create(&gr)
-		log.V(4).Info("retrying create generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
+		glog.V(4).Infof("retry %v create generate request", i)
 		i++
 		return err
 	}

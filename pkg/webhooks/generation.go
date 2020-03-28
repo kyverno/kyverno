@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -17,19 +18,19 @@ import (
 
 //HandleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
 
 	// convert RAW to unstructured
 	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
 		//TODO: skip applying the admission control ?
-		logger.Error(err, "failed to convert RAR resource to unstructured format")
+		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
 		return true, ""
 	}
 
 	// CREATE resources, do not have name, assigned in admission-request
+	glog.V(4).Infof("Handle Generate: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 
 	userRequestInfo := kyverno.RequestInfo{
 		Roles:             roles,
@@ -40,16 +41,16 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// load incoming resource into the context
 	err = ctx.AddResource(request.Object.Raw)
 	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
+		glog.Infof("Failed to load resource in context:%v", err)
 	}
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
+		glog.Infof("Failed to load userInfo in context:%v", err)
 	}
 	// load service account in context
 	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		logger.Error(err, "failed to load service account in context")
+		glog.Infof("Failed to load service account in context:%v", err)
 	}
 
 	policyContext := engine.PolicyContext{

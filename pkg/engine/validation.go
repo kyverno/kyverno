@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -13,7 +13,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Validate applies validation rules from policy on the resource
@@ -24,18 +23,17 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
-	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name, "kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
 
 	// policy information
-	logger.V(4).Info("start processing", "startTime", startTime)
+	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
 
 	// Process new & old resource
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
 		// Create Mode
 		// Operate on New Resource only
-		resp := validateResource(logger, ctx, policy, newR, admissionInfo)
+		resp := validateResource(ctx, policy, newR, admissionInfo)
 		startResultResponse(resp, policy, newR)
-		defer endResultResponse(logger, resp, startTime)
+		defer endResultResponse(resp, startTime)
 		// set PatchedResource with origin resource if empty
 		// in order to create policy violation
 		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
@@ -46,14 +44,14 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// Update Mode
 	// Operate on New and Old Resource only
 	// New resource
-	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
-	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
+	oldResponse := validateResource(ctx, policy, oldR, admissionInfo)
+	newResponse := validateResource(ctx, policy, newR, admissionInfo)
 
 	// if the old and new response is same then return empty response
 	if !isSameResponse(oldResponse, newResponse) {
 		// there are changes send response
 		startResultResponse(newResponse, policy, newR)
-		defer endResultResponse(logger, newResponse, startTime)
+		defer endResultResponse(newResponse, startTime)
 		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
 			newResponse.PatchedResource = newR
 		}
@@ -75,9 +73,10 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
 }
 
-func endResultResponse(log logr.Logger, resp *response.EngineResponse, startTime time.Time) {
+func endResultResponse(resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
+	glog.V(4).Infof("Validation Rules appplied successfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -85,18 +84,20 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
+		startTime := time.Now()
+		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-			log.V(4).Info("resource fails the match description")
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
 			continue
 		}
 
@@ -104,13 +105,13 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
 		// - handle variable subsitutions
-		if !variables.EvaluateConditions(log, ctx, copyConditions) {
-			log.V(4).Info("resource fails the preconditions")
+		if !variables.EvaluateConditions(ctx, copyConditions) {
+			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validatePatterns(log, ctx, resource, rule)
+			ruleResponse := validatePatterns(ctx, resource, rule)
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		}
@@ -158,15 +159,14 @@ func isSameRules(oldRules []response.RuleResponse, newRules []response.RuleRespo
 }
 
 // validatePatterns validate pattern and anyPattern
-func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
+func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
 	startTime := time.Now()
-	logger := log.WithValues("rule", rule.Name)
-	logger.V(4).Info("start processing rule", "startTime", startTime)
+	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
 	resp.Name = rule.Name
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finshed processing", "processingTime", resp.RuleStats.ProcessingTime)
+		glog.V(4).Infof("finished applying validation rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
 	// work on a copy of validation rule
 	validationRule := rule.Validation.DeepCopy()
@@ -176,7 +176,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		// substitute variables in the pattern
 		pattern := validationRule.Pattern
 		var err error
-		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
+		if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
 			// variable subsitution failed
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed. '%s'",
@@ -184,7 +184,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			return resp
 		}
 
-		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
+		if path, err := validate.ValidateResourceWithPattern(resource.Object, pattern); err != nil {
 			// validation failed
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
@@ -192,7 +192,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			return resp
 		}
 		// rule application successful
-		logger.V(4).Info("successfully processed rule")
+		glog.V(4).Infof("rule %s pattern validated successfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		resp.Success = true
 		resp.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)
 		return resp
@@ -203,18 +203,19 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		var failedAnyPatternsErrors []error
 		var err error
 		for idx, pattern := range validationRule.AnyPattern {
-			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
+			if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
 				// variable subsitution failed
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
 				continue
 			}
-			_, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
+			_, err := validate.ValidateResourceWithPattern(resource.Object, pattern)
 			if err == nil {
 				resp.Success = true
 				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, idx)
 				return resp
 			}
-			logger.V(4).Info(fmt.Sprintf("validation rule failed for anyPattern[%d]", idx), "message", rule.Validation.Message)
+			glog.V(4).Infof("Validation error: %s; Validation rule %s anyPattern[%d] for %s/%s/%s",
+				rule.Validation.Message, rule.Name, idx, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			patternErr := fmt.Errorf("anyPattern[%d] failed; %s", idx, err)
 			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 		}
@@ -233,7 +234,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 				errorStr = append(errorStr, err.Error())
 			}
 			resp.Success = false
-			log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr))
+			glog.V(4).Infof("Validation rule '%s' failed. %s", rule.Name, errorStr)
 			if rule.Validation.Message == "" {
 				resp.Message = fmt.Sprintf("Validation rule '%s' has failed", rule.Name)
 			} else {

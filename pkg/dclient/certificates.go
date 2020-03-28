@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	tls "github.com/nirmata/kyverno/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -18,14 +19,13 @@ import (
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
 func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.TlsPemPair, error) {
-	logger := c.log
 	certProps, err := c.GetTLSCertProps(configuration)
 	if err != nil {
 		return nil, err
 	}
 	tlsPair := c.ReadTlsPair(certProps)
 	if tls.IsTLSPairShouldBeUpdated(tlsPair) {
-		logger.Info("Generating new key/certificate pair for TLS")
+		glog.Info("Generating new key/certificate pair for TLS")
 		tlsPair, err = c.generateTLSPemPair(certProps, fqdncn)
 		if err != nil {
 			return nil, err
@@ -35,7 +35,8 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.T
 		}
 		return tlsPair, nil
 	}
-	logger.Info("Using existing TLS key/certificate pair")
+
+	glog.Infoln("Using existing TLS key/certificate pair")
 	return tlsPair, nil
 }
 
@@ -70,7 +71,6 @@ func (c *Client) generateTLSPemPair(props tls.TlsCertificateProps, fqdncn bool) 
 
 // Submits and approves certificate request, returns request which need to be fetched
 func (c *Client) submitAndApproveCertificateRequest(req *certificates.CertificateSigningRequest) (*certificates.CertificateSigningRequest, error) {
-	logger := c.log.WithName("submitAndApproveCertificateRequest")
 	certClient, err := c.GetCSRInterface()
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 			if err != nil {
 				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
 			}
-			logger.Info("Old certificate request is deleted")
+			glog.Info("Old certificate request is deleted")
 			break
 		}
 	}
@@ -95,7 +95,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Certificate request created", "name", unstrRes.GetName())
+	glog.Infof("Certificate request %s is created", unstrRes.GetName())
 
 	res, err := convertToCSR(unstrRes)
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, fmt.Errorf("Unable to approve certificate request: %v", err)
 	}
-	logger.Info("Certificate request is approved", "name", res.ObjectMeta.Name)
+	glog.Infof("Certificate request %s is approved", res.ObjectMeta.Name)
 
 	return res, nil
 }
@@ -144,10 +144,9 @@ func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSignin
 
 //ReadRootCASecret returns the RootCA from the pre-defined secret
 func (c *Client) ReadRootCASecret() (result []byte) {
-	logger := c.log.WithName("ReadRootCASecret")
 	certProps, err := c.GetTLSCertProps(c.clientConfig)
 	if err != nil {
-		logger.Error(err, "failed to get TLS Cert Properties")
+		glog.Error(err)
 		return result
 	}
 	sname := generateRootCASecretName(certProps)
@@ -157,16 +156,16 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 	}
 	tlsca, err := convertToSecret(stlsca)
 	if err != nil {
-		logger.Error(err, "failed to convert secret", "name", sname, "namespace", certProps.Namespace)
+		glog.Error(err)
 		return result
 	}
 
 	result = tlsca.Data[rootCAKey]
 	if len(result) == 0 {
-		logger.Info("root CA certificate not found in secret", "name", tlsca.Name, "namespace", certProps.Namespace)
+		glog.Warningf("root CA certificate not found in secret %s/%s", certProps.Namespace, tlsca.Name)
 		return result
 	}
-	logger.V(4).Info("using CA bundle defined in secret to validate the webhook's server certificate", "name", tlsca.Name, "namespace", certProps.Namespace)
+	glog.V(4).Infof("using CA bundle defined in secret %s/%s to validate the webhook's server certificate", certProps.Namespace, tlsca.Name)
 	return result
 }
 
@@ -175,11 +174,10 @@ const rootCAKey string = "rootCA.crt"
 
 //ReadTlsPair Reads the pair of TLS certificate and key from the specified secret.
 func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
-	logger := c.log.WithName("ReadTlsPair")
 	sname := generateTLSPairSecretName(props)
 	unstrSecret, err := c.GetResource(Secrets, props.Namespace, sname)
 	if err != nil {
-		logger.Error(err, "Failed to get secret", "name", sname, "namespace", props.Namespace)
+		glog.Warningf("Unable to get secret %s/%s: %s", props.Namespace, sname, err)
 		return nil
 	}
 
@@ -190,7 +188,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 		sname := generateRootCASecretName(props)
 		_, err := c.GetResource(Secrets, props.Namespace, sname)
 		if err != nil {
-			logger.Error(err, "Root CA secret is required while using self-signed certificates TLS pair, defaulting to generating new TLS pair", "name", sname, "namespace", props.Namespace)
+			glog.Errorf("Root CA secret %s/%s is required while using self-signed certificates TLS pair, defaulting to generating new TLS pair", props.Namespace, sname)
 			return nil
 		}
 	}
@@ -203,11 +201,11 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
 	}
 	if len(pemPair.Certificate) == 0 {
-		logger.Info("TLS Certificate not found in secret", "name", sname, "namespace", props.Namespace)
+		glog.Warningf("TLS Certificate not found in secret %s/%s", props.Namespace, sname)
 		return nil
 	}
 	if len(pemPair.PrivateKey) == 0 {
-		logger.Info("TLS PrivateKey not found in secret", "name", sname, "namespace", props.Namespace)
+		glog.Warningf("TLS PrivateKey not found in secret %s/%s", props.Namespace, sname)
 		return nil
 	}
 	return &pemPair
@@ -216,7 +214,6 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 //WriteTlsPair Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
-	logger := c.log.WithName("WriteTlsPair")
 	name := generateTLSPairSecretName(props)
 	_, err := c.GetResource(Secrets, props.Namespace, name)
 	if err != nil {
@@ -238,7 +235,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 
 		_, err := c.CreateResource(Secrets, props.Namespace, secret, false)
 		if err == nil {
-			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			glog.Infof("Secret %s is created", name)
 		}
 		return err
 	}
@@ -254,7 +251,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 	if err != nil {
 		return err
 	}
-	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	glog.Infof("Secret %s is updated", name)
 	return nil
 }
 

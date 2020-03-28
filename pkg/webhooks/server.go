@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -69,7 +69,6 @@ type WebhookServer struct {
 	// generate request generator
 	grGenerator            *generate.Generator
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
-	log                    logr.Logger
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -89,9 +88,7 @@ func NewWebhookServer(
 	pvGenerator policyviolation.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
-	cleanUp chan<- struct{},
-	log logr.Logger,
-) (*WebhookServer, error) {
+	cleanUp chan<- struct{}) (*WebhookServer, error) {
 
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
@@ -123,7 +120,6 @@ func NewWebhookServer(
 		pMetaStore:                pMetaStore,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
-		log:                       log,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
@@ -152,9 +148,8 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	if admissionReview == nil {
 		return
 	}
-	logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
 	defer func() {
-		logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
+		glog.V(4).Infof("request: %v %s/%s/%s", time.Since(startTime), admissionReview.Request.Kind, admissionReview.Request.Namespace, admissionReview.Request.Name)
 	}()
 
 	admissionReview.Response = &v1beta1.AdmissionResponse{
@@ -200,29 +195,31 @@ func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
-		logger.Error(err, "failed to list policies. Policies are NOT being applied")
+		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var roles, clusterRoles []string
 
 	// getRoleRef only if policy has roles/clusterroles defined
+	startTime := time.Now()
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
-			logger.Error(err, "failed to get RBAC infromation for request")
+			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
 		}
 	}
+	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// convert RAW to unstructured
 	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
-		logger.Error(err, "failed to convert RAW resource to unstructured format")
+		glog.Errorf(err.Error())
 
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
@@ -248,13 +245,13 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 
 	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw)
 
 	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 		// VALIDATION
 		ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
-			logger.Info("admission request denied")
+			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 			return &v1beta1.AdmissionResponse{
 				Allowed: false,
 				Result: &metav1.Status{
@@ -272,7 +269,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	if request.Operation == v1beta1.Create {
 		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
-			logger.Info("admission request denied")
+			glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 			return &v1beta1.AdmissionResponse{
 				Allowed: false,
 				Result: &metav1.Status{
@@ -295,29 +292,31 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
-		logger.Error(err, "failed to list policies. Policies are NOT being applied")
+		glog.Errorf("Unable to connect to policy controller to access policies. Policies are NOT being applied: %v", err)
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var roles, clusterRoles []string
 
 	// getRoleRef only if policy has roles/clusterroles defined
+	startTime := time.Now()
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
-			logger.Error(err, "failed to get RBAC infromation for request")
+			glog.Errorf("Unable to get rbac information for request Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s: %v",
+				request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation, err)
 		}
 	}
+	glog.V(4).Infof("Time: webhook GetRoleRef %v", time.Since(startTime))
 
 	// VALIDATION
 	ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
 	if !ok {
-		logger.Info("admission request denied")
+		glog.V(4).Infof("Deny admission request: %v/%s/%s", request.Kind, request.Namespace, request.Name)
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -337,28 +336,27 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	logger := ws.log
 	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced) {
-		logger.Info("failed to sync informer cache")
+		glog.Error("webhook: failed to sync informer cache")
 	}
 
 	go func(ws *WebhookServer) {
-		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
+		glog.V(3).Infof("serving on %s\n", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-			logger.Error(err, "failed to listen to requests")
+			glog.Infof("HTTP server error: %v", err)
 		}
 	}(ws)
-	logger.Info("starting")
+	glog.Info("Started Webhook Server")
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
 	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
+
 }
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop(ctx context.Context) {
-	logger := ws.log
 	// cleanUp
 	// remove the static webhookconfigurations
 	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
@@ -366,7 +364,7 @@ func (ws *WebhookServer) Stop(ctx context.Context) {
 	err := ws.server.Shutdown(ctx)
 	if err != nil {
 		// Error from closing listeners, or context timeout:
-		logger.Error(err, "shutting down server")
+		glog.Info("Server Shutdown error: ", err)
 		ws.server.Close()
 	}
 }
@@ -374,7 +372,6 @@ func (ws *WebhookServer) Stop(ctx context.Context) {
 // bodyToAdmissionReview creates AdmissionReview object from request body
 // Answers to the http.ResponseWriter if request is not valid
 func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer http.ResponseWriter) *v1beta1.AdmissionReview {
-	logger := ws.log
 	var body []byte
 	if request.Body != nil {
 		if data, err := ioutil.ReadAll(request.Body); err == nil {
@@ -382,21 +379,21 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 		}
 	}
 	if len(body) == 0 {
-		logger.Info("empty body")
+		glog.Error("Error: empty body")
 		http.Error(writer, "empty body", http.StatusBadRequest)
 		return nil
 	}
 
 	contentType := request.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		logger.Info("invalid Content-Type", "contextType", contentType)
+		glog.Error("Error: invalid Content-Type: ", contentType)
 		http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return nil
 	}
 
 	admissionReview := &v1beta1.AdmissionReview{}
 	if err := json.Unmarshal(body, &admissionReview); err != nil {
-		logger.Error(err, "failed to decode request body to type 'AdmissionReview")
+		glog.Errorf("Error: Can't decode body as AdmissionReview: %v", err)
 		http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 		return nil
 	}

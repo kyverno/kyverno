@@ -1,13 +1,14 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	"github.com/minio/minio/pkg/wildcard"
 	v1 "k8s.io/api/core/v1"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -30,7 +31,6 @@ type ConfigData struct {
 	filters []k8Resource
 	// hasynced
 	cmSycned cache.InformerSynced
-	log      logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -51,21 +51,20 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources string) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
-		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
+		glog.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
 		client:   rclient,
 		cmName:   os.Getenv(cmNameEnv),
 		cmSycned: cmInformer.Informer().HasSynced,
-		log:      log,
 	}
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	if filterK8Resources != "" {
-		cd.log.Info("init configuration from commandline arguments")
+		glog.Info("Init configuration from commandline arguments")
 		cd.initFilters(filterK8Resources)
 	}
 
@@ -79,10 +78,9 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 //Run checks syncing
 func (cd *ConfigData) Run(stopCh <-chan struct{}) {
-	logger := cd.log
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, cd.cmSycned) {
-		logger.Info("configuration: failed to sync informer cache")
+		glog.Error("configuration: failed to sync informer cache")
 	}
 }
 
@@ -105,17 +103,16 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 }
 
 func (cd *ConfigData) deleteCM(obj interface{}) {
-	logger := cd.log
 	cm, ok := obj.(*v1.ConfigMap)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("failed to get object from tombstone")
+			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
 		_, ok = tombstone.Obj.(*v1.ConfigMap)
 		if !ok {
-			logger.Info("Tombstone contained object that is not a ConfigMap", "object", obj)
+			glog.Info(fmt.Errorf("Tombstone contained object that is not a ConfigMap %#v", obj))
 			return
 		}
 	}
@@ -128,20 +125,19 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 }
 
 func (cd *ConfigData) load(cm v1.ConfigMap) {
-	logger := cd.log.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
-		logger.V(4).Info("configuration: No data defined in ConfigMap")
+		glog.V(4).Infof("Configuration: No data defined in ConfigMap %s", cm.Name)
 		return
 	}
 	// get resource filters
 	filters, ok := cm.Data["resourceFilters"]
 	if !ok {
-		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
+		glog.V(4).Infof("Configuration: No resourceFilters defined in ConfigMap %s", cm.Name)
 		return
 	}
 	// filters is a string
 	if filters == "" {
-		logger.V(4).Info("configuration: resourceFilters is empty in ConfigMap")
+		glog.V(4).Infof("Configuration: resourceFilters is empty in ConfigMap %s", cm.Name)
 		return
 	}
 	// parse and load the configuration
@@ -150,10 +146,11 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 
 	newFilters := parseKinds(filters)
 	if reflect.DeepEqual(newFilters, cd.filters) {
-		logger.V(4).Info("resourceFilters did not change")
+		glog.V(4).Infof("Configuration: resourceFilters did not change in ConfigMap %s", cm.Name)
 		return
 	}
-	logger.V(4).Info(" Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
+	glog.V(4).Infof("Configuration: Old resource filters %v", cd.filters)
+	glog.Infof("Configuration: New resource filters to %v", newFilters)
 	// update filters
 	cd.filters = newFilters
 }
@@ -161,20 +158,20 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 //TODO: this has been added to backward support command line arguments
 // will be removed in future and the configuration will be set only via configmaps
 func (cd *ConfigData) initFilters(filters string) {
-	logger := cd.log
 	// parse and load the configuration
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 
 	newFilters := parseKinds(filters)
-	logger.Info("Init resource filters", "filters", newFilters)
+	glog.Infof("Configuration: Init resource filters to %v", newFilters)
 	// update filters
 	cd.filters = newFilters
 }
 
 func (cd *ConfigData) unload(cm v1.ConfigMap) {
-	logger := cd.log
-	logger.Info("ConfigMap deleted, removing configuration filters", "name", cm.Name, "namespace", cm.Namespace)
+	// TODO pick one msg
+	glog.Infof("Configuration: ConfigMap %s deleted, removing configuration filters", cm.Name)
+	glog.Infof("Configuration: Removing all resource filters as ConfigMap %s deleted", cm.Name)
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	cd.filters = []k8Resource{}

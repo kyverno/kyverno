@@ -7,6 +7,7 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -21,8 +22,8 @@ import (
 // HandleMutation handles mutating webhook admission request
 // return value: generated patches
 func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
-	logger := ws.log.WithValues("action", "mutation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	logger.V(4).Info("incoming request")
+	glog.V(4).Infof("Receive request in mutating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
 
 	var patches [][]byte
 	var engineResponses []response.EngineResponse
@@ -38,16 +39,16 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// load incoming resource into the context
 	err = ctx.AddResource(request.Object.Raw)
 	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
+		glog.Infof("Failed to load resource in context:%v", err)
 	}
 
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
+		glog.Infof("Failed to load userInfo in context:%v", err)
 	}
 	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		logger.Error(err, "failed to load service account in context")
+		glog.Infof("Failed to load service account in context:%v", err)
 	}
 
 	policyContext := engine.PolicyContext{
@@ -57,36 +58,39 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	}
 
 	for _, policy := range policies {
-		logger.V(2).Info("evaluating policy", "policy", policy.Name)
-
+		glog.V(2).Infof("Handling mutation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
+			resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
 		engineResponses = append(engineResponses, engineResponse)
 		ws.statusListener.Send(mutateStats{resp: engineResponse})
 		if !engineResponse.IsSuccesful() {
-			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
+			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, resource.GetNamespace(), resource.GetName())
 			continue
 		}
 		err := openapi.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			logger.Error(err, "failed to validate resource")
+			glog.V(4).Infoln(err)
 			continue
 		}
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
-		logger.Info("mutation rules from policy applied succesfully", "policy", policy.Name)
+		glog.V(4).Infof("Mutation from policy %s has applied successfully to %s %s/%s", policy.Name, request.Kind.Kind, resource.GetNamespace(), resource.GetName())
 
 		policyContext.NewResource = engineResponse.PatchedResource
 	}
 
 	// generate annotations
-	if annPatches := generateAnnotationPatches(engineResponses, logger); annPatches != nil {
+	if annPatches := generateAnnotationPatches(engineResponses); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
 
+	// report time
+	reportTime := time.Now()
+
 	// AUDIT
 	// generate violation when response fails
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
 	ws.pvGenerator.Add(pvInfos...)
 	// REPORTING EVENTS
 	// Scenario 1:
@@ -96,20 +100,24 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	//   all policies were applied succesfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, (request.Operation == v1beta1.Update), logger)
+	events := generateEvents(engineResponses, false, (request.Operation == v1beta1.Update))
 	ws.eventGen.Add(events...)
 
 	// debug info
 	func() {
 		if len(patches) != 0 {
-			logger.V(4).Info("JSON patches generated")
+			glog.V(4).Infof("Patches generated for %s/%s/%s, operation=%v:\n %v",
+				resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.Operation, string(engineutils.JoinPatches(patches)))
 		}
 
 		// if any of the policies fails, print out the error
 		if !isResponseSuccesful(engineResponses) {
-			logger.Info("failed to apply mutation rules on the resource, reporting policy violation", "errors", getErrorMsg(engineResponses))
+			glog.Errorf("Failed to mutate the resource, report as violation: %s\n", getErrorMsg(engineResponses))
 		}
 	}()
+
+	// report time end
+	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), resource.GetKind(), resource.GetNamespace(), resource.GetName())
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
 	return engineutils.JoinPatches(patches)

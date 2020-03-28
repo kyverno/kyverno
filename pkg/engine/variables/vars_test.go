@@ -6,7 +6,6 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_subVars_success(t *testing.T) {
@@ -65,7 +64,7 @@ func Test_subVars_success(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, pattern); err != nil {
+	if _, err := SubstituteVars(ctx, pattern); err != nil {
 		t.Error(err)
 	}
 }
@@ -126,7 +125,7 @@ func Test_subVars_failed(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, pattern); err == nil {
+	if _, err := SubstituteVars(ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
 }
@@ -153,5 +152,5 @@ func Test_SubvarRecursive(t *testing.T) {
 	ctx := context.NewContext()
 	assert.Assert(t, ctx.AddResource(resourceRaw))
 	errs := []error{}
-	subValR(log.Log, ctx, string(patternRaw), "/", &errs)
+	subValR(ctx, string(patternRaw), "/", &errs)
 }

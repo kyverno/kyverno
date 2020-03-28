@@ -3,6 +3,7 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -306,7 +308,7 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 func getClient(t *testing.T, files []string) *client.Client {
 	var objects []runtime.Object
 	if files != nil {
-
+		glog.V(4).Infof("loading resources: %v", files)
 		for _, file := range files {
 			objects = loadObjects(t, file)
 		}
@@ -402,7 +404,7 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 		policy := kyverno.ClusterPolicy{}
 		pBytes, err := apiyaml.ToJSON(p)
 		if err != nil {
-			t.Error(err)
+			glog.Error(err)
 			continue
 		}
 
@@ -425,8 +427,7 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-
-	// flag.Set("logtostderr", "true")
+	flag.Set("logtostderr", "true")
 	// flag.Set("v", "8")
 
 	scenario, err := loadScenario(t, path)

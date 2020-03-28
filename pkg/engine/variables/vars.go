@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
@@ -17,9 +17,9 @@ const (
 
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
-func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
+func SubstituteVars(ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
 	errs := []error{}
-	pattern = subVars(log, ctx, pattern, "", &errs)
+	pattern = subVars(ctx, pattern, "", &errs)
 	if len(errs) == 0 {
 		// no error while parsing the pattern
 		return pattern, nil
@@ -27,40 +27,40 @@ func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interfac
 	return pattern, fmt.Errorf("%v", errs)
 }
 
-func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
+func subVars(ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
-		return subMap(log, ctx, typedPattern, path, errs)
+		return subMap(ctx, typedPattern, path, errs)
 	case []interface{}:
-		return subArray(log, ctx, typedPattern, path, errs)
+		return subArray(ctx, typedPattern, path, errs)
 	case string:
-		return subValR(log, ctx, typedPattern, path, errs)
+		return subValR(ctx, typedPattern, path, errs)
 	default:
 		return pattern
 	}
 }
 
-func subMap(log logr.Logger, ctx context.EvalInterface, patternMap map[string]interface{}, path string, errs *[]error) map[string]interface{} {
+func subMap(ctx context.EvalInterface, patternMap map[string]interface{}, path string, errs *[]error) map[string]interface{} {
 	for key, patternElement := range patternMap {
 		curPath := path + "/" + key
-		value := subVars(log, ctx, patternElement, curPath, errs)
+		value := subVars(ctx, patternElement, curPath, errs)
 		patternMap[key] = value
 
 	}
 	return patternMap
 }
 
-func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interface{}, path string, errs *[]error) []interface{} {
+func subArray(ctx context.EvalInterface, patternList []interface{}, path string, errs *[]error) []interface{} {
 	for idx, patternElement := range patternList {
 		curPath := path + "/" + strconv.Itoa(idx)
-		value := subVars(log, ctx, patternElement, curPath, errs)
+		value := subVars(ctx, patternElement, curPath, errs)
 		patternList[idx] = value
 	}
 	return patternList
 }
 
 // subValR resolves the variables if defined
-func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
+func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
 
 	// variable values can be scalar values(string,int, float) or they can be obects(map,slice)
 	// - {{variable}}
@@ -73,7 +73,7 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 	// since this might be a potential place for error, required better error reporting and handling
 
 	// object values are only suported for single variable substitution
-	if ok, retVal := processIfSingleVariable(log, ctx, valuePattern, path, errs); ok {
+	if ok, retVal := processIfSingleVariable(ctx, valuePattern, path, errs); ok {
 		return retVal
 	}
 	// var emptyInterface interface{}
@@ -82,7 +82,7 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 	for {
 		valueStr := valuePattern
 		if len(failedVars) != 0 {
-			log.Info("failed to resolve variablesl short-circuiting")
+			glog.Info("some failed variables short-circuiting")
 			break
 		}
 		// get variables at this level
@@ -123,7 +123,7 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 				continue
 			}
 			// if type is not scalar then consider this as a failed variable
-			log.Info("variable resolves to non-scalar value. Non-Scalar values are not supported for nested variables", "variable", k, "value", v)
+			glog.Infof("variable %s resolves to non-scalar value %v. Non-Scalar values are not supported for nested variables", k, v)
 			failedVars = append(failedVars, k)
 		}
 		valuePattern = newVal
@@ -143,10 +143,10 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 // if the value can be evaluted return the value
 // -> return value can be scalar or object type
 // -> if the variable is not present in the context then add an error and dont process further
-func processIfSingleVariable(log logr.Logger, ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) (bool, interface{}) {
+func processIfSingleVariable(ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) (bool, interface{}) {
 	valueStr, ok := valuePattern.(string)
 	if !ok {
-		log.Info("failed to convert to string", "pattern", valuePattern)
+		glog.Infof("failed to convert %v to string", valuePattern)
 		return false, nil
 	}
 	// get variables at this level

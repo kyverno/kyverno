@@ -1,7 +1,7 @@
 package version
 
 import (
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 )
 
 // These fields are set during an official build
@@ -13,8 +13,8 @@ var (
 )
 
 //PrintVersionInfo displays the kyverno version - git version
-func PrintVersionInfo(log logr.Logger) {
-	log.Info("Kyverno", "Version", BuildVersion)
-	log.Info("Kyverno", "BuildHash", BuildHash)
-	log.Info("Kyverno", "BuildTime", BuildTime)
+func PrintVersionInfo() {
+	glog.Infof("Kyverno version: %s\n", BuildVersion)
+	glog.Infof("Kyverno BuildHash: %s\n", BuildHash)
+	glog.Infof("Kyverno BuildTime: %s\n", BuildTime)
 }

@@ -6,12 +6,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/golang/glog"
+
 	"gopkg.in/yaml.v2"
 
 	"github.com/googleapis/gnostic/compiler"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,12 +44,12 @@ func NewCRDSync(client *client.Client) *crdSync {
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get openapi schema")
+		glog.V(4).Infof("cannot get openapi schema: %v", err)
 	}
 
 	err = useOpenApiDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenApi document")
+		glog.V(4).Infof("Could not set custom OpenApi document: %v\n", err)
 	}
 
 	// Sync CRD before kyverno starts
@@ -62,7 +63,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 func (c *crdSync) sync() {
 	crds, err := c.client.ListResource("CustomResourceDefinition", "", nil)
 	if err != nil {
-		log.Log.Error(err, "could not fetch crd's from server")
+		glog.V(4).Infof("could not fetch crd's from server: %v", err)
 		return
 	}
 
@@ -92,7 +93,7 @@ func parseCRD(crd unstructured.Unstructured) {
 
 	crdName := crdDefinition.Spec.Names.Kind
 	if len(crdDefinition.Spec.Versions) < 1 {
-		log.Log.V(4).Info("could not parse crd schema, no versions present")
+		glog.V(4).Infof("could not parse crd schema, no versions present")
 		return
 	}
 
@@ -103,7 +104,7 @@ func parseCRD(crd unstructured.Unstructured) {
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
-		log.Log.Error(err, "could not parse crd schema:")
+		glog.V(4).Infof("could not parse crd schema:%v", err)
 		return
 	}
 

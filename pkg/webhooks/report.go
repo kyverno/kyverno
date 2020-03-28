@@ -3,7 +3,6 @@ package webhooks
 import (
 	"strings"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 
@@ -11,7 +10,7 @@ import (
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate bool, log logr.Logger) []event.Info {
+func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate bool) []event.Info {
 	var events []event.Info
 	// Scenario 1
 	// - Admission-Response is SUCCESS && CREATE
@@ -27,7 +26,6 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 			successRulesStr := strings.Join(successRules, ";")
 			// event on resource
 			e := event.NewEvent(
-				log,
 				er.PolicyResponse.Resource.Kind,
 				er.PolicyResponse.Resource.APIVersion,
 				er.PolicyResponse.Resource.Namespace,
@@ -61,7 +59,6 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 			filedRulesStr := strings.Join(failedRules, ";")
 			// Event on Policy
 			e := event.NewEvent(
-				log,
 				"ClusterPolicy",
 				kyverno.SchemeGroupVersion.String(),
 				"",
@@ -93,7 +90,6 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 		filedRulesStr := strings.Join(failedRules, ";")
 		// Event on the policy
 		e := event.NewEvent(
-			log,
 			"ClusterPolicy",
 			kyverno.SchemeGroupVersion.String(),
 			"",
@@ -108,7 +104,6 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 		// Event on the resource
 		// event on resource
 		e = event.NewEvent(
-			log,
 			er.PolicyResponse.Resource.Kind,
 			er.PolicyResponse.Resource.APIVersion,
 			er.PolicyResponse.Resource.Namespace,

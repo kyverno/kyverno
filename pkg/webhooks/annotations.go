@@ -7,7 +7,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,7 +38,7 @@ var operationToPastTense = map[string]string{
 	"test":    "tested",
 }
 
-func generateAnnotationPatches(engineResponses []response.EngineResponse, log logr.Logger) []byte {
+func generateAnnotationPatches(engineResponses []response.EngineResponse) []byte {
 	var annotations map[string]string
 
 	for _, er := range engineResponses {
@@ -53,7 +53,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse, log lo
 	}
 
 	var patchResponse annresponse
-	value := annotationFromEngineResponses(engineResponses, log)
+	value := annotationFromEngineResponses(engineResponses)
 	if value == nil {
 		// no patches or error while processing patches
 		return nil
@@ -90,21 +90,21 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse, log lo
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + string(patchByte) + "]"))
 	if err != nil {
-		log.Error(err, "failed o build JSON patch for annotation", "patch", string(patchByte))
+		glog.Errorf("Failed to make patch from annotation'%s', err: %v\n ", string(patchByte), err)
 	}
 
 	return patchByte
 }
 
-func annotationFromEngineResponses(engineResponses []response.EngineResponse, log logr.Logger) []byte {
+func annotationFromEngineResponses(engineResponses []response.EngineResponse) []byte {
 	var annotationContent = make(map[string]string)
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccesful() {
-			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.PolicyResponse.Policy)
+			glog.V(3).Infof("Policy %s failed, skip preparing annotation\n", engineResponse.PolicyResponse.Policy)
 			continue
 		}
 
-		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse, log)
+		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse)
 		if rulePatches == nil {
 			continue
 		}
@@ -126,13 +126,13 @@ func annotationFromEngineResponses(engineResponses []response.EngineResponse, lo
 	return result
 }
 
-func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log logr.Logger) []rulePatch {
+func annotationFromPolicyResponse(policyResponse response.PolicyResponse) []rulePatch {
 	var rulePatches []rulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches {
 			var patchmap map[string]interface{}
 			if err := json.Unmarshal(patch, &patchmap); err != nil {
-				log.Error(err, "Failed to parse JSON patch bytes")
+				glog.Errorf("Failed to parse patch bytes, err: %v\n", err)
 				continue
 			}
 
@@ -142,12 +142,14 @@ func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log lo
 				Path:     patchmap["path"].(string)}
 
 			rulePatches = append(rulePatches, rp)
-			log.V(4).Info("annotation value prepared", "patches", rulePatches)
+			glog.V(4).Infof("Annotation value prepared: %v\n", rulePatches)
 		}
 	}
+
 	if len(rulePatches) == 0 {
 		return nil
 	}
+
 	return rulePatches
 }
 

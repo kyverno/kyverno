@@ -3,6 +3,7 @@ package webhookconfig
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -10,15 +11,15 @@ import (
 )
 
 func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
-	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
-	logger.V(4).Info("Debug MutatingWebhookConfig registed", "url", url)
+	glog.V(4).Infof("Debug MutatingWebhookConfig is registered with url %s\n", url)
+
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateDebugMutatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateDebugWebhook(
 				config.MutatingWebhookName,
 				url,
 				caData,
@@ -41,8 +42,8 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateMutatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateWebhook(
 				config.MutatingWebhookName,
 				config.MutatingWebhookServicePath,
 				caData,
@@ -67,31 +68,32 @@ func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfigName() str
 
 //RemoveResourceMutatingWebhookConfiguration removes mutating webhook configuration for all resources
 func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() error {
+
 	configName := wrc.GetResourceMutatingWebhookConfigName()
-	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind, "name", configName)
 	// delete webhook configuration
 	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
-		logger.Error(err, "resource does not exit")
+		glog.V(4).Infof("resource webhook configuration %s does not exits, so not deleting", configName)
 		return nil
 	}
 	if err != nil {
-		logger.V(4).Info("failed to delete resource")
+		glog.V(4).Infof("failed to delete resource webhook configuration %s: %v", configName, err)
 		return err
 	}
-	logger.V(4).Info("deleted resource")
+	glog.V(4).Infof("deleted resource webhook configuration %s", configName)
 	return nil
 }
 
 func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
+	glog.V(4).Infof("Debug ValidatingWebhookConfig is registered with url %s\n", url)
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateDebugValidatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateDebugWebhook(
 				config.ValidatingWebhookName,
 				url,
 				caData,
@@ -114,8 +116,8 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateValidatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateWebhook(
 				config.ValidatingWebhookName,
 				config.ValidatingWebhookServicePath,
 				caData,
@@ -139,16 +141,15 @@ func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() s
 
 func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() error {
 	configName := wrc.GetResourceValidatingWebhookConfigName()
-	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
 	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
-		logger.Error(err, "resource does not exist; deleted already")
+		glog.V(4).Infof("resource webhook configuration %s does not exits, so not deleting", configName)
 		return nil
 	}
 	if err != nil {
-		logger.Error(err, "failed to delete the resource")
+		glog.V(4).Infof("failed to delete resource webhook configuration %s: %v", configName, err)
 		return err
 	}
-	logger.Info("resource deleted")
+	glog.V(4).Infof("deleted resource webhook configuration %s", configName)
 	return nil
 }

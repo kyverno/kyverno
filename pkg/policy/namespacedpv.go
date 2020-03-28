@@ -1,13 +1,13 @@
 package policy
 
 import (
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	pv := obj.(*kyverno.PolicyViolation)
-	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 
 	if pv.DeletionTimestamp != nil {
 		// On a restart of the controller manager, it's possible for an object to
@@ -20,16 +20,15 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("namepaced policy violation does not belong to an active policy, will be cleanedup")
+		glog.V(4).Infof("PolicyViolation %s does not belong to an active policy, will be cleanedup", pv.Name)
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
-			logger.Error(err, "failed to delete resource")
+			glog.Errorf("Failed to deleted policy violation %s: %v", pv.Name, err)
 			return
 		}
-		logger.V(4).Info("resource deleted")
+		glog.V(4).Infof("PolicyViolation %s deleted", pv.Name)
 		return
 	}
-
-	logger.V(4).Info("resource added")
+	glog.V(4).Infof("Orphan Policy Violation %s added.", pv.Name)
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
@@ -43,20 +42,19 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 		// Two different versions of the same replica set will always have different RVs.
 		return
 	}
-	logger := pc.log.WithValues("kind", curPV.Kind, "namespace", curPV.Namespace, "name", curPV.Name)
 
 	ps := pc.getPolicyForNamespacedPolicyViolation(curPV)
 	if len(ps) == 0 {
 		// there is no namespaced policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("nameapced policy violation does not belong to an active policy, will be cleanedup")
+		glog.V(4).Infof("Namespaced Policy Violation %s does not belong to an active policy, will be cleanedup", curPV.Name)
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(curPV.Namespace, curPV.Name); err != nil {
-			logger.Error(err, "failed to delete resource")
+			glog.Errorf("Failed to deleted namespaced policy violation %s: %v", curPV.Name, err)
 			return
 		}
-		logger.V(4).Info("resource deleted")
+		glog.V(4).Infof("Namespaced Policy Violation %s deleted", curPV.Name)
 		return
 	}
-	logger.V(4).Info("resource updated")
+	glog.V(4).Infof("Namespaced Policy sViolation %s updated", curPV.Name)
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
@@ -64,7 +62,6 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 }
 
 func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
-	logger := pc.log
 	pv, ok := obj.(*kyverno.PolicyViolation)
 	// When a delete is dropped, the relist will notice a PolicyViolation in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -73,36 +70,34 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			glog.Infof("Couldn't get object from tombstone %#v", obj)
 			return
 		}
 		pv, ok = tombstone.Obj.(*kyverno.PolicyViolation)
 		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			glog.Infof("Couldn't get object from tombstone %#v", obj)
 			return
 		}
 	}
 
-	logger = logger.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("nameapced policy violation does not belong to an active policy, will be cleanedup")
+		glog.V(4).Infof("Namespaced Policy Violation %s does not belong to an active policy, will be cleanedup", pv.Name)
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
-			logger.Error(err, "failed to delete resource")
+			glog.Errorf("Failed to deleted namespaced policy violation %s: %v", pv.Name, err)
 			return
 		}
-		logger.V(4).Info("resource deleted")
+		glog.V(4).Infof("Namespaced Policy Violation %s deleted", pv.Name)
 		return
 	}
-	logger.V(4).Info("resource updated")
+	glog.V(4).Infof("Namespaced PolicyViolation %s updated", pv.Name)
 	for _, p := range ps {
 		pc.enqueuePolicy(p)
 	}
 }
 
 func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.PolicyViolation) []*kyverno.ClusterPolicy {
-	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	policies, err := pc.pLister.GetPolicyForNamespacedPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
 		return nil
@@ -114,7 +109,8 @@ func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.Po
 	if len(policies) > 1 {
 		// ControllerRef will ensure we don't do anything crazy, but more than one
 		// item in this list nevertheless constitutes user error.
-		logger.V(4).Info("user error! more than one policy is selecting policy violation", "labels", pv.Labels, "policy", policies[0].Name)
+		glog.V(4).Infof("user error! more than one policy is selecting policy violation %s with labels: %#v, returning %s",
+			pv.Name, pv.Labels, policies[0].Name)
 	}
 	return policies
 }

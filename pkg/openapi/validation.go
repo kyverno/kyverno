@@ -8,8 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	data "github.com/nirmata/kyverno/api"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
+
+	"github.com/nirmata/kyverno/data"
+
+	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,7 +23,6 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"gopkg.in/yaml.v2"
 )
@@ -118,7 +120,7 @@ func validatePolicyMutation(policy v1.ClusterPolicy) error {
 		newPolicy.Spec.Rules = rules
 		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
 		if resource == nil {
-			log.Log.V(4).Info(fmt.Sprintf("Cannot Validate policy: openApi definition now found for %v", kind))
+			glog.V(4).Infof("Cannot Validate policy: openApi definition now found for %v", kind)
 			return nil
 		}
 		newResource := unstructured.Unstructured{Object: resource}

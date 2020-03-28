@@ -23,8 +23,7 @@ func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
 	}`)
 
 	var unmarshalled map[string]interface{}
-	err := json.Unmarshal(rawMap, &unmarshalled)
-	assert.NilError(t, err)
+	json.Unmarshal(rawMap, &unmarshalled)
 
 	actualMap := utils.GetAnchorsFromMap(unmarshalled)
 	assert.Equal(t, len(actualMap), 2)
@@ -115,8 +114,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -214,8 +212,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -292,8 +289,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -374,8 +370,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -464,8 +459,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	 }	 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -553,8 +547,8 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	 }	 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
+
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
@@ -622,8 +616,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -695,8 +688,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -768,8 +760,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -843,8 +834,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -918,8 +908,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -993,8 +982,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -1069,8 +1057,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -1157,8 +1144,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	 }	 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -1244,8 +1230,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	 	 `)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(rawPolicy, &policy)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -1312,14 +1297,12 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(policyraw, &policy)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
+	ctx.AddResource(resourceRaw)
 
 	policyContext := PolicyContext{
 		Policy:      policy,
@@ -1409,8 +1392,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *t
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
+	ctx.AddResource(resourceRaw)
 
 	policyContext := PolicyContext{
 		Policy:      policy,
@@ -1500,8 +1482,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
+	ctx.AddResource(resourceRaw)
 
 	policyContext := PolicyContext{
 		Policy:      policy,
@@ -1591,8 +1572,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
+	ctx.AddResource(resourceRaw)
 
 	policyContext := PolicyContext{
 		Policy:      policy,

@@ -3,6 +3,7 @@ package webhookconfig
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,8 +18,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateValidatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateWebhook(
 				config.PolicyValidatingWebhookName,
 				config.PolicyValidatingWebhookServicePath,
 				caData,
@@ -34,16 +35,15 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 }
 
 func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
-	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
-	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
+	glog.V(4).Infof("Debug PolicyValidatingWebhookConfig is registered with url %s\n", url)
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyValidatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateDebugValidatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateDebugWebhook(
 				config.PolicyValidatingWebhookName,
 				url,
 				caData,
@@ -66,8 +66,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateMutatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateWebhook(
 				config.PolicyMutatingWebhookName,
 				config.PolicyMutatingWebhookServicePath,
 				caData,
@@ -82,16 +82,15 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 	}
 }
 func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
-	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
-	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)
+	glog.V(4).Infof("Debug PolicyMutatingWebhookConfig is registered with url %s\n", url)
 
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateDebugMutatingWebhook(
+		Webhooks: []admregapi.Webhook{
+			generateDebugWebhook(
 				config.PolicyMutatingWebhookName,
 				url,
 				caData,

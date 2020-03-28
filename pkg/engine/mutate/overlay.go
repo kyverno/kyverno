@@ -10,53 +10,51 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 )
 
 // ProcessOverlay processes mutation overlay on the resource
-func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessOverlay(ruleName string, overlay interface{}, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
-	logger := log.WithValues("rule", ruleName)
-	logger.V(4).Info("started applying overlay rule ", "startTime", startTime)
+	glog.V(4).Infof("started applying overlay rule %q (%v)", ruleName, startTime)
 	resp.Name = ruleName
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished applying overlay rule", "processingTime", resp.RuleStats.ProcessingTime)
+		glog.V(4).Infof("finished applying overlay rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
 	}()
 
-	patches, overlayerr := processOverlayPatches(logger, resource.UnstructuredContent(), overlay)
+	patches, overlayerr := processOverlayPatches(resource.UnstructuredContent(), overlay)
 	// resource does not satisfy the overlay pattern, we don't apply this rule
 	if !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
 		// condition key is not present in the resource, don't apply this rule
 		// consider as success
 		case conditionNotPresent:
-			logger.V(3).Info("skip applying rule")
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", ruleName, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			resp.Success = true
 			return resp, resource
 		// conditions are not met, don't apply this rule
 		case conditionFailure:
-			logger.V(3).Info("skip applying rule")
+			glog.V(3).Infof("Skip applying rule '%s' on resource '%s/%s/%s': %s", ruleName, resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg())
 			//TODO: send zero response and not consider this as applied?
 			resp.Success = true
 			resp.Message = overlayerr.ErrorMsg()
 			return resp, resource
 		// rule application failed
 		case overlayFailure:
-			logger.Info("failed to process overlay")
+			glog.Errorf("Resource %s/%s/%s: failed to process overlay: %v in the rule %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.ErrorMsg(), ruleName)
 			resp.Success = false
 			resp.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
 			return resp, resource
 		default:
-			logger.Info("failed to process overlay")
+			glog.Errorf("Resource %s/%s/%s: Unknown type of error: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), overlayerr.Error())
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Unknown type of error: %v", overlayerr.Error())
 			return resp, resource
@@ -72,7 +70,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		resp.Success = false
-		logger.Error(err, "failed to marshal resource")
+		glog.Infof("unable to marshall resource: %v", err)
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
 	}
@@ -81,7 +79,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	patchResource, err = utils.ApplyPatches(resourceRaw, patches)
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
-		logger.V(2).Info("applying patches", "patches", string(utils.JoinPatches(patches)))
+		glog.V(2).Infof("%s, patches=%s", msg, string(utils.JoinPatches(patches)))
 		resp.Success = false
 		resp.Message = msg
 		return resp, resource
@@ -89,7 +87,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
-		logger.Error(err, "failed to unmarshal resource")
+		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
 		resp.Success = false
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
@@ -103,17 +101,17 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	return resp, patchedResource
 }
 
-func processOverlayPatches(log logr.Logger, resource, overlay interface{}) ([][]byte, overlayError) {
-	if path, overlayerr := meetConditions(log, resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
+func processOverlayPatches(resource, overlay interface{}) ([][]byte, overlayError) {
+	if path, overlayerr := meetConditions(resource, overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
 		// anchor key does not exist in the resource, skip applying policy
 		case conditionNotPresent:
-			log.V(4).Info("skip applying policy", "path", path, "error", overlayerr)
+			glog.V(4).Infof("Mutate rule: skip applying policy: %v at %s", overlayerr, path)
 			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, condition tag not present: %v at %s", overlayerr.ErrorMsg(), path))
 		// anchor key is not satisfied in the resource, skip applying policy
 		case conditionFailure:
 			// anchor key is not satisfied in the resource, skip applying policy
-			log.V(4).Info("failed to validate condition", "path", path, "error", overlayerr)
+			glog.V(4).Infof("Mutate rule: failed to validate condition at %s, err: %v", path, overlayerr)
 			return nil, newOverlayError(overlayerr.statusCode, fmt.Sprintf("Policy not applied, conditions are not met at %s, %v", path, overlayerr))
 		}
 	}
@@ -385,7 +383,7 @@ func prepareJSONValue(overlay interface{}) string {
 	overlayWithoutAnchors := removeAnchorFromSubTree(overlay)
 	jsonOverlay, err := json.Marshal(overlayWithoutAnchors)
 	if err != nil || hasOnlyAnchors(overlay) {
-		log.Log.Error(err, "failed to marshall withoutanchors or has only anchors")
+		glog.V(3).Info(err)
 		return ""
 	}
 
@@ -411,7 +409,7 @@ func removeAnchorFromSubTree(overlay interface{}) interface{} {
 }
 
 func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
+	result := make(map[string]interface{}, 0)
 	for k, v := range overlay {
 		result[getRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
 	}

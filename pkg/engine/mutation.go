@@ -5,13 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/mutate"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -29,25 +28,26 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
-	logger := log.Log.WithName("Mutate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	logger.V(4).Info("start processing", "startTime", startTime)
+
 	startMutateResultResponse(&resp, policy, resource)
-	defer endMutateResultResponse(logger, &resp, startTime)
+	glog.V(4).Infof("started applying mutation rules of policy %q (%v)", policy.Name, startTime)
+	defer endMutateResultResponse(&resp, startTime)
 
 	patchedResource := policyContext.NewResource
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
-		logger := logger.WithValues("rule", rule.Name)
 		//TODO: to be checked before calling the resources as well
 		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
 			continue
 		}
+		startTime := time.Now()
+		glog.V(4).Infof("Time: Mutate matchAdmissionInfo %v", time.Since(startTime))
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
-			logger.V(4).Info("resource fails the match description")
+			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
 			continue
 		}
 
@@ -55,8 +55,8 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
 		// - handle variable subsitutions
-		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-			logger.V(4).Info("resource fails the preconditions")
+		if !variables.EvaluateConditions(ctx, copyConditions) {
+			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
 			continue
 		}
 
@@ -66,7 +66,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			overlay := mutation.Overlay
 			// subsiitue the variables
 			var err error
-			if overlay, err = variables.SubstituteVars(logger, ctx, overlay); err != nil {
+			if overlay, err = variables.SubstituteVars(ctx, overlay); err != nil {
 				// variable subsitution failed
 				ruleResponse.Success = false
 				ruleResponse.Message = err.Error()
@@ -74,13 +74,15 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				continue
 			}
 
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, overlay, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, overlay, patchedResource)
 			if ruleResponse.Success {
 				// - overlay pattern does not match the resource conditions
 				if ruleResponse.Patches == nil {
+					glog.V(4).Infof(ruleResponse.Message)
 					continue
 				}
-				logger.V(4).Info("overlay applied succesfully")
+
+				glog.V(4).Infof("Mutate overlay in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
@@ -90,8 +92,8 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// Process Patches
 		if rule.Mutation.Patches != nil {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessPatches(logger, rule, patchedResource)
-			logger.V(4).Info("patches applied successfully")
+			ruleResponse, patchedResource = mutate.ProcessPatches(rule, patchedResource)
+			glog.Infof("Mutate patches in rule '%s' successfully applied on %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount(&resp)
 		}
@@ -104,14 +106,14 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		if strings.Contains(PodControllers, resource.GetKind()) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, podTemplateRule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(rule.Name, podTemplateRule, patchedResource)
 			if !ruleResponse.Success {
-				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
+				glog.Errorf("Failed to insert annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				continue
 			}
 
 			if ruleResponse.Success && ruleResponse.Patches != nil {
-				logger.V(2).Info("inserted annotation for podTemplate")
+				glog.V(2).Infof("Inserted annotation to podTemplate of %s/%s/%s: %s", resource.GetKind(), resource.GetNamespace(), resource.GetName(), ruleResponse.Message)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			}
 		}
@@ -135,9 +137,10 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 	// TODO(shuting): set response with mutationFailureAction
 }
 
-func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
+func endMutateResultResponse(resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	logger.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	glog.V(4).Infof("finished applying mutation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
+	glog.V(4).Infof("Mutation Rules appplied count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
 }
 
 // podTemplateRule mutate pod template with annotation

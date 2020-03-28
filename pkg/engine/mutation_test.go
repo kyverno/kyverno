@@ -67,17 +67,11 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 	expectedPatch := []byte(`{ "op": "add", "path": "/metadata/labels", "value":{"appname":"check-root-user"} }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	if err != nil {
-		t.Error(err)
-	}
+	json.Unmarshal(rawPolicy, &policy)
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	err = ctx.AddResource(rawResource)
-	if err != nil {
-		t.Error(err)
-	}
+	ctx.AddResource(rawResource)
 	value, err := ctx.Query("request.object.metadata.name")
 	t.Log(value)
 	if err != nil {
@@ -145,14 +139,12 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
-	assert.NilError(t, err)
+	json.Unmarshal(policyraw, &policy)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
+	ctx.AddResource(resourceRaw)
 
 	policyContext := PolicyContext{
 		Policy:      policy,

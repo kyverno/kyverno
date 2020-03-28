@@ -3,11 +3,12 @@ package policystore
 import (
 	"sync"
 
-	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -23,7 +24,6 @@ type PolicyStore struct {
 	pLister kyvernolister.ClusterPolicyLister
 	// returns true if the cluster policy store has been synced at least once
 	pSynched cache.InformerSynced
-	log      logr.Logger
 }
 
 //UpdateInterface provides api to update policies
@@ -40,29 +40,25 @@ type LookupInterface interface {
 }
 
 // NewPolicyStore returns a new policy store
-func NewPolicyStore(pInformer kyvernoinformer.ClusterPolicyInformer,
-	log logr.Logger) *PolicyStore {
+func NewPolicyStore(pInformer kyvernoinformer.ClusterPolicyInformer) *PolicyStore {
 	ps := PolicyStore{
 		data:     make(kindMap),
 		pLister:  pInformer.Lister(),
 		pSynched: pInformer.Informer().HasSynced,
-		log:      log,
 	}
 	return &ps
 }
 
 //Run checks syncing
 func (ps *PolicyStore) Run(stopCh <-chan struct{}) {
-	logger := ps.log
 	if !cache.WaitForCacheSync(stopCh, ps.pSynched) {
-		logger.Info("failed to sync informer cache")
+		glog.Error("policy meta store: failed to sync informer cache")
 	}
 }
 
 //Register a new policy
 func (ps *PolicyStore) Register(policy kyverno.ClusterPolicy) {
-	logger := ps.log
-	logger.V(4).Info("adding policy", "name", policy.Name)
+	glog.V(4).Infof("adding resources %s", policy.Name)
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	var pmap policyMap

@@ -1,9 +1,10 @@
 package generate
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -56,9 +57,9 @@ type Controller struct {
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for re-evalutation on resource updates
-	nsInformer           informers.GenericInformer
+	nsInformer informers.GenericInformer
+
 	policyStatusListener policystatus.Listener
-	log                  logr.Logger
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -71,7 +72,6 @@ func NewController(
 	pvGenerator policyviolation.GeneratorInterface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	policyStatus policystatus.Listener,
-	log logr.Logger,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -82,7 +82,6 @@ func NewController(
 		// as we dont want a deleted GR to be re-queue
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
 		dynamicInformer:      dynamicInformer,
-		log:                  log,
 		policyStatusListener: policyStatus,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
@@ -118,12 +117,11 @@ func NewController(
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
-	logger := c.log
 	curR := cur.(*unstructured.Unstructured)
 
 	grs, err := c.grLister.GetGenerateRequestsForResource(curR.GetKind(), curR.GetNamespace(), curR.GetName())
 	if err != nil {
-		logger.Error(err, "failed to get generate request CR for the resoource", "kind", curR.GetKind(), "name", curR.GetName(), "namespace", curR.GetNamespace())
+		glog.Errorf("failed to Generate Requests for resource %s/%s/%s: %v", curR.GetKind(), curR.GetNamespace(), curR.GetName(), err)
 		return
 	}
 	// re-evaluate the GR as the resource was updated
@@ -136,14 +134,13 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
-		c.log.Error(err, "failed to extract name")
+		glog.Error(err)
 		return
 	}
 	c.queue.Add(key)
 }
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
-	logger := c.log
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 	if oldP.ResourceVersion == curP.ResourceVersion {
@@ -151,11 +148,11 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 		// Two different versions of the same replica set will always have different RVs.
 		return
 	}
-	logger.V(4).Info("updating policy", "name", oldP.Name)
+	glog.V(4).Infof("Updating Policy %s", oldP.Name)
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(curP.Name)
 	if err != nil {
-		logger.Error(err, "failed to generate request for policy", "name", curP.Name)
+		glog.Errorf("failed to Generate Requests for policy %s: %v", curP.Name, err)
 		return
 	}
 	// re-evaluate the GR as the policy was updated
@@ -186,36 +183,34 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
-	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
 		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
 		if !ok {
-			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
+			glog.Info(fmt.Errorf("Tombstone contained object that is not a Generate Request %#v", obj))
 			return
 		}
 	}
-	logger.Info("deleting generate request", "name", gr.Name)
+	glog.V(4).Infof("Deleting GR %s", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
 }
 
 //Run ...
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
-	logger := c.log
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger.Info("starting")
-	defer logger.Info("shutting down")
+	glog.Info("Starting generate-policy controller")
+	defer glog.Info("Shutting down generate-policy controller")
 
 	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced) {
-		logger.Info("failed to sync informer cache")
+		glog.Error("generate-policy controller: failed to sync informer cache")
 		return
 	}
 	for i := 0; i < workers; i++ {
@@ -244,29 +239,27 @@ func (c *Controller) processNextWorkItem() bool {
 }
 
 func (c *Controller) handleErr(err error, key interface{}) {
-	logger := c.log
 	if err == nil {
 		c.queue.Forget(key)
 		return
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		logger.Error(err, "failed to sync generate request", "key", key)
+		glog.Errorf("Error syncing Generate Request %v: %v", key, err)
 		c.queue.AddRateLimited(key)
 		return
 	}
 	utilruntime.HandleError(err)
-	logger.Error(err, "Dropping generate request from the queue", "key", key)
+	glog.Infof("Dropping generate request %q out of the queue: %v", key, err)
 	c.queue.Forget(key)
 }
 
 func (c *Controller) syncGenerateRequest(key string) error {
-	logger := c.log
 	var err error
 	startTime := time.Now()
-	logger.Info("started sync", "key", key, "startTime", startTime)
+	glog.V(4).Infof("Started syncing GR %q (%v)", key, startTime)
 	defer func() {
-		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime))
+		glog.V(4).Infof("Finished syncing GR %q (%v)", key, time.Since(startTime))
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -275,7 +268,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	gr, err := c.grLister.Get(grName)
 	if err != nil {
-		logger.Error(err, "failed to list generate requests")
+		glog.V(4).Info(err)
 		return err
 	}
 	return c.processGR(gr)

@@ -3,10 +3,10 @@ package policy
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func buildPolicyLabel(policyName string) (labels.Selector, error) {
@@ -27,7 +27,7 @@ func buildPolicyLabel(policyName string) (labels.Selector, error) {
 func transformResource(resource unstructured.Unstructured) []byte {
 	data, err := resource.MarshalJSON()
 	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
+		glog.Errorf("failed to marshall resource %v: %v", resource, err)
 		return nil
 	}
 	return data

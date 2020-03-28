@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/golang/glog"
 )
 
 //ValidationHandler for element processes
@@ -13,7 +12,7 @@ type ValidationHandler interface {
 	Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}) (string, error)
 }
 
-type resourceElementHandler = func(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string) (string, error)
+type resourceElementHandler = func(resourceElement, patternElement, originPattern interface{}, path string) (string, error)
 
 //CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
@@ -83,7 +82,7 @@ func (eh EqualityHandler) Handle(handler resourceElementHandler, resourceMap map
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := handler(log.Log, value, eh.pattern, originPattern, currentPath)
+		returnPath, err := handler(value, eh.pattern, originPattern, currentPath)
 		if err != nil {
 			return returnPath, err
 		}
@@ -116,7 +115,7 @@ func (dh DefaultHandler) Handle(handler resourceElementHandler, resourceMap map[
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
 		return dh.path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
 	} else {
-		path, err := handler(log.Log, resourceMap[dh.element], dh.pattern, originPattern, currentPath)
+		path, err := handler(resourceMap[dh.element], dh.pattern, originPattern, currentPath)
 		if err != nil {
 			return path, err
 		}
@@ -147,7 +146,7 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := handler(log.Log, value, ch.pattern, originPattern, currentPath)
+		returnPath, err := handler(value, ch.pattern, originPattern, currentPath)
 		if err != nil {
 			return returnPath, err
 		}
@@ -195,6 +194,7 @@ func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			}
 			return validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath)
 		default:
+			glog.Error("Invalid type: Existence ^ () anchor can be used only on list/array type resource")
 			return currentPath, fmt.Errorf("Invalid resource type %T: Existence ^ () anchor can be used only on list/array type resource", value)
 		}
 	}
@@ -206,9 +206,10 @@ func validateExistenceListResource(handler resourceElementHandler, resourceList 
 	// if non satisfy then throw an error
 	for i, resourceElement := range resourceList {
 		currentPath := path + strconv.Itoa(i) + "/"
-		_, err := handler(log.Log, resourceElement, patternMap, originPattern, currentPath)
+		_, err := handler(resourceElement, patternMap, originPattern, currentPath)
 		if err == nil {
 			// condition is satisfied, dont check further
+			glog.V(4).Infof("Existence check satisfied at path %s, for pattern %v", currentPath, patternMap)
 			return "", nil
 		}
 	}

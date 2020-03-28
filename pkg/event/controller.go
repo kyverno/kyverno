@@ -3,7 +3,7 @@ package event
 import (
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -17,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
 )
 
 //Generator generate events
@@ -35,7 +34,6 @@ type Generator struct {
 	admissionCtrRecorder record.EventRecorder
 	// events generated at namespaced policy controller to process 'generate' rule
 	genPolicyRecorder record.EventRecorder
-	log               logr.Logger
 }
 
 //Interface to generate event
@@ -44,33 +42,32 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer) *Generator {
 
 	gen := Generator{
 		client:               client,
 		pLister:              pInformer.Lister(),
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
 		pSynced:              pInformer.Informer().HasSynced,
-		policyCtrRecorder:    initRecorder(client, PolicyController, log),
-		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
-		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
-		log:                  log,
+		policyCtrRecorder:    initRecorder(client, PolicyController),
+		admissionCtrRecorder: initRecorder(client, AdmissionController),
+		genPolicyRecorder:    initRecorder(client, GeneratePolicyController),
 	}
 	return &gen
 }
 
-func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
+func initRecorder(client *client.Client, eventSource Source) record.EventRecorder {
 	// Initliaze Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
-		log.Error(err, "failed to add to scheme")
+		glog.Error(err)
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.Infof)
+	eventBroadcaster.StartLogging(glog.V(4).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
-		log.Error(err, "failed to get event interface for logging")
+		glog.Error(err) // TODO: add more specific error
 		return nil
 	}
 	eventBroadcaster.StartRecordingToSink(
@@ -84,12 +81,11 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 
 //Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
-	logger := gen.log
 	for _, info := range infos {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			logger.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			glog.V(4).Infof("received info %v, not creating an event as the resource has not been assigned a name yet", info)
 			continue
 		}
 		gen.queue.Add(info)
@@ -98,14 +94,12 @@ func (gen *Generator) Add(infos ...Info) {
 
 // Run begins generator
 func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
-	logger := gen.log
 	defer utilruntime.HandleCrash()
-
-	logger.Info("start")
-	defer logger.Info("shutting down")
+	glog.Info("Starting event generator")
+	defer glog.Info("Shutting down event generator")
 
 	if !cache.WaitForCacheSync(stopCh, gen.pSynced) {
-		logger.Info("failed to sync informer cache")
+		glog.Error("event generator: failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
@@ -120,25 +114,24 @@ func (gen *Generator) runWorker() {
 }
 
 func (gen *Generator) handleErr(err error, key interface{}) {
-	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
 		return
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "Error syncing events;re-queuing request,the resource might not have been created yet", "key", key)
+		glog.Warningf("Error syncing events %v(re-queuing request, the resource might not have been created yet): %v", key, err)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
 		return
 	}
 	gen.queue.Forget(key)
-	logger.Error(err, "dropping the key out of queue", "key", key)
+	glog.Error(err)
+	glog.Warningf("Dropping the key out of the queue: %v", err)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
-	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
@@ -151,7 +144,7 @@ func (gen *Generator) processNextWorkItem() bool {
 
 		if key, ok = obj.(Info); !ok {
 			gen.queue.Forget(obj)
-			logger.Info("Incorrect type; expected type 'info'", "obj", obj)
+			glog.Warningf("Expecting type info by got %v\n", obj)
 			return nil
 		}
 		err := gen.syncHandler(key)
@@ -159,14 +152,13 @@ func (gen *Generator) processNextWorkItem() bool {
 		return nil
 	}(obj)
 	if err != nil {
-		logger.Error(err, "failed to process next work item")
+		glog.Error(err)
 		return true
 	}
 	return true
 }
 
 func (gen *Generator) syncHandler(key Info) error {
-	logger := gen.log
 	var robj runtime.Object
 	var err error
 	switch key.Kind {
@@ -174,13 +166,13 @@ func (gen *Generator) syncHandler(key Info) error {
 		//TODO: policy is clustered resource so wont need namespace
 		robj, err = gen.pLister.Get(key.Name)
 		if err != nil {
-			logger.Error(err, "failed to get policy", "name", key.Name)
+			glog.V(4).Infof("Error creating event: unable to get policy %s, will retry ", key.Name)
 			return err
 		}
 	default:
 		robj, err = gen.client.GetResource(key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+			glog.V(4).Infof("Error creating event: unable to get resource %s/%s/%s, will retry ", key.Kind, key.Namespace, key.Name)
 			return err
 		}
 	}
@@ -200,14 +192,13 @@ func (gen *Generator) syncHandler(key Info) error {
 	case GeneratePolicyController:
 		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
 	default:
-		logger.Info("info.source not defined for the request")
+		glog.Info("info.source not defined for the event generator request")
 	}
 	return nil
 }
 
 //NewEvent builds a event creation request
 func NewEvent(
-	log logr.Logger,
 	rkind,
 	rapiVersion,
 	rnamespace,
@@ -218,7 +209,7 @@ func NewEvent(
 	args ...interface{}) Info {
 	msgText, err := getEventMsg(message, args...)
 	if err != nil {
-		log.Error(err, "failed to get event message")
+		glog.Error(err)
 	}
 	return Info{
 		Kind:      rkind,

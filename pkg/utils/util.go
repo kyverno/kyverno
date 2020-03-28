@@ -3,7 +3,8 @@ package utils
 import (
 	"reflect"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
+
 	"github.com/minio/minio/pkg/wildcard"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -58,15 +59,14 @@ func Btoi(b bool) int {
 }
 
 //CRDInstalled to check if the CRD is installed or not
-func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
-	logger := log.WithName("CRDInstalled")
+func CRDInstalled(discovery client.IDiscovery) bool {
 	check := func(kind string) bool {
 		gvr := discovery.GetGVRFromKind(kind)
 		if reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
-			logger.Info("CRD not installed", "kind", kind)
+			glog.Errorf("%s CRD not installed", kind)
 			return false
 		}
-		logger.Info("CRD found", "kind", kind)
+		glog.Infof("CRD %s found ", kind)
 		return true
 	}
 	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") || !check("PolicyViolation") {
@@ -77,12 +77,11 @@ func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 
 //CleanupOldCrd deletes any existing NamespacedPolicyViolation resources in cluster
 // If resource violates policy, new Violations will be generated
-func CleanupOldCrd(client *dclient.Client, log logr.Logger) {
-	logger := log.WithName("CleanupOldCrd")
+func CleanupOldCrd(client *dclient.Client) {
 	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
 	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
 		if err := client.DeleteResource("CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
-			logger.Error(err, "Failed to remove prevous CRD", "kind", "namespacedpolicyviolation")
+			glog.Infof("Failed to remove previous CRD namespacedpolicyviolations: %v", err)
 		}
 	}
 }

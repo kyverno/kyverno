@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 )
@@ -29,7 +29,6 @@ type StatusInterface interface {
 type StatusControl struct {
 	client   *dclient.Client
 	eventGen event.Interface
-	log      logr.Logger
 }
 
 //SuccessStatus ...
@@ -43,22 +42,20 @@ func (vc StatusControl) FailedStatus() error {
 }
 
 // NewVerifyControl ...
-func NewVerifyControl(client *dclient.Client, eventGen event.Interface, log logr.Logger) *StatusControl {
+func NewVerifyControl(client *dclient.Client, eventGen event.Interface) *StatusControl {
 	return &StatusControl{
 		client:   client,
 		eventGen: eventGen,
-		log:      log,
 	}
 }
 
 func (vc StatusControl) setStatus(status string) error {
-	logger := vc.log
-	logger.Info(fmt.Sprintf("setting deployment %s in ns %s annotation %s to %s", deployName, deployNamespace, annWebhookStats, status))
+	glog.Infof("setting deployment %s in ns %s annotation %s to %s", deployName, deployNamespace, annWebhookStats, status)
 	var ann map[string]string
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment resource")
+		glog.V(4).Infof("failed to get deployment %s in namespace %s: %v", deployName, deployNamespace, err)
 		return err
 	}
 	ann = deploy.GetAnnotations()
@@ -70,7 +67,7 @@ func (vc StatusControl) setStatus(status string) error {
 	if ok {
 		// annotatiaion is present
 		if webhookAction == status {
-			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStats, status))
+			glog.V(4).Infof("annotation %s already set to '%s'", annWebhookStats, status)
 			return nil
 		}
 	}
@@ -80,7 +77,7 @@ func (vc StatusControl) setStatus(status string) error {
 	// update counter
 	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("failed to update annotation %s for deployment %s in namespace %s", annWebhookStats, deployName, deployNamespace))
+		glog.V(4).Infof("failed to update annotation %s for deployment %s in namespace %s: %v", annWebhookStats, deployName, deployNamespace, err)
 		return err
 	}
 	// create event on kyverno deployment
@@ -100,13 +97,12 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 
 //IncrementAnnotation ...
 func (vc StatusControl) IncrementAnnotation() error {
-	logger := vc.log
-	logger.Info(fmt.Sprintf("setting deployment %s in ns %s annotation %s", deployName, deployNamespace, annCounter))
+	glog.Infof("setting deployment %s in ns %s annotation %s", deployName, deployNamespace, annCounter)
 	var ann map[string]string
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment %s in namespace %s", deployName, deployNamespace)
+		glog.V(4).Infof("failed to get deployment %s in namespace %s: %v", deployName, deployNamespace, err)
 		return err
 	}
 	ann = deploy.GetAnnotations()
@@ -116,18 +112,18 @@ func (vc StatusControl) IncrementAnnotation() error {
 	}
 	counter, err := strconv.Atoi(ann[annCounter])
 	if err != nil {
-		logger.Error(err, "Failed to parse string")
+		glog.V(4).Infof("failed to parse string: %v", err)
 		return err
 	}
 	// increment counter
 	counter++
 	ann[annCounter] = strconv.Itoa(counter)
-	logger.Info("incrementing annotation", "old", annCounter, "new", counter)
+	glog.Infof("incrementing annotation %s counter to %d", annCounter, counter)
 	deploy.SetAnnotations(ann)
 	// update counter
 	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("failed to update annotation %s for deployment %s in namespace %s", annCounter, deployName, deployNamespace))
+		glog.V(4).Infof("failed to update annotation %s for deployment %s in namespace %s: %v", annCounter, deployName, deployNamespace, err)
 		return err
 	}
 	return nil

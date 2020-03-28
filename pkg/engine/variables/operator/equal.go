@@ -1,21 +1,19 @@
 package operator
 
 import (
-	"fmt"
 	"math"
 	"reflect"
 	"strconv"
 
-	"github.com/go-logr/logr"
+	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
 //NewEqualHandler returns handler to manage Equal operations
-func NewEqualHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+func NewEqualHandler(ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
 	return EqualHandler{
 		ctx:        ctx,
 		subHandler: subHandler,
-		log:        log,
 	}
 }
 
@@ -23,7 +21,6 @@ func NewEqualHandler(log logr.Logger, ctx context.EvalInterface, subHandler Vari
 type EqualHandler struct {
 	ctx        context.EvalInterface
 	subHandler VariableSubstitutionHandler
-	log        logr.Logger
 }
 
 //Evaluate evaluates expression with Equal Operator
@@ -31,14 +28,14 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	var err error
 	//TODO: decouple variables from evaluation
 	// substitute the variables
-	if key, err = eh.subHandler(eh.log, eh.ctx, key); err != nil {
+	if key, err = eh.subHandler(eh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", key)
+		glog.Infof("Failed to resolve variables in key: %s: %v", key, err)
 		return false
 	}
-	if value, err = eh.subHandler(eh.log, eh.ctx, value); err != nil {
+	if value, err = eh.subHandler(eh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", value)
+		glog.Infof("Failed to resolve variables in value: %s: %v", value, err)
 		return false
 	}
 
@@ -59,7 +56,7 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	case []interface{}:
 		return eh.validateValueWithSlicePattern(typedKey, value)
 	default:
-		eh.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		glog.Errorf("Unsupported type %v", typedKey)
 		return false
 	}
 }
@@ -68,7 +65,7 @@ func (eh EqualHandler) validateValueWithSlicePattern(key []interface{}, value in
 	if val, ok := value.([]interface{}); ok {
 		return reflect.DeepEqual(key, val)
 	}
-	eh.log.Info("Expected type []interface{}", "value", value, "type", fmt.Sprintf("%T", value))
+	glog.Warningf("Expected []interface{}, %v is of type %T", value, value)
 	return false
 }
 
@@ -76,7 +73,7 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 	if val, ok := value.(map[string]interface{}); ok {
 		return reflect.DeepEqual(key, val)
 	}
-	eh.log.Info("Expected type map[string]interface{}", "value", value, "type", fmt.Sprintf("%T", value))
+	glog.Warningf("Expected map[string]interface{}, %v is of type %T", value, value)
 	return false
 }
 
@@ -84,8 +81,7 @@ func (eh EqualHandler) validateValuewithStringPattern(key string, value interfac
 	if val, ok := value.(string); ok {
 		return key == val
 	}
-
-	eh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+	glog.Warningf("Expected string, %v is of type %T", value, value)
 	return false
 }
 
@@ -96,25 +92,25 @@ func (eh EqualHandler) validateValuewithFloatPattern(key float64, value interfac
 		if key == math.Trunc(key) {
 			return int(key) == typedValue
 		}
-		eh.log.Info("Expected type float, found int", "typedValue", typedValue)
+		glog.Warningf("Expected float, found int: %d\n", typedValue)
 	case int64:
 		// check that float has not fraction
 		if key == math.Trunc(key) {
 			return int64(key) == typedValue
 		}
-		eh.log.Info("Expected type float, found int", "typedValue", typedValue)
+		glog.Warningf("Expected float, found int: %d\n", typedValue)
 	case float64:
 		return typedValue == key
 	case string:
 		// extract float from string
 		float64Num, err := strconv.ParseFloat(typedValue, 64)
 		if err != nil {
-			eh.log.Error(err, "Failed to parse float64 from string")
+			glog.Warningf("Failed to parse float64 from string: %v", err)
 			return false
 		}
 		return float64Num == key
 	default:
-		eh.log.Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))
+		glog.Warningf("Expected float, found: %T\n", value)
 		return false
 	}
 	return false
@@ -123,7 +119,7 @@ func (eh EqualHandler) validateValuewithFloatPattern(key float64, value interfac
 func (eh EqualHandler) validateValuewithBoolPattern(key bool, value interface{}) bool {
 	typedValue, ok := value.(bool)
 	if !ok {
-		eh.log.Info("Expected type bool", "value", value, "type", fmt.Sprintf("%T", value))
+		glog.Error("Expected bool, found %V", value)
 		return false
 	}
 	return key == typedValue
@@ -140,18 +136,18 @@ func (eh EqualHandler) validateValuewithIntPattern(key int64, value interface{})
 		if typedValue == math.Trunc(typedValue) {
 			return int64(typedValue) == key
 		}
-		eh.log.Info("Expected type int, found float", "value", typedValue, "type", fmt.Sprintf("%T", typedValue))
+		glog.Warningf("Expected int, found float: %f", typedValue)
 		return false
 	case string:
 		// extract in64 from string
 		int64Num, err := strconv.ParseInt(typedValue, 10, 64)
 		if err != nil {
-			eh.log.Error(err, "Failed to parse int64 from string")
+			glog.Warningf("Failed to parse int64 from string: %v", err)
 			return false
 		}
 		return int64Num == key
 	default:
-		eh.log.Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
+		glog.Warningf("Expected int, %v is of type %T", value, value)
 		return false
 	}
 }

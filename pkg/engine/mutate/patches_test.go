@@ -5,7 +5,6 @@ import (
 
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	types "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
@@ -42,7 +41,7 @@ func TestProcessPatches_EmptyPatches(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, emptyRule, *resourceUnstructured)
+	rr, _ := ProcessPatches(emptyRule, *resourceUnstructured)
 	assert.Check(t, rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -71,14 +70,14 @@ func makeRuleWithPatches(patches []types.Patch) types.Rule {
 
 func TestProcessPatches_EmptyDocument(t *testing.T) {
 	rule := makeRuleWithPatch(makeAddIsMutatedLabelPatch())
-	rr, _ := ProcessPatches(log.Log, rule, unstructured.Unstructured{})
+	rr, _ := ProcessPatches(rule, unstructured.Unstructured{})
 	assert.Assert(t, !rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
 
 func TestProcessPatches_AllEmpty(t *testing.T) {
 	emptyRule := types.Rule{}
-	rr, _ := ProcessPatches(log.Log, emptyRule, unstructured.Unstructured{})
+	rr, _ := ProcessPatches(emptyRule, unstructured.Unstructured{})
 	assert.Check(t, !rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -91,7 +90,7 @@ func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, !rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -103,7 +102,7 @@ func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -116,7 +115,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, !rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -130,7 +129,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, rr.Success)
 	assert.Assert(t, len(rr.Patches) != 0)
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, rr.Patches[0])
@@ -143,7 +142,7 @@ func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, rr.Success)
 	assert.Assert(t, len(rr.Patches) == 0)
 }
@@ -156,7 +155,7 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	rr, _ := ProcessPatches(log.Log, rule, *resourceUnstructured)
+	rr, _ := ProcessPatches(rule, *resourceUnstructured)
 	assert.Check(t, rr.Success)
 	assert.Assert(t, len(rr.Patches) == 1)
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches[0])

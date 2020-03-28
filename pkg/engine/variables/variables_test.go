@@ -7,7 +7,6 @@ import (
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
@@ -85,7 +84,7 @@ func Test_variablesub1(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -175,7 +174,7 @@ func Test_variablesub_multiple(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -262,7 +261,7 @@ func Test_variablesubstitution(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -323,7 +322,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -381,7 +380,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -440,7 +439,7 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err == nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err == nil {
 		t.Log("expected to fails")
 		t.Fail()
 	}
@@ -498,7 +497,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)
@@ -562,7 +561,7 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err == nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err == nil {
 		t.Error(err)
 	}
 
@@ -621,7 +620,7 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, patternCopy); err != nil {
+	if _, err := SubstituteVars(ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
 	resultRaw, err := json.Marshal(patternCopy)

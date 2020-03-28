@@ -142,6 +142,5 @@ func IsTLSPairShouldBeUpdated(tlsPair *TlsPemPair) bool {
 		return true
 	}
 
-	// TODO : should use time.Until instead of t.Sub(time.Now()) (gosimple)
 	return expirationDate.Sub(time.Now()) < timeReserveBeforeCertificateExpiration
 }

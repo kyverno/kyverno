@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	yamlv2 "gopkg.in/yaml.v2"
+
+	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
@@ -26,14 +27,14 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
+func toBlockResource(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
-			log.Info("spec.ValidationFailureAction set to enforcel blocking resource request", "policy", er.PolicyResponse.Policy)
+			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
 			return true
 		}
 	}
-	log.V(4).Info("sepc.ValidationFailureAction set to auit for all applicable policies;allowing resource reques; reporting with policy violation ")
+	glog.V(4).Infoln("ValidationFailureAction set to audit, allowing resource request, reporting with policy violation")
 	return false
 }
 
@@ -102,14 +103,14 @@ const (
 	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
 )
 
-func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
+func processResourceWithPatches(patch []byte, resource []byte) []byte {
 	if patch == nil {
 		return resource
 	}
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
-		log.Error(err, "failed to patch resource:")
+		glog.Errorf("failed to patch resource: %v", err)
 		return nil
 	}
 	return resource
