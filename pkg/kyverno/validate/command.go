@@ -11,13 +11,12 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
-	"github.com/golang/glog"
-
 	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
@@ -29,7 +28,7 @@ func Command() *cobra.Command {
 			defer func() {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
-						glog.V(4).Info(err)
+						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("Internal error")
 					}
 				}
@@ -45,7 +44,7 @@ func Command() *cobra.Command {
 			}
 
 			for _, policy := range policies {
-				err = policyvalidate.Validate(utils.MarshalPolicy(*policy))
+				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true)
 				if err != nil {
 					fmt.Println("Policy " + policy.Name + " is invalid")
 				} else {

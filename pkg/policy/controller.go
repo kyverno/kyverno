@@ -1,10 +1,9 @@
 package policy
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
@@ -72,6 +71,7 @@ type PolicyController struct {
 	pvGenerator policyviolation.GeneratorInterface
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
+	log                    logr.Logger
 }
 
 // NewPolicyController create a new PolicyController
@@ -84,10 +84,11 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	pMetaStore policystore.UpdateInterface,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister) (*PolicyController, error) {
+	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	log logr.Logger) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(log.Info)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		return nil, err
@@ -104,6 +105,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pMetaStore:             pMetaStore,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
+		log:                    log,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
@@ -145,6 +147,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 }
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
+	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
 	// Only process policies that are enabled for "background" execution
 	// policy.spec.background -> "True"
@@ -168,19 +171,19 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 			return
 		}
 	}
-
-	glog.V(4).Infof("Adding Policy %s", p.Name)
+	logger.V(4).Info("adding policy", "name", p.Name)
 	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
+	logger := pc.log
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 	// TODO: optimize this : policy meta-store
 	// Update policy-> (remove,add)
 	err := pc.pMetaStore.UnRegister(*oldP)
 	if err != nil {
-		glog.Infof("Failed to unregister policy %s", oldP.Name)
+		logger.Error(err, "failed to unregister policy", "name", oldP.Name)
 	}
 	pc.pMetaStore.Register(*curP)
 
@@ -203,28 +206,29 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 			return
 		}
 	}
-	glog.V(4).Infof("Updating Policy %s", oldP.Name)
+	logger.V(4).Info("updating policy", "name", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
+	logger := pc.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			logger.Info("couldnt get object from tomstone", "obj", obj)
 			return
 		}
 		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
-			glog.Info(fmt.Errorf("Tombstone contained object that is not a Policy %#v", obj))
+			logger.Info("tombstone container object that is not a policy", "obj", obj)
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting Policy %s", p.Name)
+	logger.V(4).Info("deleting policy", "name", p.Name)
 	// Unregister from policy meta-store
 	if err := pc.pMetaStore.UnRegister(*p); err != nil {
-		glog.Infof("failed to unregister policy %s", p.Name)
+		logger.Error(err, "failed to unregister policy", "name", p.Name)
 	}
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
@@ -232,9 +236,10 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 }
 
 func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
+	logger := pc.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
-		glog.Error(err)
+		logger.Error(err, "failed to enqueu policy")
 		return
 	}
 	pc.queue.Add(key)
@@ -242,15 +247,16 @@ func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
 
 // Run begins watching and syncing.
 func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
+	logger := pc.log
 
 	defer utilruntime.HandleCrash()
 	defer pc.queue.ShutDown()
 
-	glog.Info("Starting policy controller")
-	defer glog.Info("Shutting down policy controller")
+	logger.Info("starting")
+	defer logger.Info("shutting down")
 
 	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced) {
-		glog.Error("failed to sync informer cache")
+		logger.Info("failed to sync informer cache")
 		return
 	}
 
@@ -285,31 +291,33 @@ func (pc *PolicyController) processNextWorkItem() bool {
 }
 
 func (pc *PolicyController) handleErr(err error, key interface{}) {
+	logger := pc.log
 	if err == nil {
 		pc.queue.Forget(key)
 		return
 	}
 
 	if pc.queue.NumRequeues(key) < maxRetries {
-		glog.V(2).Infof("Error syncing Policy %v: %v", key, err)
+		logger.Error(err, "failed to sync policy", "key", key)
 		pc.queue.AddRateLimited(key)
 		return
 	}
 
 	utilruntime.HandleError(err)
-	glog.V(2).Infof("Dropping policy %q out of the queue: %v", key, err)
+	logger.V(2).Info("dropping policy out of queue", "key", key)
 	pc.queue.Forget(key)
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
+	logger := pc.log
 	startTime := time.Now()
-	glog.V(4).Infof("Started syncing policy %q (%v)", key, startTime)
+	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
 	defer func() {
-		glog.V(4).Infof("Finished syncing policy %q (%v)", key, time.Since(startTime))
+		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime))
 	}()
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
-		glog.V(2).Infof("Policy %v has been deleted", key)
+		logger.V(2).Info("policy deleted", "key", key)
 		// delete cluster policy violation
 		if err := pc.deleteClusterPolicyViolations(key); err != nil {
 			return err
@@ -322,8 +330,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			// do not fail, if unable to delete resource webhook config
-			glog.V(4).Infof("failed to remove resource webhook configuration: %v", err)
-			glog.Errorln(err)
+			logger.Error(err, "failed to remove resource webhook configurations")
 		}
 		return nil
 	}

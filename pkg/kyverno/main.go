@@ -9,6 +9,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/kyverno/apply"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/version"
+	"k8s.io/klog"
+	"k8s.io/klog/klogr"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +22,7 @@ func CLI() {
 		Short: "kyverno manages native policies of Kubernetes",
 	}
 
-	configureGlog(cli)
+	configurelog(cli)
 
 	commands := []*cobra.Command{
 		version.Command(),
@@ -36,9 +39,9 @@ func CLI() {
 	}
 }
 
-func configureGlog(cli *cobra.Command) {
-	flag.Parse()
-	_ = flag.Set("logtostderr", "true")
+func configurelog(cli *cobra.Command) {
+	klog.InitFlags(nil)
+	log.SetLogger(klogr.New())
 
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
