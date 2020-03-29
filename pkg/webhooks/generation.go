@@ -66,13 +66,13 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			ws.StatusListener.Send(generateStats{
+			ws.statusListener.Send(generateStats{
 				resp: engineResponse,
 			})
 		}
 	}
 	// Adds Generate Request to a channel(queue size 1000) to generators
-	if err := createGenerateRequest(ws.GrGenerator, userRequestInfo, engineResponses...); err != nil {
+	if err := createGenerateRequest(ws.grGenerator, userRequestInfo, engineResponses...); err != nil {
 		//TODO: send appropriate error
 		return false, "Kyverno blocked: failed to create Generate Requests"
 	}
