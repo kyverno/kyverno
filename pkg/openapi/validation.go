@@ -1,12 +1,15 @@
 package openapi
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	data "github.com/nirmata/kyverno/api"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,20 +50,67 @@ func NewOpenAPIController() (*Controller, error) {
 	return controller, nil
 }
 
-func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
 
+	var policy v1.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	if err != nil {
+		return err
+	}
+
+	policyUnst, err := utils.ConvertToUnstructured(policyRaw)
+	if err != nil {
+		return err
+	}
+
+	err = o.ValidateResource(*policyUnst.DeepCopy(), "ClusterPolicy")
+	if err != nil {
+		return err
+	}
+
+	return o.validatePolicyMutation(policy)
+}
+
+func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	var err error
+
+	kind = o.kindToDefinitionName[kind]
+	schema := o.models.LookupModel(kind)
+	if schema == nil {
+		// Check if kind is a CRD
+		schema, err = o.getSchemaFromDefinitions(kind)
+		if err != nil || schema == nil {
+			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+		}
+		delete(patchedResource.Object, "kind")
+	}
+
+	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
+		var errorMessages []string
+		for i := range errs {
+			errorMessages = append(errorMessages, errs[i].Error())
+		}
+
+		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
+	}
+
+	return nil
+}
+
+func (o *Controller) GetDefinitionNameFromKind(kind string) string {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.kindToDefinitionName[kind]
+}
+
+func (o *Controller) validatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
-			rule.MatchResources = v1.MatchResources{
-				UserInfo: v1.UserInfo{},
-				ResourceDescription: v1.ResourceDescription{
-					Kinds: rule.MatchResources.Kinds,
-				},
-			}
-			rule.ExcludeResources = v1.ExcludeResources{}
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
@@ -89,39 +139,6 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	return nil
-}
-
-func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-	var err error
-
-	kind = o.kindToDefinitionName[kind]
-	schema := o.models.LookupModel(kind)
-	if schema == nil {
-		schema, err = o.getSchemaFromDefinitions(kind)
-		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
-		}
-		delete(patchedResource.Object, "kind")
-	}
-
-	if errs := validation.ValidateModel(patchedResource.UnstructuredContent(), schema, kind); len(errs) > 0 {
-		var errorMessages []string
-		for i := range errs {
-			errorMessages = append(errorMessages, errs[i].Error())
-		}
-
-		return fmt.Errorf(strings.Join(errorMessages, "\n\n"))
-	}
-
-	return nil
-}
-
-func (o *Controller) GetDefinitionNameFromKind(kind string) string {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-	return o.kindToDefinitionName[kind]
 }
 
 func (o *Controller) useOpenApiDocument(customDoc *openapi_v2.Document) error {
@@ -159,8 +176,23 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 
 // For crd, we do not store definition in document
 func (o *Controller) getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+	if kind == "" {
+		return nil, errors.New("invalid kind")
+	}
+
 	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(o.definitions[kind], &path)
+	definition := o.definitions[kind]
+	if definition == nil {
+		return nil, errors.New("could not find definition")
+	}
+
+	// This was added so crd's can access
+	// normal definitions from existing schema such as
+	// `metadata` - this maybe a breaking change.
+	// Removing this may cause policy validate to stop working
+	existingDefinitions, _ := o.models.(*proto.Definitions)
+
+	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
 func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {

@@ -371,13 +371,9 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
 	openAPIController, _ := openapi.NewOpenAPIController()
 
-	err = Validate(policy, nil, true, openAPIController)
+	err := Validate(rawPolicy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
 
@@ -519,13 +515,8 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	 }
 	`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
 	openAPIController, _ := openapi.NewOpenAPIController()
-
-	err = Validate(policy, nil, true, openAPIController)
+	err := Validate(rawPolicy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 

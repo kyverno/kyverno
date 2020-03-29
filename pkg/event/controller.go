@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 //Generator generate events
@@ -66,7 +67,7 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Info)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		log.Error(err, "failed to get event interface for logging")
