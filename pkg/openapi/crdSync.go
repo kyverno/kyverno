@@ -6,13 +6,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/golang/glog"
-
 	"gopkg.in/yaml.v2"
 
 	"github.com/googleapis/gnostic/compiler"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,29 +43,31 @@ func NewCRDSync(client *client.Client) *crdSync {
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
 	if err != nil {
-		glog.V(4).Infof("cannot get openapi schema: %v", err)
+		log.Log.Error(err, "cannot get openapi schema")
 	}
 
 	err = useOpenApiDocument(newDoc)
 	if err != nil {
-		glog.V(4).Infof("Could not set custom OpenApi document: %v\n", err)
+		log.Log.Error(err, "Could not set custom OpenApi document")
 	}
+
+	// Sync CRD before kyverno starts
+	c.sync()
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.sync, time.Second*10, stopCh)
 	}
-	<-stopCh
 }
 
 func (c *crdSync) sync() {
-	openApiGlobalState.mutex.Lock()
-	defer openApiGlobalState.mutex.Unlock()
-
 	crds, err := c.client.ListResource("CustomResourceDefinition", "", nil)
 	if err != nil {
-		glog.V(4).Infof("could not fetch crd's from server: %v", err)
+		log.Log.Error(err, "could not fetch crd's from server")
 		return
 	}
+
+	openApiGlobalState.mutex.Lock()
+	defer openApiGlobalState.mutex.Unlock()
 
 	deleteCRDFromPreviousSync()
 
@@ -91,17 +92,18 @@ func parseCRD(crd unstructured.Unstructured) {
 
 	crdName := crdDefinition.Spec.Names.Kind
 	if len(crdDefinition.Spec.Versions) < 1 {
-		glog.V(4).Infof("could not parse crd schema, no versions present")
+		log.Log.V(4).Info("could not parse crd schema, no versions present")
 		return
 	}
 
 	var schema yaml.MapSlice
 	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Versions[0].Schema.OpenAPIV3Schema)
+	schemaRaw = addingDefaultFieldsToSchema(schemaRaw)
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
-		glog.V(4).Infof("could not parse crd schema:%v", err)
+		log.Log.Error(err, "could not parse crd schema:")
 		return
 	}
 
@@ -109,4 +111,30 @@ func parseCRD(crd unstructured.Unstructured) {
 
 	openApiGlobalState.kindToDefinitionName[crdName] = crdName
 	openApiGlobalState.definitions[crdName] = parsedSchema
+}
+
+// addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
+func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
+	var schema struct {
+		Properties map[string]interface{} `json:"properties"`
+	}
+	_ = json.Unmarshal(schemaRaw, &schema)
+
+	if schema.Properties["apiVersion"] == nil {
+		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
+		apiVersionDef := make(map[string]interface{})
+		_ = json.Unmarshal([]byte(apiVersionDefRaw), &apiVersionDef)
+		schema.Properties["apiVersion"] = apiVersionDef
+	}
+
+	if schema.Properties["metadata"] == nil {
+		metadataDefRaw := `{"$ref":"#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta","description":"Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"}`
+		metadataDef := make(map[string]interface{})
+		_ = json.Unmarshal([]byte(metadataDefRaw), &metadataDef)
+		schema.Properties["metadata"] = metadataDef
+	}
+
+	schemaWithDefaultFields, _ := json.Marshal(schema)
+
+	return schemaWithDefaultFields
 }

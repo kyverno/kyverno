@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
@@ -20,21 +20,22 @@ func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 }
 
 //ProcessPatches applies the patches on the resource and returns the patched resource
-func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessPatches(log logr.Logger, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+	logger := log.WithValues("rule", rule.Name)
 	startTime := time.Now()
-	glog.V(4).Infof("started JSON patch rule %q (%v)", rule.Name, startTime)
+	logger.V(4).Info("started JSON patch", "startTime", startTime)
 	resp.Name = rule.Name
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("finished JSON patch rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished JSON patch", "processingTime", resp.RuleStats.ProcessingTime)
 	}()
 
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		resp.Success = false
-		glog.Infof("unable to marshall resource: %v", err)
+		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
 	}
@@ -45,14 +46,14 @@ func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 		// JSON patch
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {
-			glog.V(4).Infof("failed to marshall JSON patch %v: %v", patch, err)
+			logger.Error(err, "failed to marshal JSON patch")
 			errs = append(errs, err)
 			continue
 		}
 		patchResource, err := applyPatch(resourceRaw, patchRaw)
 		// TODO: continue on error if one of the patches fails, will add the failure event in such case
 		if err != nil && patch.Operation == "remove" {
-			glog.Info(err)
+			log.Error(err, "failed to process JSON path or patch is a 'remove' operation")
 			continue
 		}
 		if err != nil {
@@ -77,7 +78,7 @@ func ProcessPatches(rule kyverno.Rule, resource unstructured.Unstructured) (resp
 	}
 	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
-		glog.Infof("failed to unmarshall resource to undstructured: %v", err)
+		logger.Error(err, "failed to unmmarshal resource")
 		resp.Success = false
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource

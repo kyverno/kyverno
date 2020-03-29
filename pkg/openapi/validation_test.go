@@ -52,7 +52,7 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		_ = json.Unmarshal(tc.policy, &policy)
 
 		var errMessage string
-		err := ValidatePolicyMutation(policy)
+		err := validatePolicyMutation(policy)
 		if err != nil {
 			errMessage = err.Error()
 		}

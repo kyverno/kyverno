@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nirmata/kyverno/pkg/utils"
+
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
-
-	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -32,6 +32,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
@@ -49,7 +50,7 @@ func Command() *cobra.Command {
 			defer func() {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
-						glog.V(4).Info(err)
+						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("Internal error")
 					}
 				}
@@ -69,7 +70,7 @@ func Command() *cobra.Command {
 			}
 
 			for _, policy := range policies {
-				err := policy2.Validate(*policy)
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true)
 				if err != nil {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
 				}

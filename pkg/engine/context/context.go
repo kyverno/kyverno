@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Interface to manage context operations
@@ -33,6 +34,7 @@ type Context struct {
 	mu            sync.RWMutex
 	jsonRaw       []byte
 	whiteListVars []string
+	log           logr.Logger
 }
 
 //NewContext returns a new context
@@ -42,6 +44,7 @@ func NewContext(whiteListVars ...string) *Context {
 		// data:    map[string]interface{}{},
 		jsonRaw:       []byte(`{}`), // empty json struct
 		whiteListVars: whiteListVars,
+		log:           log.Log.WithName("context"),
 	}
 	return &ctx
 }
@@ -54,7 +57,7 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	// merge json
 	ctx.jsonRaw, err = jsonpatch.MergePatch(ctx.jsonRaw, dataRaw)
 	if err != nil {
-		glog.V(4).Infof("failed to merge JSON data: %v", err)
+		ctx.log.Error(err, "failed to merge JSON data")
 		return err
 	}
 	return nil
@@ -66,7 +69,7 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	// unmarshall the resource struct
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
-		glog.V(4).Infof("failed to unmarshall the context data: %v", err)
+		ctx.log.Error(err, "failed to unmarshall the resource")
 		return err
 	}
 
@@ -82,7 +85,7 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 
 	objRaw, err := json.Marshal(modifiedResource)
 	if err != nil {
-		glog.V(4).Infof("failed to marshall the updated context data")
+		ctx.log.Error(err, "failed to marshal the resource")
 		return err
 	}
 	return ctx.AddJSON(objRaw)
@@ -98,7 +101,7 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 
 	objRaw, err := json.Marshal(modifiedResource)
 	if err != nil {
-		glog.V(4).Infof("failed to marshall the updated context data")
+		ctx.log.Error(err, "failed to marshal the UserInfo")
 		return err
 	}
 	return ctx.AddJSON(objRaw)
@@ -118,8 +121,6 @@ func (ctx *Context) AddSA(userName string) error {
 	// filter namespace
 	groups := strings.Split(sa, ":")
 	if len(groups) >= 2 {
-		glog.V(4).Infof("serviceAccount namespace: %s", groups[0])
-		glog.V(4).Infof("serviceAccount name: %s", groups[1])
 		saName = groups[1]
 		saNamespace = groups[0]
 	}
@@ -131,7 +132,7 @@ func (ctx *Context) AddSA(userName string) error {
 	}
 	saNameRaw, err := json.Marshal(saNameObj)
 	if err != nil {
-		glog.V(4).Infof("failed to marshall the updated context data")
+		ctx.log.Error(err, "failed to marshal the SA")
 		return err
 	}
 	if err := ctx.AddJSON(saNameRaw); err != nil {
@@ -145,7 +146,7 @@ func (ctx *Context) AddSA(userName string) error {
 	}
 	saNsRaw, err := json.Marshal(saNsObj)
 	if err != nil {
-		glog.V(4).Infof("failed to marshall the updated context data")
+		ctx.log.Error(err, "failed to marshal the SA namespace")
 		return err
 	}
 	if err := ctx.AddJSON(saNsRaw); err != nil {
