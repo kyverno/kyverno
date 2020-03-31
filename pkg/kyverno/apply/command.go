@@ -9,6 +9,8 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
@@ -69,8 +71,13 @@ func Command() *cobra.Command {
 				}
 			}
 
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return err
+			}
+
 			for _, policy := range policies {
-				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true)
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
 				}
@@ -84,7 +91,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err := getResources(policies, resourcePaths, dClient)
+			resources, err := getResources(policies, resourcePaths, dClient, openAPIController)
 			if err != nil {
 				return sanitizedError.New(fmt.Errorf("Issues fetching resources").Error())
 			}
@@ -112,7 +119,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -131,7 +138,7 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			resourceTypes = append(resourceTypes, kind)
 		}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
+		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, openAPIController)
 		if err != nil {
 			return nil, err
 		}
@@ -149,11 +156,12 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		endpoint, err := getListEndpointForKind(kind)
+		// TODO use lister interface
+		endpoint, err := getListEndpointForKind(kind, openAPIController)
 		if err != nil {
 			return nil, err
 		}

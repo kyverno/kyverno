@@ -5,8 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/openapi"
-
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -67,7 +65,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
 			continue
 		}
-		err := openapi.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
+		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			logger.Error(err, "failed to validate resource")
 			continue

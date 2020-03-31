@@ -18,7 +18,7 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(policyRaw []byte, client *dclient.Client, mock bool) error {
+func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	var p kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &p)
 	if err != nil {
@@ -75,7 +75,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool) error {
 		}
 	}
 
-	if err := openapi.ValidatePolicyFields(policyRaw); err != nil {
+	if err := openAPIController.ValidatePolicyFields(policyRaw); err != nil {
 		return err
 	}
 

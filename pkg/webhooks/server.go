@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -70,6 +72,7 @@ type WebhookServer struct {
 	grGenerator            *generate.Generator
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 	log                    logr.Logger
+	openAPIController      *openapi.Controller
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -91,6 +94,7 @@ func NewWebhookServer(
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	cleanUp chan<- struct{},
 	log logr.Logger,
+	openAPIController *openapi.Controller,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -124,6 +128,7 @@ func NewWebhookServer(
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		log:                       log,
+		openAPIController:         openAPIController,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))

@@ -9,6 +9,8 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
@@ -43,8 +45,13 @@ func Command() *cobra.Command {
 				}
 			}
 
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return err
+			}
+
 			for _, policy := range policies {
-				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true)
+				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Println("Policy " + policy.Name + " is invalid")
 				} else {
