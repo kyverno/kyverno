@@ -126,11 +126,11 @@ func NewWebhookServer(
 		log:                       log,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.MutatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.serve)
-	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.serve)
+	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
+	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
+	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
+	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -142,60 +142,46 @@ func NewWebhookServer(
 	return ws, nil
 }
 
-// Main server endpoint for all requests
-func (ws *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
-	startTime := time.Now()
-	// for every request received on the ep update last request time,
-	// this is used to verify admission control
-	ws.lastReqTime.SetTime(time.Now())
-	admissionReview := ws.bodyToAdmissionReview(r, w)
-	if admissionReview == nil {
-		return
-	}
-	logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
-	defer func() {
-		logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
-	}()
-
-	admissionReview.Response = &v1beta1.AdmissionResponse{
-		Allowed: true,
-	}
-
-	// Do not process the admission requests for kinds that are in filterKinds for filtering
-	request := admissionReview.Request
-	switch r.URL.Path {
-	case config.VerifyMutatingWebhookServicePath:
-		// we do not apply filters as this endpoint is used explicitly
-		// to watch kyveno deployment and verify if admission control is enabled
-		admissionReview.Response = ws.handleVerifyRequest(request)
-	case config.MutatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handleMutateAdmissionRequest(request)
+func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse, filter bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
+		// for every request received on the ep update last request time,
+		// this is used to verify admission control
+		ws.lastReqTime.SetTime(time.Now())
+		admissionReview := ws.bodyToAdmissionReview(r, w)
+		if admissionReview == nil {
+			return
 		}
-	case config.ValidatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handleValidateAdmissionRequest(request)
-		}
-	case config.PolicyValidatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handlePolicyValidation(request)
-		}
-	case config.PolicyMutatingWebhookServicePath:
-		if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			admissionReview.Response = ws.handlePolicyMutation(request)
-		}
-	}
-	admissionReview.Response.UID = request.UID
+		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
+		defer func() {
+			logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
+		}()
 
-	responseJSON, err := json.Marshal(admissionReview)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
+		admissionReview.Response = &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(responseJSON); err != nil {
-		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		// Do not process the admission requests for kinds that are in filterKinds for filtering
+		request := admissionReview.Request
+		if filter {
+			if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+				admissionReview.Response = handler(request)
+			}
+		} else {
+			admissionReview.Response = handler(request)
+		}
+		admissionReview.Response.UID = request.UID
+
+		responseJSON, err := json.Marshal(admissionReview)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if _, err := w.Write(responseJSON); err != nil {
+			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		}
 	}
 }
 
