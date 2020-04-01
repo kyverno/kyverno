@@ -564,6 +564,28 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  - certificatesigningrequests/status
+  resourceNames:
+    - kubernetes.io/legacy-unknown
+  verbs:
+  - create
+  - delete
+  - get 
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  resourceNames:
+  - kubernetes.io/legacy-unknown
+  verbs:
+  - approve 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
