@@ -70,7 +70,7 @@ func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
 		return err
 	}
 
-	return o.validatePolicyMutation(policy)
+	return o.ValidatePolicyMutation(policy)
 }
 
 func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
@@ -107,7 +107,10 @@ func (o *Controller) GetDefinitionNameFromKind(kind string) string {
 	return o.kindToDefinitionName[kind]
 }
 
-func (o *Controller) validatePolicyMutation(policy v1.ClusterPolicy) error {
+func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {

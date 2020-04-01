@@ -75,8 +75,14 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 	}
 
-	if err := openAPIController.ValidatePolicyFields(policyRaw); err != nil {
-		return err
+	if !mock {
+		if err := openAPIController.ValidatePolicyFields(policyRaw); err != nil {
+			return err
+		}
+	} else {
+		if err := openAPIController.ValidatePolicyMutation(p); err != nil {
+			return err
+		}
 	}
 
 	return nil
