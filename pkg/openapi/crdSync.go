@@ -127,6 +127,7 @@ func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
 	_ = json.Unmarshal(schemaRaw, &schema)
 
 	if schema.Properties["apiVersion"] == nil {
+		schema.Properties = make(map[string]interface{})
 		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
 		apiVersionDef := make(map[string]interface{})
 		_ = json.Unmarshal([]byte(apiVersionDefRaw), &apiVersionDef)
