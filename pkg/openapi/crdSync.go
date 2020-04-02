@@ -104,6 +104,11 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 
 	var schema yaml.MapSlice
 	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Versions[0].Schema.OpenAPIV3Schema)
+	if len(schemaRaw) < 1 {
+		log.Log.V(4).Info("could not parse crd schema")
+		return
+	}
+
 	schemaRaw = addingDefaultFieldsToSchema(schemaRaw)
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
@@ -126,8 +131,11 @@ func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
 	}
 	_ = json.Unmarshal(schemaRaw, &schema)
 
-	if schema.Properties["apiVersion"] == nil {
+	if len(schemaRaw) < 1 {
 		schema.Properties = make(map[string]interface{})
+	}
+
+	if schema.Properties["apiVersion"] == nil {
 		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
 		apiVersionDef := make(map[string]interface{})
 		_ = json.Unmarshal([]byte(apiVersionDefRaw), &apiVersionDef)
