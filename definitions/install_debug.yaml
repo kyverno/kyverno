@@ -219,6 +219,8 @@ spec:
                         type: string
                       name:
                         type: string
+                      namespace:
+                        type: string
                       clone: 
                         type: object
                         required:
