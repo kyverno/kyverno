@@ -5,3 +5,5 @@ gh-pages/public
 _output
 coverage.txt
 .idea
+cmd/initContainer/kyvernopre
+cmd/kyverno/kyverno
