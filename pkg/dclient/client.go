@@ -129,6 +129,11 @@ func (c *Client) PatchResource(kind string, namespace string, name string, patch
 	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
+// GetDynamicInterface fetches underlying dynamic interface
+func (c *Client) GetDynamicInterface() dynamic.Interface {
+	return c.client
+}
+
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
 func (c *Client) ListResource(kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
