@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"gopkg.in/yaml.v2"
@@ -49,12 +53,16 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	c.sync()
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, time.Second*10, stopCh)
+		go wait.Until(c.sync, time.Second*25, stopCh)
 	}
 }
 
 func (c *crdSync) sync() {
-	crds, err := c.client.ListResource("CustomResourceDefinition", "", nil)
+	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1beta1",
+		Resource: "customresourcedefinitions",
+	}).List(v1.ListOptions{})
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return
@@ -85,11 +93,9 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 			Names struct {
 				Kind string `json:"kind"`
 			} `json:"names"`
-			Versions []struct {
-				Schema struct {
-					OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
-				} `json:"schema"`
-			} `json:"versions"`
+			Validation struct {
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+			} `json:"validation"`
 		} `json:"spec"`
 	}
 
@@ -97,13 +103,9 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 	_ = json.Unmarshal(crdRaw, &crdDefinition)
 
 	crdName := crdDefinition.Spec.Names.Kind
-	if len(crdDefinition.Spec.Versions) < 1 {
-		log.Log.V(4).Info("could not parse crd schema, no versions present")
-		return
-	}
 
 	var schema yaml.MapSlice
-	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Versions[0].Schema.OpenAPIV3Schema)
+	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Validation.OpenAPIV3Schema)
 	if len(schemaRaw) < 1 {
 		log.Log.V(4).Info("could not parse crd schema")
 		return
@@ -130,10 +132,6 @@ func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
 		Properties map[string]interface{} `json:"properties"`
 	}
 	_ = json.Unmarshal(schemaRaw, &schema)
-
-	if len(schemaRaw) < 1 {
-		schema.Properties = make(map[string]interface{})
-	}
 
 	if schema.Properties["apiVersion"] == nil {
 		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
