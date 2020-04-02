@@ -395,8 +395,5 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 func policyHasVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
 	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-	if len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0 {
-		return true
-	}
-	return false
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
