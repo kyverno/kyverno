@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
@@ -80,6 +81,9 @@ func Command() *cobra.Command {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
+				}
+				if policyHasVariables(*policy) {
+					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name))
 				}
 			}
 
@@ -386,4 +390,13 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	return nil
+}
+
+func policyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	if len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0 {
+		return true
+	}
+	return false
 }
