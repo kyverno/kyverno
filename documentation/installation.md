@@ -207,9 +207,9 @@ To run controller in this mode you should prepare a TLS key/certificate pair for
 2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
 # Filter Kubernetes resources that admission webhook should not process
-The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`.
+The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding a `ConfigMap` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`. The default name of this `ConfigMap` is `init-config` but can be changed by modifying the value of the environment variable `INIT_CONFIG` in the kyverno deployment dpec. `data.resourceFilters` must be a sequence of one or more `[<Kind>,<Namespace>,<Name>]` entries with `*` as wildcard. Thus, an item `[Node,*,*]` means that admissions of `Node` in any namespace and with any name will be ignored.
 
-The configmap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. The resourceFilters configuration can be updated dynamically at runtime.
+By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration [install.yaml].
 
 ```
 apiVersion: v1
@@ -222,7 +222,8 @@ data:
   resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
 ```
 
-By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration [install.yaml].
+To modify the `ConfigMap`, either directly edit the `ConfigMap` `init-config` in the default configuration [install.yaml] and redeploy it or modify the `ConfigMap` use `kubectl`.  Changes to the `ConfigMap` through `kubectl` will automatically be picked up at runtime.
+
 
 
 ---
