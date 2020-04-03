@@ -18,7 +18,7 @@ To install Kyverno in a cluster that supports certificate signing, run the follo
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 ````
 
-Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the `install.yaml` and update the image tag. 
+Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the [install.yaml] and update the image tag. 
 
 To check the Kyverno controller status, run the command:
 
@@ -133,7 +133,7 @@ subjects:
 
 ### 4. Install Kyverno
 
-To install a specific version, download `install.yaml` and then change the image tag.
+To install a specific version, download [install.yaml] and then change the image tag.
 
 e.g., change image tag from `latest` to the specific tag `v1.0.0`.
 >>>
@@ -202,7 +202,7 @@ To build Kyverno in a development environment see: https://github.com/nirmata/ky
 
 To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. it also registers a CustomResource policy.
+1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
 
 2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
@@ -222,9 +222,10 @@ data:
   resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
 ```
 
-By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration
-[install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
+By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration [install.yaml].
 
 
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
+
+[install.yaml]: https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
