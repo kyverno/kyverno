@@ -65,3 +65,8 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 	}
 
 }
+
+func Test_addDefaultFieldsToSchema(t *testing.T) {
+	addingDefaultFieldsToSchema([]byte(`null`))
+	addingDefaultFieldsToSchema(nil)
+}
