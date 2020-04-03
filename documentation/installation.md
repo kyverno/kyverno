@@ -4,7 +4,7 @@
 
 The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
 
-There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver:
+There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver.
 
 ## Option 1: Use kube-controller-manager to generate a CA-signed certificate
 
@@ -133,7 +133,7 @@ subjects:
 
 ### 4. Install Kyverno
 
-To install a specific version, change the image tag with git tag in `install.yaml`.
+To install a specific version, download `install.yaml` and then change the image tag.
 
 e.g., change image tag from `latest` to the specific tag `v1.0.0`.
 >>>
@@ -141,10 +141,10 @@ e.g., change image tag from `latest` to the specific tag `v1.0.0`.
       containers:
         - name: kyverno
           # image: nirmata/kyverno:latest
-          image: nirmata/kyverno:v0.3.0
+          image: nirmata/kyverno:v1.0.0
           
 ````sh
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+kubectl create -f ./install.yaml
 ````
 
 To check the Kyverno controller status, run the command:
@@ -168,7 +168,7 @@ Here is a script that generates a self-signed CA, a TLS certificate-key pair, an
 
 # Configure a namespace admin to access policy violations
 
-During Kyverno installation, it creates a ClusterRole `kyverno:policyviolations` which has the `list,get,watch` operation on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
+During Kyverno installation, it creates a ClusterRole `kyverno:policyviolations` which has the `list,get,watch` operations on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
 
 - Replace `metadata.namespace` with namespace of the admin
 - Configure `subjects` field to bind admin's role to the ClusterRole `policyviolation`
@@ -200,16 +200,16 @@ subjects:
 
 To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
 
-To run controller in this mode you should prepare TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
+To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate TLS certificate for debug webhook server and register this webhook in the cluster. Also it registers CustomResource Policy.
+1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. it also registers a CustomResource policy.
 
 2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
-# Filter kuberenetes resources that admission webhook should not process
-The admission webhook checks if a policy is applicable on all admission requests. The kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`
+# Filter Kubernetes resources that admission webhook should not process
+The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding the configmap named `init-config` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`.
 
-THe confimap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. The resourceFilters configuration can be updated dynamically at runtime.
+The configmap is picked from the envenvironment variable `INIT_CONFIG` passed to the kyverno deployment spec. The resourceFilters configuration can be updated dynamically at runtime.
 
 ```
 apiVersion: v1
@@ -222,7 +222,7 @@ data:
   resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
 ```
 
-By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configmap
+By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration
 [install.yaml](https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml).
 
 
