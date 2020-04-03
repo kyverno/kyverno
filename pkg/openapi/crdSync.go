@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -88,6 +89,7 @@ func (o *Controller) deleteCRDFromPreviousSync() {
 }
 
 func (o *Controller) parseCRD(crd unstructured.Unstructured) {
+	var err error
 	var crdDefinition struct {
 		Spec struct {
 			Names struct {
@@ -111,7 +113,11 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 		return
 	}
 
-	schemaRaw = addingDefaultFieldsToSchema(schemaRaw)
+	schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
+	if err != nil {
+		log.Log.Error(err, "could not parse crd schema:")
+		return
+	}
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
@@ -127,11 +133,15 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 }
 
 // addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
-func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
+func addingDefaultFieldsToSchema(schemaRaw []byte) ([]byte, error) {
 	var schema struct {
 		Properties map[string]interface{} `json:"properties"`
 	}
 	_ = json.Unmarshal(schemaRaw, &schema)
+
+	if len(schema.Properties) < 1 {
+		return nil, errors.New("crd schema has no properties")
+	}
 
 	if schema.Properties["apiVersion"] == nil {
 		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
@@ -149,5 +159,5 @@ func addingDefaultFieldsToSchema(schemaRaw []byte) []byte {
 
 	schemaWithDefaultFields, _ := json.Marshal(schema)
 
-	return schemaWithDefaultFields
+	return schemaWithDefaultFields, nil
 }
