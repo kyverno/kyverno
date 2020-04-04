@@ -398,13 +398,22 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 
 func replacePodWithPodControllers(kinds []string, controllers []string) []string {
 
-	var kindsWithoutPod []string
+	kindMap := make(map[string]bool)
+
 	for _, kind := range kinds {
-		if strings.ToLower(kind) == "pod" {
-			continue
-		}
-		kindsWithoutPod = append(kindsWithoutPod, kind)
+		kindMap[kind] = true
 	}
 
-	return append(kindsWithoutPod, controllers...)
+	delete(kindMap, "Pod")
+
+	for _, controller := range controllers {
+		kindMap[controller] = true
+	}
+
+	output := make([]string, 0, len(kindMap))
+	for kind := range kindMap {
+		output = append(output, kind)
+	}
+
+	return output
 }
