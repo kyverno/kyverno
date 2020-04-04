@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"time"
@@ -101,24 +102,43 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if reflect.DeepEqual(policyContext.AdmissionInfo, kyverno.RequestInfo{}) {
 			continue
 		}
+	}
 
-		if strings.Contains(PodControllers, resource.GetKind()) {
+	if strings.Contains(PodControllers, resource.GetKind()) {
+		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, podTemplateRule, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, "podControllerAnnotation", podTemplateRule.Mutation.Overlay, patchedResource)
 			if !ruleResponse.Success {
 				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
-				continue
-			}
-
-			if ruleResponse.Success && ruleResponse.Patches != nil {
-				logger.V(2).Info("inserted annotation for podTemplate")
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			} else {
+				if ruleResponse.Success && ruleResponse.Patches != nil {
+					logger.V(2).Info("inserted annotation for podTemplate")
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+				}
 			}
 		}
 	}
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
+}
+
+func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {
+	var podController struct {
+		Spec struct {
+			Template struct {
+				Metadata struct {
+					Annotations map[string]interface{} `json:"annotations"`
+				} `json:"metadata"`
+			} `json:"template"`
+		} `json:"spec"`
+	}
+
+	resourceRaw, _ := json.Marshal(resource.Object)
+	json.Unmarshal(resourceRaw, &podController)
+
+	_, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
+	return ok
 }
 func incrementAppliedRuleCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
@@ -150,7 +170,7 @@ var podTemplateRule = kyverno.Rule{
 				"template": map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							"+(pod-policies.kyverno.io/autogen-applied)": "true",
+							"+(" + PodTemplateAnnotation + ")": "true",
 						},
 					},
 				},
