@@ -302,10 +302,10 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	// overwrite Kinds by pod controllers defined in the annotation
-	controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
+	controllerRule.MatchResources.Kinds = replacePodWithPodControllers(controllerRule.MatchResources.Kinds, strings.Split(controllers, ","))
 	if len(exclude.Kinds) != 0 {
 		controllerRule.ExcludeResources = exclude.DeepCopy()
-		controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
+		controllerRule.ExcludeResources.Kinds = replacePodWithPodControllers(controllerRule.ExcludeResources.Kinds, strings.Split(controllers, ","))
 	}
 
 	if rule.Mutation.Overlay != nil {
@@ -394,4 +394,17 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 		return nil, err
 	}
 	return patchByte, nil
+}
+
+func replacePodWithPodControllers(kinds []string, controllers []string) []string {
+
+	var kindsWithoutPod []string
+	for _, kind := range kinds {
+		if strings.ToLower(kind) == "pod" {
+			continue
+		}
+		kindsWithoutPod = append(kindsWithoutPod, kind)
+	}
+
+	return append(kindsWithoutPod, controllers...)
 }
