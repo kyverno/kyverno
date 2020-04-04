@@ -56,7 +56,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 
 		if doesMatchAndExcludeConflict(rule) {
-			return fmt.Errorf("path: spec.rules[%d]: rule is matching an empty set", i)
+			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
 		}
 
 		// validate rule actions
@@ -93,6 +93,14 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 // doesMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
 func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
+
+	if reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
+		return true
+	}
+
+	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+		return false
+	}
 
 	excludeRoles := make(map[string]bool)
 	for _, role := range rule.ExcludeResources.UserInfo.Roles {
