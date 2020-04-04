@@ -1633,7 +1633,7 @@ func Test_validateMatchExcludeConflict(t *testing.T) {
 	for i, testcase := range testcases {
 		var rule kyverno.Rule
 		_ = json.Unmarshal(testcase.rule, &rule)
-		err := validateMatchExcludeConflict(rule)
+		err := doesMatchAndExcludeConflict(rule)
 
 		var gotError bool
 		if err != nil {

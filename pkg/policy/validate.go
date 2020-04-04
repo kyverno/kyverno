@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/minio/minio/pkg/wildcard"
+
 	"github.com/nirmata/kyverno/pkg/openapi"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -54,8 +56,8 @@ func Validate(p kyverno.ClusterPolicy) error {
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-		if err := validateMatchExcludeConflict(rule); err != nil {
-			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		if doesMatchAndExcludeConflict(rule) {
+			return fmt.Errorf("path: spec.rules[%d]: rule is matching an empty set", i)
 		}
 
 		// Operation Validation
@@ -95,7 +97,9 @@ func Validate(p kyverno.ClusterPolicy) error {
 	return nil
 }
 
-func validateMatchExcludeConflict(rule kyverno.Rule) error {
+// doesMatchAndExcludeConflict checks if the resultant
+// of match and exclude block is not an empty set
+func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	excludeRoles := make(map[string]bool)
 	for _, role := range rule.ExcludeResources.UserInfo.Roles {
@@ -131,59 +135,73 @@ func validateMatchExcludeConflict(rule kyverno.Rule) error {
 		}
 	}
 
-	for _, role := range rule.MatchResources.UserInfo.Roles {
-		if excludeRoles[role] {
-			return fmt.Errorf("excluding role '%v' while also matching it - please remove from both match and exclude", role)
+	if len(excludeRoles) > 0 {
+		for _, role := range rule.MatchResources.UserInfo.Roles {
+			if !excludeRoles[role] {
+				return false
+			}
 		}
 	}
 
-	for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
-		if excludeClusterRoles[clusterRole] {
-			return fmt.Errorf("excluding cluster role '%v' while also matching it - please remove from both match and exclude", clusterRole)
+	if len(excludeClusterRoles) > 0 {
+		for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
+			if !excludeClusterRoles[clusterRole] {
+				return false
+			}
 		}
 	}
 
-	for _, subject := range rule.MatchResources.UserInfo.Subjects {
-		subjectRaw, _ := json.Marshal(subject)
-		if excludeSubjects[string(subjectRaw)] {
-			return fmt.Errorf("excluding subject '%v' while also matching it - please remove from both match and exclude", string(subjectRaw))
+	if len(excludeSubjects) > 0 {
+		for _, subject := range rule.MatchResources.UserInfo.Subjects {
+			subjectRaw, _ := json.Marshal(subject)
+			if !excludeSubjects[string(subjectRaw)] {
+				return false
+			}
 		}
 	}
 
-	if rule.MatchResources.ResourceDescription.Name != "" {
-		if rule.MatchResources.ResourceDescription.Name == rule.ExcludeResources.ResourceDescription.Name {
-			return fmt.Errorf("excluding resource name '%v' while also matching it - please remove from both match and exclude", rule.MatchResources.ResourceDescription.Name)
+	if rule.ExcludeResources.ResourceDescription.Name != "" {
+		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
+			return false
 		}
 	}
 
-	for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
-		if excludeNamespaces[namespace] {
-			return fmt.Errorf("excluding resource namespace '%v' while also matching it - please remove from both match and exclude", namespace)
+	if len(excludeNamespaces) > 1 {
+		for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
+			if !excludeNamespaces[namespace] {
+				return false
+			}
 		}
 	}
 
-	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-		if excludeKinds[kind] {
-			return fmt.Errorf("excluding resource kind '%v' while also matching it - please remove from both match and exclude", kind)
+	if len(excludeKinds) > 1 {
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			if !excludeKinds[kind] {
+				return false
+			}
 		}
 	}
 
 	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
-		for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			if excludeMatchExpressions[string(matchExpressionRaw)] {
-				return fmt.Errorf("excluding resource match expression '%v' while also matching it - please remove from both match and exclude", string(matchExpressionRaw))
+		if len(excludeMatchExpressions) > 1 {
+			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
+				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				if excludeMatchExpressions[string(matchExpressionRaw)] {
+					return false
+				}
 			}
 		}
 
-		for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
-			if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] == value {
-				return fmt.Errorf("excluding resource label '%v' while also matching it - please remove from both match and exclude", label)
+		if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 1 {
+			for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
+				if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] != value {
+					return false
+				}
 			}
 		}
 	}
 
-	return nil
+	return true
 }
 
 func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
