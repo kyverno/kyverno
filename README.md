@@ -171,5 +171,6 @@ See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](htt
 Thanks for your interest in contributing!
 
   * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
+  * We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
   * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
   * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)

@@ -14,9 +14,9 @@ The following data is available for use in context:
 
 Kyverno automatically creates a few useful variables:
 
-- `serviceAccountName` : the last part of a service account i.e. without the suffix `system:serviceaccount:<namespace>:` and stores the userName. For example, when processing a request from `system:serviceaccount:nirmata:user1` Kyverno will store the value `user1` in the variable `serviceAccountName`.
+- `serviceAccountName` : the "userName" which is last part of a service account i.e. without the prefix `system:serviceaccount:<namespace>:`. For example, when processing a request from `system:serviceaccount:nirmata:user1` Kyverno will store the value `user1` in the variable `serviceAccountName`.
 
-- `serviceAccountNamespace` : the `namespace` portion of the serviceAccount. For example, when processing a request from `system:serviceaccount:nirmata:user1` Kyverno will store `nirmata` in the variable `serviceAccountNamespace`.
+- `serviceAccountNamespace` : the "namespace" part of the serviceAccount. For example, when processing a request from `system:serviceaccount:nirmata:user1` Kyverno will store `nirmata` in the variable `serviceAccountNamespace`.
 
 ## Examples
 

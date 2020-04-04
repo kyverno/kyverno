@@ -83,11 +83,11 @@ The following rule prevents the creation of Deployment, StatefuleSet and DaemonS
 
 ````yaml
 
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : validation-example
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validation-example
+spec:
   rules:
     - name: check-label
       match:
@@ -120,11 +120,11 @@ A variation of an anchor, is to check that in a list of elements at least one el
 For example, this pattern will check that at least one container has memory requests and limits defined and that the request is less than the limit:
 
 ````yaml
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : validation-example2
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validation-example2
+spec:
   rules:
     - name: check-memory_requests_link_in_yaml_relative
       match:

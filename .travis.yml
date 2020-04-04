@@ -2,6 +2,11 @@ language: go
 go:
   - "1.13"
 
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $GOPATH/pkg/mod
+  
 # safelist
 branches: 
   only:

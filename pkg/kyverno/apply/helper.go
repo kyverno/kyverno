@@ -7,9 +7,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/openapi"
 )
 
-func getListEndpointForKind(kind string) (string, error) {
+func getListEndpointForKind(kind string, openAPIController *openapi.Controller) (string, error) {
 
-	definitionName := openapi.GetDefinitionNameFromKind(kind)
+	definitionName := openAPIController.GetDefinitionNameFromKind(kind)
 	definitionNameWithoutPrefix := strings.Replace(definitionName, "io.k8s.", "", -1)
 
 	parts := strings.Split(definitionNameWithoutPrefix, ".")

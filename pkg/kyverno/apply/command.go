@@ -6,12 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
+
+	"github.com/nirmata/kyverno/pkg/utils"
+
+	"github.com/nirmata/kyverno/pkg/openapi"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
-
-	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -32,6 +35,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
@@ -49,7 +53,7 @@ func Command() *cobra.Command {
 			defer func() {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
-						glog.V(4).Info(err)
+						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("Internal error")
 					}
 				}
@@ -68,10 +72,18 @@ func Command() *cobra.Command {
 				}
 			}
 
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return err
+			}
+
 			for _, policy := range policies {
-				err := policy2.Validate(*policy)
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
+				}
+				if policyHasVariables(*policy) {
+					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name))
 				}
 			}
 
@@ -83,7 +95,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err := getResources(policies, resourcePaths, dClient)
+			resources, err := getResources(policies, resourcePaths, dClient, openAPIController)
 			if err != nil {
 				return sanitizedError.New(fmt.Errorf("Issues fetching resources").Error())
 			}
@@ -111,7 +123,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -130,7 +142,7 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			resourceTypes = append(resourceTypes, kind)
 		}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
+		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, openAPIController)
 		if err != nil {
 			return nil, err
 		}
@@ -148,11 +160,12 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		endpoint, err := getListEndpointForKind(kind)
+		// TODO use lister interface
+		endpoint, err := getListEndpointForKind(kind, openAPIController)
 		if err != nil {
 			return nil, err
 		}
@@ -377,4 +390,10 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	return nil
+}
+
+func policyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
