@@ -135,7 +135,7 @@ func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructure
 	}
 
 	resourceRaw, _ := json.Marshal(resource.Object)
-	json.Unmarshal(resourceRaw, &podController)
+	_ = json.Unmarshal(resourceRaw, &podController)
 
 	_, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
 	return ok
