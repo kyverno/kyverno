@@ -40,11 +40,6 @@ func Validate(p kyverno.ClusterPolicy) error {
 	}
 
 	for i, rule := range p.Spec.Rules {
-		// only one type of rule is allowed per rule
-		if err := validateRuleType(rule); err != nil {
-			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
-		}
-
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
@@ -166,7 +161,7 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
-	if len(excludeNamespaces) > 1 {
+	if len(excludeNamespaces) > 0 {
 		for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
 			if !excludeNamespaces[namespace] {
 				return false
@@ -174,7 +169,7 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
-	if len(excludeKinds) > 1 {
+	if len(excludeKinds) > 0 {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			if !excludeKinds[kind] {
 				return false
@@ -183,16 +178,16 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
-		if len(excludeMatchExpressions) > 1 {
+		if len(excludeMatchExpressions) > 0 {
 			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
 				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if excludeMatchExpressions[string(matchExpressionRaw)] {
+				if !excludeMatchExpressions[string(matchExpressionRaw)] {
 					return false
 				}
 			}
 		}
 
-		if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 1 {
+		if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 0 {
 			for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
 				if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] != value {
 					return false
