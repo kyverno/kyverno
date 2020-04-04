@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -414,6 +415,10 @@ func replacePodWithPodControllers(kinds []string, controllers []string) []string
 	for kind := range kindMap {
 		output = append(output, kind)
 	}
+
+	sort.Slice(output, func(i, j int) bool {
+		return output[i] < output[j]
+	})
 
 	return output
 }
