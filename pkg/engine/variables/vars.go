@@ -30,9 +30,17 @@ func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interfac
 func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
-		return subMap(log, ctx, typedPattern, path, errs)
+		mapCopy := make(map[string]interface{})
+		for k, v := range typedPattern {
+			mapCopy[k] = v
+		}
+
+		return subMap(log, ctx, mapCopy, path, errs)
 	case []interface{}:
-		return subArray(log, ctx, typedPattern, path, errs)
+		sliceCopy := make([]interface{}, len(typedPattern))
+		copy(sliceCopy, typedPattern)
+
+		return subArray(log, ctx, sliceCopy, path, errs)
 	case string:
 		return subValR(log, ctx, typedPattern, path, errs)
 	default:
