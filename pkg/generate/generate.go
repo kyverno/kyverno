@@ -188,9 +188,12 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// format : {{<variable_name}}
 	// - if there is variables that are not defined the context -> results in error and rule is not applied
 	// - valid variables are replaced with the values
-	if _, err := variables.SubstituteVars(log, ctx, genUnst.Object); err != nil {
+	object, err := variables.SubstituteVars(log, ctx, genUnst.Object)
+	if err != nil {
 		return noGenResource, err
 	}
+	genUnst.Object, _ = object.(map[string]interface{})
+
 	genKind, _, err := unstructured.NestedString(genUnst.Object, "kind")
 	if err != nil {
 		return noGenResource, err
