@@ -51,12 +51,6 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
-		// validate rule types
-		// only one type of rule is allowed per rule
-		if err := validateRuleType(rule); err != nil {
-			// as there are more than 1 operation in rule, not need to evaluate it further
-			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
-		}
 		// validate rule actions
 		// - Mutate
 		// - Validate
@@ -122,6 +116,10 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
+	if rule.HasDeny() {
+		return "", nil
+	}
+
 	// validate userInfo in match and exclude
 	if path, err := validateUserInfo(rule); err != nil {
 		return fmt.Sprintf("resources.%s", path), err
@@ -153,7 +151,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 
 // validateRuleType checks only one type of rule is defined per rule
 func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasDeny()}
 
 	operationCount := func() int {
 		count := 0

@@ -38,7 +38,6 @@ spec:
                 type: object
                 required:
                 - name
-                - match
                 properties:
                   name:
                     type: string
@@ -177,6 +176,19 @@ spec:
                       - key  # can be of any type
                       - operator # typed
                       - value # can be of any type
+                  deny:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                      conditions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - key  # can be of any type
+                          - operator # typed
+                          - value # can be of any type
                   mutate:
                     type: object
                     properties:

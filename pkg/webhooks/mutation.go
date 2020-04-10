@@ -18,36 +18,12 @@ import (
 
 // HandleMutation handles mutating webhook admission request
 // return value: generated patches
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
+func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) []byte {
 	logger := ws.log.WithValues("action", "mutation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 
 	var patches [][]byte
 	var engineResponses []response.EngineResponse
-
-	userRequestInfo := kyverno.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
-
-	// build context
-	ctx := context.NewContext()
-	var err error
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
-	}
-
-	err = ctx.AddUserInfo(userRequestInfo)
-	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
-	}
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load service account in context")
-	}
-
 	policyContext := engine.PolicyContext{
 		NewResource:   resource,
 		AdmissionInfo: userRequestInfo,

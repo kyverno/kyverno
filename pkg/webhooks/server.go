@@ -10,6 +10,11 @@ import (
 	"net/http"
 	"time"
 
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	context2 "github.com/nirmata/kyverno/pkg/engine/context"
+
+	"github.com/nirmata/kyverno/pkg/engine"
+
 	"github.com/nirmata/kyverno/pkg/openapi"
 
 	"github.com/go-logr/logr"
@@ -131,11 +136,11 @@ func NewWebhookServer(
 		openAPIController:         openAPIController,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
-	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
-	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
-	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
-	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
+	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
+	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
+	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
+	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
+	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -190,7 +195,7 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 	}
 }
 
-func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
@@ -199,9 +204,8 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	var roles, clusterRoles []string
-
 	// getRoleRef only if policy has roles/clusterroles defined
+	var roles, clusterRoles []string
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
@@ -233,17 +237,51 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
+	userRequestInfo := v1.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+
+	// build context
+	ctx := context2.NewContext()
+	// load incoming resource into the context
+	err = ctx.AddResource(request.Object.Raw)
+	if err != nil {
+		logger.Error(err, "failed to load incoming resource in context")
+	}
+
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		logger.Error(err, "failed to load userInfo in context")
+	}
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		logger.Error(err, "failed to load service account in context")
+	}
+
+	for _, policy := range policies {
+		if err := engine.Deny(logger, policy, ctx); err != nil {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: err.Error(),
+				},
+			}
+		}
+	}
+
 	// MUTATION
 	// mutation failure should not block the resource creation
 	// any mutation failure is reported as the violation
-	patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+	patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
 
 	// patch the resource with patches before handling validation rules
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 
 	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 		// VALIDATION
-		ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+		ok, msg := ws.HandleValidation(request, policies, patchedResource, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
 			return &v1beta1.AdmissionResponse{
@@ -261,7 +299,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create {
-		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
+		ok, msg := ws.HandleGenerate(request, policies, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
 			return &v1beta1.AdmissionResponse{
@@ -285,7 +323,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	}
 }
 
-func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
@@ -305,8 +343,30 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
+	userRequestInfo := v1.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+
+	// build context
+	ctx := context2.NewContext()
+	// load incoming resource into the context
+	err = ctx.AddResource(request.Object.Raw)
+	if err != nil {
+		logger.Error(err, "failed to load incoming resource in context")
+	}
+
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		logger.Error(err, "failed to load userInfo in context")
+	}
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		logger.Error(err, "failed to load service account in context")
+	}
+
 	// VALIDATION
-	ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
+	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

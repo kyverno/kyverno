@@ -17,7 +17,7 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, ctx *context.Context, userRequestInfo kyverno.RequestInfo) (bool, string) {
 	logger := ws.log.WithValues("action", "validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 
@@ -27,27 +27,6 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		// as resource cannot be parsed, we skip processing
 		logger.Error(err, "failed to extract resource")
 		return true, ""
-	}
-	userRequestInfo := kyverno.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
-	// build context
-	ctx := context.NewContext()
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
-	}
-
-	err = ctx.AddUserInfo(userRequestInfo)
-	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
-	}
-
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load service account in context")
 	}
 
 	policyContext := engine.PolicyContext{

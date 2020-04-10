@@ -141,6 +141,12 @@ type Rule struct {
 	Mutation         Mutation         `json:"mutate,omitempty"`
 	Validation       Validation       `json:"validate,omitempty"`
 	Generation       Generation       `json:"generate,omitempty"`
+	Deny             *Deny            `json:"deny,omitempty"`
+}
+
+type Deny struct {
+	Message    string      `json:"message,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 //Condition defines the evaluation condition

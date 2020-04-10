@@ -9,7 +9,7 @@ import (
 )
 
 //HandlePolicyValidation performs the validation check on policy resource
-func (ws *WebhookServer) handlePolicyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := policyvalidate.Validate(request.Object.Raw, ws.client, false, ws.openAPIController); err != nil {
 		return &v1beta1.AdmissionResponse{
