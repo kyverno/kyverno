@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/minio/minio/pkg/wildcard"
+
 	"github.com/nirmata/kyverno/pkg/openapi"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -42,11 +44,6 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	for i, rule := range p.Spec.Rules {
-		// only one type of rule is allowed per rule
-		if err := validateRuleType(rule); err != nil {
-			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
-		}
-
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
@@ -57,6 +54,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
+
+		if doesMatchAndExcludeConflict(rule) {
+			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
+		}
+
 		// validate rule actions
 		// - Mutate
 		// - Validate
@@ -86,6 +88,121 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	return nil
+}
+
+// doesMatchAndExcludeConflict checks if the resultant
+// of match and exclude block is not an empty set
+func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
+
+	if reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
+		return true
+	}
+
+	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+		return false
+	}
+
+	excludeRoles := make(map[string]bool)
+	for _, role := range rule.ExcludeResources.UserInfo.Roles {
+		excludeRoles[role] = true
+	}
+
+	excludeClusterRoles := make(map[string]bool)
+	for _, clusterRoles := range rule.ExcludeResources.UserInfo.ClusterRoles {
+		excludeClusterRoles[clusterRoles] = true
+	}
+
+	excludeSubjects := make(map[string]bool)
+	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
+		subjectRaw, _ := json.Marshal(subject)
+		excludeSubjects[string(subjectRaw)] = true
+	}
+
+	excludeKinds := make(map[string]bool)
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		excludeKinds[kind] = true
+	}
+
+	excludeNamespaces := make(map[string]bool)
+	for _, namespace := range rule.ExcludeResources.ResourceDescription.Namespaces {
+		excludeNamespaces[namespace] = true
+	}
+
+	excludeMatchExpressions := make(map[string]bool)
+	if rule.ExcludeResources.ResourceDescription.Selector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeMatchExpressions[string(matchExpressionRaw)] = true
+		}
+	}
+
+	if len(excludeRoles) > 0 {
+		for _, role := range rule.MatchResources.UserInfo.Roles {
+			if !excludeRoles[role] {
+				return false
+			}
+		}
+	}
+
+	if len(excludeClusterRoles) > 0 {
+		for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
+			if !excludeClusterRoles[clusterRole] {
+				return false
+			}
+		}
+	}
+
+	if len(excludeSubjects) > 0 {
+		for _, subject := range rule.MatchResources.UserInfo.Subjects {
+			subjectRaw, _ := json.Marshal(subject)
+			if !excludeSubjects[string(subjectRaw)] {
+				return false
+			}
+		}
+	}
+
+	if rule.ExcludeResources.ResourceDescription.Name != "" {
+		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
+			return false
+		}
+	}
+
+	if len(excludeNamespaces) > 0 {
+		for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
+			if !excludeNamespaces[namespace] {
+				return false
+			}
+		}
+	}
+
+	if len(excludeKinds) > 0 {
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			if !excludeKinds[kind] {
+				return false
+			}
+		}
+	}
+
+	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
+		if len(excludeMatchExpressions) > 0 {
+			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
+				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				if !excludeMatchExpressions[string(matchExpressionRaw)] {
+					return false
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 0 {
+			for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
+				if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] != value {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
 }
 
 func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
