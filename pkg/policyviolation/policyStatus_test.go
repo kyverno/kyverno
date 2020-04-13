@@ -33,7 +33,7 @@ func Test_Stats(t *testing.T) {
 				},
 			},
 		},
-		expectedOutput: []byte(`{"policy1":{"averageExecutionTime":"","violationCount":1,"ruleStatus":[{"ruleName":"rule4","violationCount":1}]},"policy2":{"averageExecutionTime":"","violationCount":1,"ruleStatus":[{"ruleName":"rule4","violationCount":1}]}}`),
+		expectedOutput: []byte(`{"policy1":{"violationCount":1,"ruleStatus":[{"ruleName":"rule4","violationCount":1}]},"policy2":{"violationCount":1,"ruleStatus":[{"ruleName":"rule4","violationCount":1}]}}`),
 		violationCountStats: []struct {
 			policyName    string
 			violatedRules []v1.ViolatedRule
