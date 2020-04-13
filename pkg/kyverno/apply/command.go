@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
+
+	client "github.com/nirmata/kyverno/pkg/dclient"
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
@@ -17,8 +20,6 @@ import (
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/client-go/discovery"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -87,15 +88,19 @@ func Command() *cobra.Command {
 				}
 			}
 
-			var dClient discovery.CachedDiscoveryInterface
+			var dClient *client.Client
 			if cluster {
-				dClient, err = kubernetesConfig.ToDiscoveryClient()
+				restConfig, err := kubernetesConfig.ToRESTConfig()
 				if err != nil {
-					return sanitizedError.New(fmt.Errorf("Issues with kubernetes Config").Error())
+					return err
+				}
+				dClient, err = client.NewClient(restConfig, 10*time.Second, make(chan struct{}), log.Log)
+				if err != nil {
+					return err
 				}
 			}
 
-			resources, err := getResources(policies, resourcePaths, dClient, openAPIController)
+			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
 				return sanitizedError.New(fmt.Errorf("Issues fetching resources").Error())
 			}
@@ -123,7 +128,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
+func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -142,7 +147,7 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			resourceTypes = append(resourceTypes, kind)
 		}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, openAPIController)
+		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
 		if err != nil {
 			return nil, err
 		}
@@ -160,27 +165,11 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface, openAPIController *openapi.Controller) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		// TODO use lister interface
-		endpoint, err := getListEndpointForKind(kind, openAPIController)
-		if err != nil {
-			return nil, err
-		}
-
-		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(endpoint).Do().Raw()
-		if err != nil {
-			return nil, err
-		}
-
-		listObject, err := engineutils.ConvertToUnstructured(listObjectRaw)
-		if err != nil {
-			return nil, err
-		}
-
-		resourceList, err := listObject.ToList()
+		resourceList, err := dClient.ListResource(kind, "", nil)
 		if err != nil {
 			return nil, err
 		}
