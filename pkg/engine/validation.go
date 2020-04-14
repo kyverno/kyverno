@@ -101,11 +101,25 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions := copyConditions(rule.Conditions)
+		preconditionsCopy := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
 		// - handle variable subsitutions
-		if !variables.EvaluateConditions(log, ctx, copyConditions) {
+		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
+			continue
+		}
+
+		if rule.Validation.Deny != nil {
+			denyConditionsCopy := copyConditions(rule.Validation.Deny)
+			if !variables.EvaluateConditions(log, ctx, denyConditionsCopy) {
+				ruleResp := response.RuleResponse{
+					Name:    rule.Name,
+					Type:    utils.Validation.String(),
+					Message: rule.Validation.Message,
+					Success: false,
+				}
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+			}
 			continue
 		}
 
