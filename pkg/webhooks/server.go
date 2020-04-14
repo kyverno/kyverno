@@ -13,8 +13,6 @@ import (
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	context2 "github.com/nirmata/kyverno/pkg/engine/context"
 
-	"github.com/nirmata/kyverno/pkg/engine"
-
 	"github.com/nirmata/kyverno/pkg/openapi"
 
 	"github.com/go-logr/logr"
@@ -257,18 +255,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load service account in context")
-	}
-
-	for _, policy := range policies {
-		if err := engine.Deny(logger, policy, ctx); err != nil {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: err.Error(),
-				},
-			}
-		}
 	}
 
 	// MUTATION

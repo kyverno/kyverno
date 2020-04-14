@@ -27,10 +27,6 @@ func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
-func (r Rule) HasDeny() bool {
-	return r.Deny != nil
-}
-
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member
 func (in *Mutation) DeepCopyInto(out *Mutation) {

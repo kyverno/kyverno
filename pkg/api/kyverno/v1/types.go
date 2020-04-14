@@ -141,12 +141,6 @@ type Rule struct {
 	Mutation         Mutation         `json:"mutate,omitempty"`
 	Validation       Validation       `json:"validate,omitempty"`
 	Generation       Generation       `json:"generate,omitempty"`
-	Deny             *Deny            `json:"deny,omitempty"`
-}
-
-type Deny struct {
-	Message    string      `json:"message,omitempty"`
-	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 //Condition defines the evaluation condition
@@ -217,6 +211,7 @@ type Validation struct {
 	Message    string        `json:"message,omitempty"`
 	Pattern    interface{}   `json:"pattern,omitempty"`
 	AnyPattern []interface{} `json:"anyPattern,omitempty"`
+	Deny       []Condition   `json:"deny,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created

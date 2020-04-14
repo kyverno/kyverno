@@ -239,10 +239,6 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
-	if rule.HasDeny() {
-		return "", nil
-	}
-
 	// validate userInfo in match and exclude
 	if path, err := validateUserInfo(rule); err != nil {
 		return fmt.Sprintf("resources.%s", path), err
@@ -274,7 +270,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 
 // validateRuleType checks only one type of rule is defined per rule
 func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasDeny()}
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
 
 	operationCount := func() int {
 		count := 0
