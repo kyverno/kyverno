@@ -209,18 +209,13 @@ spec:
                       anyPattern:
                         AnyValue: {}
                       deny:
-                        type: object
-                        properties:
-                          message:
-                            type: string
-                          conditions:
-                            type: array
-                            items:
-                              type: object
-                              required:
-                                - key  # can be of any type
-                                - operator # typed
-                                - value # can be of any type
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - key  # can be of any type
+                            - operator # typed
+                            - value # can be of any type
                   generate:
                     type: object
                     required:

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/api/admission/v1beta1"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -61,6 +63,22 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 		return err
 	}
 	return nil
+}
+
+//AddResource data at path: request.object
+func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: request,
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the UserInfo")
+		return err
+	}
+	return ctx.AddJSON(objRaw)
 }
 
 //AddResource data at path: request.object
