@@ -49,7 +49,7 @@ func (v *Validate) Validate() (string, error) {
 // validateOverlayPattern checks one of pattern/anyPattern must exist
 func (v *Validate) validateOverlayPattern() error {
 	rule := v.rule
-	if rule.Pattern == nil && len(rule.AnyPattern) == 0 && len(rule.Deny) == 0 {
+	if rule.Pattern == nil && len(rule.AnyPattern) == 0 && rule.Deny == nil {
 		return fmt.Errorf("a pattern or anyPattern or deny must be specified")
 	}
 

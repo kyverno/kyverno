@@ -211,7 +211,12 @@ type Validation struct {
 	Message    string        `json:"message,omitempty"`
 	Pattern    interface{}   `json:"pattern,omitempty"`
 	AnyPattern []interface{} `json:"anyPattern,omitempty"`
-	Deny       []Condition   `json:"deny,omitempty"`
+	Deny       *Deny         `json:"deny,omitempty"`
+}
+
+type Deny struct {
+	AllRequests bool        `json:"allRequests,omitempty"`
+	Conditions  []Condition `json:"conditions,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created
