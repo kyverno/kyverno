@@ -20,7 +20,7 @@ A JSON Patch rule provides an alternate way to mutate resources.
 
 With Kyverno, the add and replace have the same behavior i.e. both operations will add or replace the target element.
 
-This patch policy adds, or replaces, entries in a `ConfigMap` with the name `config-name` in any namespace.
+This patch policy adds, or replaces, entries in a `ConfigMap` with the name `config-game` in any namespace.
 
 ````yaml
 apiVersion : kyverno.io/v1
