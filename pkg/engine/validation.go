@@ -94,7 +94,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 
 		if rule.Validation.Deny != nil {
 			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
-			if rule.Validation.Deny.AllRequests || !variables.EvaluateConditions(log, ctx, denyConditionsCopy) {
+			if rule.Validation.Deny.AllRequests || variables.EvaluateConditions(log, ctx, denyConditionsCopy) {
 				ruleResp := response.RuleResponse{
 					Name:    rule.Name,
 					Type:    utils.Validation.String(),

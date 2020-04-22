@@ -262,11 +262,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	if err != nil {
 		logger.Error(err, "failed to load incoming request in context")
 	}
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
-	}
 
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
@@ -359,11 +354,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	err = ctx.AddRequest(request)
 	if err != nil {
 		logger.Error(err, "failed to load incoming request in context")
-	}
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
 	}
 
 	err = ctx.AddUserInfo(userRequestInfo)

@@ -55,9 +55,9 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-		if doesMatchAndExcludeConflict(rule) {
-			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
-		}
+		//if doesMatchAndExcludeConflict(rule) {
+		//	return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
+		//}
 
 		// validate rule actions
 		// - Mutate
