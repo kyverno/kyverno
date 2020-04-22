@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	yamlv2 "gopkg.in/yaml.v2"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
+	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -129,31 +129,32 @@ func containRBACinfo(policies []kyverno.ClusterPolicy) bool {
 // extracts the new and old resource as unstructured
 func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
+	var newResource unstructured.Unstructured
+	var oldResource unstructured.Unstructured
+	var err error
 
 	// New Resource
 	if newRaw == nil {
 		newRaw = request.Object.Raw
 	}
-	if newRaw == nil {
-		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
+
+	if newRaw != nil {
+		newResource, err = convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+		if err != nil {
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
+		}
 	}
 
-	new, err := convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
-	}
-
-	// Old Resource - Optional
+	// Old Resource
 	oldRaw := request.OldObject.Raw
-	if oldRaw == nil {
-		return new, emptyResource, nil
+	if oldRaw != nil {
+		oldResource, err = convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+		if err != nil {
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
+		}
 	}
 
-	old, err := convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
-	}
-	return new, old, err
+	return newResource, oldResource, err
 }
 
 // convertResource converts raw bytes to an unstructured object
