@@ -131,14 +131,10 @@ func NewWebhookServer(
 		openAPIController:         openAPIController,
 	}
 	mux := http.NewServeMux()
-	serverVersion, err := client.DiscoveryClient.GetServerVersion()
-	if err != nil {
-		return nil, err
-	}
-	if serverVersion.String() > "v1.14" {
-		mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
-		mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
-	}
+
+	mux.HandleFunc(config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true)))
+	mux.HandleFunc(config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true)))
+
 	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
 	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
