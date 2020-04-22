@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -171,13 +172,19 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		// Do not process the admission requests for kinds that are in filterKinds for filtering
 		request := admissionReview.Request
-		if filter {
-			if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+
+		if !isValidUsername(request.UserInfo.Username) {
+			admissionReview.Response = &v1beta1.AdmissionResponse{Allowed: true}
+		} else {
+			if filter {
+				if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+					admissionReview.Response = handler(request)
+				}
+			} else {
 				admissionReview.Response = handler(request)
 			}
-		} else {
-			admissionReview.Response = handler(request)
 		}
+
 		admissionReview.Response.UID = request.UID
 
 		responseJSON, err := json.Marshal(admissionReview)
@@ -191,6 +198,15 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 		}
 	}
+}
+
+func isValidUsername(username string) bool {
+	if strings.HasPrefix(username, "system") {
+		if !strings.HasPrefix(username, "system:serviceaccount") {
+			return false
+		}
+	}
+	return true
 }
 
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {

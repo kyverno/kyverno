@@ -17,7 +17,7 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
+func Validate(policyContext PolicyContext) response.EngineResponse {
 	startTime := time.Now()
 	policy := policyContext.Policy
 	newR := policyContext.NewResource
@@ -29,39 +29,22 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// policy information
 	logger.V(4).Info("start processing", "startTime", startTime)
 
-	// Process new & old resource
-	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		// Create Mode
-		// Operate on New Resource only
-		resp := validateResource(logger, ctx, policy, newR, admissionInfo)
-		startResultResponse(resp, policy, newR)
-		defer endResultResponse(logger, resp, startTime)
-		// set PatchedResource with origin resource if empty
-		// in order to create policy violation
-		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
-			resp.PatchedResource = newR
-		}
-		return *resp
+	var resp *response.EngineResponse
+	// handling delete requests
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		resp = validateResource(logger, ctx, policy, oldR, admissionInfo, true)
+	} else {
+		resp = validateResource(logger, ctx, policy, newR, admissionInfo, false)
 	}
-	// Update Mode
-	// Operate on New and Old Resource only
-	// New resource
-	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
-	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
 
-	// if the old and new response is same then return empty response
-	if !isSameResponse(oldResponse, newResponse) {
-		// there are changes send response
-		startResultResponse(newResponse, policy, newR)
-		defer endResultResponse(logger, newResponse, startTime)
-		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
-			newResponse.PatchedResource = newR
-		}
-		return *newResponse
+	startResultResponse(resp, policy, newR)
+	defer endResultResponse(logger, resp, startTime)
+	// set PatchedResource with origin resource if empty
+	// in order to create policy violation
+	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
+		resp.PatchedResource = newR
 	}
-	// if there are no changes with old and new response then sent empty response
-	// skip processing
-	return response.EngineResponse{}
+	return *resp
 }
 
 func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, newR unstructured.Unstructured) {
@@ -85,7 +68,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, isDelete bool) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
@@ -123,11 +106,14 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 			continue
 		}
 
-		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validatePatterns(log, ctx, resource, rule)
-			incrementAppliedCount(resp)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+		if !isDelete {
+			if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
+				ruleResponse := validatePatterns(log, ctx, resource, rule)
+				incrementAppliedCount(resp)
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			}
 		}
+
 	}
 	return resp
 }
