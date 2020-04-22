@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -132,7 +131,11 @@ func NewWebhookServer(
 		openAPIController:         openAPIController,
 	}
 	mux := http.NewServeMux()
-	if version.Get() > 1.14 {
+	serverVersion, err := client.DiscoveryClient.GetServerVersion()
+	if err != nil {
+		return nil, err
+	}
+	if serverVersion.String() > "v1.14" {
 		mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
 		mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
 	}
