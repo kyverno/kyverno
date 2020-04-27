@@ -50,7 +50,7 @@ func (v *Validate) Validate() (string, error) {
 func (v *Validate) validateOverlayPattern() error {
 	rule := v.rule
 	if rule.Pattern == nil && len(rule.AnyPattern) == 0 && rule.Deny == nil {
-		return fmt.Errorf("a pattern or anyPattern or deny must be specified")
+		return fmt.Errorf("pattern, anyPattern or deny must be specified")
 	}
 
 	if rule.Pattern != nil && len(rule.AnyPattern) != 0 {
