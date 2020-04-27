@@ -12,6 +12,7 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/json-iterator/go v1.1.9 // indirect
+	github.com/julienschmidt/httprouter v1.3.0
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/spf13/cobra v0.0.5
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
