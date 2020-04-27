@@ -121,7 +121,7 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              Spec         `json:"spec"`
-	Status            PolicyStatus `json:"status"`
+	Status            PolicyStatus `json:"status,omitempty"`
 }
 
 // Spec describes policy behavior by its rules
@@ -236,7 +236,7 @@ type CloneFrom struct {
 // PolicyStatus mostly contains statistics related to policy
 type PolicyStatus struct {
 	// average time required to process the policy rules on a resource
-	AvgExecutionTime string `json:"averageExecutionTime"`
+	AvgExecutionTime string `json:"averageExecutionTime,omitempty"`
 	// number of violations created by this policy
 	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that failed

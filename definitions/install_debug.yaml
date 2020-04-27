@@ -20,6 +20,7 @@ spec:
   validation:
     openAPIV3Schema:
       properties:
+        status: {}
         spec:
           required:
           - rules

@@ -28,7 +28,7 @@ func (d dummyStatusUpdater) PolicyName() string {
 }
 
 func TestKeyToMutex(t *testing.T) {
-	expectedCache := `{"policy1":{"averageExecutionTime":"","rulesAppliedCount":100}}`
+	expectedCache := `{"policy1":{"rulesAppliedCount":100}}`
 
 	stopCh := make(chan struct{})
 	s := NewSync(nil, dummyStore{})
