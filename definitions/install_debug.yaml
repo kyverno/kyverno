@@ -38,6 +38,7 @@ spec:
                 type: object
                 required:
                 - name
+                - match
                 properties:
                   name:
                     type: string
