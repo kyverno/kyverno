@@ -9,7 +9,7 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/nirmata/kyverno/releases/download/v0.1.0/kyverno_linux_amd64.tar.gz
+    uri: https://github.com/nirmata/kyverno/releases/download/v0.0.1/kyverno_linux_amd64.tar.gz
     sha256: ""
     files:
     - from: "./kyverno"
@@ -33,7 +33,7 @@ spec:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/nirmata/kyverno/releases/download/v0.1.0/kyverno_windows_amd64.zip
+    uri: https://github.com/nirmata/kyverno/releases/download/v0.0.1/kyverno_windows_amd64.zip
     sha256: ""
     files:
     - from: "/kyverno.exe"
@@ -48,7 +48,7 @@ spec:
       $ kubectl kyverno
     For additional options:
       $ kubectl kyverno --help
-      or https://github.com/nirmata/kyverno/blob/v0.1.0/doc/USAGE.md
+      or https://github.com/nirmata/kyverno/blob/v0.0.1/doc/USAGE.md
   description: |
     This is a new plugin
 
