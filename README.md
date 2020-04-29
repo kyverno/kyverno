@@ -164,7 +164,7 @@ See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](htt
 ## Getting help
 
   * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
-  * For discussions or questions, join our [Kubernetes Slack channel #kyverno](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+  * For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
 
 ## Contributing
 

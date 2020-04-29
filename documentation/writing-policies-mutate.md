@@ -20,28 +20,31 @@ A JSON Patch rule provides an alternate way to mutate resources.
 
 With Kyverno, the add and replace have the same behavior i.e. both operations will add or replace the target element.
 
-This patch adds an init container to all deployments.
+This patch policy adds, or replaces, entries in a `ConfigMap` with the name `config-game` in any namespace.
 
 ````yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: policy-v1
-spec:
+apiVersion : kyverno.io/v1
+kind : ClusterPolicy
+metadata :
+  name : policy-generate-cm
+spec :
   rules:
-    - name: "add-init-secrets"
+    - name: pCM1
       match:
         resources:
-          kinds:
-          - Deployment
+          name: "config-game"
+          kinds :
+          - ConfigMap
       mutate:
-        overlay:
-          spec:
-            template:
-              spec:
-                initContainers:
-                  - name: init-secrets
-                    image: nirmata.io/kube-vault-client:v2
+        patches:
+        - path: "/data/ship.properties"
+          op: add
+          value: |
+            type=starship
+            owner=utany.corp
+        - path : "/data/newKey1"
+          op : add
+          value : newValue1
 ````
 
 Here is the example of a patch that removes a label from the secret:

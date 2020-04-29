@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/nirmata/kyverno/pkg/openapi"
 
 	"github.com/go-logr/logr"
@@ -130,13 +131,12 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 	}
-	mux := http.NewServeMux()
-
-	mux.HandleFunc(config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true)))
-	mux.HandleFunc(config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true)))
-	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
-	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
-	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
+	mux := httprouter.New()
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true)))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true)))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
