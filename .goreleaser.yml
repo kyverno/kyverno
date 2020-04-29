@@ -1,0 +1,26 @@
+project_name: kyverno 
+release:
+  github:
+    owner: nirmata
+    name: kyverno 
+builds:
+  - id: kyverno 
+    goos:
+    - linux
+    - windows
+    - darwin
+    goarch:
+    - amd64
+    - "386"
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    main: cmd/cli/kubectl-kyverno/main.go
+    ldflags: -s -w
+      -X github.com/nirmata/kyverno /pkg/version.BuildVersion={{ .Version }}
+      -X github.com/nirmata/kyverno /pkg/version.BuildHash={{ .FullCommit }}
+      -X github.com/nirmata/kyverno /pkg/version.BuildTime={{ .Timestamp }}
+archives:
+- format_overrides:
+    - goos: windows
+      format: zip
