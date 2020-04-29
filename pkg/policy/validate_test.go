@@ -1022,6 +1022,11 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"somxething","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}}`),
 			expectedOutput: false,
 		},
+		{
+			description:    "empty case",
+			rule:           []byte(`{"name":"check-allow-deletes","match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}`),
+			expectedOutput: false,
+		},
 	}
 
 	for i, testcase := range testcases {
