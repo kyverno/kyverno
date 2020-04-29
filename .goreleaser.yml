@@ -22,6 +22,8 @@ builds:
       -X github.com/kyverno/kyverno/pkg/version.BuildTime={{ .Timestamp }}
 archives:
   - id: kyverno 
+    builds:
+    - kyverno
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
     - goos: windows
