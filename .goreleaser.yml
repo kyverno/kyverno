@@ -1,7 +1,7 @@
 project_name: kyverno 
 release:
   github:
-    owner: nirmata
+    owner: kyverno 
     name: kyverno 
 builds:
   - id: kyverno 
@@ -17,10 +17,12 @@ builds:
       - GO111MODULE=on
     main: cmd/cli/kubectl-kyverno/main.go
     ldflags: -s -w
-      -X github.com/nirmata/kyverno /pkg/version.BuildVersion={{ .Version }}
-      -X github.com/nirmata/kyverno /pkg/version.BuildHash={{ .FullCommit }}
-      -X github.com/nirmata/kyverno /pkg/version.BuildTime={{ .Timestamp }}
+      -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{ .Version }}
+      -X github.com/kyverno/kyverno/pkg/version.BuildHash={{ .FullCommit }}
+      -X github.com/kyverno/kyverno/pkg/version.BuildTime={{ .Timestamp }}
 archives:
-- format_overrides:
+  - id: kyverno 
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
     - goos: windows
       format: zip
