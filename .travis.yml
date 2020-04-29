@@ -36,3 +36,11 @@ after_success:
     make docker-publish-initContainer
     make docker-publish-kyverno
    fi
+
+deploy:
+- provider: script
+  skip_cleanup: true
+  api_key: $GITHUB_OAUTH_TOKEN
+  script: curl -sL https://git.io/goreleaser | bash
+  on:
+    tags: true

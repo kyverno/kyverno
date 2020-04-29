@@ -20,6 +20,10 @@ builds:
       -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{ .Version }}
       -X github.com/kyverno/kyverno/pkg/version.BuildHash={{ .FullCommit }}
       -X github.com/kyverno/kyverno/pkg/version.BuildTime={{ .Timestamp }}
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}"
 archives:
   - id: kyverno 
     builds:
