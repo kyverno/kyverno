@@ -134,7 +134,6 @@ func NewWebhookServer(
 
 	mux.HandleFunc(config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true)))
 	mux.HandleFunc(config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true)))
-
 	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
 	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
 	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
