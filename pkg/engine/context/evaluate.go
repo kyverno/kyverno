@@ -41,6 +41,9 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *Context) isWhiteListed(variable string) bool {
+	if len(ctx.whiteListVars) == 0 {
+		return true
+	}
 	for _, wVar := range ctx.whiteListVars {
 		if strings.HasPrefix(variable, wVar) {
 			return true
