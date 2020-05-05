@@ -153,5 +153,5 @@ func Test_SubvarRecursive(t *testing.T) {
 	ctx := context.NewContext()
 	assert.Assert(t, ctx.AddResource(resourceRaw))
 	errs := []error{}
-	subValR(log.Log, ctx, string(patternRaw), "/", &errs)
+	subValR(ctx, string(patternRaw), "/", &errs)
 }

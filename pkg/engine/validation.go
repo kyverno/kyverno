@@ -31,16 +31,25 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if reflect.DeepEqual(resp, response.EngineResponse{}) {
 			return
 		}
-		startResultResponse(&resp, policy, newR)
-		endResultResponse(logger, &resp, startTime)
+		var resource unstructured.Unstructured
 		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 			// for delete requests patched resource will be oldR since newR is empty
 			if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-				resp.PatchedResource = oldR
+				resource = oldR
 			} else {
-				resp.PatchedResource = newR
+				resource = newR
 			}
 		}
+		for i := range resp.PolicyResponse.Rules {
+			messageInterface, err := variables.SubstituteVars(logger, ctx, resp.PolicyResponse.Rules[i].Message)
+			if err != nil {
+				continue
+			}
+			resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
+		}
+		resp.PatchedResource = resource
+		startResultResponse(&resp, policy, resource)
+		endResultResponse(logger, &resp, startTime)
 	}()
 
 	// If request is delete, newR will be empty
