@@ -75,7 +75,7 @@ func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
 
 	objRaw, err := json.Marshal(modifiedResource)
 	if err != nil {
-		ctx.log.Error(err, "failed to marshal the UserInfo")
+		ctx.log.Error(err, "failed to marshal the request")
 		return err
 	}
 	return ctx.AddJSON(objRaw)
