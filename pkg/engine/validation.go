@@ -17,7 +17,7 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policyContext PolicyContext) response.EngineResponse {
+func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
 	newR := policyContext.NewResource
@@ -25,46 +25,42 @@ func Validate(policyContext PolicyContext) response.EngineResponse {
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
 	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name, "kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
-
-	// policy information
 	logger.V(4).Info("start processing", "startTime", startTime)
 
-	if resp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !resp.IsSuccesful() {
-		return *resp
+	defer func() {
+		if reflect.DeepEqual(resp, response.EngineResponse{}) {
+			return
+		}
+		startResultResponse(&resp, policy, newR)
+		endResultResponse(logger, &resp, startTime)
+		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
+			// for delete requests patched resource will be oldR since newR is empty
+			if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+				resp.PatchedResource = oldR
+			} else {
+				resp.PatchedResource = newR
+			}
+		}
+	}()
+
+	// If request is delete, newR will be empty
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+	} else {
+		if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+			return *denyResp
+		}
 	}
 
-	// Process new & old resource
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		// Create Mode
-		// Operate on New Resource only
-		resp := validateResource(logger, ctx, policy, newR, admissionInfo)
-		startResultResponse(resp, policy, newR)
-		defer endResultResponse(logger, resp, startTime)
-		// set PatchedResource with origin resource if empty
-		// in order to create policy violation
-		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
-			resp.PatchedResource = newR
-		}
-		return *resp
+		return *validateResource(logger, ctx, policy, newR, admissionInfo)
 	}
-	// Update Mode
-	// Operate on New and Old Resource only
-	// New resource
+
 	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
 	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
-
-	// if the old and new response is same then return empty response
 	if !isSameResponse(oldResponse, newResponse) {
-		// there are changes send response
-		startResultResponse(newResponse, policy, newR)
-		defer endResultResponse(logger, newResponse, startTime)
-		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
-			newResponse.PatchedResource = newR
-		}
 		return *newResponse
 	}
-	// if there are no changes with old and new response then sent empty response
-	// skip processing
 	return response.EngineResponse{}
 }
 
