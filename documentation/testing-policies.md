@@ -12,14 +12,14 @@ To do this you should [install Kyverno to the cluster](installation.md).
 For example, to test the simplest Kyverno policy for `ConfigMap`, create the policy and then the resource itself via `kubectl`:
 
 ````bash
-cd test/ConfigMap
-kubectl create -f policy-CM.yaml
-kubectl create -f CM.yaml
+cd test
+kubectl create -f policy/policy-CM.yaml
+kubectl create -f resources/CM.yaml
 ````
 Then compare the original resource definition in `CM.yaml` with the actual one:
 
 ````bash
-kubectl get -f CM.yaml -o yaml
+kubectl get -f resources/CM.yaml -o yaml
 ````
 
 ## Test using Kyverno CLI

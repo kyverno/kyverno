@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	context2 "github.com/nirmata/kyverno/pkg/engine/context"
 
@@ -133,12 +135,12 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc(config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
-	mux.HandleFunc(config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
-	mux.HandleFunc(config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
-	mux.HandleFunc(config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
-	mux.HandleFunc(config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
+	mux := httprouter.New()
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
