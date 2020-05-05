@@ -3,6 +3,7 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	jmespath "github.com/jmespath/go-jmespath"
 )
@@ -11,7 +12,7 @@ import (
 func (ctx *Context) Query(query string) (interface{}, error) {
 	var emptyResult interface{}
 	// check for white-listed variables
-	if ctx.isWhiteListed(query) {
+	if !ctx.isWhiteListed(query) {
 		return emptyResult, fmt.Errorf("variable %s cannot be used", query)
 	}
 
@@ -41,7 +42,7 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 
 func (ctx *Context) isWhiteListed(variable string) bool {
 	for _, wVar := range ctx.whiteListVars {
-		if wVar == variable {
+		if strings.HasPrefix(variable, wVar) {
 			return true
 		}
 	}

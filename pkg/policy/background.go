@@ -9,8 +9,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//ContainsUserInfo returns error is userInfo is defined
-func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
+//ContainsVariablesOtherThanObject returns error if variable that does not start from request.object is defined
+func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 	var err error
 	// iterate of the policy rules to identify if userInfo is used
 	for idx, rule := range policy.Spec.Rules {
@@ -33,7 +33,7 @@ func ContainsUserInfo(policy kyverno.ClusterPolicy) error {
 		// - serviceAccountName
 		// - serviceAccountNamespace
 
-		filterVars := []string{"request.userInfo*", "serviceAccountName", "serviceAccountNamespace"}
+		filterVars := []string{"request.object"}
 		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
 			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); err != nil {

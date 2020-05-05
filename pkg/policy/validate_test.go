@@ -608,7 +608,7 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/roles")
 }
 
@@ -640,7 +640,7 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/clusterRoles")
 }
@@ -676,7 +676,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/subjects")
 }
@@ -708,7 +708,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
@@ -743,7 +743,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
@@ -778,7 +778,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/validate/pattern" {
 		t.Log(err)
@@ -817,7 +817,7 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
@@ -856,7 +856,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
@@ -895,7 +895,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
 	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)

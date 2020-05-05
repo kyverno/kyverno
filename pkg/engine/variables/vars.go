@@ -69,7 +69,7 @@ func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interfac
 // subValR resolves the variables if defined
 func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
 	originalPattern := valuePattern
-	var failedVars []interface{}
+	var failedVars []string
 
 	defer func() {
 		if len(failedVars) > 0 {

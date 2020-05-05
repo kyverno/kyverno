@@ -35,7 +35,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		return nil
 	}
 	if *p.Spec.Background {
-		if err := ContainsUserInfo(p); err != nil {
+		if err := ContainsVariablesOtherThanObject(p); err != nil {
 			// policy.spec.background -> "true"
 			// - cannot use variables with request.userInfo
 			// - cannot define userInfo(roles, cluserRoles, subjects) for filtering (match & exclude)
