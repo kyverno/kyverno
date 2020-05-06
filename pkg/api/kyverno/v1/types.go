@@ -215,8 +215,7 @@ type Validation struct {
 }
 
 type Deny struct {
-	AllRequests bool        `json:"allRequests,omitempty"`
-	Conditions  []Condition `json:"conditions,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created

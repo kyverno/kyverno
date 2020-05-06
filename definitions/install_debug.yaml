@@ -212,8 +212,6 @@ spec:
                         AnyValue: {}
                       deny:
                         properties:
-                          allRequests:
-                            type: boolean
                           conditions:
                             type: array
                             items:
