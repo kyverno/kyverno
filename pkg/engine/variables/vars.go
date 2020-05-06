@@ -17,16 +17,14 @@ const (
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
 func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
-	errs := []error{}
-	pattern = subVars(log, ctx, pattern, "", &errs)
-	if len(errs) == 0 {
-		// no error while parsing the pattern
-		return pattern, nil
+	pattern, err := subVars(log, ctx, pattern, "")
+	if err != nil {
+		return pattern, err
 	}
-	return pattern, fmt.Errorf("%v", errs)
+	return pattern, nil
 }
 
-func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
+func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, path string) (interface{}, error) {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
 		mapCopy := make(map[string]interface{})
@@ -34,48 +32,47 @@ func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, pa
 			mapCopy[k] = v
 		}
 
-		return subMap(log, ctx, mapCopy, path, errs)
+		return subMap(log, ctx, mapCopy, path)
 	case []interface{}:
 		sliceCopy := make([]interface{}, len(typedPattern))
 		copy(sliceCopy, typedPattern)
 
-		return subArray(log, ctx, sliceCopy, path, errs)
+		return subArray(log, ctx, sliceCopy, path)
 	case string:
-		return subValR(ctx, typedPattern, path, errs)
+		return subValR(ctx, typedPattern, path)
 	default:
-		return pattern
+		return pattern, nil
 	}
 }
 
-func subMap(log logr.Logger, ctx context.EvalInterface, patternMap map[string]interface{}, path string, errs *[]error) map[string]interface{} {
+func subMap(log logr.Logger, ctx context.EvalInterface, patternMap map[string]interface{}, path string) (map[string]interface{}, error) {
 	for key, patternElement := range patternMap {
 		curPath := path + "/" + key
-		value := subVars(log, ctx, patternElement, curPath, errs)
+		value, err := subVars(log, ctx, patternElement, curPath)
+		if err != nil {
+			return nil, err
+		}
 		patternMap[key] = value
 
 	}
-	return patternMap
+	return patternMap, nil
 }
 
-func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interface{}, path string, errs *[]error) []interface{} {
+func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interface{}, path string) ([]interface{}, error) {
 	for idx, patternElement := range patternList {
 		curPath := path + "/" + strconv.Itoa(idx)
-		value := subVars(log, ctx, patternElement, curPath, errs)
+		value, err := subVars(log, ctx, patternElement, curPath)
+		if err != nil {
+			return nil, err
+		}
 		patternList[idx] = value
 	}
-	return patternList
+	return patternList, nil
 }
 
 // subValR resolves the variables if defined
-func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
+func subValR(ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
 	originalPattern := valuePattern
-	var failedVars []string
-
-	defer func() {
-		if len(failedVars) > 0 {
-			*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", failedVars, path))
-		}
-	}()
 
 	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
@@ -84,23 +81,18 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *
 				underlyingVariable := strings.ReplaceAll(strings.ReplaceAll(variable, "}}", ""), "{{", "")
 				substitutedVar, err := ctx.Query(underlyingVariable)
 				if err != nil {
-					failedVars = append(failedVars, underlyingVariable)
-					return nil
+					return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
 				}
 				if val, ok := substitutedVar.(string); ok {
-					if val == "" {
-						failedVars = append(failedVars, underlyingVariable)
-						return nil
-					}
 					valuePattern = strings.Replace(valuePattern, variable, val, -1)
 				} else {
 					if substitutedVar != nil {
 						if originalPattern == variable {
-							return substitutedVar
+							return substitutedVar, nil
 						}
+						return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
 					}
-					failedVars = append(failedVars, underlyingVariable)
-					return nil
+					return nil, fmt.Errorf("could not find variable %v at path %v", underlyingVariable, path)
 				}
 			}
 		} else {
@@ -108,5 +100,5 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *
 		}
 	}
 
-	return valuePattern
+	return valuePattern, nil
 }

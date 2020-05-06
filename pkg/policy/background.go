@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -24,41 +25,57 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		filterVars := []string{"request.object"}
 		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
-			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); err != nil {
+			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); !checkNotFoundErr(err) {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/key", idx, condIdx)
 			}
 
-			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); err != nil {
+			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); !checkNotFoundErr(err) {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
 			}
 		}
 
-		if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.Overlay); err != nil {
-			return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/overlay", idx)
+		if rule.Mutation.Overlay != nil {
+			if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.Overlay); !checkNotFoundErr(err) {
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/overlay", idx)
+			}
 		}
-		if rule.Validation.Pattern, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Pattern); err != nil {
-			return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/pattern", idx)
+
+		if rule.Validation.Pattern != nil {
+			if rule.Validation.Pattern, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Pattern); !checkNotFoundErr(err) {
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/pattern", idx)
+			}
 		}
 		for idx2, pattern := range rule.Validation.AnyPattern {
-			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); err != nil {
+			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); !checkNotFoundErr(err) {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
 			}
 		}
-		if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Message); err != nil {
+		if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Message); !checkNotFoundErr(err) {
 			return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/message", idx)
 		}
 		if rule.Validation.Deny != nil {
 			for i := range rule.Validation.Deny.Conditions {
-				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Key); err != nil {
+				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Key); !checkNotFoundErr(err) {
 					return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/deny/conditions[%d]/key", idx, i)
 				}
-				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Value); err != nil {
+				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Value); !checkNotFoundErr(err) {
 					return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/deny/conditions[%d]/value", idx, i)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func checkNotFoundErr(err error) bool {
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "could not find variable") {
+			return true
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
 func userInfoDefined(ui kyverno.UserInfo) string {
