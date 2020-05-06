@@ -9,9 +9,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // isResponseSuccesful return true if all responses are successful
@@ -124,47 +121,4 @@ func containRBACinfo(policies []kyverno.ClusterPolicy) bool {
 		}
 	}
 	return false
-}
-
-// extracts the new and old resource as unstructured
-func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
-	var emptyResource unstructured.Unstructured
-	var newResource unstructured.Unstructured
-	var oldResource unstructured.Unstructured
-	var err error
-
-	// New Resource
-	if newRaw == nil {
-		newRaw = request.Object.Raw
-	}
-
-	if newRaw != nil {
-		newResource, err = convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
-		}
-	}
-
-	// Old Resource
-	oldRaw := request.OldObject.Raw
-	if oldRaw != nil {
-		oldResource, err = convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
-		}
-	}
-
-	return newResource, oldResource, err
-}
-
-// convertResource converts raw bytes to an unstructured object
-func convertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
-	obj, err := engineutils.ConvertToUnstructured(raw)
-	if err != nil {
-		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
-	}
-
-	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
-	obj.SetNamespace(namespace)
-	return *obj, nil
 }

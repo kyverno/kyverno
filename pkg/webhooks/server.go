@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/utils"
+
 	"github.com/julienschmidt/httprouter"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -217,7 +219,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	// convert RAW to unstructured
-	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 

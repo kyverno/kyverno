@@ -5,6 +5,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/utils"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -22,7 +24,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	logger.V(4).Info("incoming request")
 
 	// Get new and old resource
-	newR, oldR, err := extractResources(patchedResource, request)
+	newR, oldR, err := utils.ExtractResources(patchedResource, request)
 	if err != nil {
 		// as resource cannot be parsed, we skip processing
 		logger.Error(err, "failed to extract resource")
