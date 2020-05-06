@@ -220,6 +220,16 @@ spec:
                                 - key  # can be of any type
                                 - operator # typed
                                 - value # can be of any type
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                  - Equal
+                                  - NotEqual
+                                key:
+                                  type: string
+                                value:
+                                  type: string
                   generate:
                     type: object
                     required:
