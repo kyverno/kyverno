@@ -155,9 +155,11 @@ type ConditionOperator string
 
 const (
 	//Equal for Equal operator
-	Equal ConditionOperator = "Equal"
+	Equal  ConditionOperator = "Equal"
+	Equals ConditionOperator = "Equals"
 	//NotEqual for NotEqual operator
-	NotEqual ConditionOperator = "NotEqual"
+	NotEqual  ConditionOperator = "NotEqual"
+	NotEquals ConditionOperator = "NotEquals"
 	//In for In operator
 	In ConditionOperator = "In"
 	//NotIn for NotIn operator

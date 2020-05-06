@@ -225,7 +225,9 @@ spec:
                                   type: string
                                   enum:
                                   - Equal
+                                  - Equals
                                   - NotEqual
+                                  - NotEquals
                                 key:
                                   type: string
                                 value:

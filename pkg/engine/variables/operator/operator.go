@@ -26,6 +26,10 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		return NewEqualHandler(log, ctx, subHandler)
 	case kyverno.NotEqual:
 		return NewNotEqualHandler(log, ctx, subHandler)
+	case kyverno.Equals:
+		return NewEqualHandler(log, ctx, subHandler)
+	case kyverno.NotEquals:
+		return NewNotEqualHandler(log, ctx, subHandler)
 	default:
 		log.Info("operator not supported", "operator", string(op))
 	}
