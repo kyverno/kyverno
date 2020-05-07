@@ -52,15 +52,12 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		endResultResponse(logger, &resp, startTime)
 	}()
 
-	// deny logic will only be applied to requests from user - system related requests are ignored.
-	if admissionInfo.AdmissionUserInfo.Username == "kubernetes-admin" {
-		// If request is delete, newR will be empty
-		if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-			return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
-		} else {
-			if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
-				return *denyResp
-			}
+	// If request is delete, newR will be empty
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+	} else {
+		if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+			return *denyResp
 		}
 	}
 
@@ -99,6 +96,12 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 
 func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
+
+	// deny logic will only be applied to requests from user - system related requests are ignored.
+	if admissionInfo.AdmissionUserInfo.Username != "kubernetes-admin" {
+		return resp
+	}
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
