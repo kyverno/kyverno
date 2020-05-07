@@ -52,12 +52,15 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		endResultResponse(logger, &resp, startTime)
 	}()
 
-	// If request is delete, newR will be empty
-	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
-	} else {
-		if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
-			return *denyResp
+	// deny logic will only be applied to requests from user - system related requests are ignored.
+	if admissionInfo.AdmissionUserInfo.Username == "kubernetes-admin" {
+		// If request is delete, newR will be empty
+		if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+			return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+		} else {
+			if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+				return *denyResp
+			}
 		}
 	}
 
