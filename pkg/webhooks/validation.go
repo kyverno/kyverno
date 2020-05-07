@@ -23,6 +23,10 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	logger := ws.log.WithValues("action", "validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 
+	if val, err := ctx.Query("request.object.metadata.deletionTimestamp"); val != nil && err == nil {
+		return true, ""
+	}
+
 	// Get new and old resource
 	newR, oldR, err := utils.ExtractResources(patchedResource, request)
 	if err != nil {
