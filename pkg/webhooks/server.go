@@ -355,6 +355,15 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
+	if val, err := ctx.Query("request.object.metadata.deletionTimestamp"); val != nil && err == nil {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	// VALIDATION
 	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
 	if !ok {

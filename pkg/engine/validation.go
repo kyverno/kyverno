@@ -97,11 +97,6 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	// deny logic will only be applied to requests from user - system related requests are ignored.
-	if admissionInfo.AdmissionUserInfo.Username != "kubernetes-admin" {
-		return resp
-	}
-
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
