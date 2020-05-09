@@ -1,0 +1,19 @@
+apiVersion: v2
+name: kyverno
+version: 0.0.1
+appVersion: v1.1.5
+description: Kubernetes Native Policy Management
+keywords:
+  - kubernetes
+  - nirmata
+  - policy agent
+  - validating webhook
+  - admissions controller
+home: https://kyverno.io/
+sources:
+  - https://github.com/nirmata/kyverno
+maintainers:
+  - name: Nirmata
+    url: https://kyverno.io/
+engine: gotpl
+kubeVersion: ">=1.10.0-0"
