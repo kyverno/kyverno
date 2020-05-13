@@ -11,7 +11,7 @@
 ## TL;DR;
 
 ```console
-$ helm install --create-namespace -n kyverno kyverno ./kyverno
+$ helm install --create-namespace -n kyverno kyverno ./charts/kyverno
 ```
 
 ## Introduction
@@ -23,7 +23,7 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 Kyverno makes assumptions about naming of namespaces and resources. Therefore, the chart must be installed with the default release name `kyverno` (default if --name is omitted) and in the namespace 'kyverno':
 
 ```console
-$ helm install --namespace kyverno kyverno ./kyverno
+$ helm install --namespace kyverno kyverno ./charts/kyverno
 ```
 
 Note that Helm by default expects the namespace to already exist before running helm install. If you want Helm to create the namespace, add --create-namespace to the command.
@@ -85,14 +85,14 @@ Parameter | Description | Default
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
-$ helm install --namespace kyverno kyverno ./kyverno \
+$ helm install --namespace kyverno kyverno ./charts/kyverno \
   --set=image.tag=v0.0.2,resources.limits.cpu=200m
 ```
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```console
-$ helm install --namespace kyverno kyverno ./kyverno -f values.yaml
+$ helm install --namespace kyverno kyverno ./charts/kyverno -f values.yaml
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
