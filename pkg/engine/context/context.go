@@ -65,7 +65,6 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
-//AddResource data at path: request.object
 func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
