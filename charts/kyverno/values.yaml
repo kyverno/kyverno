@@ -1,0 +1,126 @@
+nameOverride:
+fullnameOverride:
+
+rbac:
+  create: true
+  serviceAccount:
+    create: true
+    name:
+    annotations: {}
+    #   example.com/annotation: value
+
+image:
+  repository: nirmata/kyverno
+  # Defaults to appVersion in Chart.yaml if omitted
+  tag:
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+  # - secretName
+initImage:
+  repository: nirmata/kyvernopre
+  # If initImage.tag is missing, defaults to image.tag
+  tag:
+  # If initImage.pullPolicy is missing, defaults to image.pullPolicy
+  pullPolicy:
+  # No pull secrets just for initImage; just add to image.pullSecrets
+
+replicaCount: 1
+
+podLabels: {}
+#   example.com/label: foo
+
+podAnnotations: {}
+#   example.com/annotation: foo
+
+podSecurityContext: {}
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+
+extraArgs: []
+# - --fqdn-as-cn
+# - --webhooktimeout=4
+
+resources:
+#   limits:
+#     cpu: 1000m
+#     memory: 500Mi
+#   requests:
+#     cpu: 100m
+#     memory: 100Mi
+
+## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+##
+livenessProbe:
+#   httpGet:
+#     path: /healthz
+#     port: https
+#     scheme: HTTPS
+#   initialDelaySeconds: 10
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+#   failureThreshold: 2
+#   successThreshold: 1
+
+## Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+##
+readinessProbe:
+#   httpGet:
+#     path: /healthz
+#     port: https
+#     scheme: HTTPS
+#   initialDelaySeconds: 5
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+#   failureThreshold: 6
+#   successThreshold: 1
+
+# TODO(mbarrien): Should we just list all resources for the
+# generatecontroller in here rather than having defaults hard-coded?
+generatecontrollerExtraResources:
+# - ResourceA
+# - ResourceB
+
+config:
+  # resource types to be skipped by kyverno policy engine
+  # Make sure to surround each entry in quotes so that it doesn't get parsed
+  # as a nested YAML list. These are joined together without spaces in the configmap
+  resourceFilters:
+  - "[Event,*,*]"
+  - "[*,kube-system,*]"
+  - "[*,kube-public,*]"
+  - "[*,kube-node-lease,*]"
+  - "[Node,*,*]"
+  - "[APIService,*,*]"
+  - "[TokenReview,*,*]"
+  - "[SubjectAccessReview,*,*]"
+  - "[*,kyverno,*]"
+  # Or give the name of an existing config map (ignores default/provided resourceFilters)
+  existingConfig:
+  # existingConfig: init-config
+
+service:
+  port: 443
+  type: ClusterIP
+  # Only used if service.type is NodePort
+  nodePort:
+  ## Provide any additional annotations which may be required. This can be used to
+  ## set the LoadBalancer service type to internal only.
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
+  ##
+  annotations: {}
+
+# Kyverno requires a certificate key pair and corresponding certificate authority
+# to properly register its webhooks. This can be done in one of 3 ways:
+# 1) Use kube-controller-manager to generate a CA-signed certificate (preferred)
+# 2) Provide your own CA and cert.
+#    In this case, you will need to create a certificate with a specific name and data structure.
+#    As long as you follow the naming scheme, it will be automatically picked up.
+#    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entry named rootCA.crt)
+#    kyverno-svc.kyverno.svc.kyverno-tls-key-pair (with data entries named tls.key and tls.crt)
+# 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
+# If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
+createSelfSignedCert: false
