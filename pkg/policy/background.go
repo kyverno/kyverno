@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -69,12 +68,14 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 
 func checkNotFoundErr(err error) bool {
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "could not find variable") {
+		switch err.(type) {
+		case variables.NotFoundVariableErr:
 			return true
-		} else {
+		default:
 			return false
 		}
 	}
+
 	return true
 }
 

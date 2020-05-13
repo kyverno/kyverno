@@ -70,6 +70,15 @@ func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interfac
 	return patternList, nil
 }
 
+type NotFoundVariableErr struct {
+	variable string
+	path     string
+}
+
+func (n NotFoundVariableErr) Error() string {
+	return fmt.Sprintf("could not find variable %v at path %v", n.variable, n.path)
+}
+
 // subValR resolves the variables if defined
 func subValR(ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
 	originalPattern := valuePattern
@@ -92,7 +101,10 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string) (inter
 						}
 						return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
 					}
-					return nil, fmt.Errorf("could not find variable %v at path %v", underlyingVariable, path)
+					return nil, NotFoundVariableErr{
+						variable: underlyingVariable,
+						path:     path,
+					}
 				}
 			}
 		} else {
