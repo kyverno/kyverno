@@ -52,7 +52,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
-		log:          log.WithName("Client"),
+		log:          log.WithName("dclient"),
 	}
 	// Set discovery client
 	discoveryClient := ServerPreferredResources{cachedClient: memory.NewMemCacheClient(kclient.Discovery()), log: client.log}
@@ -292,8 +292,7 @@ func loadServerResources(k string, cdi discovery.CachedDiscoveryInterface, log l
 	emptyGVR := schema.GroupVersionResource{}
 	serverresources, err := cdi.ServerPreferredResources()
 	if err != nil {
-		logger.Error(err, "failed to get registered preferred resources")
-		return emptyGVR, err
+		logger.V(4).Info("failed to get registered preferred resources", "err", err.Error())
 	}
 	for _, serverresource := range serverresources {
 		for _, resource := range serverresource.APIResources {
