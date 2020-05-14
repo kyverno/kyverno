@@ -363,7 +363,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[engine.PodControllersAnnotation] = "all"
+		ann[engine.PodControllersAnnotation] = "DaemonSet,Deployment,Job,StatefulSet"
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`
@@ -388,7 +388,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"all",
+		"DaemonSet,Deployment,Job,StatefulSet",
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)
