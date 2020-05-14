@@ -388,7 +388,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"DaemonSet,Deployment,Job,StatefulSet",
+		"all",
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)
