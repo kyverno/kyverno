@@ -146,7 +146,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, 
 
 	// scenario A
 	if !ok {
-		controllers = "all"
+		controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -388,7 +388,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"all",
+		"DaemonSet,Deployment,Job,StatefulSet",
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)
