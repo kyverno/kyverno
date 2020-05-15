@@ -145,7 +145,9 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	// scenario A
 	if !ok {
-		controllers = "DaemonSet,Deployment,Job,StatefulSet"
+		if controllers == "all" {
+			controllers = "DaemonSet,Deployment,Job,StatefulSet"
+		}
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -197,6 +199,7 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 // generateRulePatches generates rule for podControllers based on scenario A and C
 func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
 	var genRule kyvernoRule
+
 	insertIdx := len(policy.Spec.Rules)
 
 	ruleMap := createRuleMap(policy.Spec.Rules)
@@ -287,14 +290,12 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	// scenario A
-	if controllers == "all" {
-		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
-			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
-			return kyvernoRule{}
-		}
-		controllers = engine.PodControllers
+	if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
+		exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
+		log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
+		return kyvernoRule{}
 	}
+	controllers = engine.PodControllers
 
 	controllerRule := &kyvernoRule{
 		Name:           fmt.Sprintf("autogen-%s", rule.Name),
