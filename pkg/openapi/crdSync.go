@@ -28,6 +28,36 @@ type crdSync struct {
 	controller *Controller
 }
 
+// crdDefinitionPrior represents CRD's version prior to 1.16
+var crdDefinitionPrior struct {
+	Spec struct {
+		Names struct {
+			Kind string `json:"kind"`
+		} `json:"names"`
+		Validation struct {
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+		} `json:"validation"`
+	} `json:"spec"`
+}
+
+// crdDefinitionNew represents CRD in version 1.16+
+var crdDefinitionNew struct {
+	Spec struct {
+		Names struct {
+			Kind string `json:"kind"`
+		} `json:"names"`
+		Versions []struct {
+			Schema struct {
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+			} `json:"schema"`
+			Storage bool `json:"storage"`
+		} `json:"versions"`
+	} `json:"spec"`
+}
+
+var crdVersion struct {
+}
+
 func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 	if controller == nil {
 		panic(fmt.Errorf("nil controller sent into crd sync"))
@@ -54,7 +84,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	c.sync()
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, time.Second*25, stopCh)
+		go wait.Until(c.sync, 10*time.Minute, stopCh)
 	}
 }
 
@@ -90,39 +120,42 @@ func (o *Controller) deleteCRDFromPreviousSync() {
 
 func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 	var err error
-	var crdDefinition struct {
-		Spec struct {
-			Names struct {
-				Kind string `json:"kind"`
-			} `json:"names"`
-			Validation struct {
-				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
-			} `json:"validation"`
-		} `json:"spec"`
-	}
 
 	crdRaw, _ := json.Marshal(crd.Object)
-	_ = json.Unmarshal(crdRaw, &crdDefinition)
+	_ = json.Unmarshal(crdRaw, &crdDefinitionPrior)
 
-	crdName := crdDefinition.Spec.Names.Kind
+	openV3schema := crdDefinitionPrior.Spec.Validation.OpenAPIV3Schema
+	crdName := crdDefinitionPrior.Spec.Names.Kind
 
-	var schema yaml.MapSlice
-	schemaRaw, _ := json.Marshal(crdDefinition.Spec.Validation.OpenAPIV3Schema)
+	if openV3schema == nil {
+		_ = json.Unmarshal(crdRaw, &crdDefinitionNew)
+		for _, crdVersion := range crdDefinitionNew.Spec.Versions {
+			if crdVersion.Storage {
+				openV3schema = crdVersion.Schema.OpenAPIV3Schema
+				crdName = crdDefinitionNew.Spec.Names.Kind
+				break
+			}
+		}
+	}
+
+	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		log.Log.V(4).Info("could not parse crd schema")
+		log.Log.V(3).Info("could not parse crd schema", "name", crdName)
 		return
 	}
 
 	schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
 	if err != nil {
-		log.Log.Error(err, "could not parse crd schema:")
+		log.Log.Error(err, "could not parse crd schema", "name", crdName)
 		return
 	}
+
+	var schema yaml.MapSlice
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
-		log.Log.Error(err, "could not parse crd schema:")
+		log.Log.Error(err, "could not parse crd schema", "name", crdName)
 		return
 	}
 
