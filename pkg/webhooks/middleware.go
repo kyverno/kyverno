@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func timeoutHandler(h http.Handler, timeout int32) http.HandlerFunc {
+func timeoutHandler(h http.Handler, timeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var timeoutHandler http.Handler
 		msg := "ok"

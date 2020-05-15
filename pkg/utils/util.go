@@ -90,7 +90,7 @@ func CleanupOldCrd(client *dclient.Client, log logr.Logger) {
 }
 
 // CompareKubernetesVersion compare kuberneates client version to user given version
-func CompareKubernetesVersion(client *client.Client, major, minor, sub int) bool {
+func CompareKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, k8sminor, k8ssub int) bool {
 	logger := log.WithName("CompareKubernetesVersion")
 	serverVersion, err := client.DiscoveryClient.GetServerVersion()
 	if err != nil {
@@ -120,7 +120,7 @@ func CompareKubernetesVersion(client *client.Client, major, minor, sub int) bool
 		logger.Error(err, "Failed to extract kubernetes sub minor server version", "serverVersion", serverVersion)
 		return false
 	}
-	if major <= 1 && minor <= 12 && sub < 7 {
+	if major <= k8smajor && minor <= k8sminor && sub < k8ssub {
 		logger.Info("Unsupported kubernetes server version %s. Kyverno is supported from version v1.12.7+", "serverVersion", serverVersion)
 		return false
 	}

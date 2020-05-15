@@ -332,6 +332,6 @@ func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout
-func (wrc *WebhookRegistrationClient) GetWebhookTimeOut() int32 {
-	return wrc.timeoutSeconds
+func (wrc *WebhookRegistrationClient) GetWebhookTimeOut() time.Duration {
+	return time.Duration(wrc.timeoutSeconds)
 }

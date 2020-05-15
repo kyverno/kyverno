@@ -136,7 +136,7 @@ func NewWebhookServer(
 	mux := httprouter.New()
 
 	// Check for kubernetes version so that we can disable some features
-	if utils.CompareKubernetesVersion(ws.client, 1, 14, 0) {
+	if utils.CompareKubernetesVersion(ws.client, log, 1, 14, 0) {
 		mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 		mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 		mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
