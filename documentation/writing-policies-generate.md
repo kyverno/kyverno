@@ -48,8 +48,8 @@ spec:
 ````
 
 In this example new namespaces will receive 2 new resources after its creation:
-  * A ConfigMap cloned from default/config-template.
-  * A Secret with values DB_USER and DB_PASSWORD, and label ```purpose: mongo```.
+  * A `ConfigMap` cloned from `default/config-template`.
+  * A `Secret` with values `DB_USER` and `DB_PASSWORD`, and label `purpose: mongo`.
 
 
 ## Example 2
@@ -81,7 +81,7 @@ spec:
             policyname: "default"
 ````
 
-In this example new namespaces will receive a NetworkPolicy that default denies all inbound and outbound traffic.
+In this example new namespaces will receive a `NetworkPolicy` that by default denies all inbound and outbound traffic.
 
 ---
 

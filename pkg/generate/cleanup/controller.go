@@ -1,11 +1,9 @@
 package cleanup
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/golang/glog"
-
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -53,6 +51,7 @@ type Controller struct {
 	//TODO: list of generic informers
 	// only support Namespaces for deletion of resource
 	nsInformer informers.GenericInformer
+	log        logr.Logger
 }
 
 //NewController returns a new controller instance to manage generate-requests
@@ -62,6 +61,7 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
+	log logr.Logger,
 ) *Controller {
 	c := Controller{
 		kyvernoClient: kyvernoclient,
@@ -70,6 +70,7 @@ func NewController(
 		// as we dont want a deleted GR to be re-queue
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request-cleanup"),
 		dynamicInformer: dynamicInformer,
+		log:             log,
 	}
 	c.control = Control{client: kyvernoclient}
 	c.enqueueGR = c.enqueue
@@ -102,10 +103,11 @@ func NewController(
 }
 
 func (c *Controller) deleteGenericResource(obj interface{}) {
+	logger := c.log
 	r := obj.(*unstructured.Unstructured)
 	grs, err := c.grLister.GetGenerateRequestsForResource(r.GetKind(), r.GetNamespace(), r.GetName())
 	if err != nil {
-		glog.Errorf("failed to Generate Requests for resource %s/%s/%s: %v", r.GetKind(), r.GetNamespace(), r.GetName(), err)
+		logger.Error(err, "failed to get generate request CR for resource", "kind", r.GetKind(), "namespace", r.GetNamespace(), "name", r.GetName())
 		return
 	}
 	// re-evaluate the GR as the resource was deleted
@@ -115,26 +117,27 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
+	logger := c.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			logger.Info("ouldn't get object from tombstone", "obj", obj)
 			return
 		}
 		_, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
-			glog.Info(fmt.Errorf("Tombstone contained object that is not a Generate Request %#v", obj))
+			logger.Info("Tombstone contained object that is not a Generate Request", "obj", obj)
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting Policy %s", p.Name)
+	logger.V(4).Info("deleting policy", "name", p.Name)
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
 	if err != nil {
-		glog.Errorf("failed to Generate Requests for policy %s: %v", p.Name, err)
+		logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
 		return
 	}
 	for _, gr := range grs {
@@ -153,44 +156,46 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
+	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			glog.Info(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
 		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
 		if !ok {
-			glog.Info(fmt.Errorf("Tombstone contained object that is not a Generate Request %#v", obj))
+			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
 			return
 		}
 	}
-	glog.V(4).Infof("Deleting GR %s", gr.Name)
+	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
 }
 
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
+	logger := c.log
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
-		glog.Error(err)
+		logger.Error(err, "failed to extract key")
 		return
 	}
-	glog.V(4).Infof("cleanup enqueu: %v", gr.Name)
+	logger.V(4).Info("eneque generate request", "name", gr.Name)
 	c.queue.Add(key)
 }
 
 //Run starts the generate-request re-conciliation loop
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
+	logger := c.log
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	glog.Info("Starting generate-policy-cleanup controller")
-	defer glog.Info("Shutting down generate-policy-cleanup controller")
+	logger.Info("starting")
+	defer logger.Info("shutting down")
 
 	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced) {
-		glog.Error("generate-policy-cleanup controller: failed to sync informer cache")
+		logger.Info("failed to sync informer cache")
 		return
 	}
 	for i := 0; i < workers; i++ {
@@ -219,31 +224,33 @@ func (c *Controller) processNextWorkItem() bool {
 }
 
 func (c *Controller) handleErr(err error, key interface{}) {
+	logger := c.log
 	if err == nil {
 		c.queue.Forget(key)
 		return
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		glog.Errorf("Error syncing Generate Request %v: %v", key, err)
+		logger.Error(err, "failed to sync generate request", "key", key)
 		c.queue.AddRateLimited(key)
 		return
 	}
 	utilruntime.HandleError(err)
-	glog.Infof("Dropping generate request %q out of the queue: %v", key, err)
+	logger.Error(err, "dropping generate request out of the queue", "key", key)
 	c.queue.Forget(key)
 }
 
 func (c *Controller) syncGenerateRequest(key string) error {
+	logger := c.log.WithValues("key", key)
 	var err error
 	startTime := time.Now()
-	glog.V(4).Infof("Started syncing GR %q (%v)", key, startTime)
+	logger.Info("started syncing generate request", "startTime", startTime)
 	defer func() {
-		glog.V(4).Infof("Finished syncing GR %q (%v)", key, time.Since(startTime))
+		logger.V(4).Info("finished syncying generate request", "processingTIme", time.Since(startTime))
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if errors.IsNotFound(err) {
-		glog.Infof("Generate Request %s has been deleted", key)
+		logger.Info("generate request has been deleted")
 		return nil
 	}
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func compareJSONAsMap(t *testing.T, expected, actual []byte) {
@@ -28,7 +29,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -61,7 +62,7 @@ func TestGeneratePodControllerRule_PredefinedAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 	assert.Assert(t, len(patches) == 0)
 }
@@ -112,7 +113,7 @@ func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 	assert.Assert(t, len(patches) == 0)
 }
@@ -163,7 +164,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -261,7 +262,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -333,7 +334,7 @@ func TestGeneratePodControllerRule_ValidateAnyPattern(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -471,7 +472,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := generatePodControllerRule(policy)
+	patches, errs := generatePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)

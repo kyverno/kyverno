@@ -2,16 +2,16 @@ package policystatus
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
-
-	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Policy status implementation works in the following way,
@@ -80,7 +80,7 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 2*time.Second, stopCh)
+	wait.Until(s.updatePolicyStatus, 10*time.Second, stopCh)
 	<-stopCh
 }
 
@@ -111,8 +111,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			s.cache.keyToMutex.Get(statusUpdater.PolicyName()).Unlock()
 			oldStatus, _ := json.Marshal(status)
 			newStatus, _ := json.Marshal(updatedStatus)
-
-			glog.V(4).Infof("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus))
+			log.Log.V(4).Info(fmt.Sprintf("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus)))
 		case <-stopCh:
 			return
 		}
@@ -140,7 +139,7 @@ func (s *Sync) updatePolicyStatus() {
 			s.cache.dataMu.Lock()
 			delete(s.cache.data, policyName)
 			s.cache.dataMu.Unlock()
-			glog.V(4).Info(err)
+			log.Log.Error(err, "failed to update policy status")
 		}
 	}
 }

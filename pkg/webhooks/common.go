@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
+	yamlv2 "gopkg.in/yaml.v2"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
@@ -25,34 +26,37 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []response.EngineResponse) bool {
+func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
-			glog.V(4).Infof("ValidationFailureAction set to enforce for policy %s , blocking resource request ", er.PolicyResponse.Policy)
+			log.Info("spec.ValidationFailureAction set to enforcel blocking resource request", "policy", er.PolicyResponse.Policy)
 			return true
 		}
 	}
-	glog.V(4).Infoln("ValidationFailureAction set to audit, allowing resource request, reporting with policy violation")
+	log.V(4).Info("sepc.ValidationFailureAction set to auit for all applicable policies;allowing resource reques; reporting with policy violation ")
 	return false
 }
 
 // getEnforceFailureErrorMsg gets the error messages for failed enforce policy
-func getEnforceFailureErrorMsg(engineReponses []response.EngineResponse) string {
-	var str []string
-	var resourceInfo string
-
-	for _, er := range engineReponses {
+func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string {
+	policyToRule := make(map[string]interface{})
+	var resourceName string
+	for _, er := range engineResponses {
 		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
-			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
-					str = append(str, rule.ToString())
+					ruleToReason[rule.Name] = rule.Message
 				}
 			}
+			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+
+			policyToRule[er.PolicyResponse.Policy] = ruleToReason
 		}
 	}
-	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
+
+	result, _ := yamlv2.Marshal(policyToRule)
+	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
 }
 
 // getErrorMsg gets all failed engine response message
@@ -98,14 +102,14 @@ const (
 	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
 )
 
-func processResourceWithPatches(patch []byte, resource []byte) []byte {
+func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
 	if patch == nil {
 		return resource
 	}
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
-		glog.Errorf("failed to patch resource: %v", err)
+		log.Error(err, "failed to patch resource:")
 		return nil
 	}
 	return resource
