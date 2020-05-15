@@ -158,7 +158,10 @@ func checkPodTemplateAnn(resource unstructured.Unstructured) bool {
 	if resource.GetKind() == "Pod" {
 		ann := resource.GetAnnotations()
 		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
-			return true
+			if ann[engine.PodTemplateAnnotation] == "true" {
+				return true
+			}
+			return false
 		}
 	}
 
