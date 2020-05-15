@@ -193,7 +193,7 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 }
 
 func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("handleMutateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -288,7 +288,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("handleValidateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -304,6 +304,28 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			logger.Error(err, "failed to get RBAC infromation for request")
+		}
+	}
+
+	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		logger.Error(err, "failed to convert RAW resource to unstructured format")
+
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: err.Error(),
+			},
+		}
+	}
+
+	if checkPodTemplateAnn(resource) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
 		}
 	}
 
