@@ -5,7 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -19,16 +18,14 @@ import (
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
-	glog.V(4).Infof("Receive request in validating webhook: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		request.Kind.Kind, request.Namespace, request.Name, request.UID, request.Operation)
-
-	evalTime := time.Now()
+	logger := ws.log.WithValues("action", "validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger.V(4).Info("incoming request")
 
 	// Get new and old resource
 	newR, oldR, err := extractResources(patchedResource, request)
 	if err != nil {
 		// as resource cannot be parsed, we skip processing
-		glog.Error(err)
+		logger.Error(err, "failed to extract resource")
 		return true, ""
 	}
 	userRequestInfo := kyverno.RequestInfo{
@@ -40,17 +37,17 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// load incoming resource into the context
 	err = ctx.AddResource(request.Object.Raw)
 	if err != nil {
-		glog.Infof("Failed to load resource in context:%v", err)
+		logger.Error(err, "failed to load incoming resource in context")
 	}
 
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
-		glog.Infof("Failed to load userInfo in context:%v", err)
+		logger.Error(err, "failed to load userInfo in context")
 	}
 
 	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		glog.Infof("Failed to load service account in context:%v", err)
+		logger.Error(err, "failed to load service account in context")
 	}
 
 	policyContext := engine.PolicyContext{
@@ -61,8 +58,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
-		glog.V(2).Infof("Handling validation for Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-			newR.GetKind(), newR.GetNamespace(), newR.GetName(), request.UID, request.Operation)
+		logger.V(2).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
@@ -75,17 +71,13 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			resp: engineResponse,
 		})
 		if !engineResponse.IsSuccesful() {
-			glog.V(4).Infof("Failed to apply policy %s on resource %s/%s\n", policy.Name, newR.GetNamespace(), newR.GetName())
+			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
 			continue
 		}
 	}
-	glog.V(4).Infof("eval: %v %s/%s/%s ", time.Since(evalTime), request.Kind, request.Namespace, request.Name)
-	// report time
-	reportTime := time.Now()
-
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
-	blocked := toBlockResource(engineResponses)
+	blocked := toBlockResource(engineResponses, logger)
 
 	// REPORTING EVENTS
 	// Scenario 1:
@@ -97,19 +89,18 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	// Scenario 3:
 	//   all policies were applied succesfully.
 	//   create an event on the resource
-	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update))
+	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
 	ws.eventGen.Add(events...)
 	if blocked {
-		glog.V(4).Infof("resource %s/%s/%s is blocked\n", newR.GetKind(), newR.GetNamespace(), newR.GetName())
+		logger.V(4).Info("resource blocked")
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses)
+	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	ws.pvGenerator.Add(pvInfos...)
 	// report time end
-	glog.V(4).Infof("report: %v %s/%s/%s", time.Since(reportTime), request.Kind, request.Namespace, request.Name)
 	return true, ""
 }
 

@@ -120,6 +120,7 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 * [Getting Started](documentation/installation.md)
 * [Writing Policies](documentation/writing-policies.md)
+  * [Selecting Resources](/documentation/writing-policies-match-exclude.md)
   * [Validate Resources](documentation/writing-policies-validate.md)
   * [Mutate Resources](documentation/writing-policies-mutate.md)
   * [Generate Resources](documentation/writing-policies-generate.md)
@@ -163,12 +164,13 @@ See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](htt
 ## Getting help
 
   * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
-  * For discussions or questions, join our [Kubernetes Slack channel #kyverno](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+  * For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
 
 ## Contributing
 
 Thanks for your interest in contributing!
 
   * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
+  * We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
   * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
   * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)

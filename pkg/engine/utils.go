@@ -9,8 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-
-	"github.com/golang/glog"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -53,7 +52,7 @@ func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		glog.Error(err)
+		log.Log.Error(err, "failed to build label selector")
 		return false, err
 	}
 

@@ -4,7 +4,7 @@
 
 The ```mutate``` rule can be used to add, replace, or delete elements in matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
 
-By using a ```patch``` in the (JSONPatch - RFC 6902)[http://jsonpatch.com/] format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
+By using a ```patch``` in the [JSONPatch - RFC 6902](http://jsonpatch.com/) format, you can make precise changes to the resource being created. Using an ```overlay``` is convenient for describing the desired state of the resource.
 
 Resource mutation occurs before validation, so the validation rules should not contradict the changes performed by the mutation section.
 
@@ -20,38 +20,41 @@ A JSON Patch rule provides an alternate way to mutate resources.
 
 With Kyverno, the add and replace have the same behavior i.e. both operations will add or replace the target element.
 
-This patch adds an init container to all deployments.
+This patch policy adds, or replaces, entries in a `ConfigMap` with the name `config-game` in any namespace.
 
 ````yaml
 apiVersion : kyverno.io/v1
 kind : ClusterPolicy
 metadata :
-  name : policy-v1
+  name : policy-generate-cm
 spec :
   rules:
-    - name: "add-init-secrets"
+    - name: pCM1
       match:
         resources:
-          kinds:
-          - Deployment
+          name: "config-game"
+          kinds :
+          - ConfigMap
       mutate:
-        overlay:
-          spec:
-            template:
-              spec:
-                initContainers:
-                  - name: init-secrets
-                    image: nirmata.io/kube-vault-client:v2
+        patches:
+        - path: "/data/ship.properties"
+          op: add
+          value: |
+            type=starship
+            owner=utany.corp
+        - path : "/data/newKey1"
+          op : add
+          value : newValue1
 ````
 
 Here is the example of a patch that removes a label from the secret:
 
 ````yaml
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy-remove-label
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-remove-label
+spec:
   rules:
     - name: "Remove unwanted label"
       match:
@@ -72,14 +75,14 @@ A mutation overlay describes the desired form of resource. The existing resource
 
 The overlay cannot be used to delete values in a resource: use **patches** for this purpose.
 
-The following mutation overlay will add (or replace) the memory request and limit to 10Gi for every Pod with a label ```memory: high```:
+The following mutation overlay will add (or replace) the memory request and limit to 10Gi for every Pod with a label `memory: high`:
 
 ````yaml
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy-change-memory-limit
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-change-memory-limit
+spec:
   rules:
     - name: "Set hard memory limit to 2Gi"
       match:
@@ -117,7 +120,7 @@ spec:
   - name: "Add IP to subsets"
     match:
       resources:
-        kinds :
+        kinds:
           - Endpoints
     mutate:
       overlay:
@@ -148,14 +151,14 @@ The **anchors** values support **wildcards**:
 
 A `conditional anchor` evaluates to `true` if the anchor tag exists and if the value matches the specified value. Processing stops if a tag does not exist or when the value does not match. Once processing stops, any child elements or any remaining siblings in a list, will not be processed.
 
- For example, this overlay will add or replace the value 6443 for the port field, for all ports with a name value that starts with "secure":
+ For example, this overlay will add or replace the value `6443` for the `port` field, for all ports with a name value that starts with "secure":
 
 ````yaml
 apiVersion: kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy-set-port
-spec :
+kind: ClusterPolicy
+metadata:
+  name: policy-set-port
+spec:
   rules:
   - name: "Set port"
     match:
@@ -174,7 +177,7 @@ If the anchor tag value is an object or array, the entire object or array must m
 
 ### Add if not present anchor
 
-A variation of an anchor, is to add a field value if it is not already defined. This is done by using the `add anchor` (short for `add if not present anchor`) with the notation ````+(...)```` for the tag.
+A variation of an anchor, is to add a field value if it is not already defined. This is done by using the `add anchor` (short for `add if not present anchor`) with the notation `+(...)` for the tag.
 
 An `add anchor` is processed as part of applying the mutation. Typically, every non-anchor tag-value is applied as part of the mutation. If the `add anchor` is set on a tag, the tag and value are only applied if they do not exist in the resource.
 
