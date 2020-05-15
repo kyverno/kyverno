@@ -207,11 +207,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 	}
 
-	genVersion, _, err := unstructured.NestedString(genUnst.Object, "apiVersion")
-	if err != nil {
-		return noGenResource, err
-	}
-
 	// Resource to be generated
 	newGenResource := kyverno.ResourceSpec{
 		Kind:      genKind,
