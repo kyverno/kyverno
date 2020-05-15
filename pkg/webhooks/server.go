@@ -12,6 +12,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/checker"
@@ -131,12 +132,18 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 	}
+
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true)))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true)))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
+
+	// Check for kubernetes version so that we can disable some features
+	if utils.CompareKubernetesVersion(ws.client, 1, 14, 0) {
+		mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+		mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+		mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	}
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyMutation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleVerifyRequest, false), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,

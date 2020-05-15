@@ -5,11 +5,11 @@ import (
 	"time"
 )
 
-func timeoutHandler(h http.Handler) http.HandlerFunc {
+func timeoutHandler(h http.Handler, timeout int32) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var timeoutHandler http.Handler
-		msg := "Your request has timed out."
-		timeoutHandler = http.TimeoutHandler(h, 5*time.Second, msg)
+		msg := "ok"
+		timeoutHandler = http.TimeoutHandler(h, timeout*time.Second, msg)
 		timeoutHandler.ServeHTTP(w, r)
 	}
 }

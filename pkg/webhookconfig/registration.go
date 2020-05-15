@@ -330,3 +330,8 @@ func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration
 		logger.V(4).Info("successfully deleted policy validating webhook configutation")
 	}
 }
+
+// GetWebhookTimeOut returns the value of webhook timeout
+func (wrc *WebhookRegistrationClient) GetWebhookTimeOut() int32 {
+	return wrc.timeoutSeconds
+}
