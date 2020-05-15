@@ -1,36 +1,43 @@
 project_name: kyverno 
-release:
-  github:
-    owner: kyverno 
-    name: kyverno 
+before:
+  hooks:
+    - go mod download
 builds:
-  - id: kyverno 
-    goos:
+- id: kyverno
+  main: cmd/cli/kubectl-kyverno/main.go
+  binary: kyverno
+  env:
+  - CGO_ENABLED=0
+  goos:
     - linux
-    - windows
     - darwin
-    goarch:
+    - windows
+  goarch:
     - amd64
-    - "386"
-    env:
-      - CGO_ENABLED=0
-      - GO111MODULE=on
-    main: cmd/cli/kubectl-kyverno/main.go
-    ldflags: -s -w
-      -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{ .Version }}
-      -X github.com/kyverno/kyverno/pkg/version.BuildHash={{ .FullCommit }}
-      -X github.com/kyverno/kyverno/pkg/version.BuildTime={{ .Timestamp }}
-checksum:
-  name_template: 'checksums.txt'
-snapshot:
-  name_template: "{{ .Tag }}"
+    - arm
+    - arm64
+  goarm: [6, 7]
 archives:
-  - id: kyverno 
-    builds:
+- id: kyverno-archive
+  name_template: |-
+    kyverno_{{ .Tag }}_{{ .Os }}_{{ .Arch -}}
+    {{- with .Arm -}}
+      {{- if (eq . "6") -}}hf
+      {{- else -}}v{{- . -}}
+      {{- end -}}
+    {{- end -}}
+  builds:
     - kyverno
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
+  replacements:
+    386: i386
+    amd64: x86_64
+  format_overrides:
     - goos: windows
       format: zip
-    files:
-      - LICENSE
+  files: ["LICENSE"]
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+release:
+  extra_files:
+    - glob: ./kyverno

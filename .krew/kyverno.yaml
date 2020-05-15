@@ -1,0 +1,25 @@
+apiVersion: kyverno.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: kyverno
+spec:
+  homepage: https://github.com/nirmata/kyverno
+  shortDescription: Kubernetes Native Policy Management
+  version: {{ .TagName }}
+  description: |
+    Kyverno can be used to scan existing workloads for best practices, or can be used to enforce best practices by blocking or mutating API requests.Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
+  platforms:
+  - selector:
+      matchExpressions:
+      - key: os
+        operator: In
+        values:
+        - darwin
+        - linux
+    {{addURIAndSha "https://github.com/nirmata/kyverno/archive/{{ .TagName }}.tar.gz" .TagName }}
+    bin: kyverno
+    files:
+    - from: kyverno-*/kyverno
+      to: .
+    - from: kyverno-*/LICENSE
+      to: .
