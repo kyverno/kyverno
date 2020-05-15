@@ -55,7 +55,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	}
 
 	for _, policy := range policies {
-		logger.V(2).Info("evaluating policy", "policy", policy.Name)
+		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
