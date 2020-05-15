@@ -207,6 +207,11 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 	}
 
+	genVersion, _, err := unstructured.NestedString(genUnst.Object, "apiVersion")
+	if err != nil {
+		return noGenResource, err
+	}
+
 	// Resource to be generated
 	newGenResource := kyverno.ResourceSpec{
 		Kind:      genKind,
@@ -247,6 +252,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	newResource.SetUnstructuredContent(rdata)
 	newResource.SetName(genName)
 	newResource.SetNamespace(genNamespace)
+	if newResource.GetKind() == "" {
+		newResource.SetKind(genKind)
+	}
 
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
