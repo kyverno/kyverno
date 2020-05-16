@@ -83,9 +83,14 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 	//	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
 	// list resources
 	log.V(4).Info("list resources to be processed")
+
+	if kind == "Namespace" {
+		namespace = ""
+	}
+
 	list, err := client.ListResource(kind, namespace, ls)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind", kind)
+		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
 	}
 	// filter based on name
