@@ -145,9 +145,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	// scenario A
 	if !ok {
-		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet"
-		}
+		controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -160,6 +158,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	if controllers == "none" {
 		return nil, nil
 	}
+
 	log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
 
 	p, err := generateRulePatches(policy, controllers, log)
@@ -289,13 +288,36 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return kyvernoRule{}
 	}
 
-	// scenario A
-	if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
-		exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-		log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
-		return kyvernoRule{}
+	// Support backword compatibility
+	skipAutoGenration := false
+	var controllersValidated []string
+	if controllers == "all" {
+		skipAutoGenration = true
+	} else if controllers != "none" && controllers != "all" {
+		skipAutoGenration = true
+		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		for _, value := range strings.Split(controllers, ",") {
+			if _, ok := controllersList[value]; ok {
+				controllersValidated = append(controllersValidated, value)
+			}
+		}
+		if len(controllersValidated) > 0 {
+			skipAutoGenration = true
+		}
 	}
-	controllers = engine.PodControllers
+
+	if skipAutoGenration {
+		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
+			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
+			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
+			return kyvernoRule{}
+		}
+		if controllers == "all" {
+			controllers = engine.PodControllers
+		} else {
+			controllers = strings.Join(controllersValidated, ",")
+		}
+	}
 
 	controllerRule := &kyvernoRule{
 		Name:           fmt.Sprintf("autogen-%s", rule.Name),
