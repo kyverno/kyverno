@@ -67,7 +67,7 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.Infof)
+	eventBroadcaster.StartLogging(klog.V(5).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		log.Error(err, "failed to get event interface for logging")

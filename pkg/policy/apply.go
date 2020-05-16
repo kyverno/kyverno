@@ -22,9 +22,9 @@ import (
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
 	startTime := time.Now()
 
-	logger.Info("start applying policy", "startTime", startTime)
+	logger.V(3).Info("start applying policy", "startTime", startTime)
 	defer func() {
-		logger.Info("finisnhed applying policy", "processingTime", time.Since(startTime))
+		logger.V(3).Info("finisnhed applying policy", "processingTime", time.Since(startTime))
 	}()
 
 	var engineResponses []response.EngineResponse
