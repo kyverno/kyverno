@@ -36,7 +36,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
 		ann := policy.GetAnnotations()
 		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
-			if ann[engine.PodTemplateAnnotation] == "none" {
+			if ann[engine.PodTemplateAnnotation] != "none" {
 				if skipPodApplication(resource, logger) {
 					continue
 				}
