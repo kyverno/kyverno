@@ -175,7 +175,7 @@ func main() {
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
-	pc, err := policy.NewPolicyController(pclient,
+	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
@@ -286,7 +286,7 @@ func main() {
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
-	go pc.Run(1, stopCh)
+	go policyCtrl.Run(3, stopCh)
 	go egen.Run(1, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
