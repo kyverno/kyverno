@@ -121,7 +121,6 @@ func CompareKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, 
 		return false
 	}
 	if major <= k8smajor && minor <= k8sminor && sub < k8ssub {
-		logger.Info("Unsupported kubernetes server version %s. Kyverno is supported from version v1.12.7+", "serverVersion", serverVersion)
 		return false
 	}
 	return true

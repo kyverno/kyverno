@@ -137,12 +137,11 @@ func NewWebhookServer(
 
 	// Check for kubernetes version so that we can disable some features
 	if utils.CompareKubernetesVersion(ws.client, log, 1, 14, 0) {
-		mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 		mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-		mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	}
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyMutation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleVerifyRequest, false), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
