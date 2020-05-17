@@ -58,7 +58,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
-		logger.V(2).Info("evaluating policy", "policy", policy.Name)
+		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
@@ -74,6 +74,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
 			continue
 		}
+
+		logger.Info("valiadtion rules from policy applied succesfully", "policy", policy.Name)
 	}
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"

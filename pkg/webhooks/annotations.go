@@ -152,7 +152,7 @@ func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log lo
 }
 
 // checkPodTemplateAnn checks if a Pod has annotation "pod-policies.kyverno.io/autogen-applied"
-func checkPodTemplateAnn(resource unstructured.Unstructured) bool {
+func checkPodTemplateAnnotation(resource unstructured.Unstructured) bool {
 	if resource.GetKind() == "Pod" {
 		ann := resource.GetAnnotations()
 		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
