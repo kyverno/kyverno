@@ -226,7 +226,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	if checkPodTemplateAnn(resource) {
+	if checkPodTemplateAnnotation(resource) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -320,7 +320,7 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
-	if checkPodTemplateAnn(resource) {
+	if checkPodTemplateAnnotation(resource) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
