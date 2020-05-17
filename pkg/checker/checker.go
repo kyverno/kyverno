@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -32,10 +33,11 @@ func (t *LastReqTime) Time() time.Time {
 	return t.t
 }
 
-//SetTime stes the lastrequest time
+//SetTime updates the lastrequest time
 func (t *LastReqTime) SetTime(tm time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	t.t = tm
 }
 
@@ -52,6 +54,7 @@ func checkIfPolicyWithMutateAndGenerateExists(pLister kyvernolister.ClusterPolic
 	if err != nil {
 		log.Error(err, "failed to list cluster policies")
 	}
+
 	for _, policy := range policies {
 		if policy.HasMutateOrValidateOrGenerate() {
 			// as there exists one policy with mutate or validate rule
@@ -59,13 +62,14 @@ func checkIfPolicyWithMutateAndGenerateExists(pLister kyvernolister.ClusterPolic
 			return true
 		}
 	}
+
 	return false
 }
 
 //Run runs the checker and verify the resource update
 func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen event.Interface, client *dclient.Client, defaultResync time.Duration, deadline time.Duration, stopCh <-chan struct{}) {
 	logger := t.log
-	logger.V(2).Info("tarting default resync for webhook checker", "resyncTime", defaultResync)
+	logger.V(4).Info("starting default resync for webhook checker", "resyncTime", defaultResync)
 	maxDeadline := deadline * time.Duration(MaxRetryCount)
 	ticker := time.NewTicker(defaultResync)
 	/// interface to update and increment kyverno webhook status via annotations
@@ -85,35 +89,37 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 	for {
 		select {
 		case <-ticker.C:
-			// if there are no policies then we dont have a webhook on resource.
-			// we indirectly check if the resource
 			if !checkIfPolicyWithMutateAndGenerateExists(pLister, logger) {
 				continue
 			}
-			// get current time
+
 			timeDiff := time.Since(t.Time())
 			if timeDiff > maxDeadline {
-				logger.Info("request exceeded max deadline", "deadline", maxDeadline)
-				logger.Info("Admission Control failing: Webhook is not receiving requests forwarded by api-server as per webhook configurations")
-				// set the status unavailable
+				err := fmt.Errorf("Admission control configuration error")
+				logger.Error(err, "webhook check failed", "deadline", maxDeadline)
 				if err := statuscontrol.FailedStatus(); err != nil {
-					logger.Error(err, "failed to set 'failed' status")
+					logger.Error(err, "error setting webhook check status to failed")
 				}
+
 				continue
 			}
+
 			if timeDiff > deadline {
-				logger.Info("Admission Control failing: Webhook is not receiving requests forwarded by api-server as per webhook configurations")
+				logger.V(3).Info("webhook check deadline exceeded", "deadline", deadline)
 				// send request to update the kyverno deployment
 				if err := statuscontrol.IncrementAnnotation(); err != nil {
 					logger.Error(err, "failed to increment annotation")
 				}
+
 				continue
 			}
+
 			// if the status was false before then we update it to true
 			// send request to update the kyverno deployment
 			if err := statuscontrol.SuccessStatus(); err != nil {
-				logger.Error(err, "failed to update success status")
+				logger.Error(err, "error setting webhook check status to success")
 			}
+
 		case <-stopCh:
 			// handler termination signal
 			logger.V(2).Info("stopping default resync for webhook checker")

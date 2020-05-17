@@ -81,7 +81,7 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
-	// default 'Background' flag to 'true' if not specified
+	// set 'Background' flag to 'true' if not specified
 	defaultVal := true
 	if policy.Spec.Background == nil {
 		log.V(4).Info("setting default value", "spec.background", true)
@@ -94,19 +94,22 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]by
 			"add",
 			&defaultVal,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
 		}
-		log.Info("generated JSON Patch to set default", "spec.background", true)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
 		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
 	}
+
 	return nil, ""
 }
 
 func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
-	// default ValidationFailureAction to "audit" if not specified
+	// set ValidationFailureAction to "audit" if not specified
 	if policy.Spec.ValidationFailureAction == "" {
 		log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
 		jsonPatch := struct {
@@ -116,16 +119,19 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 		}{
 			"/spec/validationFailureAction",
 			"add",
-			Audit, //audit
+			Audit,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
 			log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
 			return nil, ""
 		}
-		log.Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
 		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
 	}
+
 	return nil, ""
 }
 

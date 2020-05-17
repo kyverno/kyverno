@@ -18,9 +18,17 @@ import (
 
 // HandleMutation handles mutating webhook admission request
 // return value: generated patches
-func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resource unstructured.Unstructured, policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
-	logger := ws.log.WithValues("action", "mutation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	logger.V(4).Info("incoming request")
+func (ws *WebhookServer) HandleMutation(
+	request *v1beta1.AdmissionRequest,
+	resource unstructured.Unstructured,
+	policies []kyverno.ClusterPolicy, roles, clusterRoles []string) []byte {
+
+	resourceName := request.Kind.Kind + "/" + request.Name
+	if request.Namespace != "" {
+		resourceName = request.Namespace + "/" + resourceName
+	}
+
+	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation)
 
 	var patches [][]byte
 	var engineResponses []response.EngineResponse
@@ -55,21 +63,27 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	}
 
 	for _, policy := range policies {
-		logger.V(2).Info("evaluating policy", "policy", policy.Name)
+		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
+		if engineResponse.PolicyResponse.RulesAppliedCount <= 0 {
+			continue
+		}
+
 		engineResponses = append(engineResponses, engineResponse)
 		ws.statusListener.Send(mutateStats{resp: engineResponse})
 		if !engineResponse.IsSuccesful() {
-			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
+			logger.Info("failed to apply policy", "policy", policy.Name)
 			continue
 		}
+
 		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			logger.Error(err, "failed to validate resource")
+			logger.Error(err, "validation error", "policy", policy.Name)
 			continue
 		}
+
 		// gather patches
 		patches = append(patches, engineResponse.GetPatches()...)
 		logger.Info("mutation rules from policy applied succesfully", "policy", policy.Name)
@@ -86,6 +100,7 @@ func (ws *WebhookServer) HandleMutation(request *v1beta1.AdmissionRequest, resou
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	ws.pvGenerator.Add(pvInfos...)
+
 	// REPORTING EVENTS
 	// Scenario 1:
 	//   some/all policies failed to apply on the resource. a policy volation is generated.

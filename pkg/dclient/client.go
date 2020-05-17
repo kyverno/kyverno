@@ -267,6 +267,7 @@ func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) 
 func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
 	_, gvr, err := c.FindResource(kind)
 	if err != nil {
+		c.log.Info("schema not found", "kind", kind)
 		return schema.GroupVersionResource{}
 	}
 
@@ -293,7 +294,6 @@ func (c ServerPreferredResources) FindResource(kind string) (*meta.APIResource, 
 		}
 	}
 
-	c.log.Error(err, "failed to find resource", "kind", kind)
 	return nil, schema.GroupVersionResource{}, err
 }
 
