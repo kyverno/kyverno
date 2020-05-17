@@ -289,12 +289,11 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	// Support backword compatibility
-	skipAutoGenration := false
+	skipAutoGeneration := false
 	var controllersValidated []string
 	if controllers == "all" {
-		skipAutoGenration = true
+		skipAutoGeneration = true
 	} else if controllers != "none" && controllers != "all" {
-		skipAutoGenration = true
 		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
 		for _, value := range strings.Split(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
@@ -302,11 +301,11 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			}
 		}
 		if len(controllersValidated) > 0 {
-			skipAutoGenration = true
+			skipAutoGeneration = true
 		}
 	}
 
-	if skipAutoGenration {
+	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
 			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
