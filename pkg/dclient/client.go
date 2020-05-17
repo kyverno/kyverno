@@ -221,6 +221,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
+	FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error)
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapi_v2.Document, error)
@@ -257,56 +258,67 @@ func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 	}
 }
 
+// OpenAPISchema returns the API server OpenAPI schema document
 func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
-//GetGVRFromKind get the Group Version Resource from kind
-// if kind is not found in first attempt we invalidate the cache,
-// the retry will then fetch the new registered resources and check again
-// if not found after 2 attempts, we declare kind is not found
-// kind is Case sensitive
+// GetGVRFromKind get the Group Version Resource from kind
 func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
-	var gvr schema.GroupVersionResource
-	var err error
-	gvr, err = loadServerResources(kind, c.cachedClient, c.log)
-	if err != nil && !c.cachedClient.Fresh() {
-
-		// invalidate cahce & re-try once more
-		c.cachedClient.Invalidate()
-		gvr, err = loadServerResources(kind, c.cachedClient, c.log)
-		if err == nil {
-			return gvr
-		}
+	_, gvr, err := c.FindResource(kind)
+	if err != nil {
+		return schema.GroupVersionResource{}
 	}
+
 	return gvr
 }
 
-//GetServerVersion returns the server version of the cluster
+// GetServerVersion returns the server version of the cluster
 func (c ServerPreferredResources) GetServerVersion() (*version.Info, error) {
 	return c.cachedClient.ServerVersion()
 }
 
-func loadServerResources(k string, cdi discovery.CachedDiscoveryInterface, log logr.Logger) (schema.GroupVersionResource, error) {
-	logger := log.WithName("loadServerResources")
-	emptyGVR := schema.GroupVersionResource{}
-	serverresources, err := cdi.ServerPreferredResources()
-	if err != nil {
-		logger.V(4).Info("failed to get registered preferred resources", "err", err.Error())
+// FindResource finds an API resource that matches 'kind'. If the resource is not
+// found and the Cache is not fresh, the cache is invalidated and a retry is attempted
+func (c ServerPreferredResources) FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	r, gvr, err := c.findResource(kind)
+	if err == nil {
+		return r, gvr, nil
 	}
+
+	if !c.cachedClient.Fresh() {
+		c.cachedClient.Invalidate()
+		if r, gvr, err = c.findResource(kind); err == nil {
+			return r, gvr, nil
+		}
+	}
+
+	c.log.Error(err, "failed to find resource", "kind", kind)
+	return nil, schema.GroupVersionResource{}, err
+}
+
+func (c ServerPreferredResources) findResource(k string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	serverresources, err := c.cachedClient.ServerPreferredResources()
+	if err != nil {
+		c.log.Error(err, "failed to get registered preferred resources")
+		return nil, schema.GroupVersionResource{}, err
+	}
+
 	for _, serverresource := range serverresources {
 		for _, resource := range serverresource.APIResources {
-			// skip the resource names with "/", to avoid comparison with subresources
 
+			// skip the resource names with "/", to avoid comparison with subresources
 			if resource.Kind == k && !strings.Contains(resource.Name, "/") {
 				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
 				if err != nil {
-					logger.Error(err, "failed to parse groupVersion from schema", "groupVersion", serverresource.GroupVersion)
-					return emptyGVR, err
+					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverresource.GroupVersion)
+					return nil, schema.GroupVersionResource{}, err
 				}
-				return gv.WithResource(resource.Name), nil
+
+				return &resource, gv.WithResource(resource.Name), nil
 			}
 		}
 	}
-	return emptyGVR, fmt.Errorf("kind '%s' not found", k)
+
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found", k)
 }
