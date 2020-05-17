@@ -121,7 +121,7 @@ func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
 		if err != nil {
 			return err
 		}
-		logger.V(3).Info("emoved mutating resource webhook configuration")
+		logger.V(3).Info("removed mutating resource webhook configuration")
 	}
 
 	if rww.RunValidationInMutatingWebhook != "true" {

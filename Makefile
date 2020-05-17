@@ -53,6 +53,10 @@ docker-push-initContainer:
 .PHONY: docker-build-kyverno docker-tag-repo-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
+
+local:
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/
+
 kyverno:
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
