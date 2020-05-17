@@ -10,6 +10,7 @@ import (
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystore"
@@ -264,7 +265,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(pc.worker, time.Second, stopCh)
+		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)
 	}
 
 	<-stopCh

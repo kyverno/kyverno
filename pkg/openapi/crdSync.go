@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -19,6 +18,7 @@ import (
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -84,7 +84,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	c.sync()
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, 10*time.Minute, stopCh)
+		go wait.Until(c.sync, constant.CRDControllerResync, stopCh)
 	}
 }
 
