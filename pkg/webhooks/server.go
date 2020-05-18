@@ -239,7 +239,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			},
 		}
 	}
-	var patchedResource []byte
+
 	var patches []byte
 
 	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
@@ -248,7 +248,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+		patches = ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 
 		// patch the resource with patches before handling validation rules
 		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
@@ -273,6 +273,9 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create {
+
+		// patch the resource with patches before handling validation rules
+		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
 			logger.Info("admission request denied")
@@ -285,24 +288,18 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			}
 		}
 	}
-	if versionCheck {
-		// Succesfful processing of mutation & validation rules in policy
-		patchType := v1beta1.PatchTypeJSONPatch
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-			Result: &metav1.Status{
-				Status: "Success",
-			},
-			Patch:     patches,
-			PatchType: &patchType,
-		}
-	}
+
+	// Succesfful processing of mutation & validation rules in policy
+	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Result: &metav1.Status{
 			Status: "Success",
 		},
+		Patch:     patches,
+		PatchType: &patchType,
 	}
+
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
