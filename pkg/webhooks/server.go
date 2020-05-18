@@ -244,7 +244,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 
 	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
 
-	if !versionCheck {
+	if versionCheck {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
@@ -285,7 +285,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			}
 		}
 	}
-	if !versionCheck {
+	if versionCheck {
 		// Succesfful processing of mutation & validation rules in policy
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
@@ -298,6 +298,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 	return &v1beta1.AdmissionResponse{
+		Allowed: true,
 		Result: &metav1.Status{
 			Status: "Success",
 		},
