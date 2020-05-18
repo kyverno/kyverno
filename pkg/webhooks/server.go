@@ -239,10 +239,9 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	var patchedResource []byte
 	var patches []byte
 
-	// Check for kubernetes version so that we can disable some features
 	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
 
-	if versionCheck {
+	if !versionCheck {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
@@ -283,7 +282,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			}
 		}
 	}
-	if versionCheck {
+	if !versionCheck {
 		// Succesfful processing of mutation & validation rules in policy
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
@@ -295,7 +294,11 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			PatchType: &patchType,
 		}
 	}
-	return &v1beta1.AdmissionResponse{}
+	return &v1beta1.AdmissionResponse{
+		Result: &metav1.Status{
+			Status: "Success",
+		},
+	}
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -318,16 +321,20 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
-	// VALIDATION
-	ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
-	if !ok {
-		logger.Info("admission request denied")
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+
+	if !versionCheck {
+		// VALIDATION
+		ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
+		if !ok {
+			logger.Info("admission request denied")
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: msg,
+				},
+			}
 		}
 	}
 	return &v1beta1.AdmissionResponse{
