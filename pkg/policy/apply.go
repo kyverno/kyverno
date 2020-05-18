@@ -21,10 +21,14 @@ import (
 //TODO: generation rules
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
 	startTime := time.Now()
-
-	logger.Info("start applying policy", "startTime", startTime)
 	defer func() {
-		logger.Info("finisnhed applying policy", "processingTime", time.Since(startTime))
+		name := resource.GetKind() + "/" + resource.GetName()
+		ns := resource.GetNamespace()
+		if ns != "" {
+			name = ns + "/" + name
+		}
+
+		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime))
 	}()
 
 	var engineResponses []response.EngineResponse
