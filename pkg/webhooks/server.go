@@ -135,10 +135,7 @@ func NewWebhookServer(
 
 	mux := httprouter.New()
 
-	// Check for kubernetes version so that we can disable some features
-	if utils.CompareKubernetesVersion(ws.client, log, 1, 14, 0) {
-		mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-	}
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyMutation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
@@ -239,30 +236,36 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			},
 		}
 	}
+	var patchedResource []byte
+	var patches []byte
 
-	// MUTATION
-	// mutation failure should not block the resource creation
-	// any mutation failure is reported as the violation
-	patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+	// Check for kubernetes version so that we can disable some features
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
 
-	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	if versionCheck {
+		// MUTATION
+		// mutation failure should not block the resource creation
+		// any mutation failure is reported as the violation
+		patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
 
-	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
-		// VALIDATION
-		ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
+		// patch the resource with patches before handling validation rules
+		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+
+		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+			// VALIDATION
+			ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+			if !ok {
+				logger.Info("admission request denied")
+				return &v1beta1.AdmissionResponse{
+					Allowed: false,
+					Result: &metav1.Status{
+						Status:  "Failure",
+						Message: msg,
+					},
+				}
 			}
 		}
 	}
-
 	// GENERATE
 	// Only applied during resource creation
 	// Success -> Generate Request CR created successsfully
@@ -280,16 +283,19 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			}
 		}
 	}
-	// Succesfful processing of mutation & validation rules in policy
-	patchType := v1beta1.PatchTypeJSONPatch
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-		Result: &metav1.Status{
-			Status: "Success",
-		},
-		Patch:     patches,
-		PatchType: &patchType,
+	if versionCheck {
+		// Succesfful processing of mutation & validation rules in policy
+		patchType := v1beta1.PatchTypeJSONPatch
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+			Patch:     patches,
+			PatchType: &patchType,
+		}
 	}
+	return &v1beta1.AdmissionResponse{}
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -324,7 +330,6 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 			},
 		}
 	}
-
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Result: &metav1.Status{
