@@ -33,6 +33,8 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const resyncPeriod = 15 * time.Minute
+
 var (
 	kubeconfig                     string
 	serverIP                       string
@@ -61,15 +63,11 @@ func main() {
 
 	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
 	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
-
 	flag.Parse()
 
 	version.PrintVersionInfo(log.Log)
-	// cleanUp Channel
 	cleanUp := make(chan struct{})
-	//  handle os signals
 	stopCh := signal.SetupSignalHandler()
-	// CLIENT CONFIG
 	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
@@ -88,39 +86,31 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	// - invalidate local cache of registered resource every 10 seconds
-	client, err := dclient.NewClient(clientConfig, 10*time.Second, stopCh, log.Log)
+	client, err := dclient.NewClient(clientConfig, 5*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
+
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
 		setupLog.Error(fmt.Errorf("pre-requisite CRDs not installed"), "Failed to create watch on kyverno CRDs")
 		os.Exit(1)
 	}
-	// KUBERNETES CLIENT
+
 	kubeClient, err := utils.NewKubeClient(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
 
-	// TODO(shuting): To be removed for v1.2.0
+	// TODO: To be removed for v1.2.0
 	utils.CleanupOldCrd(client, log.Log)
 
-	// KUBERNETES RESOURCES INFORMER
-	// watches namespace resource
-	// - cache resync time: 10 seconds
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(
-		kubeClient,
-		10*time.Second)
-	// KUBERNETES Dynamic informer
-	// - cahce resync time: 10 seconds
-	kubedynamicInformer := client.NewDynamicSharedInformerFactory(10 * time.Second)
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
-	// WERBHOOK REGISTRATION CLIENT
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
 		clientConfig,
 		client,
@@ -143,10 +133,7 @@ func main() {
 	// watches CRD resources:
 	//		- Policy
 	//		- PolicyVolation
-	// - cache resync time: 10 seconds
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(
-		pclient,
-		10*time.Second)
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
 	// dynamically load the configuration from configMap
@@ -187,9 +174,8 @@ func main() {
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
-	// - status aggregator: receives stats when a policy is applied
-	//					    & updates the policy status
-	pc, err := policy.NewPolicyController(pclient,
+	// - status aggregator: receives stats when a policy is applied & updates the policy status
+	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
@@ -201,6 +187,7 @@ func main() {
 		rWebhookWatcher,
 		log.Log.WithName("PolicyController"),
 	)
+
 	if err != nil {
 		setupLog.Error(err, "Failed to create policy controller")
 		os.Exit(1)
@@ -222,6 +209,7 @@ func main() {
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
 	)
+
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
 	grcc := generatecleanup.NewController(
@@ -257,7 +245,7 @@ func main() {
 	}
 
 	// Sync openAPI definitions of resources
-	openApiSync := openapi.NewCRDSync(client, openAPIController)
+	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
 	// WEBHOOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -284,10 +272,12 @@ func main() {
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
 	)
+
 	if err != nil {
 		setupLog.Error(err, "Failed to create webhook server")
 		os.Exit(1)
 	}
+
 	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
@@ -296,13 +286,13 @@ func main() {
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyMetaStore.Run(stopCh)
-	go pc.Run(1, stopCh)
+	go policyCtrl.Run(3, stopCh)
 	go egen.Run(1, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
-	openApiSync.Run(1, stopCh)
+	openAPISync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
@@ -319,8 +309,10 @@ func main() {
 	defer func() {
 		cancel()
 	}()
+
 	// cleanup webhookconfigurations followed by webhook shutdown
 	server.Stop(ctx)
+
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp

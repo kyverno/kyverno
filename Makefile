@@ -10,7 +10,7 @@ TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 REGISTRY=index.docker.io
 REPO=$(REGISTRY)/nirmata/kyverno
-IMAGE_TAG=$(GIT_VERSION)
+IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 PACKAGE ?=github.com/nirmata/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -53,6 +53,10 @@ docker-push-initContainer:
 .PHONY: docker-build-kyverno docker-tag-repo-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
+
+local:
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/
+
 kyverno:
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 

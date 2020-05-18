@@ -12,7 +12,7 @@ import (
 func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
-	logger.V(4).Info("Debug MutatingWebhookConfig registed", "url", url)
+	logger.V(4).Info("Debug MutatingWebhookConfig registered", "url", url)
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationDebugName,
@@ -57,7 +57,7 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 	}
 }
 
-//GetResourceMutatingWebhookConfigName provi
+//GetResourceMutatingWebhookConfigName returns the webhook configuration name
 func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfigName() string {
 	if wrc.serverIP != "" {
 		return config.MutatingWebhookConfigurationDebugName
@@ -72,14 +72,16 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 	// delete webhook configuration
 	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
-		logger.Error(err, "resource does not exit")
+		logger.V(5).Info("webhook configuration not found")
 		return nil
 	}
+
 	if err != nil {
-		logger.V(4).Info("failed to delete resource")
+		logger.V(4).Info("failed to delete webhook configuration")
 		return err
 	}
-	logger.V(4).Info("deleted resource")
+
+	logger.V(4).Info("deleted webhook configuration")
 	return nil
 }
 
@@ -130,25 +132,30 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []
 	}
 }
 
+// GetResourceValidatingWebhookConfigName returns the webhook configuration name
 func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() string {
 	if wrc.serverIP != "" {
 		return config.ValidatingWebhookConfigurationDebugName
 	}
+
 	return config.ValidatingWebhookConfigurationName
 }
 
+// RemoveResourceValidatingWebhookConfiguration deletes an existing webhook configuration
 func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() error {
 	configName := wrc.GetResourceValidatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
 	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
-		logger.Error(err, "resource does not exist; deleted already")
+		logger.V(5).Info("webhook configuration not found")
 		return nil
 	}
+
 	if err != nil {
-		logger.Error(err, "failed to delete the resource")
+		logger.Error(err, "failed to delete the webhook configuration")
 		return err
 	}
-	logger.Info("resource deleted")
+
+	logger.Info("webhook configuration deleted")
 	return nil
 }

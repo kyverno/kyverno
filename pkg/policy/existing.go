@@ -34,8 +34,13 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		}
 
 		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
-		if skipPodApplication(resource, logger) {
-			continue
+		ann := policy.GetAnnotations()
+		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
+			if ann[engine.PodTemplateAnnotation] != "none" {
+				if skipPodApplication(resource, logger) {
+					continue
+				}
+			}
 		}
 
 		// apply the policy on each
@@ -53,26 +58,35 @@ func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHa
 	resourceMap := map[string]unstructured.Unstructured{}
 
 	for _, rule := range policy.Spec.Rules {
-		// resources that match
 		for _, k := range rule.MatchResources.Kinds {
-			var namespaces []string
-			if len(rule.MatchResources.Namespaces) > 0 {
-				namespaces = append(namespaces, rule.MatchResources.Namespaces...)
-				log.V(4).Info("namespaces included", "namespaces", rule.MatchResources.Namespaces)
-			} else {
-				log.V(4).Info("processing all namespaces", "rule", rule.Name)
-				// get all namespaces
-				namespaces = getAllNamespaces(client, log)
+
+			resourceSchema, _, err := client.DiscoveryClient.FindResource(k)
+			if err != nil {
+				log.Error(err, "failed to find resource", "kind", k)
+				continue
 			}
 
-			// get resources in the namespaces
-			for _, ns := range namespaces {
-				rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler, log)
+			if !resourceSchema.Namespaced {
+				rMap := getResourcesPerNamespace(k, client, "", rule, configHandler, log)
 				mergeresources(resourceMap, rMap)
-			}
+			} else {
+				var namespaces []string
+				if len(rule.MatchResources.Namespaces) > 0 {
+					log.V(4).Info("namespaces included", "namespaces", rule.MatchResources.Namespaces)
+					namespaces = append(namespaces, rule.MatchResources.Namespaces...)
+				} else {
+					log.V(4).Info("processing all namespaces", "rule", rule.Name)
+					namespaces = getAllNamespaces(client, log)
+				}
 
+				for _, ns := range namespaces {
+					rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler, log)
+					mergeresources(resourceMap, rMap)
+				}
+			}
 		}
 	}
+
 	return resourceMap
 }
 

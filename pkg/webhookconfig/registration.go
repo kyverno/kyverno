@@ -51,7 +51,7 @@ func NewWebhookRegistrationClient(
 func (wrc *WebhookRegistrationClient) Register() error {
 	logger := wrc.log.WithName("Register")
 	if wrc.serverIP != "" {
-		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
+		logger.V(4).Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
 
 	// For the case if cluster already has this configs
@@ -249,20 +249,23 @@ func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration()
 // Register will fail if the config exists, so there is no need to fail on error
 func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	startTime := time.Now()
-	wrc.log.Info("Started cleaning up webhookconfigurations")
+	wrc.log.Info("removing prior webhook configurations")
 	defer func() {
-		wrc.log.V(4).Info("Finished cleaning up webhookcongfigurations", "processingTime", time.Since(startTime))
+		wrc.log.V(4).Info("removed webhookcongfigurations", "processingTime", time.Since(startTime))
 	}()
 
 	var wg sync.WaitGroup
 
 	wg.Add(5)
+
 	// mutating and validating webhook configuration for Kubernetes resources
 	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	go wrc.removeResourceValidatingWebhookConfiguration(&wg)
+
 	// mutating and validating webhook configurtion for Policy CRD resource
 	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
 	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
+
 	// mutating webhook configuration for verifying webhook
 	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 
@@ -285,50 +288,55 @@ func (wrc *WebhookRegistrationClient) removeResourceValidatingWebhookConfigurati
 	}
 }
 
-// delete policy mutating webhookconfigurations
-// handle wait group
 func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// Mutating webhook configuration
+
 	var mutatingConfig string
 	if wrc.serverIP != "" {
 		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
 	} else {
 		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
 	}
+
 	logger := wrc.log.WithValues("name", mutatingConfig)
-	logger.V(4).Info("removing mutating webhook configuration")
 	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
-		logger.Error(err, "policy mutating webhook configuration does not exist, not deleting")
-	} else if err != nil {
-		logger.Error(err, "failed to delete policy mutating webhook configuration")
-	} else {
-		logger.V(4).Info("successfully deleted policy mutating webhook configutation")
+		logger.V(5).Info("policy mutating webhook configuration not found")
+		return
 	}
+
+	if err != nil {
+		logger.Error(err, "failed to delete policy mutating webhook configuration")
+		return
+	}
+
+	logger.V(4).Info("successfully deleted policy mutating webhook configutation")
 }
 
-// delete policy validating webhookconfigurations
-// handle wait group
 func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// Validating webhook configuration
+
 	var validatingConfig string
 	if wrc.serverIP != "" {
 		validatingConfig = config.PolicyValidatingWebhookConfigurationDebugName
 	} else {
 		validatingConfig = config.PolicyValidatingWebhookConfigurationName
 	}
+
 	logger := wrc.log.WithValues("name", validatingConfig)
 	logger.V(4).Info("removing validating webhook configuration")
 	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", validatingConfig, false)
 	if errorsapi.IsNotFound(err) {
-		logger.Error(err, "policy validating webhook configuration does not exist, not deleting")
-	} else if err != nil {
-		logger.Error(err, "failed to delete policy validating webhook configuration")
-	} else {
-		logger.V(4).Info("successfully deleted policy validating webhook configutation")
+		logger.V(5).Info("policy validating webhook configuration not found")
+		return
 	}
+
+	if err != nil {
+		logger.Error(err, "failed to delete policy validating webhook configuration")
+		return
+	}
+
+	logger.V(4).Info("successfully deleted policy validating webhook configutation")
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout

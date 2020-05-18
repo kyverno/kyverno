@@ -60,7 +60,7 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 
 func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// Mutating webhook configuration
+
 	var err error
 	var mutatingConfig string
 	if wrc.serverIP != "" {
@@ -68,14 +68,18 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(w
 	} else {
 		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
 	}
+
 	logger := wrc.log.WithValues("name", mutatingConfig)
-	logger.V(4).Info("removing webhook configuration")
 	err = wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
-		logger.Error(err, "verify webhook configuration, does not exits. not deleting")
-	} else if err != nil {
-		logger.Error(err, "failed to delete verify wwebhook configuration")
-	} else {
-		logger.V(4).Info("successfully deleted verify webhook configuration")
+		logger.V(5).Info("verify webhook configuration not found")
+		return
 	}
+
+	if err != nil {
+		logger.Error(err, "failed to delete verify wwebhook configuration")
+		return
+	}
+
+	logger.V(4).Info("successfully deleted verify webhook configuration")
 }

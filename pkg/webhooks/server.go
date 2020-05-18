@@ -37,7 +37,6 @@ import (
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
-// MutationWebhook gets policies from policyController and takes control of the cluster with kubeclient.
 type WebhookServer struct {
 	server        http.Server
 	client        *client.Client
@@ -152,15 +151,16 @@ func NewWebhookServer(
 }
 
 func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse, filter bool) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(rw http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
-		// for every request received on the ep update last request time,
-		// this is used to verify admission control
-		ws.lastReqTime.SetTime(time.Now())
-		admissionReview := ws.bodyToAdmissionReview(r, w)
+		ws.lastReqTime.SetTime(startTime)
+
+		admissionReview := ws.bodyToAdmissionReview(r, rw)
 		if admissionReview == nil {
+			ws.log.Info("failed to parse admission review request", "request", r)
 			return
 		}
+
 		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
 		defer func() {
 			logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
@@ -168,34 +168,37 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = &v1beta1.AdmissionResponse{
 			Allowed: true,
+			UID:     admissionReview.Request.UID,
 		}
 
 		// Do not process the admission requests for kinds that are in filterKinds for filtering
 		request := admissionReview.Request
-		if filter {
-			if !ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-				admissionReview.Response = handler(request)
-			}
-		} else {
-			admissionReview.Response = handler(request)
-		}
-		admissionReview.Response.UID = request.UID
-
-		responseJSON, err := json.Marshal(admissionReview)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+		if filter && ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+			writeResponse(rw, admissionReview)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if _, err := w.Write(responseJSON); err != nil {
-			http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
-		}
+		admissionReview.Response = handler(request)
+		writeResponse(rw, admissionReview)
+		return
+	}
+}
+
+func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionReview) {
+	responseJSON, err := json.Marshal(admissionReview)
+	if err != nil {
+		http.Error(rw, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := rw.Write(responseJSON); err != nil {
+		http.Error(rw, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }
 
 func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("handleMutateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -228,7 +231,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	if checkPodTemplateAnn(resource) {
+	if checkPodTemplateAnnotation(resource) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -302,7 +305,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("handleValidateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -318,6 +321,28 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			logger.Error(err, "failed to get RBAC infromation for request")
+		}
+	}
+
+	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		logger.Error(err, "failed to convert RAW resource to unstructured format")
+
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: err.Error(),
+			},
+		}
+	}
+
+	if checkPodTemplateAnnotation(resource) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
 		}
 	}
 
@@ -359,6 +384,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 		}
 	}(ws)
 	logger.Info("starting")
+
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)

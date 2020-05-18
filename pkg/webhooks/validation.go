@@ -17,9 +17,17 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
-	logger := ws.log.WithValues("action", "validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	logger.V(4).Info("incoming request")
+func (ws *WebhookServer) HandleValidation(
+	request *v1beta1.AdmissionRequest,
+	policies []kyverno.ClusterPolicy,
+	patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+
+	resourceName := request.Kind.Kind + "/" + request.Name
+	if request.Namespace != "" {
+		resourceName = request.Namespace + "/" + resourceName
+	}
+
+	logger := ws.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
 
 	// Get new and old resource
 	newR, oldR, err := extractResources(patchedResource, request)
@@ -28,6 +36,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 		logger.Error(err, "failed to extract resource")
 		return true, ""
 	}
+
 	userRequestInfo := kyverno.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
@@ -58,7 +67,7 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 	}
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
-		logger.V(2).Info("evaluating policy", "policy", policy.Name)
+		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = policy
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
@@ -74,6 +83,8 @@ func (ws *WebhookServer) HandleValidation(request *v1beta1.AdmissionRequest, pol
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
 			continue
 		}
+
+		logger.Info("valiadtion rules from policy applied succesfully", "policy", policy.Name)
 	}
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"

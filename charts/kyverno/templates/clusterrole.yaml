@@ -1,0 +1,147 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:policyviolations
+rules:
+- apiGroups: ["kyverno.io"]
+  resources:
+  - policyviolations
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:webhook
+rules:
+# Dynamic creation of webhooks, events & certs
+- apiGroups:
+  - '*'
+  resources:
+  - events
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  verbs:
+  - create
+  - delete
+  - get 
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  - certificatesigningrequests/status
+  resourceNames:
+    - kubernetes.io/legacy-unknown
+  verbs:
+  - create
+  - delete
+  - get 
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  resourceNames:
+  - kubernetes.io/legacy-unknown
+  verbs:
+  - approve 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:userinfo
+rules:
+# get the roleRef for incoming api-request user
+- apiGroups:
+  - "*"
+  resources:
+  - rolebindings
+  - clusterrolebindings
+  - configmaps
+  verbs:
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:customresources
+rules:
+# Kyverno CRs
+- apiGroups:
+  - '*'
+  resources:
+  - clusterpolicies
+  - clusterpolicies/status
+  - clusterpolicyviolations
+  - clusterpolicyviolations/status
+  - policyviolations
+  - policyviolations/status
+  - generaterequests
+  - generaterequests/status
+  verbs:
+  - create
+  - delete
+  - get 
+  - list 
+  - patch
+  - update
+  - watch
+---  
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:policycontroller
+rules:
+# background processing, identify all existing resources
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:generatecontroller
+rules:
+# process generate rules to generate resources
+- apiGroups:
+  - "*"
+  resources:
+  - namespaces
+  - networkpolicies
+  - secrets
+  - configmaps
+  - resourcequotas
+  - limitranges
+  - clusterroles
+  - rolebindings
+  - clusterrolebindings
+  {{- range .Values.generatecontrollerExtraResources }}
+  - {{ . }}
+  {{- end }}
+  verbs:
+  - create
+  - update
+  - delete
+  - get
+# dynamic watches on trigger resources for generate rules
+# re-evaluate the policy if the resource is updated
+- apiGroups:
+  - '*'
+  resources:
+  - namespaces
+  verbs:
+  - watch
+{{- end }}
