@@ -1,10 +1,12 @@
 package client
 
 import (
+	"fmt"
 	"strings"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -74,6 +76,10 @@ func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
 func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) schema.GroupVersionResource {
 	resource := strings.ToLower(kind) + "s"
 	return c.getGVR(resource)
+}
+
+func (c *fakeDiscoveryClient) FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("Not implemented")
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapi_v2.Document, error) {

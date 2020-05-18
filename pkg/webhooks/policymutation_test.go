@@ -41,7 +41,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "all"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet"
 		  }
 		}
 	  }`)
@@ -274,7 +274,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "all",
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet",
 			"test": "annotation"
 		  }
 		}
@@ -483,7 +483,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "all"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet"
 		  },
 		  "name": "add-safe-to-evict"
 		},

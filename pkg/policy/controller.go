@@ -206,6 +206,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 			return
 		}
 	}
+
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
@@ -225,11 +226,13 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 			return
 		}
 	}
+
 	logger.V(4).Info("deleting policy", "name", p.Name)
 	// Unregister from policy meta-store
 	if err := pc.pMetaStore.UnRegister(*p); err != nil {
 		logger.Error(err, "failed to unregister policy", "name", p.Name)
 	}
+
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(p)
@@ -263,6 +266,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+
 	<-stopCh
 }
 
@@ -315,37 +319,40 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	defer func() {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime))
 	}()
+
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
-		logger.V(2).Info("policy deleted", "key", key)
-		// delete cluster policy violation
-		if err := pc.deleteClusterPolicyViolations(key); err != nil {
-			return err
-		}
-		// delete namespaced policy violation
-		if err := pc.deleteNamespacedPolicyViolations(key); err != nil {
-			return err
-		}
+		go pc.deletePolicyViolations(key)
 
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			// do not fail, if unable to delete resource webhook config
 			logger.Error(err, "failed to remove resource webhook configurations")
 		}
+
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
-	// process policies on existing resources
 	engineResponses := pc.processExistingResources(*policy)
-	// report errors
 	pc.cleanupAndReport(engineResponses)
 
 	return nil
+}
+
+func (pc *PolicyController) deletePolicyViolations(key string) {
+	if err := pc.deleteClusterPolicyViolations(key); err != nil {
+		pc.log.Error(err, "failed to delete policy violation", "key", key)
+	}
+
+	if err := pc.deleteNamespacedPolicyViolations(key); err != nil {
+		pc.log.Error(err, "failed to delete policy violation", "key", key)
+	}
 }
 
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) error {
@@ -353,11 +360,13 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, cpv := range cpvList {
 		if err := pc.pvControl.DeleteClusterPolicyViolation(cpv.Name); err != nil {
-			return err
+			pc.log.Error(err, "failed to delete policy violation", "name", cpv.Name)
 		}
 	}
+
 	return nil
 }
 
@@ -366,11 +375,13 @@ func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) erro
 	if err != nil {
 		return err
 	}
+
 	for _, nspv := range nspvList {
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(nspv.Namespace, nspv.Name); err != nil {
-			return err
+			pc.log.Error(err, "failed to delete policy violation", "name", nspv.Name)
 		}
 	}
+
 	return nil
 }
 

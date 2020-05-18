@@ -81,7 +81,7 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
-	// default 'Background' flag to 'true' if not specified
+	// set 'Background' flag to 'true' if not specified
 	defaultVal := true
 	if policy.Spec.Background == nil {
 		log.V(4).Info("setting default value", "spec.background", true)
@@ -94,19 +94,22 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]by
 			"add",
 			&defaultVal,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
 		}
-		log.Info("generated JSON Patch to set default", "spec.background", true)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
 		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
 	}
+
 	return nil, ""
 }
 
 func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
-	// default ValidationFailureAction to "audit" if not specified
+	// set ValidationFailureAction to "audit" if not specified
 	if policy.Spec.ValidationFailureAction == "" {
 		log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
 		jsonPatch := struct {
@@ -116,16 +119,19 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 		}{
 			"/spec/validationFailureAction",
 			"add",
-			Audit, //audit
+			Audit,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
 			log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
 			return nil, ""
 		}
-		log.Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
 		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
 	}
+
 	return nil, ""
 }
 
@@ -145,7 +151,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	// scenario A
 	if !ok {
-		controllers = "all"
+		controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -158,6 +164,7 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	if controllers == "none" {
 		return nil, nil
 	}
+
 	log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
 
 	p, err := generateRulePatches(policy, controllers, log)
@@ -197,6 +204,7 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 // generateRulePatches generates rule for podControllers based on scenario A and C
 func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
 	var genRule kyvernoRule
+
 	insertIdx := len(policy.Spec.Rules)
 
 	ruleMap := createRuleMap(policy.Spec.Rules)
@@ -286,14 +294,34 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return kyvernoRule{}
 	}
 
-	// scenario A
+	// Support backword compatibility
+	skipAutoGeneration := false
+	var controllersValidated []string
 	if controllers == "all" {
+		skipAutoGeneration = true
+	} else if controllers != "none" && controllers != "all" {
+		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		for _, value := range strings.Split(controllers, ",") {
+			if _, ok := controllersList[value]; ok {
+				controllersValidated = append(controllersValidated, value)
+			}
+		}
+		if len(controllersValidated) > 0 {
+			skipAutoGeneration = true
+		}
+	}
+
+	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
 			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
 			return kyvernoRule{}
 		}
-		controllers = engine.PodControllers
+		if controllers == "all" {
+			controllers = engine.PodControllers
+		} else {
+			controllers = strings.Join(controllersValidated, ",")
+		}
 	}
 
 	controllerRule := &kyvernoRule{
@@ -361,7 +389,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[engine.PodControllersAnnotation] = "all"
+		ann[engine.PodControllersAnnotation] = "DaemonSet,Deployment,Job,StatefulSet"
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`
@@ -386,7 +414,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"all",
+		"DaemonSet,Deployment,Job,StatefulSet",
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)
