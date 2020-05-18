@@ -240,7 +240,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	var patches []byte
+	var patches, patchedResource []byte
 
 	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
 
@@ -267,15 +267,15 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 				}
 			}
 		}
+	} else {
+		// patch the resource with patches before handling validation rules
+		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 	}
 	// GENERATE
 	// Only applied during resource creation
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create {
-
-		// patch the resource with patches before handling validation rules
-		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
 		if !ok {
 			logger.Info("admission request denied")
