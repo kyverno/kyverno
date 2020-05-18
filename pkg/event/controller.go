@@ -1,13 +1,12 @@
 package event
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +66,7 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.Infof)
+	eventBroadcaster.StartLogging(klog.V(5).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		log.Error(err, "failed to get event interface for logging")
@@ -109,7 +108,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, time.Second, stopCh)
+		go wait.Until(gen.runWorker, constant.EventControllerResync, stopCh)
 	}
 	<-stopCh
 }
