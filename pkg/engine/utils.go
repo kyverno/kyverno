@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+var ExcludeRoles = []string{"system:nodes", "system:serviceaccounts:kube-system", "system:kube-scheduler"}
+
 //EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
 	// average time required to process the policy rules on a resource
@@ -90,13 +92,18 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 			}
 		}
 	}
-	if len(userInfo.Roles) > 0 {
-		if !doesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+
+	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
+
+	if len(userInfo.Roles) > 0 &&
+		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeRoles...) {
+		if !DoesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
 			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
-	if len(userInfo.ClusterRoles) > 0 {
-		if !doesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+	if len(userInfo.ClusterRoles) > 0 &&
+		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeRoles...) {
+		if !DoesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
 	}
@@ -142,7 +149,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	return false
 }
 
-func doesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
+func DoesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
 
 	var sliceElementsMap = make(map[string]bool, len(slice))
 	for _, sliceElement := range slice {

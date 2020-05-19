@@ -48,7 +48,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
-			logger.V(4).Info("resource fails the match description")
+			logger.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 

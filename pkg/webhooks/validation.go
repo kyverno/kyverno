@@ -14,6 +14,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // HandleValidation handles validating webhook admission request
@@ -41,6 +43,17 @@ func (ws *WebhookServer) HandleValidation(
 		return true, ""
 	}
 
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		deletionTimeStamp = newR.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = oldR.GetDeletionTimestamp()
+	}
+
+	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
+		return true, ""
+	}
+
 	policyContext := engine.PolicyContext{
 		NewResource:   newR,
 		OldResource:   oldR,
@@ -63,7 +76,7 @@ func (ws *WebhookServer) HandleValidation(
 			resp: engineResponse,
 		})
 		if !engineResponse.IsSuccesful() {
-			logger.V(4).Info("failed to apply policy", "policy", policy.Name)
+			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
