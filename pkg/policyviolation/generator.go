@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -14,6 +13,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/constant"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -153,7 +153,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, time.Second, stopCh)
+		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
 	<-stopCh
 }

@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"reflect"
+	"regexp"
+	"strconv"
 
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
@@ -133,4 +135,41 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	obj.SetNamespace(namespace)
 	return *obj, nil
+}
+
+// CompareKubernetesVersion compare kuberneates client version to user given version
+func CompareKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, k8sminor, k8ssub int) bool {
+	logger := log.WithName("CompareKubernetesVersion")
+	serverVersion, err := client.DiscoveryClient.GetServerVersion()
+	if err != nil {
+		logger.Error(err, "Failed to get kubernetes server version")
+		return false
+	}
+	exp := regexp.MustCompile(`v(\d*).(\d*).(\d*)`)
+	groups := exp.FindAllStringSubmatch(serverVersion.String(), -1)
+	if len(groups) != 1 || len(groups[0]) != 4 {
+		logger.Error(err, "Failed to extract kubernetes server version", "serverVersion", serverVersion)
+		return false
+	}
+	// convert string to int
+	// assuming the version are always intergers
+	major, err := strconv.Atoi(groups[0][1])
+	if err != nil {
+		logger.Error(err, "Failed to extract kubernetes major server version", "serverVersion", serverVersion)
+		return false
+	}
+	minor, err := strconv.Atoi(groups[0][2])
+	if err != nil {
+		logger.Error(err, "Failed to extract kubernetes minor server version", "serverVersion", serverVersion)
+		return false
+	}
+	sub, err := strconv.Atoi(groups[0][3])
+	if err != nil {
+		logger.Error(err, "Failed to extract kubernetes sub minor server version", "serverVersion", serverVersion)
+		return false
+	}
+	if major <= k8smajor && minor <= k8sminor && sub < k8ssub {
+		return false
+	}
+	return true
 }

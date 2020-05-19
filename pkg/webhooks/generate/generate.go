@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/constant"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -60,7 +61,7 @@ func (g *Generator) Run(workers int) {
 		logger.V(4).Info("shutting down")
 	}()
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.process, time.Second, g.stopCh)
+		go wait.Until(g.process, constant.GenerateControllerResync, g.stopCh)
 	}
 	<-g.stopCh
 }

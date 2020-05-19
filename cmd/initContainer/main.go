@@ -7,14 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/signal"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -63,7 +62,9 @@ func main() {
 	// Exit for unsupported version of kubernetes cluster
 	// https://github.com/nirmata/kyverno/issues/700
 	// - supported from v1.12.7+
-	isVersionSupported(client)
+	if !utils.CompareKubernetesVersion(client, log.Log, 1, 12, 7) {
+		os.Exit(1)
+	}
 
 	requests := []request{
 		// Resource
@@ -221,40 +222,4 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 		close(out)
 	}()
 	return out
-}
-
-func isVersionSupported(client *client.Client) {
-	logger := log.Log
-	serverVersion, err := client.DiscoveryClient.GetServerVersion()
-	if err != nil {
-		logger.Error(err, "Failed to get kubernetes server version")
-		os.Exit(1)
-	}
-	exp := regexp.MustCompile(`v(\d*).(\d*).(\d*)`)
-	groups := exp.FindAllStringSubmatch(serverVersion.String(), -1)
-	if len(groups) != 1 || len(groups[0]) != 4 {
-		logger.Error(err, "Failed to extract kubernetes server version", "serverVersion", serverVersion)
-		os.Exit(1)
-	}
-	// convert string to int
-	// assuming the version are always intergers
-	major, err := strconv.Atoi(groups[0][1])
-	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes major server version", "serverVersion", serverVersion)
-		os.Exit(1)
-	}
-	minor, err := strconv.Atoi(groups[0][2])
-	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes minor server version", "serverVersion", serverVersion)
-		os.Exit(1)
-	}
-	sub, err := strconv.Atoi(groups[0][3])
-	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes sub minor server version", "serverVersion", serverVersion)
-		os.Exit(1)
-	}
-	if major <= 1 && minor <= 12 && sub < 7 {
-		logger.Info("Unsupported kubernetes server version %s. Kyverno is supported from version v1.12.7+", "serverVersion", serverVersion)
-		os.Exit(1)
-	}
 }

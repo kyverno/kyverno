@@ -10,28 +10,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/utils"
-
-	"github.com/julienschmidt/httprouter"
-
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	context2 "github.com/nirmata/kyverno/pkg/engine/context"
-
-	"github.com/nirmata/kyverno/pkg/openapi"
-
 	"github.com/go-logr/logr"
+	"github.com/julienschmidt/httprouter"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	context2 "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -136,12 +132,15 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 	}
+
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
+	webhookTimeout := ws.webhookRegistrationClient.GetWebhookTimeOut()
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.resourceMutation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.resourceValidation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.policyMutation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.policyValidation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.verifyHandler, false), webhookTimeout))
+
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -219,13 +218,8 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	raw := request.Object.Raw
-	if request.Operation == v1beta1.Delete {
-		raw = request.OldObject.Raw
-	}
-
 	// convert RAW to unstructured
-	resource, err := utils.ConvertResource(raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 
@@ -268,25 +262,31 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	// MUTATION
-	// mutation failure should not block the resource creation
-	// any mutation failure is reported as the violation
-	patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
+	var patches []byte
+	patchedResource := request.Object.Raw
 
-	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if versionCheck {
+		// MUTATION
+		// mutation failure should not block the resource creation
+		// any mutation failure is reported as the violation
+		patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
 
-	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
-		// VALIDATION
-		ok, msg := ws.HandleValidation(request, policies, patchedResource, ctx, userRequestInfo)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
+		// patch the resource with patches before handling validation rules
+		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+
+		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+			// VALIDATION
+			ok, msg := ws.HandleValidation(request, policies, patchedResource, ctx, userRequestInfo)
+			if !ok {
+				logger.Info("admission request denied")
+				return &v1beta1.AdmissionResponse{
+					Allowed: false,
+					Result: &metav1.Status{
+						Status:  "Failure",
+						Message: msg,
+					},
+				}
 			}
 		}
 	}
@@ -308,6 +308,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			}
 		}
 	}
+
 	// Succesfful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
@@ -318,6 +319,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		Patch:     patches,
 		PatchType: &patchType,
 	}
+
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -388,16 +390,18 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	// VALIDATION
-	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
-	if !ok {
-		logger.Info("admission request denied")
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if !versionCheck {
+		ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
+		if !ok {
+			logger.Info("admission request denied")
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: msg,
+				},
+			}
 		}
 	}
 
