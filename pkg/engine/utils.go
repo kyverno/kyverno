@@ -163,7 +163,8 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
+		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
@@ -171,7 +172,8 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	// checking if resource has been excluded
-	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
+		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
 		if excludeErrs == nil {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource has been excluded since it matches the exclude block"))
