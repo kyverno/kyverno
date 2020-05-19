@@ -143,7 +143,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-			log.V(4).Info("resource fails the match description")
+			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 

@@ -219,8 +219,13 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
+	raw := request.Object.Raw
+	if request.Operation == v1beta1.Delete {
+		raw = request.OldObject.Raw
+	}
+
 	// convert RAW to unstructured
-	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := utils.ConvertResource(raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 
@@ -356,7 +361,12 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	raw := request.Object.Raw
+	if request.Operation == v1beta1.Delete {
+		raw = request.OldObject.Raw
+	}
+
+	resource, err := convertResource(raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 
