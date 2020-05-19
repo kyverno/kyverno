@@ -164,9 +164,6 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 		}
 
 		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
-		defer func() {
-			logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
-		}()
 
 		admissionReview.Response = &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -182,6 +179,8 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
+		logger.V(4).Info("request processed", "processingTime", time.Since(startTime).Milliseconds())
+
 		return
 	}
 }
@@ -265,8 +264,8 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
-	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-	if versionCheck {
+	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if higherVersion {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
@@ -390,8 +389,8 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-	if !versionCheck {
+	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if higherVersion {
 		ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")

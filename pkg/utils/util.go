@@ -137,8 +137,8 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	return *obj, nil
 }
 
-// CompareKubernetesVersion compare kuberneates client version to user given version
-func CompareKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, k8sminor, k8ssub int) bool {
+// HigherThanKubernetesVersion compare kuberneates client version to user given version
+func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, k8sminor, k8ssub int) bool {
 	logger := log.WithName("CompareKubernetesVersion")
 	serverVersion, err := client.DiscoveryClient.GetServerVersion()
 	if err != nil {
