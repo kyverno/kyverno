@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-var ExcludeRoles = []string{"system:nodes", "system:serviceaccounts:kube-system", "system:kube-scheduler"}
+var ExcludeUserInfo = []string{"system:nodes", "system:serviceaccounts:kube-system", "system:kube-scheduler"}
 
 //EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
@@ -96,13 +96,13 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 
 	if len(userInfo.Roles) > 0 &&
-		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeRoles...) {
+		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeUserInfo...) {
 		if !DoesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
 			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
 	if len(userInfo.ClusterRoles) > 0 &&
-		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeRoles...) {
+		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeUserInfo...) {
 		if !DoesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}

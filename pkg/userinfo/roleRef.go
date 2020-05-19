@@ -22,7 +22,7 @@ const (
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
-	if engine.DoesSliceContainsAnyOfTheseValues(keys, engine.ExcludeRoles...) {
+	if engine.DoesSliceContainsAnyOfTheseValues(keys, engine.ExcludeUserInfo...) {
 		return
 	}
 
