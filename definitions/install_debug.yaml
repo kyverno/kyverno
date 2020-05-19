@@ -133,7 +133,7 @@ spec:
                               type: string
                             name:
                               type: string
-                            Namespace:
+                            namespace:
                               type: string
                       resources:
                         type: object
