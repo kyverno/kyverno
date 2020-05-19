@@ -199,6 +199,15 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 }
 
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	if excludeKyvernoResources(request.Kind.Kind) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
@@ -322,6 +331,15 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	if excludeKyvernoResources(request.Kind.Kind) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {

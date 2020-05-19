@@ -33,10 +33,6 @@ func (ws *WebhookServer) HandleValidation(
 
 	logger := ws.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
 
-	if val, err := ctx.Query("request.object.metadata.deletionTimestamp"); val != nil && err == nil {
-		return true, ""
-	}
-
 	// Get new and old resource
 	newR, oldR, err := utils.ExtractResources(patchedResource, request)
 	if err != nil {
@@ -51,6 +47,7 @@ func (ws *WebhookServer) HandleValidation(
 		Context:       ctx,
 		AdmissionInfo: userRequestInfo,
 	}
+
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)

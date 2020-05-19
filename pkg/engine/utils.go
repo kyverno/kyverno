@@ -114,6 +114,13 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	const SaPrefix = "system:serviceaccount:"
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
+
+	ruleSubjects = append(ruleSubjects,
+		rbacv1.Subject{Kind: "Group", Name: "system:serviceaccounts:kube-system"},
+		rbacv1.Subject{Kind: "Group", Name: "system:nodes"},
+		rbacv1.Subject{Kind: "Group", Name: "system:kube-scheduler"},
+	)
+
 	for _, subject := range ruleSubjects {
 		switch subject.Kind {
 		case "ServiceAccount":

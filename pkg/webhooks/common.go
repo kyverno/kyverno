@@ -167,3 +167,13 @@ func convertResource(raw []byte, group, version, kind, namespace string) (unstru
 	obj.SetNamespace(namespace)
 	return *obj, nil
 }
+
+func excludeKyvernoResources(kind string) bool {
+	switch kind {
+	case "ClusterPolicy", "ClusterPolicyViolation", "PolicyViolation", "GenerateRequest":
+		return true
+	default:
+		return false
+	}
+
+}
