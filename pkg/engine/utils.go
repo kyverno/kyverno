@@ -96,14 +96,14 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 
 	if len(userInfo.Roles) > 0 &&
-		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeUserInfo...) {
-		if !DoesSliceContainsAnyOfTheseValues(userInfo.Roles, admissionInfo.Roles...) {
+		!utils.SliceContains(keys, ExcludeUserInfo...) {
+		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
 	if len(userInfo.ClusterRoles) > 0 &&
-		!DoesSliceContainsAnyOfTheseValues(keys, ExcludeUserInfo...) {
-		if !DoesSliceContainsAnyOfTheseValues(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+		!utils.SliceContains(keys, ExcludeUserInfo...) {
+		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
 	}
@@ -143,22 +143,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 			if utils.ContainsString(userGroups, subject.Name) {
 				return true
 			}
-		}
-	}
-
-	return false
-}
-
-func DoesSliceContainsAnyOfTheseValues(slice []string, values ...string) bool {
-
-	var sliceElementsMap = make(map[string]bool, len(slice))
-	for _, sliceElement := range slice {
-		sliceElementsMap[sliceElement] = true
-	}
-
-	for _, value := range values {
-		if sliceElementsMap[value] {
-			return true
 		}
 	}
 
