@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-
 	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/checker"
@@ -131,12 +131,14 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 	}
+
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.handleMutateAdmissionRequest, true))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.handlerFunc(ws.handleValidateAdmissionRequest, true))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyMutation, true))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.handlePolicyValidation, true))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.handleVerifyRequest, false))
+
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyMutation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleVerifyRequest, false), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -238,29 +240,37 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	// MUTATION
-	// mutation failure should not block the resource creation
-	// any mutation failure is reported as the violation
-	patches := ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+	var patches, patchedResource []byte
 
-	// patch the resource with patches before handling validation rules
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
 
-	if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
-		// VALIDATION
-		ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
+	if versionCheck {
+		// MUTATION
+		// mutation failure should not block the resource creation
+		// any mutation failure is reported as the violation
+		patches = ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+
+		// patch the resource with patches before handling validation rules
+		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+
+		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+			// VALIDATION
+			ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+			if !ok {
+				logger.Info("admission request denied")
+				return &v1beta1.AdmissionResponse{
+					Allowed: false,
+					Result: &metav1.Status{
+						Status:  "Failure",
+						Message: msg,
+					},
+				}
 			}
 		}
+	} else {
+		// patch the resource with patches before handling validation rules
+		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 	}
-
 	// GENERATE
 	// Only applied during resource creation
 	// Success -> Generate Request CR created successsfully
@@ -278,6 +288,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 			}
 		}
 	}
+
 	// Succesfful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
@@ -288,6 +299,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		Patch:     patches,
 		PatchType: &patchType,
 	}
+
 }
 
 func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -332,19 +344,22 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
-	// VALIDATION
-	ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
-	if !ok {
-		logger.Info("admission request denied")
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
+	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+
+	if !versionCheck {
+		// VALIDATION
+		ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
+		if !ok {
+			logger.Info("admission request denied")
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: msg,
+				},
+			}
 		}
 	}
-
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Result: &metav1.Status{
