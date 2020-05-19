@@ -24,7 +24,14 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
-	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name, "kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
+	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name)
+
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		logger = logger.WithValues("kind", oldR.GetKind(), "namespace", oldR.GetNamespace(), "name", oldR.GetName())
+	} else {
+		logger = logger.WithValues("kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
+	}
+
 	logger.V(4).Info("start processing", "startTime", startTime)
 
 	defer func() {
@@ -103,7 +110,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 		}
 
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-			log.V(4).Info("resource fails the match description")
+			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 
@@ -141,7 +148,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont statisfy a policy rule resource description
+		// dont satisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue

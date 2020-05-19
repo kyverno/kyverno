@@ -173,3 +173,19 @@ func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, k8smajo
 	}
 	return true
 }
+
+func SliceContains(slice []string, values ...string) bool {
+
+	var sliceElementsMap = make(map[string]bool, len(slice))
+	for _, sliceElement := range slice {
+		sliceElementsMap[sliceElement] = true
+	}
+
+	for _, value := range values {
+		if sliceElementsMap[value] {
+			return true
+		}
+	}
+
+	return false
+}

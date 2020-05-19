@@ -46,9 +46,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont statisfy a policy rule resource description
+		// dont satisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
-			logger.V(4).Info("resource fails the match description")
+			logger.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 

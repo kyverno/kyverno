@@ -89,7 +89,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	log logr.Logger) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Info)
+	eventBroadcaster.StartLogging(log.V(5).Info)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		return nil, err

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -20,6 +22,11 @@ const (
 
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
+	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
+	if utils.SliceContains(keys, engine.ExcludeUserInfo...) {
+		return
+	}
+
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.NewSelector())
 	if err != nil {
@@ -101,10 +108,10 @@ func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	subjectServiceAccount := subject.Namespace + ":" + subject.Name
 	if userInfo.Username[len(SaPrefix):] != subjectServiceAccount {
-		log.Log.V(3).Info(fmt.Sprintf("service account not match, expect %s, got %s", subjectServiceAccount, userInfo.Username[len(SaPrefix):]))
 		return false
 	}
 
+	log.Log.V(3).Info(fmt.Sprintf("found a matched service account not match: %s", subjectServiceAccount))
 	return true
 }
 
@@ -113,10 +120,10 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 	keys := append(userInfo.Groups, userInfo.Username)
 	for _, key := range keys {
 		if subject.Name == key {
+			log.Log.V(3).Info(fmt.Sprintf("found a matched user/group '%v' in request userInfo: %v", subject.Name, keys))
 			return true
 		}
 	}
 
-	log.Log.V(3).Info(fmt.Sprintf("user/group '%v' info not found in request userInfo: %v", subject.Name, keys))
 	return false
 }

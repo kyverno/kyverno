@@ -52,7 +52,7 @@ func (ws *WebhookServer) HandleMutation(
 		engineResponses = append(engineResponses, engineResponse)
 		ws.statusListener.Send(mutateStats{resp: engineResponse})
 		if !engineResponse.IsSuccesful() {
-			logger.Info("failed to apply policy", "policy", policy.Name)
+			logger.Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
