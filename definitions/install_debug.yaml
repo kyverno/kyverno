@@ -133,7 +133,7 @@ spec:
                               type: string
                             name:
                               type: string
-                            Namespace:
+                            namespace:
                               type: string
                       resources:
                         type: object
@@ -210,6 +210,28 @@ spec:
                         AnyValue: {}
                       anyPattern:
                         AnyValue: {}
+                      deny:
+                        properties:
+                          conditions:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - key  # can be of any type
+                                - operator # typed
+                                - value # can be of any type
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - Equal
+                                    - Equals
+                                    - NotEqual
+                                    - NotEquals
+                                key:
+                                  type: string
+                                value:
+                                  type: string
                   generate:
                     type: object
                     required:

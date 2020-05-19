@@ -30,16 +30,9 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
-	if p.Spec.Background == nil {
-		//skipped policy mutation default -> skip validation -> will not be processed for background processing
-		return nil
-	}
-	if *p.Spec.Background {
-		if err := ContainsUserInfo(p); err != nil {
-			// policy.spec.background -> "true"
-			// - cannot use variables with request.userInfo
-			// - cannot define userInfo(roles, cluserRoles, subjects) for filtering (match & exclude)
-			return fmt.Errorf("userInfo is not allowed in match or exclude when backgroud policy mode is true. Set spec.background=false to disable background mode for this policy rule. %s ", err)
+	if p.Spec.Background == nil || (p.Spec.Background != nil && *p.Spec.Background) {
+		if err := ContainsVariablesOtherThanObject(p); err != nil {
+			return fmt.Errorf("only variables referring request.object are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
 		}
 	}
 

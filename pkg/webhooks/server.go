@@ -10,23 +10,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
-	"github.com/nirmata/kyverno/pkg/openapi"
-	"github.com/nirmata/kyverno/pkg/utils"
-
 	"github.com/go-logr/logr"
+	"github.com/julienschmidt/httprouter"
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	context2 "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -133,12 +134,13 @@ func NewWebhookServer(
 	}
 
 	mux := httprouter.New()
+	webhookTimeout := ws.webhookRegistrationClient.GetWebhookTimeOut()
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.resourceMutation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.resourceValidation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.policyMutation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.policyValidation, true), webhookTimeout))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.verifyHandler, false), webhookTimeout))
 
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleValidateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleMutateAdmissionRequest, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyValidation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handlePolicyMutation, true), ws.webhookRegistrationClient.GetWebhookTimeOut()))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, timeoutHandler(ws.handlerFunc(ws.handleVerifyRequest, false), ws.webhookRegistrationClient.GetWebhookTimeOut()))
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
@@ -162,9 +164,6 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 		}
 
 		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
-		defer func() {
-			logger.V(4).Info("request processed", "processingTime", time.Since(startTime))
-		}()
 
 		admissionReview.Response = &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -180,6 +179,8 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
+		logger.V(4).Info("request processed", "processingTime", time.Since(startTime).Milliseconds())
+
 		return
 	}
 }
@@ -197,8 +198,17 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 	}
 }
 
-func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithName("handleMutateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	if excludeKyvernoResources(request.Kind.Kind) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
+	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -206,9 +216,8 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	var roles, clusterRoles []string
-
 	// getRoleRef only if policy has roles/clusterroles defined
+	var roles, clusterRoles []string
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
@@ -218,7 +227,7 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 	}
 
 	// convert RAW to unstructured
-	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 
@@ -240,22 +249,43 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 		}
 	}
 
-	var patches, patchedResource []byte
+	userRequestInfo := v1.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
 
-	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	// build context
+	ctx := context2.NewContext()
+	err = ctx.AddRequest(request)
+	if err != nil {
+		logger.Error(err, "failed to load incoming request in context")
+	}
 
-	if versionCheck {
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		logger.Error(err, "failed to load userInfo in context")
+	}
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		logger.Error(err, "failed to load service account in context")
+	}
+
+	var patches []byte
+	patchedResource := request.Object.Raw
+
+	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if higherVersion {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		patches = ws.HandleMutation(request, resource, policies, roles, clusterRoles)
+		patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
 
 		// patch the resource with patches before handling validation rules
-		patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// VALIDATION
-			ok, msg := ws.HandleValidation(request, policies, patchedResource, roles, clusterRoles)
+			ok, msg := ws.HandleValidation(request, policies, patchedResource, ctx, userRequestInfo)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -267,16 +297,14 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 				}
 			}
 		}
-	} else {
-		// patch the resource with patches before handling validation rules
-		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 	}
+
 	// GENERATE
 	// Only applied during resource creation
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create {
-		ok, msg := ws.HandleGenerate(request, policies, patchedResource, roles, clusterRoles)
+		ok, msg := ws.HandleGenerate(request, policies, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
 			return &v1beta1.AdmissionResponse{
@@ -302,8 +330,17 @@ func (ws *WebhookServer) handleMutateAdmissionRequest(request *v1beta1.Admission
 
 }
 
-func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithName("handleValidateAdmissionRequest").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	if excludeKyvernoResources(request.Kind.Kind) {
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
+	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -322,7 +359,33 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
-	resource, err := convertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	userRequestInfo := v1.RequestInfo{
+		Roles:             roles,
+		ClusterRoles:      clusterRoles,
+		AdmissionUserInfo: request.UserInfo}
+
+	// build context
+	ctx := context2.NewContext()
+	err = ctx.AddRequest(request)
+	if err != nil {
+		logger.Error(err, "failed to load incoming request in context")
+	}
+
+	err = ctx.AddUserInfo(userRequestInfo)
+	if err != nil {
+		logger.Error(err, "failed to load userInfo in context")
+	}
+	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	if err != nil {
+		logger.Error(err, "failed to load service account in context")
+	}
+
+	raw := request.Object.Raw
+	if request.Operation == v1beta1.Delete {
+		raw = request.OldObject.Raw
+	}
+
+	resource, err := convertResource(raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
 
@@ -344,11 +407,9 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 		}
 	}
 
-	versionCheck := utils.CompareKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-
-	if !versionCheck {
-		// VALIDATION
-		ok, msg := ws.HandleValidation(request, policies, nil, roles, clusterRoles)
+	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
+	if higherVersion {
+		ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
 			return &v1beta1.AdmissionResponse{
@@ -360,6 +421,7 @@ func (ws *WebhookServer) handleValidateAdmissionRequest(request *v1beta1.Admissi
 			}
 		}
 	}
+
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Result: &metav1.Status{

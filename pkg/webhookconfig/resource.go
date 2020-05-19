@@ -102,7 +102,7 @@ func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caDa
 				"*/*",
 				"*",
 				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 			),
 		},
 	}
@@ -126,7 +126,7 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []
 				"*/*",
 				"*",
 				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 			),
 		},
 	}

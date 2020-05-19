@@ -158,7 +158,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
 	if p.Spec.Background == nil {
 		// if userInfo is not defined in policy we process the policy
-		if err := ContainsUserInfo(*p); err != nil {
+		if err := ContainsVariablesOtherThanObject(*p); err != nil {
 			return
 		}
 	} else {
@@ -167,7 +167,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 		}
 		// If userInfo is used then skip the policy
 		// ideally this should be handled by background flag only
-		if err := ContainsUserInfo(*p); err != nil {
+		if err := ContainsVariablesOtherThanObject(*p); err != nil {
 			// contains userInfo used in policy
 			return
 		}
@@ -193,7 +193,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
 	if curP.Spec.Background == nil {
 		// if userInfo is not defined in policy we process the policy
-		if err := ContainsUserInfo(*curP); err != nil {
+		if err := ContainsVariablesOtherThanObject(*curP); err != nil {
 			return
 		}
 	} else {
@@ -202,7 +202,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		}
 		// If userInfo is used then skip the policy
 		// ideally this should be handled by background flag only
-		if err := ContainsUserInfo(*curP); err != nil {
+		if err := ContainsVariablesOtherThanObject(*curP); err != nil {
 			// contains userInfo used in policy
 			return
 		}

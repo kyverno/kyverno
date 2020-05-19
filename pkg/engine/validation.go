@@ -25,42 +25,51 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
 	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name, "kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
-
-	// policy information
 	logger.V(4).Info("start processing", "startTime", startTime)
 
-	// Process new & old resource
-	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		// Create Mode
-		// Operate on New Resource only
-		resp := validateResource(logger, ctx, policy, newR, admissionInfo)
-		startResultResponse(resp, policy, newR)
-		defer endResultResponse(logger, resp, startTime)
-		// set PatchedResource with origin resource if empty
-		// in order to create policy violation
-		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
-			resp.PatchedResource = newR
+	defer func() {
+		if reflect.DeepEqual(resp, response.EngineResponse{}) {
+			return
 		}
-		return *resp
+		var resource unstructured.Unstructured
+		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
+			// for delete requests patched resource will be oldR since newR is empty
+			if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+				resource = oldR
+			} else {
+				resource = newR
+			}
+		}
+		for i := range resp.PolicyResponse.Rules {
+			messageInterface, err := variables.SubstituteVars(logger, ctx, resp.PolicyResponse.Rules[i].Message)
+			if err != nil {
+				continue
+			}
+			resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
+		}
+		resp.PatchedResource = resource
+		startResultResponse(&resp, policy, resource)
+		endResultResponse(logger, &resp, startTime)
+	}()
+
+	// If request is delete, newR will be empty
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+	} else {
+		if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+			return *denyResp
+		}
 	}
-	// Update Mode
-	// Operate on New and Old Resource only
-	// New resource
+
+	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
+		return *validateResource(logger, ctx, policy, newR, admissionInfo)
+	}
+
 	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
 	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
-
-	// if the old and new response is same then return empty response
 	if !isSameResponse(oldResponse, newResponse) {
-		// there are changes send response
-		startResultResponse(newResponse, policy, newR)
-		defer endResultResponse(logger, newResponse, startTime)
-		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
-			newResponse.PatchedResource = newR
-		}
 		return *newResponse
 	}
-	// if there are no changes with old and new response then sent empty response
-	// skip processing
 	return response.EngineResponse{}
 }
 
@@ -85,6 +94,44 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
+func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+	resp := &response.EngineResponse{}
+
+	for _, rule := range policy.Spec.Rules {
+		if !rule.HasValidate() {
+			continue
+		}
+
+		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+			log.V(4).Info("resource fails the match description")
+			continue
+		}
+
+		preconditionsCopy := copyConditions(rule.Conditions)
+
+		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
+			log.V(4).Info("resource fails the preconditions")
+			continue
+		}
+
+		if rule.Validation.Deny != nil {
+			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
+			if len(rule.Validation.Deny.Conditions) == 0 || variables.EvaluateConditions(log, ctx, denyConditionsCopy) {
+				ruleResp := response.RuleResponse{
+					Name:    rule.Name,
+					Type:    utils.Validation.String(),
+					Message: rule.Validation.Message,
+					Success: false,
+				}
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+			}
+			continue
+		}
+
+	}
+	return resp
+}
+
 func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	for _, rule := range policy.Spec.Rules {
@@ -96,15 +143,15 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont statisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-			log.V(4).Info("resource fails the match description")
+			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions := copyConditions(rule.Conditions)
+		preconditionsCopy := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
 		// - handle variable subsitutions
-		if !variables.EvaluateConditions(log, ctx, copyConditions) {
+		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
@@ -114,6 +161,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		}
+
 	}
 	return resp
 }

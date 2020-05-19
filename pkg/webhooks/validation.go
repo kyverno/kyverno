@@ -5,6 +5,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/nirmata/kyverno/pkg/utils"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -20,7 +22,9 @@ import (
 func (ws *WebhookServer) HandleValidation(
 	request *v1beta1.AdmissionRequest,
 	policies []kyverno.ClusterPolicy,
-	patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+	patchedResource []byte,
+	ctx *context.Context,
+	userRequestInfo kyverno.RequestInfo) (bool, string) {
 
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
@@ -30,33 +34,11 @@ func (ws *WebhookServer) HandleValidation(
 	logger := ws.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
 
 	// Get new and old resource
-	newR, oldR, err := extractResources(patchedResource, request)
+	newR, oldR, err := utils.ExtractResources(patchedResource, request)
 	if err != nil {
 		// as resource cannot be parsed, we skip processing
 		logger.Error(err, "failed to extract resource")
 		return true, ""
-	}
-
-	userRequestInfo := kyverno.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
-	// build context
-	ctx := context.NewContext()
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		logger.Error(err, "failed to load incoming resource in context")
-	}
-
-	err = ctx.AddUserInfo(userRequestInfo)
-	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
-	}
-
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load service account in context")
 	}
 
 	policyContext := engine.PolicyContext{
@@ -65,6 +47,7 @@ func (ws *WebhookServer) HandleValidation(
 		Context:       ctx,
 		AdmissionInfo: userRequestInfo,
 	}
+
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)

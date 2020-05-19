@@ -155,9 +155,11 @@ type ConditionOperator string
 
 const (
 	//Equal for Equal operator
-	Equal ConditionOperator = "Equal"
+	Equal  ConditionOperator = "Equal"
+	Equals ConditionOperator = "Equals"
 	//NotEqual for NotEqual operator
-	NotEqual ConditionOperator = "NotEqual"
+	NotEqual  ConditionOperator = "NotEqual"
+	NotEquals ConditionOperator = "NotEquals"
 	//In for In operator
 	In ConditionOperator = "In"
 	//NotIn for NotIn operator
@@ -211,6 +213,11 @@ type Validation struct {
 	Message    string        `json:"message,omitempty"`
 	Pattern    interface{}   `json:"pattern,omitempty"`
 	AnyPattern []interface{} `json:"anyPattern,omitempty"`
+	Deny       *Deny         `json:"deny,omitempty"`
+}
+
+type Deny struct {
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created
