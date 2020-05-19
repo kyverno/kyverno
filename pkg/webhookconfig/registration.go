@@ -114,7 +114,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 	}
 	_, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
-		logger.V(4).Info("resource mutating webhook configuration already exists. not creating one", "name", config.Name)
+		logger.V(6).Info("resource mutating webhook configuration already exists", "name", config.Name)
 		return nil
 	}
 	if err != nil {
@@ -145,7 +145,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfigurati
 
 	_, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
-		logger.V(4).Info("resource already exists. not create one")
+		logger.V(6).Info("resource validating webhook configuration already exists", "name", config.Name)
 		return nil
 	}
 	if err != nil {
