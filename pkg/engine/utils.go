@@ -115,6 +115,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
+	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
 	ruleSubjects = append(ruleSubjects,
 		rbacv1.Subject{Kind: "Group", Name: "system:serviceaccounts:kube-system"},
 		rbacv1.Subject{Kind: "Group", Name: "system:nodes"},
