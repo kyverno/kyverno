@@ -729,16 +729,23 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.5
+          image: evalsocket/kyvernopre:latest
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.5
+          image: evalsocket/kyverno:latest
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
           # customize webhook timout
-          # - "--webhooktimeout=4"
+          #- "--webhooktimeout=4"
           ports:
           - containerPort: 443
           env:
           - name: INIT_CONFIG
             value: init-config
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
