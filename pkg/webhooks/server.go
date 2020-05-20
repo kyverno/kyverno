@@ -277,10 +277,12 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
+		patches = ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
+		logger.V(7).Info("", "generated patches", string(patches))
 
 		// patch the resource with patches before handling validation rules
 		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+		logger.V(7).Info("", "patchedResource", string(patchedResource))
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// VALIDATION
