@@ -45,9 +45,6 @@ func (ws *WebhookServer) HandleMutation(
 
 		policyContext.Policy = policy
 		engineResponse := engine.Mutate(policyContext)
-		if engineResponse.PolicyResponse.RulesAppliedCount <= 0 {
-			continue
-		}
 
 		engineResponses = append(engineResponses, engineResponse)
 		ws.statusListener.Send(mutateStats{resp: engineResponse})

@@ -277,10 +277,12 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		patches := ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
+		patches = ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
+		logger.V(6).Info("", "generated patches", string(patches))
 
 		// patch the resource with patches before handling validation rules
 		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+		logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// VALIDATION
@@ -296,6 +298,8 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 				}
 			}
 		}
+	} else {
+		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 	}
 
 	// GENERATE
@@ -330,6 +334,18 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
+	if ok := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0); !ok {
+		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Status: "Success",
+			},
+		}
+	}
+
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -339,7 +355,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	policies, err := ws.pMetaStore.ListAll()
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
@@ -406,18 +421,15 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-	if higherVersion {
-		ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
-			}
+	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
+	if !ok {
+		logger.Info("admission request denied")
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: msg,
+			},
 		}
 	}
 
