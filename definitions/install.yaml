@@ -707,7 +707,7 @@ metadata:
   namespace: kyverno
 data:
   # resource types to be skipped by kyverno policy engine
-  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*]"
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -729,14 +729,16 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.5
+          image: nirmata/kyvernopre:v1.1.6-rc1
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.5
+          image: registry-v2.nirmata.io/nirmata/kyverno:latest
+          imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
           # customize webhook timeout
           #- "--webhooktimeout=4"
+          - "-v=6"
           ports:
           - containerPort: 443
           env:

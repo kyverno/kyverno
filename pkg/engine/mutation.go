@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 	"time"
 
@@ -96,15 +95,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount(&resp)
 		}
-
-		// insert annotation to podtemplate if resource is pod controller
-		// skip inserting on existing resource
-		if reflect.DeepEqual(policyContext.AdmissionInfo, kyverno.RequestInfo{}) {
-			continue
-		}
 	}
 
-	if strings.Contains(PodControllers, resource.GetKind()) {
+	pocliyAnnotation := policy.GetAnnotations()
+	givenPodControllers := pocliyAnnotation[PodControllersAnnotation]
+	if strings.Contains(givenPodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, "podControllerAnnotation", podTemplateRule.Mutation.Overlay, patchedResource)

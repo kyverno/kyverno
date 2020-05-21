@@ -242,7 +242,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
 			// validation failed
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
+			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule %s failed at path %s",
 				rule.Validation.Message, rule.Name, path)
 			return resp
 		}
