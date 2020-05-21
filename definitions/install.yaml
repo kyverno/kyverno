@@ -735,7 +735,7 @@ spec:
           image: nirmata/kyverno:v1.1.5
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
-          # customize webhook timout
+          # customize webhook timeout
           #- "--webhooktimeout=4"
           ports:
           - containerPort: 443
@@ -745,7 +745,6 @@ spec:
           resources:
             requests:
               memory: "64Mi"
-              cpu: "250m"
+              cpu: "100m"
             limits:
-              memory: "128Mi"
-              cpu: "500m"
+              memory: "128Mi""
