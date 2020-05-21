@@ -703,19 +703,6 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kyverno:admin
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: admin
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno 
----  
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
   name: kyverno:edit
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -768,14 +755,16 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.5
+          image: nirmata/kyvernopre:v1.1.6-rc1
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.5
+          image: registry-v2.nirmata.io/nirmata/kyverno:latest
+          imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
           # customize webhook timout
           # - "--webhooktimeout=4"
+          - "-v=6"
           ports:
           - containerPort: 443
           env:

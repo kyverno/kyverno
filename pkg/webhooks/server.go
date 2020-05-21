@@ -299,7 +299,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			}
 		}
 	} else {
-		logger.Info("mutate/validate is not supported prior to Kubernetes 1.14.0")
+		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 	}
 
 	// GENERATE
@@ -337,7 +337,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if ok := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0); !ok {
-		logger.Info("mutate/validate is not supported prior to Kubernetes 1.14.0")
+		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
