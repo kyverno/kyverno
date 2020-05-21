@@ -736,11 +736,17 @@ spec:
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
-          # customize webhook timout
-          # - "--webhooktimeout=4"
-          - "-v=6"
+          # customize webhook timeout
+          #- "--webhooktimeout=4"
+          - "-v=2"
           ports:
           - containerPort: 443
           env:
           - name: INIT_CONFIG
             value: init-config
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
