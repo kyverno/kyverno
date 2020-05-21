@@ -738,7 +738,7 @@ spec:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
           # customize webhook timeout
           #- "--webhooktimeout=4"
-          - "-v=6"
+          - "-v=2"
           ports:
           - containerPort: 443
           env:
@@ -746,7 +746,7 @@ spec:
             value: init-config
           resources:
             requests:
-              memory: "64Mi"
+              memory: "50Mi"
               cpu: "100m"
             limits:
-              memory: "128Mi""
+              memory: "128Mi"

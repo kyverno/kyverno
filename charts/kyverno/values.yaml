@@ -43,12 +43,11 @@ extraArgs: []
 # - --webhooktimeout=4
 
 resources:
-#   limits:
-#     cpu: 1000m
-#     memory: 500Mi
-#   requests:
-#     cpu: 100m
-#     memory: 100Mi
+  limits:
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 50Mi
 
 ## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
