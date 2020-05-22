@@ -482,16 +482,17 @@ func (ws *WebhookServer) Stop(ctx context.Context) {
 // Answers to the http.ResponseWriter if request is not valid
 func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer http.ResponseWriter) *v1beta1.AdmissionReview {
 	logger := ws.log
-	var body []byte
-	if request.Body != nil {
-		if data, err := ioutil.ReadAll(request.Body); err == nil {
-			body = data
-		}
-	}
-	if len(body) == 0 {
-		logger.Info("empty body")
+	if request.Body == nil {
+		logger.Info("empty body", "req", request.URL.String())
 		http.Error(writer, "empty body", http.StatusBadRequest)
 		return nil
+	}
+
+	defer request.Body.Close()
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		logger.Info("failed to read HTTP body", "req", request.URL.String())
+		http.Error(writer, "failed to read HTTP body", http.StatusBadRequest)
 	}
 
 	contentType := request.Header.Get("Content-Type")
