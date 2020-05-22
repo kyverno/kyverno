@@ -70,6 +70,10 @@ var (
 	PolicyMutatingWebhookServicePath = "/policymutate"
 	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
+	// LivenessServicePath is the path for check liveness health
+	LivenessServicePath = "/health/liveness"
+	// ReadinessServicePath is the path for check readness health 
+	ReadinessServicePath = "/health/readiness"
 )
 
 //CreateClientConfig creates client config

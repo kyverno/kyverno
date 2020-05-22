@@ -53,29 +53,29 @@ resources:
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
 ##
 livenessProbe:
-#   httpGet:
-#     path: /healthz
-#     port: https
-#     scheme: HTTPS
-#   initialDelaySeconds: 10
-#   periodSeconds: 10
-#   timeoutSeconds: 5
-#   failureThreshold: 2
-#   successThreshold: 1
+  httpGet:
+    path: /health/liveness
+    port: https
+    scheme: HTTPS
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+  successThreshold: 1
 
 ## Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
 ##
 readinessProbe:
-#   httpGet:
-#     path: /healthz
-#     port: https
-#     scheme: HTTPS
-#   initialDelaySeconds: 5
-#   periodSeconds: 10
-#   timeoutSeconds: 5
-#   failureThreshold: 6
-#   successThreshold: 1
+  httpGet:
+    path: /health/readiness
+    port: https
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
 
 # TODO(mbarrien): Should we just list all resources for the
 # generatecontroller in here rather than having defaults hard-coded?
