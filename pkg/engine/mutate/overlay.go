@@ -24,7 +24,7 @@ import (
 func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	logger := log.WithValues("rule", ruleName)
-	logger.V(4).Info("started applying overlay rule ", "startTime", startTime)
+	logger.V(4).Info("started applying overlay rule", "startTime", startTime)
 	resp.Name = ruleName
 	resp.Type = utils.Mutation.String()
 	defer func() {
@@ -33,28 +33,27 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	}()
 
 	patches, overlayerr := processOverlayPatches(logger, resource.UnstructuredContent(), overlay)
-	// resource does not satisfy the overlay pattern, we don't apply this rule
 	if !reflect.DeepEqual(overlayerr, overlayError{}) {
 		switch overlayerr.statusCode {
-		// condition key is not present in the resource, don't apply this rule
-		// consider as success
+
 		case conditionNotPresent:
-			logger.V(3).Info("skip applying rule")
+			logger.V(3).Info("skip applying rule", "reason", "conditionNotPresent")
 			resp.Success = true
 			return resp, resource
-		// conditions are not met, don't apply this rule
+
 		case conditionFailure:
-			logger.V(3).Info("skip applying rule")
+			logger.V(3).Info("skip applying rule", "reason", "conditionFailure")
 			//TODO: send zero response and not consider this as applied?
 			resp.Success = true
 			resp.Message = overlayerr.ErrorMsg()
 			return resp, resource
-		// rule application failed
+
 		case overlayFailure:
 			logger.Info("failed to process overlay")
 			resp.Success = false
 			resp.Message = fmt.Sprintf("failed to process overlay: %v", overlayerr.ErrorMsg())
 			return resp, resource
+
 		default:
 			logger.Info("failed to process overlay")
 			resp.Success = false
@@ -63,6 +62,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 		}
 	}
 
+	logger.V(4).Info("processing overlay rule", "patches", len(patches))
 	if len(patches) == 0 {
 		resp.Success = true
 		return resp, resource
@@ -78,15 +78,16 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	}
 
 	var patchResource []byte
+	logger.V(5).Info("applying overlay patches", "patches", string(utils.JoinPatches(patches)))
 	patchResource, err = utils.ApplyPatches(resourceRaw, patches)
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply JSON patches: %v", err)
-		logger.V(2).Info("applying patches", "patches", string(utils.JoinPatches(patches)))
 		resp.Success = false
 		resp.Message = msg
 		return resp, resource
 	}
 
+	logger.V(5).Info("patched resource", "patches", string(patchResource))
 	err = patchedResource.UnmarshalJSON(patchResource)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")

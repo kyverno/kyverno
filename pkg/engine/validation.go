@@ -221,8 +221,9 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finshed processing", "processingTime", resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime)
 	}()
+
 	// work on a copy of validation rule
 	validationRule := rule.Validation.DeepCopy()
 
