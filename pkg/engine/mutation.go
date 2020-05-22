@@ -30,7 +30,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
 	logger := log.Log.WithName("Mutate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	logger.V(4).Info("start processing", "startTime", startTime)
+	logger.V(4).Info("start policy processing", "startTime", startTime)
 	startMutateResultResponse(&resp, policy, resource)
 	defer endMutateResultResponse(logger, &resp, startTime)
 
@@ -47,7 +47,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
-			logger.V(4).Info("resource fails the match description", "reason", err.Error())
+			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}
 
@@ -56,7 +56,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// evaluate pre-conditions
 		// - handle variable subsitutions
 		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-			logger.V(4).Info("resource fails the preconditions")
+			logger.V(3).Info("resource fails the preconditions")
 			continue
 		}
 
@@ -97,9 +97,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 	}
 
-	pocliyAnnotation := policy.GetAnnotations()
-	givenPodControllers := pocliyAnnotation[PodControllersAnnotation]
-	if strings.Contains(givenPodControllers, resource.GetKind()) {
+	// insert annotation to podtemplate if resource is pod controller
+	// skip inserting on existing resource
+	if autoGenPolicy(&policy) && strings.Contains(PodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, "podControllerAnnotation", podTemplateRule.Mutation.Overlay, patchedResource)
@@ -113,9 +113,16 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			}
 		}
 	}
+
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
+}
+
+func autoGenPolicy(policy *kyverno.ClusterPolicy) bool {
+	annotations := policy.GetObjectMeta().GetAnnotations()
+	_, ok := annotations[PodControllersAnnotation]
+	return ok
 }
 
 func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {
@@ -132,7 +139,10 @@ func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructure
 	resourceRaw, _ := json.Marshal(resource.Object)
 	_ = json.Unmarshal(resourceRaw, &podController)
 
-	_, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
+	val, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
+
+	log.Log.Info("patchedResourceHasPodControllerAnnotation", "resourceRaw", string(resourceRaw), "val", val, "ok", ok)
+
 	return ok
 }
 func incrementAppliedRuleCount(resp *response.EngineResponse) {
@@ -152,7 +162,7 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	logger.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime, "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
 
 // podTemplateRule mutate pod template with annotation
