@@ -19,7 +19,6 @@ import (
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -74,7 +73,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// KYVENO CRD CLIENT
+	// KYVERNO CRD CLIENT
 	// access CRD resources
 	//		- Policy
 	//		- PolicyViolation
@@ -146,20 +145,18 @@ func main() {
 		log.Log.WithName("ConfigData"),
 	)
 
-	// Policy meta-data store
-	policyMetaStore := policystore.NewPolicyStore(pInformer.Kyverno().V1().ClusterPolicies(), log.Log.WithName("PolicyStore"))
-
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	egen := event.NewEventGenerator(
+	eventGenerator := event.NewEventGenerator(
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		log.Log.WithName("EventGenerator"))
 
+
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
 		pclient,
-		policyMetaStore)
+		pInformer.Kyverno().V1().ClusterPolicies().Lister(),)
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
@@ -181,9 +178,8 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
 		configData,
-		egen,
+		eventGenerator,
 		pvgen,
-		policyMetaStore,
 		rWebhookWatcher,
 		log.Log.WithName("PolicyController"),
 	)
@@ -203,7 +199,7 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
-		egen,
+		eventGenerator,
 		pvgen,
 		kubedynamicInformer,
 		statusSync.Listener,
@@ -247,7 +243,7 @@ func main() {
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
-	// WEBHOOOK
+	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
 	// -- annotations on resources with update details on mutation JSON patches
@@ -260,11 +256,10 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
-		egen,
+		eventGenerator,
 		webhookRegistrationClient,
 		statusSync.Listener,
 		configData,
-		policyMetaStore,
 		pvgen,
 		grgen,
 		rWebhookWatcher,
@@ -285,9 +280,8 @@ func main() {
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
-	go policyMetaStore.Run(stopCh)
 	go policyCtrl.Run(3, stopCh)
-	go egen.Run(1, stopCh)
+	go eventGenerator.Run(1, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)

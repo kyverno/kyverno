@@ -3,6 +3,7 @@ package policystatus
 import (
 	"encoding/json"
 	"fmt"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"sync"
 	"time"
 
@@ -35,10 +36,6 @@ type statusUpdater interface {
 	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
 }
 
-type policyStore interface {
-	Get(policyName string) (*v1.ClusterPolicy, error)
-}
-
 type Listener chan statusUpdater
 
 func (l Listener) Send(s statusUpdater) {
@@ -53,7 +50,7 @@ type Sync struct {
 	cache       *cache
 	Listener    Listener
 	client      *versioned.Clientset
-	policyStore policyStore
+	lister kyvernolister.ClusterPolicyLister
 }
 
 type cache struct {
@@ -62,7 +59,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, p policyStore) *Sync {
+func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
@@ -70,7 +67,7 @@ func NewSync(c *versioned.Clientset, p policyStore) *Sync {
 			keyToMutex: newKeyToMutex(),
 		},
 		client:      c,
-		policyStore: p,
+		lister: lister,
 		Listener:    make(chan statusUpdater, 20),
 	}
 }
@@ -96,7 +93,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			status, exist := s.cache.data[statusUpdater.PolicyName()]
 			s.cache.dataMu.RUnlock()
 			if !exist {
-				policy, _ := s.policyStore.Get(statusUpdater.PolicyName())
+				policy, _ := s.lister.Get(statusUpdater.PolicyName())
 				if policy != nil {
 					status = policy.Status
 				}
@@ -129,10 +126,11 @@ func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Unlock()
 
 	for policyName, status := range nameToStatus {
-		policy, err := s.policyStore.Get(policyName)
+		policy, err := s.lister.Get(policyName)
 		if err != nil {
 			continue
 		}
+
 		policy.Status = status
 		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 		if err != nil {
