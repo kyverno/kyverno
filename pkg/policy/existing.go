@@ -1,7 +1,9 @@
 package policy
 
 import (
+	informers "k8s.io/client-go/informers/core/v1"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +27,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	pc.rm.Drop()
 	var engineResponses []response.EngineResponse
 	// get resource that are satisfy the resource description defined in the rules
-	resourceMap := listResources(pc.client, policy, pc.configHandler, logger)
+	resourceMap := pc.listResources(policy)
 	for _, resource := range resourceMap {
 		// pre-processing, check if the policy and resource version has been processed before
 		if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
@@ -53,41 +55,97 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	return engineResponses
 }
 
-func listResources(client *client.Client, policy kyverno.ClusterPolicy, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
+func (pc *PolicyController) listResources(policy kyverno.ClusterPolicy) map[string]unstructured.Unstructured {
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.MatchResources.Kinds {
 
-			resourceSchema, _, err := client.DiscoveryClient.FindResource(k)
+			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(k)
 			if err != nil {
-				log.Error(err, "failed to find resource", "kind", k)
+				pc.log.Error(err, "failed to find resource", "kind", k)
 				continue
 			}
 
 			if !resourceSchema.Namespaced {
-				rMap := getResourcesPerNamespace(k, client, "", rule, configHandler, log)
-				mergeresources(resourceMap, rMap)
+				rMap := getResourcesPerNamespace(k, pc.client, "", rule, pc.configHandler, pc.log)
+				mergeResources(resourceMap, rMap)
 			} else {
-				var namespaces []string
-				if len(rule.MatchResources.Namespaces) > 0 {
-					log.V(4).Info("namespaces included", "namespaces", rule.MatchResources.Namespaces)
-					namespaces = append(namespaces, rule.MatchResources.Namespaces...)
-				} else {
-					log.V(4).Info("processing all namespaces", "rule", rule.Name)
-					namespaces = getAllNamespaces(client, log)
-				}
-
+				namespaces := getNamespacesForRule(&rule, pc.nsInformer, pc.log)
 				for _, ns := range namespaces {
-					rMap := getResourcesPerNamespace(k, client, ns, rule, configHandler, log)
-					mergeresources(resourceMap, rMap)
+					rMap := getResourcesPerNamespace(k, pc.client, ns, rule, pc.configHandler, pc.log)
+					mergeResources(resourceMap, rMap)
 				}
 			}
 		}
 	}
 
 	return resourceMap
+}
+
+func getNamespacesForRule(rule *kyverno.Rule, nsInformer informers.NamespaceInformer, log logr.Logger) []string {
+	if len(rule.MatchResources.Namespaces) > 0 {
+		return getAllNamespaces(nsInformer, log)
+	}
+
+	var wildcards []string
+	var results []string
+	for _, nsName := range rule.MatchResources.Namespaces {
+		if hasWildcard(nsName) {
+			wildcards = append(wildcards, nsName)
+		}
+
+		results = append(results, nsName)
+	}
+
+	if len(wildcards) > 0 {
+		wildcardMatches := getMatchingNamespaces(wildcards, nsInformer, log)
+		results = append (results, wildcardMatches...)
+	}
+
+	return results
+}
+
+func hasWildcard(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	return strings.Contains(s, "*") || strings.Contains(s, "?")
+}
+
+func getMatchingNamespaces(wildcards []string, nsInformer informers.NamespaceInformer, log logr.Logger) []string {
+	all := getAllNamespaces(nsInformer, log)
+	if len(all) == 0 {
+		return all
+	}
+
+	var results []string
+	for _, wc := range wildcards {
+		for _, ns := range all {
+			if wildcard.Match(wc, ns) {
+				results = append(results, ns)
+			}
+		}
+	}
+
+	return results
+}
+
+func getAllNamespaces(nsInformer informers.NamespaceInformer, log logr.Logger) []string {
+	var results []string
+	namespaces, err := nsInformer.Lister().List(labels.NewSelector())
+	if err != nil {
+		log.Error(err, "Failed to list namespaces")
+	}
+
+	for _, n := range namespaces {
+		name := n.GetName()
+		results = append(results, name)
+	}
+
+	return results
 }
 
 func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
@@ -243,25 +301,10 @@ const (
 )
 
 // merge b into a map
-func mergeresources(a, b map[string]unstructured.Unstructured) {
+func mergeResources(a, b map[string]unstructured.Unstructured) {
 	for k, v := range b {
 		a[k] = v
 	}
-}
-
-func getAllNamespaces(client *client.Client, log logr.Logger) []string {
-
-	var namespaces []string
-	// get all namespaces
-	nsList, err := client.ListResource("Namespace", "", nil)
-	if err != nil {
-		log.Error(err, "failed to list namespaces")
-		return namespaces
-	}
-	for _, ns := range nsList.Items {
-		namespaces = append(namespaces, ns.GetName())
-	}
-	return namespaces
 }
 
 //NewResourceManager returns a new ResourceManager

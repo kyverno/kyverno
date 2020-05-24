@@ -1,6 +1,7 @@
 package policy
 
 import (
+	informers "k8s.io/client-go/informers/core/v1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -69,6 +70,8 @@ type PolicyController struct {
 	// pvListerSynced returns true if the Policy Violation store has been synced at least once
 	nspvListerSynced cache.InformerSynced
 
+	nsInformer informers.NamespaceInformer
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -90,11 +93,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
-	configHandler config.Interface,
-	eventGen event.Interface,
+	configHandler config.Interface, eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	namespaces informers.NamespaceInformer,
 	log logr.Logger) (*PolicyController, error) {
+
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
@@ -113,6 +117,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		configHandler:          configHandler,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
+		nsInformer: namespaces,
 		log:                    log,
 	}
 

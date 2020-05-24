@@ -94,7 +94,7 @@ func main() {
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
-		setupLog.Error(fmt.Errorf("pre-requisite CRDs not installed"), "Failed to create watch on kyverno CRDs")
+		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
 
@@ -181,6 +181,7 @@ func main() {
 		eventGenerator,
 		pvgen,
 		rWebhookWatcher,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 	)
 
