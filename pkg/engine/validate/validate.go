@@ -3,7 +3,7 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -188,11 +188,11 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 
 // returns absolute path
 func formAbsolutePath(referencePath, absolutePath string) string {
-	if filepath.IsAbs(referencePath) {
+	if path.IsAbs(referencePath) {
 		return referencePath
 	}
 
-	return filepath.Join(absolutePath, referencePath)
+	return path.Join(absolutePath, referencePath)
 }
 
 //Prepares original pattern, path to value, and call traverse function
