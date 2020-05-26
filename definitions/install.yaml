@@ -732,7 +732,7 @@ spec:
           image: nirmata/kyvernopre:v1.1.6-rc1
       containers:
         - name: kyverno
-          image: registry-v2.nirmata.io/nirmata/kyverno:latest
+          image: evalsocket/kyverno:v1.16-rc_1
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
@@ -753,20 +753,20 @@ spec:
           livenessProbe:
             httpGet:
               path: /health/liveness
-              port: https
-              scheme: HTTPS
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 2
-            successThreshold: 1
-          readinessProbe:
-            httpGet:
-              path: /health/readiness
-              port: https
+              port: 443
               scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: 4
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 4
             successThreshold: 1

@@ -55,7 +55,7 @@ resources:
 livenessProbe:
   httpGet:
     path: /health/liveness
-    port: https
+    port: 443
     scheme: HTTPS
   initialDelaySeconds: 10
   periodSeconds: 10
@@ -69,7 +69,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /health/readiness
-    port: https
+    port: 443
     scheme: HTTPS
   initialDelaySeconds: 5
   periodSeconds: 10
