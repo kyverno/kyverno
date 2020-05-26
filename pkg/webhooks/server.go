@@ -142,7 +142,7 @@ func NewWebhookServer(
 
 	// Handle Liveness responds to a Kubernetes Liveness probe
 	// Fail this request if Kubernetes should restart this instance
-	mux.HandlerFunc("GET", config.LsivenessServicePath, func(w http.ResponseWriter, r *http.Request){
+	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request){
 		defer r.Body.Close()
 
 		w.WriteHeader(http.StatusOK)
