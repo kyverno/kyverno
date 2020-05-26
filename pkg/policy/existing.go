@@ -167,6 +167,10 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 	}
 	// filter based on name
 	for _, r := range list.Items {
+		if r.GetDeletionTimestamp() != nil {
+			continue
+		}
+
 		// match name
 		if rule.MatchResources.Name != "" {
 			if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {

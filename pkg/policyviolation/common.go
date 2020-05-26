@@ -14,9 +14,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func createOwnerReference(resource *unstructured.Unstructured) metav1.OwnerReference {
+func createOwnerReference(resource *unstructured.Unstructured) (metav1.OwnerReference, bool) {
 	controllerFlag := true
 	blockOwnerDeletionFlag := true
+
+	apiversion := resource.GetAPIVersion()
+	kind := resource.GetKind()
+	name := resource.GetName()
+	uid := resource.GetUID()
+
+	if apiversion == "" || kind == "" || name == "" || uid == "" {
+		return metav1.OwnerReference{}, false
+	}
+
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         resource.GetAPIVersion(),
 		Kind:               resource.GetKind(),
@@ -25,7 +35,7 @@ func createOwnerReference(resource *unstructured.Unstructured) metav1.OwnerRefer
 		Controller:         &controllerFlag,
 		BlockOwnerDeletion: &blockOwnerDeletionFlag,
 	}
-	return ownerRef
+	return ownerRef, true
 }
 
 func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
