@@ -161,7 +161,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
-			// Expected generate resource will be in same namesapces as resource
+			// Expected generate resource will be in same namespaces as resource
 			validateGeneratedResources(t, client, *policy, resource.GetName(), tc.Expected.Generation.GeneratedResources)
 		}
 	}
@@ -196,7 +196,7 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 	// load expected resource
 	expectedResource := loadPolicyResource(t, expectedResourceFile)
 	if expectedResource == nil {
-		t.Log("failed to get the expected resource")
+		t.Logf("failed to get the expected resource: %s", expectedResourceFile)
 		return
 	}
 
