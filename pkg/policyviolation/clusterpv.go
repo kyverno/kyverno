@@ -93,8 +93,17 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
 	}
+
+	if obj.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
 	// set owner reference to resource
-	ownerRef := createOwnerReference(obj)
+	ownerRef, ok := createOwnerReference(obj)
+	if !ok {
+		return nil
+	}
+
 	newPv.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	// create resource
