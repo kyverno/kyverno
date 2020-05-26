@@ -44,7 +44,7 @@ func checkName(name, resourceName string) bool {
 
 func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 	for _, namespace := range namespaces {
-		if resourceNameSpace == namespace {
+		if wildcard.Match(namespace, resourceNameSpace) {
 			return true
 		}
 	}
@@ -69,26 +69,26 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
-			errs = append(errs, fmt.Errorf("resource kind does not match conditionBlock"))
+			errs = append(errs, fmt.Errorf("kind does not match"))
 		}
 	}
 	if conditionBlock.Name != "" {
 		if !checkName(conditionBlock.Name, resource.GetName()) {
-			errs = append(errs, fmt.Errorf("resource name does not match conditionBlock"))
+			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
 	if len(conditionBlock.Namespaces) > 0 {
 		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
-			errs = append(errs, fmt.Errorf("resource namespace does not match conditionBlock"))
+			errs = append(errs, fmt.Errorf("namespace does not match"))
 		}
 	}
 	if conditionBlock.Selector != nil {
 		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
-			errs = append(errs, fmt.Errorf("could not parse selector block of the policy in conditionBlock: %v", err))
+			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
 		} else {
 			if !hasPassed {
-				errs = append(errs, fmt.Errorf("resource does not match selector of given conditionBlock"))
+				errs = append(errs, fmt.Errorf("selector does not match"))
 			}
 		}
 	}
@@ -167,7 +167,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
-		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match block in rule cannot be empty"))
+		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 	}
 
 	// checking if resource has been excluded
@@ -175,15 +175,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource)
 		if excludeErrs == nil {
-			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource has been excluded since it matches the exclude block"))
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}
 	}
 
 	// creating final error
-	var errorMessage = "rule has failed to match resource for the following reasons:"
+	var errorMessage = "rule not matched:"
 	for i, reasonForFailure := range reasonsForFailure {
 		if reasonForFailure != nil {
-			errorMessage += "\n" + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()
+			errorMessage += "\n " + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()
 		}
 	}
 

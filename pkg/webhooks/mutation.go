@@ -21,7 +21,7 @@ import (
 func (ws *WebhookServer) HandleMutation(
 	request *v1beta1.AdmissionRequest,
 	resource unstructured.Unstructured,
-	policies []kyverno.ClusterPolicy,
+	policies []*kyverno.ClusterPolicy,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo) []byte {
 
@@ -43,7 +43,7 @@ func (ws *WebhookServer) HandleMutation(
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
-		policyContext.Policy = policy
+		policyContext.Policy = *policy
 		engineResponse := engine.Mutate(policyContext)
 
 		engineResponses = append(engineResponses, engineResponse)

@@ -23,7 +23,7 @@ import (
 // patchedResource is the (resource + patches) after applying mutation rules
 func (ws *WebhookServer) HandleValidation(
 	request *v1beta1.AdmissionRequest,
-	policies []kyverno.ClusterPolicy,
+	policies []*kyverno.ClusterPolicy,
 	patchedResource []byte,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo) (bool, string) {
@@ -64,7 +64,7 @@ func (ws *WebhookServer) HandleValidation(
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
-		policyContext.Policy = policy
+		policyContext.Policy = *policy
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response

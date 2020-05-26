@@ -1,6 +1,7 @@
 package policy
 
 import (
+	informers "k8s.io/client-go/informers/core/v1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -13,7 +14,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
@@ -48,30 +48,42 @@ type PolicyController struct {
 
 	//pvControl is used for adoptin/releasing policy violation
 	pvControl PVControlInterface
+
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
+
 	// pLister can list/get policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
+
 	// pvLister can list/get policy violation from the shared informer's store
 	cpvLister kyvernolister.ClusterPolicyViolationLister
+
 	// nspvLister can list/get namespaced policy violation from the shared informer's store
 	nspvLister kyvernolister.PolicyViolationLister
+
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
+
 	// pvListerSynced returns true if the Policy store has been synced at least once
 	cpvListerSynced cache.InformerSynced
+
 	// pvListerSynced returns true if the Policy Violation store has been synced at least once
 	nspvListerSynced cache.InformerSynced
+
+	nsInformer informers.NamespaceInformer
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
+
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
-	// store to hold policy meta data for faster lookup
-	pMetaStore policystore.UpdateInterface
+
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
+
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
+
 	log                    logr.Logger
 }
 
@@ -81,12 +93,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
-	configHandler config.Interface,
-	eventGen event.Interface,
+	configHandler config.Interface, eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
-	pMetaStore policystore.UpdateInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	namespaces informers.NamespaceInformer,
 	log logr.Logger) (*PolicyController, error) {
+
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
@@ -103,9 +115,9 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:          configHandler,
-		pMetaStore:             pMetaStore,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
+		nsInformer: namespaces,
 		log:                    log,
 	}
 
@@ -147,32 +159,30 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	return &pc, nil
 }
 
+func  (pc *PolicyController)  canBackgroundProcess(p *kyverno.ClusterPolicy) bool {
+	logger := pc.log.WithValues("policy", p.Name)
+	if !p.BackgroundProcessingEnabled() {
+		logger.V(4).Info("background processed is disabled")
+		return false
+	}
+
+	if err := ContainsVariablesOtherThanObject(*p); err != nil {
+		logger.V(4).Info("policy cannot be processed in the background")
+		return false
+	}
+
+	return true
+}
+
+
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
-	// Only process policies that are enabled for "background" execution
-	// policy.spec.background -> "True"
-	// register with policy meta-store
-	pc.pMetaStore.Register(*p)
-
-	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
-	if p.Spec.Background == nil {
-		// if userInfo is not defined in policy we process the policy
-		if err := ContainsVariablesOtherThanObject(*p); err != nil {
-			return
-		}
-	} else {
-		if !*p.Spec.Background {
-			return
-		}
-		// If userInfo is used then skip the policy
-		// ideally this should be handled by background flag only
-		if err := ContainsVariablesOtherThanObject(*p); err != nil {
-			// contains userInfo used in policy
-			return
-		}
+	if !pc.canBackgroundProcess(p) {
+		return
 	}
-	logger.V(4).Info("adding policy", "name", p.Name)
+
+	logger.V(4).Info("queuing policy for background processing", "name", p.Name)
 	pc.enqueuePolicy(p)
 }
 
@@ -180,32 +190,9 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
-	// TODO: optimize this : policy meta-store
-	// Update policy-> (remove,add)
-	err := pc.pMetaStore.UnRegister(*oldP)
-	if err != nil {
-		logger.Error(err, "failed to unregister policy", "name", oldP.Name)
-	}
-	pc.pMetaStore.Register(*curP)
 
-	// Only process policies that are enabled for "background" execution
-	// policy.spec.background -> "True"
-	// TODO: code might seem vague, awaiting resolution of issue https://github.com/nirmata/kyverno/issues/598
-	if curP.Spec.Background == nil {
-		// if userInfo is not defined in policy we process the policy
-		if err := ContainsVariablesOtherThanObject(*curP); err != nil {
-			return
-		}
-	} else {
-		if !*curP.Spec.Background {
-			return
-		}
-		// If userInfo is used then skip the policy
-		// ideally this should be handled by background flag only
-		if err := ContainsVariablesOtherThanObject(*curP); err != nil {
-			// contains userInfo used in policy
-			return
-		}
+	if !pc.canBackgroundProcess(curP) {
+		return
 	}
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
@@ -221,6 +208,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 			logger.Info("couldnt get object from tomstone", "obj", obj)
 			return
 		}
+
 		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
@@ -229,10 +217,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	}
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
-	// Unregister from policy meta-store
-	if err := pc.pMetaStore.UnRegister(*p); err != nil {
-		logger.Error(err, "failed to unregister policy", "name", p.Name)
-	}
 
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.

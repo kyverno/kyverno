@@ -16,7 +16,7 @@ import (
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) (bool, string) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) (bool, string) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
@@ -39,7 +39,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
-		policyContext.Policy = policy
+		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource

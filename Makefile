@@ -55,7 +55,8 @@ KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
 local:
-	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
 kyverno:
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
