@@ -137,6 +137,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	// set name
 	newPv.SetName(oldPv.Name)
 	newPv.SetResourceVersion(oldPv.ResourceVersion)
+	newPv.SetOwnerReferences(oldPv.GetOwnerReferences())
 	// update resource
 	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(newPv)
 	if err != nil {
@@ -146,7 +147,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	if newPv.Annotations["fromSync"] != "true" {
 		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
-	logger.Info("namespaced policy violation created")
+	logger.Info("namespaced policy violation updated")
 	return nil
 }
 
