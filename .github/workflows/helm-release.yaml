@@ -24,20 +24,26 @@ jobs:
         helm init --client-only
     - name: Check Chart Version
       run: |
-        helm repo add nirmata ${{ env.HELM_CHART_URL }}
+        helm repo add evalsocket ${{ env.HELM_CHART_URL }}
         helm search nirmata/kyverno --version `cat charts/kyverno/Chart.yaml | grep '^version: [[:alnum:]]' | awk '{print $2}'` > HELM_CHART_STATUS.txt
         HELM_CHART_STATUS=`cat HELM_CHART_STATUS.txt`
         if [ "${HELM_CHART_STATUS}" != 'No results found' ]; then
           echo 'Version already exist, impossible to continue...'
           exit 1
         fi
-    - name: Check syntax
-      run: helm lint charts/kyverno/
+    - name: Check sintax
+      run: helm lint charts/oldmonk/
     - name: Create package
       run: |
-        mkdir -p gh-pages/helm-charts/
-        helm package charts/kyverno/ -d gh-pages/helm-charts/
+        mkdir -p output/helm-charts/
+        helm package charts/oldmonk/ -d output/helm-charts/
     - name: Reindex repo
       run: |
         wget --quiet ${{ env.HELM_CHART_URL }}/index.yaml
-        helm repo index --merge index.yaml --url ${{ env.HELM_CHART_URL }} gh-pages/helm-charts/
+        helm repo index --merge index.yaml --url ${{ env.HELM_CHART_URL }} output/helm-charts/
+    - name: Release
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BRANCH: gh-pages 
+        FOLDER: output
