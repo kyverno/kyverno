@@ -32,7 +32,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}()
 
 	var engineResponses []response.EngineResponse
-	var engineResponse response.EngineResponse
+	var engineResponseMutation, engineResponseValidation response.EngineResponse
 	var err error
 	// build context
 	ctx := context.NewContext()
@@ -41,15 +41,14 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "enable to add transform resource to ctx")
 	}
 	//MUTATION
-	engineResponse, err = mutation(policy, resource, ctx, logger)
-	engineResponses = append(engineResponses, engineResponse)
+	engineResponseMutation, err = mutation(policy, resource, ctx, logger)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
 
 	//VALIDATION
-	engineResponse = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
-	engineResponses = append(engineResponses, engineResponse)
+	engineResponseValidation = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
+	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	//TODO: GENERATION
 	return engineResponses
@@ -80,28 +79,32 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 	// resource does not match so there was a mutation rule violated
 	for index, rule := range engineResponse.PolicyResponse.Rules {
-		log.V(4).Info("veriying if policy rule was applied before", "rule", rule.Name)
-		if len(rule.Patches) == 0 {
+		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
+
+		patches := dropKyvernoAnnotation(rule.Patches, log)
+		if len(patches) == 0 {
 			continue
 		}
-		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(rule.Patches))
+
+		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
 		if err != nil {
-			log.Error(err, "failed to decode JSON patch", "patches", rule.Patches)
+			log.Error(err, "failed to decode JSON patch", "patches", patches)
 			return response.EngineResponse{}, err
 		}
 
 		// apply the patches returned by mutate to the original resource
 		patchedResource, err := patch.Apply(rawResource)
 		if err != nil {
-			log.Error(err, "failed to apply JSON patch", "patches", rule.Patches)
+			log.Error(err, "failed to apply JSON patch", "patches", patches)
 			return response.EngineResponse{}, err
 		}
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			log.V(4).Info("policy rule conditions not satisfied by resource", "rule", rule.Name)
 			engineResponse.PolicyResponse.Rules[index].Success = false
-			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("mutation json patches not found at resource path %s", extractPatchPath(rule.Patches, log))
+			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("mutation json patches not found at resource path %s", extractPatchPath(patches, log))
 		}
 	}
+
 	return engineResponse, nil
 }
 
@@ -124,4 +127,27 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 		resultPath = append(resultPath, data.Path)
 	}
 	return strings.Join(resultPath, ";")
+}
+
+func dropKyvernoAnnotation(patches [][]byte, log logr.Logger) (resultPathes [][]byte) {
+	for _, patch := range patches {
+		var data jsonPatch
+		if err := json.Unmarshal(patch, &data); err != nil {
+			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
+			continue
+		}
+
+		value := fmt.Sprintf("%v", data.Value)
+		if strings.Contains(value, engine.PodTemplateAnnotation) {
+			continue
+		}
+
+		resultPathes = append(resultPathes, patch)
+	}
+	return
+}
+
+func mergeRuleRespose(mutation, validation response.EngineResponse) response.EngineResponse {
+	mutation.PolicyResponse.Rules = append(mutation.PolicyResponse.Rules, validation.PolicyResponse.Rules...)
+	return mutation
 }
