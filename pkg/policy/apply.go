@@ -79,7 +79,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 	// resource does not match so there was a mutation rule violated
 	for index, rule := range engineResponse.PolicyResponse.Rules {
-		log.V(4).Info("veriying if policy rule was applied before", "rule", rule.Name)
+		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
 
 		patches := dropKyvernoAnnotation(rule.Patches, log)
 		if len(patches) == 0 {
