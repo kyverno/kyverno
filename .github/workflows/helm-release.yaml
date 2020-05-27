@@ -31,7 +31,7 @@ jobs:
           echo 'Version already exist, impossible to continue...'
           exit 1
         fi
-    - name: Check sintax
+    - name: Check syntax
       run: helm lint charts/kyverno/
     - name: Create package
       run: |
