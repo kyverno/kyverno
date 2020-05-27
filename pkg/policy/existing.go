@@ -1,11 +1,12 @@
 package policy
 
 import (
-	informers "k8s.io/client-go/informers/core/v1"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"github.com/go-logr/logr"
 	"github.com/minio/minio/pkg/wildcard"
@@ -72,7 +73,7 @@ func (pc *PolicyController) listResources(policy kyverno.ClusterPolicy) map[stri
 				rMap := getResourcesPerNamespace(k, pc.client, "", rule, pc.configHandler, pc.log)
 				mergeResources(resourceMap, rMap)
 			} else {
-				namespaces := getNamespacesForRule(&rule, pc.nsInformer, pc.log)
+				namespaces := getNamespacesForRule(&rule, pc.nsLister, pc.log)
 				for _, ns := range namespaces {
 					rMap := getResourcesPerNamespace(k, pc.client, ns, rule, pc.configHandler, pc.log)
 					mergeResources(resourceMap, rMap)
@@ -84,9 +85,9 @@ func (pc *PolicyController) listResources(policy kyverno.ClusterPolicy) map[stri
 	return resourceMap
 }
 
-func getNamespacesForRule(rule *kyverno.Rule, nsInformer informers.NamespaceInformer, log logr.Logger) []string {
-	if len(rule.MatchResources.Namespaces) > 0 {
-		return getAllNamespaces(nsInformer, log)
+func getNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister, log logr.Logger) []string {
+	if len(rule.MatchResources.Namespaces) == 0 {
+		return getAllNamespaces(nslister, log)
 	}
 
 	var wildcards []string
@@ -100,8 +101,8 @@ func getNamespacesForRule(rule *kyverno.Rule, nsInformer informers.NamespaceInfo
 	}
 
 	if len(wildcards) > 0 {
-		wildcardMatches := getMatchingNamespaces(wildcards, nsInformer, log)
-		results = append (results, wildcardMatches...)
+		wildcardMatches := getMatchingNamespaces(wildcards, nslister, log)
+		results = append(results, wildcardMatches...)
 	}
 
 	return results
@@ -115,8 +116,8 @@ func hasWildcard(s string) bool {
 	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
-func getMatchingNamespaces(wildcards []string, nsInformer informers.NamespaceInformer, log logr.Logger) []string {
-	all := getAllNamespaces(nsInformer, log)
+func getMatchingNamespaces(wildcards []string, nslister listerv1.NamespaceLister, log logr.Logger) []string {
+	all := getAllNamespaces(nslister, log)
 	if len(all) == 0 {
 		return all
 	}
@@ -133,9 +134,9 @@ func getMatchingNamespaces(wildcards []string, nsInformer informers.NamespaceInf
 	return results
 }
 
-func getAllNamespaces(nsInformer informers.NamespaceInformer, log logr.Logger) []string {
+func getAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	var results []string
-	namespaces, err := nsInformer.Lister().List(labels.NewSelector())
+	namespaces, err := nslister.List(labels.NewSelector())
 	if err != nil {
 		log.Error(err, "Failed to list namespaces")
 	}
