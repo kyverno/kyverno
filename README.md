@@ -20,6 +20,8 @@ Mutating policies can be written as overlays (similar to [Kustomize](https://kub
 
 Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
 
+**NOTE** : Your Kubernetes server must be at or later than version v1.14. To check the version, enter kubectl version.
+ 
 ## Examples
 
 ### 1. Validating resources
