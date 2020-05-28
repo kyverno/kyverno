@@ -11,6 +11,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructedv1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 //NamespacedPV ...
@@ -92,8 +93,23 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
 	}
+
+	if obj.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
+	if newPv.Spec.ResourceSpec.Kind == "Pod" {
+		if isEvictedPod(obj.Object) {
+			return nil
+		}
+	}
+
 	// set owner reference to resource
-	ownerRef := createOwnerReference(obj)
+	ownerRef, ok := createOwnerReference(obj)
+	if !ok {
+		return nil
+	}
+
 	newPv.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	// create resource
@@ -121,6 +137,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	// set name
 	newPv.SetName(oldPv.Name)
 	newPv.SetResourceVersion(oldPv.ResourceVersion)
+	newPv.SetOwnerReferences(oldPv.GetOwnerReferences())
 	// update resource
 	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(newPv)
 	if err != nil {
@@ -130,6 +147,15 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	if newPv.Annotations["fromSync"] != "true" {
 		nspv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
-	logger.Info("namespaced policy violation created")
+	logger.Info("namespaced policy violation updated")
 	return nil
+}
+
+func isEvictedPod(pod map[string]interface{}) bool {
+	reason, ok, _ := unstructedv1.NestedString(pod, "status", "reason")
+	if !ok {
+		return false
+	}
+
+	return reason == "Evicted"
 }

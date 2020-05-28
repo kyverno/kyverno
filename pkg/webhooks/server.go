@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policystore"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
@@ -42,36 +42,49 @@ type WebhookServer struct {
 	server        http.Server
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
+
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
+
 	// returns true if the cluster policy store has synced atleast
 	pSynced cache.InformerSynced
+
 	// list/get role binding resource
 	rbLister rbaclister.RoleBindingLister
+
 	// return true if role bining store has synced atleast once
 	rbSynced cache.InformerSynced
+
 	// list/get cluster role binding resource
 	crbLister rbaclister.ClusterRoleBindingLister
+
 	// return true if cluster role binding store has synced atleast once
 	crbSynced cache.InformerSynced
+
 	// generate events
 	eventGen event.Interface
+
 	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+
 	// API to send policy stats for aggregation
 	statusListener policystatus.Listener
+
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
+
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
+
 	// last request time
 	lastReqTime *checker.LastReqTime
-	// store to hold policy meta data for faster lookup
-	pMetaStore policystore.LookupInterface
+
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
+
 	// generate request generator
 	grGenerator            *generate.Generator
+
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 	log                    logr.Logger
 	openAPIController      *openapi.Controller
@@ -90,7 +103,6 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
-	pMetaStore policystore.LookupInterface,
 	pvGenerator policyviolation.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
@@ -126,7 +138,6 @@ func NewWebhookServer(
 		cleanUp:                   cleanUp,
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,
 		pvGenerator:               pvGenerator,
-		pMetaStore:                pMetaStore,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		log:                       log,
@@ -139,6 +150,22 @@ func NewWebhookServer(
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
+
+	// Handle Liveness responds to a Kubernetes Liveness probe
+	// Fail this request if Kubernetes should restart this instance
+	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request){
+		defer r.Body.Close()
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Handle Readiness responds to a Kubernetes Readiness probe
+	// Fail this request if this instance can't accept traffic, but Kubernetes shouldn't restart it
+	mux.HandlerFunc("GET", config.ReadinessServicePath, func(w http.ResponseWriter, r *http.Request){
+		defer r.Body.Close()
+
+		w.WriteHeader(http.StatusOK)
+	})
 
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
@@ -208,7 +235,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	policies, err := ws.pMetaStore.ListAll()
+	policies, err := ws.pLister.ListResources(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
 		logger.Error(err, "failed to list policies. Policies are NOT being applied")
@@ -355,7 +382,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	policies, err := ws.pMetaStore.ListAll()
+	policies, err := ws.pLister.ListResources(labels.NewSelector())
 	if err != nil {
 		// Unable to connect to policy Lister to access policies
 		logger.Error(err, "failed to list policies. Policies are NOT being applied")
@@ -369,7 +396,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
-			logger.Error(err, "failed to get RBAC infromation for request")
+			logger.Error(err, "failed to get RBAC information for request")
 		}
 	}
 
