@@ -3,10 +3,10 @@ package constant
 import "time"
 
 const (
-	CRDControllerResync             = 10 * time.Minute
-	PolicyViolationControllerResync = 5 * time.Minute
-	PolicyControllerResync          = time.Second
-	EventControllerResync           = time.Second
-	GenerateControllerResync        = time.Second
-	GenerateRequestControllerResync = time.Second
+	CRDControllerResync             = 15 * time.Minute
+	PolicyViolationControllerResync = 15 * time.Minute
+	PolicyControllerResync          = 15 * time.Minute
+	EventControllerResync           = 15 * time.Minute
+	GenerateControllerResync        = 15 * time.Minute
+	GenerateRequestControllerResync = 15 * time.Minute
 )

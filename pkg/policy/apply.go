@@ -17,6 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+const (
+	// JSON patch uses ~1 for / characters
+	// see: https://tools.ietf.org/html/rfc6901#section-3
+	PodTemplateAnnotationApplied = "pod-policies.kyverno.io~1autogen-applied"
+)
+
 // applyPolicy applies policy on a resource
 //TODO: generation rules
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
@@ -138,7 +144,8 @@ func dropKyvernoAnnotation(patches [][]byte, log logr.Logger) (resultPathes [][]
 		}
 
 		value := fmt.Sprintf("%v", data.Value)
-		if strings.Contains(value, engine.PodTemplateAnnotation) {
+		if strings.Contains(value, engine.PodTemplateAnnotation) ||
+			strings.Contains(value, PodTemplateAnnotationApplied) {
 			continue
 		}
 

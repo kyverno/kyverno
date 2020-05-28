@@ -94,7 +94,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				dClient, err = client.NewClient(restConfig, 10*time.Second, make(chan struct{}), log.Log)
+				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
 				if err != nil {
 					return err
 				}
