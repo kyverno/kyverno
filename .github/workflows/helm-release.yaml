@@ -5,6 +5,7 @@ on:
     - master
     paths:
     - 'charts/kyverno/**'
+  pull_request:
 env:
   HELM_CHART_URL: "https://nirmata.github.io/kyverno/helm-charts/"
 
