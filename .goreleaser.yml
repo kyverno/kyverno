@@ -39,10 +39,4 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 release:
-  github:
-      owner: nirmata
-      name: kyverno
-  draft: true
-  skip: false
   prerelease: auto
-  name_template: "{{.ProjectName}}-v{{.Version}} {{.Env.USER}}"
