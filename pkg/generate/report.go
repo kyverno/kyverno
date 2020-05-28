@@ -3,13 +3,13 @@ package generate
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func reportEvents(err error, eventGen event.Interface, gr kyverno.GenerateRequest, resource unstructured.Unstructured) {
+func reportEvents(log logr.Logger, err error, eventGen event.Interface, gr kyverno.GenerateRequest, resource unstructured.Unstructured) {
 	if err == nil {
 		// Success Events
 		// - resource -> policy rule applied successfully
@@ -18,7 +18,6 @@ func reportEvents(err error, eventGen event.Interface, gr kyverno.GenerateReques
 		eventGen.Add(events...)
 		return
 	}
-	glog.V(4).Infof("reporing events for %v", err)
 	events := failedEvents(err, gr, resource)
 	eventGen.Add(events...)
 }

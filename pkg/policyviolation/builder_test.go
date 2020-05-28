@@ -5,6 +5,7 @@ import (
 
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
@@ -52,6 +53,6 @@ func Test_GeneratePVsFromEngineResponse_PathNotExist(t *testing.T) {
 		},
 	}
 
-	pvInfos := GeneratePVsFromEngineResponse(ers)
+	pvInfos := GeneratePVsFromEngineResponse(ers, log.Log)
 	assert.Assert(t, len(pvInfos) == 1)
 }

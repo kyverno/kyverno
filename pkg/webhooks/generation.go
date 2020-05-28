@@ -5,7 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/glog"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -17,41 +16,20 @@ import (
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []kyverno.ClusterPolicy, patchedResource []byte, roles, clusterRoles []string) (bool, string) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) (bool, string) {
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
 
 	// convert RAW to unstructured
 	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
 		//TODO: skip applying the admission control ?
-		glog.Errorf("unable to convert raw resource to unstructured: %v", err)
+		logger.Error(err, "failed to convert RAR resource to unstructured format")
 		return true, ""
 	}
 
 	// CREATE resources, do not have name, assigned in admission-request
-	glog.V(4).Infof("Handle Generate: Kind=%s, Namespace=%s Name=%s UID=%s patchOperation=%s",
-		resource.GetKind(), resource.GetNamespace(), resource.GetName(), request.UID, request.Operation)
-
-	userRequestInfo := kyverno.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
-	// build context
-	ctx := context.NewContext()
-	// load incoming resource into the context
-	err = ctx.AddResource(request.Object.Raw)
-	if err != nil {
-		glog.Infof("Failed to load resource in context:%v", err)
-	}
-	err = ctx.AddUserInfo(userRequestInfo)
-	if err != nil {
-		glog.Infof("Failed to load userInfo in context:%v", err)
-	}
-	// load service account in context
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		glog.Infof("Failed to load service account in context:%v", err)
-	}
 
 	policyContext := engine.PolicyContext{
 		NewResource:   *resource,
@@ -61,7 +39,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 	// engine.Generate returns a list of rules that are applicable on this resource
 	for _, policy := range policies {
-		policyContext.Policy = policy
+		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource

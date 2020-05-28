@@ -3,7 +3,6 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -163,7 +161,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
-			// Expected generate resource will be in same namesapces as resource
+			// Expected generate resource will be in same namespaces as resource
 			validateGeneratedResources(t, client, *policy, resource.GetName(), tc.Expected.Generation.GeneratedResources)
 		}
 	}
@@ -198,7 +196,7 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 	// load expected resource
 	expectedResource := loadPolicyResource(t, expectedResourceFile)
 	if expectedResource == nil {
-		t.Log("failed to get the expected resource")
+		t.Logf("failed to get the expected resource: %s", expectedResourceFile)
 		return
 	}
 
@@ -308,7 +306,7 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 func getClient(t *testing.T, files []string) *client.Client {
 	var objects []runtime.Object
 	if files != nil {
-		glog.V(4).Infof("loading resources: %v", files)
+
 		for _, file := range files {
 			objects = loadObjects(t, file)
 		}
@@ -404,7 +402,7 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 		policy := kyverno.ClusterPolicy{}
 		pBytes, err := apiyaml.ToJSON(p)
 		if err != nil {
-			glog.Error(err)
+			t.Error(err)
 			continue
 		}
 
@@ -427,7 +425,8 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-	flag.Set("logtostderr", "true")
+
+	// flag.Set("logtostderr", "true")
 	// flag.Set("v", "8")
 
 	scenario, err := loadScenario(t, path)

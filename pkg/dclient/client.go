@@ -5,9 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -32,13 +31,15 @@ import (
 //Client enables interaction with k8 resource
 type Client struct {
 	client          dynamic.Interface
+	log             logr.Logger
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery
 }
 
 //NewClient creates new instance of client
-func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}) (*Client, error) {
+func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}, log logr.Logger) (*Client, error) {
+
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -51,9 +52,10 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
+		log:          log.WithName("dclient"),
 	}
 	// Set discovery client
-	discoveryClient := ServerPreferredResources{memory.NewMemCacheClient(kclient.Discovery())}
+	discoveryClient := ServerPreferredResources{cachedClient: memory.NewMemCacheClient(kclient.Discovery()), log: client.log}
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
 	// we will be invalidating the local cache, so the next request get a fresh cache
@@ -127,6 +129,11 @@ func (c *Client) PatchResource(kind string, namespace string, name string, patch
 	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
+// GetDynamicInterface fetches underlying dynamic interface
+func (c *Client) GetDynamicInterface() dynamic.Interface {
+	return c.client
+}
+
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
 func (c *Client) ListResource(kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
@@ -189,7 +196,6 @@ func (c *Client) UpdateStatusResource(kind string, namespace string, obj interfa
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 	if err != nil {
-		glog.Errorf("Unable to convert : %v", err)
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
@@ -215,6 +221,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
+	FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error)
 	GetGVRFromKind(kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapi_v2.Document, error)
@@ -228,77 +235,90 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 //ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+	log          logr.Logger
 }
 
 //Poll will keep invalidate the local cache
 func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struct{}) {
+	logger := c.log.WithName("Poll")
 	// start a ticker
 	ticker := time.NewTicker(resync)
 	defer func() { ticker.Stop() }()
-	glog.Infof("Starting registered resources sync: every %d seconds", resync)
+	logger.Info("starting registered resources sync", "period", resync)
 	for {
 		select {
 		case <-stopCh:
-			glog.Info("Stopping registered resources sync")
+			logger.Info("stopping registered resources sync")
 			return
 		case <-ticker.C:
 			// set cache as stale
-			glog.V(6).Info("invalidating local client cache for registered resources")
+			logger.V(6).Info("invalidating local client cache for registered resources")
 			c.cachedClient.Invalidate()
 		}
 	}
 }
 
+// OpenAPISchema returns the API server OpenAPI schema document
 func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
-//GetGVRFromKind get the Group Version Resource from kind
-// if kind is not found in first attempt we invalidate the cache,
-// the retry will then fetch the new registered resources and check again
-// if not found after 2 attempts, we declare kind is not found
-// kind is Case sensitive
+// GetGVRFromKind get the Group Version Resource from kind
 func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
-	var gvr schema.GroupVersionResource
-	var err error
-	gvr, err = loadServerResources(kind, c.cachedClient)
-	if err != nil && !c.cachedClient.Fresh() {
-
-		// invalidate cahce & re-try once more
-		c.cachedClient.Invalidate()
-		gvr, err = loadServerResources(kind, c.cachedClient)
-		if err == nil {
-			return gvr
-		}
+	_, gvr, err := c.FindResource(kind)
+	if err != nil {
+		c.log.Info("schema not found", "kind", kind)
+		return schema.GroupVersionResource{}
 	}
+
 	return gvr
 }
 
-//GetServerVersion returns the server version of the cluster
+// GetServerVersion returns the server version of the cluster
 func (c ServerPreferredResources) GetServerVersion() (*version.Info, error) {
 	return c.cachedClient.ServerVersion()
 }
 
-func loadServerResources(k string, cdi discovery.CachedDiscoveryInterface) (schema.GroupVersionResource, error) {
-	serverresources, err := cdi.ServerPreferredResources()
-	emptyGVR := schema.GroupVersionResource{}
-	if err != nil {
-		glog.Error(err)
-		return emptyGVR, err
+// FindResource finds an API resource that matches 'kind'. If the resource is not
+// found and the Cache is not fresh, the cache is invalidated and a retry is attempted
+func (c ServerPreferredResources) FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	r, gvr, err := c.findResource(kind)
+	if err == nil {
+		return r, gvr, nil
 	}
+
+	if !c.cachedClient.Fresh() {
+		c.cachedClient.Invalidate()
+		if r, gvr, err = c.findResource(kind); err == nil {
+			return r, gvr, nil
+		}
+	}
+
+	return nil, schema.GroupVersionResource{}, err
+}
+
+func (c ServerPreferredResources) findResource(k string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	serverresources, err := c.cachedClient.ServerPreferredResources()
+	if err != nil {
+		c.log.Error(err, "failed to get registered preferred resources")
+		return nil, schema.GroupVersionResource{}, err
+	}
+
 	for _, serverresource := range serverresources {
 		for _, resource := range serverresource.APIResources {
-			// skip the resource names with "/", to avoid comparison with subresources
 
+			// skip the resource names with "/", to avoid comparison with subresources
 			if resource.Kind == k && !strings.Contains(resource.Name, "/") {
 				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
 				if err != nil {
-					glog.Error(err)
-					return emptyGVR, err
+					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverresource.GroupVersion)
+					return nil, schema.GroupVersionResource{}, err
 				}
-				return gv.WithResource(resource.Name), nil
+
+				return &resource, gv.WithResource(resource.Name), nil
 			}
 		}
 	}
-	return emptyGVR, fmt.Errorf("kind '%s' not found", k)
+
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found", k)
 }

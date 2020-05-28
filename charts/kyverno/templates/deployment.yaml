@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels: {{ include "kyverno.labels" . | nindent 8 }}
+        {{- range $key, $value := .Values.podLabels }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ template "kyverno.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      initContainers:
+        - name: kyverno-pre
+          image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
+          imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+      containers:
+        - name: kyverno
+          image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.extraArgs }}
+          args: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          ports:
+          - containerPort: 443
+            name: https
+            protocol: TCP
+          env:
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.configMapName" . }}
+        {{- with .Values.livenessProbe }}
+          livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
+          readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
+        {{- end }}

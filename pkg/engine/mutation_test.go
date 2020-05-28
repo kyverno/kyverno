@@ -67,11 +67,17 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 	expectedPatch := []byte(`{ "op": "add", "path": "/metadata/labels", "value":{"appname":"check-root-user"} }`)
 
 	var policy kyverno.ClusterPolicy
-	json.Unmarshal(rawPolicy, &policy)
+	err := json.Unmarshal(rawPolicy, &policy)
+	if err != nil {
+		t.Error(err)
+	}
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	ctx.AddResource(rawResource)
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
 	value, err := ctx.Query("request.object.metadata.name")
 	t.Log(value)
 	if err != nil {
@@ -139,19 +145,21 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
-	json.Unmarshal(policyraw, &policy)
+	err := json.Unmarshal(policyraw, &policy)
+	assert.NilError(t, err)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
 
 	policyContext := PolicyContext{
 		Policy:      policy,
 		Context:     ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "[failed to resolve request.object.metadata.name1 at path /spec/name]"
+	expectedErrorStr := "could not find variable request.object.metadata.name1 at path /spec/name"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }

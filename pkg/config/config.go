@@ -1,9 +1,7 @@
 package config
 
 import (
-	"flag"
-
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -72,31 +70,19 @@ var (
 	PolicyMutatingWebhookServicePath = "/policymutate"
 	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
+	// LivenessServicePath is the path for check liveness health
+	LivenessServicePath = "/health/liveness"
+	// ReadinessServicePath is the path for check readness health 
+	ReadinessServicePath = "/health/readiness"
 )
 
-//LogDefaultFlags sets default glog flags
-func LogDefaultFlags() {
-	var err error
-	err = flag.Set("logtostderr", "true")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'logtostderr' to 'true':%v", err)
-	}
-	err = flag.Set("stderrthreshold", "WARNING")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'stderrthreshold' to 'WARNING':%v", err)
-	}
-	flag.Set("v", "2")
-	if err != nil {
-		glog.Fatalf("failed to set flag 'v' to '2':%v", err)
-	}
-}
-
 //CreateClientConfig creates client config
-func CreateClientConfig(kubeconfig string) (*rest.Config, error) {
+func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
+	logger := log.WithName("CreateClientConfig")
 	if kubeconfig == "" {
-		glog.Info("Using in-cluster configuration")
+		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	glog.V(4).Infof("Using configuration from '%s'", kubeconfig)
+	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

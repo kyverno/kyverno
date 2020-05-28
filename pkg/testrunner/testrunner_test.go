@@ -137,3 +137,7 @@ func Test_known_ingress(t *testing.T) {
 func Test_unknown_ingress(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/more/unknown_ingress_class.yaml")
 }
+
+func Test_mutate_pod_spec(t *testing.T) {
+	testScenario(t, "test/scenarios/other/scenario_mutate_pod_spec.yaml")
+}

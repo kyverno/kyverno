@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/nirmata/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
@@ -19,8 +18,8 @@ func (wrc *WebhookRegistrationClient) constructVerifyMutatingWebhookConfig(caDat
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.Webhook{
-			generateWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				config.VerifyMutatingWebhookServicePath,
 				caData,
@@ -36,14 +35,15 @@ func (wrc *WebhookRegistrationClient) constructVerifyMutatingWebhookConfig(caDat
 }
 
 func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.VerifyMutatingWebhookServicePath)
-	glog.V(4).Infof("Debug VerifyMutatingWebhookConfig is registered with url %s\n", url)
+	logger.V(4).Info("Debug VerifyMutatingWebhookConfig is registered with url", "url", url)
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationDebugName,
 		},
-		Webhooks: []admregapi.Webhook{
-			generateDebugWebhook(
+		Webhooks: []admregapi.MutatingWebhook{
+			generateDebugMutatingWebhook(
 				config.VerifyMutatingWebhookName,
 				url,
 				caData,
@@ -60,7 +60,7 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 
 func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// Mutating webhook configuration
+
 	var err error
 	var mutatingConfig string
 	if wrc.serverIP != "" {
@@ -68,13 +68,18 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(w
 	} else {
 		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
 	}
-	glog.V(4).Infof("removing webhook configuration %s", mutatingConfig)
+
+	logger := wrc.log.WithValues("name", mutatingConfig)
 	err = wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
-		glog.V(4).Infof("verify webhook configuration %s, does not exits. not deleting", mutatingConfig)
-	} else if err != nil {
-		glog.Errorf("failed to delete verify webhook configuration %s: %v", mutatingConfig, err)
-	} else {
-		glog.V(4).Infof("successfully deleted verify webhook configuration %s", mutatingConfig)
+		logger.V(5).Info("verify webhook configuration not found")
+		return
 	}
+
+	if err != nil {
+		logger.Error(err, "failed to delete verify wwebhook configuration")
+		return
+	}
+
+	logger.V(4).Info("successfully deleted verify webhook configuration")
 }
