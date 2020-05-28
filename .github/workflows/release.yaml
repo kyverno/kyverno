@@ -1,9 +1,8 @@
 name: releaser
 
 on:
+  pull_request:
   push:
-    tags:
-      - 'v*'
 
 jobs:
   releaser:
