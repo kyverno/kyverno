@@ -750,3 +750,23 @@ spec:
               cpu: "100m"
             limits:
               memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 4
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 4
+            successThreshold: 1

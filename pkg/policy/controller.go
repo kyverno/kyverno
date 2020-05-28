@@ -1,8 +1,9 @@
 package policy
 
 import (
-	informers "k8s.io/client-go/informers/core/v1"
 	"time"
+
+	informers "k8s.io/client-go/informers/core/v1"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -22,6 +23,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -61,6 +63,9 @@ type PolicyController struct {
 	// nspvLister can list/get namespaced policy violation from the shared informer's store
 	nspvLister kyvernolister.PolicyViolationLister
 
+	// nsLister can list/get namespacecs from the shared informer's store
+	nsLister listerv1.NamespaceLister
+
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 
@@ -70,7 +75,8 @@ type PolicyController struct {
 	// pvListerSynced returns true if the Policy Violation store has been synced at least once
 	nspvListerSynced cache.InformerSynced
 
-	nsInformer informers.NamespaceInformer
+	// nsListerSynced returns true if the namespace store has been synced at least once
+	nsListerSynced cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -84,7 +90,7 @@ type PolicyController struct {
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
-	log                    logr.Logger
+	log logr.Logger
 }
 
 // NewPolicyController create a new PolicyController
@@ -117,7 +123,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		configHandler:          configHandler,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
-		nsInformer: namespaces,
 		log:                    log,
 	}
 
@@ -147,10 +152,13 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pc.pLister = pInformer.Lister()
 	pc.cpvLister = cpvInformer.Lister()
 	pc.nspvLister = nspvInformer.Lister()
+	pc.nsLister = namespaces.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.cpvListerSynced = cpvInformer.Informer().HasSynced
 	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
+	pc.nsListerSynced = namespaces.Informer().HasSynced
+
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
@@ -159,7 +167,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	return &pc, nil
 }
 
-func  (pc *PolicyController)  canBackgroundProcess(p *kyverno.ClusterPolicy) bool {
+func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool {
 	logger := pc.log.WithValues("policy", p.Name)
 	if !p.BackgroundProcessingEnabled() {
 		logger.V(4).Info("background processed is disabled")
@@ -173,7 +181,6 @@ func  (pc *PolicyController)  canBackgroundProcess(p *kyverno.ClusterPolicy) boo
 
 	return true
 }
-
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
@@ -243,7 +250,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}

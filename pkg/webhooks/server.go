@@ -151,6 +151,22 @@ func NewWebhookServer(
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
 
+	// Handle Liveness responds to a Kubernetes Liveness probe
+	// Fail this request if Kubernetes should restart this instance
+	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request){
+		defer r.Body.Close()
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Handle Readiness responds to a Kubernetes Readiness probe
+	// Fail this request if this instance can't accept traffic, but Kubernetes shouldn't restart it
+	mux.HandlerFunc("GET", config.ReadinessServicePath, func(w http.ResponseWriter, r *http.Request){
+		defer r.Body.Close()
+
+		w.WriteHeader(http.StatusOK)
+	})
+
 	ws.server = http.Server{
 		Addr:         ":443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
