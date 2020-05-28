@@ -2,9 +2,8 @@ name: releaser
 
 on:
   push:
-    branches:
-      - 'master'
-  pull_request:
+    tags:
+      - '*'
 
 jobs:
   releaser:
