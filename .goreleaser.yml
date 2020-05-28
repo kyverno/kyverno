@@ -43,5 +43,6 @@ release:
       owner: nirmata
       name: kyverno
   draft: true
+  skip: false
   prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}} {{.Env.USER}}"
