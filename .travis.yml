@@ -36,24 +36,3 @@ after_success:
     make docker-publish-initContainer
     make docker-publish-kyverno
    fi
-
-# Remove ENV after Testing. this env variable help us to test krew plugin without submit krew-index
-env:
-  - KREW_RELEASE_BOT_WEBHOOK_URL=https://krew-release-bot-dryrun.rajatjindal.com/github-action-webhook
-  
-
-deploy:
-- provider: script
-  skip_cleanup: true
-  api_key: $GITHUB_OAUTH_TOKEN
-  script: 
-    - curl -sL https://git.io/goreleaser | bash
-    - curl -LO https://github.com/rajatjindal/krew-release-bot/releases/download/v0.0.38/krew-release-bot_v0.0.38_linux_amd64.tar.gz
-    - tar -xvf krew-release-bot_v0.0.38_linux_amd64.tar.gz
-    - printenv && pwd && ls -ltr
-    - ./krew-release-bot action
-  on:
-    tags: true
-
-
-
