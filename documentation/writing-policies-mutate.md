@@ -1,6 +1,6 @@
 <small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Mutate Resources*</small>
 
-# Mutate Resources
+# Mutating Resources
 
 The ```mutate``` rule can be used to add, replace, or delete elements in matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
 
