@@ -23,15 +23,15 @@ jobs:
         chmod 700 get_helm.sh
         ./get_helm.sh
         helm init --client-only
-    - name: Check Chart Version
-      run: |
-        helm repo add evalsocket ${{ env.HELM_CHART_URL }}
-        helm search nirmata/kyverno --version `cat charts/kyverno/Chart.yaml | grep '^version: [[:alnum:]]' | awk '{print $2}'` > HELM_CHART_STATUS.txt
-        HELM_CHART_STATUS=`cat HELM_CHART_STATUS.txt`
-        if [ "${HELM_CHART_STATUS}" != 'No results found' ]; then
-          echo 'Version already exist, impossible to continue...'
-          exit 1
-        fi
+#     - name: Check Chart Version
+#       run: |
+#         helm repo add evalsocket ${{ env.HELM_CHART_URL }}
+#         helm search nirmata/kyverno --version `cat charts/kyverno/Chart.yaml | grep '^version: [[:alnum:]]' | awk '{print $2}'` > HELM_CHART_STATUS.txt
+#         HELM_CHART_STATUS=`cat HELM_CHART_STATUS.txt`
+#         if [ "${HELM_CHART_STATUS}" != 'No results found' ]; then
+#           echo 'Version already exist, impossible to continue...'
+#           exit 1
+#         fi
     - name: Check sintax
       run: helm lint charts/oldmonk/
     - name: Create package
