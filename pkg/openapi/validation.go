@@ -27,10 +27,8 @@ import (
 
 type Controller struct {
 	mutex                sync.RWMutex
-	document             *openapi_v2.Document
 	definitions          map[string]*openapi_v2.Schema
 	kindToDefinitionName map[string]string
-	crdList              []string
 	models               proto.Models
 }
 
@@ -82,7 +80,7 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 	schema := o.models.LookupModel(kind)
 	if schema == nil {
 		// Check if kind is a CRD
-		schema, err = o.getSchemaFromDefinitions(kind)
+		schema, err = o.getCRDSchema(kind)
 		if err != nil || schema == nil {
 			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
 		}
@@ -144,22 +142,20 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func (o *Controller) useOpenApiDocument(customDoc *openapi_v2.Document) error {
+func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	o.document = customDoc
-
 	o.definitions = make(map[string]*openapi_v2.Schema)
 	o.kindToDefinitionName = make(map[string]string)
-	for _, definition := range o.document.GetDefinitions().AdditionalProperties {
+	for _, definition := range doc.GetDefinitions().AdditionalProperties {
 		o.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
 		o.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
 	var err error
-	o.models, err = proto.NewOpenAPIData(o.document)
+	o.models, err = proto.NewOpenAPIData(doc)
 	if err != nil {
 		return err
 	}
@@ -178,7 +174,7 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 }
 
 // For crd, we do not store definition in document
-func (o *Controller) getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 	if kind == "" {
 		return nil, errors.New("invalid kind")
 	}

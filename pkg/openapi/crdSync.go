@@ -16,7 +16,7 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -28,7 +28,7 @@ type crdSync struct {
 	controller *Controller
 }
 
-// crdDefinitionPrior represents CRD's version prior to 1.16
+// crdDefinitionPrior represents CRDs version prior to 1.16
 var crdDefinitionPrior struct {
 	Spec struct {
 		Names struct {
@@ -40,7 +40,7 @@ var crdDefinitionPrior struct {
 	} `json:"spec"`
 }
 
-// crdDefinitionNew represents CRD in version 1.16+
+// crdDefinitionNew represents CRDs version 1.16+
 var crdDefinitionNew struct {
 	Spec struct {
 		Names struct {
@@ -53,9 +53,6 @@ var crdDefinitionNew struct {
 			Storage bool `json:"storage"`
 		} `json:"versions"`
 	} `json:"spec"`
-}
-
-var crdVersion struct {
 }
 
 func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
@@ -72,12 +69,12 @@ func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get openapi schema")
+		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.controller.useOpenApiDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenApi document")
+		log.Log.Error(err, "Could not set custom OpenAPI document")
 	}
 
 	// Sync CRD before kyverno starts
@@ -110,12 +107,17 @@ func (c *crdSync) sync() {
 }
 
 func (o *Controller) deleteCRDFromPreviousSync() {
-	for _, crd := range o.crdList {
-		delete(o.kindToDefinitionName, crd)
-		delete(o.definitions, crd)
+	for k := range o.kindToDefinitionName {
+		delete(o.kindToDefinitionName, k)
 	}
 
-	o.crdList = []string{}
+	o.kindToDefinitionName = make(map[string]string, 0)
+
+	for k := range o.definitions {
+		delete(o.definitions, k)
+	}
+
+	o.definitions = make(map[string]*openapi_v2.Schema, 0)
 }
 
 func (o *Controller) parseCRD(crd unstructured.Unstructured) {
@@ -163,8 +165,6 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 		log.Log.Error(err, "could not parse crd schema", "name", crdName)
 		return
 	}
-
-	o.crdList = append(o.crdList, crdName)
 
 	o.kindToDefinitionName[crdName] = crdName
 	o.definitions[crdName] = parsedSchema
