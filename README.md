@@ -6,7 +6,7 @@
 
 Kyverno is a policy engine designed for Kubernetes.
 
-Kubernetes supports declarative validation, mutation, and generation of resource configurations using policies written as Kubernetes resources. 
+Kyverno supports declarative validation, mutation, and generation of resource configurations using policies written as Kubernetes resources.
 
 Kyverno can be used to scan existing workloads for best practices, or can be used to enforce best practices by blocking or mutating API requests.Kyverno allows cluster adminstrators to manage environment specific configurations independently of workload configurations and enforce configuration best practices for their clusters.
 
@@ -26,7 +26,7 @@ Policy enforcement is captured using Kubernetes events. Kyverno also reports pol
 
 This policy requires that all pods have CPU and memory resource requests and limits:
 
-````yaml
+```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -35,108 +35,107 @@ spec:
   # `enforce` blocks the request. `audit` reports violations
   validationFailureAction: enforce
   rules:
-  - name: check-pod-resources
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: "CPU and memory resource requests and limits are required"
-      pattern:
-        spec:
-          containers:
-          # 'name: *' selects all containers in the pod
-          - name: "*"
-            resources:
-              limits:
-                # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
-                # Using them together e.g. '?*' requires at least one character. 
-                memory: "?*"
-                cpu: "?*"
-              requests:
-                memory: "?*"
-                cpu: "?*"
-````
+    - name: check-pod-resources
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "CPU and memory resource requests and limits are required"
+        pattern:
+          spec:
+            containers:
+              # 'name: *' selects all containers in the pod
+              - name: "*"
+                resources:
+                  limits:
+                    # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
+                    # Using them together e.g. '?*' requires at least one character.
+                    memory: "?*"
+                    cpu: "?*"
+                  requests:
+                    memory: "?*"
+                    cpu: "?*"
+```
 
 ### 2. Mutating resources
 
 This policy sets the imagePullPolicy to Always if the image tag is latest:
 
-````yaml
+```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: set-image-pull-policy
 spec:
   rules:
-  - name: set-image-pull-policy
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      overlay:
-        spec:
-          containers:
-            # match images which end with :latest   
-            - (image): "*:latest"
-              # set the imagePullPolicy to "Always"
-              imagePullPolicy: "Always"
-````
+    - name: set-image-pull-policy
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        overlay:
+          spec:
+            containers:
+              # match images which end with :latest
+              - (image): "*:latest"
+                # set the imagePullPolicy to "Always"
+                imagePullPolicy: "Always"
+```
 
 ### 3. Generating resources
 
-This policy sets the Zookeeper and Kafka connection strings for all namespaces with a label key 'kafka'.
+This policy sets the Zookeeper and Kafka connection strings for all namespaces.
 
-````yaml
+```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: "zk-kafka-address"
 spec:
   rules:
-  - name: "zk-kafka-address"
-    match:
-      resources:
-        kinds:
-          - Namespace
-    generate:
-      kind: ConfigMap
-      name: zk-kafka-address
-      # generate the resource in the new namespace
-      namespace: "{{request.object.metadata.name}}"
-      data:
+    - name: "zk-kafka-address"
+      match:
+        resources:
+          kinds:
+            - Namespace
+      generate:
         kind: ConfigMap
+        name: zk-kafka-address
+        # generate the resource in the new namespace
+        namespace: "{{request.object.metadata.name}}"
         data:
-          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
-          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
-````
+          kind: ConfigMap
+          data:
+            ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+            KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+```
 
 ### 4. More examples
 
-Refer to a list of curated of ***[sample policies](/samples/README.md)*** that can be applied to your cluster.
+Refer to a list of curated of **_[sample policies](/samples/README.md)_** that can be applied to your cluster.
 
 ## Documentation
 
-* [Getting Started](documentation/installation.md)
-* [Writing Policies](documentation/writing-policies.md)
-  * [Selecting Resources](/documentation/writing-policies-match-exclude.md)
-  * [Validate Resources](documentation/writing-policies-validate.md)
-  * [Mutate Resources](documentation/writing-policies-mutate.md)
-  * [Generate Resources](documentation/writing-policies-generate.md)
-  * [Variable Substitution](documentation/writing-policies-variables.md)
-  * [Preconditions](documentation/writing-policies-preconditions.md)
-  * [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
-  * [Background Processing](documentation/writing-policies-background.md)
-* [Testing Policies](documentation/testing-policies.md)
-* [Policy Violations](documentation/policy-violations.md)
-* [Kyverno CLI](documentation/kyverno-cli.md)
-* [Sample Policies](/samples/README.md)
+- [Getting Started](documentation/installation.md)
+- [Writing Policies](documentation/writing-policies.md)
+  - [Selecting Resources](/documentation/writing-policies-match-exclude.md)
+  - [Validate Resources](documentation/writing-policies-validate.md)
+  - [Mutate Resources](documentation/writing-policies-mutate.md)
+  - [Generate Resources](documentation/writing-policies-generate.md)
+  - [Variable Substitution](documentation/writing-policies-variables.md)
+  - [Preconditions](documentation/writing-policies-preconditions.md)
+  - [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
+  - [Background Processing](documentation/writing-policies-background.md)
+- [Testing Policies](documentation/testing-policies.md)
+- [Policy Violations](documentation/policy-violations.md)
+- [Kyverno CLI](documentation/kyverno-cli.md)
+- [Sample Policies](/samples/README.md)
 
 ## License
 
 [Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
-
 
 ## Alternatives
 
@@ -156,21 +155,20 @@ Refer to a list of curated of ***[sample policies](/samples/README.md)*** that c
 
 Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used to manage variations in configurations outside of clusters. There are several advantages to this approach when used to produce variations of the same base configuration. However, such solutions cannot be used to validate or enforce configurations.
 
-
 ## Roadmap
 
 See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](https://github.com/nirmata/kyverno/issues).
 
 ## Getting help
 
-  * For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
-  * For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
+- For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
+- For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/forum/#!forum/kyverno)
 
 ## Contributing
 
 Thanks for your interest in contributing!
 
-  * Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
-  * We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
-  * See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
-  * Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
+- Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
+- We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
+- See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
+- Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
