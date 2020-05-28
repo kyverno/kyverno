@@ -33,11 +33,11 @@ jobs:
 #           exit 1
 #         fi
     - name: Check sintax
-      run: helm lint charts/oldmonk/
+      run: helm lint charts/kyverno/
     - name: Create package
       run: |
         mkdir -p output/helm-charts/
-        helm package charts/oldmonk/ -d output/helm-charts/
+        helm package charts/kyverno/ -d output/helm-charts/
     - name: Reindex repo
       run: |
         wget --quiet ${{ env.HELM_CHART_URL }}/index.yaml
