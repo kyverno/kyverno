@@ -729,7 +729,7 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.6-rc
+          image: nirmata/kyvernopre:v1.1.6-rc1
       containers:
         - name: kyverno
           image: nirmata/kyverno:v1.1.6-rc1
