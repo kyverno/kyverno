@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,14 +25,13 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			log.Error(err, "failed to discribe file")
+			log.Error(err, "failed to describe file")
 			return nil, err
 		}
 
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				log.Error(err, "failed to parse %v", path)
 				return nil, sanitizedError.New(fmt.Sprintf("failed to parse %v", path))
 			}
 
@@ -44,7 +42,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("failed to extract policies form %v", listOfFiles))
+				log.Error(err, fmt.Sprintf("failed to extract policies from %v", listOfFiles))
 				return nil, sanitizedError.New(("failed to extract policies"))
 			}
 
@@ -59,7 +57,6 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 			}
 
 			if errString != "" {
-				log.Error(errors.New(errString), "failed to extract policies")
 				return nil, sanitizedError.New(("falied to extract policies"))
 			}
 
@@ -134,8 +131,11 @@ func SplitYAMLDocuments(yamlBytes []byte) (policies [][]byte, error error) {
 //GetPoliciesValidation - validating policies
 func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.Controller, error) {
 	policies, err := GetPolicies(policyPaths)
-	if err != nil && !sanitizedError.IsErrorSanitized(err) {
-		return nil, nil, fmt.Errorf(fmt.Sprintf("failed to parse %v. error: %v", policyPaths, err))
+	if err != nil {
+		if !sanitizedError.IsErrorSanitized(err) {
+			return nil, nil, sanitizedError.New((fmt.Sprintf("failed to parse %v path/s.", policyPaths)))
+		}
+		return nil, nil, err
 	}
 
 	openAPIController, err := openapi.NewOpenAPIController()
