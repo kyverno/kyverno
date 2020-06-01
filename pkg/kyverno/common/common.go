@@ -15,23 +15,26 @@ import (
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/nirmata/kyverno/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
-	var policies []*v1.ClusterPolicy
+// GetPolicies - Extracting the policies from multiple YAML
+func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
+	log := log.Log
 	for _, path := range paths {
 		path = filepath.Clean(path)
 
 		fileDesc, err := os.Stat(path)
 		if err != nil {
+			log.Error(err, "failed to discribe file")
 			return nil, err
 		}
 
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return nil, err
+				log.Error(err, "failed to parse %v", path)
+				return nil, sanitizedError.New(fmt.Sprintf("failed to parse %v", path))
 			}
 
 			listOfFiles := make([]string, 0)
@@ -41,7 +44,8 @@ func GetPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
 
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				return nil, err
+				log.Error(err, fmt.Sprintf("failed to extract policies form %v", listOfFiles))
+				return nil, sanitizedError.New(("failed to extract policies"))
 			}
 
 			policies = append(policies, policiesFromDir...)
@@ -50,17 +54,16 @@ func GetPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
 			var errString string
 			for _, err := range getErrors {
 				if err != nil {
-					errString = errString + err.Error() + "\n"
+					errString += err.Error() + "\n"
 				}
 			}
 
 			if errString != "" {
-				return nil, errors.New(errString)
+				log.Error(errors.New(errString), "failed to extract policies")
+				return nil, sanitizedError.New(("falied to extract policies"))
 			}
 
-			for _, policy := range getPolicies {
-				policies = append(policies, policy)
-			}
+			policies = append(policies, getPolicies...)
 		}
 	}
 
@@ -73,32 +76,34 @@ func GetPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
 }
 
 // GetPolicy - Extracts policies from a YAML
-func GetPolicy(path string) ([]*v1.ClusterPolicy, []error) {
-	clusterPolicies := make([]*v1.ClusterPolicy, 0)
-	errors := make([]error, 0)
-
+func GetPolicy(path string) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("failed to load file: %v", err))
+		errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to load file: %v. error: %v", path, err)))
 		return clusterPolicies, errors
 	}
 
-	policies := SplitYAMLDocuments(file)
+	policies, splitDocErrors := SplitYAMLDocuments(file)
+	if splitDocErrors != nil {
+		errors = append(errors, splitDocErrors)
+		return clusterPolicies, errors
+	}
 
 	for _, thisPolicyBytes := range policies {
 		policyBytes, err := yaml.ToJSON(thisPolicyBytes)
 		if err != nil {
-			return clusterPolicies, errors
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to convert json. error: %v", err)))
+			continue
 		}
 
 		policy := &v1.ClusterPolicy{}
 		if err := json.Unmarshal(policyBytes, policy); err != nil {
-			errors = append(errors, sanitizedError.New(fmt.Sprintf("failed to decode policy in %s", path)))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to decode policy in %s. error: %v", path, err)))
 			continue
 		}
 
 		if policy.TypeMeta.Kind != "ClusterPolicy" {
-			errors = append(errors, sanitizedError.New(fmt.Sprintf("resource %v is not a cluster policy", policy.Name)))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("resource %v is not a cluster policy", policy.Name)))
 			continue
 		}
 		clusterPolicies = append(clusterPolicies, policy)
@@ -109,41 +114,34 @@ func GetPolicy(path string) ([]*v1.ClusterPolicy, []error) {
 
 // SplitYAMLDocuments reads the YAML bytes per-document, unmarshals the TypeMeta information from each document
 // and returns a map between the GroupVersionKind of the document and the document bytes
-func SplitYAMLDocuments(yamlBytes []byte) [][]byte {
-	policies := make([][]byte, 0)
+func SplitYAMLDocuments(yamlBytes []byte) (policies [][]byte, error error) {
 	buf := bytes.NewBuffer(yamlBytes)
 	reader := yaml.NewYAMLReader(bufio.NewReader(buf))
 	for {
-
 		// Read one YAML document at a time, until io.EOF is returned
 		b, err := reader.Read()
-		if err == io.EOF {
+		if err == io.EOF || len(b) == 0 {
 			break
 		} else if err != nil {
-			fmt.Println(err)
+			return policies, fmt.Errorf("unable to read yaml")
 		}
-		if len(b) == 0 {
-			break
-		}
+
 		policies = append(policies, b)
 	}
-	return policies
+	return policies, error
 }
 
 //GetPoliciesValidation - validating policies
 func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.Controller, error) {
 	policies, err := GetPolicies(policyPaths)
-	if err != nil {
-		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, nil, sanitizedError.New("Could not parse policy paths")
-		} else {
-			return nil, nil, err
-		}
+	if err != nil && !sanitizedError.IsErrorSanitized(err) {
+		return nil, nil, fmt.Errorf(fmt.Sprintf("failed to parse %v. error: %v", policyPaths, err))
 	}
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return policies, openAPIController, nil
 }
