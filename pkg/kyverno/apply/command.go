@@ -187,7 +187,10 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	files := common.SplitYAMLDocuments(file)
+	files, splitDocError := common.SplitYAMLDocuments(file)
+	if splitDocError != nil {
+		return nil, splitDocError
+	}
 
 	for _, resourceYaml := range files {
 
