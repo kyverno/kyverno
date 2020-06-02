@@ -2,9 +2,8 @@ package policyviolation
 
 import (
 	"fmt"
-	"reflect"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
@@ -21,11 +20,13 @@ type clusterPV struct {
 	cpvLister kyvernolister.ClusterPolicyViolationLister
 	// policy violation interface
 	kyvernoInterface kyvernov1.KyvernoV1Interface
+	// logger
+	log logr.Logger
 	// update policy stats with violationCount
 	policyStatusListener policystatus.Listener
 }
 
-func newClusterPV(dclient *client.Client,
+func newClusterPV(log logr.Logger, dclient *client.Client,
 	cpvLister kyvernolister.ClusterPolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
 	policyStatus policystatus.Listener,
@@ -34,6 +35,7 @@ func newClusterPV(dclient *client.Client,
 		dclient:              dclient,
 		cpvLister:            cpvLister,
 		kyvernoInterface:     kyvernoInterface,
+		log:                  log,
 		policyStatusListener: policyStatus,
 	}
 	return &cpv
@@ -56,6 +58,7 @@ func (cpv *clusterPV) create(pv kyverno.PolicyViolationTemplate) error {
 }
 
 func (cpv *clusterPV) getExisting(newPv kyverno.ClusterPolicyViolation) (*kyverno.ClusterPolicyViolation, error) {
+	logger := cpv.log.WithValues("namespace", newPv.Namespace, "name", newPv.Name)
 	var err error
 	// use labels
 	policyLabelmap := map[string]string{"policy": newPv.Spec.Policy, "resource": newPv.Spec.ResourceSpec.ToKey()}
@@ -66,7 +69,7 @@ func (cpv *clusterPV) getExisting(newPv kyverno.ClusterPolicyViolation) (*kyvern
 
 	pvs, err := cpv.cpvLister.List(ls)
 	if err != nil {
-		glog.Errorf("unable to list cluster policy violations : %v", err)
+		logger.Error(err, "failed to list cluster policy violations")
 		return nil, err
 	}
 
@@ -83,19 +86,29 @@ func (cpv *clusterPV) getExisting(newPv kyverno.ClusterPolicyViolation) (*kyvern
 
 func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 	var err error
-	glog.V(4).Infof("creating new policy violation for policy %s & resource %s/%s", newPv.Spec.Policy, newPv.Spec.ResourceSpec.Kind, newPv.Spec.ResourceSpec.Name)
+	logger := cpv.log.WithValues("policy", newPv.Spec.Policy, "kind", newPv.Spec.ResourceSpec.Kind, "namespace", newPv.Spec.ResourceSpec.Namespace, "name", newPv.Spec.ResourceSpec.Name)
+	logger.V(4).Info("creating new policy violation")
 	obj, err := retryGetResource(cpv.dclient, newPv.Spec.ResourceSpec)
 	if err != nil {
 		return fmt.Errorf("failed to retry getting resource for policy violation %s/%s: %v", newPv.Name, newPv.Spec.Policy, err)
 	}
+
+	if obj.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
 	// set owner reference to resource
-	ownerRef := createOwnerReference(obj)
+	ownerRef, ok := createOwnerReference(obj)
+	if !ok {
+		return nil
+	}
+
 	newPv.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	// create resource
 	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Create(newPv)
 	if err != nil {
-		glog.V(4).Infof("failed to create Cluster Policy Violation: %v", err)
+		logger.Error(err, "failed to create cluster policy violation")
 		return err
 	}
 
@@ -103,27 +116,29 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 		cpv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})
 	}
 
-	glog.Infof("policy violation created for resource %v", newPv.Spec.ResourceSpec)
+	logger.Info("cluster policy violation created")
 	return nil
 }
 
 func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) error {
+	logger := cpv.log.WithValues("policy", newPv.Spec.Policy, "kind", newPv.Spec.ResourceSpec.Kind, "namespace", newPv.Spec.ResourceSpec.Namespace, "name", newPv.Spec.ResourceSpec.Name)
 	var err error
 	// check if there is any update
-	if reflect.DeepEqual(newPv.Spec, oldPv.Spec) {
-		glog.V(4).Infof("policy violation spec %v did not change so not updating it", newPv.Spec)
+	if !hasViolationSpecChanged(newPv.Spec.DeepCopy(), oldPv.Spec.DeepCopy()) {
+		logger.V(4).Info("policy violation spec did not change, not upadating the resource")
 		return nil
 	}
 	// set name
 	newPv.SetName(oldPv.Name)
 	newPv.SetResourceVersion(oldPv.ResourceVersion)
+	newPv.SetOwnerReferences(oldPv.GetOwnerReferences())
 
 	// update resource
 	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Update(newPv)
 	if err != nil {
 		return fmt.Errorf("failed to update cluster policy violation: %v", err)
 	}
-	glog.Infof("cluster policy violation updated for resource %v", newPv.Spec.ResourceSpec)
+	logger.Info("cluster policy violation updated")
 
 	if newPv.Annotations["fromSync"] != "true" {
 		cpv.policyStatusListener.Send(violationCount{policyName: newPv.Spec.Policy, violatedRules: newPv.Spec.ViolatedRules})

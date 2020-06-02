@@ -2,22 +2,22 @@ package apply
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
+	"regexp"
+	"time"
 
+	client "github.com/nirmata/kyverno/pkg/dclient"
+
+	"github.com/nirmata/kyverno/pkg/utils"
+
+	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/client-go/discovery"
-
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 
@@ -32,6 +32,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
@@ -49,7 +50,7 @@ func Command() *cobra.Command {
 			defer func() {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
-						glog.V(4).Info(err)
+						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("Internal error")
 					}
 				}
@@ -59,27 +60,30 @@ func Command() *cobra.Command {
 				return sanitizedError.New(fmt.Sprintf("Specify path to resource file or cluster name"))
 			}
 
-			policies, err := getPolicies(policyPaths)
+			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
 			if err != nil {
-				if !sanitizedError.IsErrorSanitized(err) {
-					return sanitizedError.New("Could not parse policy paths")
-				} else {
-					return err
-				}
+				return err
 			}
 
 			for _, policy := range policies {
-				err := policy2.Validate(*policy)
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
 				}
+				if policyHasVariables(*policy) {
+					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name))
+				}
 			}
 
-			var dClient discovery.CachedDiscoveryInterface
+			var dClient *client.Client
 			if cluster {
-				dClient, err = kubernetesConfig.ToDiscoveryClient()
+				restConfig, err := kubernetesConfig.ToRESTConfig()
 				if err != nil {
-					return sanitizedError.New(fmt.Errorf("Issues with kubernetes Config").Error())
+					return err
+				}
+				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+				if err != nil {
+					return err
 				}
 			}
 
@@ -91,7 +95,7 @@ func Command() *cobra.Command {
 			for i, policy := range policies {
 				for j, resource := range resources {
 					if !(j == 0 && i == 0) {
-						fmt.Printf("\n\n=======================================================================\n")
+						fmt.Printf("\n\n==========================================================================================\n")
 					}
 
 					err = applyPolicyOnResource(policy, resource)
@@ -111,7 +115,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	var err error
 
@@ -137,37 +141,24 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	}
 
 	for _, resourcePath := range resourcePaths {
-		resource, err := getResource(resourcePath)
+		getResources, err := getResource(resourcePath)
 		if err != nil {
 			return nil, err
 		}
 
-		resources = append(resources, resource)
+		for _, resource := range getResources {
+			resources = append(resources, resource)
+		}
 	}
 
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.CachedDiscoveryInterface) ([]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		endpoint, err := getListEndpointForKind(kind)
-		if err != nil {
-			return nil, err
-		}
-
-		listObjectRaw, err := dClient.RESTClient().Get().RequestURI(endpoint).Do().Raw()
-		if err != nil {
-			return nil, err
-		}
-
-		listObject, err := engineutils.ConvertToUnstructured(listObjectRaw)
-		if err != nil {
-			return nil, err
-		}
-
-		resourceList, err := listObject.ToList()
+		resourceList, err := dClient.ListResource(kind, "", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -186,129 +177,67 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient discovery.Cac
 	return resources, nil
 }
 
-func getPoliciesInDir(path string) ([]*v1.ClusterPolicy, error) {
-	var policies []*v1.ClusterPolicy
+func getResource(path string) ([]*unstructured.Unstructured, error) {
 
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if file.IsDir() {
-			policiesFromDir, err := getPoliciesInDir(filepath.Join(path, file.Name()))
-			if err != nil {
-				return nil, err
-			}
-
-			policies = append(policies, policiesFromDir...)
-		} else {
-			policy, err := getPolicy(filepath.Join(path, file.Name()))
-			if err != nil {
-				return nil, err
-			}
-
-			policies = append(policies, policy)
-		}
-	}
-
-	return policies, nil
-}
-
-func getPolicies(paths []string) ([]*v1.ClusterPolicy, error) {
-	var policies = make([]*v1.ClusterPolicy, 0, len(paths))
-	for _, path := range paths {
-		path = filepath.Clean(path)
-
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			return nil, err
-		}
-
-		if fileDesc.IsDir() {
-			policiesFromDir, err := getPoliciesInDir(path)
-			if err != nil {
-				return nil, err
-			}
-
-			policies = append(policies, policiesFromDir...)
-		} else {
-			policy, err := getPolicy(path)
-			if err != nil {
-				return nil, err
-			}
-
-			policies = append(policies, policy)
-		}
-	}
-
-	for i := range policies {
-		setFalse := false
-		policies[i].Spec.Background = &setFalse
-	}
-
-	return policies, nil
-}
-
-func getPolicy(path string) (*v1.ClusterPolicy, error) {
-	policy := &v1.ClusterPolicy{}
+	resources := make([]*unstructured.Unstructured, 0)
+	getResourceErrors := make([]error, 0)
 
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load file: %v", err)
-	}
-
-	policyBytes, err := yaml.ToJSON(file)
-	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(policyBytes, policy); err != nil {
-		return nil, sanitizedError.New(fmt.Sprintf("failed to decode policy in %s", path))
+	files, splitDocError := common.SplitYAMLDocuments(file)
+	if splitDocError != nil {
+		return nil, splitDocError
 	}
 
-	if policy.TypeMeta.Kind != "ClusterPolicy" {
-		return nil, sanitizedError.New(fmt.Sprintf("resource %v is not a cluster policy", policy.Name))
+	for _, resourceYaml := range files {
+
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+		if err != nil {
+			getResourceErrors = append(getResourceErrors, err)
+			continue
+		}
+
+		resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
+		if err != nil {
+			getResourceErrors = append(getResourceErrors, err)
+			continue
+		}
+
+		resourceJSON, err := json.Marshal(resourceUnstructured)
+		if err != nil {
+			getResourceErrors = append(getResourceErrors, err)
+			continue
+		}
+
+		resource, err := engineutils.ConvertToUnstructured(resourceJSON)
+		if err != nil {
+			getResourceErrors = append(getResourceErrors, err)
+			continue
+		}
+
+		resource.SetGroupVersionKind(*metaData)
+
+		if resource.GetNamespace() == "" {
+			resource.SetNamespace("default")
+		}
+
+		resources = append(resources, resource)
 	}
 
-	return policy, nil
-}
-
-func getResource(path string) (*unstructured.Unstructured, error) {
-
-	resourceYaml, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+	var getErrString string
+	for _, getResourceError := range getResourceErrors {
+		getErrString = getErrString + getResourceError.Error() + "\n"
 	}
 
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
-	if err != nil {
-		return nil, err
+	if getErrString != "" {
+		return nil, errors.New(getErrString)
 	}
 
-	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
-	if err != nil {
-		return nil, err
-	}
-
-	resourceJSON, err := json.Marshal(resourceUnstructured)
-	if err != nil {
-		return nil, err
-	}
-
-	resource, err := engineutils.ConvertToUnstructured(resourceJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	resource.SetGroupVersionKind(*metaData)
-
-	if resource.GetNamespace() == "" {
-		resource.SetNamespace("default")
-	}
-
-	return resource, nil
+	return resources, nil
 }
 
 func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) error {
@@ -377,4 +306,10 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	return nil
+}
+
+func policyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }

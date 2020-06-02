@@ -1,14 +1,15 @@
 package openapi
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/nirmata/kyverno/data"
-
-	"github.com/golang/glog"
+	data "github.com/nirmata/kyverno/api"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 
 	"github.com/nirmata/kyverno/pkg/engine"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,86 +20,75 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"gopkg.in/yaml.v2"
 )
 
-var openApiGlobalState struct {
-	mutex                sync.RWMutex
-	document             *openapi_v2.Document
-	definitions          map[string]*openapi_v2.Schema
+type Controller struct {
+	mutex       sync.RWMutex
+	definitions map[string]*openapi_v2.Schema
+	// kindToDefinitionName holds the kind - definition map
+	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
 	kindToDefinitionName map[string]string
 	crdList              []string
 	models               proto.Models
 }
 
-func init() {
+func NewOpenAPIController() (*Controller, error) {
+	controller := &Controller{
+		definitions:          make(map[string]*openapi_v2.Schema),
+		kindToDefinitionName: make(map[string]string),
+	}
+
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	err = useOpenApiDocument(defaultDoc)
+	err = controller.useOpenApiDocument(defaultDoc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	return controller, nil
 }
 
-func ValidatePolicyMutation(policy v1.ClusterPolicy) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
+func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 
-	var kindToRules = make(map[string][]v1.Rule)
-	for _, rule := range policy.Spec.Rules {
-		if rule.HasMutate() {
-			rule.MatchResources = v1.MatchResources{
-				UserInfo: v1.UserInfo{},
-				ResourceDescription: v1.ResourceDescription{
-					Kinds: rule.MatchResources.Kinds,
-				},
-			}
-			rule.ExcludeResources = v1.ExcludeResources{}
-			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kind], rule)
-			}
-		}
+	var policy v1.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	if err != nil {
+		return err
 	}
 
-	for kind, rules := range kindToRules {
-		newPolicy := *policy.DeepCopy()
-		newPolicy.Spec.Rules = rules
-		resource, _ := generateEmptyResource(openApiGlobalState.definitions[openApiGlobalState.kindToDefinitionName[kind]]).(map[string]interface{})
-		if resource == nil {
-			glog.V(4).Infof("Cannot Validate policy: openApi definition now found for %v", kind)
-			return nil
-		}
-		newResource := unstructured.Unstructured{Object: resource}
-		newResource.SetKind(kind)
-
-		patchedResource, err := engine.ForceMutate(nil, *newPolicy.DeepCopy(), newResource)
-		if err != nil {
-			return err
-		}
-		err = ValidateResource(*patchedResource.DeepCopy(), kind)
-		if err != nil {
-			return err
-		}
+	policyUnst, err := utils.ConvertToUnstructured(policyRaw)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	err = o.ValidateResource(*policyUnst.DeepCopy(), "ClusterPolicy")
+	if err != nil {
+		return err
+	}
+
+	return o.ValidatePolicyMutation(policy)
 }
 
-func ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
+func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	var err error
 
-	kind = openApiGlobalState.kindToDefinitionName[kind]
-	schema := openApiGlobalState.models.LookupModel(kind)
+	kind = o.kindToDefinitionName[kind]
+	schema := o.models.LookupModel(kind)
 	if schema == nil {
-		schema, err = getSchemaFromDefinitions(kind)
+		// Check if kind is a CRD
+		schema, err = o.getCRDSchema(kind)
 		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+			return fmt.Errorf("pre-validation: couldn't find model %s, err: %v", kind, err)
 		}
 		delete(patchedResource.Object, "kind")
 	}
@@ -115,28 +105,61 @@ func ValidateResource(patchedResource unstructured.Unstructured, kind string) er
 	return nil
 }
 
-func GetDefinitionNameFromKind(kind string) string {
-	openApiGlobalState.mutex.RLock()
-	defer openApiGlobalState.mutex.RUnlock()
-	return openApiGlobalState.kindToDefinitionName[kind]
+func (o *Controller) GetDefinitionNameFromKind(kind string) string {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.kindToDefinitionName[kind]
 }
 
-func useOpenApiDocument(customDoc *openapi_v2.Document) error {
-	openApiGlobalState.mutex.Lock()
-	defer openApiGlobalState.mutex.Unlock()
+func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 
-	openApiGlobalState.document = customDoc
+	var kindToRules = make(map[string][]v1.Rule)
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasMutate() {
+			for _, kind := range rule.MatchResources.Kinds {
+				kindToRules[kind] = append(kindToRules[kind], rule)
+			}
+		}
+	}
 
-	openApiGlobalState.definitions = make(map[string]*openapi_v2.Schema)
-	openApiGlobalState.kindToDefinitionName = make(map[string]string)
-	for _, definition := range openApiGlobalState.document.GetDefinitions().AdditionalProperties {
-		openApiGlobalState.definitions[definition.GetName()] = definition.GetValue()
+	for kind, rules := range kindToRules {
+		newPolicy := *policy.DeepCopy()
+		newPolicy.Spec.Rules = rules
+		resource, _ := o.generateEmptyResource(o.definitions[o.kindToDefinitionName[kind]]).(map[string]interface{})
+		if resource == nil {
+			log.Log.V(4).Info(fmt.Sprintf("Cannot Validate policy: openApi definition now found for %v", kind))
+			return nil
+		}
+		newResource := unstructured.Unstructured{Object: resource}
+		newResource.SetKind(kind)
+
+		patchedResource, err := engine.ForceMutate(nil, *newPolicy.DeepCopy(), newResource)
+		if err != nil {
+			return err
+		}
+		err = o.ValidateResource(*patchedResource.DeepCopy(), kind)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	for _, definition := range doc.GetDefinitions().AdditionalProperties {
+		o.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
-		openApiGlobalState.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		o.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
 	}
 
 	var err error
-	openApiGlobalState.models, err = proto.NewOpenAPIData(openApiGlobalState.document)
+	o.models, err = proto.NewOpenAPIData(doc)
 	if err != nil {
 		return err
 	}
@@ -155,17 +178,32 @@ func getSchemaDocument() (*openapi_v2.Document, error) {
 }
 
 // For crd, we do not store definition in document
-func getSchemaFromDefinitions(kind string) (proto.Schema, error) {
+func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
+	if kind == "" {
+		return nil, errors.New("invalid kind")
+	}
+
 	path := proto.NewPath(kind)
-	return (&proto.Definitions{}).ParseSchema(openApiGlobalState.definitions[kind], &path)
+	definition := o.definitions[kind]
+	if definition == nil {
+		return nil, errors.New("could not find definition")
+	}
+
+	// This was added so crd's can access
+	// normal definitions from existing schema such as
+	// `metadata` - this maybe a breaking change.
+	// Removing this may cause policy validate to stop working
+	existingDefinitions, _ := o.models.(*proto.Definitions)
+
+	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
-func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
+func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
-		return generateEmptyResource(openApiGlobalState.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
+		return o.generateEmptyResource(o.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
 	}
 
 	if len(types) != 1 {
@@ -189,7 +227,7 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 		wg.Add(len(properties))
 		for _, property := range properties {
 			go func(property *openapi_v2.NamedSchema) {
-				prop := generateEmptyResource(property.GetValue())
+				prop := o.generateEmptyResource(property.GetValue())
 				mutex.Lock()
 				props[property.GetName()] = prop
 				mutex.Unlock()
@@ -201,7 +239,7 @@ func generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
 	case "array":
 		var array []interface{}
 		for _, schema := range kindSchema.GetItems().GetSchema() {
-			array = append(array, generateEmptyResource(schema))
+			array = append(array, o.generateEmptyResource(schema))
 		}
 		return array
 	case "string":
