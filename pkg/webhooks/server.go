@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
@@ -83,7 +84,7 @@ type WebhookServer struct {
 	pvGenerator policyviolation.GeneratorInterface
 
 	// generate request generator
-	grGenerator            *generate.Generator
+	grGenerator *generate.Generator
 
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 	log                    logr.Logger
@@ -153,7 +154,7 @@ func NewWebhookServer(
 
 	// Handle Liveness responds to a Kubernetes Liveness probe
 	// Fail this request if Kubernetes should restart this instance
-	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request){
+	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		w.WriteHeader(http.StatusOK)
@@ -161,7 +162,7 @@ func NewWebhookServer(
 
 	// Handle Readiness responds to a Kubernetes Readiness probe
 	// Fail this request if this instance can't accept traffic, but Kubernetes shouldn't restart it
-	mux.HandlerFunc("GET", config.ReadinessServicePath, func(w http.ResponseWriter, r *http.Request){
+	mux.HandlerFunc("GET", config.ReadinessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		w.WriteHeader(http.StatusOK)

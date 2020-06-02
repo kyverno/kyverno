@@ -46,7 +46,6 @@ func (ws *WebhookServer) HandleMutation(
 		policyContext.Policy = *policy
 		engineResponse := engine.Mutate(policyContext)
 
-		engineResponses = append(engineResponses, engineResponse)
 		ws.statusListener.Send(mutateStats{resp: engineResponse})
 		if !engineResponse.IsSuccesful() {
 			logger.Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
@@ -66,6 +65,7 @@ func (ws *WebhookServer) HandleMutation(
 		}
 
 		policyContext.NewResource = engineResponse.PatchedResource
+		engineResponses = append(engineResponses, engineResponse)
 	}
 
 	// generate annotations

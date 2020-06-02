@@ -2,6 +2,7 @@ package policyviolation
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
@@ -104,4 +105,26 @@ func (vc violationCount) UpdateStatus(status kyverno.PolicyStatus) kyverno.Polic
 	}
 
 	return status
+}
+
+// hasViolationSpecChanged returns true if oldSpec & newSpec
+// are identical, exclude message in violated rules
+func hasViolationSpecChanged(new, old *kyverno.PolicyViolationSpec) bool {
+	if new.Policy != old.Policy {
+		return true
+	}
+
+	if new.ResourceSpec.ToKey() != old.ResourceSpec.ToKey() {
+		return true
+	}
+
+	for i := range new.ViolatedRules {
+		new.ViolatedRules[i].Message = ""
+	}
+
+	for i := range old.ViolatedRules {
+		old.ViolatedRules[i].Message = ""
+	}
+
+	return !reflect.DeepEqual(*new, *old)
 }
