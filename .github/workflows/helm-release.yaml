@@ -38,10 +38,6 @@ jobs:
       run: |
         mkdir -p output/helm-charts/
         helm package charts/kyverno/ -d output/helm-charts/
-    - name: Reindex repo
-      run: |
-        wget --quiet ${{ env.HELM_CHART_URL }}/index.yaml
-        helm repo index --merge index.yaml --url ${{ env.HELM_CHART_URL }} output/helm-charts/
     - name: Release
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
