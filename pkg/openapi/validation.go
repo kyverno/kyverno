@@ -26,14 +26,20 @@ import (
 )
 
 type Controller struct {
-	mutex                sync.RWMutex
-	definitions          map[string]*openapi_v2.Schema
+	mutex       sync.RWMutex
+	definitions map[string]*openapi_v2.Schema
+	// kindToDefinitionName holds the kind - definition map
+	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
 	kindToDefinitionName map[string]string
+	crdList              []string
 	models               proto.Models
 }
 
 func NewOpenAPIController() (*Controller, error) {
-	controller := &Controller{}
+	controller := &Controller{
+		definitions:          make(map[string]*openapi_v2.Schema),
+		kindToDefinitionName: make(map[string]string),
+	}
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
@@ -82,7 +88,7 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 		// Check if kind is a CRD
 		schema, err = o.getCRDSchema(kind)
 		if err != nil || schema == nil {
-			return fmt.Errorf("pre-validation: couldn't find model %s", kind)
+			return fmt.Errorf("pre-validation: couldn't find model %s, err: %v", kind, err)
 		}
 		delete(patchedResource.Object, "kind")
 	}
@@ -146,8 +152,6 @@ func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	o.definitions = make(map[string]*openapi_v2.Schema)
-	o.kindToDefinitionName = make(map[string]string)
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
 		o.definitions[definition.GetName()] = definition.GetValue()
 		path := strings.Split(definition.GetName(), ".")
