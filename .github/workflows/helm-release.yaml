@@ -5,6 +5,7 @@ on:
     - "*"
     paths:
     - 'charts/kyverno/**'
+  pull_request:
 env:
   HELM_CHART_URL: "https://nirmata.github.io/kyverno/helm-charts/"
 
@@ -44,6 +45,6 @@ jobs:
     - name: Release
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
-        ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         BRANCH: gh-pages 
         FOLDER: output
