@@ -126,8 +126,5 @@ func hasViolationSpecChanged(new, old *kyverno.PolicyViolationSpec) bool {
 		old.ViolatedRules[i].Message = ""
 	}
 
-	fmt.Println("====new", new)
-	fmt.Println("====old", old)
-
 	return !reflect.DeepEqual(*new, *old)
 }
