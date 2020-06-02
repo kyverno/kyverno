@@ -3,7 +3,8 @@ name: releaser
 on:
   push:
     tags:
-      - '*'
+  pull_request:
+  
 
 jobs:
   releaser:
