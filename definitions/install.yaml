@@ -729,15 +729,17 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.6-rc2
+          image: nirmata/kyvernopre:v1.1.6-rc3
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.6-rc2
+          image: nirmata/kyverno:v1.1.6-rc3
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
           # customize webhook timeout
           #- "--webhooktimeout=4"
+          # enable profiling
+          # - "--profile"
           - "-v=2"
           ports:
           - containerPort: 443

@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -39,6 +41,7 @@ var (
 	serverIP                       string
 	webhookTimeout                 int
 	runValidationInMutatingWebhook string
+	profile                        bool
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
@@ -55,6 +58,7 @@ func main() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
+	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -63,6 +67,10 @@ func main() {
 	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
 	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
+
+	if profile {
+		go http.ListenAndServe("localhost:6060", nil)
+	}
 
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
@@ -152,11 +160,10 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		log.Log.WithName("EventGenerator"))
 
-
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
 		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies().Lister(),)
+		pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
