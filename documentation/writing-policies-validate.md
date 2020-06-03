@@ -1,9 +1,15 @@
 <small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Validate Resources*</small>
 
 
-# Validate Resources 
+# Validating Resources and Requests
 
-A validation rule is expressed as an overlay pattern that expresses the desired configuration. Resource configurations must match fields and expressions defined in the pattern to pass the validation rule. The following rules are followed when processing the overlay pattern:
+A validation rule can be used to validate resources or to deny API requests based on other information.
+
+To validate resource data, define a [pattern](#patterns) in the validation rule. To deny certain API requests define a [deny](#deny-rules) element in the validation rule along a set of conditions that control when to allow or deny the request.
+
+## Patterns
+
+A validation rule that checks resource data is defined as an overlay pattern that provides the desired configuration. Resource configurations must match fields and expressions defined in the pattern to pass the validation rule. The following rules are followed when processing the overlay pattern:
 
 1. Validation will fail if a field is defined in the pattern and if the field does not exist in the configuration. 
 2. Undefined fields are treated as wildcards. 
@@ -14,7 +20,6 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 7. The validation of siblings is performed only when one of the field values matches the value defined in the pattern. You can use the parenthesis operator to explictly specify a field value that must be matched. This allows writing rules like 'if fieldA equals X, then fieldB must equal Y'.
 8. Validation of child values is only performed if the parent matches the pattern.
 
-## Patterns
 
 ### Wildcards
 1. `*` - matches zero or more alphanumeric characters
@@ -33,7 +38,7 @@ A validation rule is expressed as an overlay pattern that expresses the desired 
 
 There is no operator for `equals` as providing a field value in the pattern requires equality to the value.
 
-## Anchors
+### Anchors
 
 Anchors allow conditional processing (i.e. "if-then-else) and other logical checks in validation patterns. The following types of anchors are supported:
 
@@ -45,7 +50,7 @@ Anchors allow conditional processing (i.e. "if-then-else) and other logical chec
 | Existence   	| ^() 	| Works on the list/array type only. If at least one element in the list satisfies the pattern. In contrast, a conditional anchor would validate that all elements in the list match the pattern. <br/>e.g. At least one container with image nginx:latest must exist. <br/>&nbsp;&nbsp;&nbsp;&nbsp;^(containers):<br/>&nbsp;&nbsp;&nbsp;&nbsp;- image: nginx:latest<br/>  	|
 | Negation    	| X() 	| The tag cannot be specified. The value of the tag is not evaulated. <br/>e.g. Hostpath tag cannot be defined.<br/>&nbsp;&nbsp;&nbsp;&nbsp;X(hostPath):<br/>	|
 
-## Anchors and child elements
+### Anchors and child elements
 
 Child elements are handled differently for conditional and equality anchors. 
 
@@ -77,7 +82,7 @@ For equality anchors, a child element is considered to be part of the "then" cla
 This is read as "If a hostPath volume exists, then the path must not be equal to /var/run/docker.sock".
 
 
-## Examples
+### Validation Pattern Examples
 
 The following rule prevents the creation of Deployment, StatefuleSet and DaemonSet resources without label 'app' in selector:
 
@@ -113,7 +118,7 @@ spec:
 
 ````
 
-### Existence anchor: at least one
+#### Existence anchor: at least one
 
 A variation of an anchor, is to check that in a list of elements at least one element exists that matches the patterm. This is done by using the ^(...) notation for the field.
 
@@ -147,7 +152,7 @@ spec:
                             memory: "2048Mi"
 ````
 
-### Logical OR across validation patterns
+#### Logical OR across validation patterns
 
 In some cases content can be defined at a different level. For example, a security context can be defined at the Pod or Container level. The validation rule should pass if either one of the conditions is met. 
 
@@ -189,6 +194,45 @@ Additional examples are available in [samples](/samples/README.md)
 ## Validation Failure Action
 
 The `validationFailureAction` attribute controls processing behaviors when the resource is not compliant with the policy. If the value is set to `enforce` resource creation or updates are blocked when the resource does not comply, and when the value is set to `audit` a policy violation is reported but the resource creation or update is allowed.
+
+## Deny rules
+
+In addition to applying patterns to check resources, a validate rule can `deny` a request based on a set of conditions. This is useful for applying fine grained access controls that cannot be performed using Kubernetes RBAC.
+
+For example, the policy below denies `delete requests` for objects with the label `app.kubernetes.io/managed-by: kyverno` and for all users who do not have the `cluster-admin` role.
+
+As the example shows, you can use `match` and `exclude` to select when the rule should be applied and then use additional conditions in the `deny` declaration to apply fine-grained controls. 
+
+Note that the `validationFailureAction` must be set to `enforce` to block the request.
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: multi-tenancy
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: block-deletes-for-kyverno-resources
+      match:
+        resources:
+          selector:
+            matchLabels:
+              app.kubernetes.io/managed-by: kyverno
+      exclude:
+        clusterRoles:
+        - cluster-admin
+      validate:
+        message: "Deleting {{request.oldObject.kind}}/{{request.oldObject.metadata.name}} is not allowed"
+        deny:
+          conditions:
+            - key: "{{request.operation}}"
+              operator: Equals
+              value: "DELETE"        
+```
+
+Learn more about using [variables](writing-policies-variables.md) and [conditions](writing-policies-preconditions.md) in upcoming sections.
 
 ---
 <small>*Read Next >> [Mutate Resources](/documentation/writing-policies-mutate.md)*</small>

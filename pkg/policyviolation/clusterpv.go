@@ -2,7 +2,6 @@ package policyviolation
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -125,7 +124,7 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	logger := cpv.log.WithValues("policy", newPv.Spec.Policy, "kind", newPv.Spec.ResourceSpec.Kind, "namespace", newPv.Spec.ResourceSpec.Namespace, "name", newPv.Spec.ResourceSpec.Name)
 	var err error
 	// check if there is any update
-	if reflect.DeepEqual(newPv.Spec, oldPv.Spec) {
+	if !hasViolationSpecChanged(newPv.Spec.DeepCopy(), oldPv.Spec.DeepCopy()) {
 		logger.V(4).Info("policy violation spec did not change, not upadating the resource")
 		return nil
 	}

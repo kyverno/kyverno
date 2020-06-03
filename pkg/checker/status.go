@@ -110,7 +110,7 @@ func (vc StatusControl) IncrementAnnotation() error {
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to find deployment %s in namespace %s", deployName, deployNamespace)
+		logger.Error(err, "failed to find Kyverno", "deploymeny", deployName, "namespace", deployNamespace)
 		return err
 	}
 

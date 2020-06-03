@@ -141,7 +141,7 @@ func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructure
 
 	val, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
 
-	log.Log.Info("patchedResourceHasPodControllerAnnotation", "resourceRaw", string(resourceRaw), "val", val, "ok", ok)
+	log.Log.V(4).Info("patchedResourceHasPodControllerAnnotation", "resourceRaw", string(resourceRaw), "val", val, "ok", ok)
 
 	return ok
 }

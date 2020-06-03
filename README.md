@@ -20,6 +20,8 @@ Mutating policies can be written as overlays (similar to [Kustomize](https://kub
 
 Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
 
+**NOTE** : Your Kubernetes server must be at or later than version v1.14. To check the version, enter kubectl version.
+ 
 ## Examples
 
 ### 1. Validating resources
@@ -49,14 +51,42 @@ spec:
               - name: "*"
                 resources:
                   limits:
-                    # '?' requires 1 alphanumeric character and '*' means that there can be 0 or more characters.
-                    # Using them together e.g. '?*' requires at least one character.
+                    # '?' requires 1 alphanumeric character and '*' means that 
+                    # there can be 0 or more characters. Using them together 
+                    # e.g. '?*' requires at least one character.
                     memory: "?*"
                     cpu: "?*"
                   requests:
                     memory: "?*"
                     cpu: "?*"
 ```
+
+This policy prevents users from changing default network policies:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-netpol-changes
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: check-netpol-updates
+      match:
+        resources:
+          kinds:
+            - NetworkPolicy
+          name:
+            - *-default
+      exclude:
+        clusterRoles:
+          - cluster-admin    
+      validate:
+        message: "Changing default network policies is not allowed"
+        deny: {}
+```
+
 
 ### 2. Mutating resources
 
@@ -112,18 +142,16 @@ spec:
             KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
 ```
 
-### 4. More examples
-
-Refer to a list of curated of **_[sample policies](/samples/README.md)_** that can be applied to your cluster.
+**For more examples, refer to a list of curated of **_[sample policies](/samples/README.md)_** that can be applied to your cluster.**
 
 ## Documentation
 
 - [Getting Started](documentation/installation.md)
 - [Writing Policies](documentation/writing-policies.md)
   - [Selecting Resources](/documentation/writing-policies-match-exclude.md)
-  - [Validate Resources](documentation/writing-policies-validate.md)
-  - [Mutate Resources](documentation/writing-policies-mutate.md)
-  - [Generate Resources](documentation/writing-policies-generate.md)
+  - [Validating Resources](documentation/writing-policies-validate.md)
+  - [Mutating Resources](documentation/writing-policies-mutate.md)
+  - [Generating Resources](documentation/writing-policies-generate.md)
   - [Variable Substitution](documentation/writing-policies-variables.md)
   - [Preconditions](documentation/writing-policies-preconditions.md)
   - [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
@@ -132,6 +160,17 @@ Refer to a list of curated of **_[sample policies](/samples/README.md)_** that c
 - [Policy Violations](documentation/policy-violations.md)
 - [Kyverno CLI](documentation/kyverno-cli.md)
 - [Sample Policies](/samples/README.md)
+
+
+## Presentations and Articles
+
+- [Introducing Kyverno - blog post](https://nirmata.com/2019/07/11/managing-kubernetes-configuration-with-policies/)
+- [CNCF Video and Slides](https://www.cncf.io/webinars/how-to-keep-your-clusters-safe-and-healthy/)
+- [10 Kubernetes Best Practices - blog post](https://thenewstack.io/10-kubernetes-best-practices-you-can-easily-apply-to-your-clusters/)
+- [VMware Code Meetup Video](https://www.youtube.com/watch?v=mgEmTvLytb0)
+- [Virtual Rejekts Video](https://www.youtube.com/watch?v=caFMtSg4A6I)
+- [TGIK Video](https://www.youtube.com/watch?v=ZE4Zu9WQET4&list=PL7bmigfV0EqQzxcNpmcdTJ9eFRPBe-iZa&index=18&t=0s)
+
 
 ## License
 

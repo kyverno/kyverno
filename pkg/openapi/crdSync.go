@@ -107,17 +107,12 @@ func (c *crdSync) sync() {
 }
 
 func (o *Controller) deleteCRDFromPreviousSync() {
-	for k := range o.kindToDefinitionName {
-		delete(o.kindToDefinitionName, k)
+	for _, crd := range o.crdList {
+		delete(o.kindToDefinitionName, crd)
+		delete(o.definitions, crd)
 	}
 
-	o.kindToDefinitionName = make(map[string]string, 0)
-
-	for k := range o.definitions {
-		delete(o.definitions, k)
-	}
-
-	o.definitions = make(map[string]*openapi_v2.Schema, 0)
+	o.crdList = make([]string, 0)
 }
 
 func (o *Controller) parseCRD(crd unstructured.Unstructured) {
@@ -166,6 +161,7 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 		return
 	}
 
+	o.crdList = append(o.crdList, crdName)
 	o.kindToDefinitionName[crdName] = crdName
 	o.definitions[crdName] = parsedSchema
 }
