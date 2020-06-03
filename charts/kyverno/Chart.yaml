@@ -1,4 +1,4 @@
-apiVersion: v2
+apiVersion: v1
 name: kyverno
 version: 0.0.1
 appVersion: v1.1.5

@@ -1,0 +1,45 @@
+name: helm-package
+on:
+  push:
+    tags:
+    - "*"
+    paths:
+    - 'charts/kyverno/**'
+env:
+  HELM_CHART_URL: "https://nirmata.github.io/kyverno/helm-charts/"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+    - name: Install Helm
+      run: |
+        curl -sSLo get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+        helm init --client-only
+    - name: Check Chart Version
+      run: |
+        helm repo add evalsocket ${{ env.HELM_CHART_URL }} || (echo "Kyverno Repository not available")
+        helm search nirmata/kyverno --version `cat charts/kyverno/Chart.yaml | grep '^version: [[:alnum:]]' | awk '{print $2}'` > HELM_CHART_STATUS.txt
+        HELM_CHART_STATUS=`cat HELM_CHART_STATUS.txt`
+        if [ "${HELM_CHART_STATUS}" != 'No results found' ]; then
+          echo 'Version already exist, impossible to continue...'
+          exit 1
+        fi
+    - name: Check sintax
+      run: helm lint charts/kyverno/
+    - name: Create package
+      run: |
+        mkdir -p output/helm-charts/
+        helm package charts/kyverno/ -d output/helm-charts/
+    - name: Release
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BRANCH: gh-pages 
+        FOLDER: output
