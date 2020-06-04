@@ -17,12 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const (
-	// JSON patch uses ~1 for / characters
-	// see: https://tools.ietf.org/html/rfc6901#section-3
-	PodTemplateAnnotationApplied = "pod-policies.kyverno.io~1autogen-applied"
-)
-
 // applyPolicy applies policy on a resource
 //TODO: generation rules
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
@@ -87,10 +81,12 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 	for index, rule := range engineResponse.PolicyResponse.Rules {
 		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
 
-		patches := dropKyvernoAnnotation(rule.Patches, log)
-		if len(patches) == 0 {
+		if rule.Name == engine.PodControllerRuleName {
+			log.Info("dropKyvernoAnnotation", "rule", rule.Name)
 			continue
 		}
+
+		patches := rule.Patches
 
 		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
 		if err != nil {
@@ -104,6 +100,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 			log.Error(err, "failed to apply JSON patch", "patches", patches)
 			return response.EngineResponse{}, err
 		}
+
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			log.V(4).Info("policy rule conditions not satisfied by resource", "rule", rule.Name)
 			engineResponse.PolicyResponse.Rules[index].Success = false
@@ -133,25 +130,6 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 		resultPath = append(resultPath, data.Path)
 	}
 	return strings.Join(resultPath, ";")
-}
-
-func dropKyvernoAnnotation(patches [][]byte, log logr.Logger) (resultPathes [][]byte) {
-	for _, patch := range patches {
-		var data jsonPatch
-		if err := json.Unmarshal(patch, &data); err != nil {
-			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
-			continue
-		}
-
-		value := fmt.Sprintf("%v", data.Value)
-		if strings.Contains(value, engine.PodTemplateAnnotation) ||
-			strings.Contains(value, PodTemplateAnnotationApplied) {
-			continue
-		}
-
-		resultPathes = append(resultPathes, patch)
-	}
-	return
 }
 
 func mergeRuleRespose(mutation, validation response.EngineResponse) response.EngineResponse {
