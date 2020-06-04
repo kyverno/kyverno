@@ -16,6 +16,12 @@ make cli
 mv ./cmd/cli/kubectl-kyverno/kyverno /usr/local/bin/kyverno
 ```
 
+You can also use curl to install kyverno-cli
+
+```bash
+curl -L https://raw.githubusercontent.com/nirmata/kyverno/master/scripts/install-cli.sh | bash
+```
+
 ## Install via AUR (archlinux)
 
 You can install the kyverno cli via your favourite AUR helper (e.g. [yay](https://github.com/Jguer/yay))
