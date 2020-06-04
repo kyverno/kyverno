@@ -29,12 +29,19 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-      - uses: azure/docker-login@v1
+      - uses: docker/build-push-action@v1
         with:
-          login-server: index.docker.io
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-      - run: |
-          docker push nirmata/kyverno
-          docker push nirmata/kyvernopre
+          repository: nirmata/kyverno
+          tag_with_ref: true
+          tag_with_sha: true
+      - uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKERIO_USERNAME }}
+          password: ${{ secrets.DOCKERIO_PASSWORD }}
+          repository: nirmata/kyvernopre
+          tag_with_ref: true
+          tag_with_sha: true
+
 

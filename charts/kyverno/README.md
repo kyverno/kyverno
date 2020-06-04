@@ -12,10 +12,10 @@
 
 ```console
 ## Add the nirmata Helm repository
-$ helm repo add kyverno https://nirmata.github.io/kyverno/helm-charts/
+$ helm repo add kyverno https://nirmata.github.io/kyverno
 
 ## Install the kyverno helm chart
-$ helm install --name my-release --namespace kyverno nirmata/kyverno
+$ helm install --name my-release --namespace kyverno kyverno/kyverno
 
 $ helm install --create-namespace -n kyverno kyverno ./charts/kyverno
 ```
