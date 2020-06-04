@@ -18,5 +18,5 @@ spec:
       message: "Changes to kernel paramaters are not allowed"
       pattern:
         spec:
-          securityContext:
+          =(securityContext):
             X(sysctls): null
