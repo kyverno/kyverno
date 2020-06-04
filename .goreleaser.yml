@@ -85,6 +85,7 @@ scoop:
     email: kyverno@nirmata.com
 dockers:
   - dockerfile: ./cmd/initContainer/Dockerfile
+    skip_push: true
     binaries:
       - kyvernopre
     image_templates:
@@ -94,6 +95,7 @@ dockers:
       - "nirmata/kyvernopre:{{ .Tag }}"
       - "nirmata/kyvernopre:latest"
   - dockerfile: ./cmd/kyverno/Dockerfile
+    skip_push: true
     binaries:
       - kyverno
     image_templates:
