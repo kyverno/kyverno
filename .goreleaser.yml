@@ -1,11 +1,11 @@
-project_name: kyverno 
+project_name: kyverno-cli 
 before:
   hooks:
     - go mod download
 builds:
 - id: kyverno
   main: cmd/cli/kubectl-kyverno/main.go
-  binary: kyverno
+  binary: kyverno-cli
   env:
   - CGO_ENABLED=0
   goos:
@@ -25,7 +25,7 @@ archives:
       {{- end -}}
     {{- end -}}
   builds:
-    - kyverno
+    - kyverno-cli
   replacements:
     386: i386
     amd64: x86_64
