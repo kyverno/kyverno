@@ -2,7 +2,7 @@
 
 # Installation
 
-The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
+You can install Kyverno using the Helm chart or YAML files in this repository.
 
 ## Install Kyverno using Helm
 
@@ -14,6 +14,12 @@ The Kyverno policy engine runs as an admission webhook and requires a CA-signed 
 helm install --name my-release --namespace kyverno nirmata/kyverno
 
 ```
+
+Note: the namespace must be `kyverno`. 
+
+## Install Kyverno using YAMLs
+
+The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
 
 There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver.
 
