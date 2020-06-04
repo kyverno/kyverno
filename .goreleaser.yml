@@ -15,24 +15,6 @@ builds:
   goarch:
     - amd64
   goarm: [6, 7]
-- id: kyverno
-  main: cmd/kyverno/main.go
-  binary: kyverno
-  env:
-  - CGO_ENABLED=0
-  goos:
-    - linux
-  goarch:
-    - amd64
-- id: kyvernopre
-  main: cmd/initContainer/main.go
-  binary: kyvernopre
-  env:
-  - CGO_ENABLED=0
-  goos:
-    - linux
-  goarch:
-    - amd64
 archives:
 - id: kyverno-cli-archive
   name_template: |-
@@ -83,24 +65,3 @@ scoop:
   commit_author:
     name: kyverno
     email: kyverno@nirmata.com
-dockers:
-  - dockerfile: ./cmd/initContainer/Dockerfile
-    skip_push: true
-    binaries:
-      - kyvernopre
-    image_templates:
-      - "nirmata/kyvernopre:v{{ .Major }}"
-      - "nirmata/kyvernopre:v{{ .Major }}.{{ .Minor }}"
-      - "nirmata/kyvernopre:v{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
-      - "nirmata/kyvernopre:{{ .Tag }}"
-      - "nirmata/kyvernopre:latest"
-  - dockerfile: ./cmd/kyverno/Dockerfile
-    skip_push: true
-    binaries:
-      - kyverno
-    image_templates:
-      - "nirmata/kyverno:v{{ .Major }}"
-      - "nirmata/kyverno:v{{ .Major }}.{{ .Minor }}"
-      - "nirmata/kyverno:v{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
-      - "nirmata/kyverno:{{ .Tag }}"
-      - "nirmata/kyverno:latest"
