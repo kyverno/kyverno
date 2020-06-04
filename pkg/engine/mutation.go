@@ -21,6 +21,7 @@ const (
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 	//PodTemplateAnnotation defines the annotation key for Pod-Template
 	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
+	PodControllerRuleName = "podControllerAnnotation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -102,7 +103,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	if autoGenPolicy(&policy) && strings.Contains(PodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, "podControllerAnnotation", podTemplateRule.Mutation.Overlay, patchedResource)
+			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, PodControllerRuleName, podTemplateRule.Mutation.Overlay, patchedResource)
 			if !ruleResponse.Success {
 				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
 			} else {
@@ -168,7 +169,6 @@ func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, 
 // podTemplateRule mutate pod template with annotation
 // pod-policies.kyverno.io/autogen-applied=true
 var podTemplateRule = kyverno.Rule{
-	Name: "autogen-annotate-podtemplate",
 	Mutation: kyverno.Mutation{
 		Overlay: map[string]interface{}{
 			"spec": map[string]interface{}{
