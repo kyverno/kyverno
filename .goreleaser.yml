@@ -73,16 +73,16 @@ brews:
     - kyverno-cli-archive
     homepage:  https://www.kyverno.io
     commit_author:
-      name: Jim
-      email: jim@nirmata.com
+      name: kyverno
+      email: kyverno@nirmata.com
 scoop:
   bucket:
     owner: nirmata
     name: scoop-kyverno-cli
   homepage:  https://www.kyverno.io
   commit_author:
-    name: Jim
-    email: jim@nirmata.com
+    name: kyverno
+    email: kyverno@nirmata.com
 dockers:
   - dockerfile: ./cmd/initContainer/Dockerfile
     binaries:
