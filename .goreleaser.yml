@@ -46,22 +46,4 @@ changelog:
     exclude:
       - '^docs:'
       - typo
-brews:
-  - github:
-      owner: nirmata
-      name: homebrew-kyverno-cli
-    goarm: 6
-    ids:
-    - kyverno-cli-archive
-    homepage:  https://www.kyverno.io
-    commit_author:
-      name: kyverno
-      email: kyverno@nirmata.com
-scoop:
-  bucket:
-    owner: nirmata
-    name: scoop-kyverno-cli
-  homepage:  https://www.kyverno.io
-  commit_author:
-    name: kyverno
-    email: kyverno@nirmata.com
+
