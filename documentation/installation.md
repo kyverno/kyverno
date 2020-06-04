@@ -166,7 +166,7 @@ kubectl logs <kyverno-pod-name> -n kyverno
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
 
-## Install kyverno using helm 
+## Install Kyverno using Helm
 
 ```sh
 ## Add the nirmata Helm repository
