@@ -3,7 +3,7 @@ before:
   hooks:
     - go mod download
 builds:
-- id: kyverno
+- id: kyverno-cli
   main: cmd/cli/kubectl-kyverno/main.go
   binary: kyverno-cli
   env:
@@ -15,10 +15,28 @@ builds:
   goarch:
     - amd64
   goarm: [6, 7]
+- id: kyverno
+  main: cmd/kyverno/main.go
+  binary: kyverno
+  env:
+  - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
+- id: kyvernopre
+  main: cmd/initContainer/main.go
+  binary: kyvernopre
+  env:
+  - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
 archives:
-- id: kyverno-archive
+- id: kyverno-cli-archive
   name_template: |-
-    kyverno_{{ .Tag }}_{{ .Os }}_{{ .Arch -}}
+    kyverno-cli_{{ .Tag }}_{{ .Os }}_{{ .Arch -}}
     {{- with .Arm -}}
       {{- if (eq . "6") -}}hf
       {{- else -}}v{{- . -}}
@@ -38,3 +56,49 @@ checksum:
   algorithm: sha256
 release:
   prerelease: auto
+changelog:
+  sort: asc
+  filters:
+    # commit messages matching the regexp listed here will be removed from
+    # the changelog
+    exclude:
+      - '^docs:'
+      - typo
+brews:
+  - github:
+      owner: nirmata
+      name: homebrew-kyverno-cli
+    goarm: 6
+    ids:
+    - kyverno-cli-archive
+    homepage:  https://www.kyverno.io
+    commit_author:
+      name: Jim
+      email: jim@nirmata.com
+scoop:
+  bucket:
+    owner: nirmata
+    name: scoop-kyverno-cli
+  homepage:  https://www.kyverno.io
+  commit_author:
+    name: Jim
+    email: jim@nirmata.com
+dockers:
+  - dockerfile: ./cmd/initContainer/Dockerfile
+    binaries:
+      - kyvernopre
+    image_templates:
+      - "nirmata/kyvernopre:v{{ .Major }}"
+      - "nirmata/kyvernopre:v{{ .Major }}.{{ .Minor }}"
+      - "nirmata/kyvernopre:v{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
+      - "nirmata/kyvernopre:{{ .Tag }}"
+      - "nirmata/kyvernopre:latest"
+  - dockerfile: ./cmd/kyverno/Dockerfile
+    binaries:
+      - kyverno
+    image_templates:
+      - "nirmata/kyverno:v{{ .Major }}"
+      - "nirmata/kyverno:v{{ .Major }}.{{ .Minor }}"
+      - "nirmata/kyverno:v{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
+      - "nirmata/kyverno:{{ .Tag }}"
+      - "nirmata/kyverno:latest"

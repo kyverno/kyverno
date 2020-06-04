@@ -114,3 +114,6 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+godownloader:
+	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"

@@ -12,7 +12,7 @@ ratings:
 
 exclude_paths:
 - documentation/
+- charts
 - definitions
-- gh-pages
 - samples
 - scripts
