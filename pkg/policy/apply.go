@@ -82,7 +82,6 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
 
 		if rule.Name == engine.PodControllerRuleName {
-			log.Info("dropKyvernoAnnotation", "rule", rule.Name)
 			continue
 		}
 

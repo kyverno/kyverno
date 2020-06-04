@@ -80,7 +80,7 @@ func (ws *WebhookServer) HandleValidation(
 			continue
 		}
 
-		logger.Info("valiadtion rules from policy applied succesfully", "policy", policy.Name)
+		logger.Info("validation rules from policy applied succesfully", "policy", policy.Name)
 	}
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
