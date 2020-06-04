@@ -2,11 +2,28 @@
 
 # Installation
 
+You can install Kyverno using the Helm chart or YAML files in this repository.
+
+## Install Kyverno using Helm
+
+```sh
+## Add the nirmata Helm repository
+ helm repo add kyverno https://nirmata.github.io/kyverno/helm-charts/
+
+## Install the kyverno helm chart
+helm install --name my-release --namespace kyverno nirmata/kyverno
+
+```
+
+Note: the namespace must be `kyverno`. 
+
+## Install Kyverno using YAMLs
+
 The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
 
 There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver.
 
-## Option 1: Use kube-controller-manager to generate a CA-signed certificate
+### Option 1: Use kube-controller-manager to generate a CA-signed certificate
 
 Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
@@ -36,11 +53,11 @@ kubectl describe pod <kyverno-pod-name> -n kyverno
 kubectl logs <kyverno-pod-name> -n kyverno
 ````
 
-## Option 2: Use your own CA-signed certificate
+### Option 2: Use your own CA-signed certificate
 
 You can install your own CA-signed certificate, or generate a self-signed CA and use it to sign a certifcate. Once you have a CA and X.509 certificate-key pair, you can install these as Kubernetes secrets in your cluster. If Kyverno finds these secrets, it uses them. Otherwise it will request the kube-controller-manager to generate a certificate (see Option 1 above).
 
-### 1. Generate a self-signed CA and signed certificate-key pair
+#### 1. Generate a self-signed CA and signed certificate-key pair
 
 **Note: using a separate self-signed root CA is difficult to manage and not recommeded for production use.** 
 
@@ -61,7 +78,7 @@ Among the files that will be generated, you can use the following files to creat
 - webhooks.crt
 - webhooks.key
 
-### 2. Configure secrets for the CA and TLS certificate-key pair
+#### 2. Configure secrets for the CA and TLS certificate-key pair
 
 To create the required secrets, use the following commands (do not change the secret names):
 
@@ -81,7 +98,7 @@ Secret | Data | Content
 
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
 
-### 3. Configure Kyverno Role
+#### 3. Configure Kyverno Role
 Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to multiple ClusterRole, which defines the default resources and operations that are permitted.
 
 ClusterRoles used by kyverno:
@@ -131,7 +148,7 @@ subjects:
   namespace: kyverno
 ```
 
-### 4. Install Kyverno
+#### 4. Install Kyverno
 
 To install a specific version, download [install.yaml] and then change the image tag.
 
@@ -164,6 +181,7 @@ kubectl logs <kyverno-pod-name> -n kyverno
 ````
 
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
+
 
 
 # Configure a namespace admin to access policy violations
@@ -223,7 +241,6 @@ data:
 ```
 
 To modify the `ConfigMap`, either directly edit the `ConfigMap` `init-config` in the default configuration [install.yaml] and redeploy it or modify the `ConfigMap` use `kubectl`.  Changes to the `ConfigMap` through `kubectl` will automatically be picked up at runtime.
-
 
 
 ---
