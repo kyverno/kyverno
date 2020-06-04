@@ -166,6 +166,17 @@ kubectl logs <kyverno-pod-name> -n kyverno
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
 
+## Install kyverno using helm 
+
+```sh
+## Add the nirmata Helm repository
+ helm repo add kyverno https://nirmata.github.io/kyverno/helm-charts/
+
+## Install the kyverno helm chart
+helm install --name my-release --namespace kyverno nirmata/kyverno
+
+```
+
 # Configure a namespace admin to access policy violations
 
 During Kyverno installation, it creates a ClusterRole `kyverno:policyviolations` which has the `list,get,watch` operations on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
@@ -223,7 +234,6 @@ data:
 ```
 
 To modify the `ConfigMap`, either directly edit the `ConfigMap` `init-config` in the default configuration [install.yaml] and redeploy it or modify the `ConfigMap` use `kubectl`.  Changes to the `ConfigMap` through `kubectl` will automatically be picked up at runtime.
-
 
 
 ---
