@@ -39,7 +39,11 @@ Note that the above command will install the last released (stable) version of K
 
 To check the Kyverno controller status, run the command:
 
-````sh
+```sh
+## Install Kyverno
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+
+## Check pod status
 kubectl get pods -n kyverno
 ````
 
