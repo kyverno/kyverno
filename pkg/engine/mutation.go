@@ -108,7 +108,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
 			} else {
 				if ruleResponse.Success && ruleResponse.Patches != nil {
-					logger.V(2).Info("inserted annotation for podTemplate")
+					logger.V(3).Info("inserted annotation for podTemplate")
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 				}
 			}
