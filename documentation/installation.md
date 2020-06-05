@@ -15,7 +15,7 @@ helm repo add kyverno https://nirmata.github.io/kyverno/
 kubectl create ns kyverno
 
 ## Install the kyverno helm chart
-helm install --generate-name --namespace kyverno kyverno/kyverno
+helm install kyverno --namespace kyverno kyverno/kyverno
 
 ```
 
