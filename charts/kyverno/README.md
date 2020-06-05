@@ -1,6 +1,6 @@
 # kyverno
 
-[Kyverno](https://kyverno.io) is a Kubernetes Native Policy Engine. It allows you to
+[Kyverno](https://kyverno.io) is a Kubernetes Native Policy Management engine. It allows you to
 
 * Manage policies as Kubernetes resources.
 * Validate, mutate, and generate configurations for any resource.
