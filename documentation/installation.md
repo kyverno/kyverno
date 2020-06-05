@@ -7,8 +7,6 @@ You can install Kyverno using the Helm chart or YAML files in this repository.
 ## Install Kyverno using Helm
 
 ```sh
-## install Kyverno CRD
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/crd.yaml
 
 ## Add the nirmata Helm repository
 helm repo add kyverno https://nirmata.github.io/kyverno/
@@ -36,11 +34,6 @@ Kyverno can request a CA signed certificate-key pair from `kube-controller-manag
 **Deploying on EKS requires enabling a command-line argument `--fqdn-as-cn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
 
 To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access:
-
-````sh
-## Deploy Kyverno 
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
-````
 
 Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the [install.yaml] and update the image tag. 
 
