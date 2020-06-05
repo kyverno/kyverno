@@ -15,7 +15,7 @@
 $ helm repo add kyverno https://nirmata.github.io/kyverno
 
 ## Install the kyverno helm chart
-$ helm install --generate-name --namespace kyverno kyverno/kyverno
+$ helm install kyverno --namespace kyverno kyverno/kyverno
 ```
 
 ## Introduction
@@ -27,7 +27,7 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 Kyverno makes assumptions about naming of namespaces and resources. Therefore, the chart must be installed with the default release name `kyverno` (default if --name is omitted) and in the namespace 'kyverno':
 
 ```console
-$ helm install --generate-name --namespace kyverno kyverno ./charts/kyverno
+$ helm install kyverno --namespace kyverno kyverno ./charts/kyverno
 ```
 
 Note that Helm by default expects the namespace to already exist before running helm install. Create the namespace using:
