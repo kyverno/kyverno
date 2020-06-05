@@ -465,4 +465,4 @@ spec:
                 name: 
                   type: string
                 namespace:
-                  type: string
+                  type: string    
