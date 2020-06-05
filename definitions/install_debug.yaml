@@ -617,6 +617,38 @@ rules:
   - list
   - watch
 ---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:view-clusterpolicyviolations
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - clusterpolicyviolations
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: kyverno:view-policyviolations
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policyviolations
+  verbs:
+  - get
+  - list
+  - watch
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
