@@ -10,12 +10,15 @@ You can install Kyverno using the Helm chart or YAML files in this repository.
 ## Add the nirmata Helm repository
 helm repo add kyverno https://nirmata.github.io/kyverno/
 
+## Create the Kyverno namespace
+kubectl create ns kyverno
+
 ## Install the kyverno helm chart
-helm install my-release --namespace kyverno kyverno/kyverno
+helm install --generate-name --namespace kyverno kyverno/kyverno
 
 ```
 
-Note: the namespace must be `kyverno`. 
+Note: the namespace must be `kyverno`. See issue #841.
 
 ## Install Kyverno using YAMLs
 
