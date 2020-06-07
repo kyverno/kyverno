@@ -5,6 +5,10 @@
 
 The Kyverno Command Line Interface (CLI) is designed to validate policies and test the behavior of applying policies to resources before adding the policy to a cluster. It can be used as a kubectl plugin and as a standalone CLI.
 
+## Install the CLI
+
+The Kyverno CLI binary is distributed with each release. You can install the CLI for your platform from the [releases](https://github.com/nirmata/kyverno/releases) site.
+
 ## Build the CLI
 
 You can build the CLI binary locally, then move the binary into a directory in your PATH.
