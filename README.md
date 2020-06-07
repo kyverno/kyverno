@@ -20,7 +20,16 @@ Mutating policies can be written as overlays (similar to [Kustomize](https://kub
 
 Policy enforcement is captured using Kubernetes events. Kyverno also reports policy violations for existing resources.
 
-**NOTE** : Your Kubernetes server must be at or later than version v1.14. To check the version, enter kubectl version.
+**NOTE** : Your Kubernetes cluster version must be above v1.14 which adds webook timeouts. To check the version, enter `kubectl version`.
+ 
+## Quick Start
+
+Install Kyverno:
+```console
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+```
+
+You can also install using the [Helm chart](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).  As a next step, import [sample policies](https://github.com/nirmata/kyverno/blob/master/samples/README.md) and learn about [writing policies](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md). You can test policies using the [Kyverno cli](https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md). See [docs](https://github.com/nirmata/kyverno/#documentation) for more details.
  
 ## Examples
 
