@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
@@ -34,15 +35,20 @@ func Command() *cobra.Command {
 				return err
 			}
 
+			invalidPolicyFound := false
 			for _, policy := range policies {
 				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Println("Policy " + policy.Name + " is invalid")
+					invalidPolicyFound = true
 				} else {
 					fmt.Println("Policy " + policy.Name + " is valid")
 				}
 			}
 
+			if invalidPolicyFound == true {
+				os.Exit(3)
+			}
 			return nil
 		},
 	}
