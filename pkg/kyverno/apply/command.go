@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"time"
 
@@ -68,7 +69,8 @@ func Command() *cobra.Command {
 			for _, policy := range policies {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
-					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid", policy.Name))
+					fmt.Printf("Policy %v is not valid\n", policy.Name)
+					os.Exit(3)
 				}
 				if policyHasVariables(*policy) {
 					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name))
@@ -252,6 +254,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
+		os.Exit(4)
 	} else {
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nMutation:")
@@ -274,6 +277,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
+		os.Exit(5)
 	} else {
 		if len(validateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nValidation:")
@@ -302,6 +306,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n%d. %s", i+1, r.Message)
 			}
 			fmt.Printf("\n\n")
+			os.Exit(6)
 		}
 	}
 
