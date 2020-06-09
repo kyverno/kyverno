@@ -243,7 +243,7 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 }
 
 func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) error {
-
+	responseError := false
 	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s\n", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName())
 
 	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
@@ -254,7 +254,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
-		os.Exit(4)
+		responseError = true
 	} else {
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nMutation:")
@@ -277,7 +277,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
-		os.Exit(5)
+		responseError = true
 	} else {
 		if len(validateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nValidation:")
@@ -306,10 +306,13 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n%d. %s", i+1, r.Message)
 			}
 			fmt.Printf("\n\n")
-			os.Exit(6)
+			responseError = true
 		}
 	}
 
+	if responseError == true{
+		os.Exit(1)
+	}
 	return nil
 }
 

@@ -47,7 +47,7 @@ func Command() *cobra.Command {
 			}
 
 			if invalidPolicyFound == true {
-				os.Exit(3)
+				os.Exit(1)
 			}
 			return nil
 		},

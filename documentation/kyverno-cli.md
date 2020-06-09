@@ -48,7 +48,7 @@ kyverno version
 #### Validate
 
 Validates a policy, can validate multiple policy resource description files or even an entire folder containing policy resource description
-files. Currently supports files with resource description in yaml.
+files. Currently supports files with resource description in YAML.
 
 Example:
 
@@ -82,15 +82,12 @@ kyverno apply /path/to/policy1.yaml /path/to/folderFullOfPolicies --resource /pa
 
 ##### Exit Codes
 
-When CLI executes successfully, it returns exit code 0.
+The CLI exits with diffenent exit codes:
 
-The CLI exits with diffenent exit codes depending on the type of error:
-
-| Message                                        | Exit Code |
-| ---------------------------------------------- | --------- |
-| Failed to validate atleast one of the Policies | 3         |
-| Failed to apply Mutation                       | 4         |
-| Failed to validate Resource                    | 5         |
-| Failed to generate Resource                    | 6         |
+| Message                               | Exit Code |
+| ------------------------------------- | --------- |
+| executes successfully                 | 0         |
+| one or more policy rules are violated | 1         |
+| policy extraction failed              | 2         |
 
 <small>_Read Next >> [Sample Policies](/samples/README.md)_</small>
