@@ -3,9 +3,9 @@ entries:
   kyverno:
   - apiVersion: v1
     appVersion: v1.1.6
-    created: "2020-06-05T02:10:18.466180944Z"
+    created: "2020-06-09T05:26:49.626850577Z"
     description: Kubernetes Native Policy Management
-    digest: 7064fef34d9efd42f8c9cb013b39697d96ca6c8168133e0fb3e0f76b84ecd17b
+    digest: fa3a0a6a4cd64985c8faefcdac1b737c3d710817136e2cb1927cba68f6bc48f6
     home: https://kyverno.io/
     keywords:
     - kubernetes
@@ -25,7 +25,7 @@ entries:
     version: 1.1.6
   - apiVersion: v1
     appVersion: v1.1.5
-    created: "2020-06-05T02:10:18.453872881Z"
+    created: "2020-06-09T05:26:49.625970162Z"
     description: Kubernetes Native Policy Management
     digest: 1c97920d5024cd7f79cf9c0df55a2cd4fcc8d883ea94f3cf6525e234ba884093
     home: https://kyverno.io/
@@ -47,7 +47,7 @@ entries:
     version: 0.0.1
   - apiVersion: v1
     appVersion: v1.1.5
-    created: "2020-06-05T02:10:18.467625104Z"
+    created: "2020-06-09T05:26:49.627735692Z"
     description: Kubernetes Native Policy Management
     digest: 1a7d948c005fcf04dc6f98a44a0f666727a60cfcf09c3a3e0052751938841ee5
     home: https://kyverno.io/
@@ -67,4 +67,4 @@ entries:
     urls:
     - helm-charts/kyverno-0.0.1.tgz
     version: 0.0.1
-generated: "2020-06-05T02:10:18.452698713Z"
+generated: "2020-06-09T05:26:49.624394536Z"
