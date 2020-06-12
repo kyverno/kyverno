@@ -231,6 +231,8 @@ spec:
                                   - Equals
                                   - NotEqual
                                   - NotEquals
+                                  - In
+                                  - NotIn
                                   type: string
                                 value:
                                   type: string
