@@ -88,6 +88,6 @@ The CLI exits with diffenent exit codes:
 | ------------------------------------- | --------- |
 | executes successfully                 | 0         |
 | one or more policy rules are violated | 1         |
-| policy extraction failed              | 2         |
+| policy validation failed              | 2         |
 
 <small>_Read Next >> [Sample Policies](/samples/README.md)_</small>
