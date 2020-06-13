@@ -91,7 +91,7 @@ func Command() *cobra.Command {
 
 			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
-				return sanitizedError.New(fmt.Errorf("Issues fetching resources").Error())
+				return sanitizedError.NewWithError("Failed to load resources", err)
 			}
 
 			for i, policy := range policies {
