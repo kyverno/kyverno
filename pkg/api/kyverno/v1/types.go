@@ -223,6 +223,7 @@ type Deny struct {
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
 	ResourceSpec
+	Synchronize bool `json:"synchronize"`
 	Data  interface{} `json:"data,omitempty"`
 	Clone CloneFrom   `json:"clone,omitempty"`
 }
