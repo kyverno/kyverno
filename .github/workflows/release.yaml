@@ -3,6 +3,7 @@ name: prereleaser
 on:
   push:
     tags:
+       - v*
     
 
 jobs:
