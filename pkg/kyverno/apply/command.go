@@ -58,7 +58,7 @@ func Command() *cobra.Command {
 			}()
 
 			if len(resourcePaths) == 0 && !cluster {
-				return sanitizedError.New(fmt.Sprintf("Specify path to resource file or cluster name"))
+				return sanitizedError.NewWithError(fmt.Sprintf("Specify path to resource file or cluster name"), err)
 			}
 
 			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
@@ -73,7 +73,7 @@ func Command() *cobra.Command {
 					os.Exit(3)
 				}
 				if policyHasVariables(*policy) {
-					return sanitizedError.New(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name))
+					return sanitizedError.NewWithError(fmt.Sprintf("Policy %v is not valid - 'apply' does not support policies with variables", policy.Name), err)
 				}
 			}
 
@@ -102,7 +102,7 @@ func Command() *cobra.Command {
 
 					err = applyPolicyOnResource(policy, resource)
 					if err != nil {
-						return sanitizedError.New(fmt.Errorf("Issues applying policy %v on resource %v", policy.Name, resource.GetName()).Error())
+						return sanitizedError.NewWithError(fmt.Errorf("Issues applying policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
 				}
 			}
@@ -310,7 +310,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	if responseError == true{
+	if responseError == true {
 		os.Exit(1)
 	}
 	return nil
