@@ -3,6 +3,7 @@ name: releaser
 on:
   push:
     tags:
+      - v*
   
 
 jobs:
