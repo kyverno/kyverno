@@ -114,3 +114,16 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+# godownloader create downloading script for kyverno-cli
+godownloader:
+	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
+
+# kustomize-crd will create install.yaml 
+kustomize-crd:
+	# Create CRD for helm deployment Helm 
+	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
+	# Generate install.yaml that have all resources for kyverno
+	kustomize build ./definitions > ./definitions/install.yaml
+	# Generate install_debug.yaml that for developer testing
+	kustomize build ./definitions/debug > ./definitions/install_debug.yaml

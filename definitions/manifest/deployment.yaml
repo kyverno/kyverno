@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kyverno
+  name: kyverno
+  labels:
+    app: kyverno
+spec:
+  selector:
+    matchLabels:
+      app: kyverno
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kyverno
+    spec:
+      serviceAccountName: kyverno-service-account
+      initContainers:
+        - name: kyverno-pre
+          image: nirmata/kyvernopre:v1.1.6
+      containers:
+        - name: kyverno
+          image: nirmata/kyverno:v1.1.6
+          imagePullPolicy: Always
+          args:
+          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
+          # customize webhook timeout
+          #- "--webhooktimeout=4"
+          # enable profiling
+          # - "--profile"
+          - "-v=2"
+          ports:
+          - containerPort: 443
+          env:
+          - name: INIT_CONFIG
+            value: init-config
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 4
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 4
+            successThreshold: 1

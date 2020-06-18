@@ -1,9 +1,9 @@
-project_name: kyverno 
+project_name: kyverno-cli 
 before:
   hooks:
     - go mod download
 builds:
-- id: kyverno
+- id: kyverno-cli
   main: cmd/cli/kubectl-kyverno/main.go
   binary: kyverno
   env:
@@ -16,16 +16,16 @@ builds:
     - amd64
   goarm: [6, 7]
 archives:
-- id: kyverno-archive
+- id: kyverno-cli-archive
   name_template: |-
-    kyverno_{{ .Tag }}_{{ .Os }}_{{ .Arch -}}
+    kyverno-cli_{{ .Tag }}_{{ .Os }}_{{ .Arch -}}
     {{- with .Arm -}}
       {{- if (eq . "6") -}}hf
       {{- else -}}v{{- . -}}
       {{- end -}}
     {{- end -}}
   builds:
-    - kyverno
+    - kyverno-cli
   replacements:
     386: i386
     amd64: x86_64
@@ -38,3 +38,12 @@ checksum:
   algorithm: sha256
 release:
   prerelease: auto
+changelog:
+  sort: asc
+  filters:
+    # commit messages matching the regexp listed here will be removed from
+    # the changelog
+    exclude:
+      - '^docs:'
+      - typo
+

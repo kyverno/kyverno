@@ -3,7 +3,7 @@
 [Kyverno](https://kyverno.io) is a Kubernetes Native Policy Management engine. It allows you to
 
 * Manage policies as Kubernetes resources.
-* Validate, mutate, and generate configurations.
+* Validate, mutate, and generate configurations for any resource.
 * Select resources based on labels and wildcards.
 * View policy enforcement as events.
 * Detect policy violations for existing resources.
@@ -12,12 +12,10 @@
 
 ```console
 ## Add the nirmata Helm repository
-$ helm repo add kyverno https://nirmata.github.io/kyverno/helm-charts/
+$ helm repo add kyverno https://nirmata.github.io/kyverno
 
 ## Install the kyverno helm chart
-$ helm install --name my-release --namespace kyverno nirmata/kyverno
-
-$ helm install --create-namespace -n kyverno kyverno ./charts/kyverno
+$ helm install kyverno --namespace kyverno kyverno/kyverno
 ```
 
 ## Introduction
@@ -29,12 +27,16 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 Kyverno makes assumptions about naming of namespaces and resources. Therefore, the chart must be installed with the default release name `kyverno` (default if --name is omitted) and in the namespace 'kyverno':
 
 ```console
-$ helm install --namespace kyverno kyverno ./charts/kyverno
+$ helm install kyverno --namespace kyverno kyverno ./charts/kyverno
 ```
 
-Note that Helm by default expects the namespace to already exist before running helm install. If you want Helm to create the namespace, add --create-namespace to the command.
+Note that Helm by default expects the namespace to already exist before running helm install. Create the namespace using:
 
-The command deploys kyverno on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
+```console
+$ kubectl create ns kyverno
+```
+
+The command deploys Kyverno on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
 
 ## Uninstalling the Chart
 
