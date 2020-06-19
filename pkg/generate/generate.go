@@ -239,9 +239,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// handle existing resources
 		// policy was generated after the resource
 		// we do not create new resource
-		if !rule.Generation.Synchronize {
-			return noGenResource, err
-		}
+		return noGenResource, err
+
 	}
 
 	// build the resource template
@@ -271,14 +270,16 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("created new resource")
 
 	} else if mode == Update {
-		logger.V(4).Info("updating existing resource")
-		// Update the resource
-		_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
-		if err != nil {
-			// Failed to update resource
-			return noGenResource, err
+		if rule.Generation.Synchronize {
+			logger.V(4).Info("updating existing resource")
+			// Update the resource
+			_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+			if err != nil {
+				// Failed to update resource
+				return noGenResource, err
+			}
+			logger.V(4).Info("updated new resource")
 		}
-		logger.V(4).Info("updated new resource")
 	}
 
 	return newGenResource, nil

@@ -110,6 +110,8 @@ spec:
                         type: string
                       namespace:
                         type: string
+                      synchronize:
+                        type: boolean
                     required:
                     - kind
                     - name
