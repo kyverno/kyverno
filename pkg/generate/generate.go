@@ -308,19 +308,6 @@ func manageData(log logr.Logger, kind, namespace, name string, data map[string]i
 }
 
 func manageClone(log logr.Logger, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
-	// check if resource to be generated exists
-	_, err := client.GetResource(kind, namespace, name)
-	if err == nil {
-		// resource does exists, not need to process further as it is already in expected state
-		return nil, Skip, nil
-	}
-	//TODO: check this
-	if !apierrors.IsNotFound(err) {
-		log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
-		//something wrong while fetching resource
-		return nil, Skip, err
-	}
-
 	newRNs, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, err
@@ -334,11 +321,26 @@ func manageClone(log logr.Logger, kind, namespace, name string, clone map[string
 		// attempting to clone it self, this will fail -> short-ciruit it
 		return nil, Skip, nil
 	}
+
 	// check if the resource as reference in clone exists?
 	obj, err := client.GetResource(kind, newRNs, newRName)
 	if err != nil {
 		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err)
 	}
+
+	// check if resource to be generated exists
+	_, err = client.GetResource(kind, namespace, name)
+	if err == nil {
+		// resource does exists, not need to process further as it is already in expected state
+		return obj.UnstructuredContent(), Update, nil
+	}
+	//TODO: check this
+	if !apierrors.IsNotFound(err) {
+		log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
+		//something wrong while fetching resource
+		return nil, Skip, err
+	}
+
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
 
