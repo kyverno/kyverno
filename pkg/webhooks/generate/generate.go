@@ -119,6 +119,9 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			_, err = client.KyvernoV1().GenerateRequests("kyverno").Create(&gr)
 		}
 		if action == v1beta1.Update {
+			gr.SetLabels(map[string]string{
+				"resources-update": "true",
+			})
 			_, err = client.KyvernoV1().GenerateRequests("kyverno").Update(&gr)
 		}
 
