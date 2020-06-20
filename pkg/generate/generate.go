@@ -273,12 +273,18 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		if rule.Generation.Synchronize {
 			logger.V(4).Info("updating existing resource")
 			// Update the resource
-			_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
-			if err != nil {
-				// Failed to update resource
-				return noGenResource, err
+			orignalResource, err := client.GetResource(genKind, genNamespace, genName)
+			if err == nil {
+				newResource.SetUID(orignalResource.GetUID())
+				_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+				if err != nil {
+					// Failed to update resource
+					return noGenResource, err
+				}
+				logger.V(4).Info("updated new resource")
 			}
-			logger.V(4).Info("updated new resource")
+		} else {
+			logger.V(4).Info("Synchronize resource is disabled")
 		}
 	}
 
