@@ -6,7 +6,7 @@ The ```generate``` rule can used to create additional resources when a new resou
 
 The `generate` rule supports `match` and `exclude` blocks, like other rules. Hence, the trigger for applying this rule can be the creation of any resource and its possible to match or exclude API requests based on subjects, roles, etc. 
 
-Currently, the generate rule only triggers during an API request and does not support [background processing](/documentation/writing-policies-background.md). For keeping resources synchhronized you can use `synchronize : true` 
+Currently, the generate rule only triggers during an API request and does not support [background processing](/documentation/writing-policies-background.md). To keep resources synchronized across changes, you can use `synchronize : true` 
 
 ## Example 1
 
