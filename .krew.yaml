@@ -10,13 +10,19 @@ spec:
         matchLabels:
           os: darwin
           arch: amd64
-      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_darwin_amd64.tar.gz" .TagName }}
+      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_darwin_x86_64.tar.gz" .TagName }}
       bin: kyverno-cli
     - selector:
         matchLabels:
           os: linux
           arch: amd64
-      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_linux_amd64.tar.gz" .TagName }}
+      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_linux_x86_64.tar.gz" .TagName }}
+      bin: kyverno-cli
+    - selector:
+        matchLabels:
+          os: windows
+          arch: amd64
+      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_windows_x86_64.zip" .TagName }}
       bin: kyverno-cli
   shortDescription: The Kyverno Command Line Interface (CLI) is designed to validate policies and test the behavior of applying policies to resources before adding the policy to a cluster. It can be used as a kubectl plugin and as a standalone CLI.
   description: |
