@@ -144,6 +144,7 @@ spec:
         name: zk-kafka-address
         # generate the resource in the new namespace
         namespace: "{{request.object.metadata.name}}"
+        synchronize : true
         data:
           kind: ConfigMap
           data:
