@@ -73,7 +73,7 @@ func Command() *cobra.Command {
 					os.Exit(3)
 				}
 				if policyHasVariables(*policy) {
-					return sanitizedError.NewWithError(fmt.Sprintf("nvalid policy %s. 'apply' does not support policies with variables", policy.Name), err)
+					return sanitizedError.NewWithError(fmt.Sprintf("invalid policy %s. 'apply' does not support policies with variables", policy.Name), err)
 				}
 			}
 
@@ -91,7 +91,7 @@ func Command() *cobra.Command {
 
 			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
-				return sanitizedError.NewWithError("Failed to load resources", err)
+				return sanitizedError.NewWithError("failed to load resources", err)
 			}
 
 			for i, policy := range policies {
