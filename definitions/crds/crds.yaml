@@ -244,6 +244,8 @@ spec:
                         type: string
                       namespace:
                         type: string
+                      synchronize:
+                        type: boolean
                       clone: 
                         type: object
                         required:

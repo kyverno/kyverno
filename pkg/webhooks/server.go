@@ -156,7 +156,6 @@ func NewWebhookServer(
 	// Fail this request if Kubernetes should restart this instance
 	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -226,6 +225,7 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 }
 
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -331,10 +331,10 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	// GENERATE
-	// Only applied during resource creation
+	// Only applied during resource creation and update
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
-	if request.Operation == v1beta1.Create {
+	if request.Operation == v1beta1.Create  || request.Operation == v1beta1.Update {
 		ok, msg := ws.HandleGenerate(request, policies, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
