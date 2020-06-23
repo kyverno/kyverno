@@ -8,9 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -149,16 +147,4 @@ func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log lo
 		return nil
 	}
 	return rulePatches
-}
-
-// checkPodTemplateAnn checks if a Pod has annotation "pod-policies.kyverno.io/autogen-applied"
-func checkPodTemplateAnnotation(resource unstructured.Unstructured) bool {
-	if resource.GetKind() == "Pod" {
-		ann := resource.GetAnnotations()
-		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
-			return true
-		}
-	}
-
-	return false
 }

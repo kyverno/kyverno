@@ -62,10 +62,10 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// If request is delete, newR will be empty
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
 		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
-	} else {
-		if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
-			return *denyResp
-		}
+	}
+
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+		return *denyResp
 	}
 
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
@@ -141,6 +141,11 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 
 func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
+
+	if autoGenAnnotationApplied(resource) && autoGenPolicy(&policy) {
+		return resp
+	}
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue

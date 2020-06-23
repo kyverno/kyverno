@@ -267,15 +267,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	if checkPodTemplateAnnotation(resource) {
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-			Result: &metav1.Status{
-				Status: "Success",
-			},
-		}
-	}
-
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
@@ -334,7 +325,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Only applied during resource creation and update
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
-	if request.Operation == v1beta1.Create  || request.Operation == v1beta1.Update {
+	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
 		ok, msg := ws.HandleGenerate(request, policies, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
@@ -436,15 +427,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 			Result: &metav1.Status{
 				Status:  "Failure",
 				Message: err.Error(),
-			},
-		}
-	}
-
-	if checkPodTemplateAnnotation(resource) {
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-			Result: &metav1.Status{
-				Status: "Success",
 			},
 		}
 	}
