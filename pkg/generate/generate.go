@@ -3,6 +3,7 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -340,6 +341,9 @@ func manageClone(log logr.Logger, kind, namespace, name string, clone map[string
 		obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
 		obj.SetManagedFields(newResource.GetManagedFields())
 		obj.SetResourceVersion(newResource.GetResourceVersion())
+		if reflect.DeepEqual(obj, newResource) {
+			return nil, Skip, nil
+		}
 		return obj.UnstructuredContent(), Update, nil
 	}
 
