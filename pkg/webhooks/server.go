@@ -413,24 +413,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	raw := request.Object.Raw
-	if request.Operation == v1beta1.Delete {
-		raw = request.OldObject.Raw
-	}
-
-	resource, err := convertResource(raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		logger.Error(err, "failed to convert RAW resource to unstructured format")
-
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: err.Error(),
-			},
-		}
-	}
-
 	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
 	if !ok {
 		logger.Info("admission request denied")
