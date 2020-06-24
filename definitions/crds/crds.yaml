@@ -233,7 +233,10 @@ spec:
                                 key:
                                   type: string
                                 value:
-                                  type: string
+                                  anyOf:
+                                  - type: string
+                                  - type: array
+                                    items: {}
                   generate:
                     type: object
                     required:
