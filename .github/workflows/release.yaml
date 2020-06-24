@@ -33,8 +33,6 @@ jobs:
           access-token: ${{ secrets.ACCESS_TOKEN }}
           deploy-branch: gh-pages
           charts-folder: charts
-      - name: Update new version in krew-index
-        uses: rajatjindal/krew-release-bot@v0.0.38
 
 
 
