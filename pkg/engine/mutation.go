@@ -36,6 +36,12 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	defer endMutateResultResponse(logger, &resp, startTime)
 
 	patchedResource := policyContext.NewResource
+
+	if autoGenAnnotationApplied(patchedResource) && autoGenPolicy(&policy) {
+		resp.PatchedResource = patchedResource
+		return
+	}
+
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
