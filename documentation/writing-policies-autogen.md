@@ -8,7 +8,7 @@ Kyverno solves this issue by supporting automatic generation of policy rules for
 
 This auto-generation behavior is controlled by the `pod-policies.kyverno.io/autogen-controllers` annotation. 
 
-By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=all`, to generate an additional rule that is applied to pod controllers: DaemonSet, Deployment, Job, StatefulSet.
+By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=all`, to generate an additional rule that is applied to pod controllers: DaemonSet, Deployment, Job, StatefulSet. This feature **DOES NOT** support DENY(Validate) policy and Generate policy.
  
 You can change the annotation `pod-policies.kyverno.io/autogen-controllers` to customize the target pod controllers for the auto-generated rules. For example, Kyverno generates a rule for a `Deployment` if the annotation of policy is defined as `pod-policies.kyverno.io/autogen-controllers=Deployment`. 
 
