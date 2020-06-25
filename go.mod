@@ -6,6 +6,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/go-logr/logr v0.1.0
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
 	github.com/googleapis/gnostic v0.3.1
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
@@ -40,6 +41,7 @@ require (
 // Added for go1.13 migration https://github.com/golang/go/issues/32805
 replace (
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
+	k8s.io/client-go v0.17.4 => github.com/nirmata/client-go v0.17.5-0.20200625181911-7e81180b291e
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20200306081859-6a048a382944
 	k8s.io/component-base => k8s.io/component-base v0.0.0-20190612130303-4062e14deebe
 )
