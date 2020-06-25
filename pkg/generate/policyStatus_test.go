@@ -15,7 +15,7 @@ func Test_Stats(t *testing.T) {
 		expectedOutput     []byte
 		existingStatus     map[string]v1.PolicyStatus
 	}{
-		expectedOutput: []byte(`{"policy1":{"averageExecutionTime":"","resourcesGeneratedCount":2,"ruleStatus":[{"ruleName":"rule1","averageExecutionTime":"23ns","resourcesGeneratedCount":1},{"ruleName":"rule2","averageExecutionTime":"44ns","resourcesGeneratedCount":1},{"ruleName":"rule3"}]}}`),
+		expectedOutput: []byte(`{"policy1":{"resourcesGeneratedCount":2,"ruleStatus":[{"ruleName":"rule1","averageExecutionTime":"23ns","resourcesGeneratedCount":1},{"ruleName":"rule2","averageExecutionTime":"44ns","resourcesGeneratedCount":1},{"ruleName":"rule3"}]}}`),
 		generatedSyncStats: []generateSyncStats{
 			{
 				policyName: "policy1",

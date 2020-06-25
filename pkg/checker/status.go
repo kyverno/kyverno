@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 )
@@ -13,7 +13,7 @@ const deployName string = "kyverno"
 const deployNamespace string = "kyverno"
 
 const annCounter string = "kyverno.io/generationCounter"
-const annWebhookStats string = "kyverno.io/webhookActive"
+const annWebhookStatus string = "kyverno.io/webhookActive"
 
 //StatusInterface provides api to update webhook active annotations on kyverno deployments
 type StatusInterface interface {
@@ -29,6 +29,7 @@ type StatusInterface interface {
 type StatusControl struct {
 	client   *dclient.Client
 	eventGen event.Interface
+	log      logr.Logger
 }
 
 //SuccessStatus ...
@@ -42,44 +43,51 @@ func (vc StatusControl) FailedStatus() error {
 }
 
 // NewVerifyControl ...
-func NewVerifyControl(client *dclient.Client, eventGen event.Interface) *StatusControl {
+func NewVerifyControl(client *dclient.Client, eventGen event.Interface, log logr.Logger) *StatusControl {
 	return &StatusControl{
 		client:   client,
 		eventGen: eventGen,
+		log:      log,
 	}
 }
 
 func (vc StatusControl) setStatus(status string) error {
-	glog.Infof("setting deployment %s in ns %s annotation %s to %s", deployName, deployNamespace, annWebhookStats, status)
+	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
 	var ann map[string]string
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		glog.V(4).Infof("failed to get deployment %s in namespace %s: %v", deployName, deployNamespace, err)
+		logger.Error(err, "failed to get deployment")
 		return err
 	}
+
 	ann = deploy.GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
-		ann[annWebhookStats] = status
+		ann[annWebhookStatus] = status
 	}
-	webhookAction, ok := ann[annWebhookStats]
+
+	deployStatus, ok := ann[annWebhookStatus]
 	if ok {
 		// annotatiaion is present
-		if webhookAction == status {
-			glog.V(4).Infof("annotation %s already set to '%s'", annWebhookStats, status)
+		if deployStatus == status {
+			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStatus, status))
 			return nil
 		}
 	}
+
 	// set the status
-	ann[annWebhookStats] = status
+	logger.Info("updating deployment annotation", "key", annWebhookStatus, "val", status)
+	ann[annWebhookStatus] = status
 	deploy.SetAnnotations(ann)
+
 	// update counter
 	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		glog.V(4).Infof("failed to update annotation %s for deployment %s in namespace %s: %v", annWebhookStats, deployName, deployNamespace, err)
+		logger.Error(err, "failed to update deployment annotation", "key", annWebhookStatus, "val", status)
 		return err
 	}
+
 	// create event on kyverno deployment
 	createStatusUpdateEvent(status, vc.eventGen)
 	return nil
@@ -97,34 +105,43 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 
 //IncrementAnnotation ...
 func (vc StatusControl) IncrementAnnotation() error {
-	glog.Infof("setting deployment %s in ns %s annotation %s", deployName, deployNamespace, annCounter)
+	logger := vc.log
 	var ann map[string]string
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		glog.V(4).Infof("failed to get deployment %s in namespace %s: %v", deployName, deployNamespace, err)
+		logger.Error(err, "failed to find Kyverno", "deploymeny", deployName, "namespace", deployNamespace)
 		return err
 	}
+
 	ann = deploy.GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
+	}
+
+	if ann[annCounter] == "" {
 		ann[annCounter] = "0"
 	}
+
 	counter, err := strconv.Atoi(ann[annCounter])
 	if err != nil {
-		glog.V(4).Infof("failed to parse string: %v", err)
+		logger.Error(err, "Failed to parse string", "name", annCounter, "value", ann[annCounter])
 		return err
 	}
+
 	// increment counter
 	counter++
 	ann[annCounter] = strconv.Itoa(counter)
-	glog.Infof("incrementing annotation %s counter to %d", annCounter, counter)
+
+	logger.V(3).Info("updating webhook test annotation", "key", annCounter, "value", counter, "deployment", deployName, "namespace", deployNamespace)
 	deploy.SetAnnotations(ann)
+
 	// update counter
 	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		glog.V(4).Infof("failed to update annotation %s for deployment %s in namespace %s: %v", annCounter, deployName, deployNamespace, err)
+		logger.Error(err, fmt.Sprintf("failed to update annotation %s for deployment %s in namespace %s", annCounter, deployName, deployNamespace))
 		return err
 	}
+
 	return nil
 }

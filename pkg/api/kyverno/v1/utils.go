@@ -2,14 +2,28 @@ package v1
 
 import "reflect"
 
+func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
+	annotations := p.GetAnnotations()
+	_, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	return ok
+}
+
 //HasMutateOrValidateOrGenerate checks for rule types
-func (p ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
+func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
 	}
 	return false
+}
+
+func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
+	if p.Spec.Background == nil {
+		return true
+	}
+
+	return *p.Spec.Background
 }
 
 //HasMutate checks for mutate rule

@@ -6,162 +6,111 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 )
 
 const (
-	variableRegex  = `\{\{([^{}]*)\}\}`
-	singleVarRegex = `^\{\{([^{}]*)\}\}$`
+	variableRegex = `\{\{([^{}]*)\}\}`
 )
 
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invaid or has nil value, it is considered as a failed varable substitution
-func SubstituteVars(ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
-	errs := []error{}
-	pattern = subVars(ctx, pattern, "", &errs)
-	if len(errs) == 0 {
-		// no error while parsing the pattern
-		return pattern, nil
+func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
+	pattern, err := subVars(log, ctx, pattern, "")
+	if err != nil {
+		return pattern, err
 	}
-	return pattern, fmt.Errorf("%v", errs)
+	return pattern, nil
 }
 
-func subVars(ctx context.EvalInterface, pattern interface{}, path string, errs *[]error) interface{} {
+func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, path string) (interface{}, error) {
 	switch typedPattern := pattern.(type) {
 	case map[string]interface{}:
-		return subMap(ctx, typedPattern, path, errs)
+		mapCopy := make(map[string]interface{})
+		for k, v := range typedPattern {
+			mapCopy[k] = v
+		}
+
+		return subMap(log, ctx, mapCopy, path)
 	case []interface{}:
-		return subArray(ctx, typedPattern, path, errs)
+		sliceCopy := make([]interface{}, len(typedPattern))
+		copy(sliceCopy, typedPattern)
+
+		return subArray(log, ctx, sliceCopy, path)
 	case string:
-		return subValR(ctx, typedPattern, path, errs)
+		return subValR(ctx, typedPattern, path)
 	default:
-		return pattern
+		return pattern, nil
 	}
 }
 
-func subMap(ctx context.EvalInterface, patternMap map[string]interface{}, path string, errs *[]error) map[string]interface{} {
+func subMap(log logr.Logger, ctx context.EvalInterface, patternMap map[string]interface{}, path string) (map[string]interface{}, error) {
 	for key, patternElement := range patternMap {
 		curPath := path + "/" + key
-		value := subVars(ctx, patternElement, curPath, errs)
+		value, err := subVars(log, ctx, patternElement, curPath)
+		if err != nil {
+			return nil, err
+		}
 		patternMap[key] = value
 
 	}
-	return patternMap
+	return patternMap, nil
 }
 
-func subArray(ctx context.EvalInterface, patternList []interface{}, path string, errs *[]error) []interface{} {
+func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interface{}, path string) ([]interface{}, error) {
 	for idx, patternElement := range patternList {
 		curPath := path + "/" + strconv.Itoa(idx)
-		value := subVars(ctx, patternElement, curPath, errs)
+		value, err := subVars(log, ctx, patternElement, curPath)
+		if err != nil {
+			return nil, err
+		}
 		patternList[idx] = value
 	}
-	return patternList
+	return patternList, nil
+}
+
+type NotFoundVariableErr struct {
+	variable string
+	path     string
+}
+
+func (n NotFoundVariableErr) Error() string {
+	return fmt.Sprintf("could not find variable %v at path %v", n.variable, n.path)
 }
 
 // subValR resolves the variables if defined
-func subValR(ctx context.EvalInterface, valuePattern string, path string, errs *[]error) interface{} {
+func subValR(ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
+	originalPattern := valuePattern
 
-	// variable values can be scalar values(string,int, float) or they can be obects(map,slice)
-	// - {{variable}}
-	// there is a single variable resolution so the value can be scalar or object
-	// - {{variable1--{{variable2}}}}}
-	// variable2 is evaluted first as an individual variable and can be have scalar or object values
-	// but resolving the outer variable, {{variable--<value>}}
-	// if <value> is scalar then it can replaced, but for object types its tricky
-	// as object cannot be directy replaced, if the object is stringyfied then it loses it structure.
-	// since this might be a potential place for error, required better error reporting and handling
-
-	// object values are only suported for single variable substitution
-	if ok, retVal := processIfSingleVariable(ctx, valuePattern, path, errs); ok {
-		return retVal
-	}
-	// var emptyInterface interface{}
-	var failedVars []string
-	// process type string
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
-		valueStr := valuePattern
-		if len(failedVars) != 0 {
-			glog.Info("some failed variables short-circuiting")
+		if vars := regex.FindAllString(valuePattern, -1); len(vars) > 0 {
+			for _, variable := range vars {
+				underlyingVariable := strings.ReplaceAll(strings.ReplaceAll(variable, "}}", ""), "{{", "")
+				substitutedVar, err := ctx.Query(underlyingVariable)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
+				}
+				if val, ok := substitutedVar.(string); ok {
+					valuePattern = strings.Replace(valuePattern, variable, val, -1)
+				} else {
+					if substitutedVar != nil {
+						if originalPattern == variable {
+							return substitutedVar, nil
+						}
+						return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
+					}
+					return nil, NotFoundVariableErr{
+						variable: underlyingVariable,
+						path:     path,
+					}
+				}
+			}
+		} else {
 			break
 		}
-		// get variables at this level
-		validRegex := regexp.MustCompile(variableRegex)
-		groups := validRegex.FindAllStringSubmatch(valueStr, -1)
-		if len(groups) == 0 {
-			// there was no match
-			// not variable defined
-			break
-		}
-		subs := map[string]interface{}{}
-		for _, group := range groups {
-			if _, ok := subs[group[0]]; ok {
-				// value has already been substituted
-				continue
-			}
-			// here we do the querying of the variables from the context
-			variable, err := ctx.Query(group[1])
-			if err != nil {
-				// error while evaluating
-				failedVars = append(failedVars, group[1])
-				continue
-			}
-			// path not found in context and value stored in null/nill
-			if variable == nil {
-				failedVars = append(failedVars, group[1])
-				continue
-			}
-			// get values for each and replace
-			subs[group[0]] = variable
-		}
-		// perform substitutions
-		newVal := valueStr
-		for k, v := range subs {
-			// if value is of type string then cast else consider it as direct replacement
-			if val, ok := v.(string); ok {
-				newVal = strings.Replace(newVal, k, val, -1)
-				continue
-			}
-			// if type is not scalar then consider this as a failed variable
-			glog.Infof("variable %s resolves to non-scalar value %v. Non-Scalar values are not supported for nested variables", k, v)
-			failedVars = append(failedVars, k)
-		}
-		valuePattern = newVal
-	}
-	// update errors if any
-	if len(failedVars) > 0 {
-		*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", failedVars, path))
 	}
 
-	return valuePattern
-}
-
-// processIfSingleVariable will process the evaluation of single variables
-// {{variable-{{variable}}}} -> compound/nested variables
-// {{variable}}{{variable}} -> multiple variables
-// {{variable}} -> single variable
-// if the value can be evaluted return the value
-// -> return value can be scalar or object type
-// -> if the variable is not present in the context then add an error and dont process further
-func processIfSingleVariable(ctx context.EvalInterface, valuePattern interface{}, path string, errs *[]error) (bool, interface{}) {
-	valueStr, ok := valuePattern.(string)
-	if !ok {
-		glog.Infof("failed to convert %v to string", valuePattern)
-		return false, nil
-	}
-	// get variables at this level
-	validRegex := regexp.MustCompile(singleVarRegex)
-	groups := validRegex.FindAllStringSubmatch(valueStr, -1)
-	if len(groups) == 0 {
-		return false, nil
-	}
-	// as there will be exactly one variable based on the above regex
-	group := groups[0]
-	variable, err := ctx.Query(group[1])
-	if err != nil || variable == nil {
-		*errs = append(*errs, fmt.Errorf("failed to resolve %v at path %s", group[1], path))
-		// return the same value pattern, and add un-resolvable variable error
-		return true, valuePattern
-	}
-	return true, variable
+	return valuePattern, nil
 }

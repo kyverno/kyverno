@@ -74,7 +74,7 @@ func (in *ClusterPolicy) DeepCopyObject() runtime.Object {
 func (in *ClusterPolicyList) DeepCopyInto(out *ClusterPolicyList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ClusterPolicy, len(*in))
@@ -135,7 +135,7 @@ func (in *ClusterPolicyViolation) DeepCopyObject() runtime.Object {
 func (in *ClusterPolicyViolationList) DeepCopyInto(out *ClusterPolicyViolationList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ClusterPolicyViolation, len(*in))
@@ -241,7 +241,7 @@ func (in *GenerateRequestContext) DeepCopy() *GenerateRequestContext {
 func (in *GenerateRequestList) DeepCopyInto(out *GenerateRequestList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]GenerateRequest, len(*in))
@@ -420,7 +420,7 @@ func (in *PolicyViolation) DeepCopyObject() runtime.Object {
 func (in *PolicyViolationList) DeepCopyInto(out *PolicyViolationList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]PolicyViolation, len(*in))

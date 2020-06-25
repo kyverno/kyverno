@@ -1,0 +1,10 @@
+{{- if (not .Values.config.existingConfig) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+  name: {{ template "kyverno.configMapName" . }}
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: {{ join "" .Values.config.resourceFilters | quote }}
+{{- end -}}

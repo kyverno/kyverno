@@ -2,16 +2,17 @@ package policystatus
 
 import (
 	"encoding/json"
+	"fmt"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"sync"
 	"time"
-
-	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Policy status implementation works in the following way,
@@ -35,10 +36,6 @@ type statusUpdater interface {
 	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
 }
 
-type policyStore interface {
-	Get(policyName string) (*v1.ClusterPolicy, error)
-}
-
 type Listener chan statusUpdater
 
 func (l Listener) Send(s statusUpdater) {
@@ -53,7 +50,7 @@ type Sync struct {
 	cache       *cache
 	Listener    Listener
 	client      *versioned.Clientset
-	policyStore policyStore
+	lister kyvernolister.ClusterPolicyLister
 }
 
 type cache struct {
@@ -62,7 +59,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, p policyStore) *Sync {
+func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
@@ -70,7 +67,7 @@ func NewSync(c *versioned.Clientset, p policyStore) *Sync {
 			keyToMutex: newKeyToMutex(),
 		},
 		client:      c,
-		policyStore: p,
+		lister: lister,
 		Listener:    make(chan statusUpdater, 20),
 	}
 }
@@ -80,7 +77,7 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 2*time.Second, stopCh)
+	wait.Until(s.updatePolicyStatus, 10*time.Second, stopCh)
 	<-stopCh
 }
 
@@ -96,7 +93,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			status, exist := s.cache.data[statusUpdater.PolicyName()]
 			s.cache.dataMu.RUnlock()
 			if !exist {
-				policy, _ := s.policyStore.Get(statusUpdater.PolicyName())
+				policy, _ := s.lister.Get(statusUpdater.PolicyName())
 				if policy != nil {
 					status = policy.Status
 				}
@@ -111,8 +108,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			s.cache.keyToMutex.Get(statusUpdater.PolicyName()).Unlock()
 			oldStatus, _ := json.Marshal(status)
 			newStatus, _ := json.Marshal(updatedStatus)
-
-			glog.V(4).Infof("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus))
+			log.Log.V(4).Info(fmt.Sprintf("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus)))
 		case <-stopCh:
 			return
 		}
@@ -130,17 +126,18 @@ func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Unlock()
 
 	for policyName, status := range nameToStatus {
-		policy, err := s.policyStore.Get(policyName)
+		policy, err := s.lister.Get(policyName)
 		if err != nil {
 			continue
 		}
+
 		policy.Status = status
 		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 		if err != nil {
 			s.cache.dataMu.Lock()
 			delete(s.cache.data, policyName)
 			s.cache.dataMu.Unlock()
-			glog.V(4).Info(err)
+			log.Log.Error(err, "failed to update policy status")
 		}
 	}
 }

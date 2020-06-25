@@ -121,7 +121,7 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              Spec         `json:"spec"`
-	Status            PolicyStatus `json:"status"`
+	Status            PolicyStatus `json:"status,omitempty"`
 }
 
 // Spec describes policy behavior by its rules
@@ -155,9 +155,11 @@ type ConditionOperator string
 
 const (
 	//Equal for Equal operator
-	Equal ConditionOperator = "Equal"
+	Equal  ConditionOperator = "Equal"
+	Equals ConditionOperator = "Equals"
 	//NotEqual for NotEqual operator
-	NotEqual ConditionOperator = "NotEqual"
+	NotEqual  ConditionOperator = "NotEqual"
+	NotEquals ConditionOperator = "NotEquals"
 	//In for In operator
 	In ConditionOperator = "In"
 	//NotIn for NotIn operator
@@ -211,13 +213,19 @@ type Validation struct {
 	Message    string        `json:"message,omitempty"`
 	Pattern    interface{}   `json:"pattern,omitempty"`
 	AnyPattern []interface{} `json:"anyPattern,omitempty"`
+	Deny       *Deny         `json:"deny,omitempty"`
+}
+
+type Deny struct {
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
 	ResourceSpec
-	Data  interface{} `json:"data,omitempty"`
-	Clone CloneFrom   `json:"clone,omitempty"`
+	Synchronize bool        `json:"synchronize,omitempty"`
+	Data        interface{} `json:"data,omitempty"`
+	Clone       CloneFrom   `json:"clone,omitempty"`
 }
 
 // CloneFrom - location of the resource
@@ -230,7 +238,7 @@ type CloneFrom struct {
 // PolicyStatus mostly contains statistics related to policy
 type PolicyStatus struct {
 	// average time required to process the policy rules on a resource
-	AvgExecutionTime string `json:"averageExecutionTime"`
+	AvgExecutionTime string `json:"averageExecutionTime,omitempty"`
 	// number of violations created by this policy
 	ViolationCount int `json:"violationCount,omitempty"`
 	// Count of rules that failed

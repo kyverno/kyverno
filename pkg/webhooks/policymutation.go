@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -16,13 +16,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	logger := ws.log.WithValues("action", "policymutation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	var policy *kyverno.ClusterPolicy
 	raw := request.Object.Raw
 
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := json.Unmarshal(raw, &policy); err != nil {
-		glog.Errorf("Failed to unmarshal policy admission request, err %v\n", err)
+		logger.Error(err, "faield to unmarshall policy admission request")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -31,10 +32,9 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 		}
 	}
 	// Generate JSON Patches for defaults
-	patches, updateMsgs := generateJSONPatchesForDefaults(policy)
+	patches, updateMsgs := generateJSONPatchesForDefaults(policy, logger)
 	if patches != nil {
 		patchType := v1beta1.PatchTypeJSONPatch
-		glog.V(4).Infof("defaulted values %v policy %s", updateMsgs, policy.Name)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -44,35 +44,34 @@ func (ws *WebhookServer) handlePolicyMutation(request *v1beta1.AdmissionRequest)
 			PatchType: &patchType,
 		}
 	}
-	glog.V(4).Infof("nothing to default for policy %s", policy.Name)
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
 }
 
-func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []string) {
+func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
 	// default 'ValidationFailureAction'
-	if patch, updateMsg := defaultvalidationFailureAction(policy); patch != nil {
+	if patch, updateMsg := defaultvalidationFailureAction(policy, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
 	// default 'Background'
-	if patch, updateMsg := defaultBackgroundFlag(policy); patch != nil {
+	if patch, updateMsg := defaultBackgroundFlag(policy, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	patch, errs := generatePodControllerRule(*policy)
+	patch, errs := generatePodControllerRule(*policy, log)
 	if len(errs) > 0 {
 		var errMsgs []string
 		for _, err := range errs {
 			errMsgs = append(errMsgs, err.Error())
+			log.Error(err, "failed to generate pod controller rule")
 		}
-		glog.Errorf("failed auto generating rule for pod controllers: %s", errMsgs)
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
 
@@ -81,11 +80,11 @@ func generateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy) ([]byte, []st
 	return utils.JoinPatches(patches), updateMsgs
 }
 
-func defaultBackgroundFlag(policy *kyverno.ClusterPolicy) ([]byte, string) {
-	// default 'Background' flag to 'true' if not specified
+func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+	// set 'Background' flag to 'true' if not specified
 	defaultVal := true
 	if policy.Spec.Background == nil {
-		glog.V(4).Infof("default policy %s 'Background' to '%s'", policy.Name, strconv.FormatBool(true))
+		log.V(4).Info("setting default value", "spec.background", true)
 		jsonPatch := struct {
 			Path  string `json:"path"`
 			Op    string `json:"op"`
@@ -95,21 +94,24 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy) ([]byte, string) {
 			"add",
 			&defaultVal,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			glog.Errorf("failed to set default 'Background' to '%s' for policy %s", strconv.FormatBool(true), policy.Name)
+			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
 		}
-		glog.V(4).Infof("generate JSON Patch to set default 'Background' to '%s' for policy %s", strconv.FormatBool(true), policy.Name)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
 		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
 	}
+
 	return nil, ""
 }
 
-func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, string) {
-	// default ValidationFailureAction to "audit" if not specified
+func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+	// set ValidationFailureAction to "audit" if not specified
 	if policy.Spec.ValidationFailureAction == "" {
-		glog.V(4).Infof("defaulting policy %s 'ValidationFailureAction' to '%s'", policy.Name, Audit)
+		log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
 		jsonPatch := struct {
 			Path  string `json:"path"`
 			Op    string `json:"op"`
@@ -117,16 +119,19 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, stri
 		}{
 			"/spec/validationFailureAction",
 			"add",
-			Audit, //audit
+			Audit,
 		}
+
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			glog.Errorf("failed to set default 'ValidationFailureAction' to '%s' for policy %s", Audit, policy.Name)
+			log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
 			return nil, ""
 		}
-		glog.V(4).Infof("generate JSON Patch to set default 'ValidationFailureAction' to '%s' for policy %s", Audit, policy.Name)
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
 		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
 	}
+
 	return nil, ""
 }
 
@@ -140,13 +145,13 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy) ([]byte, stri
 //             make sure all fields are applicable to pod cotrollers
 
 // generatePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
-func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, errs []error) {
+func generatePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
 	ann := policy.GetAnnotations()
 	controllers, ok := ann[engine.PodControllersAnnotation]
 
 	// scenario A
 	if !ok {
-		controllers = "all"
+		controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -160,9 +165,9 @@ func generatePodControllerRule(policy kyverno.ClusterPolicy) (patches [][]byte, 
 		return nil, nil
 	}
 
-	glog.V(3).Infof("Auto generating rule for pod controller: %s", controllers)
+	log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
 
-	p, err := generateRulePatches(policy, controllers)
+	p, err := generateRulePatches(policy, controllers, log)
 	patches = append(patches, p...)
 	errs = append(errs, err...)
 	return
@@ -197,8 +202,9 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 }
 
 // generateRulePatches generates rule for podControllers based on scenario A and C
-func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rulePatches [][]byte, errs []error) {
+func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
 	var genRule kyvernoRule
+
 	insertIdx := len(policy.Spec.Rules)
 
 	ruleMap := createRuleMap(policy.Spec.Rules)
@@ -210,7 +216,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string) (rule
 	for _, rule := range policy.Spec.Rules {
 		patchPostion := insertIdx
 
-		genRule = generateRuleForControllers(rule, controllers)
+		genRule = generateRuleForControllers(rule, controllers, log)
 		if reflect.DeepEqual(genRule, kyvernoRule{}) {
 			continue
 		}
@@ -272,7 +278,7 @@ type kyvernoRule struct {
 	Validation       *kyverno.Validation       `json:"validate,omitempty"`
 }
 
-func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRule {
+func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
 	if strings.HasPrefix(rule.Name, "autogen-") {
 		return kyvernoRule{}
 	}
@@ -288,14 +294,34 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 		return kyvernoRule{}
 	}
 
-	// scenario A
+	// Support backword compatibility
+	skipAutoGeneration := false
+	var controllersValidated []string
 	if controllers == "all" {
+		skipAutoGeneration = true
+	} else if controllers != "none" && controllers != "all" {
+		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		for _, value := range strings.Split(controllers, ",") {
+			if _, ok := controllersList[value]; ok {
+				controllersValidated = append(controllersValidated, value)
+			}
+		}
+		if len(controllersValidated) > 0 {
+			skipAutoGeneration = true
+		}
+	}
+
+	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			glog.Warningf("Rule '%s' skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", rule.Name)
+			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
 			return kyvernoRule{}
 		}
-		controllers = engine.PodControllers
+		if controllers == "all" {
+			controllers = engine.PodControllers
+		} else {
+			controllers = strings.Join(controllersValidated, ",")
+		}
 	}
 
 	controllerRule := &kyvernoRule{
@@ -363,7 +389,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string) kyvernoRu
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[engine.PodControllersAnnotation] = "all"
+		ann[engine.PodControllersAnnotation] = "DaemonSet,Deployment,Job,StatefulSet"
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`
@@ -388,7 +414,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"all",
+		"DaemonSet,Deployment,Job,StatefulSet",
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)

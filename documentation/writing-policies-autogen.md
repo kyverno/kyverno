@@ -2,7 +2,7 @@
 
 # Auto Generating Rules for Pod Controllers
 
-Writing policies on pods helps address all pod creation flows. However, when pod cotrollers are used pod level policies result in errors not being reported when the pod controller object is created. 
+Writing policies on pods helps address all pod creation flows. However, when pod controllers are used, pod level policies result in errors not being reported when the pod controller object is created. 
 
 Kyverno solves this issue by supporting automatic generation of policy rules for pod controllers from a rule written for a pod.
 

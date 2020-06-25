@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/openapi"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
@@ -287,369 +289,6 @@ func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
-func Test_Validate_OverlayPattern_Empty(t *testing.T) {
-	rawValidation := []byte(`
-   {}`)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
-	rawValidation := []byte(`
- 	{ "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false"
-      }
-	`)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
-	rawValidation := []byte(`
-	{
-		"message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
-		"anyPattern": [
-		  {
-			"spec": {
-			  "securityContext": {
-				"allowPrivilegeEscalation": false,
-				"privileged": false
-			  }
-			}
-		  }
-		],
-		"pattern": {
-		  "spec": {
-			"containers": [
-			  {
-				"name": "*",
-				"securityContext": {
-				  "allowPrivilegeEscalation": false,
-				  "privileged": false
-				}
-			  }
-			]
-		  }
-		}
-	  }`)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_OverlayPattern_Valid(t *testing.T) {
-	rawValidation := []byte(`
-	{
-		"message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false",
-		"anyPattern": [
-		  {
-			"spec": {
-			  "securityContext": {
-				"allowPrivilegeEscalation": false,
-				"privileged": false
-			  }
-			}
-		  },
-		  {
-			"spec": {
-			  "containers": [
-				{
-				  "name": "*",
-				  "securityContext": {
-					"allowPrivilegeEscalation": false,
-					"privileged": false
-				  }
-				}
-			  ]
-			}
-		  }
-		]
-	  }
-`)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.NilError(t, err)
-	}
-
-}
-
-func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
-	rawValidation := []byte(`
-	{
-		"message": "validate container security contexts",
-		"anyPattern": [
-		  {
-			"spec": {
-			  "template": {
-				"spec": {
-				  "containers": [
-					{
-					  "^(securityContext)": {
-						"runAsNonRoot": true
-					  }
-					}
-				  ]
-				}
-			  }
-			}
-		  }
-		]
-	  }
-`)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-}
-
-func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
-	rawValidation := []byte(`{
-		"message": "validate container security contexts",
-		"pattern": {
-		  "spec": {
-			"template": {
-			  "spec": {
-				"containers": [
-				  {
-					"securityContext": {
-					  "allowPrivilegeEscalation": "^(false)"
-					}
-				  }
-				]
-			  }
-			}
-		  }
-		}
-	  }
-	  		  `)
-
-	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
-	var err error
-	var validation kyverno.Validation
-	rawValidation := []byte(`
-	{
-		"message": "validate container security contexts",
-		"anyPattern": [
-		   {
-			  "spec": {
-				 "template": {
-					"spec": {
-					   "^(containers)": [
-						  {
-							 "securityContext": {
-								"runAsNonRoot": "true"
-							 }
-						  }
-					   ]
-					}
-				 }
-			  }
-		   }
-		]
-	 }`)
-
-	err = json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-	rawValidation = []byte(`
-	{
-		"message": "validate container security contexts",
-		"pattern": {
-		   "spec": {
-			  "template": {
-				 "spec": {
-					"^(containers)": [
-					   {
-						  "securityContext": {
-							 "allowPrivilegeEscalation": "false"
-						  }
-					   }
-					]
-				 }
-			  }
-		   }
-		}
-	 }	`)
-	err = json.Unmarshal(rawValidation, &validation)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validation); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-}
-
-func Test_Validate_Validate_ValidAnchor(t *testing.T) {
-	var err error
-	var validate kyverno.Validation
-	var rawValidate []byte
-	// case 1
-	rawValidate = []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"anyPattern": [
-		    {
-			  "spec": {
-				 "securityContext": {
-					"(runAsNonRoot)": true
-				 }
-			  }
-		   },
-		   {
-			  "spec": {
-				 "^(containers)": [
-					{
-					   "name": "*",
-					   "securityContext": {
-						  "runAsNonRoot": true
-					   }
-					}
-				 ]
-			  }
-		   }
-		]
-	 }`)
-
-	err = json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	if _, err := validateValidation(validate); err != nil {
-		assert.NilError(t, err)
-	}
-
-	// case 2
-	validate = kyverno.Validation{}
-	rawValidate = []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "=(securityContext)": {
-				 "runAsNonRoot": "true"
-			  }
-		   }
-		}
-	}`)
-
-	err = json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	if _, err := validateValidation(validate); err != nil {
-		assert.NilError(t, err)
-	}
-}
-
-func Test_Validate_Validate_Mismatched(t *testing.T) {
-	rawValidate := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "+(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	 }`)
-
-	var validate kyverno.Validation
-	err := json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_Validate_Unsupported(t *testing.T) {
-	var err error
-	var validate kyverno.Validation
-
-	// case 1
-	rawValidate := []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "!(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	}`)
-
-	err = json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-	if _, err := validateValidation(validate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-	// case 2
-	rawValidate = []byte(`
-	{
-		"message": "Root user is not allowed. Set runAsNonRoot to true.",
-		"pattern": {
-		   "spec": {
-			  "containers": [
-				 {
-					"name": "*",
-					"securityContext": {
-					   "~(runAsNonRoot)": true
-					}
-				 }
-			  ]
-		   }
-		}
-	}`)
-
-	err = json.Unmarshal(rawValidate, &validate)
-	assert.NilError(t, err)
-
-	if _, err := validateValidation(validate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-}
-
 func Test_Validate_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -732,227 +371,10 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	openAPIController, _ := openapi.NewOpenAPIController()
+
+	err := Validate(rawPolicy, nil, true, openAPIController)
 	assert.NilError(t, err)
-
-	err = Validate(policy)
-	assert.NilError(t, err)
-}
-
-func Test_Validate_Mutate_ConditionAnchor(t *testing.T) {
-	rawMutate := []byte(`
-	{
-		"overlay": {
-		  "spec": {
-			"(serviceAccountName)": "*",
-			"automountServiceAccountToken": false
-		  }
-		}
-	  }`)
-
-	var mutate kyverno.Mutation
-	err := json.Unmarshal(rawMutate, &mutate)
-	assert.NilError(t, err)
-	if _, err := validateMutation(mutate); err != nil {
-		assert.NilError(t, err)
-	}
-}
-
-func Test_Validate_Mutate_PlusAnchor(t *testing.T) {
-	rawMutate := []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "+(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	var mutate kyverno.Mutation
-	err := json.Unmarshal(rawMutate, &mutate)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutate); err != nil {
-		assert.NilError(t, err)
-	}
-}
-
-func Test_Validate_Mutate_Mismatched(t *testing.T) {
-	rawMutate := []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "^(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	var mutateExistence kyverno.Mutation
-	err := json.Unmarshal(rawMutate, &mutateExistence)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutateExistence); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-	var mutateEqual kyverno.Mutation
-	rawMutate = []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "=(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	err = json.Unmarshal(rawMutate, &mutateEqual)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutateEqual); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-	var mutateNegation kyverno.Mutation
-	rawMutate = []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "X(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	err = json.Unmarshal(rawMutate, &mutateNegation)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutateEqual); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_Mutate_Unsupported(t *testing.T) {
-	var err error
-	var mutate kyverno.Mutation
-	// case 1
-	rawMutate := []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "!(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	err = json.Unmarshal(rawMutate, &mutate)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-	// case 2
-	rawMutate = []byte(`
-	{
-		"overlay": {
-		   "spec": {
-			  "~(serviceAccountName)": "*",
-			  "automountServiceAccountToken": false
-		   }
-		}
-	 }`)
-
-	err = json.Unmarshal(rawMutate, &mutate)
-	assert.NilError(t, err)
-
-	if _, err := validateMutation(mutate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_Generate(t *testing.T) {
-	rawGenerate := []byte(`
-	{
-		"kind": "NetworkPolicy",
-		"name": "defaultnetworkpolicy",
-		"data": {
-		   "spec": {
-			  "podSelector": {},
-			  "policyTypes": [
-				 "Ingress",
-				 "Egress"
-			  ],
-			  "ingress": [
-				 {}
-			  ],
-			  "egress": [
-				 {}
-			  ]
-		   }
-		}
-	 }`)
-
-	var generate kyverno.Generation
-	err := json.Unmarshal(rawGenerate, &generate)
-	assert.NilError(t, err)
-
-	if _, err := validateGeneration(generate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_Generate_HasAnchors(t *testing.T) {
-	var err error
-	var generate kyverno.Generation
-	rawGenerate := []byte(`
-	{
-		"kind": "NetworkPolicy",
-		"name": "defaultnetworkpolicy",
-		"data": {
-		   "spec": {
-			  "(podSelector)": {},
-			  "policyTypes": [
-				 "Ingress",
-				 "Egress"
-			  ],
-			  "ingress": [
-				 {}
-			  ],
-			  "egress": [
-				 {}
-			  ]
-		   }
-		}
-	 }`)
-
-	err = json.Unmarshal(rawGenerate, &generate)
-	assert.NilError(t, err)
-	if _, err := validateGeneration(generate); err != nil {
-		assert.Assert(t, err != nil)
-	}
-
-	rawGenerate = []byte(`
-	{
-		"kind": "ConfigMap",
-		"name": "copied-cm",
-		"clone": {
-		   "^(namespace)": "default",
-		   "name": "game"
-		}
-	 }`)
-
-	errNew := json.Unmarshal(rawGenerate, &generate)
-	assert.NilError(t, errNew)
-	err = json.Unmarshal(rawGenerate, &generate)
-	assert.NilError(t, err)
-	if _, err := validateGeneration(generate); err != nil {
-		assert.Assert(t, err != nil)
-	}
 }
 
 func Test_Validate_ErrorFormat(t *testing.T) {
@@ -1093,11 +515,8 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	 }
 	`)
 
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	err = Validate(policy)
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err := Validate(rawPolicy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1189,8 +608,8 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
-	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/roles")
+	err = ContainsVariablesOtherThanObject(*policy)
+	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/roles")
 }
 
 func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
@@ -1221,9 +640,9 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/clusterRoles")
+	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/clusterRoles")
 }
 
 func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
@@ -1257,9 +676,9 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	assert.Equal(t, err.Error(), "userInfo variable used at path: spec/rules[0]/match/subjects")
+	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/subjects")
 }
 
 func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
@@ -1289,9 +708,9 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
+	if err.Error() != "invalid variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1324,9 +743,9 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/mutate/overlay" {
+	if err.Error() != "invalid variable used at spec/rules[0]/mutate/overlay" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1359,9 +778,9 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/validate/pattern" {
+	if err.Error() != "invalid variable used at spec/rules[0]/validate/pattern" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1398,9 +817,9 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
+	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1437,9 +856,9 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
+	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1476,9 +895,9 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsUserInfo(*policy)
+	err = ContainsVariablesOtherThanObject(*policy)
 
-	if err.Error() != "userInfo variable used at spec/rules[0]/validate/anyPattern[1]" {
+	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
 		t.Log(err)
 		t.Error("Incorrect Path")
 	}
@@ -1538,6 +957,84 @@ func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
 		output := ruleOnlyDealsWithResourceMetaData(rule)
 		if output != testcase.expectedOutput {
 			t.Errorf("Testcase [%d] failed", i+1)
+		}
+	}
+}
+
+func Test_doesMatchExcludeConflict(t *testing.T) {
+	testcases := []struct {
+		description    string
+		rule           []byte
+		expectedOutput bool
+	}{
+		{
+			description:    "Same match and exclude",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "Failed to exclude kind",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude name",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something-*","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude namespace",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something3","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude labels",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"higha"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude expression",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["databases"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude subjects",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something2","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude clusterroles",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something3","something1"],"roles":["something","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "Failed to exclude roles",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something3","something1"]}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "simple",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}}`),
+			expectedOutput: true,
+		},
+		{
+			description:    "simple - fail",
+			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"somxething","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}}`),
+			expectedOutput: false,
+		},
+		{
+			description:    "empty case",
+			rule:           []byte(`{"name":"check-allow-deletes","match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}`),
+			expectedOutput: false,
+		},
+	}
+
+	for i, testcase := range testcases {
+		var rule kyverno.Rule
+		_ = json.Unmarshal(testcase.rule, &rule)
+
+		if doesMatchAndExcludeConflict(rule) != testcase.expectedOutput {
+			t.Errorf("Testcase [%d] failed - description - %v", i+1, testcase.description)
 		}
 	}
 }

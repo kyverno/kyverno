@@ -8,9 +8,9 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
-REGISTRY=index.docker.io
+REGISTRY?=index.docker.io
 REPO=$(REGISTRY)/nirmata/kyverno
-IMAGE_TAG=$(GIT_VERSION)
+IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 PACKAGE ?=github.com/nirmata/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -53,6 +53,11 @@ docker-push-initContainer:
 .PHONY: docker-build-kyverno docker-tag-repo-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
+
+local:
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
+
 kyverno:
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
@@ -109,3 +114,16 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+# godownloader create downloading script for kyverno-cli
+godownloader:
+	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
+
+# kustomize-crd will create install.yaml 
+kustomize-crd:
+	# Create CRD for helm deployment Helm 
+	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
+	# Generate install.yaml that have all resources for kyverno
+	kustomize build ./definitions > ./definitions/install.yaml
+	# Generate install_debug.yaml that for developer testing
+	kustomize build ./definitions/debug > ./definitions/install_debug.yaml

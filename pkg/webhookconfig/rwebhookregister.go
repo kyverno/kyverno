@@ -3,7 +3,7 @@ package webhookconfig
 import (
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	checker "github.com/nirmata/kyverno/pkg/checker"
 	"github.com/tevino/abool"
 	mconfiginformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
@@ -14,15 +14,16 @@ import (
 //ResourceWebhookRegister manages the resource webhook registration
 type ResourceWebhookRegister struct {
 	// pendingCreation indicates the status of resource webhook creation
-	pendingCreation      *abool.AtomicBool
-	LastReqTime          *checker.LastReqTime
-	mwebhookconfigSynced cache.InformerSynced
-	vwebhookconfigSynced cache.InformerSynced
-	// list/get mutatingwebhookconfigurations
+	pendingMutateWebhookCreation   *abool.AtomicBool
+	pendingValidateWebhookCreation *abool.AtomicBool
+	LastReqTime                    *checker.LastReqTime
+	mwebhookconfigSynced           cache.InformerSynced
+	vwebhookconfigSynced           cache.InformerSynced
 	mWebhookConfigLister           mconfiglister.MutatingWebhookConfigurationLister
 	vWebhookConfigLister           mconfiglister.ValidatingWebhookConfigurationLister
 	webhookRegistrationClient      *WebhookRegistrationClient
 	RunValidationInMutatingWebhook string
+	log                            logr.Logger
 }
 
 // NewResourceWebhookRegister returns a new instance of ResourceWebhookRegister manager
@@ -32,9 +33,11 @@ func NewResourceWebhookRegister(
 	vconfigwebhookinformer mconfiginformer.ValidatingWebhookConfigurationInformer,
 	webhookRegistrationClient *WebhookRegistrationClient,
 	runValidationInMutatingWebhook string,
+	log logr.Logger,
 ) *ResourceWebhookRegister {
 	return &ResourceWebhookRegister{
-		pendingCreation:                abool.New(),
+		pendingMutateWebhookCreation:   abool.New(),
+		pendingValidateWebhookCreation: abool.New(),
 		LastReqTime:                    lastReqTime,
 		mwebhookconfigSynced:           mconfigwebhookinformer.Informer().HasSynced,
 		mWebhookConfigLister:           mconfigwebhookinformer.Lister(),
@@ -42,73 +45,85 @@ func NewResourceWebhookRegister(
 		vWebhookConfigLister:           vconfigwebhookinformer.Lister(),
 		webhookRegistrationClient:      webhookRegistrationClient,
 		RunValidationInMutatingWebhook: runValidationInMutatingWebhook,
+		log:                            log,
 	}
 }
 
 //RegisterResourceWebhook registers a resource webhook
 func (rww *ResourceWebhookRegister) RegisterResourceWebhook() {
-	// drop the request if creation is in processing
-	if rww.pendingCreation.IsSet() {
-		glog.V(3).Info("resource webhook configuration is in pending creation, skip the request")
+	timeDiff := time.Since(rww.LastReqTime.Time())
+	if timeDiff < checker.DefaultDeadline {
+		if !rww.pendingMutateWebhookCreation.IsSet() {
+			go rww.createMutatingWebhook()
+		}
+
+		if !rww.pendingValidateWebhookCreation.IsSet() {
+			go rww.createValidateWebhook()
+		}
+	}
+}
+
+func (rww *ResourceWebhookRegister) createMutatingWebhook() {
+	rww.pendingMutateWebhookCreation.Set()
+	defer rww.pendingMutateWebhookCreation.UnSet()
+
+	mutatingConfigName := rww.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
+	mutatingConfig, _ := rww.mWebhookConfigLister.Get(mutatingConfigName)
+	if mutatingConfig != nil {
+		rww.log.V(5).Info("mutating webhoook configuration exists", "name", mutatingConfigName)
+	} else {
+		err := rww.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration()
+		if err != nil {
+			rww.log.Error(err, "failed to create resource mutating webhook configuration, re-queue creation request")
+			rww.RegisterResourceWebhook()
+			return
+		}
+
+		rww.log.V(2).Info("created mutating webhook", "name", mutatingConfigName)
+	}
+}
+
+func (rww *ResourceWebhookRegister) createValidateWebhook() {
+	rww.pendingValidateWebhookCreation.Set()
+	defer rww.pendingValidateWebhookCreation.UnSet()
+
+	if rww.RunValidationInMutatingWebhook == "true" {
+		rww.log.V(2).Info("validation is configured to run during mutate webhook")
 		return
 	}
 
-	timeDiff := time.Since(rww.LastReqTime.Time())
-	if timeDiff < checker.DefaultDeadline {
-		glog.V(3).Info("Verified webhook status, creating webhook configuration")
-		go func() {
-			mutatingConfigName := rww.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
-			mutatingConfig, _ := rww.mWebhookConfigLister.Get(mutatingConfigName)
-			if mutatingConfig != nil {
-				glog.V(4).Info("mutating webhoook configuration already exists")
-			} else {
-				rww.pendingCreation.Set()
-				err1 := rww.webhookRegistrationClient.CreateResourceMutatingWebhookConfiguration()
-				rww.pendingCreation.UnSet()
-				if err1 != nil {
-					glog.Errorf("failed to create resource mutating webhook configuration: %v, re-queue creation request", err1)
-					rww.RegisterResourceWebhook()
-					return
-				}
-				glog.V(3).Info("Successfully created mutating webhook configuration for resources")
-			}
+	validatingConfigName := rww.webhookRegistrationClient.GetResourceValidatingWebhookConfigName()
+	validatingConfig, _ := rww.vWebhookConfigLister.Get(validatingConfigName)
+	if validatingConfig != nil {
+		rww.log.V(4).Info("validating webhoook configuration exists", "name", validatingConfigName)
+	} else {
+		err := rww.webhookRegistrationClient.CreateResourceValidatingWebhookConfiguration()
+		if err != nil {
+			rww.log.Error(err, "failed to create resource validating webhook configuration; re-queue creation request")
+			rww.RegisterResourceWebhook()
+			return
+		}
 
-			if rww.RunValidationInMutatingWebhook != "true" {
-				validatingConfigName := rww.webhookRegistrationClient.GetResourceValidatingWebhookConfigName()
-				validatingConfig, _ := rww.vWebhookConfigLister.Get(validatingConfigName)
-				if validatingConfig != nil {
-					glog.V(4).Info("validating webhoook configuration already exists")
-				} else {
-					rww.pendingCreation.Set()
-					err2 := rww.webhookRegistrationClient.CreateResourceValidatingWebhookConfiguration()
-					rww.pendingCreation.UnSet()
-					if err2 != nil {
-						glog.Errorf("failed to create resource validating webhook configuration: %v, re-queue creation request", err2)
-						rww.RegisterResourceWebhook()
-						return
-					}
-					glog.V(3).Info("Successfully created validating webhook configuration for resources")
-				}
-			}
-		}()
+		rww.log.V(2).Info("created validating webhook", "name", validatingConfigName)
 	}
 }
 
 //Run starts the ResourceWebhookRegister manager
 func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
+	logger := rww.log
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, rww.mwebhookconfigSynced, rww.vwebhookconfigSynced) {
-		glog.Error("configuration: failed to sync webhook informer cache")
+		logger.Info("configuration: failed to sync webhook informer cache")
 	}
-
 }
 
 // RemoveResourceWebhookConfiguration removes the resource webhook configurations
 func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
+	logger := rww.log
 	mutatingConfigName := rww.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
 	mutatingConfig, err := rww.mWebhookConfigLister.Get(mutatingConfigName)
 	if err != nil {
-		glog.V(4).Infof("failed to list mutating webhook config: %v", err)
+		logger.Error(err, "failed to list mutating webhook config")
 		return err
 	}
 	if mutatingConfig != nil {
@@ -116,14 +131,14 @@ func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
 		if err != nil {
 			return err
 		}
-		glog.V(3).Info("removed mutating resource webhook configuration")
+		logger.V(3).Info("removed mutating resource webhook configuration")
 	}
 
 	if rww.RunValidationInMutatingWebhook != "true" {
 		validatingConfigName := rww.webhookRegistrationClient.GetResourceValidatingWebhookConfigName()
 		validatingConfig, err := rww.vWebhookConfigLister.Get(validatingConfigName)
 		if err != nil {
-			glog.V(4).Infof("failed to list validating webhook config: %v", err)
+			logger.Error(err, "failed to list validating webhook config")
 			return err
 		}
 		if validatingConfig != nil {
@@ -131,7 +146,7 @@ func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
 			if err != nil {
 				return err
 			}
-			glog.V(3).Info("removed validating resource webhook configuration")
+			logger.V(3).Info("removed validating resource webhook configuration")
 		}
 	}
 	return nil

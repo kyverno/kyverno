@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -13,6 +13,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Validate applies validation rules from policy on the resource
@@ -23,42 +24,59 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
+	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name)
 
-	// policy information
-	glog.V(4).Infof("started applying validation rules of policy %q (%v)", policy.Name, startTime)
-
-	// Process new & old resource
-	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		// Create Mode
-		// Operate on New Resource only
-		resp := validateResource(ctx, policy, newR, admissionInfo)
-		startResultResponse(resp, policy, newR)
-		defer endResultResponse(resp, startTime)
-		// set PatchedResource with origin resource if empty
-		// in order to create policy violation
-		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
-			resp.PatchedResource = newR
-		}
-		return *resp
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		logger = logger.WithValues("kind", oldR.GetKind(), "namespace", oldR.GetNamespace(), "name", oldR.GetName())
+	} else {
+		logger = logger.WithValues("kind", newR.GetKind(), "namespace", newR.GetNamespace(), "name", newR.GetName())
 	}
-	// Update Mode
-	// Operate on New and Old Resource only
-	// New resource
-	oldResponse := validateResource(ctx, policy, oldR, admissionInfo)
-	newResponse := validateResource(ctx, policy, newR, admissionInfo)
 
-	// if the old and new response is same then return empty response
-	if !isSameResponse(oldResponse, newResponse) {
-		// there are changes send response
-		startResultResponse(newResponse, policy, newR)
-		defer endResultResponse(newResponse, startTime)
-		if reflect.DeepEqual(newResponse.PatchedResource, unstructured.Unstructured{}) {
-			newResponse.PatchedResource = newR
+	logger.V(4).Info("start processing", "startTime", startTime)
+
+	defer func() {
+		if reflect.DeepEqual(resp, response.EngineResponse{}) {
+			return
 		}
+		var resource unstructured.Unstructured
+		if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
+			// for delete requests patched resource will be oldR since newR is empty
+			if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+				resource = oldR
+			} else {
+				resource = newR
+			}
+		}
+		for i := range resp.PolicyResponse.Rules {
+			messageInterface, err := variables.SubstituteVars(logger, ctx, resp.PolicyResponse.Rules[i].Message)
+			if err != nil {
+				continue
+			}
+			resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
+		}
+		resp.PatchedResource = resource
+		startResultResponse(&resp, policy, resource)
+		endResultResponse(logger, &resp, startTime)
+	}()
+
+	// If request is delete, newR will be empty
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+	}
+
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+		return *denyResp
+	}
+
+	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
+		return *validateResource(logger, ctx, policy, newR, admissionInfo)
+	}
+
+	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
+	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
+	if !isSameResponse(oldResponse, newResponse) {
 		return *newResponse
 	}
-	// if there are no changes with old and new response then sent empty response
-	// skip processing
 	return response.EngineResponse{}
 }
 
@@ -73,10 +91,9 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
 }
 
-func endResultResponse(resp *response.EngineResponse, startTime time.Time) {
+func endResultResponse(log logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	glog.V(4).Infof("Finished applying validation rules policy %v (%v)", resp.PolicyResponse.Policy, resp.PolicyResponse.ProcessingTime)
-	glog.V(4).Infof("Validation Rules appplied successfully count %v for policy %q", resp.PolicyResponse.RulesAppliedCount, resp.PolicyResponse.Policy)
+	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -84,37 +101,79 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
-		startTime := time.Now()
-		glog.V(4).Infof("Time: Validate matchAdmissionInfo %v", time.Since(startTime))
+
+		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+			log.V(4).Info("resource fails the match description", "reason", err.Error())
+			continue
+		}
+
+		preconditionsCopy := copyConditions(rule.Conditions)
+
+		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
+			log.V(4).Info("resource fails the preconditions")
+			continue
+		}
+
+		if rule.Validation.Deny != nil {
+			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
+			if len(rule.Validation.Deny.Conditions) == 0 || variables.EvaluateConditions(log, ctx, denyConditionsCopy) {
+				ruleResp := response.RuleResponse{
+					Name:    rule.Name,
+					Type:    utils.Validation.String(),
+					Message: rule.Validation.Message,
+					Success: false,
+				}
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+			}
+			continue
+		}
+
+	}
+	return resp
+}
+
+func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+	resp := &response.EngineResponse{}
+
+	if autoGenAnnotationApplied(resource) && policy.HasAutoGenAnnotation() {
+		return resp
+	}
+
+	for _, rule := range policy.Spec.Rules {
+		if !rule.HasValidate() {
+			continue
+		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont statisfy a policy rule resource description
+		// dont satisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-			glog.V(4).Infof("resource %s/%s does not satisfy the resource description for the rule:\n%s", resource.GetNamespace(), resource.GetName(), err.Error())
+			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions := copyConditions(rule.Conditions)
+		preconditionsCopy := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
 		// - handle variable subsitutions
-		if !variables.EvaluateConditions(ctx, copyConditions) {
-			glog.V(4).Infof("resource %s/%s does not satisfy the conditions for the rule ", resource.GetNamespace(), resource.GetName())
+		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
+			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validatePatterns(ctx, resource, rule)
+			ruleResponse := validatePatterns(log, ctx, resource, rule)
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		}
+
 	}
 	return resp
 }
@@ -159,15 +218,17 @@ func isSameRules(oldRules []response.RuleResponse, newRules []response.RuleRespo
 }
 
 // validatePatterns validate pattern and anyPattern
-func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
+func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
 	startTime := time.Now()
-	glog.V(4).Infof("started applying validation rule %q (%v)", rule.Name, startTime)
+	logger := log.WithValues("rule", rule.Name)
+	logger.V(4).Info("start processing rule", "startTime", startTime)
 	resp.Name = rule.Name
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		glog.V(4).Infof("finished applying validation rule %q (%v)", resp.Name, resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime)
 	}()
+
 	// work on a copy of validation rule
 	validationRule := rule.Validation.DeepCopy()
 
@@ -176,7 +237,7 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 		// substitute variables in the pattern
 		pattern := validationRule.Pattern
 		var err error
-		if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
+		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
 			// variable subsitution failed
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed. '%s'",
@@ -184,15 +245,15 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 			return resp
 		}
 
-		if path, err := validate.ValidateResourceWithPattern(resource.Object, pattern); err != nil {
+		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
 			// validation failed
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed at path '%s'",
+			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule %s failed at path %s",
 				rule.Validation.Message, rule.Name, path)
 			return resp
 		}
 		// rule application successful
-		glog.V(4).Infof("rule %s pattern validated successfully on resource %s/%s/%s", rule.Name, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		logger.V(4).Info("successfully processed rule")
 		resp.Success = true
 		resp.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)
 		return resp
@@ -203,19 +264,18 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 		var failedAnyPatternsErrors []error
 		var err error
 		for idx, pattern := range validationRule.AnyPattern {
-			if pattern, err = variables.SubstituteVars(ctx, pattern); err != nil {
+			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
 				// variable subsitution failed
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
 				continue
 			}
-			_, err := validate.ValidateResourceWithPattern(resource.Object, pattern)
+			_, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
 			if err == nil {
 				resp.Success = true
 				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, idx)
 				return resp
 			}
-			glog.V(4).Infof("Validation error: %s; Validation rule %s anyPattern[%d] for %s/%s/%s",
-				rule.Validation.Message, rule.Name, idx, resource.GetKind(), resource.GetNamespace(), resource.GetName())
+			logger.V(4).Info(fmt.Sprintf("validation rule failed for anyPattern[%d]", idx), "message", rule.Validation.Message)
 			patternErr := fmt.Errorf("anyPattern[%d] failed; %s", idx, err)
 			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 		}
@@ -234,7 +294,12 @@ func validatePatterns(ctx context.EvalInterface, resource unstructured.Unstructu
 				errorStr = append(errorStr, err.Error())
 			}
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr)
+			log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr))
+			if rule.Validation.Message == "" {
+				resp.Message = fmt.Sprintf("Validation rule '%s' has failed", rule.Name)
+			} else {
+				resp.Message = rule.Validation.Message
+			}
 			return resp
 		}
 	}
