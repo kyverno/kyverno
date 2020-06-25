@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolicy) []response.EngineResponse {
+func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPolicy) []response.EngineResponse {
 	logger := pc.log.WithValues("policy", policy.Name)
 	// Parse through all the resources
 	// drops the cache after configured rebuild time
@@ -47,7 +47,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 		}
 
 		// apply the policy on each
-		engineResponse := applyPolicy(policy, resource, logger)
+		engineResponse := applyPolicy(*policy, resource, logger)
 		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
@@ -56,7 +56,9 @@ func (pc *PolicyController) processExistingResources(policy kyverno.ClusterPolic
 	return engineResponses
 }
 
-func (pc *PolicyController) listResources(policy kyverno.ClusterPolicy) map[string]unstructured.Unstructured {
+func (pc *PolicyController) listResources(policy *kyverno.ClusterPolicy) map[string]unstructured.Unstructured {
+	pc.log.V(4).Info("list resources to be processed")
+
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 
@@ -79,6 +81,26 @@ func (pc *PolicyController) listResources(policy kyverno.ClusterPolicy) map[stri
 					mergeResources(resourceMap, rMap)
 				}
 			}
+		}
+	}
+
+	if policy.HasAutoGenAnnotation() {
+		return excludePod(resourceMap, pc.log)
+	}
+
+	return resourceMap
+}
+
+// excludePod filter out the pods with ownerReference
+func excludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
+	for uid, r := range resourceMap {
+		if r.GetKind() != "Pod" {
+			continue
+		}
+
+		if len(r.GetOwnerReferences()) > 0 {
+			log.V(4).Info("exclude Pod", "namespace", r.GetNamespace(), "name", r.GetName())
+			delete(resourceMap, uid)
 		}
 	}
 
@@ -151,11 +173,7 @@ func getAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 
 func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
-	// merge include and exclude label selector values
 	ls := rule.MatchResources.Selector
-	//	ls := mergeLabelSectors(rule.MatchResources.Selector, rule.ExcludeResources.Selector)
-	// list resources
-	log.V(4).Info("list resources to be processed")
 
 	if kind == "Namespace" {
 		namespace = ""
@@ -170,6 +188,12 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 	for _, r := range list.Items {
 		if r.GetDeletionTimestamp() != nil {
 			continue
+		}
+
+		if r.GetKind() == "Pod" {
+			if !isRunningPod(r) {
+				continue
+			}
 		}
 
 		// match name
