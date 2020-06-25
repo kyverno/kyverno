@@ -224,9 +224,9 @@ To build Kyverno in a development environment see: https://github.com/nirmata/ky
 
 To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
+1. Run `sudo scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
 
-2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
+2. Start the controller using the following command: `sudo go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`
 
 # Filter Kubernetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding a `ConfigMap` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`. The default name of this `ConfigMap` is `init-config` but can be changed by modifying the value of the environment variable `INIT_CONFIG` in the kyverno deployment dpec. `data.resourceFilters` must be a sequence of one or more `[<Kind>,<Namespace>,<Name>]` entries with `*` as wildcard. Thus, an item `[Node,*,*]` means that admissions of `Node` in any namespace and with any name will be ignored.

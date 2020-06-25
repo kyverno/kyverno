@@ -172,6 +172,12 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 			continue
 		}
 
+		if r.GetKind() == "Pod" {
+			if !isRunningPod(r) {
+				continue
+			}
+		}
+
 		// match name
 		if rule.MatchResources.Name != "" {
 			if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
