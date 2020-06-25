@@ -142,7 +142,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	if autoGenAnnotationApplied(resource) && autoGenPolicy(&policy) {
+	if autoGenAnnotationApplied(resource) && policy.HasAutoGenAnnotation() {
 		return resp
 	}
 

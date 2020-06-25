@@ -331,7 +331,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
-	engineResponses := pc.processExistingResources(*policy)
+	engineResponses := pc.processExistingResources(policy)
 	pc.cleanupAndReport(engineResponses)
 
 	return nil
