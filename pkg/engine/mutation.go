@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"time"
 
@@ -105,7 +106,12 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	// insert annotation to podtemplate if resource is pod controller
-	// skip inserting on existing resource
+	// skip inserting on UPDATE request
+	if !reflect.DeepEqual(policyContext.OldResource, unstructured.Unstructured{}) {
+		resp.PatchedResource = patchedResource
+		return resp
+	}
+
 	if autoGenPolicy(&policy) && strings.Contains(PodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
