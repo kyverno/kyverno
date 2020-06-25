@@ -37,7 +37,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	patchedResource := policyContext.NewResource
 
-	if autoGenAnnotationApplied(patchedResource) && autoGenPolicy(&policy) {
+	if autoGenAnnotationApplied(patchedResource) && policy.HasAutoGenAnnotation() {
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -106,7 +106,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	// insert annotation to podtemplate if resource is pod controller
 	// skip inserting on existing resource
-	if autoGenPolicy(&policy) && strings.Contains(PodControllers, resource.GetKind()) {
+	if policy.HasAutoGenAnnotation() && strings.Contains(PodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, PodControllerRuleName, podTemplateRule.Mutation.Overlay, patchedResource)
@@ -124,12 +124,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
-}
-
-func autoGenPolicy(policy *kyverno.ClusterPolicy) bool {
-	annotations := policy.GetObjectMeta().GetAnnotations()
-	_, ok := annotations[PodControllersAnnotation]
-	return ok
 }
 
 func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {
