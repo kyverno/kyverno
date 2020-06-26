@@ -40,6 +40,11 @@ func (ws *WebhookServer) HandleMutation(
 		Context:       ctx,
 	}
 
+	if request.Operation == v1beta1.Update {
+		// set OldResource to inform engine of operation type
+		policyContext.OldResource = resource
+	}
+
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
