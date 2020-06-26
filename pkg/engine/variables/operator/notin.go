@@ -26,19 +26,16 @@ type NotInHandler struct {
 //Evaluate evaluates expression with NotIn Operator
 func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	var err error
-	//TODO: decouple variables from evaluation
 	// substitute the variables
 	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
-		// Failed to resolve the variable
 		nin.log.Error(err, "Failed to resolve variable", "variable", key)
 		return false
 	}
 	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
-		// Failed to resolve the variable
 		nin.log.Error(err, "Failed to resolve variable", "variable", value)
 		return false
 	}
-	// key and value need to be of same type
+
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValuewithStringPattern(typedKey, value)
@@ -57,10 +54,9 @@ func (nin NotInHandler) validateValuewithStringPattern(key string, value interfa
 	}
 
 	if !keyExists {
-		fmt.Println(".....return true......")
 		return true
 	}
-	fmt.Println(".....return false......")
+
 	return false
 }
 

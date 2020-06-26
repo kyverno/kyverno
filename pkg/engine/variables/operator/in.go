@@ -17,7 +17,7 @@ func NewInHandler(log logr.Logger, ctx context.EvalInterface, subHandler Variabl
 	}
 }
 
-//InHandler provides implementation to handle NotIn oerator
+//InHandler provides implementation to handle In Operator
 type InHandler struct {
 	ctx        context.EvalInterface
 	subHandler VariableSubstitutionHandler
@@ -27,20 +27,16 @@ type InHandler struct {
 //Evaluate evaluates expression with In Operator
 func (in InHandler) Evaluate(key, value interface{}) bool {
 	var err error
-	//TODO: decouple variables from evaluation
 	// substitute the variables
 	if key, err = in.subHandler(in.log, in.ctx, key); err != nil {
-		// Failed to resolve the variable
 		in.log.Error(err, "Failed to resolve variable", "variable", key)
 		return false
 	}
 	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
-		// Failed to resolve the variable
 		in.log.Error(err, "Failed to resolve variable", "variable", value)
 		return false
 	}
 
-	// key should be avaliable in value
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValuewithStringPattern(typedKey, value)
