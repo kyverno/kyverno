@@ -231,9 +231,14 @@ spec:
                                   - Equals
                                   - NotEqual
                                   - NotEquals
+                                  - In
+                                  - NotIn
                                   type: string
                                 value:
-                                  type: string
+                                  anyOf:
+                                  - type: string
+                                  - type: array
+                                    items: {}
                               required:
                               - key
                               - operator
