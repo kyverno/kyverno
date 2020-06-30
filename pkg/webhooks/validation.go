@@ -75,7 +75,7 @@ func (ws *WebhookServer) HandleValidation(
 		ws.statusListener.Send(validateStats{
 			resp: engineResponse,
 		})
-		if !engineResponse.IsSuccesful() {
+		if !engineResponse.IsSuccessful() {
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}

@@ -64,7 +64,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
 	}
 
-	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccesful() {
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccessful() {
 		return *denyResp
 	}
 

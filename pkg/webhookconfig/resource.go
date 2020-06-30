@@ -66,23 +66,22 @@ func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfigName() str
 }
 
 //RemoveResourceMutatingWebhookConfiguration removes mutating webhook configuration for all resources
-func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() error {
+func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() {
 	configName := wrc.GetResourceMutatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind, "name", configName)
 	// delete webhook configuration
 	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
-		logger.V(5).Info("webhook configuration not found")
-		return nil
+		logger.V(4).Info("webhook configuration not found")
+		return
 	}
 
 	if err != nil {
-		logger.V(4).Info("failed to delete webhook configuration")
-		return err
+		logger.Error(err, "failed to delete the mutating webhook configuration")
+		return
 	}
 
-	logger.V(4).Info("deleted webhook configuration")
-	return nil
+	logger.Info("mutating webhook configuration deleted")
 }
 
 func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
@@ -142,20 +141,20 @@ func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() s
 }
 
 // RemoveResourceValidatingWebhookConfiguration deletes an existing webhook configuration
-func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() error {
+func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() {
 	configName := wrc.GetResourceValidatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
 	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
-		return nil
+		return
 	}
 
 	if err != nil {
-		logger.Error(err, "failed to delete the webhook configuration")
-		return err
+		logger.Error(err, "failed to delete the validating webhook configuration")
+		return
 	}
 
-	logger.Info("webhook configuration deleted")
-	return nil
+	logger.Info("validating webhook configuration deleted")
+	return
 }

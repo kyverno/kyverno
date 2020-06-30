@@ -22,7 +22,7 @@ const (
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 	//PodTemplateAnnotation defines the annotation key for Pod-Template
 	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
-	PodControllerRuleName = "podControllerAnnotation"
+	PodControllerRuleName = "autogen-pod-ctrl-annotation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -62,7 +62,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// operate on the copy of the conditions, as we perform variable substitution
 		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
-		// - handle variable subsitutions
+		// - handle variable substitutions
 		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
@@ -88,7 +88,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				if ruleResponse.Patches == nil {
 					continue
 				}
-				logger.V(4).Info("overlay applied succesfully")
+				logger.V(4).Info("overlay applied successfully")
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
