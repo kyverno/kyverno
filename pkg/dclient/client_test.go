@@ -3,6 +3,7 @@ package client
 import (
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/config"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,7 +39,7 @@ func newFixture(t *testing.T) *fixture {
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		newUnstructured("apps/v1", "Deployment", "kyverno", "kyverno"),
+		newUnstructured("apps/v1", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName),
 	}
 	scheme := runtime.NewScheme()
 	// Create mock client
