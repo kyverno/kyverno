@@ -64,8 +64,9 @@ func (ws *WebhookServer) HandleMutation(
 		}
 
 		// gather patches
-		patches = append(patches, engineResponse.GetPatches()...)
-		if len(patches) != 0 {
+		policyPatches := engineResponse.GetPatches()
+		if len(policyPatches) > 0 {
+			patches = append(patches, policyPatches...)
 			rules := engineResponse.GetSuccessRules()
 			logger.Info("mutation rules from policy applied successfully", "policy", policy.Name,  "rules", rules)
 		}
