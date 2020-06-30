@@ -17,7 +17,7 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if er.IsSuccesful() {
+		if er.IsSuccessful() {
 			continue
 		}
 		// build policy violation info

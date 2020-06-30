@@ -13,7 +13,7 @@ import (
 
 func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 	for _, er := range ers {
-		if !er.IsSuccesful() {
+		if !er.IsSuccessful() {
 			continue
 		}
 		if len(er.PolicyResponse.Rules) == 0 {

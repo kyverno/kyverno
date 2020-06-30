@@ -2,20 +2,13 @@ package policy
 
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	pv := obj.(*kyverno.PolicyViolation)
-	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
-
-	if pv.DeletionTimestamp != nil {
-		// On a restart of the controller manager, it's possible for an object to
-		// show up in a state that is already pending deletion.
-		pc.deleteNamespacedPolicyViolation(pv)
-		return
-	}
-	// dont manage controller references as the ownerReference is assigned by violation generator
+	logger := pc.log.WithValues("kind", pv.GetObjectKind(), "namespace", pv.Namespace, "name", pv.Name)
 
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
@@ -83,18 +76,22 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 		}
 	}
 
-	logger = logger.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
+	logger = logger.WithValues("kind", pv.GetObjectKind(), "namespace", pv.Namespace, "name", pv.Name)
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("nameapced policy violation does not belong to an active policy, will be cleanedup")
+		logger.V(4).Info("namespaced policy violation does not belong to an active policy, will be cleaned up")
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
-			logger.Error(err, "failed to delete resource")
-			return
+			if !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete resource")
+				return
+			}
 		}
+
 		logger.V(4).Info("resource deleted")
 		return
 	}
+
 	logger.V(4).Info("resource updated")
 	for _, p := range ps {
 		pc.enqueuePolicy(p)

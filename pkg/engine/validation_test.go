@@ -131,7 +131,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_image_tag_pass(t *testing.T) {
@@ -230,7 +230,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_Fail_anyPattern(t *testing.T) {
@@ -305,7 +305,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_host_network_port(t *testing.T) {
@@ -388,7 +388,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_anchor_arraymap_pass(t *testing.T) {
@@ -478,7 +478,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_anchor_arraymap_fail(t *testing.T) {
@@ -566,7 +566,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_anchor_map_notfound(t *testing.T) {
@@ -636,7 +636,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_anchor_map_found_valid(t *testing.T) {
@@ -709,7 +709,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_anchor_map_found_invalid(t *testing.T) {
@@ -782,7 +782,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_AnchorList_pass(t *testing.T) {
@@ -858,7 +858,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 		t.Log(r.Message)
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_AnchorList_fail(t *testing.T) {
@@ -932,7 +932,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 	// 	// t.Log(r.Message)
 	// 	assert.Equal(t, r.Message, msgs[index])
 	// }
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_existenceAnchor_fail(t *testing.T) {
@@ -1008,7 +1008,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	// 	t.Log(r.Message)
 	// 	assert.Equal(t, r.Message, msgs[index])
 	// }
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_existenceAnchor_pass(t *testing.T) {
@@ -1083,7 +1083,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func TestValidate_negationAnchor_deny(t *testing.T) {
@@ -1171,7 +1171,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, !er.IsSuccesful())
+	assert.Assert(t, !er.IsSuccessful())
 }
 
 func TestValidate_negationAnchor_pass(t *testing.T) {
@@ -1258,7 +1258,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsSuccesful())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
@@ -1714,7 +1714,7 @@ func Test_denyFeatureIssue744(t *testing.T) {
 			Context:       ctx,
 		}
 		resp := Validate(pc)
-		if resp.IsSuccesful() == !testcase.requestDenied {
+		if resp.IsSuccessful() == !testcase.requestDenied {
 			continue
 		}
 

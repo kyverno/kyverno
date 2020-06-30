@@ -33,7 +33,7 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	for _, er := range ers {
-		if er.IsSuccesful() {
+		if er.IsSuccessful() {
 			continue
 		}
 		eventInfos = append(eventInfos, generateEventsPerEr(log, er)...)
@@ -60,7 +60,7 @@ func generateEventsPerEr(log logr.Logger, er response.EngineResponse) []event.In
 		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' not satisfied. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
 		eventInfos = append(eventInfos, e)
 	}
-	if er.IsSuccesful() {
+	if er.IsSuccessful() {
 		return eventInfos
 	}
 

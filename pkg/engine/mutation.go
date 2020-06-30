@@ -22,7 +22,7 @@ const (
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 	//PodTemplateAnnotation defines the annotation key for Pod-Template
 	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
-	PodControllerRuleName = "podControllerAnnotation"
+	PodControllerRuleName = "autogen-pod-ctrl-annotation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches

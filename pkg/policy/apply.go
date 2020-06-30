@@ -56,7 +56,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, ctx context.EvalInterface, log logr.Logger) (response.EngineResponse, error) {
 
 	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx})
-	if !engineResponse.IsSuccesful() {
+	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil
 	}
