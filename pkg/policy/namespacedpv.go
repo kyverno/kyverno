@@ -10,10 +10,17 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	pv := obj.(*kyverno.PolicyViolation)
 	logger := pc.log.WithValues("kind", pv.GetObjectKind(), "namespace", pv.Namespace, "name", pv.Name)
 
+	if pv.DeletionTimestamp != nil {
+		// On a restart of the controller manager, it's possible for an object to
+		// show up in a state that is already pending deletion.
+		pc.deleteNamespacedPolicyViolation(pv)
+		return
+	}
+
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("namepaced policy violation does not belong to an active policy, will be cleanedup")
+		logger.V(4).Info("namespaced policy violation does not belong to an active policy, will be cleaned up")
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
