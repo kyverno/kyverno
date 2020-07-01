@@ -14,6 +14,10 @@ case $i in
 esac
 done
 
+if [ "$service" == "" ]; then
+    service="kyverno-svc"
+fi
+
 destdir="certs"
 if [ ! -d "$destdir" ]; then
   mkdir ${destdir} || exit 1
@@ -61,11 +65,11 @@ echo "Generating corresponding kubernetes secrets for TLS pair and root CA"
 # create project namespace
 kubectl create ns kyverno
 # create tls pair secret
-kubectl -n kyverno create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=${destdir}/webhook.crt --key=${destdir}/webhook.key
+kubectl -n kyverno create secret tls ${service}.kyverno.svc.kyverno-tls-pair --cert=${destdir}/webhook.crt --key=${destdir}/webhook.key
 # annotate tls pair secret to specify use of self-signed certificates and check if root CA is created as secret
-kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno self-signed-cert=true
+kubectl annotate secret ${service}.kyverno.svc.kyverno-tls-pair -n kyverno self-signed-cert=true
 # create root CA secret
-kubectl -n kyverno create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=${destdir}/rootCA.crt
+kubectl -n kyverno create secret generic ${service}.kyverno.svc.kyverno-tls-ca --from-file=${destdir}/rootCA.crt
 
 echo "Creating CRD"
 kubectl apply -f definitions/install_debug.yaml
