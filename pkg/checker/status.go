@@ -5,12 +5,13 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 )
 
-const deployName string = "kyverno"
-const deployNamespace string = "kyverno"
+var deployName string = config.KubePolicyDeploymentName
+var deployNamespace string = config.KubePolicyNamespace
 
 const annCounter string = "kyverno.io/generationCounter"
 const annWebhookStatus string = "kyverno.io/webhookActive"
@@ -96,8 +97,8 @@ func (vc StatusControl) setStatus(status string) error {
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
 	e.Kind = "Deployment"
-	e.Namespace = "kyverno"
-	e.Name = "kyverno"
+	e.Namespace = deployNamespace
+	e.Name = deployName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
 	eventGen.Add(e)
@@ -110,7 +111,7 @@ func (vc StatusControl) IncrementAnnotation() error {
 	var err error
 	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to find Kyverno", "deploymeny", deployName, "namespace", deployNamespace)
+		logger.Error(err, "failed to find Kyverno", "deployment", deployName, "namespace", deployNamespace)
 		return err
 	}
 

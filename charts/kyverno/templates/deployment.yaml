@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
@@ -57,6 +58,10 @@ spec:
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}

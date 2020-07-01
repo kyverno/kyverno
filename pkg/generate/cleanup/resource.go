@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,5 +18,5 @@ type Control struct {
 
 //Delete deletes the specified resource
 func (c Control) Delete(gr string) error {
-	return c.client.KyvernoV1().GenerateRequests("kyverno").Delete(gr, &metav1.DeleteOptions{})
+	return c.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(gr, &metav1.DeleteOptions{})
 }

@@ -1,16 +1,15 @@
 package config
 
 import (
+	"os"
+
 	"github.com/go-logr/logr"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
-
 const (
-	//KubePolicyNamespace default kyverno namespace
-	KubePolicyNamespace = "kyverno"
 	//WebhookServiceName default kyverno webhook service name
 	WebhookServiceName = "kyverno-svc"
 
@@ -55,11 +54,14 @@ const (
 
 	// DeploymentAPIVersion define the default deployment resource apiVersion
 	DeploymentAPIVersion = "extensions/v1beta1"
-	// KubePolicyDeploymentName define the default deployment namespace
-	KubePolicyDeploymentName = "kyverno"
 )
 
 var (
+	//KubePolicyNamespace is the kyverno policy namespace
+	KubePolicyNamespace = getKyvernoNameSpace()
+	// KubePolicyDeploymentName define the default deployment namespace
+	KubePolicyDeploymentName = getKyvernoNameSpace()
+
 	//MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
 	//ValidatingWebhookServicePath is the path for validation webhook
@@ -72,7 +74,7 @@ var (
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 	// LivenessServicePath is the path for check liveness health
 	LivenessServicePath = "/health/liveness"
-	// ReadinessServicePath is the path for check readness health 
+	// ReadinessServicePath is the path for check readness health
 	ReadinessServicePath = "/health/readiness"
 )
 
@@ -85,4 +87,13 @@ func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error
 	}
 	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+// getKubePolicyNameSpace - setting default KubePolicyNameSpace
+func getKyvernoNameSpace() string {
+	kyvernoNamespace := os.Getenv("KYVERNO_NAMESPACE")
+	if kyvernoNamespace == "" {
+		kyvernoNamespace = "kyverno"
+	}
+	return kyvernoNamespace
 }

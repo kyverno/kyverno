@@ -19,8 +19,6 @@ helm install kyverno --namespace kyverno kyverno/kyverno
 
 ```
 
-Note: the namespace must be `kyverno`. See issue #841.
-
 ## Install Kyverno using YAMLs
 
 The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
@@ -226,7 +224,8 @@ To run controller in this mode you should prepare a TLS key/certificate pair for
 
 1. Run `sudo scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
 
-2. Start the controller using the following command: `sudo go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`
+2. Start the controller using the following command: `sudo KYVERNO_NAMESPACE=kyverno go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`
+
 
 # Filter Kubernetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding a `ConfigMap` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`. The default name of this `ConfigMap` is `init-config` but can be changed by modifying the value of the environment variable `INIT_CONFIG` in the kyverno deployment dpec. `data.resourceFilters` must be a sequence of one or more `[<Kind>,<Namespace>,<Name>]` entries with `*` as wildcard. Thus, an item `[Node,*,*]` means that admissions of `Node` in any namespace and with any name will be ignored.

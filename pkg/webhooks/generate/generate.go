@@ -2,13 +2,15 @@ package generate
 
 import (
 	"fmt"
-	"k8s.io/api/admission/v1beta1"
 	"time"
+
+	"k8s.io/api/admission/v1beta1"
 
 	backoff "github.com/cenkalti/backoff"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/constant"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -16,11 +18,11 @@ import (
 
 //GenerateRequests provides interface to manage generate requests
 type GenerateRequests interface {
-	Apply(gr kyverno.GenerateRequestSpec,action v1beta1.Operation) error
+	Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error
 }
 
 type GeneratorChannel struct {
-	spec kyverno.GenerateRequestSpec
+	spec   kyverno.GenerateRequestSpec
 	action v1beta1.Operation
 }
 
@@ -45,13 +47,13 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log l
 }
 
 //Create to create generate request resoruce (blocking call if channel is full)
-func (g *Generator) Apply(gr kyverno.GenerateRequestSpec,action v1beta1.Operation) error {
+func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
 	// Send to channel
 	message := GeneratorChannel{
 		action: action,
-		spec : gr,
+		spec:   gr,
 	}
 	select {
 	case g.ch <- message:
@@ -80,15 +82,15 @@ func (g *Generator) processApply() {
 	logger := g.log
 	for r := range g.ch {
 		logger.V(4).Info("recieved generate request", "request", r)
-		if err := g.generate(r.spec,r.action); err != nil {
+		if err := g.generate(r.spec, r.action); err != nil {
 			logger.Error(err, "failed to generate request CR")
 		}
 	}
 }
 
-func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec,action v1beta1.Operation) error {
+func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	// create/update a generate request
-	if err := retryApplyResource(g.client, grSpec, g.log,action); err != nil {
+	if err := retryApplyResource(g.client, grSpec, g.log, action); err != nil {
 		return err
 	}
 	return nil
@@ -107,22 +109,22 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 
 	applyResource := func() error {
 		gr := kyverno.GenerateRequest{
-		Spec: grSpec,
+			Spec: grSpec,
 		}
 		gr.SetGenerateName("gr-")
-		gr.SetNamespace("kyverno")
+		gr.SetNamespace(config.KubePolicyNamespace)
 		// Initial state "Pending"
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		if action == v1beta1.Create {
-			_, err = client.KyvernoV1().GenerateRequests("kyverno").Create(&gr)
+			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
 		}
 		if action == v1beta1.Update {
 			gr.SetLabels(map[string]string{
 				"resources-update": "true",
 			})
-			_, err = client.KyvernoV1().GenerateRequests("kyverno").Update(&gr)
+			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
 		}
 
 		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
@@ -141,7 +143,6 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 
 	exbackoff.Reset()
 	err = backoff.Retry(applyResource, exbackoff)
-
 
 	if err != nil {
 		return err

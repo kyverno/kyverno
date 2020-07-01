@@ -4,6 +4,7 @@ kind: ConfigMap
 metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
   name: {{ template "kyverno.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
 data:
   # resource types to be skipped by kyverno policy engine
   resourceFilters: {{ join "" .Values.config.resourceFilters | quote }}
