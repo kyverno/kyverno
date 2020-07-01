@@ -72,14 +72,14 @@ func (rr RuleResponse) ToString() string {
 	return fmt.Sprintf("rule %s (%s): %v", rr.Name, rr.Type, rr.Message)
 }
 
-//RuleStats stores the statisctis for the single rule application
+//RuleStats stores the statistics for the single rule application
 type RuleStats struct {
-	// time required to appliy the rule on the resource
+	// time required to apply the rule on the resource
 	ProcessingTime time.Duration `json:"processingTime"`
 }
 
-//IsSuccesful checks if any rule has failed or not
-func (er EngineResponse) IsSuccesful() bool {
+//IsSuccessful checks if any rule has failed or not
+func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if !r.Success {
 			return false
@@ -96,7 +96,7 @@ func (er EngineResponse) GetPatches() [][]byte {
 			patches = append(patches, r.Patches...)
 		}
 	}
-	// join patches
+
 	return patches
 }
 
@@ -113,9 +113,10 @@ func (er EngineResponse) GetSuccessRules() []string {
 func (er EngineResponse) getRules(success bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Success == success {
+		if r.Success == success{
 			rules = append(rules, r.Name)
 		}
 	}
+
 	return rules
 }

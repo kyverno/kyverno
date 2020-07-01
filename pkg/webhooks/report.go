@@ -48,7 +48,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 	//   - report event of policy is in enforce mode and failed to apply
 	if blocked {
 		for _, er := range engineResponses {
-			if er.IsSuccesful() {
+			if er.IsSuccessful() {
 				// do not create event on polices that were succesfuly
 				continue
 			}
@@ -84,7 +84,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 	//     - report event on resource that failed
 
 	for _, er := range engineResponses {
-		if er.IsSuccesful() {
+		if er.IsSuccessful() {
 			// do not create event on polices that were succesfuly
 			continue
 		}

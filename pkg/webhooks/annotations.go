@@ -97,7 +97,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse, log lo
 func annotationFromEngineResponses(engineResponses []response.EngineResponse, log logr.Logger) []byte {
 	var annotationContent = make(map[string]string)
 	for _, engineResponse := range engineResponses {
-		if !engineResponse.IsSuccesful() {
+		if !engineResponse.IsSuccessful() {
 			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.PolicyResponse.Policy)
 			continue
 		}

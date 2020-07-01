@@ -247,7 +247,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s\n", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName())
 
 	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
-	if !mutateResponse.IsSuccesful() {
+	if !mutateResponse.IsSuccessful() {
 		fmt.Printf("\n\nMutation:")
 		fmt.Printf("\nFailed to apply mutation")
 		for i, r := range mutateResponse.PolicyResponse.Rules {
@@ -270,7 +270,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource})
-	if !validateResponse.IsSuccesful() {
+	if !validateResponse.IsSuccessful() {
 		fmt.Printf("\n\nValidation:")
 		fmt.Printf("\nResource is invalid")
 		for i, r := range validateResponse.PolicyResponse.Rules {
