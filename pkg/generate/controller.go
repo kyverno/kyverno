@@ -8,6 +8,7 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/constant"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -103,7 +104,7 @@ func NewController(
 	c.syncHandler = c.syncGenerateRequest
 
 	c.pLister = pInformer.Lister()
-	c.grLister = grInformer.Lister().GenerateRequests("kyverno")
+	c.grLister = grInformer.Lister().GenerateRequests(config.KubePolicyNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = pInformer.Informer().HasSynced

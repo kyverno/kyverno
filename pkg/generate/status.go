@@ -3,6 +3,7 @@ package generate
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -23,7 +24,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 	gr.Status.Message = message
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
-	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(&gr)
 	if err != nil {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
@@ -39,7 +40,7 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
 
-	_, err := sc.client.KyvernoV1().GenerateRequests("kyverno").UpdateStatus(&gr)
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(&gr)
 	if err != nil {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
