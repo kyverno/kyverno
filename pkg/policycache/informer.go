@@ -11,7 +11,6 @@ import (
 
 // Controller is responsible for synchronizing Policy Cache
 type Controller struct {
-	// queue    workqueue.RateLimitingInterface
 	pSynched cache.InformerSynced
 	Cache    Interface
 	log      logr.Logger
@@ -23,7 +22,6 @@ func NewPolicyCacheController(
 	log logr.Logger) *Controller {
 
 	pc := Controller{
-		// queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		Cache: newPolicyCache(log),
 		log:   log,
 	}
