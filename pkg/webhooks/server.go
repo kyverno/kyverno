@@ -91,6 +91,8 @@ type WebhookServer struct {
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 	log                    logr.Logger
 	openAPIController      *openapi.Controller
+
+	supportMudateValidate bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -110,6 +112,7 @@ func NewWebhookServer(
 	pvGenerator policyviolation.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	supportMudateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
@@ -147,6 +150,7 @@ func NewWebhookServer(
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		log:                       log,
 		openAPIController:         openAPIController,
+		supportMudateValidate:     supportMudateValidate,
 	}
 
 	mux := httprouter.New()
@@ -294,8 +298,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
-	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-	if higherVersion {
+	if ws.supportMudateValidate {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
@@ -360,7 +363,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
-	if ok := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0); !ok {
+	if !ws.supportMudateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
