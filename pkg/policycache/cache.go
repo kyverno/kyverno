@@ -40,8 +40,6 @@ func newPolicyCache(log logr.Logger) Interface {
 
 // Add a policy to cache
 func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
-	m := pc.pMap.get(ValidateAudit)
-	fmt.Println("====got m==", len(m))
 	pc.pMap.add(policy)
 }
 
@@ -60,30 +58,40 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	defer m.Unlock()
 
 	enforcePolicy := policy.Spec.ValidationFailureAction == "enforce"
+	mutateMap := make(map[string]bool)
+	validateMap := make(map[string]bool)
+	generateMap := make(map[string]bool)
 
+	pName := policy.GetName()
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
-			mutatePolicy := m.dataMap[Mutate]
-			m.dataMap[Mutate] = append(mutatePolicy, policy)
+			if !mutateMap[pName] {
+				mutateMap[pName] = true
+
+				mutatePolicy := m.dataMap[Mutate]
+				m.dataMap[Mutate] = append(mutatePolicy, policy)
+			}
+
 		}
 
-		if rule.HasValidate() {
-			if enforcePolicy {
+		if rule.HasValidate() && enforcePolicy {
+			if !validateMap[pName] {
+				validateMap[pName] = true
+
 				validatePolicy := m.dataMap[ValidateEnforce]
 				m.dataMap[ValidateEnforce] = append(validatePolicy, policy)
-			} else {
-				validatePolicy := m.dataMap[ValidateAudit]
-				m.dataMap[ValidateAudit] = append(validatePolicy, policy)
 			}
 		}
 
 		if rule.HasGenerate() {
-			generatePolicy := m.dataMap[Generate]
-			m.dataMap[Generate] = append(generatePolicy, policy)
+			if !generateMap[pName] {
+				generateMap[pName] = true
+
+				generatePolicy := m.dataMap[Generate]
+				m.dataMap[Generate] = append(generatePolicy, policy)
+			}
 		}
 	}
-
-	fmt.Println("==add===new dataMap====", m.dataMap)
 }
 
 func (m *pMap) get(key PolicyType) []*kyverno.ClusterPolicy {

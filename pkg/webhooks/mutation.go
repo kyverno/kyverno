@@ -25,6 +25,10 @@ func (ws *WebhookServer) HandleMutation(
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo) []byte {
 
+	if len(policies) == 0 {
+		return nil
+	}
+
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
 		resourceName = request.Namespace + "/" + resourceName

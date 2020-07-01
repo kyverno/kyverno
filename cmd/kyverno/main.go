@@ -271,6 +271,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		eventGenerator,
+		pCacheController.Cache,
 		webhookRegistrationClient,
 		statusSync.Listener,
 		configData,

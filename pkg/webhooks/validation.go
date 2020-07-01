@@ -28,6 +28,10 @@ func (ws *WebhookServer) HandleValidation(
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo) (bool, string) {
 
+	if len(policies) == 0 {
+		return true, ""
+	}
+
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
 		resourceName = request.Namespace + "/" + resourceName
