@@ -803,6 +803,6 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.6
+      - image: nirmata/kyvernopre:v1.1.7-rc1
         name: kyverno-pre
       serviceAccountName: kyverno-service-account
