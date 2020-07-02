@@ -6,17 +6,24 @@ You can install Kyverno using the Helm chart or YAML files in this repository.
 
 ## Install Kyverno using Helm
 
+Add the nirmata Helm repository
 ```sh
-
-## Add the nirmata Helm repository
 helm repo add kyverno https://nirmata.github.io/kyverno/
+```
 
-## Create a namespace
+Create a namespace and then install the kyverno helm chart.
+```sh
+# Create a namespace
 kubectl create ns <namespace>
 
-## Install the kyverno helm chart
+# Install the kyverno helm chart
 helm install kyverno --namespace <namespace> kyverno/kyverno
+```
+For installing in kyverno namespace:
+```sh
+kubectl create ns kyverno
 
+helm install kyverno --namespace kyverno kyverno/kyverno
 ```
 
 ## Install Kyverno using YAMLs
@@ -35,7 +42,7 @@ To install Kyverno in a cluster that supports certificate signing, run the follo
 
 Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the [install.yaml] and update the image tag. 
 
-Also, by default kyverno in installed in "kyverno" namespace. To install in different namespace, you can edit the [install.yaml] and update the namespace.
+Also, by default kyverno is installed in "kyverno" namespace. To install in different namespace, you can edit the [install.yaml] and update the namespace.
 
 To check the Kyverno controller status, run the command:
 
@@ -182,7 +189,7 @@ metadata:
   name: kyverno-svc
   namespace: <namespace>
 ````
-and in other place where namespace is mentioned.
+and in other places (ServiceAccount, ClusterRoles, ClusterRoleBindings, ConfigMaps, Service, Deployment) where namespace is mentioned.
 
 To run kyverno:
 ````sh
