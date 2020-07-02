@@ -12,6 +12,9 @@ import (
 type pMap struct {
 	sync.RWMutex
 	dataMap map[PolicyType][]*kyverno.ClusterPolicy
+
+	// nameCacheMap stores the names of all existing policies in dataMap
+	nameCacheMap map[PolicyType]map[string]bool
 }
 
 // policyCache ...
@@ -29,9 +32,16 @@ type Interface interface {
 
 // newPolicyCache ...
 func newPolicyCache(log logr.Logger) Interface {
+	namesCache := map[PolicyType]map[string]bool{
+		Mutate:          make(map[string]bool),
+		ValidateEnforce: make(map[string]bool),
+		Generate:        make(map[string]bool),
+	}
+
 	return &policyCache{
 		pMap{
-			dataMap: make(map[PolicyType][]*kyverno.ClusterPolicy),
+			dataMap:      make(map[PolicyType][]*kyverno.ClusterPolicy),
+			nameCacheMap: namesCache,
 		},
 		log,
 	}
@@ -54,29 +64,14 @@ func (pc *policyCache) Remove(policy *kyverno.ClusterPolicy) {
 	pc.Logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
 }
 
-// buildCacheMap builds the map to store the names of all existing
-// policies in the cache, it is used to aviod adding duplicate policies
-func buildCacheMap(policies []*kyverno.ClusterPolicy) map[string]bool {
-	cacheMap := make(map[string]bool)
-
-	for _, p := range policies {
-		name := p.GetName()
-		if !cacheMap[name] {
-			cacheMap[p.GetName()] = true
-		}
-	}
-
-	return cacheMap
-}
-
 func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()
 
 	enforcePolicy := policy.Spec.ValidationFailureAction == "enforce"
-	mutateMap := buildCacheMap(m.dataMap[Mutate])
-	validateMap := buildCacheMap(m.dataMap[ValidateEnforce])
-	generateMap := buildCacheMap(m.dataMap[Generate])
+	mutateMap := m.nameCacheMap[Mutate]
+	validateMap := m.nameCacheMap[ValidateEnforce]
+	generateMap := m.nameCacheMap[Generate]
 
 	pName := policy.GetName()
 	for _, rule := range policy.Spec.Rules {
@@ -110,6 +105,10 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 			continue
 		}
 	}
+
+	m.nameCacheMap[Mutate] = mutateMap
+	m.nameCacheMap[ValidateEnforce] = validateMap
+	m.nameCacheMap[Generate] = generateMap
 }
 
 func (m *pMap) get(key PolicyType) []*kyverno.ClusterPolicy {
