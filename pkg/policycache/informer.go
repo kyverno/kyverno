@@ -9,7 +9,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Controller is responsible for synchronizing Policy Cache
+// Controller is responsible for synchronizing Policy Cache,
+// it embeds a policy informer to handle policy events.
+// The cache is synced when a policy is add/update/delete.
+// This cache is only used in the admission webhook to fast retrieve
+// policies based on types (Mutate/ValidateEnforce/Generate).
 type Controller struct {
 	pSynched cache.InformerSynced
 	Cache    Interface
@@ -59,7 +63,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	c.Cache.Remove(p)
 }
 
-// Run begins watching and syncing.
+// Run waits until policy informer to be synced
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger := c.log
 	logger.Info("starting")

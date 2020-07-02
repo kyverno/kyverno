@@ -54,7 +54,7 @@ func (pc *policyCache) Remove(policy *kyverno.ClusterPolicy) {
 	pc.Logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
 }
 
-// buildCacheMap builds the map to store the names all existing
+// buildCacheMap builds the map to store the names of all existing
 // policies in the cache, it is used to aviod adding duplicate policies
 func buildCacheMap(policies []*kyverno.ClusterPolicy) map[string]bool {
 	cacheMap := make(map[string]bool)
