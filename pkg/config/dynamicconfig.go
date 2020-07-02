@@ -153,7 +153,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(4).Info("resourceFilters did not change")
 		return
 	}
-	logger.V(4).Info(" Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
+	logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
 	// update filters
 	cd.filters = newFilters
 }
@@ -167,7 +167,7 @@ func (cd *ConfigData) initFilters(filters string) {
 	defer cd.mux.Unlock()
 
 	newFilters := parseKinds(filters)
-	logger.Info("Init resource filters", "filters", newFilters)
+	logger.V(2).Info("Init resource filters", "filters", newFilters)
 	// update filters
 	cd.filters = newFilters
 }

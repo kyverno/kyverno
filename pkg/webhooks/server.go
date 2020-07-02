@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
-
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -24,6 +22,7 @@ import (
 	context2 "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/nirmata/kyverno/pkg/policycache"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
@@ -65,6 +64,9 @@ type WebhookServer struct {
 	// generate events
 	eventGen event.Interface
 
+	// policy cache
+	pCache policycache.Interface
+
 	// webhook registration client
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
 
@@ -89,6 +91,8 @@ type WebhookServer struct {
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 	log                    logr.Logger
 	openAPIController      *openapi.Controller
+
+	supportMudateValidate bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -101,12 +105,14 @@ func NewWebhookServer(
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	eventGen event.Interface,
+	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	supportMudateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
@@ -133,6 +139,7 @@ func NewWebhookServer(
 		crbLister:                 crbInformer.Lister(),
 		crbSynced:                 crbInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
+		pCache:                    pCache,
 		webhookRegistrationClient: webhookRegistrationClient,
 		statusListener:            statusSync,
 		configHandler:             configHandler,
@@ -143,6 +150,7 @@ func NewWebhookServer(
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		log:                       log,
 		openAPIController:         openAPIController,
+		supportMudateValidate:     supportMudateValidate,
 	}
 
 	mux := httprouter.New()
@@ -236,16 +244,15 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	policies, err := ws.pLister.ListResources(labels.NewSelector())
-	if err != nil {
-		// Unable to connect to policy Lister to access policies
-		logger.Error(err, "failed to list policies. Policies are NOT being applied")
-		return &v1beta1.AdmissionResponse{Allowed: true}
-	}
+
+	mutatePolicies := ws.pCache.Get(policycache.Mutate)
+	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce)
+	generatePolicies := ws.pCache.Get(policycache.Generate)
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	var roles, clusterRoles []string
-	if containRBACinfo(policies) {
+	var err error
+	if containRBACinfo(mutatePolicies, validatePolicies, generatePolicies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
@@ -291,13 +298,14 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
-	higherVersion := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0)
-	if higherVersion {
+	if ws.supportMudateValidate {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		patches = ws.HandleMutation(request, resource, policies, ctx, userRequestInfo)
-		logger.V(6).Info("", "generated patches", string(patches))
+		if request.Operation != v1beta1.Delete {
+			patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
+			logger.V(6).Info("", "generated patches", string(patches))
+		}
 
 		// patch the resource with patches before handling validation rules
 		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
@@ -305,7 +313,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// VALIDATION
-			ok, msg := ws.HandleValidation(request, policies, patchedResource, ctx, userRequestInfo)
+			ok, msg := ws.HandleValidation(request, validatePolicies, patchedResource, ctx, userRequestInfo)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -326,7 +334,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		ok, msg := ws.HandleGenerate(request, policies, ctx, userRequestInfo)
+		ok, msg := ws.HandleGenerate(request, generatePolicies, ctx, userRequestInfo)
 		if !ok {
 			logger.Info("admission request denied")
 			return &v1beta1.AdmissionResponse{
@@ -355,7 +363,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
-	if ok := utils.HigherThanKubernetesVersion(ws.client, ws.log, 1, 14, 0); !ok {
+	if !ws.supportMudateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -374,15 +382,14 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	policies, err := ws.pLister.ListResources(labels.NewSelector())
-	if err != nil {
-		// Unable to connect to policy Lister to access policies
-		logger.Error(err, "failed to list policies. Policies are NOT being applied")
+	policies := ws.pCache.Get(policycache.ValidateEnforce)
+	if len(policies) == 0 {
+		logger.V(4).Info("No enforce Validation policy found, returning")
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var roles, clusterRoles []string
-
+	var err error
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)

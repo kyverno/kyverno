@@ -115,11 +115,13 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func containRBACinfo(policies []*kyverno.ClusterPolicy) bool {
-	for _, policy := range policies {
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
-				return true
+func containRBACinfo(policies ...[]*kyverno.ClusterPolicy) bool {
+	for _, policySlice := range policies {
+		for _, policy := range policySlice {
+			for _, rule := range policy.Spec.Rules {
+				if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
+					return true
+				}
 			}
 		}
 	}

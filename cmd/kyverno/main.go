@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/nirmata/kyverno/pkg/policycache"
 
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -225,6 +226,11 @@ func main() {
 		log.Log.WithName("GenerateCleanUpController"),
 	)
 
+	pCacheController := policycache.NewPolicyCacheController(
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		log.Log.WithName("PolicyCacheController"),
+	)
+
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
 	if err != nil {
@@ -251,6 +257,8 @@ func main() {
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
+	supportMudateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
+
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -265,12 +273,14 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		eventGenerator,
+		pCacheController.Cache,
 		webhookRegistrationClient,
 		statusSync.Listener,
 		configData,
 		pvgen,
 		grgen,
 		rWebhookWatcher,
+		supportMudateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
@@ -294,6 +304,7 @@ func main() {
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
+	go pCacheController.Run(1, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active
