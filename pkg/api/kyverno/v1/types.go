@@ -224,8 +224,8 @@ type Deny struct {
 type Generation struct {
 	ResourceSpec
 	Synchronize bool        `json:"synchronize,omitempty"`
-	Data        interface{} `json:"data,omitempty"`
-	Clone       CloneFrom   `json:"clone,omitempty"`
+	Data        []interface{} `json:"data,omitempty"`
+	Clone       []CloneFrom   `json:"clone,omitempty"`
 }
 
 // CloneFrom - location of the resource

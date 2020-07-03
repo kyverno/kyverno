@@ -123,7 +123,10 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
-		genResources = append(genResources, genResource)
+		for _,value := range genResource {
+			genResources = append(genResources, value)
+		}
+
 	}
 
 	if gr.Status.State == "" {
@@ -174,15 +177,17 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) ([]kyverno.ResourceSpec, error) {
 
+	var newGenResources []kyverno.ResourceSpec
 	var err error
 	var mode ResourceMode
 	var noGenResource kyverno.ResourceSpec
 	// convert to unstructured Resource
 	genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 
 	// Variable substitutions
@@ -191,36 +196,37 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// - valid variables are replaced with the values
 	object, err := variables.SubstituteVars(log, ctx, genUnst.Object)
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 	genUnst.Object, _ = object.(map[string]interface{})
 
 	genKind, _, err := unstructured.NestedString(genUnst.Object, "kind")
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 	genName, _, err := unstructured.NestedString(genUnst.Object, "name")
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 	genNamespace, _, err := unstructured.NestedString(genUnst.Object, "namespace")
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 
-	// Resource to be generated
-	newGenResource := kyverno.ResourceSpec{
-		Kind:      genKind,
-		Namespace: genNamespace,
-		Name:      genName,
-	}
+
 	genData, _, err := unstructured.NestedSlice(genUnst.Object, "data")
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 	genCopy, _, err := unstructured.NestedSlice(genUnst.Object, "clone")
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources,noGenResource)
+		return newGenResources,err
 	}
 	var rdata []generateResponse
 	if genData != nil {
@@ -229,15 +235,23 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		rdata = manageClone(log, genKind, genNamespace, genName, genCopy, client, resource)
 	}
 		for _,singleData := range rdata {
+			// Resource to be generated
+			newGenResource := kyverno.ResourceSpec{
+				Kind:      genKind,
+				Namespace: genNamespace,
+				Name:      genName,
+			}
 			if singleData.data == nil {
 				// existing resource contains the configuration
-				//return newGenResource, nil
+				newGenResources = append(newGenResources,newGenResource)
+				continue
 			}
 			if processExisting {
 				// handle existing resources
 				// policy was generated after the resource
 				// we do not create new resource
-				//return noGenResource, err
+				newGenResources = append(newGenResources,newGenResource)
+				continue;
 
 			}
 			// build the resource template
@@ -254,7 +268,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
 			manageLabels(newResource, resource)
 			logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
-			if mode == Create {
+			if singleData.action == Create {
 				// Reset resource version
 				newResource.SetResourceVersion("")
 				// Create the resource
@@ -262,7 +276,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				_, err = client.CreateResource(genKind, genNamespace, newResource, false)
 				if err != nil {
 					// Failed to create resource
-					return noGenResource, err
+					newGenResources = append(newGenResources,noGenResource)
+					continue;
 				}
 				logger.V(4).Info("created new resource")
 
@@ -273,7 +288,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 					_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
 					if err != nil {
 						// Failed to update resource
-						return noGenResource, err
+						newGenResources = append(newGenResources,noGenResource)
+						continue;
 					}
 					logger.V(4).Info("updated new resource")
 
@@ -283,7 +299,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			}
 		}
 
-	return newGenResource, nil
+	return newGenResources, nil
 }
 
 
