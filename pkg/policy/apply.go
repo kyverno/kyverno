@@ -81,10 +81,6 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 	for index, rule := range engineResponse.PolicyResponse.Rules {
 		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
 
-		if rule.Name == engine.PodControllerRuleName {
-			continue
-		}
-
 		patches := rule.Patches
 
 		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))

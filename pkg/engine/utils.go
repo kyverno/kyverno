@@ -201,11 +201,10 @@ func copyConditions(original []kyverno.Condition) []kyverno.Condition {
 	return copy
 }
 
-// autoGenAnnotationApplied checks if a Pod has annotation "pod-policies.kyverno.io/autogen-applied"
-func autoGenAnnotationApplied(resource unstructured.Unstructured) bool {
+// excludePod checks if a Pod has ownerRef set
+func excludePod(resource unstructured.Unstructured) bool {
 	if resource.GetKind() == "Pod" {
-		ann := resource.GetAnnotations()
-		if _, ok := ann[PodTemplateAnnotation]; ok {
+		if len(resource.GetOwnerReferences()) > 0 {
 			return true
 		}
 	}
