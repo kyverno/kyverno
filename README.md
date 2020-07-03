@@ -26,7 +26,7 @@ You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyv
 
 Add the policy below. It requires that all pods have a `app.kubernetes.io/name` label:
 
-```console
+```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -65,7 +65,7 @@ require-labels:
 ```
 
 Create a pod with the required label. For example from this YAML:
-```console
+```yaml
 kind: "Pod"
 apiVersion: "v1"
 metadata:
