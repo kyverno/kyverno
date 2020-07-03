@@ -16,6 +16,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/ory/go-acc v0.2.1 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.4.1
 	github.com/rogpeppe/godef v1.1.2 // indirect
 	github.com/spf13/cobra v0.0.5

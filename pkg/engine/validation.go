@@ -24,7 +24,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
-	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name)
+	logger := log.Log.WithName("EngineValidate").WithValues("policy", policy.Name)
 
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
 		logger = logger.WithValues("kind", oldR.GetKind(), "namespace", oldR.GetNamespace(), "name", oldR.GetName())

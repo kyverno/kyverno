@@ -231,6 +231,16 @@ func main() {
 		log.Log.WithName("PolicyCacheController"),
 	)
 
+	auditHandler := webhooks.NewValidateAuditHandler(
+		pCacheController.Cache,
+		eventGenerator,
+		statusSync.Listener,
+		pvgen,
+		kubeInformer.Rbac().V1().RoleBindings(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings(),
+		log.Log.WithName("ValidateAuditHandler"),
+	)
+
 	// CONFIGURE CERTIFICATES
 	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
 	if err != nil {
@@ -280,6 +290,7 @@ func main() {
 		pvgen,
 		grgen,
 		rWebhookWatcher,
+		auditHandler,
 		supportMudateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
@@ -305,6 +316,7 @@ func main() {
 	go pvgen.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
+	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

@@ -29,14 +29,15 @@ const (
 func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
-	resource := policyContext.NewResource
-	ctx := policyContext.Context
-	logger := log.Log.WithName("Mutate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	logger.V(4).Info("start policy processing", "startTime", startTime)
-	startMutateResultResponse(&resp, policy, resource)
-	defer endMutateResultResponse(logger, &resp, startTime)
-
 	patchedResource := policyContext.NewResource
+	ctx := policyContext.Context
+	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
+		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
+
+	logger.V(4).Info("start policy processing", "startTime", startTime)
+
+	startMutateResultResponse(&resp, policy, patchedResource)
+	defer endMutateResultResponse(logger, &resp, startTime)
 
 	if autoGenAnnotationApplied(patchedResource) && policy.HasAutoGenAnnotation() {
 		resp.PatchedResource = patchedResource
@@ -47,14 +48,14 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
 		//TODO: to be checked before calling the resources as well
-		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
+		if !rule.HasMutate() && !strings.Contains(PodControllers, patchedResource.GetKind()) {
 			continue
 		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}
@@ -113,7 +114,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	// skip inserting on existing resource
-	if policy.HasAutoGenAnnotation() && strings.Contains(PodControllers, resource.GetKind()) {
+	if policy.HasAutoGenAnnotation() && strings.Contains(PodControllers, patchedResource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, PodControllerRuleName, podTemplateRule.Mutation.Overlay, patchedResource)

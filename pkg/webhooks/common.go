@@ -33,7 +33,7 @@ func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) 
 			return true
 		}
 	}
-	log.V(4).Info("sepc.ValidationFailureAction set to auit for all applicable policies;allowing resource reques; reporting with policy violation ")
+	log.V(4).Info("sepc.ValidationFailureAction set to auit for all applicable policies, reporting with policy violation ")
 	return false
 }
 

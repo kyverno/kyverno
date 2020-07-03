@@ -35,6 +35,7 @@ func newPolicyCache(log logr.Logger) Interface {
 	namesCache := map[PolicyType]map[string]bool{
 		Mutate:          make(map[string]bool),
 		ValidateEnforce: make(map[string]bool),
+		ValidateAudit:   make(map[string]bool),
 		Generate:        make(map[string]bool),
 	}
 
@@ -70,7 +71,8 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 
 	enforcePolicy := policy.Spec.ValidationFailureAction == "enforce"
 	mutateMap := m.nameCacheMap[Mutate]
-	validateMap := m.nameCacheMap[ValidateEnforce]
+	validateEnforceMap := m.nameCacheMap[ValidateEnforce]
+	validateAuditMap := m.nameCacheMap[ValidateAudit]
 	generateMap := m.nameCacheMap[Generate]
 
 	pName := policy.GetName()
@@ -85,12 +87,23 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 			continue
 		}
 
-		if rule.HasValidate() && enforcePolicy {
-			if !validateMap[pName] {
-				validateMap[pName] = true
+		if rule.HasValidate() {
+			if enforcePolicy {
+				if !validateEnforceMap[pName] {
+					validateEnforceMap[pName] = true
 
-				validatePolicy := m.dataMap[ValidateEnforce]
-				m.dataMap[ValidateEnforce] = append(validatePolicy, policy)
+					validatePolicy := m.dataMap[ValidateEnforce]
+					m.dataMap[ValidateEnforce] = append(validatePolicy, policy)
+				}
+				continue
+			}
+
+			// ValidateAudit
+			if !validateAuditMap[pName] {
+				validateAuditMap[pName] = true
+
+				validatePolicy := m.dataMap[ValidateAudit]
+				m.dataMap[ValidateAudit] = append(validatePolicy, policy)
 			}
 			continue
 		}
@@ -107,7 +120,8 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	}
 
 	m.nameCacheMap[Mutate] = mutateMap
-	m.nameCacheMap[ValidateEnforce] = validateMap
+	m.nameCacheMap[ValidateEnforce] = validateEnforceMap
+	m.nameCacheMap[ValidateAudit] = validateAuditMap
 	m.nameCacheMap[Generate] = generateMap
 }
 
