@@ -175,7 +175,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 }
 
 func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
-	var rdata map[string]interface{}
+
 	var err error
 	var mode ResourceMode
 	var noGenResource kyverno.ResourceSpec
@@ -214,149 +214,209 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		Namespace: genNamespace,
 		Name:      genName,
 	}
-	genData, _, err := unstructured.NestedMap(genUnst.Object, "data")
+	genData, _, err := unstructured.NestedSlice(genUnst.Object, "data")
 	if err != nil {
 		return noGenResource, err
 	}
-	genCopy, _, err := unstructured.NestedMap(genUnst.Object, "clone")
+	genCopy, _, err := unstructured.NestedSlice(genUnst.Object, "clone")
 	if err != nil {
 		return noGenResource, err
 	}
-
+	var rdata []generateResponse
 	if genData != nil {
-		rdata, mode, err = manageData(log, genKind, genNamespace, genName, genData, client, resource)
+		rdata = manageData(log, genKind, genNamespace, genName, genData, client, resource)
 	} else {
-		rdata, mode, err = manageClone(log, genKind, genNamespace, genName, genCopy, client, resource)
+		rdata = manageClone(log, genKind, genNamespace, genName, genCopy, client, resource)
 	}
-	if err != nil {
-		return noGenResource, err
-	}
-
-	if rdata == nil {
-		// existing resource contains the configuration
-		return newGenResource, nil
-	}
-	if processExisting {
-		// handle existing resources
-		// policy was generated after the resource
-		// we do not create new resource
-		return noGenResource, err
-
-	}
-
-	// build the resource template
-	newResource := &unstructured.Unstructured{}
-	newResource.SetUnstructuredContent(rdata)
-	newResource.SetName(genName)
-	newResource.SetNamespace(genNamespace)
-	if newResource.GetKind() == "" {
-		newResource.SetKind(genKind)
-	}
-
-	// manage labels
-	// - app.kubernetes.io/managed-by: kyverno
-	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
-	manageLabels(newResource, resource)
-	logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
-	if mode == Create {
-		// Reset resource version
-		newResource.SetResourceVersion("")
-		// Create the resource
-		logger.V(4).Info("creating new resource")
-		_, err = client.CreateResource(genKind, genNamespace, newResource, false)
-		if err != nil {
-			// Failed to create resource
-			return noGenResource, err
-		}
-		logger.V(4).Info("created new resource")
-
-	} else if mode == Update {
-		if rule.Generation.Synchronize {
-			logger.V(4).Info("updating existing resource")
-			// Update the resource
-			_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
-			if err != nil {
-				// Failed to update resource
-				return noGenResource, err
+		for _,singleData := range rdata {
+			if singleData.data == nil {
+				// existing resource contains the configuration
+				//return newGenResource, nil
 			}
-			logger.V(4).Info("updated new resource")
+			if processExisting {
+				// handle existing resources
+				// policy was generated after the resource
+				// we do not create new resource
+				//return noGenResource, err
 
-		} else {
-			logger.V(4).Info("Synchronize resource is disabled")
+			}
+			// build the resource template
+			newResource := &unstructured.Unstructured{}
+			newResource.SetUnstructuredContent(rdata)
+			newResource.SetName(genName)
+			newResource.SetNamespace(genNamespace)
+			if newResource.GetKind() == "" {
+				newResource.SetKind(genKind)
+			}
+
+			// manage labels
+			// - app.kubernetes.io/managed-by: kyverno
+			// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+			manageLabels(newResource, resource)
+			logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
+			if mode == Create {
+				// Reset resource version
+				newResource.SetResourceVersion("")
+				// Create the resource
+				logger.V(4).Info("creating new resource")
+				_, err = client.CreateResource(genKind, genNamespace, newResource, false)
+				if err != nil {
+					// Failed to create resource
+					return noGenResource, err
+				}
+				logger.V(4).Info("created new resource")
+
+			} else if mode == Update {
+				if rule.Generation.Synchronize {
+					logger.V(4).Info("updating existing resource")
+					// Update the resource
+					_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+					if err != nil {
+						// Failed to update resource
+						return noGenResource, err
+					}
+					logger.V(4).Info("updated new resource")
+
+				} else {
+					logger.V(4).Info("Synchronize resource is disabled")
+				}
+			}
 		}
-	}
 
 	return newGenResource, nil
 }
 
-func manageData(log logr.Logger, kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
-	// check if resource to be generated exists
-	obj, err := client.GetResource(kind, namespace, name)
-	if apierrors.IsNotFound(err) {
-		log.Error(err, "resource does not exist, will try to create", "genKind", kind, "genNamespace", namespace, "genName", name)
-		return data, Create, nil
-	}
-	if err != nil {
-		//something wrong while fetching resource
-		// client-errors
-		return nil, Skip, err
-	}
-	// Resource exists; verfiy the content of the resource
-	err = checkResource(log, data, obj)
-	if err == nil {
-		// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
-		return nil, Skip, nil
-	}
-	log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genNamespace", namespace, "genName", name)
-	return data, Update, nil
 
+func manageData(log logr.Logger, kind, namespace, name string, data []interface{}, client *dclient.Client, resource unstructured.Unstructured) ([]generateResponse) {
+	// check if resource to be generated exists
+	var respone []generateResponse;
+	for _,dataResorce := range data {
+		resource := dataResorce.(map[string]interface{})
+		obj, err := client.GetResource(kind, namespace, name)
+		if apierrors.IsNotFound(err) {
+			log.Error(err, "resource does not exist, will try to create", "genKind", kind, "genNamespace", namespace, "genName", name)
+			respone = append(respone,generateResponse{
+				data : resource,
+				action : Create,
+				err : nil,
+			})
+		}
+		if err != nil {
+			//something wrong while fetching resource
+			// client-errors
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : err,
+			})
+		}
+		// Resource exists; verfiy the content of the resource
+		err = checkResource(log, dataResorce, obj)
+		if err == nil {
+			// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : nil,
+			})
+		}
+		log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genNamespace", namespace, "genName", name)
+		respone = append(respone,generateResponse{
+			data : resource,
+			action : Update,
+			err : nil,
+		})
+	}
+    return respone
 }
 
-func manageClone(log logr.Logger, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
-	newRNs, _, err := unstructured.NestedString(clone, "namespace")
-	if err != nil {
-		return nil, Skip, err
-	}
-	newRName, _, err := unstructured.NestedString(clone, "name")
-	if err != nil {
-		return nil, Skip, err
-	}
-	// Short-circuit if the resource to be generated and the clone is the same
-	if newRNs == namespace && newRName == name {
-		// attempting to clone it self, this will fail -> short-ciruit it
-		return nil, Skip, nil
-	}
+type generateResponse struct {
+	data               map[string]interface{}
+	action ResourceMode
+	err error
+}
 
-	// check if the resource as reference in clone exists?
-	obj, err := client.GetResource(kind, newRNs, newRName)
-	if err != nil {
-		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err)
-	}
-
-	// check if resource to be generated exists
-	newResource, err := client.GetResource(kind, namespace, name)
-	if err == nil {
-		obj.SetUID(newResource.GetUID())
-		obj.SetSelfLink(newResource.GetSelfLink())
-		obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
-		obj.SetManagedFields(newResource.GetManagedFields())
-		obj.SetResourceVersion(newResource.GetResourceVersion())
-		if reflect.DeepEqual(obj, newResource) {
-			return nil, Skip, nil
+func manageClone(log logr.Logger, kind, namespace, name string, clone []interface{}, client *dclient.Client, resource unstructured.Unstructured) ([]generateResponse) {
+	var respone []generateResponse{};
+	for _,cloneResorce := range clone {
+		resource = cloneResorce.(map[string]string)
+		newRNs, _, err := unstructured.NestedString(resource, "namespace")
+		if err != nil {
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : err,
+			})
 		}
-		return obj.UnstructuredContent(), Update, nil
+		newRName, _, err := unstructured.NestedString(resource, "name")
+		if err != nil {
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : err,
+			})
+		}
+		// Short-circuit if the resource to be generated and the clone is the same
+		if newRNs == namespace && newRName == name {
+			// attempting to clone it self, this will fail -> short-ciruit it
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : nil,
+			})
+		}
+
+		// check if the resource as reference in clone exists?
+		obj, err := client.GetResource(kind, newRNs, newRName)
+		if err != nil {
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err),
+			})
+		}
+
+		// check if resource to be generated exists
+		newResource, err := client.GetResource(kind, namespace, name)
+		if err == nil {
+			obj.SetUID(newResource.GetUID())
+			obj.SetSelfLink(newResource.GetSelfLink())
+			obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
+			obj.SetManagedFields(newResource.GetManagedFields())
+			obj.SetResourceVersion(newResource.GetResourceVersion())
+			if reflect.DeepEqual(obj, newResource) {
+				respone = append(respone,generateResponse{
+					data : nil,
+					action : Skip,
+					err : nil,
+				})
+			}
+			respone = append(respone,generateResponse{
+				data :  obj.UnstructuredContent(),
+				action : Update,
+				err : nil,
+			})
+		}
+
+		//TODO: check this
+		if !apierrors.IsNotFound(err) {
+			log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
+			//something wrong while fetching resource
+			respone = append(respone,generateResponse{
+				data : nil,
+				action : Skip,
+				err : err,
+			})
+		}
+
+		// create the resource based on the reference clone
+		respone = append(respone,generateResponse{
+			data : obj.UnstructuredContent(),
+			action : Create,
+			err : nil,
+		})
 	}
-
-	//TODO: check this
-	if !apierrors.IsNotFound(err) {
-		log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
-		//something wrong while fetching resource
-		return nil, Skip, err
-	}
-
-	// create the resource based on the reference clone
-	return obj.UnstructuredContent(), Create, nil
-
+	return respone
 }
 
 // ResourceMode defines the mode for generated resource
