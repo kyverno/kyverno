@@ -4,8 +4,8 @@
 
 ![logo](documentation/images/Kyverno_Horizontal.png)
 
-Kyverno is a `no-code` policy engine built for Kubernetes:
-* policies as Kubernetes resources (no additional language!)
+Kyverno is a policy engine built for Kubernetes:
+* policies as Kubernetes resources (no new language to learn!)
 * validate, mutate, or generate any resource
 * match resources using label selectors and wildcards
 * validate and mutate using overlays (like Kustomize!)
