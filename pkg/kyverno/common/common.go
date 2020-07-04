@@ -81,9 +81,9 @@ func GetPolicy(path string) (clusterPolicies []*v1.ClusterPolicy, errors []error
 		return clusterPolicies, errors
 	}
 
-	policies, splitDocErrors := SplitYAMLDocuments(file)
-	if splitDocErrors != nil {
-		errors = append(errors, splitDocErrors)
+	policies, err := SplitYAMLDocuments(file)
+	if err != nil {
+		errors = append(errors, err)
 		return clusterPolicies, errors
 	}
 

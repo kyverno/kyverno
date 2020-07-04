@@ -9,9 +9,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
-	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
-
+	policy2 "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
+
+	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
+
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,9 +39,10 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
-				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+				// err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
-					fmt.Println("Policy " + policy.Name + " is invalid")
+					log.Log.Error(err, "Policy "+policy.Name+" is invalid")
 					invalidPolicyFound = true
 				} else {
 					fmt.Println("Policy " + policy.Name + " is valid")
