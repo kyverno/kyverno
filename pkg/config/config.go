@@ -10,9 +10,6 @@ import (
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
 const (
-	//WebhookServiceName default kyverno webhook service name
-	WebhookServiceName = "kyverno-svc"
-
 	//MutatingWebhookConfigurationName default resource mutating webhook configuration name
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
 	//MutatingWebhookConfigurationDebugName default resource mutating webhook configuration name for debug mode
@@ -61,6 +58,8 @@ var (
 	KubePolicyNamespace = getKyvernoNameSpace()
 	// KubePolicyDeploymentName define the default deployment namespace
 	KubePolicyDeploymentName = getKyvernoNameSpace()
+	//WebhookServiceName default kyverno webhook service name
+	WebhookServiceName = getWebhookServiceName()
 
 	//MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
@@ -96,4 +95,13 @@ func getKyvernoNameSpace() string {
 		kyvernoNamespace = "kyverno"
 	}
 	return kyvernoNamespace
+}
+
+// getWebhookServiceName - setting default WebhookServiceName
+func getWebhookServiceName() string {
+	webhookServiceName := os.Getenv("KYVERNO_SVC")
+	if webhookServiceName == "" {
+		webhookServiceName = "kyverno-svc"
+	}
+	return webhookServiceName
 }
