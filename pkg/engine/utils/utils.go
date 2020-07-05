@@ -4,6 +4,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //RuleType defines the type for rule
@@ -35,14 +36,17 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 	joinedPatches := JoinPatches(patches)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
+		log.Log.V(4).Info("failed to decode JSON patch", "patch", patch)
 		return resource, err
 	}
 
 	patchedDocument, err := patch.Apply(resource)
 	if err != nil {
+		log.Log.V(4).Info("failed to apply JSON patch", "patch", patch)
 		return resource, err
 	}
 
+	log.Log.V(4).Info("applied JSON patch", "patch", patch)
 	return patchedDocument, err
 }
 
