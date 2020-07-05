@@ -45,8 +45,6 @@ type PolicyController struct {
 	kyvernoClient *kyvernoclient.Clientset
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
-	syncHandler   func(pKey string) error
-	enqueuePolicy func(policy *kyverno.ClusterPolicy)
 
 	//pvControl is used for adoptin/releasing policy violation
 	pvControl PVControlInterface
@@ -146,9 +144,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: pc.deleteNamespacedPolicyViolation,
 	})
 
-	pc.enqueuePolicy = pc.enqueue
-	pc.syncHandler = pc.syncPolicy
-
 	pc.pLister = pInformer.Lister()
 	pc.cpvLister = cpvInformer.Lister()
 	pc.nspvLister = nspvInformer.Lister()
@@ -230,11 +225,11 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	pc.enqueuePolicy(p)
 }
 
-func (pc *PolicyController) enqueue(policy *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
 	logger := pc.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
-		logger.Error(err, "failed to enqueu policy")
+		logger.Error(err, "failed to enqueue policy")
 		return
 	}
 	pc.queue.Add(key)
@@ -273,14 +268,14 @@ func (pc *PolicyController) processNextWorkItem() bool {
 	// if policies exist before Kyverno get created, resource webhook configuration
 	// could not be registered as clusterpolicy.spec.background=false by default
 	// the policy controller would starts only when the first incoming policy is queued
-	pc.registerResourceWebhookConfiguration()
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
 	}
 	defer pc.queue.Done(key)
-	err := pc.syncHandler(key.(string))
+	err := pc.syncPolicy(key.(string))
 	pc.handleErr(err, key)
 
 	return true
@@ -318,7 +313,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
-			// do not fail, if unable to delete resource webhook config
 			logger.Error(err, "failed to remove resource webhook configurations")
 		}
 
@@ -331,50 +325,60 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
-	engineResponses := pc.processExistingResources(*policy)
+	engineResponses := pc.processExistingResources(policy)
 	pc.cleanupAndReport(engineResponses)
 
 	return nil
 }
 
 func (pc *PolicyController) deletePolicyViolations(key string) {
-	if err := pc.deleteClusterPolicyViolations(key); err != nil {
-		pc.log.Error(err, "failed to delete policy violation", "key", key)
+	cpv, err := pc.deleteClusterPolicyViolations(key)
+	if err != nil {
+		pc.log.Error(err, "failed to delete policy violations", "policy", key)
 	}
 
-	if err := pc.deleteNamespacedPolicyViolations(key); err != nil {
-		pc.log.Error(err, "failed to delete policy violation", "key", key)
+	npv, err := pc.deleteNamespacedPolicyViolations(key)
+	if err != nil {
+		pc.log.Error(err, "failed to delete policy violations", "policy", key)
 	}
+
+	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv)
 }
 
-func (pc *PolicyController) deleteClusterPolicyViolations(policy string) error {
+func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
+	count := 0
 	for _, cpv := range cpvList {
 		if err := pc.pvControl.DeleteClusterPolicyViolation(cpv.Name); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", cpv.Name)
+		} else {
+			count++
 		}
 	}
 
-	return nil
+	return count, nil
 }
 
-func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) error {
+func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int, error) {
 	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
+	count := 0
 	for _, nspv := range nspvList {
 		if err := pc.pvControl.DeleteNamespacedPolicyViolation(nspv.Namespace, nspv.Name); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", nspv.Name)
+		} else {
+			count++
 		}
 	}
 
-	return nil
+	return count, nil
 }
 
 func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy string) ([]*kyverno.PolicyViolation, error) {

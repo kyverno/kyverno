@@ -1,6 +1,8 @@
 package variables
 
-import "regexp"
+import (
+	"regexp"
+)
 
 //IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(element string) bool {

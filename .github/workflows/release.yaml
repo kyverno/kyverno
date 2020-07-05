@@ -2,7 +2,8 @@ name: prereleaser
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*'
+    
 jobs:
   releaser:
     runs-on: ubuntu-latest

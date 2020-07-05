@@ -9,6 +9,8 @@ While `match` & `exclude` conditions allow filtering requests based on resource 
 The following operators are currently supported for preconditon evaluation:
 - Equal
 - NotEqual
+- In
+- NotIn
 
 ## Example
 
@@ -25,6 +27,20 @@ The following operators are currently supported for preconditon evaluation:
 ```
 
 In the above example, the rule is only applied to requests from service accounts i.e. when the `{{serviceAccountName}}` is not empty.
+
+```yaml
+  - name: generate-default-build-role
+    match:
+      resources:
+        kinds:
+        - Namespace
+    preconditions:
+    - key: "{{serviceAccountName}}"
+      operator: In
+      value: ["build-default", "build-base"]
+```
+
+In the above example, the rule is only applied to requests from service account with name `build-default` and `build-base`.
 
 
 <small>*Read Next >> [Auto-Generation for Pod Controllers](/documentation/writing-policies-autogen.md)*</small>

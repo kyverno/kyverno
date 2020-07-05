@@ -10,7 +10,6 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructedv1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 //NamespacedPV ...
@@ -97,12 +96,6 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 		return nil
 	}
 
-	if newPv.Spec.ResourceSpec.Kind == "Pod" {
-		if isEvictedPod(obj.Object) {
-			return nil
-		}
-	}
-
 	// set owner reference to resource
 	ownerRef, ok := createOwnerReference(obj)
 	if !ok {
@@ -148,13 +141,4 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	}
 	logger.Info("namespaced policy violation updated")
 	return nil
-}
-
-func isEvictedPod(pod map[string]interface{}) bool {
-	reason, ok, _ := unstructedv1.NestedString(pod, "status", "reason")
-	if !ok {
-		return false
-	}
-
-	return reason == "Evicted"
 }

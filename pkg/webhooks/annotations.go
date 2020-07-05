@@ -8,9 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -99,7 +97,7 @@ func generateAnnotationPatches(engineResponses []response.EngineResponse, log lo
 func annotationFromEngineResponses(engineResponses []response.EngineResponse, log logr.Logger) []byte {
 	var annotationContent = make(map[string]string)
 	for _, engineResponse := range engineResponses {
-		if !engineResponse.IsSuccesful() {
+		if !engineResponse.IsSuccessful() {
 			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.PolicyResponse.Policy)
 			continue
 		}
@@ -149,16 +147,4 @@ func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log lo
 		return nil
 	}
 	return rulePatches
-}
-
-// checkPodTemplateAnn checks if a Pod has annotation "pod-policies.kyverno.io/autogen-applied"
-func checkPodTemplateAnnotation(resource unstructured.Unstructured) bool {
-	if resource.GetKind() == "Pod" {
-		ann := resource.GetAnnotations()
-		if _, ok := ann[engine.PodTemplateAnnotation]; ok {
-			return true
-		}
-	}
-
-	return false
 }

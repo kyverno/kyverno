@@ -6,20 +6,25 @@ You can install Kyverno using the Helm chart or YAML files in this repository.
 
 ## Install Kyverno using Helm
 
+Add the nirmata Helm repository
 ```sh
-
-## Add the nirmata Helm repository
 helm repo add kyverno https://nirmata.github.io/kyverno/
-
-## Create the Kyverno namespace
-kubectl create ns kyverno
-
-## Install the kyverno helm chart
-helm install kyverno --namespace kyverno kyverno/kyverno
-
 ```
 
-Note: the namespace must be `kyverno`. See issue #841.
+Create a namespace and then install the kyverno helm chart.
+```sh
+# Create a namespace
+kubectl create ns <namespace>
+
+# Install the kyverno helm chart
+helm install kyverno --namespace <namespace> kyverno/kyverno
+```
+For installing in kyverno namespace:
+```sh
+kubectl create ns kyverno
+
+helm install kyverno --namespace kyverno kyverno/kyverno
+```
 
 ## Install Kyverno using YAMLs
 
@@ -37,6 +42,8 @@ To install Kyverno in a cluster that supports certificate signing, run the follo
 
 Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the [install.yaml] and update the image tag. 
 
+Also, by default kyverno is installed in "kyverno" namespace. To install in different namespace, you can edit the [install.yaml] and update the namespace.
+
 To check the Kyverno controller status, run the command:
 
 ```sh
@@ -44,17 +51,17 @@ To check the Kyverno controller status, run the command:
 kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
 
 ## Check pod status
-kubectl get pods -n kyverno
+kubectl get pods -n <namespace>
 ````
 
 If the Kyverno controller is not running, you can check its status and logs for errors:
 
 ````sh
-kubectl describe pod <kyverno-pod-name> -n kyverno
+kubectl describe pod <kyverno-pod-name> -n <namespace>
 ````
 
 ````sh
-kubectl logs <kyverno-pod-name> -n kyverno
+kubectl logs <kyverno-pod-name> -n <namespace>
 ````
 
 ### Option 2: Use your own CA-signed certificate
@@ -87,10 +94,10 @@ Among the files that will be generated, you can use the following files to creat
 To create the required secrets, use the following commands (do not change the secret names):
 
 ````bash
-kubectl create ns kyverno
-kubectl -n kyverno create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key
-kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno self-signed-cert=true
-kubectl -n kyverno create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt
+kubectl create ns <namespace>
+kubectl -n <namespace> create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key
+kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n <namespace> self-signed-cert=true
+kubectl -n <namespace> create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt
 ````
 
 **NOTE: The annotation on the TLS pair secret is used by Kyverno to identify the use of self-signed certificates and checks for the required root CA secret**
@@ -163,7 +170,28 @@ e.g., change image tag from `latest` to the specific tag `v1.0.0`.
         - name: kyverno
           # image: nirmata/kyverno:latest
           image: nirmata/kyverno:v1.0.0
-          
+
+To install in a specific namespace replace the namespace "kyverno" with your namespace.
+
+Example:
+````sh
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: <namespace>
+````
+````sh
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno-svc
+  namespace: <namespace>
+````
+and in other places (ServiceAccount, ClusterRoles, ClusterRoleBindings, ConfigMaps, Service, Deployment) where namespace is mentioned.
+
+To run kyverno:
 ````sh
 kubectl create -f ./install.yaml
 ````
@@ -171,17 +199,17 @@ kubectl create -f ./install.yaml
 To check the Kyverno controller status, run the command:
 
 ````sh
-kubectl get pods -n kyverno
+kubectl get pods -n <namespace>
 ````
 
 If the Kyverno controller is not running, you can check its status and logs for errors:
 
 ````sh
-kubectl describe pod <kyverno-pod-name> -n kyverno
+kubectl describe pod <kyverno-pod-name> -n <namespace>
 ````
 
 ````sh
-kubectl logs <kyverno-pod-name> -n kyverno
+kubectl logs <kyverno-pod-name> -n <namespace>
 ````
 
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
@@ -224,9 +252,9 @@ To build Kyverno in a development environment see: https://github.com/nirmata/ky
 
 To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
-1. Run `scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
+1. Run `sudo scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
 
-2. Start the controller using the following command: `sudo kyverno --kubeconfig=~/.kube/config --serverIP=<server_IP>`
+2. Start the controller using the following command: `sudo KYVERNO_NAMESPACE=<namespace> KYVERNO_SVC=<service_name> go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`. In case environment variable "KYVERNO_NAMESPACE" and "KYVERNO_SVC" is not passed kyverno will run in its default namespace "kyverno" and with default service name "kyverno-svc".
 
 # Filter Kubernetes resources that admission webhook should not process
 The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding a `ConfigMap` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`. The default name of this `ConfigMap` is `init-config` but can be changed by modifying the value of the environment variable `INIT_CONFIG` in the kyverno deployment dpec. `data.resourceFilters` must be a sequence of one or more `[<Kind>,<Namespace>,<Name>]` entries with `*` as wildcard. Thus, an item `[Node,*,*]` means that admissions of `Node` in any namespace and with any name will be ignored.

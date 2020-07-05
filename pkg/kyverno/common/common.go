@@ -32,7 +32,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return nil, sanitizedError.New(fmt.Sprintf("failed to parse %v", path))
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
 
 			listOfFiles := make([]string, 0)
@@ -43,7 +43,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
 				log.Error(err, fmt.Sprintf("failed to extract policies from %v", listOfFiles))
-				return nil, sanitizedError.New(("failed to extract policies"))
+				return nil, sanitizedError.NewWithError(("failed to extract policies"), err)
 			}
 
 			policies = append(policies, policiesFromDir...)
@@ -134,7 +134,7 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.
 	policies, err := GetPolicies(policyPaths)
 	if err != nil {
 		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, nil, sanitizedError.New((fmt.Sprintf("failed to parse %v path/s.", policyPaths)))
+			return nil, nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
 		}
 		return nil, nil, err
 	}

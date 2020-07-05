@@ -3,6 +3,7 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -240,6 +241,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// policy was generated after the resource
 		// we do not create new resource
 		return noGenResource, err
+
 	}
 
 	// build the resource template
@@ -269,14 +271,19 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("created new resource")
 
 	} else if mode == Update {
-		logger.V(4).Info("updating existing resource")
-		// Update the resource
-		_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
-		if err != nil {
-			// Failed to update resource
-			return noGenResource, err
+		if rule.Generation.Synchronize {
+			logger.V(4).Info("updating existing resource")
+			// Update the resource
+			_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+			if err != nil {
+				// Failed to update resource
+				return noGenResource, err
+			}
+			logger.V(4).Info("updated new resource")
+
+		} else {
+			logger.V(4).Info("Synchronize resource is disabled")
 		}
-		logger.V(4).Info("updated new resource")
 	}
 
 	return newGenResource, nil
@@ -306,19 +313,6 @@ func manageData(log logr.Logger, kind, namespace, name string, data map[string]i
 }
 
 func manageClone(log logr.Logger, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
-	// check if resource to be generated exists
-	_, err := client.GetResource(kind, namespace, name)
-	if err == nil {
-		// resource does exists, not need to process further as it is already in expected state
-		return nil, Skip, nil
-	}
-	//TODO: check this
-	if !apierrors.IsNotFound(err) {
-		log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
-		//something wrong while fetching resource
-		return nil, Skip, err
-	}
-
 	newRNs, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, err
@@ -332,11 +326,34 @@ func manageClone(log logr.Logger, kind, namespace, name string, clone map[string
 		// attempting to clone it self, this will fail -> short-ciruit it
 		return nil, Skip, nil
 	}
+
 	// check if the resource as reference in clone exists?
 	obj, err := client.GetResource(kind, newRNs, newRName)
 	if err != nil {
 		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s not found. %v", kind, newRNs, newRName, err)
 	}
+
+	// check if resource to be generated exists
+	newResource, err := client.GetResource(kind, namespace, name)
+	if err == nil {
+		obj.SetUID(newResource.GetUID())
+		obj.SetSelfLink(newResource.GetSelfLink())
+		obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
+		obj.SetManagedFields(newResource.GetManagedFields())
+		obj.SetResourceVersion(newResource.GetResourceVersion())
+		if reflect.DeepEqual(obj, newResource) {
+			return nil, Skip, nil
+		}
+		return obj.UnstructuredContent(), Update, nil
+	}
+
+	//TODO: check this
+	if !apierrors.IsNotFound(err) {
+		log.Error(err, "reference/clone resource is not found", "genKind", kind, "genNamespace", namespace, "genName", name)
+		//something wrong while fetching resource
+		return nil, Skip, err
+	}
+
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
 

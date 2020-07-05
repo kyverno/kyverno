@@ -118,36 +118,10 @@ func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
 }
 
 // RemoveResourceWebhookConfiguration removes the resource webhook configurations
-func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() error {
-	logger := rww.log
-	mutatingConfigName := rww.webhookRegistrationClient.GetResourceMutatingWebhookConfigName()
-	mutatingConfig, err := rww.mWebhookConfigLister.Get(mutatingConfigName)
-	if err != nil {
-		logger.Error(err, "failed to list mutating webhook config")
-		return err
-	}
-	if mutatingConfig != nil {
-		err = rww.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
-		if err != nil {
-			return err
-		}
-		logger.V(3).Info("removed mutating resource webhook configuration")
-	}
+func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration()  {
+	rww.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 
 	if rww.RunValidationInMutatingWebhook != "true" {
-		validatingConfigName := rww.webhookRegistrationClient.GetResourceValidatingWebhookConfigName()
-		validatingConfig, err := rww.vWebhookConfigLister.Get(validatingConfigName)
-		if err != nil {
-			logger.Error(err, "failed to list validating webhook config")
-			return err
-		}
-		if validatingConfig != nil {
-			err = rww.webhookRegistrationClient.RemoveResourceValidatingWebhookConfiguration()
-			if err != nil {
-				return err
-			}
-			logger.V(3).Info("removed validating resource webhook configuration")
-		}
+		rww.webhookRegistrationClient.RemoveResourceValidatingWebhookConfiguration()
 	}
-	return nil
 }

@@ -15,12 +15,11 @@ func (pc *PolicyController) addClusterPolicyViolation(obj interface{}) {
 		pc.deleteClusterPolicyViolation(pv)
 		return
 	}
-	// dont manage controller references as the ownerReference is assigned by violation generator
 
 	ps := pc.getPolicyForClusterPolicyViolation(pv)
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
-		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
+		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleaned up")
 		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return

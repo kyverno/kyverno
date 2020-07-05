@@ -21,6 +21,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
 
+	if len(policies) == 0 {
+		return true, ""
+	}
 	// convert RAW to unstructured
 	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -50,10 +53,11 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		}
 	}
 	// Adds Generate Request to a channel(queue size 1000) to generators
-	if err := createGenerateRequest(ws.grGenerator, userRequestInfo, engineResponses...); err != nil {
+	if err := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 		//TODO: send appropriate error
 		return false, "Kyverno blocked: failed to create Generate Requests"
 	}
+
 	// Generate Stats wont be used here, as we delegate the generate rule
 	// - Filter policies that apply on this resource
 	// - - build CR context(userInfo+roles+clusterRoles)
@@ -65,9 +69,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	return true, ""
 }
 
-func createGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo, engineResponses ...response.EngineResponse) error {
+func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo, action v1beta1.Operation, engineResponses ...response.EngineResponse) error {
 	for _, er := range engineResponses {
-		if err := gnGenerator.Create(transform(userRequestInfo, er)); err != nil {
+		if err := gnGenerator.Apply(transform(userRequestInfo, er), action); err != nil {
 			return err
 		}
 	}
