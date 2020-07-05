@@ -17,7 +17,7 @@ import (
 // isResponseSuccesful return true if all responses are successful
 func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
-		if !er.IsSuccesful() {
+		if !er.IsSuccessful() {
 			return false
 		}
 	}
@@ -28,7 +28,7 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == Enforce {
 			log.Info("spec.ValidationFailureAction set to enforcel blocking resource request", "policy", er.PolicyResponse.Policy)
 			return true
 		}
@@ -42,7 +42,7 @@ func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if !er.IsSuccesful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == Enforce {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
@@ -65,7 +65,7 @@ func getErrorMsg(engineReponses []response.EngineResponse) string {
 	var resourceInfo string
 
 	for _, er := range engineReponses {
-		if !er.IsSuccesful() {
+		if !er.IsSuccessful() {
 			// resource in engineReponses is identical as this was called per admission request
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
@@ -115,11 +115,13 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func containRBACinfo(policies []*kyverno.ClusterPolicy) bool {
-	for _, policy := range policies {
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
-				return true
+func containRBACinfo(policies ...[]*kyverno.ClusterPolicy) bool {
+	for _, policySlice := range policies {
+		for _, policy := range policySlice {
+			for _, rule := range policy.Spec.Rules {
+				if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
+					return true
+				}
 			}
 		}
 	}

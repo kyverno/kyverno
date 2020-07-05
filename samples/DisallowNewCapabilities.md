@@ -3,7 +3,7 @@
 Linux allows defining fine-grained permissions using
 capabilities. With Kubernetes, it is possible to add capabilities that escalate the
 level of kernel access and allow other potentially dangerous behaviors. This policy 
-enforces that pods cannot add new capabilities. Other policies can be used to set 
+enforces that containers cannot add new capabilities. Other policies can be used to set 
 default capabilities. 
 
 ## Policy YAML
@@ -24,11 +24,7 @@ spec:
         - Pod
     validate:
       message: "New capabilities cannot be added"
-      anyPattern:
-      - spec:
-        =(securityContext):
-          =(capabilities):
-            X(add): null
+      pattern:
       - spec:
           containers:
           - name: "*"

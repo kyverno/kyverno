@@ -16,10 +16,13 @@ import (
 )
 
 func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay interface{}) (unstructured.Unstructured, error) {
+	logger := log.Log.WithValues("resource", resource.GetKind(), "overlay", overlay)
 	patches, err := mutate.MutateResourceWithOverlay(resource.UnstructuredContent(), overlay)
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		logger.V(4).Info("failed to mutate resource with overlay")
+		return resource, err
 	}
+
 	if len(patches) == 0 {
 		return resource, nil
 	}
@@ -27,21 +30,25 @@ func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay inter
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		logger.V(4).Info("failed to marshall resource JSON")
+		return resource, err
 	}
 
 	var patchResource []byte
 	patchResource, err = utils.ApplyPatches(resourceRaw, patches)
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		logger.V(4).Info("failed to apply patches")
+		return resource, err
 	}
 
 	resource = unstructured.Unstructured{}
 	err = resource.UnmarshalJSON(patchResource)
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		logger.V(4).Info("failed to unmarshal patched resource JSON")
+		return resource, err
 	}
 
+	logger.V(4).Info("mutated resource with overlay")
 	return resource, nil
 }
 
@@ -67,7 +74,8 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 			resource, err = mutateResourceWithOverlay(resource, overlay)
 			if err != nil {
-				return unstructured.Unstructured{}, fmt.Errorf("could not mutate resource with overlay on rule %v:%v", rule.Name, err)
+				detailedErr := fmt.Errorf("failed to mutate resource %s with overlay rule %v:%v", resource.GetKind(), rule.Name, err)
+				return unstructured.Unstructured{}, detailedErr
 			}
 		}
 

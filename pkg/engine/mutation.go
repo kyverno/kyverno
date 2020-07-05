@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"time"
 
@@ -21,7 +22,7 @@ const (
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 	//PodTemplateAnnotation defines the annotation key for Pod-Template
 	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
-	PodControllerRuleName = "podControllerAnnotation"
+	PodControllerRuleName = "autogen-pod-ctrl-annotation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -36,6 +37,12 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	defer endMutateResultResponse(logger, &resp, startTime)
 
 	patchedResource := policyContext.NewResource
+
+	if autoGenAnnotationApplied(patchedResource) && policy.HasAutoGenAnnotation() {
+		resp.PatchedResource = patchedResource
+		return
+	}
+
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
@@ -55,7 +62,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// operate on the copy of the conditions, as we perform variable substitution
 		copyConditions := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
-		// - handle variable subsitutions
+		// - handle variable substitutions
 		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
@@ -81,7 +88,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 				if ruleResponse.Patches == nil {
 					continue
 				}
-				logger.V(4).Info("overlay applied succesfully")
+				logger.V(4).Info("overlay applied successfully")
 			}
 
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
@@ -99,8 +106,14 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	// insert annotation to podtemplate if resource is pod controller
+	// skip inserting on UPDATE request
+	if !reflect.DeepEqual(policyContext.OldResource, unstructured.Unstructured{}) {
+		resp.PatchedResource = patchedResource
+		return resp
+	}
+
 	// skip inserting on existing resource
-	if autoGenPolicy(&policy) && strings.Contains(PodControllers, resource.GetKind()) {
+	if policy.HasAutoGenAnnotation() && strings.Contains(PodControllers, resource.GetKind()) {
 		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
 			var ruleResponse response.RuleResponse
 			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, PodControllerRuleName, podTemplateRule.Mutation.Overlay, patchedResource)
@@ -118,12 +131,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
-}
-
-func autoGenPolicy(policy *kyverno.ClusterPolicy) bool {
-	annotations := policy.GetObjectMeta().GetAnnotations()
-	_, ok := annotations[PodControllersAnnotation]
-	return ok
 }
 
 func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {

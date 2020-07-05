@@ -277,15 +277,11 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 // TODO: re-work with RemoveResourceMutatingWebhookConfiguration, as the only difference is wg handling
 func (wrc *WebhookRegistrationClient) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
-	if err := wrc.RemoveResourceMutatingWebhookConfiguration(); err != nil {
-		wrc.log.Error(err, "failed to remove resource mutating webhook configuration")
-	}
+	wrc.RemoveResourceMutatingWebhookConfiguration()
 }
 func (wrc *WebhookRegistrationClient) removeResourceValidatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
-	if err := wrc.RemoveResourceValidatingWebhookConfiguration(); err != nil {
-		wrc.log.Error(err, "failed to remove resource validation webhook configuration")
-	}
+	wrc.RemoveResourceValidatingWebhookConfiguration()
 }
 
 func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {

@@ -128,17 +128,19 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
 		resource, _ := o.generateEmptyResource(o.definitions[o.kindToDefinitionName[kind]]).(map[string]interface{})
-		if resource == nil {
-			log.Log.V(4).Info(fmt.Sprintf("Cannot Validate policy: openApi definition now found for %v", kind))
+		if resource == nil  || len(resource) == 0 {
+			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
+
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
-		patchedResource, err := engine.ForceMutate(nil, *newPolicy.DeepCopy(), newResource)
+		patchedResource, err := engine.ForceMutate(nil, newPolicy, newResource)
 		if err != nil {
 			return err
 		}
+
 		err = o.ValidateResource(*patchedResource.DeepCopy(), kind)
 		if err != nil {
 			return err

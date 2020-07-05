@@ -2,6 +2,7 @@ package event
 
 import (
 	"github.com/go-logr/logr"
+	"time"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -48,7 +49,7 @@ func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterP
 	gen := Generator{
 		client:               client,
 		pLister:              pInformer.Lister(),
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		pSynced:              pInformer.Informer().HasSynced,
 		policyCtrRecorder:    initRecorder(client, PolicyController, log),
 		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
@@ -56,6 +57,10 @@ func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterP
 		log:                  log,
 	}
 	return &gen
+}
+
+func rateLimiter() workqueue.RateLimiter {
+	return workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second)
 }
 
 func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
@@ -126,14 +131,15 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "Error syncing events;re-queuing request,the resource might not have been created yet", "key", key)
+		logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
 		return
 	}
+
 	gen.queue.Forget(key)
-	logger.Error(err, "dropping the key out of queue", "key", key)
+	logger.Error(err, "failed to generate event", "key", key)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
