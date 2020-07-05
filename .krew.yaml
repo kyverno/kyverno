@@ -1,31 +1,46 @@
 apiVersion: krew.googlecontainertools.github.com/v1alpha2
 kind: Plugin
 metadata:
-  name: kyverno-cli
+  name: kyverno
 spec:
   version: {{ .TagName }}
   homepage: https://github.com/nirmata/kyverno
   platforms:
     - selector:
         matchLabels:
-          os: darwin
-          arch: amd64
-      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_darwin_x86_64.tar.gz" .TagName }}
-      bin: kyverno-cli
-    - selector:
-        matchLabels:
           os: linux
           arch: amd64
       {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_linux_x86_64.tar.gz" .TagName }}
-      bin: kyverno-cli
+      files:
+        - from: kyverno
+          to: .
+        - from: LICENSE
+          to: .
+      bin: kyverno
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+      {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_darwin_x86_64.tar.gz" .TagName }}
+      files:
+        - from: kyverno
+          to: .
+        - from: LICENSE
+          to: .
+      bin: kyverno
     - selector:
         matchLabels:
           os: windows
           arch: amd64
       {{addURIAndSha "https://github.com/nirmata/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_windows_x86_64.zip" .TagName }}
-      bin: kyverno-cli
-  shortDescription: The Kyverno Command Line Interface (CLI) is designed to validate policies and test the behavior of applying policies to resources before adding the policy to a cluster. It can be used as a kubectl plugin and as a standalone CLI.
-  description: |
-    Usage:
-      kubectl kyverno-cli /path/to/policy1.yaml
-      Read more documentation at: https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md
+      files:
+        - from: kyverno.exe
+          to: .
+        - from: LICENSE
+          to: .
+      bin: kyverno.exe
+  shortDescription: Kyverno is a policy engine for kubernetes
+  description: |+2
+    Kyverno is used to test kyverno policies and apply policies to resources files
+  caveats: |
+    The plugin requires access to create Policy and CustomResources
