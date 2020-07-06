@@ -7,6 +7,67 @@ A validation rule can be used to validate resources or to deny API requests base
 
 To validate resource data, define a [pattern](#patterns) in the validation rule. To deny certain API requests define a [deny](#deny-rules) element in the validation rule along a set of conditions that control when to allow or deny the request.
 
+This policy requires that all pods have CPU and memory resource requests and limits:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-cpu-memory
+spec:
+  # `enforce` blocks the request. `audit` reports violations
+  validationFailureAction: enforce
+  rules:
+    - name: check-pod-resources
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "CPU and memory resource requests and limits are required"
+        pattern:
+          spec:
+            containers:
+              # 'name: *' selects all containers in the pod
+              - name: "*"
+                resources:
+                  limits:
+                    # '?' requires 1 alphanumeric character and '*' means that 
+                    # there can be 0 or more characters. Using them together 
+                    # e.g. '?*' requires at least one character.
+                    memory: "?*"
+                    cpu: "?*"
+                  requests:
+                    memory: "?*"
+                    cpu: "?*"
+```
+
+This policy prevents users from changing default network policies:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-netpol-changes
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: check-netpol-updates
+      match:
+        resources:
+          kinds:
+            - NetworkPolicy
+          name:
+            - *-default
+      exclude:
+        clusterRoles:
+          - cluster-admin    
+      validate:
+        message: "Changing default network policies is not allowed"
+        deny: {}
+```
+
 ## Patterns
 
 A validation rule that checks resource data is defined as an overlay pattern that provides the desired configuration. Resource configurations must match fields and expressions defined in the pattern to pass the validation rule. The following rules are followed when processing the overlay pattern:
