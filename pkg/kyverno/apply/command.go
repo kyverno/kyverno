@@ -69,9 +69,10 @@ func Command() *cobra.Command {
 			for _, policy := range policies {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
-					fmt.Printf("Policy %v is not valid\n", policy.Name)
+					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
 					os.Exit(3)
 				}
+
 				if policyHasVariables(*policy) {
 					return sanitizedError.NewWithError(fmt.Sprintf("invalid policy %s. 'apply' does not support policies with variables", policy.Name), err)
 				}

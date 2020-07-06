@@ -351,7 +351,8 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 
 	// explicitly handle boolean type in annotation
 	// keep the type boolean as it is in any other fields
-	if strings.Contains(path, "/metadata/annotations") {
+	if strings.Contains(path, "/metadata/annotations")  ||
+		strings.Contains(path, "/metadata/labels"){
 		patchStr = wrapBoolean(patchStr)
 	}
 
@@ -366,16 +367,27 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 
 func preparePath(path string) string {
 	if path == "" {
-		path = "/"
+		return "/"
 	}
 
-	annPath := "/metadata/annotations/"
-	// escape slash in annotation patch
-	if strings.Contains(path, annPath) {
-		idx := strings.Index(path, annPath)
-		p := path[idx+len(annPath):]
-		path = path[:idx+len(annPath)] + strings.ReplaceAll(p, "/", "~1")
+	// TODO - handle all map key paths
+	// The path for a maps needs to be updated to handle keys with slashes.
+	// We currently do this for known map types. Ideally we can check the
+	// target schema and generically update for any map type.
+	path = replaceSlashes(path, "/metadata/annotations/")
+	path = replaceSlashes(path, "/metadata/labels/")
+	return path
+}
+
+// escape slash in paths for maps (labels, annotations, etc.
+func replaceSlashes(path, prefix string) string {
+	if !strings.Contains(path, prefix) {
+		return path
 	}
+
+	idx := strings.Index(path, prefix)
+	p := path[idx+len(prefix):]
+	path = path[:idx+len(prefix)] + strings.ReplaceAll(p, "/", "~1")
 	return path
 }
 

@@ -6,8 +6,34 @@ The ```generate``` rule can used to create additional resources when a new resou
 
 The `generate` rule supports `match` and `exclude` blocks, like other rules. Hence, the trigger for applying this rule can be the creation of any resource and its possible to match or exclude API requests based on subjects, roles, etc. 
 
-Currently, the generate rule only triggers during an API request and does not support [background processing](/documentation/writing-policies-background.md). To keep resources synchronized across changes, you can use `synchronize : true`. Synchronize is disabled for the pre-existing generate policy that means User has to manually add `synchronize: true` for pre-existing generate policy
+The generate rule triggers during a API CREATE operation and does not support [background processing](/documentation/writing-policies-background.md). To keep resources synchronized across changes you can use `synchronize : true`.
 
+This policy sets the Zookeeper and Kafka connection strings for all namespaces.
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "zk-kafka-address"
+spec:
+  rules:
+    - name: "zk-kafka-address"
+      match:
+        resources:
+          kinds:
+            - Namespace
+      generate:
+        synchronize: true
+        kind: ConfigMap
+        name: zk-kafka-address
+        # generate the resource in the new namespace
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          kind: ConfigMap
+          data:
+            ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+            KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+```
 
 ## Example 1
 

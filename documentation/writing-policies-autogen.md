@@ -2,9 +2,11 @@
 
 # Auto Generating Rules for Pod Controllers
 
-Note: The Auto-Gen feature is only supported for validation rules with patterns and mutation rules with overlay. Validate - Deny rules and Generate rules are not supported.
+**Note: The auto-gen feature is only supported for validation rules with patterns and mutation rules with overlay. Validate - Deny rules and Generate rules are not supported.**
 
-Writing policies on pods helps address all pod creation flows. However, when pod controllers are used, pod level policies result in errors not being reported when the pod controller object is created. 
+Writing policies on pods helps address all pod creation flows. 
+
+However, when pod controllers are used, pod-level policies result in errors not being reported when the pod controller object is created. 
 
 Kyverno solves this issue by supporting automatic generation of policy rules for pod controllers from a rule written for a pod.
 
