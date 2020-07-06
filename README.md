@@ -15,7 +15,8 @@ Kyverno is a policy engine built for Kubernetes:
  
 ## Quick Start
 
-**NOTE** : Your Kubernetes cluster version must be above v1.14 which adds webook timeouts. To check the version, enter `kubectl version`.
+**NOTE** : Your Kubernetes cluster version must be above v1.14 which adds webhook timeouts. 
+To check the version, enter `kubectl version`.
 
 Install Kyverno:
 ```console
@@ -26,9 +27,9 @@ You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyv
 
 Add the policy below. It contains a single validation rule that requires that all pods have 
 a `app.kubernetes.io/name` label. Kyverno supports different rule types to validate, 
-mutate, and generate configurations. The `validationFailureAction` is set to `enforce` 
-to block requests that are non-compliant (the value `audit` will report violations but 
-not block requests.) 
+mutate, and generate configurations. The policy attribute `validationFailureAction` is set 
+to `enforce` to block API requests that are non-compliant (using the value `audit` will report 
+violations but not block requests.)
 
 ```yaml
 apiVersion: kyverno.io/v1
