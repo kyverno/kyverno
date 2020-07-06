@@ -28,8 +28,8 @@ You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyv
 Add the policy below. It contains a single validation rule that requires that all pods have 
 a `app.kubernetes.io/name` label. Kyverno supports different rule types to validate, 
 mutate, and generate configurations. The policy attribute `validationFailureAction` is set 
-to `enforce` to block API requests that are non-compliant (using the value `audit` will report 
-violations but not block requests.)
+to `enforce` to block API requests that are non-compliant (using the default value `audit` 
+will report violations but not block requests.)
 
 ```yaml
 apiVersion: kyverno.io/v1
@@ -83,15 +83,18 @@ spec:
     image: "nginx:latest"
 ```
 
-This pod configuration is compliant with the policy rules, and not blocked. 
+This pod configuration complies with the policy rules, and is not blocked. 
+
 Clean up by deleting all cluster policies:
 
 ```console
 kubectl delete cpol --all
 ```
 
-As a next step, browse the [sample policies](https://github.com/nirmata/kyverno/blob/master/samples/README.md) and learn about [writing policies](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md). You can test policies using the [Kyverno cli](https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md). See [docs](https://github.com/nirmata/kyverno/#documentation) for complete details.
-
+As a next step, browse the [sample policies](https://github.com/nirmata/kyverno/blob/master/samples/README.md) 
+and learn about [writing policies](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md). 
+You can test policies using the [Kyverno cli](https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md). 
+See [docs](https://github.com/nirmata/kyverno/#documentation) for complete details.
 
 ## Documentation
 
