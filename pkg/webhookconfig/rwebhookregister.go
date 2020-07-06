@@ -118,7 +118,7 @@ func (rww *ResourceWebhookRegister) Run(stopCh <-chan struct{}) {
 }
 
 // RemoveResourceWebhookConfiguration removes the resource webhook configurations
-func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration()  {
+func (rww *ResourceWebhookRegister) RemoveResourceWebhookConfiguration() {
 	rww.webhookRegistrationClient.RemoveResourceMutatingWebhookConfiguration()
 
 	if rww.RunValidationInMutatingWebhook != "true" {

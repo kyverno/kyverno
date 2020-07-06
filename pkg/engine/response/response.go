@@ -113,7 +113,7 @@ func (er EngineResponse) GetSuccessRules() []string {
 func (er EngineResponse) getRules(success bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Success == success{
+		if r.Success == success {
 			rules = append(rules, r.Name)
 		}
 	}

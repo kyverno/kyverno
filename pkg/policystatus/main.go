@@ -47,10 +47,10 @@ func (l Listener) Send(s statusUpdater) {
 //since it contains access to all the persistant data present
 //in this package.
 type Sync struct {
-	cache       *cache
-	Listener    Listener
-	client      *versioned.Clientset
-	lister kyvernolister.ClusterPolicyLister
+	cache    *cache
+	Listener Listener
+	client   *versioned.Clientset
+	lister   kyvernolister.ClusterPolicyLister
 }
 
 type cache struct {
@@ -66,9 +66,9 @@ func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister) *
 			data:       make(map[string]v1.PolicyStatus),
 			keyToMutex: newKeyToMutex(),
 		},
-		client:      c,
-		lister: lister,
-		Listener:    make(chan statusUpdater, 20),
+		client:   c,
+		lister:   lister,
+		Listener: make(chan statusUpdater, 20),
 	}
 }
 

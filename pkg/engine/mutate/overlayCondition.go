@@ -112,7 +112,7 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 // resource - A: B2
 func compareOverlay(resource, overlay interface{}, path string) (string, overlayError) {
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
-		log.Log.V(4).Info("Found anchor on different types of element",  "overlay", overlay, "resource", resource)
+		log.Log.V(4).Info("Found anchor on different types of element", "overlay", overlay, "resource", resource)
 		return path, newOverlayError(conditionFailure, fmt.Sprintf("Found anchor on different types of element: overlay %T, resource %T", overlay, resource))
 	}
 
