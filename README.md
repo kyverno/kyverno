@@ -24,7 +24,11 @@ kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/inst
 
 You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).
 
-Add the policy below. It requires that all pods have a `app.kubernetes.io/name` label:
+Add the policy below. It contains a single validation rule that requires that all pods have 
+a `app.kubernetes.io/name` label. Kyverno supports different rule types to validate, 
+mutate, and generate configurations. The `validationFailureAction` is set to `enforce` 
+to block requests that are non-compliant (the value `audit` will report violations but 
+not block requests.) 
 
 ```yaml
 apiVersion: kyverno.io/v1
@@ -78,7 +82,8 @@ spec:
     image: "nginx:latest"
 ```
 
-This pod is allowed. Clean up by deleting all cluster policies:
+This pod configuration is compliant with the policy rules, and not blocked. 
+Clean up by deleting all cluster policies:
 
 ```console
 kubectl delete cpol --all
@@ -108,9 +113,25 @@ As a next step, browse the [sample policies](https://github.com/nirmata/kyverno/
 
 [Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
 
-## Community Call
+## Community
+
+### Community Meetings
 
 To attend our next monthly community meeting join the [Kyverno group](https://groups.google.com/g/kyverno). You will then be sent a meeting invite and get access to the [agenda and meeting notes](https://docs.google.com/document/d/10Hu1qTip1KShi8Lf_v9C5UVQtp7vz_WL3WVxltTvdAc/edit#).
+
+### Getting Help
+
+- For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
+- For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
+
+### Contributing
+
+Thanks for your interest in contributing!
+
+- Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
+- We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
+- See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
+- Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
 
 ## Presentations and Articles
 
@@ -120,20 +141,6 @@ To attend our next monthly community meeting join the [Kyverno group](https://gr
 - [VMware Code Meetup Video](https://www.youtube.com/watch?v=mgEmTvLytb0)
 - [Virtual Rejekts Video](https://www.youtube.com/watch?v=caFMtSg4A6I)
 - [TGIK Video](https://www.youtube.com/watch?v=ZE4Zu9WQET4&list=PL7bmigfV0EqQzxcNpmcdTJ9eFRPBe-iZa&index=18&t=0s)
-
-## Getting help
-
-- For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
-- For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
-
-## Contributing
-
-Thanks for your interest in contributing!
-
-- Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
-- We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
-- See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
-- Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
 
 
 ## Alternatives
