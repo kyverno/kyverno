@@ -93,7 +93,7 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 
 func endResultResponse(log logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -231,7 +231,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
 	// work on a copy of validation rule

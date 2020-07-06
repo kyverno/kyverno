@@ -268,7 +268,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	startTime := time.Now()
 	logger.Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime))
+		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {

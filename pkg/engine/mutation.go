@@ -155,5 +155,5 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime, "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }

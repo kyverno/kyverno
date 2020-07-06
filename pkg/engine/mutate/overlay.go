@@ -29,7 +29,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished applying overlay rule", "processingTime", resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished applying overlay rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
 	patches, overlayerr := processOverlayPatches(logger, resource.UnstructuredContent(), overlay)
@@ -351,8 +351,8 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 
 	// explicitly handle boolean type in annotation
 	// keep the type boolean as it is in any other fields
-	if strings.Contains(path, "/metadata/annotations")  ||
-		strings.Contains(path, "/metadata/labels"){
+	if strings.Contains(path, "/metadata/annotations") ||
+		strings.Contains(path, "/metadata/labels") {
 		patchStr = wrapBoolean(patchStr)
 	}
 

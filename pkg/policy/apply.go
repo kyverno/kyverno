@@ -28,7 +28,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			name = ns + "/" + name
 		}
 
-		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime))
+		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime).String())
 	}()
 
 	var engineResponses []response.EngineResponse
