@@ -342,17 +342,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Success -> Generate Request CR created successsfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		ok, msg := ws.HandleGenerate(request, generatePolicies, ctx, userRequestInfo)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
-			}
-		}
+		go ws.HandleGenerate(request, generatePolicies, ctx, userRequestInfo)
 	}
 
 	// Succesfful processing of mutation & validation rules in policy
