@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -42,10 +43,15 @@ func Command() *cobra.Command {
 				// err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
-					log.Log.Error(err, "Policy "+policy.Name+" is invalid")
+					fmt.Printf("Policy %s is invalid.\n\n", policy.Name)
+					log.Log.Error(err, "policy "+policy.Name+" is invalid")
 					invalidPolicyFound = true
+				} else if common.PolicyHasVariables(*policy) {
+					invalidPolicyFound = true
+					fmt.Printf("Policy %s is invalid.\n\n", policy.Name)
+					log.Log.Error(errors.New("'validate' does not support policies with variables"), "Policy "+policy.Name+" is invalid")
 				} else {
-					fmt.Println("Policy " + policy.Name + " is valid")
+					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 				}
 			}
 

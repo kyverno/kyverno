@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
@@ -145,4 +146,11 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.
 	}
 
 	return policies, openAPIController, nil
+}
+
+// PolicyHasVariables - check for variables in policy
+func PolicyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
