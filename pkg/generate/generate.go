@@ -41,7 +41,28 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
-	policy, err := c.pLister.Get(gr.Spec.Policy)
+	tempPolicyVariable, err := c.pLister.Get(gr.Spec.Policy)
+	var policy *v2beta1.Clusterpolicy
+	if tempPolicyVariable.APIVersion == "v1" {
+		backupPolicy = tempPolicyVariable
+		delete(backupPolicy.Spec.Rules.Generation,"data")
+		delete(backupPolicy.Spec.Rules.Generation,"clone")
+		policy = backupPolicy
+		for _,e := range tempPolicyVariable.Spec.Rules {
+			var data []interface{}
+			var clone []v2beta1.CloneFrom
+            if e.Generation.Data != nil {
+				data = append(data,e.Generation.Data)
+				policy.Spec.Rules.Generation.Data = data
+			}else {
+ 				clone = append(clone,e.Generation.Clone)
+				policy.Spec.Rules.Generation.Clone = clone
+			}
+		}
+	}else{
+		policy = tempPolicyVariable
+	}
+
 	if err != nil {
 		logger.Error(err, "policy not found")
 		return nil, nil
@@ -355,8 +376,7 @@ type generateResponse struct {
 func manageClone(log logr.Logger, kind, namespace, name string, clone []interface{}, client *dclient.Client, resource unstructured.Unstructured) ([]generateResponse) {
 	var respone []generateResponse{};
 	for _,cloneResorce := range clone {
-		resource = cloneResorce.(map[string]string)
-		newRNs, _, err := unstructured.NestedString(resource, "namespace")
+		newRNs, _, err := unstructured. (cloneResorce, "namespace")
 		if err != nil {
 			respone = append(respone,generateResponse{
 				data : nil,
@@ -364,7 +384,7 @@ func manageClone(log logr.Logger, kind, namespace, name string, clone []interfac
 				err : err,
 			})
 		}
-		newRName, _, err := unstructured.NestedString(resource, "name")
+		newRName, _, err := unstructured.NestedString(cloneResorce, "name")
 		if err != nil {
 			respone = append(respone,generateResponse{
 				data : nil,
