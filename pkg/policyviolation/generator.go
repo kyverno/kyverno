@@ -159,7 +159,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (gen *Generator) runWorker() {
-	for gen.processNextWorkitem() {
+	for gen.processNextWorkItem() {
 	}
 }
 
@@ -186,7 +186,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
-func (gen *Generator) processNextWorkitem() bool {
+func (gen *Generator) processNextWorkItem() bool {
 	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {

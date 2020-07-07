@@ -27,9 +27,9 @@ func checkConditions(log logr.Logger, resource, overlay interface{}, path string
 	// condition never be true in this case
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
 		if hasNestedAnchors(overlay) {
-			log.V(4).Info(fmt.Sprintf("Found anchor on different types of element at path %s: overlay %T, resource %T", path, overlay, resource))
+			log.V(4).Info(fmt.Sprintf("element type mismatch at path %s: overlay %T, resource %T", path, overlay, resource))
 			return path, newOverlayError(conditionFailure,
-				fmt.Sprintf("Found anchor on different types of element at path %s: overlay %T %v, resource %T %v", path, overlay, overlay, resource, resource))
+				fmt.Sprintf("element type mismatch at path %s: overlay %T %v, resource %T %v", path, overlay, overlay, resource, resource))
 
 		}
 		return "", overlayError{}
@@ -112,8 +112,8 @@ func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, pat
 // resource - A: B2
 func compareOverlay(resource, overlay interface{}, path string) (string, overlayError) {
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
-		log.Log.V(4).Info("Found anchor on different types of element", "overlay", overlay, "resource", resource)
-		return path, newOverlayError(conditionFailure, fmt.Sprintf("Found anchor on different types of element: overlay %T, resource %T", overlay, resource))
+		log.Log.V(4).Info("element type mismatch", "overlay", overlay, "resource", resource)
+		return path, newOverlayError(conditionFailure, fmt.Sprintf("element type mismatch: overlay %T, resource %T", overlay, resource))
 	}
 
 	switch typedOverlay := overlay.(type) {

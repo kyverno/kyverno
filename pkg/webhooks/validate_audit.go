@@ -100,11 +100,11 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (h *auditHandler) runWorker() {
-	for h.processNextWorkitem() {
+	for h.processNextWorkItem() {
 	}
 }
 
-func (h *auditHandler) processNextWorkitem() bool {
+func (h *auditHandler) processNextWorkItem() bool {
 	obj, shutdown := h.queue.Get()
 	if shutdown {
 		return false
