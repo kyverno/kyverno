@@ -209,7 +209,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
-		pvgen,
 		kubedynamicInformer,
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
