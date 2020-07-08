@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -9,9 +10,11 @@ import (
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 
-	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
-
+	policy2 "github.com/nirmata/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
+
+	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
+
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,12 +40,19 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
-				err = policyvalidate.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+				if common.PolicyHasVariables(*policy) {
+					invalidPolicyFound = true
+					fmt.Printf("Policy %s is invalid.\n", policy.Name)
+					log.Log.Error(errors.New("'validate' does not support policies with variables"), "Policy "+policy.Name+" is invalid")
+					continue
+				}
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
-					fmt.Println("Policy " + policy.Name + " is invalid")
+					fmt.Printf("Policy %s is invalid.\n", policy.Name)
+					log.Log.Error(err, "policy "+policy.Name+" is invalid")
 					invalidPolicyFound = true
 				} else {
-					fmt.Println("Policy " + policy.Name + " is valid")
+					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 				}
 			}
 

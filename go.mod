@@ -29,12 +29,12 @@ require (
 	gopkg.in/yaml.v2 v2.2.8
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.17.4
+	k8s.io/apiextensions-apiserver v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/cli-runtime v0.17.4
 	k8s.io/client-go v0.17.4
 	k8s.io/klog v1.0.0
-	k8s.io/kube-openapi v0.0.0-20200121204235-bf4fb3bd569c
-	k8s.io/utils v0.0.0-20200109141947-94aeca20bf09 // indirect
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.5.0
 )
 

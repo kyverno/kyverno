@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"time"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -73,7 +72,7 @@ func Command() *cobra.Command {
 					os.Exit(3)
 				}
 
-				if policyHasVariables(*policy) {
+				if common.PolicyHasVariables(*policy) {
 					return sanitizedError.NewWithError(fmt.Sprintf("invalid policy %s. 'apply' does not support policies with variables", policy.Name), err)
 				}
 			}
@@ -315,10 +314,4 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		os.Exit(1)
 	}
 	return nil
-}
-
-func policyHasVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
