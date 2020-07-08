@@ -133,6 +133,8 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 					return path, err
 				}
 			}
+		}else{
+			return "", fmt.Errorf("Valdate Array failed")
 		}
 	}
 	return "", nil
