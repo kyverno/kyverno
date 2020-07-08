@@ -43,7 +43,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// get policy
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
-		logger.Error(err, "policy not found")
+		if apierrors.IsNotFound(err) {
+			return c.deleteGeneratePolicy(logger, policyContext, gr)
+		}
+		logger.Error(err, "error in getting policy")
 		return nil, nil
 	}
 	// build context
@@ -134,6 +137,59 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	}
 
 	return genResources, nil
+}
+
+
+func (c *Controller) deleteGeneratePolicy(log logr.Logger, policyContext engine.PolicyContext, gr kyverno.GenerateRequest) (error) {
+
+	policy := policyContext.Policy
+	ctx := policyContext.Context
+
+	for _, rule := range policy.Spec.Rules {
+		if !rule.HasGenerate() {
+			continue
+		}
+
+		genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
+		if err != nil {
+			return  err
+		}
+		object, err := variables.SubstituteVars(log, ctx, genUnst.Object)
+		if err != nil {
+			return  err
+		}
+		genUnst.Object, _ = object.(map[string]interface{})
+
+		// Find Resource And delete Resource
+		genKind, _, err := unstructured.NestedString(genUnst.Object, "kind")
+		if err != nil {
+			return  err
+		}
+		genName, _, err := unstructured.NestedString(genUnst.Object, "name")
+		if err != nil {
+			return  err
+		}
+		genNamespace, _, err := unstructured.NestedString(genUnst.Object, "namespace")
+		if err != nil {
+			return err
+		}
+
+		_, err = client.GetResource(genKind, genNamespace, genName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Error(err, "resource does not exist, will try to create", "genKind", genKind, "genNamespace", genNamespace, "genName", genName)
+				return nil
+			}
+			//something wrong while fetching resource
+			// client-errors
+			return err
+		}
+		if err := c.client.DeleteResource(genKind, genNamespace, genName,false); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type generateSyncStats struct {
