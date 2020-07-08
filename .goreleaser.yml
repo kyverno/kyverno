@@ -14,7 +14,6 @@ builds:
     - windows
   goarch:
     - amd64
-  goarm: [6, 7]
 archives:
 - id: kyverno-cli-archive
   name_template: |-
@@ -26,12 +25,12 @@ archives:
     {{- end -}}
   builds:
     - kyverno-cli
-  replacements:
-    386: i386
-    amd64: x86_64
   format_overrides:
     - goos: windows
       format: zip
+  replacements:
+    386: i386
+    amd64: x86_64
   files: ["LICENSE"]
 checksum:
   name_template: "checksums.txt"
