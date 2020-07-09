@@ -134,7 +134,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 				}
 			}
 		}else{
-			return "", fmt.Errorf("Valdate Array failed")
+			return "", fmt.Errorf("Validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 	}
 	return "", nil
