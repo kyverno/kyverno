@@ -266,15 +266,17 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// - app.kubernetes.io/managed-by: kyverno
 	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
 	manageLabels(newResource, resource)
-
 	logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
-	if mode == Create {
+		if mode == Create {
 		// Add Synchronize label
+		label := newResource.GetLabels()
 		if rule.Generation.Synchronize {
-			newResource.SetLabels(map[string]string{"app.kubernetes.io/synchronize": "enable" })
+			label["app.kubernetes.io/synchronize"] = "enable"
 		}else{
-			newResource.SetLabels(map[string]string{"app.kubernetes.io/synchronize": "disable" })
+			label["app.kubernetes.io/synchronize"] = "disable"
 		}
+		newResource.SetLabels(label)
+
 		// Reset resource version
 		newResource.SetResourceVersion("")
 		// Create the resource
