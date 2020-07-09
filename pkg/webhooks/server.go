@@ -282,7 +282,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
+		AdmissionUserInfo: *request.UserInfo.DeepCopy()}
 
 	// build context
 	ctx := context2.NewContext()
@@ -339,13 +339,13 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	// GENERATE
 	// Only applied during resource creation and update
-	// Success -> Generate Request CR created successsfully
+	// Success -> Generate Request CR created successfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request, generatePolicies, ctx, userRequestInfo)
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
 	}
 
-	// Succesfful processing of mutation & validation rules in policy
+	// Succesful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
