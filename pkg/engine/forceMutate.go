@@ -55,6 +55,9 @@ func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay inter
 // ForceMutate does not check any conditions, it simply mutates the given resource
 func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var err error
+	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.Name, "kind", resource.GetKind(),
+		"namespace", resource.GetNamespace(), "name", resource.GetName())
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasMutate() {
 			continue
@@ -81,7 +84,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 		if rule.Mutation.Patches != nil {
 			var resp response.RuleResponse
-			resp, resource = mutate.ProcessPatches(log.Log, rule, resource)
+			resp, resource = mutate.ProcessPatches(logger.WithValues("rule", rule.Name), rule, resource)
 			if !resp.Success {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}

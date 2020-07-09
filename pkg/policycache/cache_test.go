@@ -55,6 +55,26 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	}
 }
 
+func Test_Add_Validate_Audit(t *testing.T) {
+	pCache := newPolicyCache(log.Log)
+	policy := newPolicy(t)
+
+	pCache.Add(policy)
+	pCache.Add(policy)
+
+	policy.Spec.ValidationFailureAction = "audit"
+	pCache.Add(policy)
+	pCache.Add(policy)
+
+	if len(pCache.Get(ValidateEnforce)) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(pCache.Get(ValidateEnforce)))
+	}
+
+	if len(pCache.Get(ValidateAudit)) != 1 {
+		t.Errorf("expected 1 validate audit policy, found %v", len(pCache.Get(ValidateAudit)))
+	}
+}
+
 func Test_Remove_From_Empty_Cache(t *testing.T) {
 	pCache := newPolicyCache(log.Log)
 	policy := newPolicy(t)

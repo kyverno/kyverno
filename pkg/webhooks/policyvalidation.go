@@ -10,8 +10,11 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	logger := ws.log.WithValues("action", "policyvalidation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := policyvalidate.Validate(request.Object.Raw, ws.client, false, ws.openAPIController); err != nil {
+		logger.Error(err, "faield to validate policy")
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{

@@ -24,7 +24,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
-	logger := log.Log.WithName("Validate").WithValues("policy", policy.Name)
+	logger := log.Log.WithName("EngineValidate").WithValues("policy", policy.Name)
 
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
 		logger = logger.WithValues("kind", oldR.GetKind(), "namespace", oldR.GetNamespace(), "name", oldR.GetName())
@@ -93,7 +93,7 @@ func startResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPo
 
 func endResultResponse(log logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime, "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	log.V(4).Info("finshed processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -103,6 +103,10 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 
 func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
+	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
+		return resp
+	}
 
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
@@ -142,7 +146,8 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	if autoGenAnnotationApplied(resource) && policy.HasAutoGenAnnotation() {
+	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}
 
@@ -226,7 +231,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
 	// work on a copy of validation rule

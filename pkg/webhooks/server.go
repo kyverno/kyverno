@@ -89,8 +89,11 @@ type WebhookServer struct {
 	grGenerator *generate.Generator
 
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
-	log                    logr.Logger
-	openAPIController      *openapi.Controller
+
+	auditHandler AuditHandler
+
+	log               logr.Logger
+	openAPIController *openapi.Controller
 
 	supportMudateValidate bool
 }
@@ -112,6 +115,7 @@ func NewWebhookServer(
 	pvGenerator policyviolation.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
+	auditHandler AuditHandler,
 	supportMudateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
@@ -148,6 +152,7 @@ func NewWebhookServer(
 		pvGenerator:               pvGenerator,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
+		auditHandler:              auditHandler,
 		log:                       log,
 		openAPIController:         openAPIController,
 		supportMudateValidate:     supportMudateValidate,
@@ -213,7 +218,7 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
-		logger.V(4).Info("request processed", "processingTime", time.Since(startTime).Milliseconds())
+		logger.V(4).Info("request processed", "processingTime", time.Since(startTime).String())
 
 		return
 	}
@@ -277,7 +282,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
+		AdmissionUserInfo: *request.UserInfo.DeepCopy()}
 
 	// build context
 	ctx := context2.NewContext()
@@ -312,8 +317,11 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
+			// push admission request to audit handler, this won't block the admission request
+			ws.auditHandler.Add(request.DeepCopy())
+
 			// VALIDATION
-			ok, msg := ws.HandleValidation(request, validatePolicies, patchedResource, ctx, userRequestInfo)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -331,23 +339,13 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	// GENERATE
 	// Only applied during resource creation and update
-	// Success -> Generate Request CR created successsfully
+	// Success -> Generate Request CR created successfully
 	// Failed -> Failed to create Generate Request CR
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		ok, msg := ws.HandleGenerate(request, generatePolicies, ctx, userRequestInfo)
-		if !ok {
-			logger.Info("admission request denied")
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: msg,
-				},
-			}
-		}
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
 	}
 
-	// Succesfful processing of mutation & validation rules in policy
+	// Succesful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
@@ -382,6 +380,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
+	// push admission request to audit handler, this won't block the admission request
+	ws.auditHandler.Add(request.DeepCopy())
+
 	policies := ws.pCache.Get(policycache.ValidateEnforce)
 	if len(policies) == 0 {
 		logger.V(4).Info("No enforce Validation policy found, returning")
@@ -394,8 +395,14 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if containRBACinfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
 		if err != nil {
-			// TODO(shuting): continue apply policy if error getting roleRef?
 			logger.Error(err, "failed to get RBAC information for request")
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: err.Error(),
+				},
+			}
 		}
 	}
 
@@ -420,7 +427,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := ws.HandleValidation(request, policies, nil, ctx, userRequestInfo)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

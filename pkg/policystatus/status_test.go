@@ -29,7 +29,6 @@ func (d dummyStatusUpdater) PolicyName() string {
 	return "policy1"
 }
 
-
 type dummyLister struct {
 }
 

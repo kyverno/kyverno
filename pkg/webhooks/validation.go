@@ -5,6 +5,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/utils"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -21,12 +24,16 @@ import (
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func (ws *WebhookServer) HandleValidation(
+func HandleValidation(
 	request *v1beta1.AdmissionRequest,
 	policies []*kyverno.ClusterPolicy,
 	patchedResource []byte,
 	ctx *context.Context,
-	userRequestInfo kyverno.RequestInfo) (bool, string) {
+	userRequestInfo kyverno.RequestInfo,
+	statusListener policystatus.Listener,
+	eventGen event.Interface,
+	pvGenerator policyviolation.GeneratorInterface,
+	log logr.Logger) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -37,7 +44,7 @@ func (ws *WebhookServer) HandleValidation(
 		resourceName = request.Namespace + "/" + resourceName
 	}
 
-	logger := ws.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
+	logger := log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
 
 	// Get new and old resource
 	newR, oldR, err := utils.ExtractResources(patchedResource, request)
@@ -76,7 +83,7 @@ func (ws *WebhookServer) HandleValidation(
 			continue
 		}
 		engineResponses = append(engineResponses, engineResponse)
-		ws.statusListener.Send(validateStats{
+		statusListener.Send(validateStats{
 			resp: engineResponse,
 		})
 		if !engineResponse.IsSuccessful() {
@@ -101,7 +108,7 @@ func (ws *WebhookServer) HandleValidation(
 	//   all policies were applied succesfully.
 	//   create an event on the resource
 	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
-	ws.eventGen.Add(events...)
+	eventGen.Add(events...)
 	if blocked {
 		logger.V(4).Info("resource blocked")
 		return false, getEnforceFailureErrorMsg(engineResponses)
@@ -110,8 +117,8 @@ func (ws *WebhookServer) HandleValidation(
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	ws.pvGenerator.Add(pvInfos...)
-	// report time end
+	pvGenerator.Add(pvInfos...)
+
 	return true, ""
 }
 

@@ -251,7 +251,7 @@ func (wrc *WebhookRegistrationClient) removeWebhookConfigurations() {
 	startTime := time.Now()
 	wrc.log.Info("removing prior webhook configurations")
 	defer func() {
-		wrc.log.V(4).Info("removed webhookcongfigurations", "processingTime", time.Since(startTime))
+		wrc.log.V(4).Info("removed webhookcongfigurations", "processingTime", time.Since(startTime).String())
 	}()
 
 	var wg sync.WaitGroup

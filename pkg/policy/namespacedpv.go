@@ -109,6 +109,7 @@ func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.Po
 	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	policies, err := pc.pLister.GetPolicyForNamespacedPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
+		logger.V(4).Info("missing policy for namespaced policy violation", "reason", err.Error())
 		return nil
 	}
 	// Because all PolicyViolations's belonging to a Policy should have a unique label key,

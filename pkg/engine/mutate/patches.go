@@ -28,7 +28,7 @@ func ProcessPatches(log logr.Logger, rule kyverno.Rule, resource unstructured.Un
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished JSON patch", "processingTime", resp.RuleStats.ProcessingTime)
+		logger.V(4).Info("applied JSON patch", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
 	// convert to RAW
