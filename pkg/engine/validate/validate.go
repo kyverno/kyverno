@@ -125,15 +125,18 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		}
 	default:
 		// In all other cases - detect type and handle each array element with validateResourceElement
-		for i, patternElement := range patternArray {
-			currentPath := path + strconv.Itoa(i) + "/"
-			path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath)
-			if err != nil {
-				return path, err
+		if len(resourceArray) >= len(patternArray) {
+			for i, patternElement := range patternArray {
+				currentPath := path + strconv.Itoa(i) + "/"
+				path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath)
+				if err != nil {
+					return path, err
+				}
 			}
+		}else{
+			return "", fmt.Errorf("Validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 	}
-
 	return "", nil
 }
 

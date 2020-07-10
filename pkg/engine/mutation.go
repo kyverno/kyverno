@@ -22,23 +22,24 @@ const (
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 	//PodTemplateAnnotation defines the annotation key for Pod-Template
 	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
-	PodControllerRuleName = "autogen-pod-ctrl-annotation"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy
-	resource := policyContext.NewResource
+	patchedResource := policyContext.NewResource
 	ctx := policyContext.Context
-	logger := log.Log.WithName("Mutate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
+		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
+
 	logger.V(4).Info("start policy processing", "startTime", startTime)
-	startMutateResultResponse(&resp, policy, resource)
+
+	startMutateResultResponse(&resp, policy, patchedResource)
 	defer endMutateResultResponse(logger, &resp, startTime)
 
-	patchedResource := policyContext.NewResource
-
-	if autoGenAnnotationApplied(patchedResource) && policy.HasAutoGenAnnotation() {
+	if policy.HasAutoGenAnnotation() && excludePod(patchedResource) {
+		logger.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -47,14 +48,14 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
 		//TODO: to be checked before calling the resources as well
-		if !rule.HasMutate() && !strings.Contains(PodControllers, resource.GetKind()) {
+		if !rule.HasMutate() && !strings.Contains(PodControllers, patchedResource.GetKind()) {
 			continue
 		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(resource, rule, policyContext.AdmissionInfo); err != nil {
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}
@@ -112,22 +113,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		return resp
 	}
 
-	// skip inserting on existing resource
-	if policy.HasAutoGenAnnotation() && strings.Contains(PodControllers, resource.GetKind()) {
-		if !patchedResourceHasPodControllerAnnotation(patchedResource) {
-			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, PodControllerRuleName, podTemplateRule.Mutation.Overlay, patchedResource)
-			if !ruleResponse.Success {
-				logger.Info("failed to insert annotation for podTemplate", "error", ruleResponse.Message)
-			} else {
-				if ruleResponse.Success && ruleResponse.Patches != nil {
-					logger.V(3).Info("inserted annotation for podTemplate")
-					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-				}
-			}
-		}
-	}
-
 	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
@@ -170,23 +155,5 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime, "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
-}
-
-// podTemplateRule mutate pod template with annotation
-// pod-policies.kyverno.io/autogen-applied=true
-var podTemplateRule = kyverno.Rule{
-	Mutation: kyverno.Mutation{
-		Overlay: map[string]interface{}{
-			"spec": map[string]interface{}{
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"annotations": map[string]interface{}{
-							"+(" + PodTemplateAnnotation + ")": "true",
-						},
-					},
-				},
-			},
-		},
-	},
+	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }

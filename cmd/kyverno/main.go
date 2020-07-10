@@ -209,7 +209,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
-		pvgen,
 		kubedynamicInformer,
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
@@ -229,6 +228,16 @@ func main() {
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		log.Log.WithName("PolicyCacheController"),
+	)
+
+	auditHandler := webhooks.NewValidateAuditHandler(
+		pCacheController.Cache,
+		eventGenerator,
+		statusSync.Listener,
+		pvgen,
+		kubeInformer.Rbac().V1().RoleBindings(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings(),
+		log.Log.WithName("ValidateAuditHandler"),
 	)
 
 	// CONFIGURE CERTIFICATES
@@ -282,6 +291,7 @@ func main() {
 		pvgen,
 		grgen,
 		rWebhookWatcher,
+		auditHandler,
 		supportMudateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
@@ -307,6 +317,7 @@ func main() {
 	go pvgen.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
+	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

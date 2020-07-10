@@ -304,7 +304,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime))
+		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
 	policy, err := pc.pLister.Get(key)

@@ -13,7 +13,6 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,8 +51,6 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
-	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
 	// dyanmic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
@@ -70,7 +67,6 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	policyStatus policystatus.Listener,
 	log logr.Logger,
@@ -79,7 +75,6 @@ func NewController(
 		client:        client,
 		kyvernoClient: kyvernoclient,
 		eventGen:      eventGen,
-		pvGenerator:   pvGenerator,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
 		// as we dont want a deleted GR to be re-queue
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
@@ -268,7 +263,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	startTime := time.Now()
 	logger.Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime))
+		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {

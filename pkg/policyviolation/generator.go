@@ -159,7 +159,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (gen *Generator) runWorker() {
-	for gen.processNextWorkitem() {
+	for gen.processNextWorkItem() {
 	}
 }
 
@@ -186,7 +186,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
-func (gen *Generator) processNextWorkitem() bool {
+func (gen *Generator) processNextWorkItem() bool {
 	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
@@ -197,11 +197,13 @@ func (gen *Generator) processNextWorkitem() bool {
 		defer gen.queue.Done(obj)
 		var keyHash string
 		var ok bool
+
 		if keyHash, ok = obj.(string); !ok {
 			gen.queue.Forget(obj)
 			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
 			return nil
 		}
+
 		// lookup data store
 		info := gen.dataStore.lookup(keyHash)
 		if reflect.DeepEqual(info, Info{}) {
@@ -210,14 +212,17 @@ func (gen *Generator) processNextWorkitem() bool {
 			logger.Info("empty key")
 			return nil
 		}
+
 		err := gen.syncHandler(info)
 		gen.handleErr(err, obj)
 		return nil
 	}(obj)
+
 	if err != nil {
 		logger.Error(err, "failed to process item")
 		return true
 	}
+
 	return true
 }
 

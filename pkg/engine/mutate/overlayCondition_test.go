@@ -150,7 +150,7 @@ func TestMeetConditions_DifferentTypes(t *testing.T) {
 	// anchor exist
 
 	_, err = meetConditions(log.Log, resource, overlay)
-	assert.Assert(t, strings.Contains(err.Error(), "Found anchor on different types of element at path /subsets/"))
+	assert.Assert(t, strings.Contains(err.Error(), "element type mismatch at path /subsets/"))
 }
 
 func TestMeetConditions_anchosInSameObject(t *testing.T) {

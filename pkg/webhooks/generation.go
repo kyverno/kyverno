@@ -1,8 +1,10 @@
 package webhooks
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -11,25 +13,27 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
+	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) (bool, string) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
 
 	if len(policies) == 0 {
-		return true, ""
+		return
 	}
 	// convert RAW to unstructured
 	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
 		//TODO: skip applying the admission control ?
 		logger.Error(err, "failed to convert RAR resource to unstructured format")
-		return true, ""
+		return
 	}
 
 	// CREATE resources, do not have name, assigned in admission-request
@@ -52,10 +56,14 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			})
 		}
 	}
+
 	// Adds Generate Request to a channel(queue size 1000) to generators
-	if err := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
-		//TODO: send appropriate error
-		return false, "Kyverno blocked: failed to create Generate Requests"
+	if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
+		// report failure event
+		for _, failedGR := range failedResponse {
+			events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, *resource)
+			ws.eventGen.Add(events...)
+		}
 	}
 
 	// Generate Stats wont be used here, as we delegate the generate rule
@@ -66,16 +74,19 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// HandleGeneration  always returns success
 
 	// Filter Policies
-	return true, ""
+	return
 }
 
-func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo, action v1beta1.Operation, engineResponses ...response.EngineResponse) error {
+func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
+	action v1beta1.Operation, engineResponses ...response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
+
 	for _, er := range engineResponses {
-		if err := gnGenerator.Apply(transform(userRequestInfo, er), action); err != nil {
-			return err
+		gr := transform(userRequestInfo, er)
+		if err := gnGenerator.Apply(gr, action); err != nil {
+			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
 	}
-	return nil
+	return
 }
 
 func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) kyverno.GenerateRequestSpec {
@@ -161,4 +172,42 @@ func updateAverageTime(newTime time.Duration, oldAverageTimeString string, avera
 	denominator := averageOver + 1
 	newAverageTimeInNanoSeconds := numerator / denominator
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
+}
+
+type generateRequestResponse struct {
+	gr  v1.GenerateRequestSpec
+	err error
+}
+
+func (resp generateRequestResponse) info() string {
+	return strings.Join([]string{resp.gr.Resource.Kind, resp.gr.Resource.Namespace, resp.gr.Resource.Name}, "/")
+}
+
+func (resp generateRequestResponse) error() string {
+	return resp.err.Error()
+}
+
+func failedEvents(err error, gr kyverno.GenerateRequestSpec, resource unstructured.Unstructured) []event.Info {
+	var events []event.Info
+	// Cluster Policy
+	pe := event.Info{}
+	pe.Kind = "ClusterPolicy"
+	// cluserwide-resource
+	pe.Name = gr.Policy
+	pe.Reason = event.PolicyFailed.String()
+	pe.Source = event.GeneratePolicyController
+	pe.Message = fmt.Sprintf("policy failed to apply on resource %s/%s/%s: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
+	events = append(events, pe)
+
+	// Resource
+	re := event.Info{}
+	re.Kind = resource.GetKind()
+	re.Namespace = resource.GetNamespace()
+	re.Name = resource.GetName()
+	re.Reason = event.PolicyFailed.String()
+	re.Source = event.GeneratePolicyController
+	re.Message = fmt.Sprintf("policy %s failed to apply: %v", gr.Policy, err)
+	events = append(events, re)
+
+	return events
 }

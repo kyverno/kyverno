@@ -28,7 +28,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			name = ns + "/" + name
 		}
 
-		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime))
+		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime).String())
 	}()
 
 	var engineResponses []response.EngineResponse
@@ -80,10 +80,6 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 	// resource does not match so there was a mutation rule violated
 	for index, rule := range engineResponse.PolicyResponse.Rules {
 		log.V(4).Info("verifying if policy rule was applied before", "rule", rule.Name)
-
-		if rule.Name == engine.PodControllerRuleName {
-			continue
-		}
 
 		patches := rule.Patches
 
