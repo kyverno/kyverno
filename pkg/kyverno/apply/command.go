@@ -33,6 +33,9 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/nirmata/kyverno/pkg/webhooks"
 )
 
 func Command() *cobra.Command {
@@ -69,7 +72,7 @@ func Command() *cobra.Command {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
-					os.Exit(3)
+					os.Exit(1)
 				}
 
 				if common.PolicyHasVariables(*policy) {
@@ -92,6 +95,43 @@ func Command() *cobra.Command {
 			resources, err := getResources(policies, resourcePaths, dClient)
 			if err != nil {
 				return sanitizedError.NewWithError("failed to load resources", err)
+			}
+
+			for _, policy := range policies {
+				res2B, _ := json.MarshalIndent(policy, "", "   ")
+				fmt.Println("res2B: ", string(res2B))
+
+				patches, _ := webhooks.GenerateJSONPatchesForDefaults(policy, nil)
+
+				type jsonPatch struct {
+					Path  string      `json:"path"`
+					Op    string      `json:"op"`
+					Value interface{} `json:"value"`
+				}
+
+				var jsonPatches []jsonPatch
+				json.Unmarshal(patches, &jsonPatches)
+				patch, err := jsonpatch.DecodePatch(patches)
+				if err != nil {
+					panic(err)
+				}
+
+				policyBytes, _ := json.Marshal(policy)
+
+				modifiedPolicy, err := patch.Apply(policyBytes)
+				if err != nil {
+					panic(err)
+				}
+
+				var p v1.ClusterPolicy
+				json.Unmarshal(modifiedPolicy, &p)
+
+				// policy = &p
+
+				fmt.Println("======================================")
+				res2B, _ = json.MarshalIndent(policy, "", "   ")
+				fmt.Println(string(res2B))
+
 			}
 
 			for i, policy := range policies {

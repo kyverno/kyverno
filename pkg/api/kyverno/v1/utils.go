@@ -1,6 +1,8 @@
 package v1
 
-import "reflect"
+import (
+	"reflect"
+)
 
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
