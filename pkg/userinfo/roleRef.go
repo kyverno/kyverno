@@ -2,8 +2,6 @@ package userinfo
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -12,6 +10,7 @@ import (
 	labels "k8s.io/apimachinery/pkg/labels"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 const (
@@ -139,6 +138,7 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		if err != nil {
 			return false, err
 		}
+
 		for _,e := range clusterRoles {
 				role,err := crLister.Get(e);
 				if err != nil {
@@ -162,11 +162,18 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		}
 	} else {
 		// User or Group
+		excludeDevelopmentRole := []string{"minikube-user","kubernetes-admin"}
+		for _,e := range excludeDevelopmentRole {
+			if strings.Contains(request.UserInfo.Username,e){
+				return false,nil
+			}
+		}
 		var matchedRoles []bool
 		for _,e := range request.UserInfo.Groups {
 			for _,defaultSuffix := range defaultSuffixs {
 				if strings.Contains(e,defaultSuffix) {
 					matchedRoles = append(matchedRoles, true)
+					break;
 				}
 			}
 		}
