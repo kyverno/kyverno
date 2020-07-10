@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -28,8 +29,8 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == Enforce {
-			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy)
+		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
+			log.Info("spec.ValidationFailureAction set to enforcel blocking resource request", "policy", er.PolicyResponse.Policy)
 			return true
 		}
 	}
@@ -42,7 +43,7 @@ func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == Enforce {
+		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
@@ -96,11 +97,11 @@ func (i *ArrayFlags) Set(value string) error {
 	return nil
 }
 
-// Policy Reporting Modes
-const (
-	Enforce = "enforce" // blocks the request on failure
-	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
-)
+// // Policy Reporting Modes
+// const (
+// 	Enforce = "enforce" // blocks the request on failure
+// 	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
+// )
 
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
 	if patch == nil {
