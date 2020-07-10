@@ -141,16 +141,15 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		for _, e := range clusterRoles {
 			if strings.Contains(e, "kyverno:") {
 				return true, nil
-			} else {
-				role, err := crLister.Get(e)
-				if err != nil {
-					return false, err
-				}
-				labels := role.GetLabels()
+			}
+			role, err := crLister.Get(e)
+			if err != nil {
+				return false, err
+			}
+			labels := role.GetLabels()
 
-				if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
-					return true, nil
-				}
+			if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
+				return true, nil
 			}
 		}
 		for _, e := range roles {
@@ -166,26 +165,25 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 				}
 			}
 		}
-	} else {
-		// User or Group
-		excludeDevelopmentRole := []string{"minikube-user", "kubernetes-admin"}
-		for _, e := range excludeDevelopmentRole {
-			if strings.Contains(request.UserInfo.Username, e) {
-				return false, nil
+	}
+	// User or Group
+	excludeDevelopmentRole := []string{"minikube-user", "kubernetes-admin"}
+	for _, e := range excludeDevelopmentRole {
+		if strings.Contains(request.UserInfo.Username, e) {
+			return false, nil
+		}
+	}
+	var matchedRoles []bool
+	for _, e := range request.UserInfo.Groups {
+		for _, defaultSuffix := range defaultSuffixs {
+			if strings.Contains(e, defaultSuffix) {
+				matchedRoles = append(matchedRoles, true)
+				break
 			}
 		}
-		var matchedRoles []bool
-		for _, e := range request.UserInfo.Groups {
-			for _, defaultSuffix := range defaultSuffixs {
-				if strings.Contains(e, defaultSuffix) {
-					matchedRoles = append(matchedRoles, true)
-					break
-				}
-			}
-		}
-		if len(matchedRoles) == len(request.UserInfo.Groups) {
-			return true, nil
-		}
+	}
+	if len(matchedRoles) == len(request.UserInfo.Groups) {
+		return true, nil
 	}
 
 	return false, nil
