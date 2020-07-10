@@ -47,14 +47,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name,false); err != nil {
+			if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, false); err != nil {
 				logger.V(4).Info("Generated resource is deleted")
 				return nil, err
 			}
-			return  nil,nil
+			return nil, nil
 		}
 		logger.Error(err, "error in getting policy")
-		return nil, nil
 	}
 
 	resourceRaw, err := resource.MarshalJSON()
@@ -267,16 +266,17 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
 	manageLabels(newResource, resource)
 	logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
-		if mode == Create {
-		// Add Synchronize label
-		label := newResource.GetLabels()
-		if rule.Generation.Synchronize {
-			label["app.kubernetes.io/synchronize"] = "enable"
-		}else{
-			label["app.kubernetes.io/synchronize"] = "disable"
-		}
-		newResource.SetLabels(label)
 
+	// Add Synchronize label
+	label := newResource.GetLabels()
+	if rule.Generation.Synchronize {
+		label["app.kubernetes.io/synchronize"] = "enable"
+	} else {
+		label["app.kubernetes.io/synchronize"] = "disable"
+	}
+	newResource.SetLabels(label)
+
+	if mode == Create {
 		// Reset resource version
 		newResource.SetResourceVersion("")
 		// Create the resource
@@ -289,13 +289,15 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("created new resource")
 
 	} else if mode == Update {
-		label := newResource.GetLabels();
+		label := newResource.GetLabels()
+
 		if label != nil {
 			if label["app.kubernetes.io/synchronize"] == "enable" {
 				logger.V(4).Info("updating existing resource")
 				// Update the resource
 				_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
 				if err != nil {
+					logger.Error(err, "updating existing resource")
 					// Failed to update resource
 					return noGenResource, err
 				}
@@ -304,6 +306,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			} else {
 				logger.V(4).Info("Synchronize resource is disabled")
 			}
+		} else {
+			logger.V(4).Info("Synchronize resource is disabled")
 		}
 
 	}
