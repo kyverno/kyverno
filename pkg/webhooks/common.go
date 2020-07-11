@@ -97,12 +97,6 @@ func (i *ArrayFlags) Set(value string) error {
 	return nil
 }
 
-// // Policy Reporting Modes
-// const (
-// 	Enforce = "enforce" // blocks the request on failure
-// 	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
-// )
-
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
 	if patch == nil {
 		return resource

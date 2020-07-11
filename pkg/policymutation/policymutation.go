@@ -51,9 +51,7 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]by
 	// set 'Background' flag to 'true' if not specified
 	defaultVal := true
 	if policy.Spec.Background == nil {
-		if log != nil {
-			log.V(4).Info("setting default value", "spec.background", true)
-		}
+		log.V(4).Info("setting default value", "spec.background", true)
 		jsonPatch := struct {
 			Path  string `json:"path"`
 			Op    string `json:"op"`
@@ -66,17 +64,11 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]by
 
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			if log != nil {
-				log.Error(err, "failed to set default value", "spec.background", true)
-			} else {
-				fmt.Println(err, "failed to set default value", "spec.background")
-			}
+			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
 		}
 
-		if log != nil {
-			log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
-		}
+		log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
 		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
 	}
 
@@ -143,9 +135,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 		return nil, nil
 	}
 
-	if log != nil {
-		log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
-	}
+	log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
 
 	p, err := generateRulePatches(policy, controllers, log)
 	patches = append(patches, p...)
@@ -294,9 +284,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			if log != nil {
-				log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
-			}
+			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
 			return kyvernoRule{}
 		}
 		if controllers == "all" {
