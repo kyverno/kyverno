@@ -47,11 +47,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			resource, err := c.client.GetResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
-			if err != nil {
-				logger.V(4).Info("Generated resource is deleted")
-				return nil, err
-			}
 			labels := resource.GetLabels()
 			if labels["app.kubernetes.io/synchronize"] == "enable" {
 				if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, false); err != nil {
