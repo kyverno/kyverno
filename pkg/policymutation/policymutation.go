@@ -37,11 +37,7 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		var errMsgs []string
 		for _, err := range errs {
 			errMsgs = append(errMsgs, err.Error())
-			if log != nil {
-				log.Error(err, "failed to generate pod controller rule")
-			} else {
-				fmt.Println(err, " failed to generate pod controller rule")
-			}
+			log.Error(err, "failed to generate pod controller rule")
 		}
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
@@ -91,9 +87,7 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 	// set ValidationFailureAction to "audit" if not specified
 	Audit := common.Audit
 	if policy.Spec.ValidationFailureAction == "" {
-		if log != nil {
-			log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
-		}
+		log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
 
 		jsonPatch := struct {
 			Path  string `json:"path"`
@@ -107,16 +101,11 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 
 		patchByte, err := json.Marshal(jsonPatch)
 		if err != nil {
-			if log != nil {
-				log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
-			}
-			fmt.Println(err, "failed to default value", "spec.validationFailureAction", Audit)
+			log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
 			return nil, ""
 		}
 
-		if log != nil {
-			log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
-		}
+		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
 
 		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
 	}

@@ -99,8 +99,12 @@ func Command() *cobra.Command {
 
 			newPolicies := make([]*v1.ClusterPolicy, 0)
 
+			logger := log.Log.WithName("apply")
+
 			for _, policy := range policies {
-				patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, nil)
+				patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+
+				fmt.Println(updateMsgs)
 
 				type jsonPatch struct {
 					Path  string      `json:"path"`
