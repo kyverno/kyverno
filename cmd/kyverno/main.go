@@ -281,6 +281,8 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
+		kubeInformer.Rbac().V1().Roles(),
+		kubeInformer.Rbac().V1().ClusterRoles(),
 		eventGenerator,
 		pCacheController.Cache,
 		webhookRegistrationClient,

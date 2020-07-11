@@ -20,6 +20,8 @@ const (
 	SaPrefix        = "system:serviceaccount:"
 )
 
+var defaultSuffixs = []string{"system:", "kyverno:"}
+
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
@@ -126,4 +128,64 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 	}
 
 	return false
+}
+
+//IsRoleAuthorize is role authorize or not
+func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest) (bool, error) {
+	if strings.Contains(request.UserInfo.Username, SaPrefix) {
+		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request)
+		if err != nil {
+			return false, err
+		}
+
+		for _, e := range clusterRoles {
+			if strings.Contains(e, "kyverno:") {
+				return true, nil
+			}
+			role, err := crLister.Get(e)
+			if err != nil {
+				return false, err
+			}
+			labels := role.GetLabels()
+
+			if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
+				return true, nil
+			}
+		}
+		for _, e := range roles {
+			roleData := strings.Split(e, ":")
+			role, err := rLister.Roles(roleData[0]).Get(roleData[1])
+			if err != nil {
+				return false, err
+			}
+			labels := role.GetLabels()
+			if !strings.Contains(e, "kyverno:") {
+				if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+	// User or Group
+	excludeDevelopmentRole := []string{"minikube-user", "kubernetes-admin"}
+	for _, e := range excludeDevelopmentRole {
+		if strings.Contains(request.UserInfo.Username, e) {
+			return false, nil
+		}
+	}
+	var matchedRoles []bool
+	for _, e := range request.UserInfo.Groups {
+		for _, defaultSuffix := range defaultSuffixs {
+			if strings.Contains(e, defaultSuffix) {
+				matchedRoles = append(matchedRoles, true)
+				break
+			}
+		}
+	}
+	if len(matchedRoles) == len(request.UserInfo.Groups) {
+		return true, nil
+	}
+
+	return false, nil
 }

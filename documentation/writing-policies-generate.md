@@ -6,7 +6,7 @@ The ```generate``` rule can used to create additional resources when a new resou
 
 The `generate` rule supports `match` and `exclude` blocks, like other rules. Hence, the trigger for applying this rule can be the creation of any resource and its possible to match or exclude API requests based on subjects, roles, etc. 
 
-The generate rule triggers during a API CREATE operation and does not support [background processing](/documentation/writing-policies-background.md). To keep resources synchronized across changes you can use `synchronize : true`.
+The generate rule is triggered during a API CREATE operation. To keep resources synchronized across changes you can use the `synchronize` property. When `synchronize`  is set to `true`  the generated resource is kept in-sync with the source resource (which can be defined as part of the policy or may be an existing resource), and generated resources cannot be modified by users. If  `synchronize` is set to  `false` then users can update or delete the generated resource directly.
 
 This policy sets the Zookeeper and Kafka connection strings for all namespaces.
 

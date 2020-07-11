@@ -14,12 +14,15 @@ import (
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/checker"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	context2 "github.com/nirmata/kyverno/pkg/engine/context"
+	enginutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policycache"
@@ -52,14 +55,26 @@ type WebhookServer struct {
 	// list/get role binding resource
 	rbLister rbaclister.RoleBindingLister
 
+	// list/get role binding resource
+	rLister rbaclister.RoleLister
+
+	// list/get role binding resource
+	crLister rbaclister.ClusterRoleLister
+
 	// return true if role bining store has synced atleast once
 	rbSynced cache.InformerSynced
+
+	// return true if role store has synced atleast once
+	rSynced cache.InformerSynced
 
 	// list/get cluster role binding resource
 	crbLister rbaclister.ClusterRoleBindingLister
 
 	// return true if cluster role binding store has synced atleast once
 	crbSynced cache.InformerSynced
+
+	// return true if cluster role  store has synced atleast once
+	crSynced cache.InformerSynced
 
 	// generate events
 	eventGen event.Interface
@@ -107,6 +122,8 @@ func NewWebhookServer(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
+	rInformer rbacinformer.RoleInformer,
+	crInformer rbacinformer.ClusterRoleInformer,
 	eventGen event.Interface,
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
@@ -134,14 +151,19 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:                    client,
-		kyvernoClient:             kyvernoClient,
-		pLister:                   pInformer.Lister(),
-		pSynced:                   pInformer.Informer().HasSynced,
-		rbLister:                  rbInformer.Lister(),
-		rbSynced:                  rbInformer.Informer().HasSynced,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		pLister:       pInformer.Lister(),
+		pSynced:       pInformer.Informer().HasSynced,
+		rbLister:      rbInformer.Lister(),
+		rbSynced:      rbInformer.Informer().HasSynced,
+		rLister:       rInformer.Lister(),
+		rSynced:       rInformer.Informer().HasSynced,
+
 		crbLister:                 crbInformer.Lister(),
+		crLister:                  crInformer.Lister(),
 		crbSynced:                 crbInformer.Informer().HasSynced,
+		crSynced:                  crInformer.Informer().HasSynced,
 		eventGen:                  eventGen,
 		pCache:                    pCache,
 		webhookRegistrationClient: webhookRegistrationClient,
@@ -239,6 +261,8 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
+	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -247,8 +271,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
-
-	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	mutatePolicies := ws.pCache.Get(policycache.Mutate)
 	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce)
@@ -269,7 +291,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to convert RAW resource to unstructured format")
-
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -341,6 +362,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Only applied during resource creation and update
 	// Success -> Generate Request CR created successfully
 	// Failed -> Failed to create Generate Request CR
+
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
 		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
 	}
@@ -360,6 +382,18 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
+	if request.Operation == v1beta1.Delete || request.Operation == v1beta1.Update {
+		if err := ws.excludeKyvernoResources(request); err != nil {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Status:  "Failure",
+					Message: err.Error(),
+				},
+			}
+		}
+	}
 
 	if !ws.supportMudateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
@@ -450,7 +484,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	logger := ws.log
-	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
 		logger.Info("failed to sync informer cache")
 	}
 
@@ -516,4 +550,37 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
+}
+
+// excludeKyvernoResources will check resource can have acces or not
+func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionRequest) error {
+	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
+	checked, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+	if err != nil {
+		logger.Error(err, "failed to get RBAC infromation for request")
+	}
+
+	if !checked {
+		// convert RAW to unstructured
+		var resource *unstructured.Unstructured
+		if request.Operation == v1beta1.Delete {
+			resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
+		} else {
+			resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
+		}
+		if err != nil {
+			logger.Error(err, "failed to convert RAR resource to unstructured format")
+			return err
+		}
+
+		labels := resource.GetLabels()
+		if labels != nil {
+			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["app.kubernetes.io/synchronize"] == "enable" {
+				return fmt.Errorf("Resource is managed by Kyverno, can't be changed manually. You can edit generate policy to update this resource")
+			}
+		}
+
+	}
+	return nil
 }

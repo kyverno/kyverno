@@ -41,13 +41,25 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
-	policy, err := c.pLister.Get(gr.Spec.Policy)
-	if err != nil {
-		logger.Error(err, "policy not found")
-		return nil, nil
-	}
 	// build context
 	ctx := context.NewContext()
+
+	policy, err := c.pLister.Get(gr.Spec.Policy)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			labels := resource.GetLabels()
+			if labels["app.kubernetes.io/synchronize"] == "enable" {
+				if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, false); err != nil {
+					logger.V(4).Info("Generated resource is deleted")
+					return nil, err
+				}
+			}
+			return nil, nil
+		}
+		logger.Error(err, "error in getting policy")
+		return nil, err
+	}
+
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
@@ -258,6 +270,16 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
 	manageLabels(newResource, resource)
 	logger := log.WithValues("genKind", genKind, "genNamespace", genNamespace, "genName", genName)
+
+	// Add Synchronize label
+	label := newResource.GetLabels()
+	if rule.Generation.Synchronize {
+		label["app.kubernetes.io/synchronize"] = "enable"
+	} else {
+		label["app.kubernetes.io/synchronize"] = "disable"
+	}
+	newResource.SetLabels(label)
+
 	if mode == Create {
 		// Reset resource version
 		newResource.SetResourceVersion("")
@@ -271,19 +293,27 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("created new resource")
 
 	} else if mode == Update {
-		if rule.Generation.Synchronize {
-			logger.V(4).Info("updating existing resource")
-			// Update the resource
-			_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
-			if err != nil {
-				// Failed to update resource
-				return noGenResource, err
-			}
-			logger.V(4).Info("updated new resource")
+		label := newResource.GetLabels()
 
+		if label != nil {
+			if label["app.kubernetes.io/synchronize"] == "enable" {
+				logger.V(4).Info("updating existing resource")
+				// Update the resource
+				_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
+				if err != nil {
+					logger.Error(err, "updating existing resource")
+					// Failed to update resource
+					return noGenResource, err
+				}
+				logger.V(4).Info("updated new resource")
+
+			} else {
+				logger.V(4).Info("Synchronize resource is disabled")
+			}
 		} else {
 			logger.V(4).Info("Synchronize resource is disabled")
 		}
+
 	}
 
 	return newGenResource, nil
