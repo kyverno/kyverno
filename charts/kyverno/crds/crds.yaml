@@ -230,7 +230,10 @@ spec:
                                   - NotIn
                                   type: string
                                 value:
-                                  type: string
+                                  anyOf:
+                                  - type: string
+                                  - items: {}
+                                    type: array
                               required:
                               - key
                               - operator
