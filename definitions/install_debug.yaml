@@ -237,8 +237,8 @@ spec:
                                 value:
                                   anyOf:
                                   - type: string
-                                  - type: array
-                                    items: {}
+                                  - items: {}
+                                    type: array
                               required:
                               - key
                               - operator
@@ -560,6 +560,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - roles
+  - clusterroles
   - rolebindings
   - clusterrolebindings
   - configmaps
