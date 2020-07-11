@@ -14,7 +14,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/checker"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -575,14 +574,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 			return err
 		}
 
-		oldResource, err := ws.client.GetResource(resource.GetKind(), resource.GetNamespace(), resource.GetName())
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to get resource")
-				return err
-			}
-		}
-		labels := oldResource.GetLabels()
+		labels := resource.GetLabels()
 		if labels != nil {
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["app.kubernetes.io/synchronize"] == "enable" {
 				return fmt.Errorf("Resource is managed by Kyverno, can't be changed manually. You can edit generate policy to update this resource")
