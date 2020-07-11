@@ -13,6 +13,9 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 	// Policy Response
 	PolicyResponse PolicyResponse
+
+	//synchronize
+	Synchronize bool `json:"synchronize"`
 }
 
 //PolicyResponse policy application response
