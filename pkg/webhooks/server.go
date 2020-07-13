@@ -562,12 +562,12 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 	if request.Operation == v1beta1.Delete {
 		resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
 		isManagedResourceCheck = true
-	} else if request.Operation ==  v1beta1.Delete  {
+	} else if request.Operation ==  v1beta1.Update  {
 		resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
 		isManagedResourceCheck = true
 	}
 	if err != nil {
-		logger.Error(err, "failed to convert RAR resource to unstructured format")
+		logger.Error(err, "failed to convert object resource to unstructured format")
 		return err
 	}
 
