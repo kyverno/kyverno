@@ -769,6 +769,12 @@ spec:
         env:
         - name: INIT_CONFIG
           value: init-config
+        - name: KYVERNO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KYVERNO_SVC
+          value: kyverno-svc
         image: nirmata/kyverno:v1.1.7-rc2
         imagePullPolicy: Always
         livenessProbe:
