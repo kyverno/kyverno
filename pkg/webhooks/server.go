@@ -556,31 +556,36 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionRequest) error {
 	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
-	checked, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+	var resource *unstructured.Unstructured
+	var err error
+	var isManagedResourceCheck bool
+	if request.Operation == v1beta1.Delete {
+		resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
+		isManagedResourceCheck = true
+	} else if request.Operation ==  v1beta1.Update  {
+		resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
+		isManagedResourceCheck = true
+	}
 	if err != nil {
-		logger.Error(err, "failed to get RBAC infromation for request")
+		logger.Error(err, "failed to convert object resource to unstructured format")
+		return err
 	}
 
-	if !checked {
-		// convert RAW to unstructured
-		var resource *unstructured.Unstructured
-		if request.Operation == v1beta1.Delete {
-			resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
-		} else {
-			resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
-		}
-		if err != nil {
-			logger.Error(err, "failed to convert RAR resource to unstructured format")
-			return err
-		}
-
+	if isManagedResourceCheck {
 		labels := resource.GetLabels()
 		if labels != nil {
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["app.kubernetes.io/synchronize"] == "enable" {
-				return fmt.Errorf("Resource is managed by Kyverno, can't be changed manually. You can edit generate policy to update this resource")
+				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+				if err != nil {
+					return fmt.Errorf("failed to get RBAC infromation for request %v",err)
+				}
+				if !isAuthorized {
+					// convert RAW to unstructured
+					return fmt.Errorf("Resource is managed by Kyverno, can't be changed manually. You can edit generate policy to update this resource")
+				}
 			}
 		}
-
 	}
+
 	return nil
 }

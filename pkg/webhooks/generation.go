@@ -90,6 +90,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 }
 
 func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) kyverno.GenerateRequestSpec {
+
 	gr := kyverno.GenerateRequestSpec{
 		Policy: er.PolicyResponse.Policy,
 		Resource: kyverno.ResourceSpec{

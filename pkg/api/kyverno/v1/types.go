@@ -19,9 +19,9 @@ type GenerateRequest struct {
 
 //GenerateRequestSpec stores the request specification
 type GenerateRequestSpec struct {
-	Policy   string                 `json:"policy"`
-	Resource ResourceSpec           `json:"resource"`
-	Context  GenerateRequestContext `json:"context"`
+	Policy      string                 `json:"policy"`
+	Resource    ResourceSpec           `json:"resource"`
+	Context     GenerateRequestContext `json:"context"`
 }
 
 //GenerateRequestContext stores the context to be shared

@@ -13,6 +13,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 	// Policy Response
 	PolicyResponse PolicyResponse
+
 }
 
 //PolicyResponse policy application response

@@ -19,10 +19,10 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.6
+          image: nirmata/kyvernopre:v1.1.7-rc2
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.6
+          image: nirmata/kyverno:v1.1.7-rc2
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
@@ -36,6 +36,12 @@ spec:
           env:
           - name: INIT_CONFIG
             value: init-config
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: kyverno-svc
           resources:
             requests:
               memory: "50Mi"
