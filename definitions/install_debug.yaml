@@ -562,6 +562,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - roles
+  - clusterroles
   - rolebindings
   - clusterrolebindings
   - configmaps

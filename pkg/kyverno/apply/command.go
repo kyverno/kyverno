@@ -9,6 +9,7 @@ import (
 	"time"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/policymutation"
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
@@ -33,6 +34,8 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+
+	jsonpatch "github.com/evanphx/json-patch"
 )
 
 func Command() *cobra.Command {
@@ -69,7 +72,7 @@ func Command() *cobra.Command {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
-					os.Exit(3)
+					os.Exit(1)
 				}
 
 				if common.PolicyHasVariables(*policy) {
@@ -94,7 +97,46 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError("failed to load resources", err)
 			}
 
-			for i, policy := range policies {
+			newPolicies := make([]*v1.ClusterPolicy, 0)
+
+			logger := log.Log.WithName("apply")
+
+			for _, policy := range policies {
+				patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+
+				fmt.Println(updateMsgs)
+
+				type jsonPatch struct {
+					Path  string      `json:"path"`
+					Op    string      `json:"op"`
+					Value interface{} `json:"value"`
+				}
+
+				var jsonPatches []jsonPatch
+				err = json.Unmarshal(patches, &jsonPatches)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to unmarshal patches", err)
+				}
+				patch, err := jsonpatch.DecodePatch(patches)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to decode patch", err)
+				}
+
+				policyBytes, _ := json.Marshal(policy)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to marshal policy", err)
+				}
+				modifiedPolicy, err := patch.Apply(policyBytes)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to apply policy", err)
+				}
+
+				var p v1.ClusterPolicy
+				json.Unmarshal(modifiedPolicy, &p)
+				newPolicies = append(newPolicies, &p)
+			}
+
+			for i, policy := range newPolicies {
 				for j, resource := range resources {
 					if !(j == 0 && i == 0) {
 						fmt.Printf("\n\n==========================================================================================\n")
