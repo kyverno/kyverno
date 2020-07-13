@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 
 	"github.com/nirmata/kyverno/pkg/event"
@@ -52,7 +53,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 				// do not create event on polices that were succesfuly
 				continue
 			}
-			if er.PolicyResponse.ValidationFailureAction != Enforce {
+			if er.PolicyResponse.ValidationFailureAction != common.Enforce {
 				// do not create event on "audit" policy
 				continue
 			}
