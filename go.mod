@@ -3,8 +3,10 @@ module github.com/nirmata/kyverno
 go 1.13
 
 require (
+	github.com/cameront/go-jsonpatch v0.0.0-20180223123257-a8710867776e
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/evanphx/json-patch/v5 v5.0.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
@@ -16,7 +18,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/ory/go-acc v0.2.1 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/common v0.4.1
 	github.com/rogpeppe/godef v1.1.2 // indirect
 	github.com/spf13/cobra v0.0.5
