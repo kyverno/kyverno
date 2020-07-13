@@ -461,8 +461,6 @@ spec:
           properties:
             policy:
               type: string
-            synchronize:
-              type: boolean
             resource:
               type: object
               required:

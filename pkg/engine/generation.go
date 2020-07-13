@@ -70,7 +70,6 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	for _, rule := range policy.Spec.Rules {
 		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			resp.Synchronize = rule.Generation.Synchronize
 		}
 	}
 	return resp

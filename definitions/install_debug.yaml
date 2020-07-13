@@ -398,8 +398,6 @@ spec:
               - kind
               - name
               type: object
-            synchronize:
-              type: boolean
           required:
           - policy
           - resource
