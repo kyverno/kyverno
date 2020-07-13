@@ -769,7 +769,7 @@ spec:
         env:
         - name: INIT_CONFIG
           value: init-config
-        image: nirmata/kyverno:v1.1.6
+        image: nirmata/kyverno:v1.1.7-rc2
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -801,6 +801,6 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.6
+      - image: nirmata/kyvernopre:v1.1.7-rc2
         name: kyverno-pre
       serviceAccountName: kyverno-service-account
