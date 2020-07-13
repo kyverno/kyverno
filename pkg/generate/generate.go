@@ -292,9 +292,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 
 	} else if mode == Update {
 		label := newResource.GetLabels()
-
 		if label != nil {
-			if label["app.kubernetes.io/synchronize"] == "enable" {
+			if rule.Generation.Synchronize {
 				logger.V(4).Info("updating existing resource")
 				// Update the resource
 				_, err := client.UpdateResource(genKind, genNamespace, newResource, false)
@@ -311,9 +310,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		} else {
 			logger.V(4).Info("Synchronize resource is disabled")
 		}
-
 	}
-
 	return newGenResource, nil
 }
 
