@@ -22,7 +22,6 @@ type GenerateRequestSpec struct {
 	Policy      string                 `json:"policy"`
 	Resource    ResourceSpec           `json:"resource"`
 	Context     GenerateRequestContext `json:"context"`
-	Synchronize bool                   `json:"synchronize"`
 }
 
 //GenerateRequestContext stores the context to be shared

@@ -14,8 +14,6 @@ type EngineResponse struct {
 	// Policy Response
 	PolicyResponse PolicyResponse
 
-	//synchronize
-	Synchronize bool `json:"synchronize"`
 }
 
 //PolicyResponse policy application response

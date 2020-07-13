@@ -101,7 +101,6 @@ func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) 
 		Context: kyverno.GenerateRequestContext{
 			UserRequestInfo: userRequestInfo,
 		},
-		Synchronize: er.Synchronize,
 	}
 	return gr
 }
