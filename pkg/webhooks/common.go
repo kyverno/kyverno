@@ -30,7 +30,7 @@ func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
 func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
-			log.Info("spec.ValidationFailureAction set to enforcel blocking resource request", "policy", er.PolicyResponse.Policy)
+			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy)
 			return true
 		}
 	}
