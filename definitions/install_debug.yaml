@@ -237,8 +237,8 @@ spec:
                                 value:
                                   anyOf:
                                   - type: string
-                                  - type: array
-                                    items: {}
+                                  - items: {}
+                                    type: array
                               required:
                               - key
                               - operator
@@ -398,6 +398,8 @@ spec:
               - kind
               - name
               type: object
+            synchronize:
+              type: boolean
           required:
           - policy
           - resource

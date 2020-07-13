@@ -237,8 +237,8 @@ spec:
                                 value:
                                   anyOf:
                                   - type: string
-                                  - type: array
-                                    items: {}
+                                  - items: {}
+                                    type: array
                               required:
                               - key
                               - operator
@@ -386,8 +386,6 @@ spec:
           properties:
             policy:
               type: string
-            synchronize:
-              type: boolean
             resource:
               properties:
                 kind:
@@ -400,6 +398,8 @@ spec:
               - kind
               - name
               type: object
+            synchronize:
+              type: boolean
           required:
           - policy
           - resource
@@ -769,12 +769,6 @@ spec:
         env:
         - name: INIT_CONFIG
           value: init-config
-        - name: KYVERNO_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: KYVERNO_SVC
-          value: kyverno-svc
         image: nirmata/kyverno:v1.1.6
         imagePullPolicy: Always
         livenessProbe:
@@ -807,6 +801,6 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.7-rc1
+      - image: nirmata/kyvernopre:v1.1.6
         name: kyverno-pre
       serviceAccountName: kyverno-service-account

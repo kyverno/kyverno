@@ -230,7 +230,10 @@ spec:
                                   - NotIn
                                   type: string
                                 value:
-                                  type: string
+                                  anyOf:
+                                  - type: string
+                                  - items: {}
+                                    type: array
                               required:
                               - key
                               - operator
@@ -390,6 +393,8 @@ spec:
               - kind
               - name
               type: object
+            synchronize:
+              type: boolean
           required:
           - policy
           - resource
