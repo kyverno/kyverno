@@ -22,7 +22,7 @@ You can also use [Krew](https://github.com/kubernetes-sigs/krew)
 kubectl krew install kyverno 
 
 #example 
-kuberctl kyverno version  
+kubectl kyverno version  
 
 ```
 
