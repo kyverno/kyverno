@@ -75,6 +75,26 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	}
 }
 
+func Test_Add_Remove(t *testing.T) {
+	pCache := newPolicyCache(log.Log)
+	policy := newPolicy(t)
+
+	pCache.Add(policy)
+	if len(pCache.Get(ValidateEnforce)) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(pCache.Get(ValidateEnforce)))
+	}
+
+	pCache.Remove(policy)
+	if len(pCache.Get(ValidateEnforce)) != 0 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(pCache.Get(ValidateEnforce)))
+	}
+
+	pCache.Add(policy)
+	if len(pCache.Get(ValidateEnforce)) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(pCache.Get(ValidateEnforce)))
+	}
+}
+
 func Test_Remove_From_Empty_Cache(t *testing.T) {
 	pCache := newPolicyCache(log.Log)
 	policy := newPolicy(t)
@@ -84,6 +104,9 @@ func Test_Remove_From_Empty_Cache(t *testing.T) {
 
 func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "test-policy"
+		},
 		"spec": {
 		  "validationFailureAction": "enforce",
 		  "rules": [
