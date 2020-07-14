@@ -8,6 +8,8 @@ builds:
   binary: kyverno
   env:
   - CGO_ENABLED=0
+  ldflags:
+  - -s -w -X $(PACKAGE)/pkg/version.BuildVersion={{.Version}} -X $(PACKAGE)/pkg/version.BuildHash={{ .FullCommit }} -X $(PACKAGE)/pkg/version.BuildTime={{ .Date }}
   goos:
     - linux
     - darwin
