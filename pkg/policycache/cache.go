@@ -136,17 +136,24 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()
 
+	pName := policy.GetName()
 	dataMap := m.dataMap
 	for k, policies := range dataMap {
 
 		var newPolicies []*kyverno.ClusterPolicy
 		for _, p := range policies {
-			if p.GetName() == policy.GetName() {
+			if p.GetName() == pName {
 				continue
 			}
 			newPolicies = append(newPolicies, p)
 		}
 
 		m.dataMap[k] = newPolicies
+	}
+
+	for _, nameCache := range m.nameCacheMap {
+		if _, ok := nameCache[pName]; ok {
+			delete(nameCache, pName)
+		}
 	}
 }
