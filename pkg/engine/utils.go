@@ -94,26 +94,43 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	}
 
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
+	var userInfoErrors []error
+	var checkedItem int
+	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, ExcludeUserInfo...) {
+		checkedItem++
 
-	if len(userInfo.Roles) > 0 &&
-		!utils.SliceContains(keys, ExcludeUserInfo...) {
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
-			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
-		}
-	}
-	if len(userInfo.ClusterRoles) > 0 &&
-		!utils.SliceContains(keys, ExcludeUserInfo...) {
-		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
-			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
-		}
-	}
-	if len(userInfo.Subjects) > 0 {
-		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
-			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
+		} else {
+			return errs
 		}
 	}
 
-	return errs
+	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, ExcludeUserInfo...) {
+		checkedItem++
+
+		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
+		} else {
+			return errs
+		}
+	}
+
+	if len(userInfo.Subjects) > 0 {
+		checkedItem++
+
+		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
+			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		} else {
+			return errs
+		}
+	}
+
+	if checkedItem != len(userInfoErrors) {
+		return errs
+	}
+
+	return append(errs, userInfoErrors...)
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
