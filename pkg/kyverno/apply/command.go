@@ -103,7 +103,7 @@ func Command() *cobra.Command {
 
 			for _, policy := range policies {
 				patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-
+				fmt.Println("___________________________________________________________________________")
 				fmt.Println(updateMsgs)
 
 				type jsonPatch struct {
@@ -133,6 +133,10 @@ func Command() *cobra.Command {
 
 				var p v1.ClusterPolicy
 				json.Unmarshal(modifiedPolicy, &p)
+				fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
+				indentedPolicy, _ := json.MarshalIndent(p, "", "  ")
+				fmt.Println(string(indentedPolicy))
+				fmt.Println("___________________________________________________________________________")
 				newPolicies = append(newPolicies, &p)
 			}
 
@@ -285,7 +289,6 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 }
 
 func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) error {
-	responseError := false
 	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s\n", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName())
 
 	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
@@ -296,7 +299,6 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
-		responseError = true
 	} else {
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nMutation:")
@@ -319,7 +321,6 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			fmt.Printf("\n%d. %s", i+1, r.Message)
 		}
 		fmt.Printf("\n\n")
-		responseError = true
 	} else {
 		if len(validateResponse.PolicyResponse.Rules) > 0 {
 			fmt.Printf("\n\nValidation:")
@@ -348,12 +349,8 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n%d. %s", i+1, r.Message)
 			}
 			fmt.Printf("\n\n")
-			responseError = true
 		}
 	}
 
-	if responseError == true {
-		os.Exit(1)
-	}
 	return nil
 }
