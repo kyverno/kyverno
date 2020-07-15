@@ -65,6 +65,21 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
+// doesResourceMatchConditionBlock filters the resource with defined conditions
+// for a match / exclude block, it has the following attributes:
+// ResourceDescription:
+// 		Kinds      []string
+// 		Name       string
+// 		Namespaces []string
+// 		Selector
+// UserInfo:
+// 		Roles        []string
+// 		ClusterRoles []string
+// 		Subjects     []rbacv1.Subject
+// To filter out the targeted resources with ResourceDescription, the check
+// should be: AND across attibutes but an OR inside attributes that of type list
+// To filter out the targeted resources with UserInfo, the check
+// should be: OR (accross & inside) attributes
 func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
