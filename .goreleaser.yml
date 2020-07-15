@@ -8,6 +8,8 @@ builds:
   binary: kyverno
   env:
   - CGO_ENABLED=0
+  ldflags:
+  - -s -w -X github.com/nirmata/kyverno/pkg/version.BuildVersion={{.Version}} -X github.com/nirmata/kyverno/pkg/version.BuildHash={{ .FullCommit }} -X github.com/nirmata/kyverno/pkg/version.BuildTime={{ .Date }}
   goos:
     - linux
     - darwin
