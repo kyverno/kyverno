@@ -438,6 +438,8 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 				},
 			}
 		}
+		logger = logger.WithValues("username", request.UserInfo.Username,
+			"groups", request.UserInfo.Groups, "roles", roles, "clusterRoles", clusterRoles)
 	}
 
 	userRequestInfo := v1.RequestInfo{
@@ -562,7 +564,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 	if request.Operation == v1beta1.Delete {
 		resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
 		isManagedResourceCheck = true
-	} else if request.Operation ==  v1beta1.Update  {
+	} else if request.Operation == v1beta1.Update {
 		resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
 		isManagedResourceCheck = true
 	}
@@ -577,11 +579,11 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["app.kubernetes.io/synchronize"] == "enable" {
 				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
 				if err != nil {
-					return fmt.Errorf("failed to get RBAC infromation for request %v",err)
+					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by Kyverno, can't be changed manually. You can edit generate policy to update this resource")
+					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the generate policy to update this resource.")
 				}
 			}
 		}

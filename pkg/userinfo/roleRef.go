@@ -165,7 +165,7 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 				}
 			}
 		}
-		return false, nil
+		return true, nil
 	}
 	// User or Group
 	excludeDevelopmentRole := []string{"minikube-user", "kubernetes-admin"}
