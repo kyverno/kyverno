@@ -134,8 +134,8 @@ func Command() *cobra.Command {
 				var p v1.ClusterPolicy
 				json.Unmarshal(modifiedPolicy, &p)
 				fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
-				indentedPolicy, _ := json.MarshalIndent(p, "", "  ")
-				fmt.Println(string(indentedPolicy))
+				yamlPolicy, _ := yamlv2.Marshal(p)
+				fmt.Println(string(yamlPolicy))
 				fmt.Println("___________________________________________________________________________")
 				newPolicies = append(newPolicies, &p)
 			}
