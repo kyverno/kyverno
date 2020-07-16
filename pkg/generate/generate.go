@@ -48,7 +48,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			labels := resource.GetLabels()
-			if labels["app.kubernetes.io/synchronize"] == "enable" {
+			if labels["policy.kyverno.io/synchronize"] == "enable" {
 				if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, false); err != nil {
 					logger.V(4).Info("Generated resource is deleted")
 					return nil, err
@@ -274,11 +274,11 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// Add Synchronize label
 	label := newResource.GetLabels()
 	if rule.Generation.Synchronize {
-		label["app.kubernetes.io/synchronize"] = "enable"
+		label["policy.kyverno.io/synchronize"] = "enable"
 	} else {
-		label["app.kubernetes.io/synchronize"] = "disable"
+		label["policy.kyverno.io/synchronize"] = "disable"
 	}
-	label["app.kubernetes.io/policy-name"] = policy
+	label["policy.kyverno.io/policy-name"] = policy
 	newResource.SetLabels(label)
 
 	if mode == Create {
