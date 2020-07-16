@@ -37,6 +37,8 @@ after_success:
  - |
    if [ $TRAVIS_PULL_REQUEST == 'false' ]
    then
+    git checkout -f
+
     docker login -u $DOCKER_USER -p $DOCKER_PASSWORD || travis_terminate 1
     
     echo "pushing Kyverno image"
