@@ -12,8 +12,6 @@ type MsgKey int
 const (
 	FResourcePolcy MsgKey = iota
 	FProcessRule
-	SPolicyApply
-	SRulesApply
 	FPolicyApplyBlockCreate
 	FPolicyApplyBlockUpdate
 	FPolicyBlockResourceUpdate
@@ -25,8 +23,6 @@ func (k MsgKey) String() string {
 	return [...]string{
 		"Policy violation on resource '%s'. The rule(s) '%s' not satisfied",
 		"Failed to process rule '%s' of policy '%s'.",
-		"Policy applied successfully on the resource '%s'",
-		"Rule(s) '%s' of Policy '%s' applied successfully",
 		"Resource %s creation blocked by rule(s) %s",
 		"Rule(s) '%s' of policy '%s' blocked update of the resource",
 		"Resource %s update blocked by rule(s) %s",
