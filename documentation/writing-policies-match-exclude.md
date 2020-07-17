@@ -88,6 +88,41 @@ spec:
       - "kube-system"
 ````
 
+In addition, all conditions checks inside `resources` block follow the logic "AND across types but an OR inside types that take a list". Other conditions inside `clusterRoles`, `roles` and `subjects` are evaluated using a logical OR operation.
+
+This is an example that select Deployment **OR** StatefulSet that has label `app=critical`.
+
+````yaml
+spec:
+  rules:
+    - name: match-critical-
+      match:
+        resources:    # AND across types but an OR inside types that take a list
+          kinds:
+          - Deployment,StatefulSet
+          selector:
+            matchLabels:
+              app: critical
+````
+
+The following example matches all resources with label `app=critical` excluding the resource created by clusterRole `cluster-admin` **OR** by the user `John`.
+
+````yaml
+spec:
+  rules:
+    - name: match-criticals-except-given-rbac
+      match:
+        resources:
+          selector:
+            matchLabels:
+              app: critical
+      exclude:
+        clusterRoles:
+        - cluster-admin
+        subjects:
+        - kind: User
+          name: John
+````
 
 ---
 <small>*Read Next >> [Validate Resources](/documentation/writing-policies-validate.md)*</small>
