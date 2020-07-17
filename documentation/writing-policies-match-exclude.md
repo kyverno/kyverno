@@ -95,7 +95,7 @@ This is an example that select Deployment **OR** StatefulSet that has label `app
 ````yaml
 spec:
   rules:
-    - name: match-critical-
+    - name: match-critical-app
       match:
         resources:    # AND across types but an OR inside types that take a list
           kinds:
