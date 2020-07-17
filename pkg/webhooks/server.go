@@ -576,14 +576,14 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 	if isManagedResourceCheck {
 		labels := resource.GetLabels()
 		if labels != nil {
-			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["app.kubernetes.io/synchronize"] == "enable" {
+			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
 				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
 				if err != nil {
 					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the generate policy to update this resource.")
+					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.",labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

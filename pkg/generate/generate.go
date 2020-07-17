@@ -50,13 +50,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			for _,e := range gr.Status.GeneratedResources {
 				resp, err := c.client.GetResource(e.Kind,e.Namespace,e.Name);
 				if err != nil {
-					logger.Error(err,"Generated resource failed to get","Resource",resp.GetName())
+					logger.Error(err,"Generated resource failed to get","Resource",e.Name)
 				}
 
 				labels := resp.GetLabels()
-				if labels["app.kubernetes.io/synchronize"] == "enable" {
+				if labels["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-						logger.Error(err,"Generated resource is not deleted","Resource",resp.GetName())
+						logger.Error(err,"Generated resource is not deleted","Resource",e.Name)
 					}
 				}
 			}
@@ -135,7 +135,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting,policy.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +192,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool,policy string) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -280,10 +280,11 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// Add Synchronize label
 	label := newResource.GetLabels()
 	if rule.Generation.Synchronize {
-		label["app.kubernetes.io/synchronize"] = "enable"
+		label["policy.kyverno.io/synchronize"] = "enable"
 	} else {
-		label["app.kubernetes.io/synchronize"] = "disable"
+		label["policy.kyverno.io/synchronize"] = "disable"
 	}
+	label["policy.kyverno.io/policy-name"] = policy
 	newResource.SetLabels(label)
 
 	if mode == Create {
