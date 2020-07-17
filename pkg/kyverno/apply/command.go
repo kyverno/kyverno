@@ -119,7 +119,7 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError("failed to load resources", err)
 			}
 
-			newPolicies, err := mutatePolicy(policies, mutatelogPath, mutatelogPathIsDir)
+			newPolicies, err := mutatePolicy(policies)
 			if err != nil {
 				return sanitizedError.NewWithError("failed to mutate policy", err)
 			}
@@ -296,10 +296,11 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n\n" + string(yamlEncodedResource))
 				fmt.Printf("\n\n")
 			} else {
-				err := printMutatedOutput(mutatelogPath, mutatelogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-resource")
+				err := printMutatedOutput(mutatelogPath, mutatelogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
 				if err != nil {
 					return sanitizedError.NewWithError("failed to print mutated result", err)
 				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
 			}
 
 		} else {
@@ -350,7 +351,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 }
 
 // mutatePolicy - function to apply mutation on policies
-func mutatePolicy(policies []*v1.ClusterPolicy, mutatelogPath string, mutatelogPathIsDir bool) ([]*v1.ClusterPolicy, error) {
+func mutatePolicy(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
@@ -386,18 +387,11 @@ func mutatePolicy(policies []*v1.ClusterPolicy, mutatelogPath string, mutatelogP
 		json.Unmarshal(modifiedPolicy, &p)
 		yamlPolicy, _ := yamlv2.Marshal(p)
 
-		if mutatelogPath == "" {
-			fmt.Println("___________________________________________________________________________")
-			fmt.Println(updateMsgs)
-			fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
-			fmt.Println(string(yamlPolicy))
-			fmt.Println("___________________________________________________________________________")
-		} else {
-			err = printMutatedOutput(mutatelogPath, mutatelogPathIsDir, string(yamlPolicy), policy.Name+"-policy")
-			if err != nil {
-				return nil, sanitizedError.NewWithError("failed to print mutated results", err)
-			}
-		}
+		fmt.Println("___________________________________________________________________________")
+		fmt.Println(updateMsgs)
+		fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
+		fmt.Println(string(yamlPolicy))
+		fmt.Println("___________________________________________________________________________")
 
 		newPolicies = append(newPolicies, &p)
 	}
