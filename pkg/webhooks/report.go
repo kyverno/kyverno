@@ -14,37 +14,8 @@ import (
 //generateEvents generates event info for the engine responses
 func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate bool, log logr.Logger) []event.Info {
 	var events []event.Info
-	// Scenario 1
-	// - Admission-Response is SUCCESS && CREATE
-	//   - All policies were succesfully
-	//     - report event on resources
-	if isResponseSuccesful(engineResponses) {
-		if !onUpdate {
-			// we only report events on CREATE requests
-			return events
-		}
-		for _, er := range engineResponses {
-			successRules := er.GetSuccessRules()
-			successRulesStr := strings.Join(successRules, ";")
-			// event on resource
-			e := event.NewEvent(
-				log,
-				er.PolicyResponse.Resource.Kind,
-				er.PolicyResponse.Resource.APIVersion,
-				er.PolicyResponse.Resource.Namespace,
-				er.PolicyResponse.Resource.Name,
-				event.PolicyApplied.String(),
-				event.AdmissionController,
-				event.SRulesApply,
-				successRulesStr,
-				er.PolicyResponse.Policy,
-			)
-			events = append(events, e)
-		}
-		return events
-	}
 
-	// Scneario 2
+	// Scneario 1
 	// - Admission-Response is BLOCKED
 	//   - report event of policy is in enforce mode and failed to apply
 	if blocked {
@@ -78,7 +49,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 		return events
 	}
 
-	// Scenario 3
+	// Scenario 2
 	// - Admission-Response is SUCCESS
 	//   - Some/All policies failed (policy violations generated)
 	//     - report event on policy that failed

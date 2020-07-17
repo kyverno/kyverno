@@ -57,7 +57,7 @@ func generateEventsPerEr(log logr.Logger, er response.EngineResponse) []event.In
 		e.Name = er.PolicyResponse.Resource.Name
 		e.Reason = event.PolicyViolation.String()
 		e.Source = event.PolicyController
-		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' not satisfied. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
+		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' failed. %v", er.PolicyResponse.Policy, rule.Type, rule.Name, rule.Message)
 		eventInfos = append(eventInfos, e)
 	}
 	if er.IsSuccessful() {

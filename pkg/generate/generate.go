@@ -22,6 +22,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	var err error
 	var resource *unstructured.Unstructured
 	var genResources []kyverno.ResourceSpec
+
 	// 1 - Check if the resource exists
 	resource, err = getResource(c.client, gr.Spec.Resource)
 	if err != nil {
@@ -29,10 +30,14 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 		logger.Error(err, "resource does not exist or is yet to be created, requeueing")
 		return err
 	}
+
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
+
 	// 3 - Report Events
-	reportEvents(logger, err, c.eventGen, *gr, *resource)
+	events := failedEvents(err, *gr, *resource)
+	c.eventGen.Add(events...)
+
 	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
@@ -47,16 +52,16 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			for _,e := range gr.Status.GeneratedResources {
-				resp, err := c.client.GetResource(e.Kind,e.Namespace,e.Name);
+			for _, e := range gr.Status.GeneratedResources {
+				resp, err := c.client.GetResource(e.Kind, e.Namespace, e.Name)
 				if err != nil {
-					logger.Error(err,"Generated resource failed to get","Resource",e.Name)
+					logger.Error(err, "Generated resource failed to get", "Resource", e.Name)
 				}
 
 				labels := resp.GetLabels()
 				if labels["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-						logger.Error(err,"Generated resource is not deleted","Resource",e.Name)
+						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
 					}
 				}
 			}
@@ -135,7 +140,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting,policy.Name)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting, policy.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +197,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool,policy string) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool, policy string) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
