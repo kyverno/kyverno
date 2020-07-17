@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -42,6 +44,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
+	var mutatelogPath string
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -60,11 +63,30 @@ func Command() *cobra.Command {
 			}()
 
 			if len(resourcePaths) == 0 && !cluster {
-				return sanitizedError.NewWithError(fmt.Sprintf("resource file or cluster required"), err)
+				return sanitizedError.NewWithError("resource file or cluster required", err)
+			}
+
+			mutatelogPathIsDir := false
+			if mutatelogPath != "" {
+				mutatelogPath = filepath.Clean(mutatelogPath)
+				fileDesc, err := os.Stat(mutatelogPath)
+				if err != nil {
+					return sanitizedError.NewWithError(fmt.Sprintf("failed to describe file"), err)
+				}
+
+				mutatelogPathIsDir = fileDesc.IsDir()
+				if mutatelogPathIsDir == false {
+					if filepath.Ext(strings.TrimSpace(mutatelogPath)) != ".yaml" {
+						return sanitizedError.NewWithError(fmt.Sprintf("output file should be yaml"), err)
+					}
+				}
 			}
 
 			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
 			if err != nil {
+				if !sanitizedError.IsErrorSanitized(err) {
+					return sanitizedError.NewWithError("failed to mutate policies.", err)
+				}
 				return err
 			}
 
@@ -97,47 +119,9 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError("failed to load resources", err)
 			}
 
-			newPolicies := make([]*v1.ClusterPolicy, 0)
-
-			logger := log.Log.WithName("apply")
-
-			for _, policy := range policies {
-				patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-				fmt.Println("___________________________________________________________________________")
-				fmt.Println(updateMsgs)
-
-				type jsonPatch struct {
-					Path  string      `json:"path"`
-					Op    string      `json:"op"`
-					Value interface{} `json:"value"`
-				}
-
-				var jsonPatches []jsonPatch
-				err = json.Unmarshal(patches, &jsonPatches)
-				if err != nil {
-					return sanitizedError.NewWithError("failed to unmarshal patches", err)
-				}
-				patch, err := jsonpatch.DecodePatch(patches)
-				if err != nil {
-					return sanitizedError.NewWithError("failed to decode patch", err)
-				}
-
-				policyBytes, _ := json.Marshal(policy)
-				if err != nil {
-					return sanitizedError.NewWithError("failed to marshal policy", err)
-				}
-				modifiedPolicy, err := patch.Apply(policyBytes)
-				if err != nil {
-					return sanitizedError.NewWithError("failed to apply policy", err)
-				}
-
-				var p v1.ClusterPolicy
-				json.Unmarshal(modifiedPolicy, &p)
-				fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
-				yamlPolicy, _ := yamlv2.Marshal(p)
-				fmt.Println(string(yamlPolicy))
-				fmt.Println("___________________________________________________________________________")
-				newPolicies = append(newPolicies, &p)
+			newPolicies, err := mutatePolicy(policies, mutatelogPath, mutatelogPathIsDir)
+			if err != nil {
+				return sanitizedError.NewWithError("failed to mutate policy", err)
 			}
 
 			for i, policy := range newPolicies {
@@ -146,7 +130,7 @@ func Command() *cobra.Command {
 						fmt.Printf("\n\n==========================================================================================\n")
 					}
 
-					err = applyPolicyOnResource(policy, resource)
+					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -159,7 +143,7 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-
+	cmd.Flags().StringVarP(&mutatelogPath, "printyaml", "p", "", "Prints the mutated resources in provided file(yaml)/folder")
 	return cmd
 }
 
@@ -288,7 +272,8 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) error {
+// applyPolicyOnResource - function to apply policy on resource
+func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutatelogPath string, mutatelogPathIsDir bool) error {
 	fmt.Printf("\n\nApplying Policy %s on Resource %s/%s/%s\n", policy.Name, resource.GetNamespace(), resource.GetKind(), resource.GetName())
 
 	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
@@ -301,15 +286,24 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		fmt.Printf("\n\n")
 	} else {
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
-			fmt.Printf("\n\nMutation:")
-			fmt.Printf("\nMutation has been applied succesfully")
 			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("\n\n" + string(yamlEncodedResource))
-			fmt.Printf("\n\n")
+			if mutatelogPath == "" {
+				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully")
+				fmt.Printf("\n\n" + string(yamlEncodedResource))
+				fmt.Printf("\n\n")
+			} else {
+				err := printMutatedOutput(mutatelogPath, mutatelogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-resource")
+				if err != nil {
+					return sanitizedError.NewWithError("failed to print mutated result", err)
+				}
+			}
+
+		} else {
+			fmt.Printf("\n\nMutation:\nMutation not required")
 		}
 	}
 
@@ -350,6 +344,87 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			}
 			fmt.Printf("\n\n")
 		}
+	}
+
+	return nil
+}
+
+// mutatePolicy - function to apply mutation on policies
+func mutatePolicy(policies []*v1.ClusterPolicy, mutatelogPath string, mutatelogPathIsDir bool) ([]*v1.ClusterPolicy, error) {
+	newPolicies := make([]*v1.ClusterPolicy, 0)
+	logger := log.Log.WithName("apply")
+
+	for _, policy := range policies {
+		patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+
+		type jsonPatch struct {
+			Path  string      `json:"path"`
+			Op    string      `json:"op"`
+			Value interface{} `json:"value"`
+		}
+
+		var jsonPatches []jsonPatch
+		err := json.Unmarshal(patches, &jsonPatches)
+		if err != nil {
+			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
+		}
+		patch, err := jsonpatch.DecodePatch(patches)
+		if err != nil {
+			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
+		}
+
+		policyBytes, _ := json.Marshal(policy)
+		if err != nil {
+			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
+		}
+		modifiedPolicy, err := patch.Apply(policyBytes)
+		if err != nil {
+			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
+		}
+
+		var p v1.ClusterPolicy
+		json.Unmarshal(modifiedPolicy, &p)
+		yamlPolicy, _ := yamlv2.Marshal(p)
+
+		if mutatelogPath == "" {
+			fmt.Println("___________________________________________________________________________")
+			fmt.Println(updateMsgs)
+			fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
+			fmt.Println(string(yamlPolicy))
+			fmt.Println("___________________________________________________________________________")
+		} else {
+			err = printMutatedOutput(mutatelogPath, mutatelogPathIsDir, string(yamlPolicy), policy.Name+"-policy")
+			if err != nil {
+				return nil, sanitizedError.NewWithError("failed to print mutated results", err)
+			}
+		}
+
+		newPolicies = append(newPolicies, &p)
+	}
+	return newPolicies, nil
+}
+
+// printMutatedOutput - function to print output in provided file or directory
+func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml string, fileName string) error {
+	var f *os.File
+	var err error
+	yaml = yaml + ("\n---\n\n")
+
+	if !mutatelogPathIsDir {
+		f, err = os.OpenFile(mutatelogPath, os.O_APPEND|os.O_WRONLY, 0644)
+	} else {
+		f, err = os.OpenFile(mutatelogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write([]byte(yaml)); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
 	}
 
 	return nil
