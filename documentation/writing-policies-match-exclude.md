@@ -88,7 +88,7 @@ spec:
       - "kube-system"
 ````
 
-In addition, all conditions checks inside `resources` block follow the logic "AND across types but an OR inside types that take a list". Other conditions inside `clusterRoles`, `roles` and `subjects` are evaluated using a logical OR operation.
+Condition checks inside the `resources` block follow the logic "**AND across types but an OR inside list types**". For example, if a rule match contains a list of kinds and a list of namespaces, the rule will be evaluated if the request contains any one (OR) of the kinds AND any one (OR) of the namespaces. Conditions inside `clusterRoles`, `roles` and `subjects` are always evaluated using a logical OR operation, as each request can only have a single instance of these values.
 
 This is an example that select Deployment **OR** StatefulSet that has label `app=critical`.
 
