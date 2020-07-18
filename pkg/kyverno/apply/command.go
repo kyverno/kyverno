@@ -44,7 +44,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutatelogPath string
+	var mutateFilePath, mutateDirPath, mutatelogPath string
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -66,19 +66,28 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError("resource file or cluster required", err)
 			}
 
-			mutatelogPathIsDir := false
-			if mutatelogPath != "" {
-				mutatelogPath = filepath.Clean(mutatelogPath)
-				fileDesc, err := os.Stat(mutatelogPath)
-				if err != nil {
-					return sanitizedError.NewWithError(fmt.Sprintf("failed to describe file"), err)
-				}
+			var mutatelogPathIsDir bool
+			if mutateDirPath != "" && mutateFilePath != "" {
+				return sanitizedError.NewWithError(fmt.Sprintf("failed to create file/folder"), errors.New("only one of file/folder path can be passed"))
+			}
 
-				mutatelogPathIsDir = fileDesc.IsDir()
-				if mutatelogPathIsDir == false {
-					if filepath.Ext(strings.TrimSpace(mutatelogPath)) != ".yaml" {
-						return sanitizedError.NewWithError(fmt.Sprintf("output file should be yaml"), err)
+			if mutateDirPath == "" && mutateFilePath == "" {
+				mutatelogPath = ""
+			} else if mutateDirPath != "" {
+				mutatelogPathIsDir = true
+				mutatelogPath = mutateDirPath
+			} else {
+				mutatelogPathIsDir = false
+				mutatelogPath = mutateFilePath
+			}
+
+			if mutatelogPath != "" {
+				err = createFileOrFolder(mutatelogPath, mutatelogPathIsDir)
+				if err != nil {
+					if !sanitizedError.IsErrorSanitized(err) {
+						return sanitizedError.NewWithError("failed to create file/folder.", err)
 					}
+					return err
 				}
 			}
 
@@ -143,7 +152,8 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&mutatelogPath, "printyaml", "p", "", "Prints the mutated resources in provided file(yaml)/folder")
+	cmd.Flags().StringVarP(&mutateFilePath, "file", "f", "", "Prints the mutated resources in provided file")
+	cmd.Flags().StringVarP(&mutateDirPath, "dir", "d", "", "Prints the mutated resources in provided folder")
 	return cmd
 }
 
@@ -304,7 +314,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			}
 
 		} else {
-			fmt.Printf("\n\nMutation:\nMutation not required")
+			fmt.Printf("\n\nMutation:\nMutation skipped. Resource not matches the policy")
 		}
 	}
 
@@ -419,6 +429,53 @@ func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml stri
 	}
 	if err := f.Close(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// createFileOrFolder - creating file or folder accoring to path provided
+func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
+	mutatelogPath = filepath.Clean(mutatelogPath)
+	_, err := os.Stat(mutatelogPath)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			if !mutatelogPathIsDir {
+				// check the folder existance, then create the file
+				s := strings.Split(mutatelogPath, "/")
+				folderPath := mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
+				fmt.Println(folderPath)
+
+				_, err := os.Stat(folderPath)
+				fmt.Println(err)
+				if os.IsNotExist(err) {
+					errDir := os.MkdirAll(folderPath, 0755)
+					if errDir != nil {
+						return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+					}
+				}
+
+				file, err := os.OpenFile(mutatelogPath, os.O_RDONLY|os.O_CREATE, 0644)
+				if err != nil {
+					return sanitizedError.NewWithError(fmt.Sprintf("failed to create file"), err)
+				}
+
+				err = file.Close()
+				if err != nil {
+					return sanitizedError.NewWithError(fmt.Sprintf("failed to close file"), err)
+				}
+
+			} else {
+				errDir := os.MkdirAll(mutatelogPath, 0755)
+				if errDir != nil {
+					return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+				}
+			}
+
+		} else {
+			return sanitizedError.NewWithError(fmt.Sprintf("failed to describe file"), err)
+		}
 	}
 
 	return nil
