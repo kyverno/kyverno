@@ -17,11 +17,11 @@ When Kyverno receives an admission controller request, i.e. a validation or muta
 The following YAML provides an example for a match clause.
 
 ````yaml
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy
+spec:
   # 'enforce' to block resource request if any rules fail
   # 'audit' to allow resource request on failure of rules, but create policy violations to report them
   validationFailureAction: enforce
