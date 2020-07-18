@@ -57,7 +57,8 @@ kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/folderFull
 #### Apply
 Applies policies on resources, and supports applying multiple policies on multiple resources in a single command.
 Also supports applying the given policies to an entire cluster. The current kubectl context will be used to access the cluster.
- Will return results to stdout.
+
+Will return results to stdout. Also supports saving the mutated resource in a mentioned file or directory.
 
 Apply to a resource:
 ```
@@ -74,5 +75,14 @@ Apply multiple policies to multiple resources:
 kyverno apply /path/to/policy1.yaml /path/to/folderFullOfPolicies --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml --cluster
 ```
 
+Saving the mutated resource in a file:
+```
+kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml -f <file path>
+```
+
+Saving the mutated resource in a directory:
+```
+kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml -d <directory path>
+```
 
 <small>*Read Next >> [Sample Policies](/samples/README.md)*</small>

@@ -153,7 +153,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateFilePath, "file", "f", "", "Prints the mutated resources in provided file")
-	cmd.Flags().StringVarP(&mutateDirPath, "dir", "d", "", "Prints the mutated resources in provided folder")
+	cmd.Flags().StringVarP(&mutateDirPath, "dir", "d", "", "Prints the mutated resources in provided directory")
 	return cmd
 }
 
