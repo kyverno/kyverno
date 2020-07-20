@@ -44,7 +44,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutateFilePath, mutateDirPath, mutatelogPath string
+	var mutatelogPath string
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -67,21 +67,15 @@ func Command() *cobra.Command {
 			}
 
 			var mutatelogPathIsDir bool
-			if mutateDirPath != "" && mutateFilePath != "" {
-				return sanitizedError.NewWithError(fmt.Sprintf("failed to create file/folder"), errors.New("only one of file/folder path can be passed"))
-			}
-
-			if mutateDirPath == "" && mutateFilePath == "" {
-				mutatelogPath = ""
-			} else if mutateDirPath != "" {
-				mutatelogPathIsDir = true
-				mutatelogPath = mutateDirPath
-			} else {
-				mutatelogPathIsDir = false
-				mutatelogPath = mutateFilePath
-			}
-
 			if mutatelogPath != "" {
+				spath := strings.Split(mutatelogPath, "/")
+				sfileName := strings.Split(spath[len(spath)-1], ".")
+				if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {
+					mutatelogPathIsDir = false
+				} else {
+					mutatelogPathIsDir = true
+				}
+
 				err = createFileOrFolder(mutatelogPath, mutatelogPathIsDir)
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
@@ -152,8 +146,7 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&mutateFilePath, "file", "f", "", "Prints the mutated resources in provided file")
-	cmd.Flags().StringVarP(&mutateDirPath, "dir", "d", "", "Prints the mutated resources in provided directory")
+	cmd.Flags().StringVarP(&mutatelogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	return cmd
 }
 
@@ -445,7 +438,6 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 				// check the folder existance, then create the file
 				s := strings.Split(mutatelogPath, "/")
 				folderPath := mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
-				fmt.Println(folderPath)
 
 				_, err := os.Stat(folderPath)
 				fmt.Println(err)
