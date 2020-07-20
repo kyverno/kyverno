@@ -189,18 +189,6 @@ func (resp generateRequestResponse) error() string {
 }
 
 func failedEvents(err error, gr kyverno.GenerateRequestSpec, resource unstructured.Unstructured) []event.Info {
-	var events []event.Info
-	// Cluster Policy
-	pe := event.Info{}
-	pe.Kind = "ClusterPolicy"
-	// cluserwide-resource
-	pe.Name = gr.Policy
-	pe.Reason = event.PolicyFailed.String()
-	pe.Source = event.GeneratePolicyController
-	pe.Message = fmt.Sprintf("policy failed to apply on resource %s/%s/%s: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err)
-	events = append(events, pe)
-
-	// Resource
 	re := event.Info{}
 	re.Kind = resource.GetKind()
 	re.Namespace = resource.GetNamespace()
@@ -208,7 +196,6 @@ func failedEvents(err error, gr kyverno.GenerateRequestSpec, resource unstructur
 	re.Reason = event.PolicyFailed.String()
 	re.Source = event.GeneratePolicyController
 	re.Message = fmt.Sprintf("policy %s failed to apply: %v", gr.Policy, err)
-	events = append(events, re)
 
-	return events
+	return []event.Info{re}
 }
