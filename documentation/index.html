@@ -88,6 +88,7 @@ Spec
 </em>
 </td>
 <td>
+<p>Spec is the information to identify the policy</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -101,6 +102,7 @@ Spec
 </em>
 </td>
 <td>
+<p>Rules contains the list of rules to be applied to resources</p>
 </td>
 </tr>
 <tr>
@@ -111,6 +113,7 @@ string
 </em>
 </td>
 <td>
+<p>ValidationFailureAction provides choice to enforce rules to resources during policy violations</p>
 </td>
 </tr>
 <tr>
@@ -121,6 +124,7 @@ bool
 </em>
 </td>
 <td>
+<p>Background provides choice for applying rules to existing resources</p>
 </td>
 </tr>
 </table>
@@ -136,6 +140,7 @@ PolicyStatus
 </em>
 </td>
 <td>
+<p>Status contains statistics related to policy</p>
 </td>
 </tr>
 </tbody>
@@ -206,6 +211,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -230,6 +236,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ViolatedRules contains list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -304,6 +311,7 @@ GenerateRequestSpec
 </em>
 </td>
 <td>
+<p>Spec is the information to identify the generate request</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -315,6 +323,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -327,6 +336,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ResourceSpec is the information to identify the generate request</p>
 </td>
 </tr>
 <tr>
@@ -339,6 +349,7 @@ GenerateRequestContext
 </em>
 </td>
 <td>
+<p>Context &hellip;</p>
 </td>
 </tr>
 </table>
@@ -354,6 +365,7 @@ GenerateRequestStatus
 </em>
 </td>
 <td>
+<p>Status contains statistics related to generate request</p>
 </td>
 </tr>
 </tbody>
@@ -424,6 +436,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -448,6 +461,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ViolatedRules contains list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -494,6 +508,7 @@ string
 </em>
 </td>
 <td>
+<p>Namespace is the resource namespace</p>
 </td>
 </tr>
 <tr>
@@ -504,6 +519,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the name of the resource</p>
 </td>
 </tr>
 </tbody>
@@ -535,6 +551,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Key contains key to compare</p>
 </td>
 </tr>
 <tr>
@@ -547,6 +564,7 @@ ConditionOperator
 </em>
 </td>
 <td>
+<p>Operator to compare against value</p>
 </td>
 </tr>
 <tr>
@@ -557,6 +575,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Value to be compared</p>
 </td>
 </tr>
 </tbody>
@@ -597,6 +616,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Conditions contains set of condition to deny validation</p>
 </td>
 </tr>
 </tbody>
@@ -629,6 +649,7 @@ UserInfo
 </em>
 </td>
 <td>
+<p>UserInfo contains user information</p>
 </td>
 </tr>
 <tr>
@@ -641,6 +662,7 @@ ResourceDescription
 </em>
 </td>
 <td>
+<p>ResourceDescription contains resources to which rule is excluded</p>
 </td>
 </tr>
 </tbody>
@@ -673,6 +695,7 @@ RequestInfo
 </em>
 </td>
 <td>
+<p>UserRequestInfo &hellip;</p>
 </td>
 </tr>
 </tbody>
@@ -703,6 +726,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -715,6 +739,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ResourceSpec is the information to identify the generate request</p>
 </td>
 </tr>
 <tr>
@@ -727,6 +752,7 @@ GenerateRequestContext
 </em>
 </td>
 <td>
+<p>Context &hellip;</p>
 </td>
 </tr>
 </tbody>
@@ -768,6 +794,7 @@ GenerateRequestState
 </em>
 </td>
 <td>
+<p>State represents state of the generate request</p>
 </td>
 </tr>
 <tr>
@@ -778,6 +805,7 @@ string
 </em>
 </td>
 <td>
+<p>Message is the request status message</p>
 </td>
 </tr>
 <tr>
@@ -834,6 +862,7 @@ bool
 </em>
 </td>
 <td>
+<p>To keep resources synchronized with source resource</p>
 </td>
 </tr>
 <tr>
@@ -844,6 +873,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Data &hellip;</p>
 </td>
 </tr>
 <tr>
@@ -856,6 +886,7 @@ CloneFrom
 </em>
 </td>
 <td>
+<p>To clone resource from other resource</p>
 </td>
 </tr>
 </tbody>
@@ -888,6 +919,7 @@ UserInfo
 </em>
 </td>
 <td>
+<p>UserInfo contains user information</p>
 </td>
 </tr>
 <tr>
@@ -900,6 +932,7 @@ ResourceDescription
 </em>
 </td>
 <td>
+<p>ResourceDescription contains resources to which rule is applied</p>
 </td>
 </tr>
 </tbody>
@@ -930,6 +963,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Overlay contains overlay patterns</p>
 </td>
 </tr>
 <tr>
@@ -942,6 +976,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Patches contains JSON Patch</p>
 </td>
 </tr>
 </tbody>
@@ -972,6 +1007,7 @@ string
 </em>
 </td>
 <td>
+<p>Path represents path of the resource</p>
 </td>
 </tr>
 <tr>
@@ -982,6 +1018,7 @@ string
 </em>
 </td>
 <td>
+<p>Operation contains operations supported by JSON Patch. i.e: add, replace and delete</p>
 </td>
 </tr>
 <tr>
@@ -992,6 +1029,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Value is the value to be applied</p>
 </td>
 </tr>
 </tbody>
@@ -1034,6 +1072,7 @@ Spec
 </em>
 </td>
 <td>
+<p>Spec is the information to identify the policy</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -1047,6 +1086,7 @@ Spec
 </em>
 </td>
 <td>
+<p>Rules contains the list of rules to be applied to resources</p>
 </td>
 </tr>
 <tr>
@@ -1057,6 +1097,7 @@ string
 </em>
 </td>
 <td>
+<p>ValidationFailureAction provides choice to enforce rules to resources during policy violations</p>
 </td>
 </tr>
 <tr>
@@ -1067,6 +1108,7 @@ bool
 </em>
 </td>
 <td>
+<p>Background provides choice for applying rules to existing resources</p>
 </td>
 </tr>
 </table>
@@ -1082,6 +1124,7 @@ PolicyStatus
 </em>
 </td>
 <td>
+<p>Status contains statistics related to policy</p>
 </td>
 </tr>
 </tbody>
@@ -1224,6 +1267,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -1248,6 +1292,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ViolatedRules contains list of violated rule</p>
 </td>
 </tr>
 </tbody>
@@ -1264,7 +1309,7 @@ ResourceSpec
 <p>
 <p>PolicyViolationStatus provides information regarding policyviolation status
 status:
-LastUpdateTime : the time the polivy violation was updated</p>
+LastUpdateTime : the time the policy violation was updated</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1284,6 +1329,7 @@ Kubernetes meta/v1.Time
 </em>
 </td>
 <td>
+<p>LastUpdateTime : the time the policy violation was updated</p>
 </td>
 </tr>
 </tbody>
@@ -1337,6 +1383,7 @@ string
 </em>
 </td>
 <td>
+<p>Policy is the name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -1361,6 +1408,7 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>ViolatedRules contains list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -1462,6 +1510,7 @@ Kubernetes authentication/v1.UserInfo
 </em>
 </td>
 <td>
+<p>Kinds contains list of resource kind</p>
 </td>
 </tr>
 <tr>
@@ -1472,6 +1521,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the name of the resource</p>
 </td>
 </tr>
 <tr>
@@ -1482,6 +1532,7 @@ string
 </em>
 </td>
 <td>
+<p>Namespaces contains the list of namespaces</p>
 </td>
 </tr>
 <tr>
@@ -1494,6 +1545,7 @@ Kubernetes meta/v1.LabelSelector
 </em>
 </td>
 <td>
+<p>Selector is the set of selectors</p>
 </td>
 </tr>
 </tbody>
@@ -1527,6 +1579,7 @@ string
 </em>
 </td>
 <td>
+<p>Kind represents resource kind</p>
 </td>
 </tr>
 <tr>
@@ -1537,6 +1590,7 @@ string
 </em>
 </td>
 <td>
+<p>Namespace represents resource namespace</p>
 </td>
 </tr>
 <tr>
@@ -1547,6 +1601,7 @@ string
 </em>
 </td>
 <td>
+<p>Name represents resource name</p>
 </td>
 </tr>
 </tbody>
@@ -1578,6 +1633,7 @@ string
 </em>
 </td>
 <td>
+<p>Name represents rule name</p>
 </td>
 </tr>
 <tr>
@@ -1590,6 +1646,7 @@ MatchResources
 </em>
 </td>
 <td>
+<p>MatchResources contains resources for which the rule has to be applied</p>
 </td>
 </tr>
 <tr>
@@ -1602,6 +1659,7 @@ ExcludeResources
 </em>
 </td>
 <td>
+<p>ExcludeResources contains resources for which rule can be excluded</p>
 </td>
 </tr>
 <tr>
@@ -1614,6 +1672,7 @@ ExcludeResources
 </em>
 </td>
 <td>
+<p>Conditions allow controlling policy rule execution</p>
 </td>
 </tr>
 <tr>
@@ -1626,6 +1685,7 @@ Mutation
 </em>
 </td>
 <td>
+<p>Mutation contains patterns to mutate resources</p>
 </td>
 </tr>
 <tr>
@@ -1638,6 +1698,7 @@ Validation
 </em>
 </td>
 <td>
+<p>Validation contains patterns to validate resources</p>
 </td>
 </tr>
 <tr>
@@ -1650,6 +1711,7 @@ Generation
 </em>
 </td>
 <td>
+<p>Generation contains patterns to create additional resources</p>
 </td>
 </tr>
 </tbody>
@@ -1791,6 +1853,7 @@ int
 </em>
 </td>
 <td>
+<p>Rules contains the list of rules to be applied to resources</p>
 </td>
 </tr>
 <tr>
@@ -1801,6 +1864,7 @@ string
 </em>
 </td>
 <td>
+<p>ValidationFailureAction provides choice to enforce rules to resources during policy violations</p>
 </td>
 </tr>
 <tr>
@@ -1811,6 +1875,7 @@ bool
 </em>
 </td>
 <td>
+<p>Background provides choice for applying rules to existing resources</p>
 </td>
 </tr>
 </tbody>
@@ -1842,6 +1907,7 @@ bool
 </em>
 </td>
 <td>
+<p>Roles contains list of namespaced role names</p>
 </td>
 </tr>
 <tr>
@@ -1852,6 +1918,7 @@ bool
 </em>
 </td>
 <td>
+<p>ClusterRoles contains list of cluster wide role names</p>
 </td>
 </tr>
 <tr>
@@ -1864,6 +1931,7 @@ bool
 </em>
 </td>
 <td>
+<p>Subjects contains list of subject names like users, user groups, and service accounts</p>
 </td>
 </tr>
 </tbody>
@@ -1894,6 +1962,7 @@ string
 </em>
 </td>
 <td>
+<p>Message is the message to be displayed on validation policy violation</p>
 </td>
 </tr>
 <tr>
@@ -1904,6 +1973,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>Pattern is the validation pattern</p>
 </td>
 </tr>
 <tr>
@@ -1914,6 +1984,7 @@ interface{}
 </em>
 </td>
 <td>
+<p>AnyPattern is the list of validation patterns</p>
 </td>
 </tr>
 <tr>
@@ -1926,6 +1997,7 @@ Deny
 </em>
 </td>
 <td>
+<p>Deny contains conditions to deny validation</p>
 </td>
 </tr>
 </tbody>
@@ -1956,6 +2028,7 @@ string
 </em>
 </td>
 <td>
+<p>Name is the violated rule name</p>
 </td>
 </tr>
 <tr>
@@ -1966,6 +2039,7 @@ string
 </em>
 </td>
 <td>
+<p>Type is the violated rule type</p>
 </td>
 </tr>
 <tr>
@@ -1976,6 +2050,7 @@ string
 </em>
 </td>
 <td>
+<p>Message is the violation message</p>
 </td>
 </tr>
 </tbody>

@@ -112,6 +112,7 @@ See [docs](https://github.com/nirmata/kyverno/#documentation) for complete detai
 - [Policy Violations](documentation/policy-violations.md)
 - [Kyverno CLI](documentation/kyverno-cli.md)
 - [Sample Policies](/samples/README.md)
+- [API Documentation](https://htmlpreview.github.io/?https://github.com/nirmata/kyverno/blob/master/documentation/index.html)
 
 ## License
 
