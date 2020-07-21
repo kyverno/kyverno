@@ -12,6 +12,7 @@ import (
 	"regexp"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/nirmata/kyverno/pkg/openapi"
@@ -158,8 +159,7 @@ func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 }
 
 // MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy *v1.ClusterPolicy) (*v1.ClusterPolicy, error) {
-	logger := log.Log.WithName("validate")
+func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
 	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 
 	type jsonPatch struct {

@@ -64,7 +64,8 @@ func Command() *cobra.Command {
 				} else {
 					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 					if outputType != "" {
-						p, err := common.MutatePolicy(policy)
+						logger := log.Log.WithName("validate")
+						p, err := common.MutatePolicy(policy, logger)
 						if err != nil {
 							if !sanitizedError.IsErrorSanitized(err) {
 								return sanitizedError.NewWithError("failed to mutate policy.", err)
@@ -73,11 +74,9 @@ func Command() *cobra.Command {
 						}
 						if outputType == "yaml" {
 							yamlPolicy, _ := yamlv2.Marshal(p)
-							fmt.Println("______________________________yaml_____________________________________________")
 							fmt.Println(string(yamlPolicy))
 						} else {
 							jsonPolicy, _ := json.MarshalIndent(p, "", "  ")
-							fmt.Println("______________________________json_____________________________________________")
 							fmt.Println(string(jsonPolicy))
 						}
 					}
