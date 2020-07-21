@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,10 +16,12 @@ import (
 
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 
+	yamlv2 "gopkg.in/yaml.v2"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Command() *cobra.Command {
+	var outputType string
 	cmd := &cobra.Command{
 		Use:     "validate",
 		Short:   "Validates kyverno policies",
@@ -32,6 +35,13 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
+
+			if outputType != "" {
+				if outputType == "yaml" || outputType == "json" {
+				} else {
+					return sanitizedError.NewWithError(fmt.Sprintf("%s format is not supported", outputType), errors.New("yaml and json are supported"))
+				}
+			}
 
 			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
 			if err != nil {
@@ -53,6 +63,24 @@ func Command() *cobra.Command {
 					invalidPolicyFound = true
 				} else {
 					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
+					if outputType != "" {
+						p, err := common.MutatePolicy(policy)
+						if err != nil {
+							if !sanitizedError.IsErrorSanitized(err) {
+								return sanitizedError.NewWithError("failed to mutate policy.", err)
+							}
+							return err
+						}
+						if outputType == "yaml" {
+							yamlPolicy, _ := yamlv2.Marshal(p)
+							fmt.Println("______________________________yaml_____________________________________________")
+							fmt.Println(string(yamlPolicy))
+						} else {
+							jsonPolicy, _ := json.MarshalIndent(p, "", "  ")
+							fmt.Println("______________________________json_____________________________________________")
+							fmt.Println(string(jsonPolicy))
+						}
+					}
 				}
 			}
 
@@ -62,5 +90,6 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy")
 	return cmd
 }
