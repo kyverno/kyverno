@@ -359,7 +359,7 @@ func mutatePolicy(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+		patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 
 		type jsonPatch struct {
 			Path  string      `json:"path"`
@@ -388,14 +388,6 @@ func mutatePolicy(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 		var p v1.ClusterPolicy
 		json.Unmarshal(modifiedPolicy, &p)
-		yamlPolicy, _ := yamlv2.Marshal(p)
-
-		fmt.Println("___________________________________________________________________________")
-		fmt.Println(updateMsgs)
-		fmt.Printf("\nmutated %s policy after mutation:\n\n", p.Name)
-		fmt.Println(string(yamlPolicy))
-		fmt.Println("___________________________________________________________________________")
-
 		newPolicies = append(newPolicies, &p)
 	}
 	return newPolicies, nil
@@ -436,16 +428,20 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 		if os.IsNotExist(err) {
 			if !mutatelogPathIsDir {
 				// check the folder existance, then create the file
+				var folderPath string
 				s := strings.Split(mutatelogPath, "/")
-				folderPath := mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
 
-				_, err := os.Stat(folderPath)
-				fmt.Println(err)
-				if os.IsNotExist(err) {
-					errDir := os.MkdirAll(folderPath, 0755)
-					if errDir != nil {
-						return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+				if len(s) > 1 {
+					folderPath = mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
+					_, err := os.Stat(folderPath)
+					fmt.Println(err)
+					if os.IsNotExist(err) {
+						errDir := os.MkdirAll(folderPath, 0755)
+						if errDir != nil {
+							return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+						}
 					}
+
 				}
 
 				file, err := os.OpenFile(mutatelogPath, os.O_RDONLY|os.O_CREATE, 0644)
