@@ -130,21 +130,15 @@ kustomize-crd:
 
 # Build website to test
 serve:
+	cd ./documentation/
 	hugo server \
 	--buildDrafts \
 	--buildFuture \
 	--disableFastRender \
-	--ignoreCache \
-	--themesDir ./documentation/
+	--ignoreCache
 
 # Build website for production
 production-build:
-	hugo --themesDir ./documentation/
+	cd ./documentation/
+	hugo
 
-# Build website for preview-build
-preview-build:
-	hugo \
-	--baseURL $(DEPLOY_PRIME_URL) \
-	--buildDrafts \
-	--buildFuture
-	--themesDir ./documentation/
