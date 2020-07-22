@@ -152,7 +152,7 @@ type Rule struct {
 	// Name - A required field represents rule name
 	Name string `json:"name"`
 	// MatchResources - An optional field contains resources for which the rule has to be applied.
-	// If Added then "Kind" field is required.
+	// If it's defined, "kind" inside MatchResources block is required.
 	MatchResources MatchResources `json:"match"`
 	// ExcludeResources - An optional field contains resources for which rule can be excluded
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
