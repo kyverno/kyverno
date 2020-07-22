@@ -3,7 +3,7 @@ title: Mutate Resources
 description: 
 ---
 
-# Mutate Resources
+# Mutating Resources
 
 The ```mutate``` rule can be used to add, replace, or delete elements in matching resources. A mutate rule can be written as a JSON Patch or as an overlay. 
 
@@ -11,6 +11,29 @@ By using a ```patch``` in the [JSONPatch - RFC 6902](http://jsonpatch.com/) form
 
 Resource mutation occurs before validation, so the validation rules should not contradict the changes performed by the mutation section.
 
+This policy sets the imagePullPolicy to Always if the image tag is latest:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-image-pull-policy
+spec:
+  rules:
+    - name: set-image-pull-policy
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        overlay:
+          spec:
+            containers:
+              # match images which end with :latest
+              - (image): "*:latest"
+                # set the imagePullPolicy to "Always"
+                imagePullPolicy: "Always"
+```
 
 ## JSON Patch
 
@@ -222,5 +245,4 @@ The anchor processing behavior for mutate conditions is as follows:
 ## Additional Details
 
 Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
-
 ---

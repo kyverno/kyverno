@@ -20,11 +20,11 @@ When Kyverno receives an admission controller request, i.e. a validation or muta
 The following YAML provides an example for a match clause.
 
 ````yaml
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
-  name : policy
-spec :
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy
+spec:
   # 'enforce' to block resource request if any rules fail
   # 'audit' to allow resource request on failure of rules, but create policy violations to report them
   validationFailureAction: enforce
@@ -91,5 +91,40 @@ spec:
       - "kube-system"
 ````
 
+Condition checks inside the `resources` block follow the logic "**AND across types but an OR inside list types**". For example, if a rule match contains a list of kinds and a list of namespaces, the rule will be evaluated if the request contains any one (OR) of the kinds AND any one (OR) of the namespaces. Conditions inside `clusterRoles`, `roles` and `subjects` are always evaluated using a logical OR operation, as each request can only have a single instance of these values.
+
+This is an example that select Deployment **OR** StatefulSet that has label `app=critical`.
+
+````yaml
+spec:
+  rules:
+    - name: match-critical-app
+      match:
+        resources:    # AND across types but an OR inside types that take a list
+          kinds:
+          - Deployment,StatefulSet
+          selector:
+            matchLabels:
+              app: critical
+````
+
+The following example matches all resources with label `app=critical` excluding the resource created by clusterRole `cluster-admin` **OR** by the user `John`.
+
+````yaml
+spec:
+  rules:
+    - name: match-criticals-except-given-rbac
+      match:
+        resources:
+          selector:
+            matchLabels:
+              app: critical
+      exclude:
+        clusterRoles:
+        - cluster-admin
+        subjects:
+        - kind: User
+          name: John
+````
 
 ---

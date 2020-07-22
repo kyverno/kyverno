@@ -29,4 +29,3 @@ docker      validation-example2-gzfdf   validation-example2   Deployment     com
 # Cluster Policy Violations
 
 Cluster Policy Violations are like Policy Violations but created for cluster-wide resources.
-

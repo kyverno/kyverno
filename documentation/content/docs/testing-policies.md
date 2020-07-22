@@ -3,6 +3,7 @@ title: Testing Policies
 description: 
 ---
 
+
 # Testing Policies 
 
 The resources definitions for testing are located in the [test](/test) directory. Each test contains a pair of files: one is the resource definition, and the second is the Kyverno policy for this definition.
@@ -27,4 +28,3 @@ kubectl get -f resources/CM.yaml -o yaml
 ## Test using Kyverno CLI
 
 The Kyverno CLI allows testing policies before they are applied to a cluster. It is documented at [Kyverno CLI](kyverno-cli.md)
-
