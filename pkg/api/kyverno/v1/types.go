@@ -138,9 +138,11 @@ type Policy struct {
 type Spec struct {
 	// Rules contains the list of rules to be applied to resources
 	Rules []Rule `json:"rules"`
-	// ValidationFailureAction provides choice to enforce rules to resources during policy violations
+	// ValidationFailureAction provides choice to enforce rules to resources during policy violations.
+	// Default value is "audit".
 	ValidationFailureAction string `json:"validationFailureAction"`
-	// Background provides choice for applying rules to existing resources
+	// Background provides choice for applying rules to existing resources.
+	// Default value is "true".
 	Background *bool `json:"background"`
 }
 
@@ -149,7 +151,8 @@ type Spec struct {
 type Rule struct {
 	// Name - A required field represents rule name
 	Name string `json:"name"`
-	// MatchResources - A required field contains resources for which the rule has to be applied
+	// MatchResources - An optional field contains resources for which the rule has to be applied.
+	// If Added then "Kind" field is required.
 	MatchResources MatchResources `json:"match"`
 	// ExcludeResources - An optional field contains resources for which rule can be excluded
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
