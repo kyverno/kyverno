@@ -1,0 +1,74 @@
+{{- $fonts    := site.Params.fonts }}
+{{- $fontSlice := (slice) }}
+
+{{- $fontsUrl := printf "https://fonts.googleapis.com/css?family=%s" (delimit $fontSlice "|") }}
+{{- $sansSerifFont := site.Params.sansseriffont }}
+{{- $monospaceFont := site.Params.monospacefont }}
+{{- $fontAwesomeVersion := site.Params.fontawesomeversion }}
+{{- $fontAwesomeUrl     := printf "https://use.fontawesome.com/releases/v%s/css/all.css" $fontAwesomeVersion }}
+
+@charset "utf-8"
+
+// External imports
+@import url({{ $fontsUrl }})
+@import url({{ $fontAwesomeUrl }})
+
+// Project-specific colors and variables
+$twitter-blue: #1da1f2
+$slack-green: #74cdb0
+$stack-overflow-orange: #f48024
+$cncf-blue: #426cab
+$cncf-green: #76c5d5
+
+@import "bulma/sass/utilities/initial-variables"
+@import "bulma/sass/utilities/functions"
+
+// Bulma variable overwrites
+$primary: $cncf-blue
+$family-sans-serif: "{{ $sansSerifFont }}", BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif
+$family-code: "{{ $monospaceFont }}", monospace
+$navbar-burger-color: $primary
+$code: $primary
+$section-padding: 1.5rem
+
+@import "bulma/sass/utilities/derived-variables"
+
+$colors: mergeColorMaps(("twitter-blue": ($twitter-blue, $white), "slack-green": ($slack-green, $white)), $colors)
+
+@import "bulma/bulma"
+@import "bulma-dashboard/src/bulma-dashboard"
+
+.card
+  margin: 1.5rem 0
+
+  &.is-shadowless
+    box-shadow: none
+
+  .card-content
+    padding: 0
+
+.dashboard-panel
+  &.left
+    border-right: 1px solid $grey-lighter
+    flex-basis: 20%
+
+  &-main
+    &-toc
+      ul
+        li
+          font-size: 1.25rem
+
+          & + li
+            margin-top: .25rem
+
+.dashboard-panel-logo
+  width: 40%
+  margin-bottom: 1rem
+
+.page
+  display: flex
+  flex-direction: column
+  min-height: 100vh
+
+  .main
+    flex: 1

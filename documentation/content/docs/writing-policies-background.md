@@ -1,4 +1,8 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Background Processing*</small>
+---
+title: Background processing 
+description: 
+---
+
 
 # Background processing
 
@@ -16,5 +20,3 @@ spec:
 ```
 
 The default value of `background` is `true`. When a policy is created or modified, the policy validation logic will report an error if a rule uses `userInfo` and does not set `background` to `false`.
-
-<small>*Read Next >> [Testing Policies](/documentation/testing-policies.md)*</small>

@@ -1,0 +1,47 @@
+{{ $home   := site.BaseURL }}
+{{ $logo   := site.Params.logos.navbar | relURL }}
+{{ $menu   := site.Menus.navbar }}
+{{ $social := site.Params.social }}
+{{ $config := site.Params.navbar }}
+{{ $shadow := $config.shadow }}
+{{ $fixed  := $config.fixed }}
+<nav class="navbar{{ if $shadow }} has-shadow{{ end }}{{ if $fixed }} is-fixed-top{{ end }}">
+  <div class="container">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="{{ $home }}">
+        <img src="{{ $logo }}" alt="Project navbar logo">
+      </a>
+
+      <a role="button" class="navbar-burger burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </a>
+    </div>
+
+    <div class="navbar-menu" id="navMenu">
+      <div class="navbar-end">
+        {{ range $menu }}
+        <a class="navbar-item" href="{{ .URL }}">
+          {{ .Name }}
+        </a>
+        {{ end }}
+
+        <div class="navbar-item">
+          <div class="buttons">
+            {{ range $social }}
+            <a class="button is-{{ .color | default "white" }} has-text-weight-bold" href="{{ .url }}" target="_blank">
+              <span class="icon">
+                <i class="fab fa-{{ .icon }}"></i>
+              </span>
+              <span>
+                {{ .name }}
+              </span>
+            </a>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>

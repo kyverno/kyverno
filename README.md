@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/nirmata/kyverno.svg?branch=master)](https://travis-ci.org/nirmata/kyverno) [![Go Report Card](https://goreportcard.com/badge/github.com/nirmata/kyverno)](https://goreportcard.com/report/github.com/nirmata/kyverno) ![License: Apache-2.0](https://img.shields.io/github/license/nirmata/kyverno?color=blue)
 
-![logo](documentation/images/Kyverno_Horizontal.png)
+![logo](documentation/assets/images/Kyverno_Horizontal.png)
 
 Kyverno is a policy engine built for Kubernetes:
 * policies as Kubernetes resources (no new language to learn!)
@@ -92,25 +92,25 @@ kubectl delete cpol --all
 ```
 
 As a next step, browse the [sample policies](https://github.com/nirmata/kyverno/blob/master/samples/README.md) 
-and learn about [writing policies](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md). 
-You can test policies using the [Kyverno cli](https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md). 
-See [docs](https://github.com/nirmata/kyverno/#documentation) for complete details.
+and learn about [writing policies](https://kyverno.com/docs/writing-policies.md). 
+You can test policies using the [Kyverno cli](https://kyverno.com/docs/kyverno-cli.md). 
+See [docs](https://kyverno.com/docs) for complete details.
 
 ## Documentation
 
-- [Getting Started](documentation/installation.md)
-- [Writing Policies](documentation/writing-policies.md)
-  - [Selecting Resources](/documentation/writing-policies-match-exclude.md)
-  - [Validating Resources](documentation/writing-policies-validate.md)
-  - [Mutating Resources](documentation/writing-policies-mutate.md)
-  - [Generating Resources](documentation/writing-policies-generate.md)
-  - [Variable Substitution](documentation/writing-policies-variables.md)
-  - [Preconditions](documentation/writing-policies-preconditions.md)
-  - [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
-  - [Background Processing](documentation/writing-policies-background.md)
-- [Testing Policies](documentation/testing-policies.md)
-- [Policy Violations](documentation/policy-violations.md)
-- [Kyverno CLI](documentation/kyverno-cli.md)
+- [Getting Started](https://kyverno.com/docs/installation.md)
+- [Writing Policies](https://kyverno.com/docs/writing-policies.md)
+  - [Selecting Resources](https://kyverno.com/docs/writing-policies-match-exclude.md)
+  - [Validating Resources](https://kyverno.com/docs/writing-policies-validate.md)
+  - [Mutating Resources](https://kyverno.com/docs/writing-policies-mutate.md)
+  - [Generating Resources](https://kyverno.com/docs/writing-policies-generate.md)
+  - [Variable Substitution](https://kyverno.com/docs/writing-policies-variables.md)
+  - [Preconditions](https://kyverno.com/docs/writing-policies-preconditions.md)
+  - [Auto-Generation of Pod Controller Policies](https://kyverno.com/docs/writing-policies-autogen.md)
+  - [Background Processing](https://kyverno.com/docs/writing-policies-background.md)
+- [Testing Policies](https://kyverno.com/docs/testing-policies.md)
+- [Policy Violations](https://kyverno.com/docs/policy-violations.md)
+- [Kyverno CLI](https://kyverno.com/docs/kyverno-cli.md)
 - [Sample Policies](/samples/README.md)
 
 ## License

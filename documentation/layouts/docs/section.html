@@ -1,0 +1,59 @@
+{{ define "title" }}
+{{ site.Title }} | Docs | {{ .Title }}
+{{ end }}
+
+{{ define "main" }}
+{{ $home := site.BaseURL }}
+{{ $logo := site.Params.logos.panel }}
+{{ $docs := where .Site.Pages "Section" "docs" }}
+{{ $description := .Params.description }}
+<div class="dashboard">
+  <div class="dashboard-panel left has-thick-padding is-hidden-mobile">
+    <div class="dashboard-panel-header has-text-centered">
+      <a href="{{ $home }}">
+        <img class="dashboard-panel-logo" src="{{ $logo }}">
+      </a>
+
+      <p class="title is-size-4 has-text-weight-light">
+        {{ site.Title }}
+      </p>
+    </div>
+
+    <div class="dashboard-panel-main">
+      <div class="dashboard-panel-main-toc">
+        <ul>
+          {{ range $docs }}
+          <li>
+            <a href="{{ .URL }}">
+              {{ .Title }}
+            </a>
+          </li>
+          {{ end }}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-main is-scrollable">
+    <section class="hero is-primary">
+      <div class="hero-body">
+        <p class="title{{ if $description }} is-spaced{{ end }}">
+          {{ .Title }}
+        </p>
+        {{ with $description }}
+        <p class="subtitle">
+          {{ . | markdownify }}
+        </p>
+        {{ end }}
+      </div>
+    </section>
+
+    <section class="section">
+
+      <div class="content">
+        {{ .Content }}
+      </div>
+    </section>
+  </div>
+</div>
+{{ end }}

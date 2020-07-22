@@ -1,0 +1,18 @@
+{{ $isHome         := .IsHome }}
+{{ $navbarFixedTop := site.Params.navbar.fixed }}
+<!DOCTYPE html>
+<html>
+  <head>
+    {{ partial "meta.html" . }}
+    <title>{{ block "title" . }}{{ site.Title }}{{ end }}</title>
+    {{ partial "css.html" . }}
+  </head>
+  <body class="page{{ if and $isHome $navbarFixedTop }} has-navbar-fixed-top{{ end }}">
+    <div class="main">
+      {{ block "main" . }}
+      {{ end }}
+    </div>
+
+    {{ partial "javascript.html" . }}
+  </body>
+</html>

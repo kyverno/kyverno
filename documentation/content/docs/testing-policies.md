@@ -1,5 +1,7 @@
-<small>*[documentation](/README.md#documentation) / Testing Policies*</small>
-
+---
+title: Testing Policies 
+description: 
+---
 
 # Testing Policies 
 
@@ -26,5 +28,3 @@ kubectl get -f resources/CM.yaml -o yaml
 
 The Kyverno CLI allows testing policies before they are applied to a cluster. It is documented at [Kyverno CLI](kyverno-cli.md)
 
-
-<small>*Read Next >> [Policy Violations](/documentation/policy-violations.md)*</small>

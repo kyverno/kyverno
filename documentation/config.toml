@@ -1,0 +1,90 @@
+title = "Kyverno"
+baseURL = "https://kyverno.com"
+disableKinds = ["sitemap", "taxonomy", "taxonomyTerm"]
+languageCode = "en-us"
+pygmentsCodefences = true
+pygmentsStyle = "monokai"
+
+[params]
+description = "Kubernetes Native Policy Management"
+sansseriffont = "Open Sans"
+monospacefont = "Fira Mono"
+fontawesomeversion = "5.6.3"
+js = ["jquery-3.3.1", "app"]
+logo = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+favicon = "https://raw.githubusercontent.com/cncf/artwork/master/cncf/icon/color/cncf-icon-color.png"
+
+[params.logos]
+navbar = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+footer = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+panel = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+
+[params.social.github]
+name = "GitHub"
+url  = "https://github.com/nirmata/kyverno"
+icon = "github"
+color = "black"
+
+[params.social.slack]
+name = "Slack"
+url = "https://kubernetes.slack.com"
+icon = "slack"
+color = "slack-green"
+
+[params.social.twitter]
+name = "Twitter"
+url = "https://twitter.com/kyverno"
+icon = "twitter"
+color = "twitter-blue"
+handle = "CloudNativeFdn"
+
+[[params.fonts]]
+name = "Open Sans"
+sizes = [300, 400, 600, 700]
+
+[[params.fonts]]
+name = "Fira Mono"
+sizes = [400]
+
+[params.navbar]
+fixed = true
+shadow = true
+
+[[params.features]]
+title = "Blazing fast"
+description = "This project scaffold uses [Hugo](https://gohugo.io), the fastest static site generator on the planet"
+icon = "fas fa-rocket"
+
+[[params.features]]
+title = "Netlify support"
+description = "Deploy your site to [Netlify](https://netlify.com) in minutes"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Easy configuration"
+description = "The project's `config.toml` Hugo config provides a wide variety of levers for customizing your site"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Feature 2"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Feature 2"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[menu.navbar]]
+name = "Docs"
+url = "/docs"
+weight = 1
+
+[[menu.navbar]]
+name = "Blog"
+url = "/blog"
+weight = 2

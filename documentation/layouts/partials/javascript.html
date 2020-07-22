@@ -1,0 +1,12 @@
+{{- $inServerMode := site.IsServer }}
+{{- $jsFiles := site.Params.js }}
+{{- range $jsFiles }}
+{{- $path := printf "js/%s.js" . }}
+{{- $js   := resources.Get $path }}
+{{- if $inServerMode }}
+<script src="{{ $js.RelPermalink }}"></script>
+{{- else }}
+{{- $prodJs := $js | minify | fingerprint }}
+<script src="{{ $prodJs.RelPermalink }}" integrity="{{ $prodJs.Data.Integrity }}"></script>
+{{- end }}
+{{- end }}

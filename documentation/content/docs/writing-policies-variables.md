@@ -1,10 +1,13 @@
-<small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Variables*</small>
+---
+title: Variables
+description: 
+---
 
 # Variables
 
 Sometimes it is necessary to vary the contents of a mutated or generated resource based on request data. To achieve this, variables can be used to reference attributes that are loaded in the rule processing context using a [JMESPATH](http://jmespath.org/) notation. 
 
-The policy engine will substitute any values with the format `{{<JMESPATH>}}` with the variable value before processing the rule.
+The policy engine will substitute any values with the format `{{ <JMESPATH> }}` with the variable value before processing the rule.
 
 The following data is available for use in context:
 - Resource: `{{request.object}}`
@@ -31,5 +34,3 @@ Kyverno automatically creates a few useful variables:
 3. Reference the metadata (type object)
 
 `{{request.object.metadata}}`
-
-<small>*Read Next >> [Preconditions](/documentation/writing-policies-preconditions.md)*</small>
