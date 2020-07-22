@@ -151,18 +151,18 @@ type Spec struct {
 type Rule struct {
 	// Name - A required field represents rule name
 	Name string `json:"name"`
-	// (Optional): MatchResources contains resources for which the rule has to be applied.
+	// (Optional): Specifies resources for which the rule has to be applied.
 	// If it's defined, "kind" inside MatchResources block is required.
 	MatchResources MatchResources `json:"match"`
-	// (Optional): ExcludeResources contains resources for which rule can be excluded
+	// (Optional): Specifies resources for which rule can be excluded
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
-	// (Optional): Conditions allow controlling policy rule execution
+	// (Optional): Allows controlling policy rule execution
 	Conditions []Condition `json:"preconditions,omitempty"`
-	// (Optional): Mutation contains patterns to mutate resources
+	// (Optional): Specifies patterns to mutate resources
 	Mutation Mutation `json:"mutate,omitempty"`
-	// (Optional): Validation contains patterns to validate resources
+	// (Optional): Specifies patterns to validate resources
 	Validation Validation `json:"validate,omitempty"`
-	// (Optional): Generation contains patterns to create additional resources
+	// (Optional): Specifies patterns to create additional resources
 	Generation Generation `json:"generate,omitempty"`
 }
 
@@ -194,47 +194,47 @@ const (
 
 //MatchResources contains resource description of the resources that the rule is to apply on
 type MatchResources struct {
-	// UserInfo contains user information
+	// Specifies user information
 	UserInfo
-	// ResourceDescription contains resources to which rule is applied
+	// Specifies resources to which rule is applied
 	ResourceDescription `json:"resources"`
 }
 
 //ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule
 type ExcludeResources struct {
-	// UserInfo contains user information
+	// Specifies user information
 	UserInfo
-	// ResourceDescription contains resources to which rule is excluded
+	// Specifies resources to which rule is excluded
 	ResourceDescription `json:"resources"`
 }
 
 // UserInfo filter based on users
 type UserInfo struct {
-	// Roles contains list of namespaced role names
+	// Specifies list of namespaced role names
 	Roles []string `json:"roles,omitempty"`
-	// ClusterRoles contains list of cluster wide role names
+	// Specifies list of cluster wide role names
 	ClusterRoles []string `json:"clusterRoles,omitempty"`
-	// Subjects contains list of subject names like users, user groups, and service accounts
+	// Specifies list of subject names like users, user groups, and service accounts
 	Subjects []rbacv1.Subject `json:"subjects,omitempty"`
 }
 
 // ResourceDescription describes the resource to which the PolicyRule will be applied.
 type ResourceDescription struct {
-	// Kinds contains list of resource kind
+	// Specifies list of resource kind
 	Kinds []string `json:"kinds,omitempty"`
-	// Name is the name of the resource
+	// Specifies name of the resource
 	Name string `json:"name,omitempty"`
-	// Namespaces contains the list of namespaces
+	// Specifies list of namespaces
 	Namespaces []string `json:"namespaces,omitempty"`
-	// Selector is the set of selectors
+	// Specifies the set of selectors
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
-	// Overlay contains overlay patterns
+	// Specifies overlay patterns
 	Overlay interface{} `json:"overlay,omitempty"`
-	// Patches contains JSON Patch
+	// Specifies JSON Patch
 	Patches []Patch `json:"patches,omitempty"`
 }
 
@@ -242,28 +242,29 @@ type Mutation struct {
 
 // Patch declares patch operation for created object according to RFC 6902
 type Patch struct {
-	// Path represents path of the resource
+	// Specifies path of the resource
 	Path string `json:"path"`
-	// Operation contains operations supported by JSON Patch. i.e: add, replace and delete
+	// Specifies operations supported by JSON Patch. 
+	// i.e:- add, replace and delete
 	Operation string `json:"op"`
-	// Value is the value to be applied
+	// Specifies the value to be applied
 	Value interface{} `json:"value"`
 }
 
 // Validation describes the way how Validating Webhook will check the resource on creation
 type Validation struct {
-	// Message is the message to be displayed on validation policy violation
+	// Specifies message to be displayed on validation policy violation
 	Message string `json:"message,omitempty"`
-	// Pattern is the validation pattern
+	// Specifies validation pattern
 	Pattern interface{} `json:"pattern,omitempty"`
-	// AnyPattern is the list of validation patterns
+	// Specifies list of validation patterns
 	AnyPattern []interface{} `json:"anyPattern,omitempty"`
-	// Deny contains conditions to deny validation
+	// Specifies conditions to deny validation
 	Deny *Deny `json:"deny,omitempty"`
 }
 
 type Deny struct {
-	// Conditions contains set of condition to deny validation
+	// Specifies set of condition to deny validation
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 
@@ -281,9 +282,9 @@ type Generation struct {
 // CloneFrom - location of the resource
 // which will be used as source when applying 'generate'
 type CloneFrom struct {
-	// Namespace is the resource namespace
+	// Specifies resource namespace
 	Namespace string `json:"namespace,omitempty"`
-	// Name is the name of the resource
+	// Specifies name of the resource
 	Name string `json:"name,omitempty"`
 }
 
@@ -339,30 +340,30 @@ type PolicyViolationTemplate struct {
 
 // PolicyViolationSpec describes policy behavior by its rules
 type PolicyViolationSpec struct {
-	// Policy is the name of the policy
+	// Specifies name of the policy
 	Policy       string `json:"policy"`
 	ResourceSpec `json:"resource"`
-	// ViolatedRules contains list of violated rule
+	// Specifies list of violated rule
 	ViolatedRules []ViolatedRule `json:"rules"`
 }
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	// (Required): Kind represents resource kind
+	// (Required): Specifies resource kind
 	Kind string `json:"kind"`
-	// (Optional): Namespace represents resource namespace
+	// (Optional): Specifies resource namespace
 	Namespace string `json:"namespace,omitempty"`
-	// (Required): Name represents resource name
+	// (Required): Specifies resource name
 	Name string `json:"name"`
 }
 
 // ViolatedRule stores the information regarding the rule
 type ViolatedRule struct {
-	// Name is the violated rule name
+	// Specifies violated rule name
 	Name string `json:"name"`
-	// Type is the violated rule type
+	// Specifies violated rule type
 	Type string `json:"type"`
-	// Message is the violation message
+	// Specifies violation message
 	Message string `json:"message"`
 }
 

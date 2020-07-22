@@ -213,7 +213,7 @@ string
 </em>
 </td>
 <td>
-<p>Policy is the name of the policy</p>
+<p>Specifies name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -238,7 +238,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ViolatedRules contains list of violated rule</p>
+<p>Specifies list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -438,7 +438,7 @@ string
 </em>
 </td>
 <td>
-<p>Policy is the name of the policy</p>
+<p>Specifies name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -463,7 +463,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ViolatedRules contains list of violated rule</p>
+<p>Specifies list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -510,7 +510,7 @@ string
 </em>
 </td>
 <td>
-<p>Namespace is the resource namespace</p>
+<p>Specifies resource namespace</p>
 </td>
 </tr>
 <tr>
@@ -521,7 +521,7 @@ string
 </em>
 </td>
 <td>
-<p>Name is the name of the resource</p>
+<p>Specifies name of the resource</p>
 </td>
 </tr>
 </tbody>
@@ -618,7 +618,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>Conditions contains set of condition to deny validation</p>
+<p>Specifies set of condition to deny validation</p>
 </td>
 </tr>
 </tbody>
@@ -651,7 +651,7 @@ UserInfo
 </em>
 </td>
 <td>
-<p>UserInfo contains user information</p>
+<p>Specifies user information</p>
 </td>
 </tr>
 <tr>
@@ -664,7 +664,7 @@ ResourceDescription
 </em>
 </td>
 <td>
-<p>ResourceDescription contains resources to which rule is excluded</p>
+<p>Specifies resources to which rule is excluded</p>
 </td>
 </tr>
 </tbody>
@@ -921,7 +921,7 @@ UserInfo
 </em>
 </td>
 <td>
-<p>UserInfo contains user information</p>
+<p>Specifies user information</p>
 </td>
 </tr>
 <tr>
@@ -934,7 +934,7 @@ ResourceDescription
 </em>
 </td>
 <td>
-<p>ResourceDescription contains resources to which rule is applied</p>
+<p>Specifies resources to which rule is applied</p>
 </td>
 </tr>
 </tbody>
@@ -965,7 +965,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>Overlay contains overlay patterns</p>
+<p>Specifies overlay patterns</p>
 </td>
 </tr>
 <tr>
@@ -978,7 +978,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>Patches contains JSON Patch</p>
+<p>Specifies JSON Patch</p>
 </td>
 </tr>
 </tbody>
@@ -1009,7 +1009,7 @@ string
 </em>
 </td>
 <td>
-<p>Path represents path of the resource</p>
+<p>Specifies path of the resource</p>
 </td>
 </tr>
 <tr>
@@ -1020,7 +1020,8 @@ string
 </em>
 </td>
 <td>
-<p>Operation contains operations supported by JSON Patch. i.e: add, replace and delete</p>
+<p>Specifies operations supported by JSON Patch.
+i.e:- add, replace and delete</p>
 </td>
 </tr>
 <tr>
@@ -1031,7 +1032,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>Value is the value to be applied</p>
+<p>Specifies the value to be applied</p>
 </td>
 </tr>
 </tbody>
@@ -1271,7 +1272,7 @@ string
 </em>
 </td>
 <td>
-<p>Policy is the name of the policy</p>
+<p>Specifies name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -1296,7 +1297,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ViolatedRules contains list of violated rule</p>
+<p>Specifies list of violated rule</p>
 </td>
 </tr>
 </tbody>
@@ -1387,7 +1388,7 @@ string
 </em>
 </td>
 <td>
-<p>Policy is the name of the policy</p>
+<p>Specifies name of the policy</p>
 </td>
 </tr>
 <tr>
@@ -1412,7 +1413,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ViolatedRules contains list of violated rule</p>
+<p>Specifies list of violated rule</p>
 </td>
 </tr>
 </table>
@@ -1514,7 +1515,7 @@ Kubernetes authentication/v1.UserInfo
 </em>
 </td>
 <td>
-<p>Kinds contains list of resource kind</p>
+<p>Specifies list of resource kind</p>
 </td>
 </tr>
 <tr>
@@ -1525,7 +1526,7 @@ string
 </em>
 </td>
 <td>
-<p>Name is the name of the resource</p>
+<p>Specifies name of the resource</p>
 </td>
 </tr>
 <tr>
@@ -1536,7 +1537,7 @@ string
 </em>
 </td>
 <td>
-<p>Namespaces contains the list of namespaces</p>
+<p>Specifies list of namespaces</p>
 </td>
 </tr>
 <tr>
@@ -1549,7 +1550,7 @@ Kubernetes meta/v1.LabelSelector
 </em>
 </td>
 <td>
-<p>Selector is the set of selectors</p>
+<p>Specifies the set of selectors</p>
 </td>
 </tr>
 </tbody>
@@ -1583,7 +1584,7 @@ string
 </em>
 </td>
 <td>
-<p>Kind - A required field represents resource kind</p>
+<p>(Required): Specifies resource kind</p>
 </td>
 </tr>
 <tr>
@@ -1594,7 +1595,7 @@ string
 </em>
 </td>
 <td>
-<p>Namespace - An optional field represents resource namespace</p>
+<p>(Optional): Specifies resource namespace</p>
 </td>
 </tr>
 <tr>
@@ -1605,7 +1606,7 @@ string
 </em>
 </td>
 <td>
-<p>Name -A required field represents resource name</p>
+<p>(Required): Specifies resource name</p>
 </td>
 </tr>
 </tbody>
@@ -1650,7 +1651,7 @@ MatchResources
 </em>
 </td>
 <td>
-<p>MatchResources - An optional field contains resources for which the rule has to be applied.
+<p>(Optional): Specifies resources for which the rule has to be applied.
 If it&rsquo;s defined, &ldquo;kind&rdquo; inside MatchResources block is required.</p>
 </td>
 </tr>
@@ -1664,7 +1665,7 @@ ExcludeResources
 </em>
 </td>
 <td>
-<p>ExcludeResources - An optional field contains resources for which rule can be excluded</p>
+<p>(Optional): Specifies resources for which rule can be excluded</p>
 </td>
 </tr>
 <tr>
@@ -1677,7 +1678,7 @@ ExcludeResources
 </em>
 </td>
 <td>
-<p>Conditions - An optional field allow controlling policy rule execution</p>
+<p>(Optional): Allows controlling policy rule execution</p>
 </td>
 </tr>
 <tr>
@@ -1690,7 +1691,7 @@ Mutation
 </em>
 </td>
 <td>
-<p>Mutation - An optional field contains patterns to mutate resources</p>
+<p>(Optional): Specifies patterns to mutate resources</p>
 </td>
 </tr>
 <tr>
@@ -1703,7 +1704,7 @@ Validation
 </em>
 </td>
 <td>
-<p>Validation - An optional field contains patterns to validate resources</p>
+<p>(Optional): Specifies patterns to validate resources</p>
 </td>
 </tr>
 <tr>
@@ -1716,7 +1717,7 @@ Generation
 </em>
 </td>
 <td>
-<p>Generation - An optional field contains patterns to create additional resources</p>
+<p>(Optional): Specifies patterns to create additional resources</p>
 </td>
 </tr>
 </tbody>
@@ -1914,7 +1915,7 @@ Default value is &ldquo;true&rdquo;.</p>
 </em>
 </td>
 <td>
-<p>Roles contains list of namespaced role names</p>
+<p>Specifies list of namespaced role names</p>
 </td>
 </tr>
 <tr>
@@ -1925,7 +1926,7 @@ Default value is &ldquo;true&rdquo;.</p>
 </em>
 </td>
 <td>
-<p>ClusterRoles contains list of cluster wide role names</p>
+<p>Specifies list of cluster wide role names</p>
 </td>
 </tr>
 <tr>
@@ -1938,7 +1939,7 @@ Default value is &ldquo;true&rdquo;.</p>
 </em>
 </td>
 <td>
-<p>Subjects contains list of subject names like users, user groups, and service accounts</p>
+<p>Specifies list of subject names like users, user groups, and service accounts</p>
 </td>
 </tr>
 </tbody>
@@ -1969,7 +1970,7 @@ string
 </em>
 </td>
 <td>
-<p>Message is the message to be displayed on validation policy violation</p>
+<p>Specifies message to be displayed on validation policy violation</p>
 </td>
 </tr>
 <tr>
@@ -1980,7 +1981,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>Pattern is the validation pattern</p>
+<p>Specifies validation pattern</p>
 </td>
 </tr>
 <tr>
@@ -1991,7 +1992,7 @@ interface{}
 </em>
 </td>
 <td>
-<p>AnyPattern is the list of validation patterns</p>
+<p>Specifies list of validation patterns</p>
 </td>
 </tr>
 <tr>
@@ -2004,7 +2005,7 @@ Deny
 </em>
 </td>
 <td>
-<p>Deny contains conditions to deny validation</p>
+<p>Specifies conditions to deny validation</p>
 </td>
 </tr>
 </tbody>
@@ -2035,7 +2036,7 @@ string
 </em>
 </td>
 <td>
-<p>Name is the violated rule name</p>
+<p>Specifies violated rule name</p>
 </td>
 </tr>
 <tr>
@@ -2046,7 +2047,7 @@ string
 </em>
 </td>
 <td>
-<p>Type is the violated rule type</p>
+<p>Specifies violated rule type</p>
 </td>
 </tr>
 <tr>
@@ -2057,7 +2058,7 @@ string
 </em>
 </td>
 <td>
-<p>Message is the violation message</p>
+<p>Specifies violation message</p>
 </td>
 </tr>
 </tbody>
