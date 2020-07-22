@@ -117,7 +117,7 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
-	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
+	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --themesDir="raw"
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
@@ -127,3 +127,24 @@ kustomize-crd:
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
+
+# Build website to test
+serve:
+	hugo server \
+	--buildDrafts \
+	--buildFuture \
+	--disableFastRender \
+	--ignoreCache \
+	--themesDir ./documentation/
+
+# Build website for production
+production-build:
+	hugo --themesDir ./documentation/
+
+# Build website for preview-build
+preview-build:
+	hugo \
+	--baseURL $(DEPLOY_PRIME_URL) \
+	--buildDrafts \
+	--buildFuture
+	--themesDir ./documentation/

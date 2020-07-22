@@ -1,6 +1,7 @@
 +++
 title = "API CRD docs Reference"
 +++
+<!DOCTYPE html>
 <html lang="en"><head>
 <meta http-equiv="content-type" content="text/html; charset=UTF-8"><!-- base href="https://raw.githubusercontent.com/b-entangled/kyverno/663_api_docs/documentation/index.html" -->
 <meta charset="utf-8">

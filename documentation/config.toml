@@ -1,5 +1,5 @@
 title = "Kyverno"
-baseURL = "https://kyverno.com"
+baseURL = "https://kyverno.netlify.com"
 disableKinds = ["sitemap", "taxonomy", "taxonomyTerm"]
 languageCode = "en-us"
 pygmentsCodefences = true
@@ -27,7 +27,7 @@ color = "black"
 
 [params.social.slack]
 name = "Slack"
-url = "https://kubernetes.slack.com"
+url = "https://kubernetes.slack.com/"
 icon = "slack"
 color = "slack-green"
 
@@ -86,5 +86,5 @@ weight = 1
 
 [[menu.navbar]]
 name = "Blog"
-url = "/blog"
+url = "https://kyverno.com/blog"
 weight = 2

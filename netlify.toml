@@ -1,12 +1,12 @@
 [build]
 publish = "public"
-command = "cd documentation/ && make production-build"
+command = "make production-build"
 
 [build.environment]
 HUGO_VERSION = "0.53"
 
 [context.deploy-preview]
-command = "cd documentation/ && make preview-build"
+command = "make preview-build"
 
 [context.branch-deploy]
-command = "cd documentation/ && make preview-build"
+command = "make preview-build"
