@@ -151,18 +151,18 @@ type Spec struct {
 type Rule struct {
 	// Name - A required field represents rule name
 	Name string `json:"name"`
-	// MatchResources - An optional field contains resources for which the rule has to be applied.
+	// (Optional): MatchResources contains resources for which the rule has to be applied.
 	// If it's defined, "kind" inside MatchResources block is required.
 	MatchResources MatchResources `json:"match"`
-	// ExcludeResources - An optional field contains resources for which rule can be excluded
+	// (Optional): ExcludeResources contains resources for which rule can be excluded
 	ExcludeResources ExcludeResources `json:"exclude,omitempty"`
-	// Conditions - An optional field allow controlling policy rule execution
+	// (Optional): Conditions allow controlling policy rule execution
 	Conditions []Condition `json:"preconditions,omitempty"`
-	// Mutation - An optional field contains patterns to mutate resources
+	// (Optional): Mutation contains patterns to mutate resources
 	Mutation Mutation `json:"mutate,omitempty"`
-	// Validation - An optional field contains patterns to validate resources
+	// (Optional): Validation contains patterns to validate resources
 	Validation Validation `json:"validate,omitempty"`
-	// Generation - An optional field contains patterns to create additional resources
+	// (Optional): Generation contains patterns to create additional resources
 	Generation Generation `json:"generate,omitempty"`
 }
 
@@ -348,11 +348,11 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	// Kind - A required field represents resource kind
+	// (Required): Kind represents resource kind
 	Kind string `json:"kind"`
-	// Namespace - An optional field represents resource namespace
+	// (Optional): Namespace represents resource namespace
 	Namespace string `json:"namespace,omitempty"`
-	// Name -A required field represents resource name
+	// (Required): Name represents resource name
 	Name string `json:"name"`
 }
 
