@@ -36,6 +36,7 @@ jobs:
       -
         name: Test
         run: |
+          pwd
           make test-all
 
 
