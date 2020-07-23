@@ -32,6 +32,7 @@ jobs:
       -
         name: Go Get
         run: |
+          export PROJECT_PATH=$(pwd)
           go get ./...
       -
         name: Test
