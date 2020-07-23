@@ -38,14 +38,14 @@ docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initCon
 docker-build-initContainer:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 	echo $(PWD)/$(INITC_PATH)/
-	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)/
+	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)/
 
 docker-tag-repo-initContainer:
-	@docker tag $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(INITC_IMAGE):latest
+	@docker tag $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(INITC_IMAGE):latest
 
 docker-push-initContainer:
-	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG)
-	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):latest
+	@docker push $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(IMAGE_TAG)
+	@docker push $(REGISTRY)/evalsocket/$(INITC_IMAGE):latest
 
 ##################################
 # KYVERNO CONTAINER
@@ -65,14 +65,14 @@ docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-pu
 
 docker-build-kyverno:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
-	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+	@docker tag $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG)
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG)
+	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 
 ##################################

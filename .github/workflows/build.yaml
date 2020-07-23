@@ -1,8 +1,11 @@
-name: prereleaser
+name: build
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - fix-1011
+  pull_request:
+    branches:
+      - master
     
 jobs:
   releaser:
@@ -19,13 +22,33 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
+      -
+        name: Cache Go modules
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v1
+      -
+        name: Test
+        run: |
+          go get ./...
+      -
+        name: Build
+        run: |
+          make initContainer
+          make kyverno
+          make test-all
       - uses: creekorful/goreportcard-action@v1.0
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: release --rm-dist
+          args: release --rm-dist --skip release
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       - name: Docker Publish
@@ -33,14 +56,7 @@ jobs:
           docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
           make docker-publish-initContainer
           make docker-publish-kyverno
-      - uses: J12934/helm-gh-pages-action@master
-        name: Run Helm Publish
-        with:
-          access-token: ${{ secrets.ACCESS_TOKEN }}
-          deploy-branch: gh-pages
-          charts-folder: charts
-      - name: Update new version in krew-index
-        uses: rajatjindal/krew-release-bot@v0.0.38
+
 
 
 
