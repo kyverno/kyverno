@@ -28,6 +28,9 @@ type ConfigData struct {
 	mux sync.RWMutex
 	// configuration data
 	filters []k8Resource
+
+	// ExcludeGroup Role
+	excludeGroupRole []string
 	// hasynced
 	cmSycned cache.InformerSynced
 	log      logr.Logger
@@ -45,13 +48,21 @@ func (cd *ConfigData) ToFilter(kind, namespace, name string) bool {
 	return false
 }
 
+// ToFilter checks if the given resource is set to be filtered in the configuration
+func (cd *ConfigData) GetExcludeGroupRole() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.excludeGroupRole
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
+	GetExcludeGroupRole() []string
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources,excludeGroupRole string, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -65,8 +76,13 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	if filterK8Resources != "" {
-		cd.log.Info("init configuration from commandline arguments")
+		cd.log.Info("init configuration from commandline arguments for filterK8Resources")
 		cd.initFilters(filterK8Resources)
+	}
+
+	if excludeGroupRole != "" {
+		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
+		cd.initExcludeGroup(excludeGroupRole)
 	}
 
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -139,9 +155,20 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
 		return
 	}
+
+	// get resource filters
+	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
+	if !ok {
+		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
+		return
+	}
 	// filters is a string
 	if filters == "" {
 		logger.V(4).Info("configuration: resourceFilters is empty in ConfigMap")
+		return
+	}
+	if excludeGroupRole == "" {
+		logger.V(4).Info("configuration: excludeGroupRole is empty in ConfigMap")
 		return
 	}
 	// parse and load the configuration
@@ -151,11 +178,20 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	newFilters := parseKinds(filters)
 	if reflect.DeepEqual(newFilters, cd.filters) {
 		logger.V(4).Info("resourceFilters did not change")
-		return
+	}else{
+		logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
+		// update filters
+		cd.filters = newFilters
 	}
-	logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
-	// update filters
-	cd.filters = newFilters
+	excludeGroupRoles := parseExcludeRole(excludeGroupRole)
+	if reflect.DeepEqual(excludeGroupRoles, cd.excludeGroupRole) {
+		logger.V(4).Info("excludeGroupRole did not change")
+	}else{
+		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", excludeGroupRoles)
+		// update filters
+		cd.excludeGroupRole  = excludeGroupRoles
+	}
+
 }
 
 //TODO: this has been added to backward support command line arguments
@@ -172,12 +208,24 @@ func (cd *ConfigData) initFilters(filters string) {
 	cd.filters = newFilters
 }
 
+func (cd *ConfigData) initExcludeGroup(excludeGroupRole string) {
+	logger := cd.log
+	// parse and load the configuration
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	excludeGroupRoles := parseExcludeRole(excludeGroupRole)
+	logger.V(2).Info("Init resource excludeGroupRole", "excludeGroupRole", excludeGroupRole)
+	// update filters
+	cd.excludeGroupRole = excludeGroupRoles
+}
+
 func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	logger := cd.log
 	logger.Info("ConfigMap deleted, removing configuration filters", "name", cm.Name, "namespace", cm.Namespace)
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	cd.filters = []k8Resource{}
+	cd.excludeGroupRole = []string{}
 }
 
 type k8Resource struct {
@@ -213,4 +261,13 @@ func parseKinds(list string) []k8Resource {
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+func parseExcludeRole(list string) []string {
+	elements := strings.Split(list, ",")
+	var parseRole []string
+	for _,e := range elements {
+		parseRole = append(parseRole,e)
+	}
+	return parseRole
 }

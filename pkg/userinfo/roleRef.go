@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -25,7 +26,7 @@ var defaultSuffixs = []string{"system:", "kyverno:"}
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
-	if utils.SliceContains(keys, engine.ExcludeUserInfo...) {
+	if utils.SliceContains(keys, config.ConfigData.GetExcludeGroupRole()...) {
 		return
 	}
 

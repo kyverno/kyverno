@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/nirmata/kyverno/pkg/config"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -154,12 +155,13 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
+	excludeGroupRole := config.ConfigData.GetExcludeGroupRole();
 	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
-	ruleSubjects = append(ruleSubjects,
-		rbacv1.Subject{Kind: "Group", Name: "system:serviceaccounts:kube-system"},
-		rbacv1.Subject{Kind: "Group", Name: "system:nodes"},
-		rbacv1.Subject{Kind: "Group", Name: "system:kube-scheduler"},
-	)
+	for _,e := range excludeGroupRole {
+		ruleSubjects = append(ruleSubjects,
+			rbacv1.Subject{Kind: "Group", Name: e},
+		)
+	}
 
 	for _, subject := range ruleSubjects {
 		switch subject.Kind {
