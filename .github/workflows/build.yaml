@@ -47,7 +47,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: --rm-dist --skip-publish
+          args: --rm-dist --skip-publish --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       - name: Docker Publish
