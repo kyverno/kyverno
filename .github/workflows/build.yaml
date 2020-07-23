@@ -46,3 +46,8 @@ jobs:
           args: --rm-dist --skip-publish --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      -
+        name: Kyverno Test
+        run: |
+          export PROJECT_PATH=$(pwd)
+          make test-all
