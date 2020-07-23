@@ -1,0 +1,48 @@
+name: build
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  releaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Unshallow
+        run: git fetch --prune --unshallow
+      -
+        name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+      -
+        name: Cache Go modules
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v1
+      -
+        name: Test
+        run: |
+          go get ./...
+      -
+        name: Build
+        run: |
+          make initContainer
+          make kyverno
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: --rm-dist --skip-publish --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
