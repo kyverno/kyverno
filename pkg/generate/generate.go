@@ -22,6 +22,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	var err error
 	var resource *unstructured.Unstructured
 	var genResources []kyverno.ResourceSpec
+
 	// 1 - Check if the resource exists
 	resource, err = getResource(c.client, gr.Spec.Resource)
 	if err != nil {
@@ -29,10 +30,14 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 		logger.Error(err, "resource does not exist or is yet to be created, requeueing")
 		return err
 	}
+
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
+
 	// 3 - Report Events
-	reportEvents(logger, err, c.eventGen, *gr, *resource)
+	events := failedEvents(err, *gr, *resource)
+	c.eventGen.Add(events...)
+
 	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
@@ -47,11 +52,17 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			labels := resource.GetLabels()
-			if labels["app.kubernetes.io/synchronize"] == "enable" {
-				if err := c.client.DeleteResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name, false); err != nil {
-					logger.V(4).Info("Generated resource is deleted")
-					return nil, err
+			for _, e := range gr.Status.GeneratedResources {
+				resp, err := c.client.GetResource(e.Kind, e.Namespace, e.Name)
+				if err != nil {
+					logger.Error(err, "Generated resource failed to get", "Resource", e.Name)
+				}
+
+				labels := resp.GetLabels()
+				if labels["policy.kyverno.io/synchronize"] == "enable" {
+					if err := c.client.DeleteResource(resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
+						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
+					}
 				}
 			}
 			return nil, nil
@@ -129,7 +140,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting, policy.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -186,7 +197,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool, policy string) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -274,10 +285,11 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// Add Synchronize label
 	label := newResource.GetLabels()
 	if rule.Generation.Synchronize {
-		label["app.kubernetes.io/synchronize"] = "enable"
+		label["policy.kyverno.io/synchronize"] = "enable"
 	} else {
-		label["app.kubernetes.io/synchronize"] = "disable"
+		label["policy.kyverno.io/synchronize"] = "disable"
 	}
+	label["policy.kyverno.io/policy-name"] = policy
 	newResource.SetLabels(label)
 
 	if mode == Create {
