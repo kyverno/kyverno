@@ -201,7 +201,7 @@ const (
 //MatchResources contains resource description of the resources that the rule is to apply on
 type MatchResources struct {
 	// Specifies user information
-	UserInfo `json:"userInfo,omitempty" yaml:"userInfo,omitempty"`
+	UserInfo `json:",omitempty" yaml:",omitempty"`
 	// Specifies resources to which rule is applied
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
@@ -209,7 +209,7 @@ type MatchResources struct {
 //ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule
 type ExcludeResources struct {
 	// Specifies user information
-	UserInfo `json:"userInfo,omitempty" yaml:"userInfo,omitempty"`
+	UserInfo `json:",omitempty" yaml:",omitempty"`
 	// Specifies resources to which rule is excluded
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
