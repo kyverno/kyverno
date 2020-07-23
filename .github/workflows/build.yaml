@@ -3,9 +3,6 @@ on:
   push:
     branches:
       - fix-1011
-  pull_request:
-    branches:
-      - master
     
 jobs:
   releaser:
@@ -33,31 +30,14 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
       -
-        name: Test
+        name: Go Get
         run: |
           go get ./...
       -
-        name: Build
+        name: Test
         run: |
-          make initContainer
-          make kyverno
-      -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
-        with:
-          version: latest
-          args: --rm-dist --skip-publish --snapshot
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-      - uses: azure/docker-login@v1
-        with:
-          login-server: index.docker.io
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Docker Publish
-        run: |
-          make docker-publish-initContainer
-          make docker-publish-kyverno
+          make test-all
+
 
 
 
