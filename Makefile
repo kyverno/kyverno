@@ -128,17 +128,3 @@ kustomize-crd:
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
-# Build website to test
-serve:
-	cd ./documentation/
-	hugo server \
-	--buildDrafts \
-	--buildFuture \
-	--disableFastRender \
-	--ignoreCache
-
-# Build website for production
-production-build:
-	cd ./documentation/
-	hugo
-
