@@ -81,6 +81,7 @@ func Command() *cobra.Command {
 						}
 					}
 				}
+				fmt.Println("-----------------------------------------------------------------------")
 			}
 
 			if invalidPolicyFound == true {
