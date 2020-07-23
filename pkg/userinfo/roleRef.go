@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -19,14 +18,20 @@ const (
 	clusterrolekind = "ClusterRole"
 	rolekind        = "Role"
 	SaPrefix        = "system:serviceaccount:"
+	KyvernoSuffix = "kyverno:"
 )
 
-var defaultSuffixs = []string{"system:", "kyverno:"}
+type allRolesStruct struct {
+	RoleType string
+	Role []string
+}
+var allRoles []allRolesStruct
+
 
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
-	if utils.SliceContains(keys, config.ConfigData.GetExcludeGroupRole()...) {
+	if utils.SliceContains(keys, config.ExcludeGroupRule...) {
 		return
 	}
 
@@ -138,31 +143,37 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		if err != nil {
 			return false, err
 		}
-
-		for _, e := range clusterRoles {
-			if strings.Contains(e, "kyverno:") {
-				return true, nil
-			}
-			role, err := crLister.Get(e)
-			if err != nil {
-				return false, err
-			}
-			labels := role.GetLabels()
-
-			if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
-				return true, nil
-			}
-		}
-		for _, e := range roles {
-			roleData := strings.Split(e, ":")
-			role, err := rLister.Roles(roleData[0]).Get(roleData[1])
-			if err != nil {
-				return false, err
-			}
-			labels := role.GetLabels()
-			if !strings.Contains(e, "kyverno:") {
-				if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
+		allRoles := append(allRoles,allRolesStruct{
+			RoleType: "ClusterRole",
+			Role : clusterRoles,
+		},allRolesStruct{
+			RoleType: "Role",
+			Role : roles,
+		})
+		for _, r := range allRoles {
+			for _,e := range r.Role {
+				if strings.Contains(e, KyvernoSuffix) {
 					return true, nil
+				}
+				var labels map[string]string
+				if r.RoleType == "Role" {
+					roleData := strings.Split(e, ":")
+					role, err := rLister.Roles(roleData[0]).Get(strings.Join(roleData[1:],":"))
+					if err != nil {
+						return false, err
+					}
+					labels = role.GetLabels()
+				}else{
+					role, err := crLister.Get(e)
+					if err != nil {
+						return false, err
+					}
+					labels = role.GetLabels()
+				}
+				if !strings.Contains(e, KyvernoSuffix) {
+					if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
+						return true, nil
+					}
 				}
 			}
 		}
@@ -176,8 +187,9 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		}
 	}
 	var matchedRoles []bool
+	excludeGroupRule := append(config.ExcludeGroupRule,KyvernoSuffix)
 	for _, e := range request.UserInfo.Groups {
-		for _, defaultSuffix := range defaultSuffixs {
+		for _, defaultSuffix := range excludeGroupRule {
 			if strings.Contains(e, defaultSuffix) {
 				matchedRoles = append(matchedRoles, true)
 				break

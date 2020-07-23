@@ -19,8 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-var ExcludeUserInfo = []string{"system:nodes", "system:serviceaccounts:kube-system", "system:kube-scheduler"}
-
 //EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
 	// average time required to process the policy rules on a resource
@@ -112,7 +110,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
 	var checkedItem int
-	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, ExcludeUserInfo...) {
+	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, config.ExcludeGroupRule...) {
 		checkedItem++
 
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
@@ -122,7 +120,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
-	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, ExcludeUserInfo...) {
+	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, config.ExcludeGroupRule...) {
 		checkedItem++
 
 		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
@@ -155,9 +153,8 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
-	excludeGroupRole := config.ConfigData.GetExcludeGroupRole();
 	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
-	for _,e := range excludeGroupRole {
+	for _,e := range config.ExcludeGroupRule {
 		ruleSubjects = append(ruleSubjects,
 			rbacv1.Subject{Kind: "Group", Name: e},
 		)
