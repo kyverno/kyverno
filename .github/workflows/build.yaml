@@ -19,14 +19,18 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
-      -
-        name: Create .Kube
-        run: mkdir /home/runner/.kube
+
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-alpha.3
         # Only build a kind cluster if there are chart changes to test.
         if: steps.lint.outputs.changed == 'true'
+
+      -
+        name: Create .Kube
+        run:
+          echo $KUBE_CONFIG
+          kubectl get node
 
       - name: Run chart-testing (lint)
         id: lint
