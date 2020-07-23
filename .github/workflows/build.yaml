@@ -41,7 +41,6 @@ jobs:
         run: |
           make initContainer
           make kyverno
-          make test-all
       - uses: creekorful/goreportcard-action@v1.0
       -
         name: Run GoReleaser
