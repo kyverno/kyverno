@@ -117,7 +117,7 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
-	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --themesDir="raw"
+	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
