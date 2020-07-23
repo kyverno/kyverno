@@ -41,7 +41,6 @@ jobs:
         run: |
           make initContainer
           make kyverno
-      - uses: creekorful/goreportcard-action@v1.0
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
@@ -50,9 +49,15 @@ jobs:
           args: --rm-dist --skip-publish --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      - uses: actions/docker/login@master
+        with: # Set the secret as an input
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWPORD: ${{ secrets.DOCKER_PASSWPORD }}
+        env: # Set the secret in the env
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWPORD: ${{ secrets.DOCKER_PASSWPORD }}
       - name: Docker Publish
         run: |
-          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
           make docker-publish-initContainer
           make docker-publish-kyverno
 
