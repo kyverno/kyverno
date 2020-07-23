@@ -19,6 +19,9 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
+      -
+        name: Create .Kube
+        run: mkdir /home/runner/.kube
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-alpha.3
