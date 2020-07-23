@@ -19,26 +19,30 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
-      -
-        name: Cache Go modules
-        uses: actions/cache@v1
+
+      - name: Run chart-testing (lint)
+        id: lint
+        uses: helm/chart-testing-action@v1.0.0-rc.2
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@v1
-      -
-        name: Go Get
-        run: |
-          export PROJECT_PATH=$(pwd)
-          go get ./...
-      -
-        name: Test
-        run: |
-          pwd
-          make test-all
+          command: lint  ./charts/kyverno/
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.0.0-alpha.3
+        # Only build a kind cluster if there are chart changes to test.
+        if: steps.lint.outputs.changed == 'true'
+
+      - name: Create Namespace
+        uses: steebchen/kubectl@master
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+          KUBECTL_VERSION: "1.15"
+        with:
+          args: '"create namespace kyverno"'
+
+      - name: Run chart-testing (install)
+        uses: helm/chart-testing-action@v1.0.0-rc.2
+        with:
+          command: install kyverno --namespace kyverno kyverno/kyverno
 
 
 
