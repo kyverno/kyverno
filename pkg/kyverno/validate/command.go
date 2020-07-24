@@ -37,8 +37,7 @@ func Command() *cobra.Command {
 			}()
 
 			if outputType != "" {
-				if outputType == "yaml" || outputType == "json" {
-				} else {
+				if outputType != "yaml" && outputType != "json" {
 					return sanitizedError.NewWithError(fmt.Sprintf("%s format is not supported", outputType), errors.New("yaml and json are supported"))
 				}
 			}

@@ -188,7 +188,10 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	}
 
 	var p v1.ClusterPolicy
-	json.Unmarshal(modifiedPolicy, &p)
+	err = json.Unmarshal(modifiedPolicy, &p)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
+	}
 
 	return &p, nil
 }
