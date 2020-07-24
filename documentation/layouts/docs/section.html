@@ -1,7 +1,6 @@
 {{ define "title" }}
 {{ site.Title }} | Docs | {{ .Title }}
 {{ end }}
-
 {{ define "main" }}
 {{ $home := site.BaseURL }}
 {{ $logo := site.Params.logos.panel }}
@@ -10,21 +9,21 @@
 <div class="dashboard">
   <div class="dashboard-panel left has-thick-padding is-hidden-mobile">
     <div class="dashboard-panel-header has-text-centered">
-      <a href="{{ $home }}">
+      <a href="{{ $home }}" >
         <img class="dashboard-panel-logo" src="{{ $logo }}">
       </a>
 
-      <p class="title is-size-4 has-text-weight-light">
+      <!-- <p class="title is-size-4 has-text-weight-light">
         {{ site.Title }}
-      </p>
+      </p> -->
     </div>
 
     <div class="dashboard-panel-main">
       <div class="dashboard-panel-main-toc">
         <ul>
-          {{ range $docs }}
+          {{ range sort $docs "File.Path"  }}
           <li>
-            <a href="{{ .URL }}">
+            <a href="{{ .URL }}"  >
               {{ .Title }}
             </a>
           </li>

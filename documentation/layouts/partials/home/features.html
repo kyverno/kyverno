@@ -2,25 +2,28 @@
 {{ with $features }}
 <section class="section">
   <div class="container">
+    <p class="title has-text-centered is-size-4 is-size-5-mobile has-text-weight-light">
+      Featurers
+    </p>
     <div class="columns is-multiline">
       {{ range $features }}
       {{ $url := .url }}
       <div class="column is-one-third">
         <div class="card is-shadowless">
-          <div class="card-content">
+          <div class="card-content {{ .icon }}">
             {{ with .title }}
             <a class="title is-size-4 is-size-5-mobile has-text-weight-light" href="{{ $url }}">
               {{ . | markdownify }}
             </a>
-
+            
             <hr />
             {{ end }}
 
-            {{ with .description }}
+            <!-- {{ with .description }}
             <p>
               {{ . | markdownify }}
             </p>
-            {{ end }}
+            {{ end }} -->
           </div>
         </div>
       </div>

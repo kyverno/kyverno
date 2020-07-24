@@ -7,17 +7,18 @@ pygmentsStyle = "monokai"
 
 [params]
 description = "Kubernetes Native Policy Management"
+detail= "Manage policies as Kubernetes resources. Validate, mutate, and generate configurations. Select resources based on labels and wildcards. View policy enforcement as events. Detect policy violations for existing resources."
 sansseriffont = "Open Sans"
 monospacefont = "Fira Mono"
 fontawesomeversion = "5.6.3"
 js = ["jquery-3.3.1", "app"]
-logo = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+logo = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/images/Kyverno_Horizontal.png"
 favicon = "https://raw.githubusercontent.com/cncf/artwork/master/cncf/icon/color/cncf-icon-color.png"
 
 [params.logos]
-navbar = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
-footer = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
-panel = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/assets/images/Kyverno_Horizontal.png"
+navbar = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/images/Kyverno_Horizontal.png"
+footer = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/images/Kyverno_Horizontal.png"
+panel = "https://raw.githubusercontent.com/nirmata/kyverno/master/documentation/images/Kyverno_Horizontal.png"
 
 [params.social.github]
 name = "GitHub"
@@ -51,30 +52,54 @@ fixed = true
 shadow = true
 
 [[params.features]]
-title = "Blazing fast"
+title = "Policy definitions as Kubernetes resources"
 description = "This project scaffold uses [Hugo](https://gohugo.io), the fastest static site generator on the planet"
 icon = "fas fa-rocket"
 
 [[params.features]]
-title = "Netlify support"
+title = "Validate, mutate, or generate Kubernetes resources"
 description = "Deploy your site to [Netlify](https://netlify.com) in minutes"
 icon = "fas fa-rocket"
 url = "/docs"
 
 [[params.features]]
-title = "Easy configuration"
+title = "Match resources using label selectors and wildcards"
 description = "The project's `config.toml` Hugo config provides a wide variety of levers for customizing your site"
 icon = "fas fa-rocket"
 url = "/docs"
 
 [[params.features]]
-title = "Feature 2"
+title = "Mutate using overlays (like Kustomize) or JSON Patch"
 description = "Feature 2 is potentially an even more important feature"
 icon = "fas fa-rocket"
 url = "/docs"
 
 [[params.features]]
-title = "Feature 2"
+title = "Validate using overlays and powerful conditionals"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Generate default resources during namespace creation"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Reporting of policy violations for existing resources"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Kubernetes events for resource changes and policy enforcement"
+description = "Feature 2 is potentially an even more important feature"
+icon = "fas fa-rocket"
+url = "/docs"
+
+[[params.features]]
+title = "Test policy changes using kubectl"
 description = "Feature 2 is potentially an even more important feature"
 icon = "fas fa-rocket"
 url = "/docs"
