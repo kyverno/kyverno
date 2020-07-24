@@ -30,6 +30,7 @@ spec:
           #- "--webhooktimeout=4"
           # enable profiling
           # - "--profile"
+          - --excludeGroupRole="system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler"
           - "-v=2"
           ports:
           - containerPort: 443

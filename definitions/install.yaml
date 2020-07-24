@@ -765,6 +765,7 @@ spec:
       containers:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
+        - --excludeGroupRole="system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler"
         - -v=2
         env:
         - name: INIT_CONFIG
