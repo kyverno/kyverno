@@ -1,13 +1,15 @@
 package generate
 
+
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
 	"os"
-	"sigs.k8s.io/yaml"
+	// "fmt"
 )
 
 type E2EClient struct {
@@ -17,7 +19,7 @@ type E2EClient struct {
 func NewE2EClient() (*E2EClient, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
-		kubeconfig = os.Getenv("HOME") + "/.kube/config"
+		kubeconfig = os.Getenv("HOME")+"/.kube/config"
 	}
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -35,13 +37,13 @@ func GetGVR(group, version, resource string) schema.GroupVersionResource {
 }
 
 // CleanClusterPolicies ;- Deletes all the cluster policies
-func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource, namespace string) error {
+func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource, namespace string) (error) {
 	res, err := e2e.ListNamespacedResources(gvr, namespace)
 	if err != nil {
 		return err
 	}
 	for _, r := range res.Items {
-		err = e2e.DeleteNamespacedResource(gvr, namespace, r.GetName()) //dclient.Resource(gvr).Namespace(namespace).Delete(r.GetName(), &metav1.DeleteOptions{})
+		err = e2e.DeleteNamespacedResource(gvr, namespace, r.GetName())
 		if err != nil {
 			return err
 		}
@@ -49,23 +51,23 @@ func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource, name
 	return nil
 }
 
-// GetNamespacedResource fetch namespaced resources like Pods, Services, Deployments etc
+// GetNamespacedResource ...
 func (e2e *E2EClient) GetNamespacedResource(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
 	return e2e.Client.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
 }
 
-// GetClusterResource fetch cluster resources like Namespace, ClusterRole, ClusterRoleBinding etc ...
+// GetClusterResource ...
 func (e2e *E2EClient) GetClusteredResource(gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
 	return e2e.Client.Resource(gvr).Get(name, metav1.GetOptions{})
 }
 
 // DeleteNamespacedResource ...
-func (e2e *E2EClient) DeleteNamespacedResource(gvr schema.GroupVersionResource, namespace, name string) error {
+func (e2e *E2EClient) DeleteNamespacedResource(gvr schema.GroupVersionResource, namespace, name string) (error) {
 	return e2e.Client.Resource(gvr).Namespace(namespace).Delete(name, &metav1.DeleteOptions{})
 }
 
 // DeleteClusterResource ...
-func (e2e *E2EClient) DeleteClusteredResource(gvr schema.GroupVersionResource, name string) error {
+func (e2e *E2EClient) DeleteClusteredResource(gvr schema.GroupVersionResource, name string) (error) {
 	return e2e.Client.Resource(gvr).Delete(name, &metav1.DeleteOptions{})
 }
 
@@ -80,14 +82,15 @@ func (e2e *E2EClient) CreateClusteredResource(gvr schema.GroupVersionResource, r
 }
 
 // ListNamespacedResources ...
-func (e2e *E2EClient) ListNamespacedResources(gvr schema.GroupVersionResource, namespace string) (*unstructured.UnstructuredList, error) {
+func (e2e *E2EClient) ListNamespacedResources(gvr schema.GroupVersionResource, namespace string) (*unstructured.UnstructuredList, error){
 	return e2e.Client.Resource(gvr).Namespace(namespace).List(metav1.ListOptions{})
 }
 
 // CreateNamespacedResource creates namespaced resources like Pods, Services, Deployments etc
-func (e2e *E2EClient) CreateNamespacedResources(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
+func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
 	resource := unstructured.Unstructured{}
 	err := yaml.Unmarshal(resourceData, &resource)
+	// fmt.Println(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +107,4 @@ func (e2e *E2EClient) CreateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	}
 	result, err := e2e.CreateClusteredResource(gvr, &resource)
 	return result, err
-}
-
-// CleanupNamespaces DELETE Namespace
-func (e2e *E2EClient) CleanupNamespaces(gvr schema.GroupVersionResource, name string) error {
-	_, err := e2e.GetClusteredResource(gvr, name)
-	if err != nil {
-		return err
-	}
-	err = e2e.DeleteClusteredResource(gvr, name)
-	return err
 }
