@@ -1,12 +1,11 @@
 +++
 title = "API CRD docs Reference"
 +++
-<!DOCTYPE html>
-<html lang="en"><head>
-<meta http-equiv="content-type" content="text/html; charset=UTF-8"><!-- base href="https://raw.githubusercontent.com/b-entangled/kyverno/663_api_docs/documentation/index.html" -->
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link rel="stylesheet" href="Kyverno%20API_files/bootstrap.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 <title>Kyverno API</title>
 <style>
 .bg-blue {
@@ -18,30 +17,30 @@ background-color: #1589dd;
 <body>
 <div class="container">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-<a class="navbar-brand" href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#"><p><b>Packages : </b></p></a>
+<a class="navbar-brand" href="#"><p><b>Packages : </b></p></a>
 <ul style="list-style:none">
 <li>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
+<a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
 </li>
 </ul>
 </nav>
 <h2 id="kyverno.io/v1">kyverno.io/v1</h2>
 Resource Types:
 <ul><li>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>
+<a href="#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>
 </li><li>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>
+<a href="#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>
 </li><li>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequest">GenerateRequest</a>
+<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>
 </li><li>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolation">PolicyViolation</a>
+<a href="#kyverno.io/v1.PolicyViolation">PolicyViolation</a>
 </li></ul>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ClusterPolicy">ClusterPolicy
 </h3>
 <p>
-</p><p>ClusterPolicy …</p>
-<p></p>
+<p>ClusterPolicy &hellip;</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -52,7 +51,7 @@ Resource Types:
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code><br>
+<code>apiVersion</code></br>
 string</td>
 <td>
 <code>
@@ -62,16 +61,16 @@ kyverno.io/v1
 </tr>
 <tr>
 <td>
-<code>kind</code><br>
+<code>kind</code></br>
 string
 </td>
 <td><code>ClusterPolicy</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -83,23 +82,23 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Spec">
+<a href="#kyverno.io/v1.Spec">
 Spec
 </a>
 </em>
 </td>
 <td>
 <p>Spec is the information to identify the policy</p>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">
+<a href="#kyverno.io/v1.Rule">
 []Rule
 </a>
 </em>
@@ -110,36 +109,36 @@ Spec
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code><br>
+<code>validationFailureAction</code></br>
 <em>
 string
 </em>
 </td>
 <td>
 <p>ValidationFailureAction provides choice to enforce rules to resources during policy violations.
-Default value is “audit”.</p>
+Default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>background</code><br>
+<code>background</code></br>
 <em>
 bool
 </em>
 </td>
 <td>
 <p>Background provides choice for applying rules to existing resources.
-Default value is “true”.</p>
+Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyStatus">
+<a href="#kyverno.io/v1.PolicyStatus">
 PolicyStatus
 </a>
 </em>
@@ -150,12 +149,12 @@ PolicyStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation
 </h3>
 <p>
-</p><p>ClusterPolicyViolation represents cluster-wide violations</p>
-<p></p>
+<p>ClusterPolicyViolation represents cluster-wide violations</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -166,7 +165,7 @@ PolicyStatus
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code><br>
+<code>apiVersion</code></br>
 string</td>
 <td>
 <code>
@@ -176,16 +175,16 @@ kyverno.io/v1
 </tr>
 <tr>
 <td>
-<code>kind</code><br>
+<code>kind</code></br>
 string
 </td>
 <td><code>ClusterPolicyViolation</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -197,20 +196,20 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationSpec">
+<a href="#kyverno.io/v1.PolicyViolationSpec">
 PolicyViolationSpec
 </a>
 </em>
 </td>
 <td>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
@@ -221,9 +220,9 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -233,9 +232,9 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ViolatedRule">
+<a href="#kyverno.io/v1.ViolatedRule">
 []ViolatedRule
 </a>
 </em>
@@ -244,14 +243,14 @@ ResourceSpec
 <p>Specifies list of violated rule</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationStatus">
+<a href="#kyverno.io/v1.PolicyViolationStatus">
 PolicyViolationStatus
 </a>
 </em>
@@ -261,12 +260,12 @@ PolicyViolationStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.GenerateRequest">GenerateRequest
 </h3>
 <p>
-</p><p>GenerateRequest is a request to process generate rule</p>
-<p></p>
+<p>GenerateRequest is a request to process generate rule</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -277,7 +276,7 @@ PolicyViolationStatus
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code><br>
+<code>apiVersion</code></br>
 string</td>
 <td>
 <code>
@@ -287,16 +286,16 @@ kyverno.io/v1
 </tr>
 <tr>
 <td>
-<code>kind</code><br>
+<code>kind</code></br>
 string
 </td>
 <td><code>GenerateRequest</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -308,34 +307,34 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestSpec">
+<a href="#kyverno.io/v1.GenerateRequestSpec">
 GenerateRequestSpec
 </a>
 </em>
 </td>
 <td>
 <p>Spec is the information to identify the generate request</p>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Policy - The required field represents the name of the policy</p>
+<p>Specifies the name of the policy</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -346,25 +345,25 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>context</code><br>
+<code>context</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestContext">
+<a href="#kyverno.io/v1.GenerateRequestContext">
 GenerateRequestContext
 </a>
 </em>
 </td>
 <td>
-<p>Context …</p>
+<p>Context &hellip;</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestStatus">
+<a href="#kyverno.io/v1.GenerateRequestStatus">
 GenerateRequestStatus
 </a>
 </em>
@@ -375,12 +374,12 @@ GenerateRequestStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.PolicyViolation">PolicyViolation
 </h3>
 <p>
-</p><p>PolicyViolation represents namespaced violations</p>
-<p></p>
+<p>PolicyViolation represents namespaced violations</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -391,7 +390,7 @@ GenerateRequestStatus
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code><br>
+<code>apiVersion</code></br>
 string</td>
 <td>
 <code>
@@ -401,16 +400,16 @@ kyverno.io/v1
 </tr>
 <tr>
 <td>
-<code>kind</code><br>
+<code>kind</code></br>
 string
 </td>
 <td><code>PolicyViolation</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -422,20 +421,20 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationSpec">
+<a href="#kyverno.io/v1.PolicyViolationSpec">
 PolicyViolationSpec
 </a>
 </em>
 </td>
 <td>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
@@ -446,9 +445,9 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -458,9 +457,9 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ViolatedRule">
+<a href="#kyverno.io/v1.ViolatedRule">
 []ViolatedRule
 </a>
 </em>
@@ -469,14 +468,14 @@ ResourceSpec
 <p>Specifies list of violated rule</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationStatus">
+<a href="#kyverno.io/v1.PolicyViolationStatus">
 PolicyViolationStatus
 </a>
 </em>
@@ -486,17 +485,17 @@ PolicyViolationStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.CloneFrom">CloneFrom
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.Generation">Generation</a>)
 </p>
 <p>
-</p><p>CloneFrom - location of the resource
-which will be used as source when applying ‘generate’</p>
-<p></p>
+<p>CloneFrom - location of the resource
+which will be used as source when applying &lsquo;generate&rsquo;</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -507,7 +506,7 @@ which will be used as source when applying ‘generate’</p>
 <tbody>
 <tr>
 <td>
-<code>namespace</code><br>
+<code>namespace</code></br>
 <em>
 string
 </em>
@@ -518,7 +517,7 @@ string
 </tr>
 <tr>
 <td>
-<code>name</code><br>
+<code>name</code></br>
 <em>
 string
 </em>
@@ -529,17 +528,17 @@ string
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Condition">Condition
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Deny">Deny</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Deny">Deny</a>, 
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>Condition defines the evaluation condition</p>
-<p></p>
+<p>Condition defines the evaluation condition</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -550,7 +549,7 @@ string
 <tbody>
 <tr>
 <td>
-<code>key</code><br>
+<code>key</code></br>
 <em>
 interface{}
 </em>
@@ -561,9 +560,9 @@ interface{}
 </tr>
 <tr>
 <td>
-<code>operator</code><br>
+<code>operator</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ConditionOperator">
+<a href="#kyverno.io/v1.ConditionOperator">
 ConditionOperator
 </a>
 </em>
@@ -574,7 +573,7 @@ ConditionOperator
 </tr>
 <tr>
 <td>
-<code>value</code><br>
+<code>value</code></br>
 <em>
 interface{}
 </em>
@@ -585,21 +584,21 @@ interface{}
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ConditionOperator">ConditionOperator
-(<code>string</code> alias)<p></p></h3>
+(<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Condition">Condition</a>)
+<a href="#kyverno.io/v1.Condition">Condition</a>)
 </p>
 <p>
-</p><p>ConditionOperator defines the type for condition operator</p>
-<p></p>
+<p>ConditionOperator defines the type for condition operator</p>
+</p>
 <h3 id="kyverno.io/v1.Deny">Deny
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Validation">Validation</a>)
+<a href="#kyverno.io/v1.Validation">Validation</a>)
 </p>
 <p>
 </p>
@@ -613,9 +612,9 @@ interface{}
 <tbody>
 <tr>
 <td>
-<code>conditions</code><br>
+<code>conditions</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Condition">
+<a href="#kyverno.io/v1.Condition">
 []Condition
 </a>
 </em>
@@ -626,16 +625,16 @@ interface{}
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ExcludeResources">ExcludeResources
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule</p>
-<p></p>
+<p>ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -646,9 +645,9 @@ interface{}
 <tbody>
 <tr>
 <td>
-<code>UserInfo</code><br>
+<code>UserInfo</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.UserInfo">
+<a href="#kyverno.io/v1.UserInfo">
 UserInfo
 </a>
 </em>
@@ -659,9 +658,9 @@ UserInfo
 </tr>
 <tr>
 <td>
-<code>resources</code><br>
+<code>resources</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceDescription">
+<a href="#kyverno.io/v1.ResourceDescription">
 ResourceDescription
 </a>
 </em>
@@ -672,16 +671,16 @@ ResourceDescription
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.GenerateRequestContext">GenerateRequestContext
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>)
+<a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>)
 </p>
 <p>
-</p><p>GenerateRequestContext stores the context to be shared</p>
-<p></p>
+<p>GenerateRequestContext stores the context to be shared</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -692,29 +691,29 @@ ResourceDescription
 <tbody>
 <tr>
 <td>
-<code>userInfo</code><br>
+<code>userInfo</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.RequestInfo">
+<a href="#kyverno.io/v1.RequestInfo">
 RequestInfo
 </a>
 </em>
 </td>
 <td>
-<p>UserRequestInfo …</p>
+<p>UserRequestInfo &hellip;</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
+<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
 </p>
 <p>
-</p><p>GenerateRequestSpec stores the request specification</p>
-<p></p>
+<p>GenerateRequestSpec stores the request specification</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -725,20 +724,20 @@ RequestInfo
 <tbody>
 <tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Policy - The required field represents the name of the policy</p>
+<p>Specifies the name of the policy</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -749,38 +748,38 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>context</code><br>
+<code>context</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestContext">
+<a href="#kyverno.io/v1.GenerateRequestContext">
 GenerateRequestContext
 </a>
 </em>
 </td>
 <td>
-<p>Context …</p>
+<p>Context &hellip;</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.GenerateRequestState">GenerateRequestState
-(<code>string</code> alias)<p></p></h3>
+(<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>)
+<a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>)
 </p>
 <p>
-</p><p>GenerateRequestState defines the state of</p>
-<p></p>
+<p>GenerateRequestState defines the state of</p>
+</p>
 <h3 id="kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
+<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
 </p>
 <p>
-</p><p>GenerateRequestStatus stores the status of generated request</p>
-<p></p>
+<p>GenerateRequestStatus stores the status of generated request</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -791,9 +790,9 @@ GenerateRequestContext
 <tbody>
 <tr>
 <td>
-<code>state</code><br>
+<code>state</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestState">
+<a href="#kyverno.io/v1.GenerateRequestState">
 GenerateRequestState
 </a>
 </em>
@@ -804,20 +803,21 @@ GenerateRequestState
 </tr>
 <tr>
 <td>
-<code>message</code><br>
+<code>message</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Message - An optional field is the request status message</p>
+<em>(Optional)</em>
+<p>Specifies request status message</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>generatedResources</code><br>
+<code>generatedResources</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 []ResourceSpec
 </a>
 </em>
@@ -829,16 +829,16 @@ Will be used during clean up resources</p>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>Generation describes which resources will be created when other resource is created</p>
-<p></p>
+<p>Generation describes which resources will be created when other resource is created</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -849,9 +849,9 @@ Will be used during clean up resources</p>
 <tbody>
 <tr>
 <td>
-<code>ResourceSpec</code><br>
+<code>ResourceSpec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -861,7 +861,7 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>synchronize</code><br>
+<code>synchronize</code></br>
 <em>
 bool
 </em>
@@ -872,20 +872,20 @@ bool
 </tr>
 <tr>
 <td>
-<code>data</code><br>
+<code>data</code></br>
 <em>
 interface{}
 </em>
 </td>
 <td>
-<p>Data …</p>
+<p>Data &hellip;</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>clone</code><br>
+<code>clone</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.CloneFrom">
+<a href="#kyverno.io/v1.CloneFrom">
 CloneFrom
 </a>
 </em>
@@ -896,16 +896,16 @@ CloneFrom
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.MatchResources">MatchResources
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>MatchResources contains resource description of the resources that the rule is to apply on</p>
-<p></p>
+<p>MatchResources contains resource description of the resources that the rule is to apply on</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -916,9 +916,9 @@ CloneFrom
 <tbody>
 <tr>
 <td>
-<code>UserInfo</code><br>
+<code>UserInfo</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.UserInfo">
+<a href="#kyverno.io/v1.UserInfo">
 UserInfo
 </a>
 </em>
@@ -929,9 +929,9 @@ UserInfo
 </tr>
 <tr>
 <td>
-<code>resources</code><br>
+<code>resources</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceDescription">
+<a href="#kyverno.io/v1.ResourceDescription">
 ResourceDescription
 </a>
 </em>
@@ -942,16 +942,16 @@ ResourceDescription
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Mutation">Mutation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>Mutation describes the way how Mutating Webhook will react on resource creation</p>
-<p></p>
+<p>Mutation describes the way how Mutating Webhook will react on resource creation</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -962,7 +962,7 @@ ResourceDescription
 <tbody>
 <tr>
 <td>
-<code>overlay</code><br>
+<code>overlay</code></br>
 <em>
 interface{}
 </em>
@@ -973,9 +973,9 @@ interface{}
 </tr>
 <tr>
 <td>
-<code>patches</code><br>
+<code>patches</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Patch">
+<a href="#kyverno.io/v1.Patch">
 []Patch
 </a>
 </em>
@@ -986,16 +986,16 @@ interface{}
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Patch">Patch
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Mutation">Mutation</a>)
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
-</p><p>Patch declares patch operation for created object according to RFC 6902</p>
-<p></p>
+<p>Patch declares patch operation for created object according to RFC 6902</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1006,7 +1006,7 @@ interface{}
 <tbody>
 <tr>
 <td>
-<code>path</code><br>
+<code>path</code></br>
 <em>
 string
 </em>
@@ -1017,7 +1017,7 @@ string
 </tr>
 <tr>
 <td>
-<code>op</code><br>
+<code>op</code></br>
 <em>
 string
 </em>
@@ -1029,7 +1029,7 @@ i.e:- add, replace and delete</p>
 </tr>
 <tr>
 <td>
-<code>value</code><br>
+<code>value</code></br>
 <em>
 interface{}
 </em>
@@ -1040,12 +1040,12 @@ interface{}
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Policy">Policy
 </h3>
 <p>
-</p><p>Policy contains rules to be applied to created resources</p>
-<p></p>
+<p>Policy contains rules to be applied to created resources</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1056,9 +1056,9 @@ interface{}
 <tbody>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1070,23 +1070,23 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Spec">
+<a href="#kyverno.io/v1.Spec">
 Spec
 </a>
 </em>
 </td>
 <td>
 <p>Spec is the information to identify the policy</p>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">
+<a href="#kyverno.io/v1.Rule">
 []Rule
 </a>
 </em>
@@ -1097,36 +1097,36 @@ Spec
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code><br>
+<code>validationFailureAction</code></br>
 <em>
 string
 </em>
 </td>
 <td>
 <p>ValidationFailureAction provides choice to enforce rules to resources during policy violations.
-Default value is “audit”.</p>
+Default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>background</code><br>
+<code>background</code></br>
 <em>
 bool
 </em>
 </td>
 <td>
 <p>Background provides choice for applying rules to existing resources.
-Default value is “true”.</p>
+Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyStatus">
+<a href="#kyverno.io/v1.PolicyStatus">
 PolicyStatus
 </a>
 </em>
@@ -1137,17 +1137,17 @@ PolicyStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.PolicyStatus">PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Policy">Policy</a>)
+<a href="#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>, 
+<a href="#kyverno.io/v1.Policy">Policy</a>)
 </p>
 <p>
-</p><p>PolicyStatus mostly contains statistics related to policy</p>
-<p></p>
+<p>PolicyStatus mostly contains statistics related to policy</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1158,7 +1158,7 @@ PolicyStatus
 <tbody>
 <tr>
 <td>
-<code>averageExecutionTime</code><br>
+<code>averageExecutionTime</code></br>
 <em>
 string
 </em>
@@ -1169,7 +1169,7 @@ string
 </tr>
 <tr>
 <td>
-<code>violationCount</code><br>
+<code>violationCount</code></br>
 <em>
 int
 </em>
@@ -1180,7 +1180,7 @@ int
 </tr>
 <tr>
 <td>
-<code>rulesFailedCount</code><br>
+<code>rulesFailedCount</code></br>
 <em>
 int
 </em>
@@ -1191,7 +1191,7 @@ int
 </tr>
 <tr>
 <td>
-<code>rulesAppliedCount</code><br>
+<code>rulesAppliedCount</code></br>
 <em>
 int
 </em>
@@ -1202,7 +1202,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesBlockedCount</code><br>
+<code>resourcesBlockedCount</code></br>
 <em>
 int
 </em>
@@ -1213,7 +1213,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesMutatedCount</code><br>
+<code>resourcesMutatedCount</code></br>
 <em>
 int
 </em>
@@ -1224,7 +1224,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesGeneratedCount</code><br>
+<code>resourcesGeneratedCount</code></br>
 <em>
 int
 </em>
@@ -1235,9 +1235,9 @@ int
 </tr>
 <tr>
 <td>
-<code>ruleStatus</code><br>
+<code>ruleStatus</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.RuleStats">
+<a href="#kyverno.io/v1.RuleStats">
 []RuleStats
 </a>
 </em>
@@ -1247,18 +1247,18 @@ int
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.PolicyViolationSpec">PolicyViolationSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolation">PolicyViolation</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationTemplate">PolicyViolationTemplate</a>)
+<a href="#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>, 
+<a href="#kyverno.io/v1.PolicyViolation">PolicyViolation</a>, 
+<a href="#kyverno.io/v1.PolicyViolationTemplate">PolicyViolationTemplate</a>)
 </p>
 <p>
-</p><p>PolicyViolationSpec describes policy behavior by its rules</p>
-<p></p>
+<p>PolicyViolationSpec describes policy behavior by its rules</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1269,7 +1269,7 @@ int
 <tbody>
 <tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
@@ -1280,9 +1280,9 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -1292,9 +1292,9 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ViolatedRule">
+<a href="#kyverno.io/v1.ViolatedRule">
 []ViolatedRule
 </a>
 </em>
@@ -1305,20 +1305,20 @@ ResourceSpec
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.PolicyViolationStatus">PolicyViolationStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolation">PolicyViolation</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationTemplate">PolicyViolationTemplate</a>)
+<a href="#kyverno.io/v1.ClusterPolicyViolation">ClusterPolicyViolation</a>, 
+<a href="#kyverno.io/v1.PolicyViolation">PolicyViolation</a>, 
+<a href="#kyverno.io/v1.PolicyViolationTemplate">PolicyViolationTemplate</a>)
 </p>
 <p>
-</p><p>PolicyViolationStatus provides information regarding policyviolation status
+<p>PolicyViolationStatus provides information regarding policyviolation status
 status:
 LastUpdateTime : the time the policy violation was updated</p>
-<p></p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1329,9 +1329,9 @@ LastUpdateTime : the time the policy violation was updated</p>
 <tbody>
 <tr>
 <td>
-<code>lastUpdateTime</code><br>
+<code>lastUpdateTime</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#time-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
 Kubernetes meta/v1.Time
 </a>
 </em>
@@ -1342,12 +1342,12 @@ Kubernetes meta/v1.Time
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.PolicyViolationTemplate">PolicyViolationTemplate
 </h3>
 <p>
-</p><p>PolicyViolationTemplate stores the information regarinding the resources for which a policy failed to apply</p>
-<p></p>
+<p>PolicyViolationTemplate stores the information regarinding the resources for which a policy failed to apply</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1358,9 +1358,9 @@ Kubernetes meta/v1.Time
 <tbody>
 <tr>
 <td>
-<code>metadata</code><br>
+<code>metadata</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1372,20 +1372,20 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code><br>
+<code>spec</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationSpec">
+<a href="#kyverno.io/v1.PolicyViolationSpec">
 PolicyViolationSpec
 </a>
 </em>
 </td>
 <td>
-<br>
-<br>
+<br/>
+<br/>
 <table class="table table-striped">
-<tbody><tr>
+<tr>
 <td>
-<code>policy</code><br>
+<code>policy</code></br>
 <em>
 string
 </em>
@@ -1396,9 +1396,9 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code><br>
+<code>resource</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ResourceSpec">
+<a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
 </a>
 </em>
@@ -1408,9 +1408,9 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ViolatedRule">
+<a href="#kyverno.io/v1.ViolatedRule">
 []ViolatedRule
 </a>
 </em>
@@ -1419,14 +1419,14 @@ ResourceSpec
 <p>Specifies list of violated rule</p>
 </td>
 </tr>
-</tbody></table>
+</table>
 </td>
 </tr>
 <tr>
 <td>
-<code>status</code><br>
+<code>status</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationStatus">
+<a href="#kyverno.io/v1.PolicyViolationStatus">
 PolicyViolationStatus
 </a>
 </em>
@@ -1436,16 +1436,16 @@ PolicyViolationStatus
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.RequestInfo">RequestInfo
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestContext">GenerateRequestContext</a>)
+<a href="#kyverno.io/v1.GenerateRequestContext">GenerateRequestContext</a>)
 </p>
 <p>
-</p><p>RequestInfo contains permission info carried in an admission request</p>
-<p></p>
+<p>RequestInfo contains permission info carried in an admission request</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1456,7 +1456,7 @@ PolicyViolationStatus
 <tbody>
 <tr>
 <td>
-<code>roles</code><br>
+<code>roles</code></br>
 <em>
 []string
 </em>
@@ -1467,7 +1467,7 @@ PolicyViolationStatus
 </tr>
 <tr>
 <td>
-<code>clusterRoles</code><br>
+<code>clusterRoles</code></br>
 <em>
 []string
 </em>
@@ -1478,9 +1478,9 @@ PolicyViolationStatus
 </tr>
 <tr>
 <td>
-<code>userInfo</code><br>
+<code>userInfo</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#userinfo-v1-authentication">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#userinfo-v1-authentication">
 Kubernetes authentication/v1.UserInfo
 </a>
 </em>
@@ -1491,17 +1491,17 @@ Kubernetes authentication/v1.UserInfo
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ResourceDescription">ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.MatchResources">MatchResources</a>)
+<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
+<a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
 </p>
 <p>
-</p><p>ResourceDescription describes the resource to which the PolicyRule will be applied.</p>
-<p></p>
+<p>ResourceDescription describes the resource to which the PolicyRule will be applied.</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1512,7 +1512,7 @@ Kubernetes authentication/v1.UserInfo
 <tbody>
 <tr>
 <td>
-<code>kinds</code><br>
+<code>kinds</code></br>
 <em>
 []string
 </em>
@@ -1523,7 +1523,7 @@ Kubernetes authentication/v1.UserInfo
 </tr>
 <tr>
 <td>
-<code>name</code><br>
+<code>name</code></br>
 <em>
 string
 </em>
@@ -1534,7 +1534,7 @@ string
 </tr>
 <tr>
 <td>
-<code>namespaces</code><br>
+<code>namespaces</code></br>
 <em>
 []string
 </em>
@@ -1545,9 +1545,9 @@ string
 </tr>
 <tr>
 <td>
-<code>selector</code><br>
+<code>selector</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -1558,19 +1558,19 @@ Kubernetes meta/v1.LabelSelector
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ResourceSpec">ResourceSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Generation">Generation</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationSpec">PolicyViolationSpec</a>)
+<a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
+<a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
+<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.PolicyViolationSpec">PolicyViolationSpec</a>)
 </p>
 <p>
-</p><p>ResourceSpec information to identify the resource</p>
-<p></p>
+<p>ResourceSpec information to identify the resource</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1581,50 +1581,52 @@ Kubernetes meta/v1.LabelSelector
 <tbody>
 <tr>
 <td>
-<code>kind</code><br>
+<code>kind</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>(Required): Specifies resource kind</p>
+<em>(Optional)</em>
+<p>Specifies resource kind</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>namespace</code><br>
+<code>namespace</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>(Optional): Specifies resource namespace</p>
+<em>(Optional)</em>
+<p>Specifies resource namespace</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>name</code><br>
+<code>name</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>(Required): Specifies resource name</p>
+<p>Specifies resource name</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Rule">Rule
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Spec">Spec</a>)
+<a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
-</p><p>Rule is set of mutation, validation and generation actions
+<p>Rule is set of mutation, validation and generation actions
 for the single resource description</p>
-<p></p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1635,106 +1637,112 @@ for the single resource description</p>
 <tbody>
 <tr>
 <td>
-<code>name</code><br>
+<code>name</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Name - A required field represents rule name</p>
+<p>Specifies rule name</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>match</code><br>
+<code>match</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v1.MatchResources">
 MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Specifies resources for which the rule has to be applied.
-If it’s defined, “kind” inside MatchResources block is required.</p>
+<em>(Optional)</em>
+<p>Specifies resources for which the rule has to be applied.
+If it&rsquo;s defined, &ldquo;kind&rdquo; inside MatchResources block is required.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>exclude</code><br>
+<code>exclude</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ExcludeResources">
+<a href="#kyverno.io/v1.ExcludeResources">
 ExcludeResources
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Specifies resources for which rule can be excluded</p>
+<em>(Optional)</em>
+<p>Specifies resources for which rule can be excluded</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>preconditions</code><br>
+<code>preconditions</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Condition">
+<a href="#kyverno.io/v1.Condition">
 []Condition
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Allows controlling policy rule execution</p>
+<em>(Optional)</em>
+<p>Allows controlling policy rule execution</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>mutate</code><br>
+<code>mutate</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Mutation">
+<a href="#kyverno.io/v1.Mutation">
 Mutation
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Specifies patterns to mutate resources</p>
+<em>(Optional)</em>
+<p>Specifies patterns to mutate resources</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>validate</code><br>
+<code>validate</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Validation">
+<a href="#kyverno.io/v1.Validation">
 Validation
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Specifies patterns to validate resources</p>
+<em>(Optional)</em>
+<p>Specifies patterns to validate resources</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>generate</code><br>
+<code>generate</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Generation">
+<a href="#kyverno.io/v1.Generation">
 Generation
 </a>
 </em>
 </td>
 <td>
-<p>(Optional): Specifies patterns to create additional resources</p>
+<em>(Optional)</em>
+<p>Specifies patterns to create additional resources</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.RuleStats">RuleStats
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
 </p>
 <p>
-</p><p>RuleStats provides status per rule</p>
-<p></p>
+<p>RuleStats provides status per rule</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1745,7 +1753,7 @@ Generation
 <tbody>
 <tr>
 <td>
-<code>ruleName</code><br>
+<code>ruleName</code></br>
 <em>
 string
 </em>
@@ -1756,7 +1764,7 @@ string
 </tr>
 <tr>
 <td>
-<code>averageExecutionTime</code><br>
+<code>averageExecutionTime</code></br>
 <em>
 string
 </em>
@@ -1767,7 +1775,7 @@ string
 </tr>
 <tr>
 <td>
-<code>violationCount</code><br>
+<code>violationCount</code></br>
 <em>
 int
 </em>
@@ -1778,7 +1786,7 @@ int
 </tr>
 <tr>
 <td>
-<code>failedCount</code><br>
+<code>failedCount</code></br>
 <em>
 int
 </em>
@@ -1789,7 +1797,7 @@ int
 </tr>
 <tr>
 <td>
-<code>appliedCount</code><br>
+<code>appliedCount</code></br>
 <em>
 int
 </em>
@@ -1800,7 +1808,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesBlockedCount</code><br>
+<code>resourcesBlockedCount</code></br>
 <em>
 int
 </em>
@@ -1811,7 +1819,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesMutatedCount</code><br>
+<code>resourcesMutatedCount</code></br>
 <em>
 int
 </em>
@@ -1822,7 +1830,7 @@ int
 </tr>
 <tr>
 <td>
-<code>resourcesGeneratedCount</code><br>
+<code>resourcesGeneratedCount</code></br>
 <em>
 int
 </em>
@@ -1833,17 +1841,17 @@ int
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Spec">Spec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Policy">Policy</a>)
+<a href="#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>, 
+<a href="#kyverno.io/v1.Policy">Policy</a>)
 </p>
 <p>
-</p><p>Spec describes policy behavior by its rules</p>
-<p></p>
+<p>Spec describes policy behavior by its rules</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1854,9 +1862,9 @@ int
 <tbody>
 <tr>
 <td>
-<code>rules</code><br>
+<code>rules</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">
+<a href="#kyverno.io/v1.Rule">
 []Rule
 </a>
 </em>
@@ -1867,41 +1875,41 @@ int
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code><br>
+<code>validationFailureAction</code></br>
 <em>
 string
 </em>
 </td>
 <td>
 <p>ValidationFailureAction provides choice to enforce rules to resources during policy violations.
-Default value is “audit”.</p>
+Default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>background</code><br>
+<code>background</code></br>
 <em>
 bool
 </em>
 </td>
 <td>
 <p>Background provides choice for applying rules to existing resources.
-Default value is “true”.</p>
+Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.UserInfo">UserInfo
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.MatchResources">MatchResources</a>)
+<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
+<a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
 </p>
 <p>
-</p><p>UserInfo filter based on users</p>
-<p></p>
+<p>UserInfo filter based on users</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1912,7 +1920,7 @@ Default value is “true”.</p>
 <tbody>
 <tr>
 <td>
-<code>roles</code><br>
+<code>roles</code></br>
 <em>
 []string
 </em>
@@ -1923,7 +1931,7 @@ Default value is “true”.</p>
 </tr>
 <tr>
 <td>
-<code>clusterRoles</code><br>
+<code>clusterRoles</code></br>
 <em>
 []string
 </em>
@@ -1934,9 +1942,9 @@ Default value is “true”.</p>
 </tr>
 <tr>
 <td>
-<code>subjects</code><br>
+<code>subjects</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#subject-v1-rbac">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#subject-v1-rbac">
 []Kubernetes rbac/v1.Subject
 </a>
 </em>
@@ -1947,16 +1955,16 @@ Default value is “true”.</p>
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.Validation">Validation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
-</p><p>Validation describes the way how Validating Webhook will check the resource on creation</p>
-<p></p>
+<p>Validation describes the way how Validating Webhook will check the resource on creation</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -1967,7 +1975,7 @@ Default value is “true”.</p>
 <tbody>
 <tr>
 <td>
-<code>message</code><br>
+<code>message</code></br>
 <em>
 string
 </em>
@@ -1978,7 +1986,7 @@ string
 </tr>
 <tr>
 <td>
-<code>pattern</code><br>
+<code>pattern</code></br>
 <em>
 interface{}
 </em>
@@ -1989,7 +1997,7 @@ interface{}
 </tr>
 <tr>
 <td>
-<code>anyPattern</code><br>
+<code>anyPattern</code></br>
 <em>
 []interface{}
 </em>
@@ -2000,9 +2008,9 @@ interface{}
 </tr>
 <tr>
 <td>
-<code>deny</code><br>
+<code>deny</code></br>
 <em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.Deny">
+<a href="#kyverno.io/v1.Deny">
 Deny
 </a>
 </em>
@@ -2013,16 +2021,16 @@ Deny
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 <h3 id="kyverno.io/v1.ViolatedRule">ViolatedRule
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="https://htmlpreview.github.io/?https://github.com/b-entangled/kyverno/blob/663_api_docs/documentation/index.html#kyverno.io/v1.PolicyViolationSpec">PolicyViolationSpec</a>)
+<a href="#kyverno.io/v1.PolicyViolationSpec">PolicyViolationSpec</a>)
 </p>
 <p>
-</p><p>ViolatedRule stores the information regarding the rule</p>
-<p></p>
+<p>ViolatedRule stores the information regarding the rule</p>
+</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
@@ -2033,7 +2041,7 @@ Deny
 <tbody>
 <tr>
 <td>
-<code>name</code><br>
+<code>name</code></br>
 <em>
 string
 </em>
@@ -2044,7 +2052,7 @@ string
 </tr>
 <tr>
 <td>
-<code>type</code><br>
+<code>type</code></br>
 <em>
 string
 </em>
@@ -2055,7 +2063,7 @@ string
 </tr>
 <tr>
 <td>
-<code>message</code><br>
+<code>message</code></br>
 <em>
 string
 </em>
@@ -2066,11 +2074,10 @@ string
 </tr>
 </tbody>
 </table>
-<hr>
+<hr />
 </div>
-<script src="Kyverno%20API_files/jquery-3.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-<script src="Kyverno%20API_files/popper.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-<script src="Kyverno%20API_files/bootstrap.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-
-
-</body></html>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</body>
+</html>

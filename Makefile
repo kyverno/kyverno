@@ -80,6 +80,10 @@ docker-push-kyverno:
 
 generate-api-docs:
 	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
+	cp documentation/api/template.md documentation/api/template_bak.md
+	cat documentation/index.html >> documentation/api/template.md
+	mv documentation/api/template.md documentation/content/docs/12_api-docs.md
+	mv documentation/api/template_bak.md documentation/api/template.md
 
 
 ##################################

@@ -1,12 +1,13 @@
 {{ define "title" }}
 {{ site.Title }} | Docs | {{ .Title }}
 {{ end }}
-
 {{ define "main" }}
 {{ $home := site.BaseURL }}
 {{ $logo := site.Params.logos.panel }}
 {{ $docs := where .Site.Pages "Section" "docs" }}
 {{ $description := .Params.description }}
+{{ $currentUrl     := .RelPermalink }}
+{{$currentSubSection := ""}}
 <div class="dashboard">
   <div class="dashboard-panel left has-thick-padding is-hidden-mobile">
     <div class="dashboard-panel-header has-text-centered">
@@ -23,11 +24,14 @@
       <div class="dashboard-panel-main-toc">
         <ul>
           {{ range sort $docs "File.Path"  }}
-          <li>
+            {{ $isCurrentPage := (or (eq $currentUrl .RelPermalink) (eq .Title $currentSubSection)) }}
+          {{ if ne .Title "Documentation" }}
+          <li style="list-style-type: circle;" {{ if $isCurrentPage }} class="is-active"{{ end }}>
             <a href="{{ .URL }}">
               {{ .Title }}
             </a>
           </li>
+          {{ end }}
           {{ end }}
         </ul>
       </div>
