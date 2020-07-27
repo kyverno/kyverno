@@ -1,31 +1,25 @@
 {{ $features := site.Params.features }}
 {{ with $features }}
-<section class="section">
+<section class="section is-light">
   <div class="container">
-    <p class="title has-text-centered is-size-4 is-size-5-mobile has-text-weight-light">
-      Featurers
-    </p>
-    <div class="columns is-multiline">
+    <div class="columns is-multiline is-variable is-8">
       {{ range $features }}
       {{ $url := .url }}
-      <div class="column is-one-third">
-        <div class="card is-shadowless">
-          <div class="card-content {{ .icon }}">
-            {{ with .title }}
-            <a class="title is-size-4 is-size-5-mobile has-text-weight-light" href="{{ $url }}">
-              {{ . | markdownify }}
-            </a>
-            
-            <hr />
-            {{ end }}
+      <div class="column is-half">
+        <article class="media is-large">
+          <figure class="media-left">
+    <span class="icon is-medium has-text-orange">
+      <i class="fas fa-lg fa-{{ .icon }}"></i>
+    </span>
+          </figure>
+          <div class="media-content">
+            <div class="content">
+              <h2>{{ .title }}</h2>
 
-            <!-- {{ with .description }}
-            <p>
-              {{ . | markdownify }}
-            </p>
-            {{ end }} -->
+              {{ .description | markdownify }}
+            </div>
           </div>
-        </div>
+        </article>
       </div>
       {{ end }}
     </div>
