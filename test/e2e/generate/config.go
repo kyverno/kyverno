@@ -1,8 +1,7 @@
 package generate
 
-
 // E2E Test Config for Role and RoleBinding
-var RoleTests = []struct{
+var RoleTests = []struct {
 	//TestName - Name of the Test
 	TestName string
 	// RoleName - Name of the Role to be Created
@@ -23,43 +22,43 @@ var RoleTests = []struct{
 	Sync bool
 	// Data - The Yaml file of the ClusterPolicy of the ROle and RoleBinding - ([]byte{})
 	Data []byte
-} {
+}{
 	{
-		TestName: "test-role-rolebinding-without-clone",
-		RoleName: "ns-role",
-		RoleBindingName: "ns-role-binding",
+		TestName:          "test-role-rolebinding-without-clone",
+		RoleName:          "ns-role",
+		RoleBindingName:   "ns-role-binding",
 		ResourceNamespace: "test",
-		Clone: false,
-		CloneNamespace: "default",
-		Sync: false,
-		Data: roleRoleBindingYamlWithSync,
+		Clone:             false,
+		CloneNamespace:    "default",
+		Sync:              false,
+		Data:              roleRoleBindingYamlWithSync,
 	},
 	{
-		TestName: "test-role-rolebinding-withsync-without-clone",
-		RoleName: "ns-role",
-		RoleBindingName: "ns-role-binding",
+		TestName:          "test-role-rolebinding-withsync-without-clone",
+		RoleName:          "ns-role",
+		RoleBindingName:   "ns-role-binding",
 		ResourceNamespace: "test",
-		Clone: false,
-		CloneNamespace: "default",
-		Sync: true,
-		Data: roleRoleBindingYamlWithSync,
+		Clone:             false,
+		CloneNamespace:    "default",
+		Sync:              true,
+		Data:              roleRoleBindingYamlWithSync,
 	},
 	{
-		TestName: "test-role-rolebinding-with-clone",
-		RoleName: "ns-role",
-		RoleBindingName: "ns-role-binding",
-		ResourceNamespace: "test",
-		Clone: true,
-		CloneSourceRoleData: sourceRoleYaml,
+		TestName:                   "test-role-rolebinding-with-clone",
+		RoleName:                   "ns-role",
+		RoleBindingName:            "ns-role-binding",
+		ResourceNamespace:          "test",
+		Clone:                      true,
+		CloneSourceRoleData:        sourceRoleYaml,
 		CloneSourceRoleBindingData: sourceRoleBindingYaml,
-		CloneNamespace: "default",
-		Sync: false,
-		Data: roleRoleBindingYamlWithClone,
+		CloneNamespace:             "default",
+		Sync:                       false,
+		Data:                       roleRoleBindingYamlWithClone,
 	},
 }
 
 // E2E Test Config for ClusterRole and ClusterRoleBinding
-var ClusterRoleTests = []struct{
+var ClusterRoleTests = []struct {
 	//TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
@@ -84,25 +83,25 @@ var ClusterRoleTests = []struct{
 	Sync bool
 	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
 	Data []byte
-} {
+}{
 	{
-		TestName: "test-clusterrole-clusterrolebinding-without-clone",
-		ClusterRoleName: "ns-cluster-role",
+		TestName:               "test-clusterrole-clusterrolebinding-without-clone",
+		ClusterRoleName:        "ns-cluster-role",
 		ClusterRoleBindingName: "ns-cluster-role-binding",
-		ResourceNamespace: "test",
-		Clone: false,
-		CloneNamespace: "default",
-		Sync: false,
-		Data: genClusterRoleYamlWithSync,
+		ResourceNamespace:      "test",
+		Clone:                  false,
+		CloneNamespace:         "default",
+		Sync:                   false,
+		Data:                   genClusterRoleYamlWithSync,
 	},
 	{
-		TestName: "test-clusterrole-clusterrolebinding-with-sync-without-clone",
-		ClusterRoleName: "ns-cluster-role",
+		TestName:               "test-clusterrole-clusterrolebinding-with-sync-without-clone",
+		ClusterRoleName:        "ns-cluster-role",
 		ClusterRoleBindingName: "ns-cluster-role-binding",
-		ResourceNamespace: "test",
-		Clone: false,
-		CloneNamespace: "default",
-		Sync: true,
-		Data: genClusterRoleYamlWithSync,
+		ResourceNamespace:      "test",
+		Clone:                  false,
+		CloneNamespace:         "default",
+		Sync:                   true,
+		Data:                   genClusterRoleYamlWithSync,
 	},
 }

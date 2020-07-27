@@ -47,16 +47,16 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policy, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			for _,e := range gr.Status.GeneratedResources {
-				resp, err := c.client.GetResource(e.Kind,e.Namespace,e.Name);
+			for _, e := range gr.Status.GeneratedResources {
+				resp, err := c.client.GetResource(e.Kind, e.Namespace, e.Name)
 				if err != nil {
-					logger.Error(err,"Generated resource failed to get","Resource",resp.GetName())
+					logger.Error(err, "Generated resource failed to get", "Resource", resp.GetName())
 				}
 
 				labels := resp.GetLabels()
 				if labels["app.kubernetes.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-						logger.Error(err,"Generated resource is not deleted","Resource",resp.GetName())
+						logger.Error(err, "Generated resource is not deleted", "Resource", resp.GetName())
 					}
 				}
 			}

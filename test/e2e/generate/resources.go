@@ -108,7 +108,7 @@ rules:
 `)
 
 // Source RoleBinding from which RoleBinding is Cloned by generate
-var sourceRoleBindingYaml =[]byte(`
+var sourceRoleBindingYaml = []byte(`
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:

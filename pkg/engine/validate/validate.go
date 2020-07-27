@@ -133,7 +133,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 					return path, err
 				}
 			}
-		}else{
+		} else {
 			return "", fmt.Errorf("Validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 	}

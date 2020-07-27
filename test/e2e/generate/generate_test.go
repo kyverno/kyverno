@@ -1,12 +1,12 @@
 package generate
 
 import (
-	"testing"
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/ginkgo"
-	"time"
 	"fmt"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"os"
+	"testing"
+	"time"
 )
 
 var (
@@ -42,7 +42,7 @@ var (
 	roleBindingName = "ns-role-binding"
 )
 
-func CleanUpResources(e2eClient *E2EClient){
+func CleanUpResources(e2eClient *E2EClient) {
 	// Clear ClusterPolicies
 	e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
 	// Clear Namespace
@@ -58,7 +58,7 @@ func CleanUpResources(e2eClient *E2EClient){
 	e2eClient.DeleteNamespacedResource(rbGVR, nspace, roleBindingName)
 }
 
-func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T){
+func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 	RegisterTestingT(t)
 	if os.Getenv("E2E") == "" {
 		t.Skip("Skipping E2E Test")
@@ -128,7 +128,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T){
 			Expect(err).To(HaveOccurred())
 			err = e2eClient.DeleteClusteredResource(rGVR, tests.ClusterRoleName)
 			Expect(err).To(HaveOccurred())
-			
+
 			time.Sleep(5 * time.Second)
 		}
 
@@ -144,7 +144,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T){
 
 }
 
-func Test_Role_RoleBinding_Sets(t *testing.T){
+func Test_Role_RoleBinding_Sets(t *testing.T) {
 	RegisterTestingT(t)
 	if os.Getenv("E2E") == "" {
 		t.Skip("Skipping E2E Test")
@@ -214,7 +214,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T){
 			Expect(err).To(HaveOccurred())
 			err = e2eClient.DeleteNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
 			Expect(err).To(HaveOccurred())
-			
+
 			time.Sleep(2 * time.Second)
 		}
 
