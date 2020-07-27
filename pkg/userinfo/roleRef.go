@@ -189,7 +189,7 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 	// Restrict Development Roles
 	for _, e := range config.RestrictDevelopmentRole {
 		if strings.Contains(request.UserInfo.Username, e) {
-			return true, nil
+			return false, nil
 		}
 	}
 
