@@ -180,12 +180,19 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		return true, nil
 	}
 	// User or Group
-	excludeDevelopmentRole := []string{"minikube-user", "kubernetes-admin"}
-	for _, e := range excludeDevelopmentRole {
+	for _, e := range config.ExcludeUsername {
 		if strings.Contains(request.UserInfo.Username, e) {
-			return false, nil
+			return true, nil
 		}
 	}
+
+	// Restrict Development Roles
+	for _, e := range config.RestrictDevelopmentRole {
+		if strings.Contains(request.UserInfo.Username, e) {
+			return true, nil
+		}
+	}
+
 	var matchedRoles []bool
 	excludeGroupRule := append(config.ExcludeGroupRule,KyvernoSuffix)
 	for _, e := range request.UserInfo.Groups {

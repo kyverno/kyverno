@@ -48,6 +48,7 @@ var (
 	filterK8Resources string
 
 	excludeGroupRole string
+	excludeUsername string
 	// User FQDN as CSR CN
 	fqdncn   bool
 	setupLog = log.Log.WithName("setup")
@@ -58,6 +59,7 @@ func main() {
 	log.SetLogger(klogr.New())
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole","","")
+	flag.StringVar(&excludeUsername, "excludeUsername","","")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
@@ -155,6 +157,7 @@ func main() {
 		kubeInformer.Core().V1().ConfigMaps(),
 		filterK8Resources,
 		excludeGroupRole,
+		excludeUsername,
 		log.Log.WithName("ConfigData"),
 	)
 
