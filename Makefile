@@ -86,8 +86,9 @@ docker-push-kyverno-ci:
 	echo $(GIT_SHORT_HASH)
 	echo $(REGISTRY)/evalsocket/$(INITC_IMAGE)
 	echo $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(GIT_SHORT_HASH)
-	@docker push $(REGISTRY)/evalsocket/$(INITC_IMAGE)
-	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE)
+	@docker pull evalsocket/flytepropeller
+	@docker push evalsocket/$(INITC_IMAGE)
+	@docker push evalsocket/$(KYVERNO_IMAGE)
 
 kustomizeci:
 	@echo "kustomize input"
