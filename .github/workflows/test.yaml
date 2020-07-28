@@ -1,5 +1,8 @@
-name: build
+name: test
 on:
+  push:
+    branches:
+      - master
   pull_request:
     branches:
       - master
@@ -27,6 +30,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
       -
