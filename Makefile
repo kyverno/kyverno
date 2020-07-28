@@ -79,13 +79,13 @@ docker-push-kyverno:
 ##################################
 KUSTOMIZE := $(CURDIR)/
 
-ci: docker-ci  kustomizeci
+ci:  kustomizeci
 
-docker-ci:
+kustomizeci:
+	echo "Build Binary"
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
-kustomizeci:
 	echo "kustomize input"
 	$(PWD)/scripts/ci.sh
 
