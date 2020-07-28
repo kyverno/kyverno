@@ -25,17 +25,13 @@ jobs:
         run: |
            make ci
 
-      - name : binary build & kustomize
-        run: |
-          ls -al cmd/kyverno
-
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyverno"
+          repository: "nirmata/kyverno"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/kyverno/
@@ -47,7 +43,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyvernopre"
+          repository: "nirmata/kyvernopre"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/initContainer/
