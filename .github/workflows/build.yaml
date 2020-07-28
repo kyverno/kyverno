@@ -25,6 +25,10 @@ jobs:
         run: |
            make ci
 
+      - name : binary build & kustomize
+        run: |
+          pwd cmd/kyverno
+
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
@@ -36,6 +40,8 @@ jobs:
           repository: "evalsocket/kyverno"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
+          path: .
+          dockerfile: cmd/kyverno/Dockerfile
 
       -
         uses: docker/build-push-action@v1
@@ -46,7 +52,8 @@ jobs:
           repository: "evalsocket/kyvernopre"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
-
+          path: .
+          dockerfile: cmd/initContainer/Dockerfile
 
       - uses: engineerd/setup-kind@v0.1.0
         name: Create kind cluster
