@@ -6,13 +6,14 @@
 GIT_VERSION := $(shell git describe --dirty --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
+GIT_SHORT_HASH := $(shell git rev-parse --short HEAD)
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 REGISTRY?=index.docker.io
-REPO=$(REGISTRY)/nirmata/kyverno
+REPO=$(REGISTRY)/evalsocket/kyverno
 IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
-PACKAGE ?=github.com/nirmata/kyverno
+PACKAGE ?=github.com/evalsocket/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
 ##################################
@@ -24,7 +25,7 @@ build: kyverno
 PWD := $(CURDIR)
 
 ##################################
-# INIT CONTAINER 
+# INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
@@ -74,6 +75,28 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG)
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
+##################################
+docker-publish-kyverno-ci: docker-build-kyverno docker-build-initContainer docker-tag-kyverno-ci  docker-push-kyverno-ci kustomizeci
+
+docker-tag-kyverno-ci:
+	@docker tag $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(GIT_SHORT_HASH)
+	@docker tag $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
+
+docker-push-kyverno-ci:
+	@docker push $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(GIT_SHORT_HASH)
+	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
+
+kustomizeci:
+	@echo "kustomize input"
+	$(shell cd $(PWD)/definitions; kustomize edit set image nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH);kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH))
+	kustomize build ./definitions > ./definitions/install.yaml
+##################################
+# Generate Docs for types.go
+##################################
+
+generate-api-docs:
+	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
+
 
 ##################################
 # CLI
@@ -84,7 +107,7 @@ cli:
 
 
 ##################################
-# Testing & Code-Coverage 
+# Testing & Code-Coverage
 ##################################
 
 ## variables
@@ -100,7 +123,7 @@ $(GO_ACC):
 	go get -v github.com/ory/go-acc
 	$(eval export PATH=$(GO_ACC):$(PATH))
 # go test provides code coverage per packages only.
-# go-acc merges the result for pks so that it be used by	
+# go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
 # go get downloads and installs the binary
@@ -114,12 +137,6 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
-
-# Test E2E
-test-e2e:
-	$(eval export E2E="ok")
-	go test ./test/e2e/... -v
-	$(eval export E2E="")
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
