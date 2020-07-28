@@ -38,7 +38,7 @@ jobs:
           repository: "evalsocket/kyverno"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
-          path: .
+          path: cmd/kyverno/Dockerfile
           dockerfile: cmd/kyverno/Dockerfile
 
       -
@@ -50,7 +50,7 @@ jobs:
           repository: "evalsocket/kyvernopre"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
-          path: .
+          path: cmd/kyverno/Dockerfile
           dockerfile: cmd/initContainer/Dockerfile
 
       - uses: engineerd/setup-kind@v0.1.0
