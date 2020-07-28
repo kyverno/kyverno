@@ -22,9 +22,10 @@ jobs:
           go-version: 1.14
 
       - run: |
-          echo ${{ secrets.DOCKERIO_PASSWORD }} | docker login https://docker.pkg.github.com -u ${{ secrets.DOCKERIO_USERNAME }} --password-stdin
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
-          make docker-publish-kyverno-ci
+          echo ${{ secrets.DOCKERIO_PASSWORD }} | docker login https://docker.pkg.github.com -u ${{ secrets.DOCKERIO_USERNAME }} --password-stdin && \
+              curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && \
+              chmod a+x kustomize && cp kustomize /usr/local/bin/
+              make docker-publish-kyverno-ci
 
       - uses: engineerd/setup-kind@v0.1.0
 
