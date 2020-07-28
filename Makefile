@@ -87,8 +87,7 @@ docker-ci:
 
 kustomizeci:
 	@echo "kustomize input"
-	$(shell curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && chmod a+x $(KUSTOMIZE)/kustomize && cd $(PWD)/definitions && $(KUSTOMIZE)/kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && $(KUSTOMIZE)/kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG))
-	kustomize build ./definitions > ./definitions/install.yaml
+	$(shell cd $(PWD)/definitions && curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && chmod a+x $(KUSTOMIZE)/kustomize && ./kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && ./kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG)) && ./kustomize build . > $(PWD)/definitions/install.yaml
 ##################################
 # Generate Docs for types.go
 ##################################
