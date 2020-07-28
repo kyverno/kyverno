@@ -32,8 +32,6 @@ jobs:
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
-        env:
-          TIMESTAMP: ${{ date '+%Y-%m-%d_%I:%M:%S%p' }}
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
