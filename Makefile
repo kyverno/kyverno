@@ -11,6 +11,7 @@ TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 REGISTRY?=index.docker.io
 REPO=$(REGISTRY)/evalsocket/kyverno
+
 IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 PACKAGE ?=github.com/evalsocket/kyverno
@@ -76,6 +77,8 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 ##################################
+KUSTOMIZE := kustomize
+
 ci: docker-ci  kustomizeci
 
 docker-ci:
@@ -84,7 +87,7 @@ docker-ci:
 
 kustomizeci:
 	@echo "kustomize input"
-	$(shell cd $(PWD)/definitions; ../kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG);../kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG))
+	$(shell chmod a+x $(KUSTOMIZE)/kustomize && cd $(PWD)/definitions && $(KUSTOMIZE)/kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && $(KUSTOMIZE)/kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG))
 	kustomize build ./definitions > ./definitions/install.yaml
 ##################################
 # Generate Docs for types.go
