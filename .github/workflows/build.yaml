@@ -21,6 +21,10 @@ jobs:
         with:
           go-version: 1.14
 
+      - run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && \
+              chmod a+x kustomize && \
+              make ci
       -
         uses: docker/build-push-action@v1
         with:
@@ -42,11 +46,6 @@ jobs:
           push: ${{ GITHUB_SHA ) }}
           dockerfile : cmd/initContainer/Dockerfile
           path: .
-
-      - run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && \
-              chmod a+x kustomize && \
-              make ci
 
       - uses: engineerd/setup-kind@v0.1.0
 
