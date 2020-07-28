@@ -27,12 +27,10 @@ jobs:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
 
-      - name: Set kubernetes Tag in defination
-        uses: stefanprodan/kube-tools@v1
-        with:
-          kustomize: 3.5.5
-          command: |
-            make docker-publish-kyverno-ci
+      - name: Testing
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          make docker-publish-kyverno-ci
 
       - uses: engineerd/setup-kind@v0.1.0
 
