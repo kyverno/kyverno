@@ -86,8 +86,11 @@ docker-ci:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
 kustomizeci:
-	@echo "kustomize input"
-	$(shell cd $(PWD)/definitions && curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && chmod a+x $(PWD)/definitions/kustomize && $(PWD)/definitions/kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && $(PWD)/definitions/kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) && ./kustomize build . > $(PWD)/definitions/install.yaml)
+	echo "kustomize input"
+	$(PWD)/scripts/ci.sh
+
+
+
 ##################################
 # Generate Docs for types.go
 ##################################
