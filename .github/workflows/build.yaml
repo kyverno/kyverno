@@ -27,7 +27,7 @@ jobs:
 
       - name : binary build & kustomize
         run: |
-          pwd cmd/kyverno
+          ls -al cmd/kyverno
 
       -
         uses: docker/build-push-action@v1
