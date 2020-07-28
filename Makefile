@@ -77,7 +77,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 ##################################
-KUSTOMIZE := kustomize
+KUSTOMIZE := $(CURDIR)/kustomize
 
 ci: docker-ci  kustomizeci
 
@@ -87,7 +87,7 @@ docker-ci:
 
 kustomizeci:
 	@echo "kustomize input"
-	$(shell chmod a+x $(KUSTOMIZE)/kustomize && cd $(PWD)/definitions && $(KUSTOMIZE)/kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && $(KUSTOMIZE)/kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG))
+	$(shell curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && chmod a+x $(KUSTOMIZE)/kustomize && cd $(PWD)/definitions && $(KUSTOMIZE)/kustomize edit set image nirmata/$(INITC_IMAGE):$(IMAGE_TAG) && $(KUSTOMIZE)/kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG))
 	kustomize build ./definitions > ./definitions/install.yaml
 ##################################
 # Generate Docs for types.go

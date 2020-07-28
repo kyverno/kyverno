@@ -23,9 +23,10 @@ jobs:
 
       - name : binary build & kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && make ci
+           make ci
       -
         uses: docker/build-push-action@v1
+        name: kyverno docker build and publish
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
@@ -37,6 +38,7 @@ jobs:
 
       -
         uses: docker/build-push-action@v1
+        name: kyvernopre docker build and publish
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
@@ -47,8 +49,9 @@ jobs:
           path: .
 
       - uses: engineerd/setup-kind@v0.1.0
+        name: Create kind cluster
 
-      - name: Testing
+      - name: e2e testing
         run: |
           export KUBECONFIG="$(kind get kubeconfig-path)"
           kubectl get nodes
