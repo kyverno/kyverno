@@ -1,0 +1,119 @@
+---
+# Source: hostpath-provisioner/templates/storageclass.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hostpath
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: hostpath
+---
+# Source: hostpath-provisioner/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hostpath-provisioner
+---
+# Source: hostpath-provisioner/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hostpath-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+# Source: hostpath-provisioner/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hostpath-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hostpath-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: hostpath-provisioner
+    namespace: kube-system
+---
+# Source: hostpath-provisioner/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hostpath-provisioner-leader-locking
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["list", "watch", "create"]
+---
+# Source: hostpath-provisioner/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hostpath-provisioner-leader-locking
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hostpath-provisioner-leader-locking
+subjects:
+  - kind: ServiceAccount
+    name: hostpath-provisioner
+    namespace: kube-system
+---
+# Source: hostpath-provisioner/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hostpath-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hostpath-provisioner
+      app.kubernetes.io/instance: hostpath-provisioner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hostpath-provisioner
+        app.kubernetes.io/instance: hostpath-provisioner
+    spec:
+      serviceAccountName: hostpath-provisioner
+      containers:
+        - name: hostpath-provisioner
+          image: "quay.io/rimusz/hostpath-provisioner:v0.2.1"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: pv-volume
+              mountPath: /mnt/hostpath
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: pv-volume
+          hostPath:
+            path: /github/home
