@@ -32,7 +32,7 @@ jobs:
           echo ">>> deploy hostpath provisioner"
           kubectl apply -n kube-system -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner.yaml
           echo ">>> run pod"
-          kubectl apply -f ${GITHUB_WORKSPACE}/hack/definitions/github/hostpath-provisioner-pod.yaml
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner-pod.yaml
           sleep 30
           kubectl logs -n kube-system -lapp.kubernetes.io/name=hostpath-provisioner
           sleep 30
