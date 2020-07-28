@@ -76,16 +76,11 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 ##################################
-docker-publish-kyverno-ci: docker-build-kyverno docker-build-initContainer docker-tag-kyverno-ci  docker-push-kyverno-ci kustomizeci
+ci: docker-ci  kustomizeci
 
-docker-tag-kyverno-ci:
-	@docker tag $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(GIT_SHORT_HASH)
-	@docker tag $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
-
-docker-push-kyverno-ci:
-	@docker pull evalsocket/flytepropeller
-	@docker push evalsocket/$(INITC_IMAGE)
-	@docker push evalsocket/$(KYVERNO_IMAGE)
+docker-ci:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
 kustomizeci:
 	@echo "kustomize input"

@@ -21,11 +21,32 @@ jobs:
         with:
           go-version: 1.14
 
+      -
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKERIO_USERNAME }}
+          password: ${{ secrets.DOCKERIO_PASSWORD }}
+          repository: "nirmata/kyverno"
+          tag_with_ref: true
+          push: ${{ GITHUB_SHA ) }}
+          dockerfile : cmd/kyverno/Dockerfile
+          path: .
+
+      -
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKERIO_USERNAME }}
+          password: ${{ secrets.DOCKERIO_PASSWORD }}
+          repository: "nirmata/kyvernopre"
+          tag_with_ref: true
+          push: ${{ GITHUB_SHA ) }}
+          dockerfile : cmd/initContainer/Dockerfile
+          path: .
+
       - run: |
-          echo ${{ secrets.DOCKERIO_PASSWORD }} | docker login https://docker.pkg.github.com -u ${{ secrets.DOCKERIO_USERNAME }} --password-stdin && \
-              curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && \
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && \
               chmod a+x kustomize && \
-              make docker-publish-kyverno-ci
+              make ci
 
       - uses: engineerd/setup-kind@v0.1.0
 
