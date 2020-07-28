@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
           repository: "nirmata/kyverno"
-          tag_with_ref: true
+          tag_with_sha: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/kyverno/
           dockerfile: cmd/kyverno/Dockerfile
@@ -44,7 +44,7 @@ jobs:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
           repository: "nirmata/kyvernopre"
-          tag_with_ref: true
+          tag_with_sha: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/initContainer/
           dockerfile: cmd/initContainer/Dockerfile
