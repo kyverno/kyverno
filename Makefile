@@ -77,7 +77,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 ##################################
-KUSTOMIZE := $(CURDIR)/kustomize
+KUSTOMIZE := $(CURDIR)/
 
 ci: docker-ci  kustomizeci
 
