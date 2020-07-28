@@ -115,6 +115,12 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
 
+# Test E2E
+test-e2e:
+	$(eval export E2E="ok")
+	go test ./test/e2e/... -v
+	$(eval export E2E="")
+
 # godownloader create downloading script for kyverno-cli
 godownloader:
 	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"

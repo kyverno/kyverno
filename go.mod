@@ -17,6 +17,8 @@ require (
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
 	github.com/ory/go-acc v0.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.4.1
@@ -39,6 +41,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.5.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // Added for go1.13 migration https://github.com/golang/go/issues/32805
