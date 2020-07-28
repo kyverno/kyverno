@@ -2,7 +2,8 @@
 set -e
 
 pwd=$(pwd)
-hash=a=$(git log -1 --pretty=format:"%H")
+hash="sha-$(git rev-parse --short HEAD)"
+echo $hash
 
 cd $pwd/definitions
 echo "Installing kustomize"
