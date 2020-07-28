@@ -49,6 +49,7 @@ jobs:
           path: cmd/initContainer/
           dockerfile: cmd/initContainer/Dockerfile
 
+
       - uses: engineerd/setup-kind@v0.1.0
         name: Create kind cluster
 
