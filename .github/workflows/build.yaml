@@ -28,11 +28,11 @@ jobs:
           password: ${{ secrets.DOCKERIO_PASSWORD }}
 
       - name: Set kubernetes Tag in defination
-          uses: stefanprodan/kube-tools@v1
-          with:
-            kustomize: 3.5.5
-            command: |
-              make docker-publish-kyverno-ci
+        uses: stefanprodan/kube-tools@v1
+        with:
+          kustomize: 3.5.5
+          command: |
+            make docker-publish-kyverno-ci
 
       - uses: engineerd/setup-kind@v0.1.0
 
