@@ -76,21 +76,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 ##################################
-docker-publish-kyverno-ci: docker-build-kyverno docker-build-initContainer docker-tag-kyverno-ci  docker-push-kyverno-ci kustomizeci
 
-docker-tag-kyverno-ci:
-	@docker tag $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH)
-	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
-
-docker-push-kyverno-ci:
-	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH)
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
-
-kustomizeci:
-	@echo "kustomize input"
-	$(shell cd $(PWD)/definitions; kustomize edit set image nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH);kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH))
-	kustomize build ./definitions > ./definitions/install.yaml
-##################################
 # Generate Docs for types.go
 ##################################
 
