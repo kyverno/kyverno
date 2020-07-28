@@ -2,7 +2,8 @@ name: build
 on:
   push:
     branches:
-      - fix-1011
+      - 'master'
+  pull_request:
 
 jobs:
   releaser:
@@ -26,12 +27,11 @@ jobs:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
 
-      - name: Set kubernetes Tag in defination
-          uses: stefanprodan/kube-tools@v1
-          with:
-            kustomize: 3.5.5
-            command: |
-              make docker-publish-kyverno-ci
+      - name: Testing
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          make docker-publish-kyverno-ci
+
       - uses: engineerd/setup-kind@v0.1.0
 
       - name: Testing
@@ -44,8 +44,16 @@ jobs:
           kubectl apply -n kube-system -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner.yaml
           echo ">>> run pod"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner-pod.yaml
+
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
           sleep 60
+
           echo ">>> Run Kyverno e2e test"
           make test-e2e
+
+
+
+
+
+
