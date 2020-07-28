@@ -107,6 +107,12 @@ cli:
 
 
 ##################################
+ci: docker-build-kyverno docker-build-initContainer
+	echo "kustomize input"
+	$(PWD)/scripts/ci.sh
+##################################
+
+##################################
 # Testing & Code-Coverage 
 ##################################
 

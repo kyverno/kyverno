@@ -21,20 +21,37 @@ jobs:
         with:
           go-version: 1.14
 
-      - uses: azure/docker-login@v1
+      - name : binary build & kustomize
+        run: |
+          make ci
+      -
+        uses: docker/build-push-action@v1
+        name: kyverno docker build and publish
         with:
-          login-server: index.docker.io
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
+          repository: "nirmata/kyverno"
+          tag_with_ref: true
+          push: ${{ github.event.pull_request.head.sha }}
+          path: cmd/kyverno/
+          dockerfile: cmd/kyverno/Dockerfile
 
-      - name: Testing
-        run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
-          make docker-publish-kyverno-ci
+      -
+        uses: docker/build-push-action@v1
+        name: kyvernopre docker build and publish
+        with:
+          username: ${{ secrets.DOCKERIO_USERNAME }}
+          password: ${{ secrets.DOCKERIO_PASSWORD }}
+          repository: "nirmata/kyvernopre"
+          tag_with_ref: true
+          push: ${{ github.event.pull_request.head.sha }}
+          path: cmd/initContainer/
+          dockerfile: cmd/initContainer/Dockerfile
 
       - uses: engineerd/setup-kind@v0.1.0
+        name: Create kind cluster
 
-      - name: Testing
+      - name: e2e testing
         run: |
           export KUBECONFIG="$(kind get kubeconfig-path)"
           kubectl get nodes
@@ -44,13 +61,12 @@ jobs:
           kubectl apply -n kube-system -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner.yaml
           echo ">>> run pod"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner-pod.yaml
-
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
           sleep 60
-
           echo ">>> Run Kyverno e2e test"
           make test-e2e
+
 
 
 
