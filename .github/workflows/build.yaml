@@ -39,7 +39,7 @@ jobs:
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/kyverno/Dockerfile
-          dockerfile: cmd/kyverno/Dockerfile
+          dockerfile: Dockerfile
 
       -
         uses: docker/build-push-action@v1
@@ -51,7 +51,7 @@ jobs:
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
           path: cmd/kyverno/Dockerfile
-          dockerfile: cmd/initContainer/Dockerfile
+          dockerfile: Dockerfile
 
       - uses: engineerd/setup-kind@v0.1.0
         name: Create kind cluster
