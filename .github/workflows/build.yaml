@@ -24,17 +24,18 @@ jobs:
       - name : binary build & kustomize
         run: |
            make ci
+
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
+        env:
+          TIMESTAMP: ${{ date '+%Y-%m-%d_%I:%M:%S%p' }}
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
           repository: "evalsocket/kyverno"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
-          dockerfile : cmd/kyverno/Dockerfile
-          path: .
 
       -
         uses: docker/build-push-action@v1
@@ -45,8 +46,7 @@ jobs:
           repository: "evalsocket/kyvernopre"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha }}
-          dockerfile : cmd/initContainer/Dockerfile
-          path: .
+
 
       - uses: engineerd/setup-kind@v0.1.0
         name: Create kind cluster

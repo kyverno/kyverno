@@ -77,15 +77,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):latest
 
 ##################################
-KUSTOMIZE := $(CURDIR)/
-
-ci:  kustomizeci
-
-kustomizeci:
-	echo "Build Binary"
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
-
+ci: docker-build-kyverno docker-build-initContainer
 	echo "kustomize input"
 	$(PWD)/scripts/ci.sh
 
