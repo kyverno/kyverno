@@ -28,6 +28,7 @@ jobs:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
       - run: |
+          echo '${{ secrets.DOCKERIO_PASSWORD }}' | docker login --username secrets.DOCKERIO_USERNAME --password-stdin
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           make docker-publish-kyverno-ci
 
