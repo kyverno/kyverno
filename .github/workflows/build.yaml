@@ -21,6 +21,13 @@ jobs:
         with:
           go-version: 1.14
 
+      - name: Set kubernetes Tag in defination
+          uses: stefanprodan/kube-tools@v1
+          with:
+            kustomize: 3.5.5
+            command: |
+              make ci-setup
+
       - uses: azure/docker-login@v1
         with:
           login-server: index.docker.io
