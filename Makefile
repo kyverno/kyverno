@@ -6,6 +6,7 @@
 GIT_VERSION := $(shell git describe --dirty --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
+GIT_SHORT_HASH := $(shell git rev-parse --short HEAD)
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 REGISTRY?=index.docker.io
@@ -73,6 +74,17 @@ docker-tag-repo-kyverno:
 docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG)
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+
+##################################
+docker-publish-kyverno-ci: docker-build-kyverno docker-build-initContainer docker-tag-kyverno-ci  docker-push-kyverno-ci
+
+docker-tag-kyverno-ci:
+	@docker tag $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH)
+	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
+
+docker-push-kyverno-ci:
+	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH)
+	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
 
 ##################################
 # Generate Docs for types.go
