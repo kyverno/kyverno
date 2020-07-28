@@ -83,6 +83,8 @@ docker-tag-kyverno-ci:
 	@docker tag $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
 
 docker-push-kyverno-ci:
+	echo $(GIT_SHORT_HASH)
+	echo $(REGISTRY)/evalsocket/$(INITC_IMAGE)
 	@docker push $(REGISTRY)/evalsocket/$(INITC_IMAGE):$(GIT_SHORT_HASH)
 	@docker push $(REGISTRY)/evalsocket/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH)
 
