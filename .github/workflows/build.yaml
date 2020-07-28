@@ -35,9 +35,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyverno"
-          tag_with_ref: true
-          push: ${{ github.event.pull_request.head.sha }}
+          repository: "nirmata/kyverno"
+          tag_with_sha: true
+          push: true
           path: cmd/kyverno/
           dockerfile: cmd/kyverno/Dockerfile
 
@@ -47,11 +47,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyvernopre"
-          tag_with_ref: true
-          push: ${{ github.event.pull_request.head.sha }}
+          repository: "nirmata/kyvernopre"
+          tag_with_sha: true
+          push: true
           path: cmd/initContainer/
           dockerfile: cmd/initContainer/Dockerfile
+
 
       - uses: engineerd/setup-kind@v0.1.0
         name: Create kind cluster
