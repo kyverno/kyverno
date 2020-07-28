@@ -21,12 +21,32 @@ jobs:
           go-version: 1.14
 
 
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0-rc.1
-        with:
-          config: /home/runner/.kube/config
-        # Only build a kind cluster if there are chart changes to test.
-        if: steps.lint.outputs.changed == 'true'
+      - uses: engineerd/setup-kind@v0.1.0
+
+      - name: Testing
+        run: |
+          export KUBECONFIG="$(kind get kubeconfig-path)"
+          kubectl get nodes
+          echo ">>> delete KIND's default storageclass"
+          kubectl delete storageclass standard || true
+          echo ">>> deploy hostpath provisioner"
+          kubectl apply -n kube-system -f ${GITHUB_WORKSPACE}/hack/github/hostpath-provisioner.yaml
+          echo ">>> run pod"
+          kubectl apply -f ${GITHUB_WORKSPACE}/hack/github/hostpath-provisioner-pod.yaml
+          sleep 30
+          kubectl logs -n kube-system -lapp.kubernetes.io/name=hostpath-provisioner
+          sleep 30
+          echo ">>> describe pod"
+          kubectl describe pod -n default volume-test
+          sleep 10
+          echo ">>> show pod logs"
+          kubectl logs -n default volume-test
+          sleep 30
+          echo ">>> describe pod"
+          kubectl get pods -n default
+          kubectl describe pod -n default volume-test
+          kubectl get pvc
+          kubectl get pv
 
       - name: Run chart-testing (lint)
         id: lint
