@@ -24,8 +24,8 @@ jobs:
       - uses: azure/docker-login@v1
         with:
           login-server: index.docker.io
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERIO_USERNAME }}
+          password: ${{ secrets.DOCKERIO_PASSWORD }}
 
       - name: Set kubernetes Tag in defination
           uses: stefanprodan/kube-tools@v1
