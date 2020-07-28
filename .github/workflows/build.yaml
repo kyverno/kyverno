@@ -26,7 +26,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyverno"
+          repository: "evalsocket/kyverno"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha ) }}
           dockerfile : cmd/kyverno/Dockerfile
@@ -37,7 +37,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyvernopre"
+          repository: "evalsocket/kyvernopre"
           tag_with_ref: true
           push: ${{ github.event.pull_request.head.sha ) }}
           dockerfile : cmd/initContainer/Dockerfile
