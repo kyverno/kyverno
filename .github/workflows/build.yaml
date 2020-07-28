@@ -49,6 +49,10 @@ jobs:
 
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          sleep 60
+
+          echo ">>> Run Kyverno e2e test"
+          make test-e2e
 
 
 
