@@ -7,6 +7,7 @@ on:
     branches:
       - master
 
+
 jobs:
   releaser:
     runs-on: ubuntu-latest
@@ -34,7 +35,7 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
       -
-        name: Test
+        name: Go Get
         run: |
           go get ./...
       -
@@ -50,3 +51,8 @@ jobs:
           args: --rm-dist --skip-publish --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      -
+        name: Kyverno Test
+        run: |
+          export PROJECT_PATH=$(pwd)
+          make test-all
