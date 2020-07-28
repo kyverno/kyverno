@@ -89,7 +89,7 @@ docker-push-kyverno-ci:
 
 kustomizeci:
 	@echo "kustomize input"
-	$(shell cd $(PWD)/definitions; kustomize edit set image nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH);kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH))
+	$(shell cd $(PWD)/definitions; ../kustomize edit set image nirmata/$(INITC_IMAGE):$(GIT_SHORT_HASH);../kustomize edit set image nirmata/$(KYVERNO_IMAGE):$(GIT_SHORT_HASH))
 	kustomize build ./definitions > ./definitions/install.yaml
 ##################################
 # Generate Docs for types.go
