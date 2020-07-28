@@ -21,7 +21,8 @@ jobs:
         with:
           go-version: 1.14
 
-      - run: |
+      - name : binary build & kustomize
+        run: |
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash && make ci
       -
         uses: docker/build-push-action@v1
