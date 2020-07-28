@@ -21,14 +21,13 @@ jobs:
         with:
           go-version: 1.14
 
-      - uses: azure/docker-login@v1
-        name: Kustomize setup and docker publish
-        with:
-          login-server: index.docker.io
-          username: ${{ secrets.DOCKERIO_USERNAME }}
-          password: ${{ secrets.DOCKERIO_PASSWORD }}
+      - name: Login to docker hub
+        uses: actions-hub/docker/login@master
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERIO_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKERIO_PASSWORD }}
+
       - run: |
-          echo '${{ secrets.DOCKERIO_PASSWORD }}' | docker login --username secrets.DOCKERIO_USERNAME --password-stdin
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           make docker-publish-kyverno-ci
 
