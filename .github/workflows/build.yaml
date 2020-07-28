@@ -21,7 +21,8 @@ jobs:
         with:
           go-version: 1.14
 
-      - uses: nirmata/setup-kind@v0.1.0
+
+      - uses: engineerd/setup-kind@v0.1.0
 
       - name: Testing
         run: |
