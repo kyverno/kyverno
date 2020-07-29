@@ -12,8 +12,9 @@ rules:
       - configmaps
       - resourcequotas
       - limitranges
-      - rolebinding # new Resource to be generated
-      - role
+      - clusterroles
+      - rolebindings
+      - clusterrolebindings
     verbs:
       - create # generate new resources
       - get # check the contents of exiting resources
