@@ -66,14 +66,13 @@ spec:
     match:
         resources:
           kinds:
-          - Namespace
+           - Namespace
     generate:
         kind: Role
         name: "ns-role"
         namespace: test
         synchronize: true
-        data:
-           clone:
+        clone:
               kind: Role
               name: "ns-role"
               namespace: "default"
@@ -81,14 +80,13 @@ spec:
     match:
         resources:
           kinds:
-          - Namespace
+           - Namespace
     generate:
         kind: RoleBinding
         name: "ns-role-binding"
         namespace: test
         synchronize: true
-        data:
-          clone:
+        clone:
             kind: RoleBinding
             name: "ns-role-binding"
             namespace: default

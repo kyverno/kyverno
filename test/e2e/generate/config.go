@@ -44,18 +44,18 @@ var RoleTests = []struct {
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
 	},
-	// {
-	// 	TestName:                   "test-role-rolebinding-with-clone",
-	// 	RoleName:                   "ns-role",
-	// 	RoleBindingName:            "ns-role-binding",
-	// 	ResourceNamespace:          "test",
-	// 	Clone:                      true,
-	// 	CloneSourceRoleData:        sourceRoleYaml,
-	// 	CloneSourceRoleBindingData: sourceRoleBindingYaml,
-	// 	CloneNamespace:             "default",
-	// 	Sync:                       false,
-	// 	Data:                       roleRoleBindingYamlWithClone,
-	// },
+	{
+		TestName:                   "test-role-rolebinding-with-clone",
+		RoleName:                   "ns-role",
+		RoleBindingName:            "ns-role-binding",
+		ResourceNamespace:          "test",
+		Clone:                      true,
+		CloneSourceRoleData:        sourceRoleYaml,
+		CloneSourceRoleBindingData: sourceRoleBindingYaml,
+		CloneNamespace:             "default",
+		Sync:                       false,
+		Data:                       roleRoleBindingYamlWithClone,
+	},
 }
 
 // E2E Test Config for ClusterRole and ClusterRoleBinding
@@ -72,12 +72,12 @@ var ClusterRoleTests = []struct {
 	Clone bool
 	// CloneClusterRoleName
 	ClonerClusterRoleName string
-	// CloneRoleBindingName
-	ClonerRoleBindingName string
+	// CloneClusterRoleBindingName
+	ClonerClusterRoleBindingName string
 	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceRoleData []byte
+	CloneSourceClusterRoleData []byte
 	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceRoleBindingData []byte
+	CloneSourceClusterRoleBindingData []byte
 	// CloneNamespace - Namespace where Roles are Cloned
 	CloneNamespace string
 	// Sync - Set Synchronize
