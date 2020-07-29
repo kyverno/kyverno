@@ -27,14 +27,7 @@ jobs:
 
       - name: e2e testing
         run: |
-          kubectl get nodes
-          echo ">>> delete KIND's default storageclass"
-          kubectl delete storageclass standard || true
-          echo ">>> deploy hostpath provisioner"
-          kubectl apply -n kube-system -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner.yaml
-          echo ">>> run pod"
-          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/hostpath-provisioner-pod.yaml
-
+          cat ${GITHUB_WORKSPACE}/definitions/install.yaml
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
           cat ${GITHUB_WORKSPACE}/definitions/install.yaml
