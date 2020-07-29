@@ -61,7 +61,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait to Delete Resources
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		// ====================================
 
 		// ======== Create ClusterRole Policy =============
@@ -86,7 +86,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait to Create Resources
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		// ======== Verify ClusterRole Creation =====
 		rRes, err := e2eClient.GetClusteredResource(crGVR, tests.ClusterRoleName)
@@ -155,7 +155,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait to Delete Resources
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		// ====================================
 
 		// ======== Create Role Policy =============
@@ -178,7 +178,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait to Create Resources
-		time.Sleep(2 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		// ======== Verify Role Creation =====
 		rRes, err := e2eClient.GetNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
