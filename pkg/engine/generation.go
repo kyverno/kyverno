@@ -23,7 +23,9 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	resource := policyContext.NewResource
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.Context
+
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	logger.V(4).Info("DEBUG-CONFIG",policyContext.Config)
 	return filterRules(policy, resource, admissionInfo, ctx, logger,policyContext.Config)
 }
 
@@ -33,7 +35,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 
 	startTime := time.Now()
-
+	log.V(4).Info("DEBUG",dynamicConfig)
 	if err := MatchesResourceDescription(resource, rule, admissionInfo,dynamicConfig.GetExcludeGroupRole()); err != nil {
 		return nil
 	}
@@ -67,7 +69,7 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			},
 		},
 	}
-
+	log.V(4).Info("DEBUG-RULE",dynamicConfig)
 	for _, rule := range policy.Spec.Rules {
 		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log,dynamicConfig); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)

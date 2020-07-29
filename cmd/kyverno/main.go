@@ -219,6 +219,7 @@ func main() {
 		kubedynamicInformer,
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
+		configData,
 	)
 
 	// GENERATE REQUEST CLEANUP
