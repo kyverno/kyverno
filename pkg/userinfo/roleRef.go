@@ -137,7 +137,7 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 }
 
 //IsRoleAuthorize is role authorize or not
-func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest) (bool, error) {
+func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest,dynamicConfig config.Interface) (bool, error) {
 	if strings.Contains(request.UserInfo.Username, SaPrefix) {
 		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request)
 		if err != nil {
@@ -180,21 +180,21 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 		return true, nil
 	}
 	// User or Group
-	for _, e := range config.ExcludeUsername {
+	for _, e := range dynamicConfig.GetExcludeUsername() {
 		if strings.Contains(request.UserInfo.Username, e) {
 			return true, nil
 		}
 	}
 
 	// Restrict Development Roles
-	for _, e := range config.RestrictDevelopmentRole {
+	for _, e := range dynamicConfig.RestrictDevelopmentUsername() {
 		if strings.Contains(request.UserInfo.Username, e) {
 			return false, nil
 		}
 	}
 
 	var matchedRoles []bool
-	excludeGroupRule := append(config.ExcludeGroupRule,KyvernoSuffix)
+	excludeGroupRule := append(dynamicConfig.GetExcludeGroupRole(),KyvernoSuffix)
 	for _, e := range request.UserInfo.Groups {
 		for _, defaultSuffix := range excludeGroupRule {
 			if strings.Contains(e, defaultSuffix) {

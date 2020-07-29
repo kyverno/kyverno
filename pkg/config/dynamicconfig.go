@@ -20,8 +20,6 @@ import (
 const cmNameEnv string = "INIT_CONFIG"
 
 var ExcludeGroupRule []string
-var ExcludeUsername []string
-var RestrictDevelopmentRole = []string{"minikube-user", "kubernetes-admin"}
 
 // ConfigData stores the configuration
 type ConfigData struct {
@@ -39,6 +37,8 @@ type ConfigData struct {
 	//excludeUsername exclude username
 	excludeUsername []string
 
+	//restrictDevelopmentUsername exclude dev username like minikube and kind
+	restrictDevelopmentUsername []string
 	// hasynced
 	cmSycned cache.InformerSynced
 	log      logr.Logger
@@ -63,6 +63,13 @@ func (cd *ConfigData) GetExcludeGroupRole() []string {
 	return cd.excludeGroupRole
 }
 
+// RestrictDevelopmentUsername return exclude development username
+func (cd *ConfigData) RestrictDevelopmentUsername() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.restrictDevelopmentUsername
+}
+
 // GetExcludeUsername return exclude username
 func (cd *ConfigData) GetExcludeUsername() []string {
 	cd.mux.RLock()
@@ -75,6 +82,7 @@ type Interface interface {
 	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
+	RestrictDevelopmentUsername() []string
 }
 
 // NewConfigData ...
@@ -89,6 +97,8 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		cmSycned: cmInformer.Informer().HasSynced,
 		log:      log,
 	}
+	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
+
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	if filterK8Resources != "" {
@@ -232,7 +242,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
 		// update filters
 		cd.excludeUsername  = excludeUsernames
-		ExcludeUsername = cd.excludeUsername
 	}
 
 }
@@ -264,7 +273,6 @@ func (cd *ConfigData) initRbac(action,exclude string) {
 		ExcludeGroupRule = cd.excludeGroupRole
 	}else{
 		cd.excludeUsername = rbac
-		ExcludeUsername = cd.excludeUsername
 	}
 
 }
@@ -279,7 +287,6 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	cd.excludeGroupRole = []string{}
 	ExcludeGroupRule = cd.excludeGroupRole
 	cd.excludeUsername = []string{}
-	ExcludeUsername = cd.excludeUsername
 }
 
 type k8Resource struct {

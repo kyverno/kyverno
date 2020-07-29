@@ -577,7 +577,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 		labels := resource.GetLabels()
 		if labels != nil {
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
-				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request,ws.configHandler)
 				if err != nil {
 					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
 				}
