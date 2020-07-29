@@ -2,6 +2,7 @@ package engine
 
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,4 +21,6 @@ type PolicyContext struct {
 	Client *client.Client
 	// Contexts to store resources
 	Context context.EvalInterface
+	// Config handler
+	Config config.Interface
 }

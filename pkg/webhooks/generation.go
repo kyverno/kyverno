@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"sort"
 	"strings"
@@ -20,7 +21,7 @@ import (
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo,dynamicConfig config.Interface) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
@@ -42,6 +43,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		NewResource:   *resource,
 		AdmissionInfo: userRequestInfo,
 		Context:       ctx,
+		Config : dynamicConfig,
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource

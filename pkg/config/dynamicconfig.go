@@ -19,8 +19,6 @@ import (
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
 
-var ExcludeGroupRule []string
-
 // ConfigData stores the configuration
 type ConfigData struct {
 	client kubernetes.Interface
@@ -232,7 +230,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", excludeGroupRoles)
 		// update filters
 		cd.excludeGroupRole  = excludeGroupRoles
-		ExcludeGroupRule = cd.excludeGroupRole
 	}
 
 	excludeUsernames := parseRbac(excludeUsername)
@@ -270,7 +267,6 @@ func (cd *ConfigData) initRbac(action,exclude string) {
 	// update filters
 	if action == "excludeRoles" {
 		cd.excludeGroupRole = rbac
-		ExcludeGroupRule = cd.excludeGroupRole
 	}else{
 		cd.excludeUsername = rbac
 	}
@@ -285,7 +281,6 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	defer cd.mux.Unlock()
 	cd.filters = []k8Resource{}
 	cd.excludeGroupRole = []string{}
-	ExcludeGroupRule = cd.excludeGroupRole
 	cd.excludeUsername = []string{}
 }
 

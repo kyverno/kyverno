@@ -342,7 +342,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log,ws.configHandler)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -364,7 +364,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Failed -> Failed to create Generate Request CR
 
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo,ws.configHandler)
 	}
 
 	// Succesful processing of mutation & validation rules in policy
@@ -463,7 +463,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log,ws.configHandler)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

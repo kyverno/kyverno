@@ -245,6 +245,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
+		configData,
 	)
 
 	// CONFIGURE CERTIFICATES
