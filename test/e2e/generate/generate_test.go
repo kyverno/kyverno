@@ -51,6 +51,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s\n", tests.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
+
 		// If Clone is true Clear Source Resource and Recreate
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding from Clone Namespace : %s\n", tests.CloneNamespace))
@@ -155,7 +156,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait to Delete Resources
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 		// ====================================
 
 		// ======== Create Role Policy =============
