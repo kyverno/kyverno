@@ -10,10 +10,9 @@ chmod a+x $pwd/kind
 
 ## Create Kind Cluster
 $pwd/kind create cluster --name e2e
-$pwd/kind load nirmata/kyverno:$hash
+$pwd/kind load docker-image nirmata/kyverno:$hash
 
 pwd=$(pwd)
-hash=sha-$(git rev-parse --short HEAD)
 echo $hash
 cd $pwd/definitions
 echo "Installing kustomize"
