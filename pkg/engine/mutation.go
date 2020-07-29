@@ -55,7 +55,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo,policyContext.Config); err != nil {
+		excludeResource :=  []string{}
+		if policyContext.Config != nil {
+			excludeResource = policyContext.Config.GetExcludeGroupRole()
+		}
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo,excludeResource); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}

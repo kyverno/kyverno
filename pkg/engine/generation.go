@@ -34,7 +34,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 
 	startTime := time.Now()
 
-	if err := MatchesResourceDescription(resource, rule, admissionInfo,dynamicConfig); err != nil {
+	if err := MatchesResourceDescription(resource, rule, admissionInfo,dynamicConfig.GetExcludeGroupRole()); err != nil {
 		return nil
 	}
 	// operate on the copy of the conditions, as we perform variable substitution

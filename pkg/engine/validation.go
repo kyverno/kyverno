@@ -109,13 +109,16 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}
-
+	excludeResource := []string{}
+	if dynamicConfig != nil {
+		excludeResource = dynamicConfig.GetExcludeGroupRole()
+	}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
 
-		if err := MatchesResourceDescription(resource, rule, admissionInfo,dynamicConfig); err != nil {
+		if err := MatchesResourceDescription(resource, rule, admissionInfo,excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
@@ -153,6 +156,11 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		return resp
 	}
 
+	excludeResource :=  []string{}
+	if dynamicConfig != nil {
+		excludeResource = dynamicConfig.GetExcludeGroupRole()
+	}
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
@@ -161,7 +169,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(resource, rule, admissionInfo,dynamicConfig); err != nil {
+		if err := MatchesResourceDescription(resource, rule, admissionInfo,excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}

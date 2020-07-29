@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -79,7 +78,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attibutes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (accross & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured,dynamicConfig config.Interface) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured,dynamicConfig []string) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
@@ -110,7 +109,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
 	var checkedItem int
-	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
+	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
 		checkedItem++
 
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
@@ -120,7 +119,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
-	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
+	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
 		checkedItem++
 
 		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
@@ -148,13 +147,13 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
-func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo,dynamicConfig config.Interface) bool {
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo,dynamicConfig []string) bool {
 	const SaPrefix = "system:serviceaccount:"
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
 	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
-	for _,e := range dynamicConfig.GetExcludeGroupRole() {
+	for _,e := range dynamicConfig {
 		ruleSubjects = append(ruleSubjects,
 			rbacv1.Subject{Kind: "Group", Name: e},
 		)
@@ -181,7 +180,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo,dynamicConfig config.Interface) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo,dynamicConfig []string) error {
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
