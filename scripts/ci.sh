@@ -9,10 +9,10 @@ curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64
 chmod a+x $pwd/kind
 
 ## Create Kind Cluster
-$pwd/kind create cluster --name e2e
+$pwd/kind create cluster
 docker images
-$pwd/kind load docker-image evalsocket/kyverno:$hash --name kind-e2e
-$pwd/kind load docker-image evalsocket/kyvernopre:$hash --name kind-e2e
+$pwd/kind load docker-image evalsocket/kyverno:$hash
+$pwd/kind load docker-image evalsocket/kyvernopre:$hash
 
 pwd=$(pwd)
 echo $hash
