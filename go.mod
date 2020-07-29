@@ -3,6 +3,7 @@ module github.com/nirmata/kyverno
 go 1.13
 
 require (
+	github.com/ahmetb/gen-crd-api-reference-docs v0.2.0 // indirect
 	github.com/cameront/go-jsonpatch v0.0.0-20180223123257-a8710867776e
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible

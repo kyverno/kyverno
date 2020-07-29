@@ -138,6 +138,7 @@ func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructure
 
 	return ok
 }
+
 func incrementAppliedRuleCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }

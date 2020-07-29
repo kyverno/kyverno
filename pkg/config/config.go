@@ -57,7 +57,7 @@ var (
 	//KubePolicyNamespace is the kyverno policy namespace
 	KubePolicyNamespace = getKyvernoNameSpace()
 	// KubePolicyDeploymentName define the default deployment namespace
-	KubePolicyDeploymentName = getKyvernoNameSpace()
+	KubePolicyDeploymentName = "kyverno"
 	//WebhookServiceName default kyverno webhook service name
 	WebhookServiceName = getWebhookServiceName()
 
