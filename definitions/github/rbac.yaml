@@ -12,8 +12,8 @@ rules:
       - configmaps
       - resourcequotas
       - limitranges
-      - ResourceA # new Resource to be generated
-      - ResourceB
+      - rolebinding # new Resource to be generated
+      - role
     verbs:
       - create # generate new resources
       - get # check the contents of exiting resources
