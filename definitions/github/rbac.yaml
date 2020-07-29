@@ -1,0 +1,34 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kyverno:generatecontroller
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - namespaces
+      - networkpolicies
+      - secrets
+      - configmaps
+      - resourcequotas
+      - limitranges
+      - ResourceA # new Resource to be generated
+      - ResourceB
+    verbs:
+      - create # generate new resources
+      - get # check the contents of exiting resources
+      - update # update existing resource, if required configuration defined in policy is not present
+      - delete # clean-up, if the generate trigger resource is deleted
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kyverno-admin-generate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generatecontroller # clusterRole defined above, to manage generated resources
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-service-account # default kyverno serviceAccount
+    namespace: kyverno
