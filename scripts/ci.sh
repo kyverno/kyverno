@@ -11,8 +11,8 @@ chmod a+x $pwd/kind
 ## Create Kind Cluster
 $pwd/kind create cluster --name e2e
 docker images
-$pwd/kind load docker-image evalsocket/kyverno
-$pwd/kind load docker-image evalsocket/kyvernopre
+$pwd/kind load docker-image evalsocket/kyverno:$hash
+$pwd/kind load docker-image evalsocket/kyvernopre:$hash
 
 pwd=$(pwd)
 echo $hash
