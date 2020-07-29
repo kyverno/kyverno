@@ -66,6 +66,7 @@ jobs:
 
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          cat ${GITHUB_WORKSPACE}/definitions/install.yaml
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           sleep 60
 
