@@ -29,9 +29,9 @@ var allRoles []allRolesStruct
 
 
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest) (roles []string, clusterRoles []string, err error) {
+func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest,dynamicConfig config.Interface) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
-	if utils.SliceContains(keys, config.ExcludeGroupRule...) {
+	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
 		return
 	}
 
@@ -139,7 +139,7 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 //IsRoleAuthorize is role authorize or not
 func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest,dynamicConfig config.Interface) (bool, error) {
 	if strings.Contains(request.UserInfo.Username, SaPrefix) {
-		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request)
+		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request,dynamicConfig)
 		if err != nil {
 			return false, err
 		}

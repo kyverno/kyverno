@@ -138,7 +138,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request,h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
 		}
