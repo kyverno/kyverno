@@ -31,7 +31,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyverno"
+          repository: "evalsocket/kyverno"
           tag_with_sha: true
           push: true
           path: cmd/kyverno/
@@ -43,7 +43,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyvernopre"
+          repository: "evalsocket/kyvernopre"
           tag_with_sha: true
           push: true
           path: cmd/initContainer/
