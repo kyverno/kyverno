@@ -1,6 +1,7 @@
 package generate
 
 // E2E Test Config for Role and RoleBinding
+// TODO:- Clone for Role and RoleBinding
 var RoleTests = []struct {
 	//TestName - Name of the Test
 	TestName string
@@ -43,18 +44,18 @@ var RoleTests = []struct {
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
 	},
-	{
-		TestName:                   "test-role-rolebinding-with-clone",
-		RoleName:                   "ns-role",
-		RoleBindingName:            "ns-role-binding",
-		ResourceNamespace:          "test",
-		Clone:                      true,
-		CloneSourceRoleData:        sourceRoleYaml,
-		CloneSourceRoleBindingData: sourceRoleBindingYaml,
-		CloneNamespace:             "default",
-		Sync:                       false,
-		Data:                       roleRoleBindingYamlWithClone,
-	},
+	// {
+	// 	TestName:                   "test-role-rolebinding-with-clone",
+	// 	RoleName:                   "ns-role",
+	// 	RoleBindingName:            "ns-role-binding",
+	// 	ResourceNamespace:          "test",
+	// 	Clone:                      true,
+	// 	CloneSourceRoleData:        sourceRoleYaml,
+	// 	CloneSourceRoleBindingData: sourceRoleBindingYaml,
+	// 	CloneNamespace:             "default",
+	// 	Sync:                       false,
+	// 	Data:                       roleRoleBindingYamlWithClone,
+	// },
 }
 
 // E2E Test Config for ClusterRole and ClusterRoleBinding

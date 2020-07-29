@@ -69,13 +69,13 @@ spec:
           - Namespace
     generate:
         kind: Role
-        name: ns-role
+        name: "ns-role"
         namespace: test
         synchronize: true
         data:
            clone:
               kind: Role
-              name: ns-role
+              name: "ns-role"
               namespace: "default"
   - name: "gen-role-binding"
     match:
@@ -84,14 +84,14 @@ spec:
           - Namespace
     generate:
         kind: RoleBinding
-        name: ns-role-binding
+        name: "ns-role-binding"
         namespace: test
         synchronize: true
         data:
           clone:
             kind: RoleBinding
-            name: ns-role-binding
-            namespace: "default"
+            name: "ns-role-binding"
+            namespace: default
 `)
 
 // Source Role from which ROle is Cloned by generate
@@ -100,7 +100,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   namespace: default
-  name: "ns-role"
+  name: ns-role
 rules:
 - apiGroups: ["*"]
   resources: ["*"]

@@ -117,7 +117,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait to Delete Resources
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		// ====================================
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
@@ -165,7 +165,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// ============================================
 
 		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace wich triggers generate %s", clPolNS))
+		By(fmt.Sprintf("Creating Namespace which triggers generate %s", clPolNS))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
 		Expect(err).NotTo(HaveOccurred())
 		// ===========================================
@@ -181,23 +181,29 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		time.Sleep(10 * time.Second)
 
 		// ======== Verify Role Creation =====
+		By(fmt.Sprintf("Verifying Role in the Namespace : %s", tests.ResourceNamespace))
 		rRes, err := e2eClient.GetNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rRes.GetName()).To(Equal(tests.RoleName))
 		// ============================================
 
 		// ======= Verify RoleBinding Creation ========
-		rbRes, err := e2eClient.GetNamespacedResource(rbGVR, "default", tests.RoleBindingName)
+		By(fmt.Sprintf("Verifying RoleBinding in the Namespace : %s", tests.ResourceNamespace))
+		rbRes, err := e2eClient.GetNamespacedResource(rbGVR, tests.ResourceNamespace, tests.RoleBindingName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rbRes.GetName()).To(Equal(tests.RoleBindingName))
 		// ============================================
 
 		// If Sync=true, Verify that an Error will occour on deletion of created resources
 		if tests.Sync {
+			
 			// Delete generated RoleBinding and It'll Fail
+			By(fmt.Sprintf("Sync : Delete RoleBinding as Namespace %s", tests.ResourceNamespace))
 			err = e2eClient.DeleteNamespacedResource(rbGVR, tests.ResourceNamespace, tests.RoleBindingName)
 			Expect(err).To(HaveOccurred())
+			
 			// Delete generated Role and It'll Fail
+			By(fmt.Sprintf("Sync : Delete Role as Namespace %s", tests.ResourceNamespace))
 			err = e2eClient.DeleteNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
 			Expect(err).To(HaveOccurred())
 
@@ -209,7 +215,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait to Delete Resources
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		// ====================================
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
