@@ -11,4 +11,4 @@ chmod a+x $pwd/definitions/kustomize
 echo "Kustomize image edit"
 $pwd/definitions/kustomize edit set image kyverno=evalsocket/kyverno:$hash
 $pwd/definitions/kustomize edit set image kyvernopre=evalsocket/kyvernopre:$hash
-$pwd/definitions/kustomize build . > $pwd/definitions/install.yaml
+$pwd/definitions/kustomize build $pwd/definitions/ > $pwd/definitions/install.yaml
