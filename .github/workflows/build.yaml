@@ -23,39 +23,10 @@ jobs:
 
       - name : binary build & kustomize
         run: |
-           make ci
-
-      -
-        uses: docker/build-push-action@v1
-        name: kyverno docker build and publish
-        with:
-          username: ${{ secrets.DOCKERIO_USERNAME }}
-          password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyverno"
-          tag_with_sha: true
-          push: true
-          path: cmd/kyverno/
-          dockerfile: cmd/kyverno/Dockerfile
-
-      -
-        uses: docker/build-push-action@v1
-        name: kyvernopre docker build and publish
-        with:
-          username: ${{ secrets.DOCKERIO_USERNAME }}
-          password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyvernopre"
-          tag_with_sha: true
-          push: true
-          path: cmd/initContainer/
-          dockerfile: cmd/initContainer/Dockerfile
-
-
-      - uses: engineerd/setup-kind@v0.1.0
-        name: Create kind cluster
+           make ci 
 
       - name: e2e testing
         run: |
-          export KUBECONFIG="$(kind get kubeconfig-path)"
           kubectl get nodes
           echo ">>> delete KIND's default storageclass"
           kubectl delete storageclass standard || true
