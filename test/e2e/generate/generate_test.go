@@ -49,6 +49,17 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// ======= CleanUp Resources =====
 		By(fmt.Sprintf("Cleaning Cluster Policies from Namespace : %s", clPolNS))
 		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+
+		// If Clone is true Clear Source Resource and Recreate
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding from Clone Namespace : %s\n", tests.CloneNamespace))
+			// Delete ClusterRole to be cloned
+			e2eClient.DeleteNamespacedResource(crGVR, tests.CloneNamespace, tests.ClonerClusterRoleName)
+			// Delete ClusterRoleBinding to be cloned
+			e2eClient.DeleteNamespacedResource(crbGVR, tests.CloneNamespace, tests.ClonerClusterRoleBindingName)
+		}
+		// ====================================
+
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s\n", tests.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
@@ -62,24 +73,28 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			return errors.New("Deleting Namespace")
 		})
 
-		// If Clone is true Clear Source Resource and Recreate
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding from Clone Namespace : %s\n", tests.CloneNamespace))
-			// Delete ClusterRole to be cloned
-			e2eClient.DeleteNamespacedResource(crGVR, tests.CloneNamespace, tests.ClonerClusterRoleName)
-			// Delete ClusterRoleBinding to be cloned
-			e2eClient.DeleteNamespacedResource(crbGVR, tests.CloneNamespace, tests.ClonerClusterRoleBindingName)
-		}
+		// =====================================================
 
-		// Wait to Delete Resources
-		// time.Sleep(10 * time.Second)
-		// ====================================
+
 
 		// ======== Create ClusterRole Policy =============
 		By(fmt.Sprintf("Creating Generate Role Policy in %s", clPolNS))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// == If Clone is true Create Source Resources ======
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
+			// Create ClusterRole to be cloned
+			_, err := e2eClient.CreateClusteredResourceYaml(crGVR, tests.CloneSourceClusterRoleData)
+			Expect(err).NotTo(HaveOccurred())
+			// Create ClusterRoleBinding to be cloned
+			_, err = e2eClient.CreateClusteredResourceYaml(crbGVR, tests.CloneSourceClusterRoleBindingData)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		// =================================================
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s \n", clPolNS))
@@ -95,20 +110,6 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			return nil
 		})
 		// ===========================================
-
-		// If Clone is true Create Source Resources
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			// Create ClusterRole to be cloned
-			_, err := e2eClient.CreateClusteredResourceYaml(crGVR, tests.CloneSourceClusterRoleData)
-			Expect(err).NotTo(HaveOccurred())
-			// Create ClusterRoleBinding to be cloned
-			_, err = e2eClient.CreateClusteredResourceYaml(crbGVR, tests.CloneSourceClusterRoleBindingData)
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		// Wait to Create Resources
-		time.Sleep(5 * time.Second)
 
 		// ======== Verify ClusterRole Creation =====
 		By("Verifying ClusterRole")
@@ -154,7 +155,6 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			}
 			return errors.New("Deleting Namespace")
 		})
-		// ====================================
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
 
@@ -206,6 +206,17 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
+
+		// === If Clone is true Create Source Resources ==
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
+			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, tests.CloneSourceRoleData)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, tests.CloneSourceRoleBindingData)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		// ================================================
+
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", clPolNS))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
@@ -220,18 +231,6 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			return nil
 		})
 		// ===========================================
-
-		// If Clone is true Create Source Resources
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, tests.CloneSourceRoleData)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, tests.CloneSourceRoleBindingData)
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		// Wait to Create Resources
-		time.Sleep(5 * time.Second)
 
 		// ======== Verify Role Creation =====
 		By(fmt.Sprintf("Verifying Role in the Namespace : %s", tests.ResourceNamespace))
@@ -271,6 +270,15 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+
+		// === If Clone is true Delete Source Resources ==
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Deleting Cloner Resources in Namespace : %s", tests.CloneNamespace))
+			e2eClient.DeleteNamespacedResource(rGVR, tests.CloneNamespace, tests.RoleName)
+			e2eClient.DeleteNamespacedResource(rbGVR, tests.CloneNamespace, tests.RoleBindingName)
+		}
+		// ================================================
+
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
@@ -282,6 +290,8 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			return errors.New("Deleting Namespace")
 		})
 		// ====================================
+
+
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
 
