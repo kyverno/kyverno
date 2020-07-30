@@ -43,7 +43,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		NewResource:   *resource,
 		AdmissionInfo: userRequestInfo,
 		Context:       ctx,
-		Config : dynamicConfig,
+		ExcludeGroupRole : dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource

@@ -72,7 +72,7 @@ func HandleValidation(
 		OldResource:   oldR,
 		Context:       ctx,
 		AdmissionInfo: userRequestInfo,
-		Config : dynamicConfig,
+		ExcludeGroupRole : dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	var engineResponses []response.EngineResponse

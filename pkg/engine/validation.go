@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"time"
 
@@ -63,19 +62,19 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	// If request is delete, newR will be empty
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo,policyContext.Config)
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo,policyContext.ExcludeGroupRole)
 	}
 
-	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo,policyContext.Config); !denyResp.IsSuccessful() {
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo,policyContext.ExcludeGroupRole); !denyResp.IsSuccessful() {
 		return *denyResp
 	}
 
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		return *validateResource(logger, ctx, policy, newR, admissionInfo,policyContext.Config)
+		return *validateResource(logger, ctx, policy, newR, admissionInfo,policyContext.ExcludeGroupRole)
 	}
 
-	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo,policyContext.Config)
-	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo,policyContext.Config)
+	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo,policyContext.ExcludeGroupRole)
+	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo,policyContext.ExcludeGroupRole)
 	if !isSameResponse(oldResponse, newResponse) {
 		return *newResponse
 	}
@@ -103,15 +102,15 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo,dynamicConfig config.Interface) *response.EngineResponse {
+func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo,excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if policy.HasAutoGenAnnotation() && excludePod(resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}
 	excludeResource := []string{}
-	if dynamicConfig != nil {
-		excludeResource = dynamicConfig.GetExcludeGroupRole()
+	if len(excludeGroupRole) > 0 {
+		excludeResource = excludeGroupRole
 	}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
@@ -148,7 +147,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 	return resp
 }
 
-func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo,dynamicConfig config.Interface) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo,excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
 	if policy.HasAutoGenAnnotation() && excludePod(resource) {
@@ -157,8 +156,8 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 	}
 
 	excludeResource :=  []string{}
-	if dynamicConfig != nil {
-		excludeResource = dynamicConfig.GetExcludeGroupRole()
+	if len(excludeGroupRole)>0 {
+		excludeResource = excludeGroupRole
 	}
 
 	for _, rule := range policy.Spec.Rules {
