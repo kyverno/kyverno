@@ -240,7 +240,8 @@ type ResourceDescription struct {
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
 	// Specifies overlay patterns
-	Overlay interface{} `json:"overlay,omitempty"`
+	Overlay             interface{} `json:"overlay,omitempty"`
+	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchesStrategicMerge,omitempty"`
 	// Specifies JSON Patch
 	Patches []Patch `json:"patches,omitempty"`
 }
@@ -251,7 +252,7 @@ type Mutation struct {
 type Patch struct {
 	// Specifies path of the resource
 	Path string `json:"path"`
-	// Specifies operations supported by JSON Patch. 
+	// Specifies operations supported by JSON Patch.
 	// i.e:- add, replace and delete
 	Operation string `json:"op"`
 	// Specifies the value to be applied

@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/engine/utils"
@@ -13,19 +12,12 @@ import (
 
 func Test_GeneratePatches(t *testing.T) {
 
-	out, err := strategicMergePatchfilter(string(baseBytes), string(overlayBytes))
+	out, err := strategicMergePatch(string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
 	patches, err := generatePatches(baseBytes, out)
 	assert.NilError(t, err)
 	t.Logf("patches\n%v", patches)
-
-	var patchesBytes [][]byte
-	for _, p := range patches {
-		pbytes, err := p.MarshalJSON()
-		assert.NilError(t, err)
-		patchesBytes = append(patchesBytes, pbytes)
-	}
 
 	var overlay unstructured.Unstructured
 	err = json.Unmarshal(baseBytes, &overlay)
@@ -34,8 +26,7 @@ func Test_GeneratePatches(t *testing.T) {
 	bb, err := json.Marshal(overlay.Object)
 	assert.NilError(t, err)
 
-	fmt.Println("bb ", string(bb))
-	res, err := utils.ApplyPatches(bb, patchesBytes)
+	res, err := utils.ApplyPatches(bb, patches)
 	assert.NilError(t, err)
 
 	var ep unstructured.Unstructured

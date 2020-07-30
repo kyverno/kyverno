@@ -180,6 +180,8 @@ spec:
                     properties:
                       overlay:
                         AnyValue: {}
+                      patchStrategicMerge:
+                        AnyValue: {}
                       patches:
                         items:
                           properties:

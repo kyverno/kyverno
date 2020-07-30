@@ -104,6 +104,20 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 			incrementAppliedRuleCount(&resp)
 		}
+
+		if rule.Mutation.PatchStrategicMerge != nil {
+			ruleResponse, patchedResource = mutate.ProcessStrategicMergePatch(rule.Name, rule.Mutation.PatchStrategicMerge, patchedResource, logger)
+			if ruleResponse.Success {
+				// - overlay pattern does not match the resource conditions
+				if ruleResponse.Patches == nil {
+					continue
+				}
+				logger.V(4).Info("patchStrategicMerge applied successfully")
+			}
+
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			incrementAppliedRuleCount(&resp)
+		}
 	}
 
 	// insert annotation to podtemplate if resource is pod controller
