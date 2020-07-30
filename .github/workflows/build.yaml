@@ -34,7 +34,7 @@ jobs:
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           sleep 30
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
-          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
+          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh kyverno kyverno
           echo ">>> Run Kyverno e2e test"
           make test-e2e
 
