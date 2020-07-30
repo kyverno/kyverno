@@ -30,11 +30,10 @@ jobs:
           cat ${GITHUB_WORKSPACE}/definitions/install.yaml
           echo ">>> Install Kyverno"
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
-          cat ${GITHUB_WORKSPACE}/definitions/install.yaml
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           sleep 30
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
-          watch kubectl get -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          kubectl get -f ${GITHUB_WORKSPACE}/definitions/install.yaml -oyaml
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           echo ">>> Run Kyverno e2e test"
           make test-e2e
