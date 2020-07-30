@@ -50,6 +50,7 @@ spec:
           roleRef:
             kind: Role
             name: ns-role
+            namespace: test
             apiGroup: rbac.authorization.k8s.io
 `)
 
