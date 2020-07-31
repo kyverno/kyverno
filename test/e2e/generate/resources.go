@@ -25,7 +25,7 @@ spec:
     generate:
         kind: Role
         name: "ns-role"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
           rules:
@@ -40,7 +40,7 @@ spec:
     generate:
         kind: RoleBinding
         name: "ns-role-binding"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
           subjects:
@@ -50,7 +50,7 @@ spec:
           roleRef:
             kind: Role
             name: ns-role
-            namespace: test
+            namespace: "{{request.object.metadata.name}}"
             apiGroup: rbac.authorization.k8s.io
 `)
 
@@ -71,7 +71,7 @@ spec:
     generate:
         kind: Role
         name: "ns-role"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
               kind: Role
@@ -85,7 +85,7 @@ spec:
     generate:
         kind: RoleBinding
         name: "ns-role-binding"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
             kind: RoleBinding
@@ -163,5 +163,5 @@ spec:
           subjects:
           - kind: ServiceAccount
             name: "kyverno-service-account"
-            namespace: test
+            namespace: "{{request.object.metadata.name}}"
 `)
