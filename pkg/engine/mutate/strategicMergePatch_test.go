@@ -10,8 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// note:         emptyDir: {} is removed from patch
-
 func TestMergePatch(t *testing.T) {
 
 	// out
