@@ -20,6 +20,7 @@ spec:
       initContainers:
         - name: kyverno-pre
           image: evalsocket/kyvernopre:v1.1.7-rc4
+          imagePullPolicy: Always
       containers:
         - name: kyverno
           image: evalsocket/kyverno:v1.1.7-rc4
