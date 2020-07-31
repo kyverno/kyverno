@@ -4,6 +4,8 @@ on:
     branches:
       - 'master'
   pull_request:
+    branches:
+      - 'master'
 
 jobs:
   releaser:
@@ -24,20 +26,16 @@ jobs:
       - name : binary build & kustomize
         run: |
           make ci
-
       - name: e2e testing
         run: |
-          kubectl get nodes
           echo ">>> Install Kyverno"
-          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          sed 's/imagePullPolicy:.*$/imagePullPolicy: Never/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
-          sleep 30
+          chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
+          sleep 60
+          echo ">>> Check kyverno"
+          kubectl get pods -n kyverno
+          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          kubectl get pods -n kyverno -oyaml
           echo ">>> Run Kyverno e2e test"
           make test-e2e
-
-
-
-
-
-
-
