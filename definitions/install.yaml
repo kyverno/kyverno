@@ -808,5 +808,6 @@ spec:
             memory: 50Mi
       initContainers:
       - image: nirmata/kyvernopre:v1.1.8
+        imagePullPolicy: Always
         name: kyverno-pre
       serviceAccountName: kyverno-service-account

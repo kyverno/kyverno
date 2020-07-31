@@ -19,11 +19,11 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: evalsocket/kyvernopre:v1.1.7-rc4
+          image: nirmata/kyvernopre:v1.1.8
           imagePullPolicy: Always
       containers:
         - name: kyverno
-          image: evalsocket/kyverno:v1.1.7-rc4
+          image: nirmata/kyverno:v1.1.8
           imagePullPolicy: Always
           args:
             - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
