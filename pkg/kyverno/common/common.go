@@ -11,9 +11,12 @@ import (
 	"path/filepath"
 	"regexp"
 
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/nirmata/kyverno/pkg/policymutation"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -153,4 +156,42 @@ func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
 	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
+}
+
+// MutatePolicy - applies mutation to a policy
+func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
+	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+
+	type jsonPatch struct {
+		Path  string      `json:"path"`
+		Op    string      `json:"op"`
+		Value interface{} `json:"value"`
+	}
+
+	var jsonPatches []jsonPatch
+	err := json.Unmarshal(patches, &jsonPatches)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
+	}
+	patch, err := jsonpatch.DecodePatch(patches)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
+	}
+
+	policyBytes, _ := json.Marshal(policy)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
+	}
+	modifiedPolicy, err := patch.Apply(policyBytes)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
+	}
+
+	var p v1.ClusterPolicy
+	err = json.Unmarshal(modifiedPolicy, &p)
+	if err != nil {
+		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
+	}
+
+	return &p, nil
 }

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/policymutation"
 
 	"github.com/nirmata/kyverno/pkg/utils"
 
@@ -36,8 +35,6 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-
-	jsonpatch "github.com/evanphx/json-patch"
 )
 
 func Command() *cobra.Command {
@@ -122,7 +119,7 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError("failed to load resources", err)
 			}
 
-			newPolicies, err := mutatePolicy(policies)
+			newPolicies, err := mutatePolices(policies)
 			if err != nil {
 				return sanitizedError.NewWithError("failed to mutate policy", err)
 			}
@@ -353,42 +350,20 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	return nil
 }
 
-// mutatePolicy - function to apply mutation on policies
-func mutatePolicy(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+// mutatePolicies - function to apply mutation on policies
+func mutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-
-		type jsonPatch struct {
-			Path  string      `json:"path"`
-			Op    string      `json:"op"`
-			Value interface{} `json:"value"`
-		}
-
-		var jsonPatches []jsonPatch
-		err := json.Unmarshal(patches, &jsonPatches)
+		p, err := common.MutatePolicy(policy, logger)
 		if err != nil {
-			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
+			if !sanitizedError.IsErrorSanitized(err) {
+				return nil, sanitizedError.NewWithError("failed to mutate policy.", err)
+			}
+			return nil, err
 		}
-		patch, err := jsonpatch.DecodePatch(patches)
-		if err != nil {
-			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
-		}
-
-		policyBytes, _ := json.Marshal(policy)
-		if err != nil {
-			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
-		}
-		modifiedPolicy, err := patch.Apply(policyBytes)
-		if err != nil {
-			return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
-		}
-
-		var p v1.ClusterPolicy
-		json.Unmarshal(modifiedPolicy, &p)
-		newPolicies = append(newPolicies, &p)
+		newPolicies = append(newPolicies, p)
 	}
 	return newPolicies, nil
 }
