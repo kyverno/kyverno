@@ -35,6 +35,7 @@ jobs:
           echo ">>> Check kyverno"
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          kubectl get pods -n kyverno -oyaml
           echo ">>> Run Kyverno e2e test"
           make test-e2e
 
