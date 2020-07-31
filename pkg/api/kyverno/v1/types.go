@@ -21,18 +21,12 @@ type GenerateRequest struct {
 
 //GenerateRequestSpec stores the request specification
 type GenerateRequestSpec struct {
-<<<<<<< HEAD
-	Policy   string                 `json:"policy"`
-	Resource ResourceSpec           `json:"resource"`
-	Context  GenerateRequestContext `json:"context"`
-=======
 	// Specifies the name of the policy
 	Policy string `json:"policy" yaml:"policy"`
 	// ResourceSpec is the information to identify the generate request
 	Resource ResourceSpec `json:"resource" yaml:"resource"`
 	// Context ...
 	Context GenerateRequestContext `json:"context" yaml:"context"`
->>>>>>> 7195b20e90109d69b88066dcbf6e0726a05cbb3a
 }
 
 //GenerateRequestContext stores the context to be shared

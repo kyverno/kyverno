@@ -55,21 +55,17 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			for _, e := range gr.Status.GeneratedResources {
 				resp, err := c.client.GetResource(e.Kind, e.Namespace, e.Name)
 				if err != nil {
-<<<<<<< HEAD
+
 					logger.Error(err, "Generated resource failed to get", "Resource", resp.GetName())
-=======
-					logger.Error(err, "Generated resource failed to get", "Resource", e.Name)
->>>>>>> 7195b20e90109d69b88066dcbf6e0726a05cbb3a
+
 				}
 
 				labels := resp.GetLabels()
 				if labels["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-<<<<<<< HEAD
-						logger.Error(err, "Generated resource is not deleted", "Resource", resp.GetName())
-=======
+
 						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
->>>>>>> 7195b20e90109d69b88066dcbf6e0726a05cbb3a
+
 					}
 				}
 			}
