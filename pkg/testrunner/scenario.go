@@ -128,7 +128,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 
 	var er response.EngineResponse
 
-	er = engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+	er = engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource,ExcludeGroupRole: []string{}})
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -138,7 +138,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+	er = engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: *resource,ExcludeGroupRole: []string{}})
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -156,6 +156,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				NewResource: *resource,
 				Policy:      *policy,
 				Client:      client,
+				ExcludeGroupRole: []string{},
 			}
 
 			er = engine.Generate(policyContext)
