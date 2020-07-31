@@ -90,6 +90,13 @@ ci: docker-build-kyverno docker-build-initContainer
 generate-api-docs:
 	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
 
+##################################
+# Generate Docs for types.go
+##################################
+
+generate-api-docs:
+	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
+
 
 ##################################
 # CLI
