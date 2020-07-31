@@ -24,4 +24,5 @@ echo "Kustomize image edit"
 $pwd/definitions/kustomize edit set image evalsocket/kyverno:$hash
 $pwd/definitions/kustomize edit set image evalsocket/kyvernopre:$hash
 $pwd/definitions/kustomize build $pwd/definitions/ > $pwd/definitions/install.yaml
+sed sed -i "" "/^\([[:space:]]*imagePullPolicy: \).*/s//\1Never/" $pwd/definitions/install.yaml
 
