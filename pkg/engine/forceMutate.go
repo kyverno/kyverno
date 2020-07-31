@@ -84,7 +84,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 		if rule.Mutation.Patches != nil {
 			var resp response.RuleResponse
-			resp, resource = mutate.ProcessPatches(logger.WithValues("rule", rule.Name), rule, resource)
+			resp, resource = mutate.ProcessPatches(logger.WithValues("rule", rule.Name), rule.Name, rule.Mutation, resource)
 			if !resp.Success {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
