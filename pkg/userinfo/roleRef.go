@@ -188,7 +188,7 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 
 	// Restrict Development Roles
 	for _, e := range dynamicConfig.RestrictDevelopmentUsername() {
-		if strings.Contains(request.UserInfo.Username, e) {
+		if strings.Contains(request.UserInfo.Username, strings.TrimSpace(e)) {
 			return false, nil
 		}
 	}
@@ -197,7 +197,8 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 	excludeGroupRule := append(dynamicConfig.GetExcludeGroupRole(),KyvernoSuffix)
 	for _, e := range request.UserInfo.Groups {
 		for _, defaultSuffix := range excludeGroupRule {
-			if strings.Contains(e, defaultSuffix) {
+
+			if strings.Contains(strings.TrimSpace(e), strings.TrimSpace(defaultSuffix)) {
 				matchedRoles = append(matchedRoles, true)
 				break
 			}
