@@ -202,9 +202,13 @@ rules:
   resources:
   - '*'
   verbs:
-  - get
-  - list
+  - create
+  - delete
+  - get 
+  - list 
+  - patch
   - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -227,9 +231,12 @@ rules:
   - clusterrolebindings
   verbs:
   - create
-  - update
   - delete
-  - get
+  - get 
+  - list 
+  - patch
+  - update
+  - watch
 # dynamic watches on trigger resources for generate rules
 # re-evaluate the policy if the resource is updated
 - apiGroups:
