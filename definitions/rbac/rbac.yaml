@@ -160,6 +160,10 @@ rules:
   - configmaps
   verbs:
   - watch
+  - create
+  - update
+  - delete
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -217,6 +221,7 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - roles
   - clusterroles
   - rolebindings
   - clusterrolebindings

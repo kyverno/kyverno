@@ -1,0 +1,45 @@
+name: build
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+
+jobs:
+  releaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Unshallow
+        run: git fetch --prune --unshallow
+      -
+        name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - uses: engineerd/setup-kind@v0.4.0
+        name: Create kind cluster
+
+      - name: e2e testing
+        run: |
+          kubectl cluster-info
+          echo "current-context:" $(kubectl config current-context)
+          echo ${{ secrets.DOCKERIO_PASSWORD }} | docker login -u ${{ secrets.DOCKERIO_USERNAME }} --password-stdin
+          export KUBECONFIG="$(kind get kubeconfig-path)"
+          kubectl get nodes
+
+          echo ">>> Install Kyverno"
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/rbac/rbac.yaml
+          # cat ${GITHUB_WORKSPACE}/definitions/install.yaml
+          sleep 20
+          echo ">>> Check kyverno"
+          kubectl get pods -n kyverno
+          sleep 60
+
+          echo ">>> Run Kyverno e2e test"
+          make test-e2e

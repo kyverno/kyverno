@@ -47,8 +47,8 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		By(fmt.Sprintf("synchronize = %v\t clone = %v", tests.Sync, tests.Clone))
 
 		// ======= CleanUp Resources =====
-		By(fmt.Sprintf("Cleaning Cluster Policies from Namespace : %s", clPolNS))
-		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+		By(fmt.Sprintf("Cleaning Cluster Policies"))
+		e2eClient.CleanClusterPolicies(clPolGVR)
 
 		// If Clone is true Clear Source Resource and Recreate
 		if tests.Clone {
@@ -144,7 +144,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		}
 
 		// ======= CleanUp Resources =====
-		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+		e2eClient.CleanClusterPolicies(clPolGVR)
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
@@ -176,8 +176,8 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		By(fmt.Sprintf("synchronize = %v\t clone = %v", tests.Sync, tests.Clone))
 
 		// ======= CleanUp Resources =====
-		By(fmt.Sprintf("Cleaning Cluster Policies from Namespace : %s", clPolNS))
-		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+		By(fmt.Sprintf("Cleaning Cluster Policies"))
+		e2eClient.CleanClusterPolicies(clPolGVR)
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s", tests.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
@@ -269,7 +269,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		}
 
 		// ======= CleanUp Resources =====
-		e2eClient.CleanClusterPolicies(clPolGVR, clPolNS)
+		e2eClient.CleanClusterPolicies(clPolGVR)
 
 		// === If Clone is true Delete Source Resources ==
 		if tests.Clone {

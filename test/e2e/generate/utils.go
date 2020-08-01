@@ -36,7 +36,8 @@ func GetGVR(group, version, resource string) schema.GroupVersionResource {
 }
 
 // CleanClusterPolicies ;- Deletes all the cluster policies
-func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource, namespace string) error {
+func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource) error {
+	namespace := ""
 	res, err := e2e.ListNamespacedResources(gvr, namespace)
 	if err != nil {
 		return err
