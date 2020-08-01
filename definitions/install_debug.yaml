@@ -724,14 +724,6 @@ subjects:
   namespace: kyverno
 ---
 apiVersion: v1
-data:
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]'
-kind: ConfigMap
-metadata:
-  name: init-config
-  namespace: kyverno
----
-apiVersion: v1
 kind: Service
 metadata:
   labels:
