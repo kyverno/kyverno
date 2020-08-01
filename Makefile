@@ -6,7 +6,6 @@
 GIT_VERSION := $(shell git describe --dirty --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
-GIT_SHORT_HASH := $(shell git rev-parse --short HEAD)
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
 REGISTRY?=index.docker.io
