@@ -31,7 +31,6 @@ jobs:
           sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
-          docker exec -it kind-control-plane  crictl images
           sleep 70
           echo ">>> Check kyverno"
           kubectl get pods -n kyverno
