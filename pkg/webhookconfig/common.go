@@ -66,7 +66,7 @@ func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
 func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
-	reinvocationPolicy := admregapi.IfNeededReinvocationPolicy
+	reinvocationPolicy := admregapi.NeverReinvocationPolicy
 
 	return admregapi.MutatingWebhook{
 		ReinvocationPolicy: &reinvocationPolicy,
@@ -170,7 +170,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
-	reinvocationPolicy := admregapi.IfNeededReinvocationPolicy
+	reinvocationPolicy := admregapi.NeverReinvocationPolicy
 
 	return admregapi.MutatingWebhook{
 		ReinvocationPolicy: &reinvocationPolicy,

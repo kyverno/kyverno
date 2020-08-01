@@ -239,10 +239,12 @@ type ResourceDescription struct {
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
 	// Specifies overlay patterns
-	Overlay             interface{} `json:"overlay,omitempty"`
-	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchesStrategicMerge,omitempty"`
+	Overlay interface{} `json:"overlay,omitempty"`
 	// Specifies JSON Patch
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
+
+	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchesStrategicMerge,omitempty"`
+	PatchesJSON6902     string      `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false

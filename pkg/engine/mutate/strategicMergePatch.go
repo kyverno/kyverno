@@ -15,20 +15,6 @@ import (
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-type buffer struct {
-	*bytes.Buffer
-}
-
-func (buff buffer) UnmarshalJSON(b []byte) error {
-	buff.Reset()
-	buff.Write(b)
-	return nil
-}
-
-func (buff buffer) MarshalJSON() ([]byte, error) {
-	return buff.Bytes(), nil
-}
-
 func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	logger := log.WithName("ProcessStrategicMergePatch").WithValues("rule", ruleName)

@@ -18,6 +18,8 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	switch {
 	case isPatchStrategicMerge(mutate):
 		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
+	case isPatchesJSON6902(mutate):
+		return newPatchesJSON6902Handler(ruleName, mutate, patchedResource, logger)
 	case isOverlay(mutate):
 		return newOverlayHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
@@ -99,6 +101,28 @@ func newOverlayHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 	}
 }
 
+// patchesJSON6902Handler
+type patchesJSON6902Handler struct {
+	ruleName        string
+	mutation        *kyverno.Mutation
+	patchedResource unstructured.Unstructured
+	evalCtx         context.EvalInterface
+	logger          logr.Logger
+}
+
+func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, logger logr.Logger) MutateHandler {
+	return patchesJSON6902Handler{
+		ruleName:        ruleName,
+		mutation:        mutate,
+		patchedResource: patchedResource,
+		logger:          logger,
+	}
+}
+
+func (h patchesJSON6902Handler) Handle() (response.RuleResponse, unstructured.Unstructured) {
+	return ProcessPatchJSON6902(h.ruleName, *h.mutation, h.patchedResource, h.logger)
+}
+
 func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
 	var ruleResponse response.RuleResponse
 	overlay := h.mutation.Overlay
@@ -155,6 +179,13 @@ func (h emptyHandler) Handle() (response.RuleResponse, unstructured.Unstructured
 
 func isPatchStrategicMerge(mutate *kyverno.Mutation) bool {
 	if mutate.PatchStrategicMerge != nil {
+		return true
+	}
+	return false
+}
+
+func isPatchesJSON6902(mutate *kyverno.Mutation) bool {
+	if len(mutate.PatchesJSON6902) > 0 {
 		return true
 	}
 	return false

@@ -8,6 +8,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.0.0 // indirect
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
@@ -32,6 +33,7 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.17.4
 	k8s.io/apiextensions-apiserver v0.17.4
@@ -44,6 +46,7 @@ require (
 	sigs.k8s.io/kustomize v2.0.3+incompatible
 	sigs.k8s.io/kustomize/api v0.5.1
 	sigs.k8s.io/kustomize/kyaml v0.4.1
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // Added for go1.13 migration https://github.com/golang/go/issues/32805

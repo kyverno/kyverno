@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"encoding/json"
+
 	jsonpatch "github.com/evanphx/json-patch"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -82,6 +85,19 @@ func JoinPatches(patches [][]byte) []byte {
 	}
 	result = append(result, []byte("\n]")...)
 	return result
+}
+
+// TransformPatches converts mutation.Patches to bytes array
+func TransformPatches(patches []kyverno.Patch) (patchesBytes [][]byte, err error) {
+	for _, patch := range patches {
+		patchRaw, err := json.Marshal(patch)
+		if err != nil {
+			return nil, err
+		}
+		patchesBytes = append(patchesBytes, patchRaw)
+	}
+
+	return patchesBytes, nil
 }
 
 //ConvertToUnstructured converts the resource to unstructured format
