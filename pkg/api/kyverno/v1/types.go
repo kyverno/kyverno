@@ -26,7 +26,7 @@ type GenerateRequestSpec struct {
 	// ResourceSpec is the information to identify the generate request
 	Resource ResourceSpec `json:"resource" yaml:"resource"`
 	// Context ...
-	Context GenerateRequestContext `json:"context" yaml:"context"`
+	Context GenerateRequestContext `json:"context"`
 }
 
 //GenerateRequestContext stores the context to be shared

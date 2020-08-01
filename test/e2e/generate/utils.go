@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"sigs.k8s.io/yaml"
-	// "fmt"
+	"time"
 )
 
 type E2EClient struct {
@@ -58,6 +58,19 @@ func (e2e *E2EClient) GetNamespacedResource(gvr schema.GroupVersionResource, nam
 // GetClusterResource ...
 func (e2e *E2EClient) GetClusteredResource(gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
 	return e2e.Client.Resource(gvr).Get(name, metav1.GetOptions{})
+}
+
+// GetWithRetry :- Retry Operation till the end of retry or until it is Passed, retryCount is the Wait duration after each retry,
+func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() error) error {
+	var err error
+	for i := 0; i < retryCount; i++ {
+		err = retryFunc()
+		if err != nil {
+			time.Sleep(sleepInterval * time.Second)
+			continue
+		}
+	}
+	return err
 }
 
 // DeleteNamespacedResource ...

@@ -25,7 +25,7 @@ spec:
     generate:
         kind: Role
         name: "ns-role"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
           rules:
@@ -40,7 +40,7 @@ spec:
     generate:
         kind: RoleBinding
         name: "ns-role-binding"
-        namespace: test
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
           subjects:
@@ -50,6 +50,7 @@ spec:
           roleRef:
             kind: Role
             name: ns-role
+            namespace: "{{request.object.metadata.name}}"
             apiGroup: rbac.authorization.k8s.io
 `)
 
@@ -66,32 +67,30 @@ spec:
     match:
         resources:
           kinds:
-          - Namespace
+           - Namespace
     generate:
         kind: Role
-        name: ns-role
-        namespace: test
+        name: "ns-role"
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
-        data:
-           clone:
+        clone:
               kind: Role
-              name: ns-role
+              name: "ns-role"
               namespace: "default"
   - name: "gen-role-binding"
     match:
         resources:
           kinds:
-          - Namespace
+           - Namespace
     generate:
         kind: RoleBinding
-        name: ns-role-binding
-        namespace: test
+        name: "ns-role-binding"
+        namespace: "{{request.object.metadata.name}}"
         synchronize: true
-        data:
-          clone:
+        clone:
             kind: RoleBinding
-            name: ns-role-binding
-            namespace: "default"
+            name: "ns-role-binding"
+            namespace: default
 `)
 
 // Source Role from which ROle is Cloned by generate
@@ -100,7 +99,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   namespace: default
-  name: "ns-role"
+  name: ns-role
 rules:
 - apiGroups: ["*"]
   resources: ["*"]
@@ -164,5 +163,5 @@ spec:
           subjects:
           - kind: ServiceAccount
             name: "kyverno-service-account"
-            namespace: test
+            namespace: "{{request.object.metadata.name}}"
 `)

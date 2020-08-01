@@ -1,6 +1,7 @@
 package generate
 
 // E2E Test Config for Role and RoleBinding
+// TODO:- Clone for Role and RoleBinding
 var RoleTests = []struct {
 	//TestName - Name of the Test
 	TestName string
@@ -29,7 +30,6 @@ var RoleTests = []struct {
 		RoleBindingName:   "ns-role-binding",
 		ResourceNamespace: "test",
 		Clone:             false,
-		CloneNamespace:    "default",
 		Sync:              false,
 		Data:              roleRoleBindingYamlWithSync,
 	},
@@ -39,7 +39,6 @@ var RoleTests = []struct {
 		RoleBindingName:   "ns-role-binding",
 		ResourceNamespace: "test",
 		Clone:             false,
-		CloneNamespace:    "default",
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
 	},
@@ -71,12 +70,12 @@ var ClusterRoleTests = []struct {
 	Clone bool
 	// CloneClusterRoleName
 	ClonerClusterRoleName string
-	// CloneRoleBindingName
-	ClonerRoleBindingName string
+	// CloneClusterRoleBindingName
+	ClonerClusterRoleBindingName string
 	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceRoleData []byte
+	CloneSourceClusterRoleData []byte
 	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceRoleBindingData []byte
+	CloneSourceClusterRoleBindingData []byte
 	// CloneNamespace - Namespace where Roles are Cloned
 	CloneNamespace string
 	// Sync - Set Synchronize
@@ -90,7 +89,6 @@ var ClusterRoleTests = []struct {
 		ClusterRoleBindingName: "ns-cluster-role-binding",
 		ResourceNamespace:      "test",
 		Clone:                  false,
-		CloneNamespace:         "default",
 		Sync:                   false,
 		Data:                   genClusterRoleYamlWithSync,
 	},
@@ -100,7 +98,6 @@ var ClusterRoleTests = []struct {
 		ClusterRoleBindingName: "ns-cluster-role-binding",
 		ResourceNamespace:      "test",
 		Clone:                  false,
-		CloneNamespace:         "default",
 		Sync:                   true,
 		Data:                   genClusterRoleYamlWithSync,
 	},
