@@ -1,4 +1,4 @@
-name: build
+name: e2e_test
 on:
   push:
     branches:
