@@ -28,7 +28,6 @@ jobs:
         run: |
           kubectl cluster-info
           echo "current-context:" $(kubectl config current-context)
-          echo ${{ secrets.DOCKERIO_PASSWORD }} | docker login -u ${{ secrets.DOCKERIO_USERNAME }} --password-stdin
           export KUBECONFIG="$(kind get kubeconfig-path)"
           kubectl get nodes
 
