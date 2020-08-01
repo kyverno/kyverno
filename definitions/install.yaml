@@ -775,7 +775,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.8
+        image: evalsocket/kyverno:v1.1.8
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -807,6 +807,7 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.8
+      - image: evalsocket/kyvernopre:v1.1.8
+        imagePullPolicy: Always
         name: kyverno-pre
       serviceAccountName: kyverno-service-account

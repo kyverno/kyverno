@@ -23,7 +23,7 @@ spec:
           imagePullPolicy: Always
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.8
+          image: evalsocket/kyverno:v1.1.8
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
