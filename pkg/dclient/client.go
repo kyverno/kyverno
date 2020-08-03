@@ -74,7 +74,7 @@ func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dy
 
 //GetKubePolicyDeployment returns kube policy depoyment value
 func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
-	kubePolicyDeployment, err := c.GetResource("Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
+	kubePolicyDeployment, err := c.GetResource("", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func (c *Client) GetCSRInterface() (csrtype.CertificateSigningRequestInterface, 
 	return c.kclient.CertificatesV1beta1().CertificateSigningRequests(), nil
 }
 
-func (c *Client) getInterface(resource string) dynamic.NamespaceableResourceInterface {
-	return c.client.Resource(c.getGroupVersionMapper(resource))
+func (c *Client) getInterface(apiVersion string, kind string) dynamic.NamespaceableResourceInterface {
+	return c.client.Resource(c.getGroupVersionMapper(apiVersion, kind))
 }
 
-func (c *Client) getResourceInterface(kind string, namespace string) dynamic.ResourceInterface {
+func (c *Client) getResourceInterface(apiVersion string, kind string, namespace string) dynamic.ResourceInterface {
 	// Get the resource interface from kind
-	namespaceableInterface := c.getInterface(kind)
+	namespaceableInterface := c.getInterface(apiVersion, kind)
 	// Get the namespacable interface
 	var resourceInteface dynamic.ResourceInterface
 	if namespace != "" {
@@ -115,18 +115,22 @@ func (c *Client) getResourceInterface(kind string, namespace string) dynamic.Res
 }
 
 // Keep this a stateful as the resource list will be based on the kubernetes version we connect to
-func (c *Client) getGroupVersionMapper(kind string) schema.GroupVersionResource {
-	return c.DiscoveryClient.GetGVRFromKind(kind)
+func (c *Client) getGroupVersionMapper(apiVersion string, kind string) schema.GroupVersionResource {
+	if apiVersion == "" {
+		return c.DiscoveryClient.GetGVRFromKind(kind)
+	}
+	return c.DiscoveryClient.GetGVRFromAPIVersionKind(apiVersion, kind)
+
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *Client) GetResource(kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(kind, namespace).Get(name, meta.GetOptions{}, subresources...)
+func (c *Client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Get(name, meta.GetOptions{}, subresources...)
 }
 
 //PatchResource patches the resource
-func (c *Client) PatchResource(kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
+func (c *Client) PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
 // GetDynamicInterface fetches underlying dynamic interface
@@ -136,59 +140,59 @@ func (c *Client) GetDynamicInterface() dynamic.Interface {
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
+func (c *Client) ListResource(apiVersion string, kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
 	options := meta.ListOptions{}
 	if lselector != nil {
 		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
 	}
-	return c.getResourceInterface(kind, namespace).List(options)
+	return c.getResourceInterface(apiVersion, kind, namespace).List(options)
 }
 
 // DeleteResource deletes the specified resource
-func (c *Client) DeleteResource(kind string, namespace string, name string, dryRun bool) error {
+func (c *Client) DeleteResource(apiVersion string, kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}
 	}
-	return c.getResourceInterface(kind, namespace).Delete(name, &options)
+	return c.getResourceInterface(apiVersion, kind, namespace).Delete(name, &options)
 
 }
 
 // CreateResource creates object for the specified resource/namespace
-func (c *Client) CreateResource(kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) CreateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.CreateOptions{}
 	if dryRun {
 		options = meta.CreateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).Create(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Create(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
-func (c *Client) UpdateResource(kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.UpdateOptions{}
 	if dryRun {
 		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).Update(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Update(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
-func (c *Client) UpdateStatusResource(kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.UpdateOptions{}
 	if dryRun {
 		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(kind, namespace).UpdateStatus(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
@@ -221,8 +225,9 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
-	FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error)
+	FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error)
 	GetGVRFromKind(kind string) schema.GroupVersionResource
+	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapi_v2.Document, error)
 }
@@ -265,9 +270,20 @@ func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) 
 
 // GetGVRFromKind get the Group Version Resource from kind
 func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
-	_, gvr, err := c.FindResource(kind)
+	_, gvr, err := c.FindResource("", kind)
 	if err != nil {
 		c.log.Info("schema not found", "kind", kind)
+		return schema.GroupVersionResource{}
+	}
+
+	return gvr
+}
+
+// GetGVRFromAPIVersionKind get the Group Version Resource from APIVersion and kind
+func (c ServerPreferredResources) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
+	_, gvr, err := c.FindResource(apiVersion, kind)
+	if err != nil {
+		c.log.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "Error : ", err)
 		return schema.GroupVersionResource{}
 	}
 
@@ -281,15 +297,15 @@ func (c ServerPreferredResources) GetServerVersion() (*version.Info, error) {
 
 // FindResource finds an API resource that matches 'kind'. If the resource is not
 // found and the Cache is not fresh, the cache is invalidated and a retry is attempted
-func (c ServerPreferredResources) FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	r, gvr, err := c.findResource(kind)
+func (c ServerPreferredResources) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	r, gvr, err := c.findResource(apiVersion, kind)
 	if err == nil {
 		return r, gvr, nil
 	}
 
 	if !c.cachedClient.Fresh() {
 		c.cachedClient.Invalidate()
-		if r, gvr, err = c.findResource(kind); err == nil {
+		if r, gvr, err = c.findResource(apiVersion, kind); err == nil {
 			return r, gvr, nil
 		}
 	}
@@ -297,18 +313,29 @@ func (c ServerPreferredResources) FindResource(kind string) (*meta.APIResource, 
 	return nil, schema.GroupVersionResource{}, err
 }
 
-func (c ServerPreferredResources) findResource(k string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	serverresources, err := c.cachedClient.ServerPreferredResources()
+func (c ServerPreferredResources) findResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+	var serverresources []*meta.APIResourceList
+	var err error
+	if apiVersion == "" {
+		serverresources, err = c.cachedClient.ServerPreferredResources()
+	} else {
+		serverresources, err = c.cachedClient.ServerResources()
+	}
+
 	if err != nil {
 		c.log.Error(err, "failed to get registered preferred resources")
 		return nil, schema.GroupVersionResource{}, err
 	}
 
 	for _, serverresource := range serverresources {
+
+		if apiVersion != "" && serverresource.GroupVersion != apiVersion {
+			continue
+		}
 		for _, resource := range serverresource.APIResources {
 
 			// skip the resource names with "/", to avoid comparison with subresources
-			if resource.Kind == k && !strings.Contains(resource.Name, "/") {
+			if resource.Kind == kind && !strings.Contains(resource.Name, "/") {
 				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
 				if err != nil {
 					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverresource.GroupVersion)
@@ -320,5 +347,5 @@ func (c ServerPreferredResources) findResource(k string) (*meta.APIResource, sch
 		}
 	}
 
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found", k)
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in apiVersion '%s'", kind, apiVersion)
 }

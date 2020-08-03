@@ -206,7 +206,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		resourceList, err := dClient.ListResource(kind, "", nil)
+		resourceList, err := dClient.ListResource("", kind, "", nil)
 		if err != nil {
 			return nil, err
 		}

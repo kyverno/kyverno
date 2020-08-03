@@ -19,9 +19,9 @@ type GenerateRequest struct {
 
 //GenerateRequestSpec stores the request specification
 type GenerateRequestSpec struct {
-	Policy      string                 `json:"policy"`
-	Resource    ResourceSpec           `json:"resource"`
-	Context     GenerateRequestContext `json:"context"`
+	Policy   string                 `json:"policy"`
+	Resource ResourceSpec           `json:"resource"`
+	Context  GenerateRequestContext `json:"context"`
 }
 
 //GenerateRequestContext stores the context to be shared
@@ -294,9 +294,10 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-	Kind      string `json:"kind"`
-	Namespace string `json:"namespace,omitempty"`
-	Name      string `json:"name"`
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Namespace  string `json:"namespace,omitempty"`
+	Name       string `json:"name"`
 }
 
 // ViolatedRule stores the information regarding the rule
