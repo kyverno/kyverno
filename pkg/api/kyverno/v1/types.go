@@ -355,12 +355,9 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
-<<<<<<< HEAD
-	APIVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Namespace  string `json:"namespace,omitempty"`
-	Name       string `json:"name"`
-=======
+	// Specifies resource apiVersionm
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
 	// Specifies resource kind
 	// +optional
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
@@ -369,7 +366,6 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Specifies resource name
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
->>>>>>> master
 }
 
 // ViolatedRule stores the information regarding the rule
