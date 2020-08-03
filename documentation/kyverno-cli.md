@@ -54,10 +54,19 @@ Example:
 kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/folderFullOfPolicies
 ```
 
+Use the -o <yaml/json> flag to display the mutated policy.
+
+Example:
+```
+kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/folderFullOfPolicies -o yaml
+```
+
+
 #### Apply
 Applies policies on resources, and supports applying multiple policies on multiple resources in a single command.
 Also supports applying the given policies to an entire cluster. The current kubectl context will be used to access the cluster.
- Will return results to stdout.
+
+Displays mutate results to stdout, by default. Use the -o <path> flag to save mutated resources to a file or directory.
 
 Apply to a resource:
 ```
@@ -72,6 +81,11 @@ kyverno apply /path/to/policy.yaml --cluster > policy-results.txt
 Apply multiple policies to multiple resources:
 ```
 kyverno apply /path/to/policy1.yaml /path/to/folderFullOfPolicies --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml --cluster
+```
+
+Saving the mutated resource in a file/directory:
+```
+kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml -o <file path/directory path>
 ```
 
 

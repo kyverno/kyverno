@@ -1,8 +1,9 @@
 package event
 
 import (
-	"github.com/go-logr/logr"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -192,9 +193,6 @@ func (gen *Generator) syncHandler(key Info) error {
 
 	// set the event type based on reason
 	eventType := v1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() {
-		eventType = v1.EventTypeNormal
-	}
 
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
