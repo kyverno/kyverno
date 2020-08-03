@@ -101,4 +101,17 @@ var ClusterRoleTests = []struct {
 		Sync:                   true,
 		Data:                   genClusterRoleYamlWithSync,
 	},
+	{
+		TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
+		ClusterRoleName:                   "ns-cluster-role",
+		ClusterRoleBindingName:            "ns-cluster-role-binding",
+		ResourceNamespace:                 "test",
+		Clone:                             true,
+		ClonerClusterRoleName:             "base-cluster-role",
+		ClonerClusterRoleBindingName:      "base-cluster-role-binding",
+		CloneSourceClusterRoleData:        baseClusterRoleData,
+		CloneSourceClusterRoleBindingData: baseClusterRoleBindingData,
+		Sync:                              false,
+		Data:                              genClusterRoleYamlWithSync,
+	},
 }

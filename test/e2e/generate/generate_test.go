@@ -52,11 +52,11 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 
 		// If Clone is true Clear Source Resource and Recreate
 		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding from Clone Namespace : %s\n", tests.CloneNamespace))
+			By("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding")
 			// Delete ClusterRole to be cloned
-			e2eClient.DeleteNamespacedResource(crGVR, tests.CloneNamespace, tests.ClonerClusterRoleName)
+			e2eClient.DeleteClusteredResource(crGVR, tests.ClonerClusterRoleName)
 			// Delete ClusterRoleBinding to be cloned
-			e2eClient.DeleteNamespacedResource(crbGVR, tests.CloneNamespace, tests.ClonerClusterRoleBindingName)
+			e2eClient.DeleteClusteredResource(crbGVR, tests.ClonerClusterRoleBindingName)
 		}
 		// ====================================
 
@@ -74,8 +74,6 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		})
 
 		// =====================================================
-
-
 
 		// ======== Create ClusterRole Policy =============
 		By(fmt.Sprintf("Creating Generate Role Policy in %s", clPolNS))
@@ -206,7 +204,6 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
-
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
@@ -290,7 +287,6 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			return errors.New("Deleting Namespace")
 		})
 		// ====================================
-
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}

@@ -165,3 +165,83 @@ spec:
             name: "kyverno-service-account"
             namespace: "{{request.object.metadata.name}}"
 `)
+
+// ClusterPolicy to generate ClusterRole and ClusterRoleBinding with clone = true
+var genClusterRoleYamlWithClone = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "gen-cluster-policy"
+spec:
+  background: false
+  rules:
+  - name: "gen-cluster-role"
+    match:
+       resources:
+         kinds:
+         - Namespace
+    generate:
+        kind: ClusterRole
+        name: ns-cluster-role
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        clone:
+          kind: ClusterRole
+          name: base-cluster-role
+          namespace: default
+  - name: "gen-cluster-role-binding"
+    match:
+       resources:
+         kinds:
+         - Namespace
+    generate:
+        kind: ClusterRoleBinding
+        name: ns-cluster-role-binding
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        clone:
+          kind: ClusterRole
+          name: base-cluster-role-binding
+          namespace: default
+`)
+
+var baseClusterRoleData = []byte(`
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: base-cluster-role
+rules:
+- apiGroups:
+  - "*"
+  resources:
+  - namespaces
+  - networkpolicies
+  - secrets
+  - configmaps
+  - resourcequotas
+  - limitranges
+  - roles
+  - clusterroles
+  - rolebindings
+  - clusterrolebindings
+  verbs:
+  - create # generate new resources
+  - get # check the contents of exiting resources
+  - update # update existing resource, if required configuration defined in policy is not present
+  - delete # clean-up, if the generate trigger resource is deleted
+`)
+
+var baseClusterRoleBindingData = []byte(`
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: base-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: base-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+`)
