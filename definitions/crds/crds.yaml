@@ -8,7 +8,7 @@ spec:
     - name: v1
       served: true
       storage: true
-  scope: Cluster
+  scope: Namespaced
   names:
     kind: ClusterPolicy
     plural: clusterpolicies
@@ -274,7 +274,7 @@ spec:
     - name: v1
       served: true
       storage: true
-  scope: Cluster
+  scope: Namespaced
   names:
     kind: ClusterPolicyViolation
     plural: clusterpolicyviolations

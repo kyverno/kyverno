@@ -1038,3 +1038,77 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 		}
 	}
 }
+
+func Test_CheckNamespaceInMatchAndExclude(t *testing.T) {
+	var err error
+	testcases := []struct {
+		description    string
+		rule           []byte
+		expectedOutput string
+	}{
+		{
+			description: "namespace field in match block match.subject",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "match": {"subjects": [{"Namespace": "test"}]}, "validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : field namespace not allowed in match.subjects",
+		},
+		{
+			description: "namespace field in exclude block exclude.subject",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "exclude": {"subjects": [{"Namespace": "test"}]},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : field namespace not allowed in exclude.subjects",
+		},
+		{
+			description: "namespaces field in match block match.resources",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "match": {"resources": {"namespaces": ["test"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : field namespaces not allowed in match.resources",
+		},
+		{
+			description: "namespaces field in exclude block exclude.resources",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "exclude": {"resources": {"namespaces": ["test"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : field namespaces not allowed in exclude.resources",
+		},
+		{
+			description: "Namespace value in match block match.resources.kinds",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "match": {"resources": {"kinds": ["Namespace"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : value 'Namespace' not allowed in match.resources.kinds",
+		},
+		{
+			description: "Namespace value in exclude block exclude.resources.kinds",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "exclude": {"resources": {"kinds": ["Namespace"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "namespaced cluster policy : value 'Namespace' not allowed in exclude.resources.kinds",
+		},
+		{
+			description: "no Namespace value in exclude block exclude.resources.kinds",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "exclude": {"resources": {"kinds": ["Pod"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "",
+		},
+		{
+			description: "no Namespace value in exclude block match.resources.kinds",
+			rule: []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "namespaced-policy"	},"spec": {"rules": [
+					{"name": "validate.anyPattern", "match": {"resources": {"kinds": ["Pod"]}},"validate": {"anyPattern": [{"var1": "temp"}]}}]}}`),
+			expectedOutput: "",
+		},
+	}
+	for _, testcase := range testcases {
+		var policy *kyverno.ClusterPolicy
+		err = json.Unmarshal(testcase.rule, &policy)
+		assert.NilError(t, err)
+		t.Log("Test : ", testcase.description)
+		for _, rule := range policy.Spec.Rules {
+			err = checkNamespaceInMatchAndExclude(rule)
+			if testcase.expectedOutput != "" {
+				assert.Equal(t, err.Error(), testcase.expectedOutput)
+			} else {
+				assert.NilError(t, err)
+			}
+
+		}
+	}
+
+}

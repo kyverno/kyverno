@@ -15,7 +15,7 @@ spec:
     shortNames:
     - cpol
     singular: clusterpolicy
-  scope: Cluster
+  scope: Namespaced
   subresources:
     status: {}
   validation:
@@ -296,7 +296,7 @@ spec:
     shortNames:
     - cpolv
     singular: clusterpolicyviolation
-  scope: Cluster
+  scope: Namespaced
   subresources:
     status: {}
   validation:

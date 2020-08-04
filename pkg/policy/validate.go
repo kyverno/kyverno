@@ -35,7 +35,6 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			return fmt.Errorf("only variables referring request.object are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
 		}
 	}
-
 	for i, rule := range p.Spec.Rules {
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
@@ -46,6 +45,12 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		if err := validateRuleType(rule); err != nil {
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
+		// validate Namespace in namespaced cluster policy
+		// For namespaced cluster policy, Namespace field and values are not allowed in match and exclude
+		if p.ObjectMeta.Namespace != "default" {
+			return checkNamespaceInMatchAndExclude(rule)
 		}
 
 		if doesMatchAndExcludeConflict(rule) {
@@ -397,6 +402,44 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 		requirements, _ := selector.Requirements()
 		if len(requirements) == 0 {
 			return errors.New("the requirements are not specified in selector")
+		}
+	}
+	return nil
+}
+
+// checkNamespaceInMatchAndExclude returns false if namespaced ClusterPolicy contains Namespace in
+// Match and Exclude block
+func checkNamespaceInMatchAndExclude(rule kyverno.Rule) error {
+	// Contains Namespace in Match->Subjects
+	for _, subject := range rule.MatchResources.UserInfo.Subjects {
+		if subject.Namespace != "" {
+			return fmt.Errorf("namespaced cluster policy : field namespace not allowed in match.subjects")
+		}
+	}
+	// Contains Namespace in Exclude->Subjects
+	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
+		if subject.Namespace != "" {
+			return fmt.Errorf("namespaced cluster policy : field namespace not allowed in exclude.subjects")
+		}
+	}
+	// Contains Namespaces in Match->ResourceDescription
+	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
+	}
+	// Contains Namespaces in Exclude->ResourceDescription
+	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
+	}
+	// Contains "Namespace" in Match->ResourceDescription->Kinds
+	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+		if kind == "Namespace" {
+			return fmt.Errorf("namespaced cluster policy : value 'Namespace' not allowed in match.resources.kinds")
+		}
+	}
+	// Contains "Namespace" in Exclude->ResourceDescription->Kinds
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		if kind == "Namespace" {
+			return fmt.Errorf("namespaced cluster policy : value 'Namespace' not allowed in exclude.resources.kinds")
 		}
 	}
 	return nil
