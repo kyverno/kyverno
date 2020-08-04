@@ -92,6 +92,8 @@ spec:
                     type: object
                   generate:
                     properties:
+                      apiVersion:
+                        type: string
                       clone:
                         properties:
                           name:
@@ -104,8 +106,6 @@ spec:
                         type: object
                       data:
                         AnyValue: {}
-                      apiVersion:
-                        type: string
                       kind:
                         type: string
                       name:

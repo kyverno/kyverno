@@ -92,6 +92,8 @@ spec:
                     type: object
                   generate:
                     properties:
+                      apiVersion:
+                        type: string
                       clone:
                         properties:
                           name:
