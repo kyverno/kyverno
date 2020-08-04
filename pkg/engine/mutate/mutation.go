@@ -62,23 +62,6 @@ func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructure
 		return ruleResponse, h.patchedResource
 	}
 
-	// this is the place holder, where it implements conditional anchor checks
-	// if path, overlayerr := meetConditions(log, h.patchedResource.UnstructuredContent(), PatchStrategicMerge); !reflect.DeepEqual(overlayerr, overlayError{}) {
-	// 	switch overlayerr.statusCode {
-	// 	// anchor key does not exist in the resource, skip applying policy
-	// 	case conditionNotPresent:
-	// 		log.V(3).Info("skip applying rule", "reason", "conditionNotPresent")
-	// 		ruleResponse.Success = true
-	// 		return ruleResponse, h.patchedResource
-	// 	// anchor key is not satisfied in the resource, skip applying policy
-	// 	case conditionFailure:
-	// 		log.V(3).Info("skip applying rule", "reason", "conditionFailure")
-	// 		ruleResponse.Success = true
-	// 		ruleResponse.Message = fmt.Sprintf("Policy not applied, conditions are not met at %s, %v", path, overlayerr)
-	// 		return ruleResponse, h.patchedResource
-	// 	}
-	// }
-
 	return ProcessStrategicMergePatch(h.ruleName, PatchStrategicMerge, h.patchedResource, log)
 }
 

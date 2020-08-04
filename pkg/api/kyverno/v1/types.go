@@ -239,8 +239,11 @@ type ResourceDescription struct {
 // Mutation describes the way how Mutating Webhook will react on resource creation
 type Mutation struct {
 	// Specifies overlay patterns
+	// Overlay is preserved for backwards compatibility and will be removed in Kyverno 1.5+
 	Overlay interface{} `json:"overlay,omitempty"`
+
 	// Specifies JSON Patch
+	// Patches is preserved for backwards compatibility and will be removed in Kyverno 1.5+
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
 	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchesStrategicMerge,omitempty"`
