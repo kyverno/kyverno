@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -69,10 +68,10 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 		}
 	}
 
-	for i := range policies {
-		setFalse := false
-		policies[i].Spec.Background = &setFalse
-	}
+	// for i := range policies {
+	// 	setFalse := false
+	// 	policies[i].Spec.Background = &setFalse
+	// }
 
 	return policies, nil
 }
@@ -152,11 +151,11 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.
 }
 
 // PolicyHasVariables - check for variables in policy
-func PolicyHasVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
-}
+// func PolicyHasVariables(policy v1.ClusterPolicy) bool {
+// 	policyRaw, _ := json.Marshal(policy)
+// 	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+// 	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
+// }
 
 // MutatePolicy - applies mutation to a policy
 func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {

@@ -110,7 +110,7 @@ type WebhookServer struct {
 	log               logr.Logger
 	openAPIController *openapi.Controller
 
-	supportMudateValidate bool
+	supportMutateValidate bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -133,7 +133,7 @@ func NewWebhookServer(
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,
-	supportMudateValidate bool,
+	supportMutateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
@@ -177,11 +177,11 @@ func NewWebhookServer(
 		auditHandler:              auditHandler,
 		log:                       log,
 		openAPIController:         openAPIController,
-		supportMudateValidate:     supportMudateValidate,
+		supportMutateValidate:     supportMutateValidate,
 	}
 
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.ResourceMutation, true))
 	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
@@ -260,9 +260,9 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 	}
 }
 
-func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
-	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return &v1beta1.AdmissionResponse{
@@ -329,7 +329,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
-	if ws.supportMudateValidate {
+	if ws.supportMutateValidate {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
@@ -398,7 +398,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	if !ws.supportMudateValidate {
+	if !ws.supportMutateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,

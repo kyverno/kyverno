@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+
+	"github.com/nirmata/kyverno/pkg/engine/context"
+
 	"os"
 	"path/filepath"
+
 	"strings"
 	"time"
 
@@ -50,7 +54,8 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutateLogPath string
+	var mutatelogPath, variablesString string
+	variables := make(map[string]string)
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -63,10 +68,16 @@ func Command() *cobra.Command {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("Internal error")
+						err = fmt.Errorf("internal error")
 					}
 				}
 			}()
+
+			kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
+			for _, kvpair := range kvpairs {
+				kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+				variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+			}
 
 			if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
@@ -150,7 +161,7 @@ func Command() *cobra.Command {
 				}
 
 				for _, resource := range resources {
-					applyPolicyOnResource(policy, resource, rc)
+					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, variables, rc)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -170,7 +181,8 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	cmd.Flags().StringVarP(&mutatelogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	return cmd
 }
 
@@ -300,13 +312,29 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 }
 
 // applyPolicyOnResource - function to apply policy on resource
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, rc *resultCounts) {
+func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutatelogPath string, mutatelogPathIsDir bool, variables map[string]string, rc *resultCounts) error {
 	responseError := false
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
-	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+	// build context
+	ctx := context.NewContext()
+	for key, value := range variables {
+		startString := ""
+		endString := ""
+		for _, k := range strings.Split(key, ".") {
+			startString += fmt.Sprintf(`{"%s":`, k)
+			endString += `}`
+		}
+
+		midString := fmt.Sprintf(`"%s"`, value)
+		finalString := startString + midString + endString
+		var jsonData = []byte(finalString)
+		ctx.AddJSON(jsonData)
+	}
+
+	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource, Context: ctx})
 	if !mutateResponse.IsSuccessful() {
 		fmt.Printf("Failed to apply mutate policy %s -> resource %s", policy.Name, resPath)
 		for i, r := range mutateResponse.PolicyResponse.Rules {
@@ -329,7 +357,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource})
+	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, Context: ctx})
 	if !validateResponse.IsSuccessful() {
 		fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
 		for i, r := range validateResponse.PolicyResponse.Rules {
