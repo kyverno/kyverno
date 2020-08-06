@@ -185,6 +185,8 @@ spec:
                     properties:
                       overlay:
                         AnyValue: {}
+                      patchStrategicMerge:
+                        AnyValue: {}
                       patches:
                         items:
                           properties:
@@ -203,6 +205,8 @@ spec:
                           - op
                           type: object
                         type: array
+                      patchesJson6902:
+                        type: string
                     type: object
                   name:
                     type: string

@@ -2,8 +2,9 @@ package utils
 
 import (
 	"encoding/json"
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {

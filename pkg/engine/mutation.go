@@ -1,9 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,8 +44,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
-		//TODO: to be checked before calling the resources as well
-		if !rule.HasMutate() && !strings.Contains(PodControllers, patchedResource.GetKind()) {
+		if !rule.HasMutate() {
 			continue
 		}
 
@@ -74,73 +70,23 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		mutation := rule.Mutation.DeepCopy()
-		// Process Overlay
-		if mutation.Overlay != nil {
-			overlay := mutation.Overlay
-			// subsiitue the variables
-			var err error
-			if overlay, err = variables.SubstituteVars(logger, ctx, overlay); err != nil {
-				// variable subsitution failed
-				ruleResponse.Success = false
-				ruleResponse.Message = err.Error()
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+
+		mutateHandler := mutate.CreateMutateHandler(rule.Name, mutation, patchedResource, ctx, logger)
+		ruleResponse, patchedResource = mutateHandler.Handle()
+		if ruleResponse.Success {
+			// - overlay pattern does not match the resource conditions
+			if ruleResponse.Patches == nil {
 				continue
 			}
-
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, overlay, patchedResource)
-			if ruleResponse.Success {
-				// - overlay pattern does not match the resource conditions
-				if ruleResponse.Patches == nil {
-					continue
-				}
-				logger.V(4).Info("overlay applied successfully")
-			}
-
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount(&resp)
+			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 		}
 
-		// Process Patches
-		if rule.Mutation.Patches != nil {
-			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessPatches(logger, rule, patchedResource)
-			logger.V(4).Info("patches applied successfully")
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount(&resp)
-		}
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+		incrementAppliedRuleCount(&resp)
 	}
 
-	// insert annotation to podtemplate if resource is pod controller
-	// skip inserting on UPDATE request
-	if !reflect.DeepEqual(policyContext.OldResource, unstructured.Unstructured{}) {
-		resp.PatchedResource = patchedResource
-		return resp
-	}
-
-	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
-}
-
-func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {
-	var podController struct {
-		Spec struct {
-			Template struct {
-				Metadata struct {
-					Annotations map[string]interface{} `json:"annotations"`
-				} `json:"metadata"`
-			} `json:"template"`
-		} `json:"spec"`
-	}
-
-	resourceRaw, _ := json.Marshal(resource.Object)
-	_ = json.Unmarshal(resourceRaw, &podController)
-
-	val, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
-
-	log.Log.V(4).Info("patchedResourceHasPodControllerAnnotation", "resourceRaw", string(resourceRaw), "val", val, "ok", ok)
-
-	return ok
 }
 
 func incrementAppliedRuleCount(resp *response.EngineResponse) {

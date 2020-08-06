@@ -68,11 +68,20 @@ docker-build-kyverno:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest"
 	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG)
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+
+##################################
+
+# Generate Docs for types.go
+##################################
+
+generate-api-docs:
+	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
 
 
 ##################################
@@ -82,6 +91,13 @@ CLI_PATH := cmd/cli/kubectl-kyverno
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
+
+##################################
+ci: docker-build-kyverno docker-build-initContainer
+	echo "kustomize input"
+	chmod a+x $(PWD)/scripts/ci.sh
+	$(PWD)/scripts/ci.sh
+##################################
 
 ##################################
 # Testing & Code-Coverage 
@@ -114,6 +130,12 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+# Test E2E
+test-e2e:
+	$(eval export E2E="ok")
+	go test ./test/e2e/... -v
+	$(eval export E2E="")
 
 # godownloader create downloading script for kyverno-cli
 godownloader:

@@ -128,7 +128,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
 		resource, _ := o.generateEmptyResource(o.definitions[o.kindToDefinitionName[kind]]).(map[string]interface{})
-		if resource == nil  || len(resource) == 0 {
+		if resource == nil || len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
