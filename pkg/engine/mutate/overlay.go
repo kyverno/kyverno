@@ -100,7 +100,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully processed overlay")
 	resp.Patches = patches
-	// apply the patches to the resource
+
 	return resp, patchedResource
 }
 

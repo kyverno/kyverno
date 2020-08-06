@@ -68,6 +68,7 @@ docker-build-kyverno:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest"
 	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
@@ -129,6 +130,12 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	@echo "	generating code coverage report"
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+# Test E2E
+test-e2e:
+	$(eval export E2E="ok")
+	go test ./test/e2e/... -v
+	$(eval export E2E="")
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
