@@ -20,11 +20,11 @@ func applyPatch(resource []byte, patchRaw []byte) ([]byte, error) {
 }
 
 //ProcessPatches applies the patches on the resource and returns the patched resource
-func ProcessPatches(log logr.Logger, rule kyverno.Rule, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
-	logger := log.WithValues("rule", rule.Name)
+func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation, resource unstructured.Unstructured) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+	logger := log.WithValues("rule", ruleName)
 	startTime := time.Now()
 	logger.V(4).Info("started JSON patch", "startTime", startTime)
-	resp.Name = rule.Name
+	resp.Name = ruleName
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
@@ -42,7 +42,7 @@ func ProcessPatches(log logr.Logger, rule kyverno.Rule, resource unstructured.Un
 
 	var errs []error
 	var patches [][]byte
-	for _, patch := range rule.Mutation.Patches {
+	for _, patch := range mutation.Patches {
 		// JSON patch
 		patchRaw, err := json.Marshal(patch)
 		if err != nil {

@@ -8,8 +8,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	projectPath = "src/github.com/nirmata/kyverno"
+var (
+	projectPath = envOr("PROJECT_PATH", "src/github.com/nirmata/kyverno")
 )
 
 // LoadFile loads file in byte buffer
@@ -46,4 +46,11 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return resource, nil
+}
+
+func envOr(name, def string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	return def
 }
