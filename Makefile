@@ -76,6 +76,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 ##################################
+
 # Generate Docs for types.go
 ##################################
 
@@ -90,6 +91,13 @@ CLI_PATH := cmd/cli/kubectl-kyverno
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
+
+##################################
+ci: docker-build-kyverno docker-build-initContainer
+	echo "kustomize input"
+	chmod a+x $(PWD)/scripts/ci.sh
+	$(PWD)/scripts/ci.sh
+##################################
 
 ##################################
 # Testing & Code-Coverage 
