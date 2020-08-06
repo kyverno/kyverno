@@ -3,11 +3,9 @@
 set -e
 
 pwd=$(pwd)
-hash=$(git describe --dirty --always --tags)
+hash=$(git describe --always --tags)
 #
 ## Install Kind
-docker images
-echo $hash
 curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64
 chmod a+x $pwd/kind
 
