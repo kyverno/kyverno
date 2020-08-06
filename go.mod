@@ -20,6 +20,8 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
 	github.com/ory/go-acc v0.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.4.1
