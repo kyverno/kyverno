@@ -361,6 +361,9 @@ type PolicyViolationSpec struct {
 
 // ResourceSpec information to identify the resource
 type ResourceSpec struct {
+	// Specifies resource apiVersionm
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
 	// Specifies resource kind
 	// +optional
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`

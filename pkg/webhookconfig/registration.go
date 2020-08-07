@@ -112,7 +112,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		// clientConfig - service
 		config = wrc.constructMutatingWebhookConfig(caData)
 	}
-	_, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false)
+	_, err := wrc.client.CreateResource("", MutatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		logger.V(6).Info("resource mutating webhook configuration already exists", "name", config.Name)
 		return nil
@@ -143,7 +143,7 @@ func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfigurati
 	}
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", config.Name)
 
-	_, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false)
+	_, err := wrc.client.CreateResource("", ValidatingWebhookConfigurationKind, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		logger.V(6).Info("resource validating webhook configuration already exists", "name", config.Name)
 		return nil
@@ -179,7 +179,7 @@ func (wrc *WebhookRegistrationClient) createPolicyValidatingWebhookConfiguration
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", config.Name)
 
 	// create validating webhook configuration resource
-	if _, err := wrc.client.CreateResource(ValidatingWebhookConfigurationKind, "", *config, false); err != nil {
+	if _, err := wrc.client.CreateResource("", ValidatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 	logger.V(4).Info("created resource")
@@ -207,7 +207,7 @@ func (wrc *WebhookRegistrationClient) createPolicyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
+	if _, err := wrc.client.CreateResource("", MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 	wrc.log.V(4).Info("reated Mutating Webhook Configuration", "name", config.Name)
@@ -236,7 +236,7 @@ func (wrc *WebhookRegistrationClient) createVerifyMutatingWebhookConfiguration()
 	}
 
 	// create mutating webhook configuration resource
-	if _, err := wrc.client.CreateResource(MutatingWebhookConfigurationKind, "", *config, false); err != nil {
+	if _, err := wrc.client.CreateResource("", MutatingWebhookConfigurationKind, "", *config, false); err != nil {
 		return err
 	}
 
@@ -295,7 +295,7 @@ func (wrc *WebhookRegistrationClient) removePolicyMutatingWebhookConfiguration(w
 	}
 
 	logger := wrc.log.WithValues("name", mutatingConfig)
-	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
+	err := wrc.client.DeleteResource("", MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy mutating webhook configuration not found")
 		return
@@ -321,7 +321,7 @@ func (wrc *WebhookRegistrationClient) removePolicyValidatingWebhookConfiguration
 
 	logger := wrc.log.WithValues("name", validatingConfig)
 	logger.V(4).Info("removing validating webhook configuration")
-	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", validatingConfig, false)
+	err := wrc.client.DeleteResource("", ValidatingWebhookConfigurationKind, "", validatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy validating webhook configuration not found")
 		return

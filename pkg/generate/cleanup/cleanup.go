@@ -26,7 +26,7 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 }
 
 func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) bool {
-	_, err := client.GetResource(gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
+	_, err := client.GetResource("", gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
 		return false
@@ -41,7 +41,7 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.Gen
 
 func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) error {
 	for _, genResource := range gr.Status.GeneratedResources {
-		err := client.DeleteResource(genResource.Kind, genResource.Namespace, genResource.Name, false)
+		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "resource not foundl will not delete", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
 			continue

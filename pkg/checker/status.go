@@ -56,7 +56,7 @@ func (vc StatusControl) setStatus(status string) error {
 	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
 	var ann map[string]string
 	var err error
-	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
+	deploy, err := vc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
 		logger.Error(err, "failed to get deployment")
 		return err
@@ -83,7 +83,7 @@ func (vc StatusControl) setStatus(status string) error {
 	deploy.SetAnnotations(ann)
 
 	// update counter
-	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
+	_, err = vc.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
 	if err != nil {
 		logger.Error(err, "failed to update deployment annotation", "key", annWebhookStatus, "val", status)
 		return err
@@ -109,7 +109,7 @@ func (vc StatusControl) IncrementAnnotation() error {
 	logger := vc.log
 	var ann map[string]string
 	var err error
-	deploy, err := vc.client.GetResource("Deployment", deployNamespace, deployName)
+	deploy, err := vc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
 		logger.Error(err, "failed to find Kyverno", "deployment", deployName, "namespace", deployNamespace)
 		return err
@@ -138,7 +138,7 @@ func (vc StatusControl) IncrementAnnotation() error {
 	deploy.SetAnnotations(ann)
 
 	// update counter
-	_, err = vc.client.UpdateResource("Deployment", deployNamespace, deploy, false)
+	_, err = vc.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("failed to update annotation %s for deployment %s in namespace %s", annCounter, deployName, deployNamespace))
 		return err

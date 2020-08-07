@@ -247,6 +247,8 @@ spec:
                     - kind
                     - name
                     properties:
+                      apiVersion:
+                        type: string
                       kind:
                         type: string
                       name:
