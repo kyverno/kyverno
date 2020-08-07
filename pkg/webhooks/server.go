@@ -583,7 +583,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.",labels["policy.kyverno.io/policy-name"])
+					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

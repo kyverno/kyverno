@@ -1,8 +1,24 @@
 package mutate
 
 import (
+	"bytes"
+
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 )
+
+type buffer struct {
+	*bytes.Buffer
+}
+
+func (buff buffer) UnmarshalJSON(b []byte) error {
+	buff.Reset()
+	buff.Write(b)
+	return nil
+}
+
+func (buff buffer) MarshalJSON() ([]byte, error) {
+	return buff.Bytes(), nil
+}
 
 // removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
