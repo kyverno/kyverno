@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"sort"
 	"time"
@@ -33,7 +34,8 @@ func HandleValidation(
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
-	log logr.Logger) (bool, string) {
+	log logr.Logger,
+	dynamicConfig config.Interface) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -70,6 +72,7 @@ func HandleValidation(
 		OldResource:   oldR,
 		Context:       ctx,
 		AdmissionInfo: userRequestInfo,
+		ExcludeGroupRole : dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	var engineResponses []response.EngineResponse

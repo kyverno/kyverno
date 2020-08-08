@@ -4,4 +4,4 @@ kind: Kustomization
 resources:
 - ./crds/
 - ./manifest/
-- ./rbac/
+- ./k8s-resource/

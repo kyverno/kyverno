@@ -42,6 +42,7 @@ func (ws *WebhookServer) HandleMutation(
 		NewResource:   resource,
 		AdmissionInfo: userRequestInfo,
 		Context:       ctx,
+		ExcludeGroupRole: ws.configHandler.GetExcludeGroupRole(),
 	}
 
 	if request.Operation == v1beta1.Update {
