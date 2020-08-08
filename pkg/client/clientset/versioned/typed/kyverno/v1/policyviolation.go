@@ -19,9 +19,12 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"time"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1alpha1 "github.com/kubernetes-sigs/wg-policy-prototypes/policy-report/api/v1alpha1"
 	scheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -65,15 +68,17 @@ func newPolicyViolations(c *KyvernoV1Client, namespace string) *policyViolations
 
 // Get takes name of the policyViolation, and returns the corresponding policyViolation object, and an error if there is any.
 func (c *policyViolations) Get(name string, options metav1.GetOptions) (result *v1.PolicyViolation, err error) {
-	result = &v1.PolicyViolation{}
+	cpr := &v1alpha1.PolicyReport{}
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("policyviolations").
-		Name(name).
+		Resource("policyreports").
+		Name(reportName).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(result)
-	return
+		Into(cpr)
+	violation := policyreport.PolicyReportToPolicyViolations(cpr,name)
+	return violation,nil
 }
 
 // List takes label and field selectors, and returns the list of PolicyViolations that match those selectors.
@@ -82,18 +87,20 @@ func (c *policyViolations) List(opts metav1.ListOptions) (result *v1.PolicyViola
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1.PolicyViolationList{}
+	pr := &v1alpha1.PolicyReportList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("policyviolations").
+		Resource("policyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do().
-		Into(result)
-	return
+		Into(pr)
+	cprresult := policyreport.PolicyReportListToPolicyViolationsList(pr)
+	return cprresult,nil
 }
 
 // Watch returns a watch.Interface that watches the requested policyViolations.
+// TODO (YUVRAJ)
 func (c *policyViolations) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
@@ -102,7 +109,7 @@ func (c *policyViolations) Watch(opts metav1.ListOptions) (watch.Interface, erro
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
-		Resource("policyviolations").
+		Resource("policyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Watch()
@@ -110,38 +117,57 @@ func (c *policyViolations) Watch(opts metav1.ListOptions) (watch.Interface, erro
 
 // Create takes the representation of a policyViolation and creates it.  Returns the server's representation of the policyViolation, and an error, if there is any.
 func (c *policyViolations) Create(policyViolation *v1.PolicyViolation) (result *v1.PolicyViolation, err error) {
-	result = &v1.PolicyViolation{}
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
+	pr := &v1alpha1.PolicyReport{}
+	err = c.client.Get().
+		Namespace(c.ns).
+		Resource("policyreports").
+		Name(reportName).
+		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
+		Do().
+		Into(pr)
+
+	policyReport := policyreport.PolicyViolationsToPolicyReport(policyViolation,pr)
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource("policyviolations").
-		Body(policyViolation).
+		Resource("policyreports").
+		Body(policyReport).
 		Do().
-		Into(result)
-	return
+		Into(policyReport)
+	return policyViolation,nil
 }
 
 // Update takes the representation of a policyViolation and updates it. Returns the server's representation of the policyViolation, and an error, if there is any.
 func (c *policyViolations) Update(policyViolation *v1.PolicyViolation) (result *v1.PolicyViolation, err error) {
-	result = &v1.PolicyViolation{}
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
+	pr := &v1alpha1.PolicyReport{}
+	err = c.client.Get().
+		Namespace(c.ns).
+		Resource("policyreports").
+		Name(reportName).
+		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
+		Do().
+		Into(pr)
+	policyReport := policyreport.PolicyViolationsToPolicyReport(policyViolation,pr)
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource("policyviolations").
-		Name(policyViolation.Name).
-		Body(policyViolation).
+		Resource("policyreports").
+		Name(reportName).
+		Body(policyReport).
 		Do().
 		Into(result)
-	return
+	return policyViolation,nil
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
+// TODO (Yuvraj)
 func (c *policyViolations) UpdateStatus(policyViolation *v1.PolicyViolation) (result *v1.PolicyViolation, err error) {
-	result = &v1.PolicyViolation{}
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource("policyviolations").
-		Name(policyViolation.Name).
+		Resource("policyreports").
+		Name(reportName).
 		SubResource("status").
 		Body(policyViolation).
 		Do().
@@ -151,10 +177,11 @@ func (c *policyViolations) UpdateStatus(policyViolation *v1.PolicyViolation) (re
 
 // Delete takes name of the policyViolation and deletes it. Returns an error if one occurs.
 func (c *policyViolations) Delete(name string, options *metav1.DeleteOptions) error {
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("policyviolations").
-		Name(name).
+		Resource("policyreports").
+		Name(reportName).
 		Body(options).
 		Do().
 		Error()
@@ -168,7 +195,7 @@ func (c *policyViolations) DeleteCollection(options *metav1.DeleteOptions, listO
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("policyviolations").
+		Resource("policyreports").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(options).
@@ -177,15 +204,18 @@ func (c *policyViolations) DeleteCollection(options *metav1.DeleteOptions, listO
 }
 
 // Patch applies the patch and returns the patched policyViolation.
+// TODO (Yuvraj)
 func (c *policyViolations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.PolicyViolation, err error) {
-	result = &v1.PolicyViolation{}
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",c.ns)
+	pr := &v1alpha1.PolicyReport{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
-		Resource("policyviolations").
+		Resource("policyreports").
 		SubResource(subresources...).
-		Name(name).
+		Name(reportName).
 		Body(data).
 		Do().
-		Into(result)
-	return
+		Into(pr)
+	violation := policyreport.PolicyReportToPolicyViolations(pr,name)
+	return violation,nil
 }

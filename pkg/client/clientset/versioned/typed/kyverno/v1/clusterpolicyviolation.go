@@ -21,8 +21,10 @@ package v1
 import (
 	"time"
 
+	v1alpha1 "github.com/kubernetes-sigs/wg-policy-prototypes/policy-report/api/v1alpha1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	scheme "github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -63,41 +65,44 @@ func newClusterPolicyViolations(c *KyvernoV1Client) *clusterPolicyViolations {
 
 // Get takes name of the clusterPolicyViolation, and returns the corresponding clusterPolicyViolation object, and an error if there is any.
 func (c *clusterPolicyViolations) Get(name string, options metav1.GetOptions) (result *v1.ClusterPolicyViolation, err error) {
-	result = &v1.ClusterPolicyViolation{}
+	cpr := &v1alpha1.ClusterPolicyReport{}
 	err = c.client.Get().
-		Resource("clusterpolicyviolations").
-		Name(name).
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(result)
-	return
+		Into(cpr)
+	violation := policyreport.ClusterPolicyReportToClusterPolicyViolations(cpr,name)
+	return violation,nil
 }
 
 // List takes label and field selectors, and returns the list of ClusterPolicyViolations that match those selectors.
-func (c *clusterPolicyViolations) List(opts metav1.ListOptions) (result *v1.ClusterPolicyViolationList, err error) {
+func (c *clusterPolicyViolations) List(opts metav1.ListOptions) (cprresult *v1.ClusterPolicyViolationList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1.ClusterPolicyViolationList{}
+	cpr := &v1alpha1.ClusterPolicyReportList{}
 	err = c.client.Get().
-		Resource("clusterpolicyviolations").
+		Resource("clusterpolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do().
-		Into(result)
+		Into(cpr)
+	cprresult = policyreport.ClusterPolicyReportListToClusterPolicyViolationsList(cpr)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested clusterPolicyViolations.
 func (c *clusterPolicyViolations) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	// TODO (YUVRAJ)
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Resource("clusterpolicyviolations").
+		Resource("clusterpolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Watch()
@@ -105,22 +110,36 @@ func (c *clusterPolicyViolations) Watch(opts metav1.ListOptions) (watch.Interfac
 
 // Create takes the representation of a clusterPolicyViolation and creates it.  Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
 func (c *clusterPolicyViolations) Create(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
-	result = &v1.ClusterPolicyViolation{}
-	err = c.client.Post().
-		Resource("clusterpolicyviolations").
-		Body(clusterPolicyViolation).
+	cpr := &v1alpha1.ClusterPolicyReport{}
+	err = c.client.Get().
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
+		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
 		Do().
-		Into(result)
+		Into(cpr)
+	policyReport := policyreport.ClusterPolicyViolationsToClusterPolicyReport(clusterPolicyViolation,cpr)
+	err = c.client.Post().
+		Resource("clusterpolicyreports").
+		Body(policyReport).
+		Do().
+		Into(cpr)
 	return
 }
 
 // Update takes the representation of a clusterPolicyViolation and updates it. Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
 func (c *clusterPolicyViolations) Update(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
-	result = &v1.ClusterPolicyViolation{}
+	cpr := &v1alpha1.ClusterPolicyReport{}
+	err = c.client.Get().
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
+		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
+		Do().
+		Into(cpr)
+	policyReport := policyreport.ClusterPolicyViolationsToClusterPolicyReport(clusterPolicyViolation,cpr)
 	err = c.client.Put().
-		Resource("clusterpolicyviolations").
-		Name(clusterPolicyViolation.Name).
-		Body(clusterPolicyViolation).
+		Resource("clusterpolicyreports").
+		Name(policyReport.Name).
+		Body(policyReport).
 		Do().
 		Into(result)
 	return
@@ -128,14 +147,21 @@ func (c *clusterPolicyViolations) Update(clusterPolicyViolation *v1.ClusterPolic
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
+// TODO (YUVRAJ)
 func (c *clusterPolicyViolations) UpdateStatus(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
-	result = &v1.ClusterPolicyViolation{}
+	cpr := &v1alpha1.ClusterPolicyReport{}
+	err = c.client.Get().
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
+		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
+		Do().
+		Into(cpr)
+	policyReport := policyreport.ClusterPolicyViolationsToClusterPolicyReport(clusterPolicyViolation,cpr)
 	err = c.client.Put().
-		Resource("clusterpolicyviolations").
-		Name(clusterPolicyViolation.Name).
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
 		SubResource("status").
-		Body(clusterPolicyViolation).
+		Body(policyReport).
 		Do().
 		Into(result)
 	return
@@ -144,8 +170,8 @@ func (c *clusterPolicyViolations) UpdateStatus(clusterPolicyViolation *v1.Cluste
 // Delete takes name of the clusterPolicyViolation and deletes it. Returns an error if one occurs.
 func (c *clusterPolicyViolations) Delete(name string, options *metav1.DeleteOptions) error {
 	return c.client.Delete().
-		Resource("clusterpolicyviolations").
-		Name(name).
+		Resource("clusterpolicyreports").
+		Name("kyverno-clusterpolicyreports").
 		Body(options).
 		Do().
 		Error()
@@ -158,7 +184,7 @@ func (c *clusterPolicyViolations) DeleteCollection(options *metav1.DeleteOptions
 		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Resource("clusterpolicyviolations").
+		Resource("clusterpolicyreports").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(options).
@@ -167,12 +193,12 @@ func (c *clusterPolicyViolations) DeleteCollection(options *metav1.DeleteOptions
 }
 
 // Patch applies the patch and returns the patched clusterPolicyViolation.
+// TODO (Yuvraj)
 func (c *clusterPolicyViolations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ClusterPolicyViolation, err error) {
-	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Patch(pt).
-		Resource("clusterpolicyviolations").
+		Resource("clusterpolicyreports").
 		SubResource(subresources...).
-		Name(name).
+		Name("kyverno-clusterpolicyreports").
 		Body(data).
 		Do().
 		Into(result)
