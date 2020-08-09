@@ -1,13 +1,13 @@
 package policyreport
 
 import (
-	v1alpha1 "github.com/kubernetes-sigs/wg-policy-prototypes/policy-report/api/v1alpha1"
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	policyreport "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // PolicyReportToPolicyViolations
-func PolicyReportToPolicyViolations(reports *v1alpha1.PolicyReport, name string) *v1.PolicyViolation {
+func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name string) *v1.PolicyViolation {
 	pv := &v1.PolicyViolation{}
 	status := true
 	for _, report := range reports.Results {
@@ -34,7 +34,7 @@ func PolicyReportToPolicyViolations(reports *v1alpha1.PolicyReport, name string)
 }
 
 // ClusterPolicyReportListToClusterPolicyViolationsList
-func PolicyReportListToPolicyViolationsList(reports *v1alpha1.PolicyReportList) *v1.PolicyViolationList {
+func PolicyReportListToPolicyViolationsList(reports *policyreport.PolicyReportList) *v1.PolicyViolationList {
 	pvl := &v1.PolicyViolationList{}
 	var exclude map[string]bool
 	for _, report := range reports.Items {
@@ -50,7 +50,7 @@ func PolicyReportListToPolicyViolationsList(reports *v1alpha1.PolicyReportList) 
 }
 
 // PolicyViolationsToPolicyReport
-func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *v1alpha1.PolicyReport) *v1alpha1.PolicyReport {
+func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
 		status := true
 		for _, report := range reports.Results {
@@ -68,7 +68,7 @@ func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *v1al
 			}
 		}
 		if !status {
-			var report *v1alpha1.PolicyReportResult
+			var report *policyreport.PolicyReportResult
 			report.Policy = violation.Spec.Policy
 			report.Resource = &corev1.ObjectReference{
 				Kind:       violation.Spec.ResourceSpec.Kind,
@@ -85,7 +85,7 @@ func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *v1al
 }
 
 // ClusterPolicyReportToClusterPolicyViolations
-func ClusterPolicyReportToClusterPolicyViolations(reports *v1alpha1.ClusterPolicyReport, name string) *v1.ClusterPolicyViolation {
+func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterPolicyReport, name string) *v1.ClusterPolicyViolation {
 	pv := &v1.ClusterPolicyViolation{}
 
 	for _, report := range reports.Results {
@@ -109,7 +109,7 @@ func ClusterPolicyReportToClusterPolicyViolations(reports *v1alpha1.ClusterPolic
 }
 
 // ClusterPolicyReportListToClusterPolicyViolationsList
-func ClusterPolicyReportListToClusterPolicyViolationsList(reports *v1alpha1.ClusterPolicyReportList) *v1.ClusterPolicyViolationList {
+func ClusterPolicyReportListToClusterPolicyViolationsList(reports *policyreport.ClusterPolicyReportList) *v1.ClusterPolicyViolationList {
 	pvl := &v1.ClusterPolicyViolationList{}
 	var exclude map[string]bool
 	for _, report := range reports.Items {
@@ -125,7 +125,7 @@ func ClusterPolicyReportListToClusterPolicyViolationsList(reports *v1alpha1.Clus
 }
 
 // ClusterPolicyViolationsToClusterPolicyReport
-func ClusterPolicyViolationsToClusterPolicyReport(violation *v1.ClusterPolicyViolation, reports *v1alpha1.ClusterPolicyReport) *v1alpha1.ClusterPolicyReport {
+func ClusterPolicyViolationsToClusterPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.ClusterPolicyReport) *policyreport.ClusterPolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
 		status := false
 		for _, report := range reports.Results {
@@ -143,7 +143,7 @@ func ClusterPolicyViolationsToClusterPolicyReport(violation *v1.ClusterPolicyVio
 			}
 		}
 		if !status {
-			var report *v1alpha1.PolicyReportResult
+			var report *policyreport.PolicyReportResult
 			report.Policy = violation.Spec.Policy
 			report.Resource = &corev1.ObjectReference{
 				Kind:       violation.Spec.ResourceSpec.Kind,

@@ -27,7 +27,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policycache"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	tlsutils "github.com/nirmata/kyverno/pkg/tls"
 	userinfo "github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -98,7 +98,7 @@ type WebhookServer struct {
 	lastReqTime *checker.LastReqTime
 
 	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
+	pvGenerator policyreport.GeneratorInterface
 
 	// generate request generator
 	grGenerator *generate.Generator
@@ -129,7 +129,7 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
+	pvGenerator policyreport.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,

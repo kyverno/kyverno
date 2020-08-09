@@ -15,7 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,7 +32,7 @@ func HandleValidation(
 	userRequestInfo kyverno.RequestInfo,
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
+	pvGenerator policyreport.GeneratorInterface,
 	log logr.Logger) (bool, string) {
 
 	if len(policies) == 0 {
@@ -116,7 +116,7 @@ func HandleValidation(
 
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
+	pvInfos := policyreport.GeneratePVsFromEngineResponse(engineResponses, logger)
 	pvGenerator.Add(pvInfos...)
 
 	return true, ""

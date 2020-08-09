@@ -21,9 +21,15 @@ CODEGEN_PKG="${GOPATH}/src/k8s.io/code-generator"
 # get relative path of nirmata
 NIRMATA_PKG=${NIRMATA_ROOT#"${GOPATH}/src/"}
 
-# perform code generation
+## perform code generation
 ${CODEGEN_PKG}/generate-groups.sh \
     "deepcopy,client,informer,lister" \
     ${NIRMATA_PKG}/pkg/client \
     ${NIRMATA_PKG}/pkg/api \
     kyverno:v1
+
+${CODEGEN_PKG}/generate-groups.sh \
+    "deepcopy,client,informer,lister" \
+    ${NIRMATA_PKG}/pkg/client \
+    ${NIRMATA_PKG}/pkg/api \
+    policyreport:v1alpha1
