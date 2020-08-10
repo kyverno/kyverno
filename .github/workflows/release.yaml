@@ -44,7 +44,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyverno"
+          repository: "nirmata/kyverno"
           push: true
           path: cmd/kyverno/
           dockerfile: cmd/kyverno/Dockerfile
@@ -56,7 +56,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "evalsocket/kyvernopre"
+          repository: "nirmata/kyvernopre"
           push: true
           path: cmd/initContainer/
           dockerfile: cmd/initContainer/Dockerfile
