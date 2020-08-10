@@ -262,5 +262,13 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
+	_, err = c.pLister.Get(gr.Spec.Policy);
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+		c.control.Delete(gr.Name)
+		return nil
+	}
 	return c.processGR(*gr)
 }
