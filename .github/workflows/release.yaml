@@ -33,17 +33,22 @@ jobs:
         run: |
           make kyverno
           make initContainer
+
+      - name: Get latest release version number
+        id: get_version
+        uses: battila7/get-version-action@v2
+
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyverno"
-          tag_with_sha: true
+          repository: "evalsocket/kyverno"
           push: true
           path: cmd/kyverno/
           dockerfile: cmd/kyverno/Dockerfile
+          tags: ${{ steps.get_version.outputs.version }}
 
       -
         uses: docker/build-push-action@v1
@@ -51,11 +56,11 @@ jobs:
         with:
           username: ${{ secrets.DOCKERIO_USERNAME }}
           password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyvernopre"
-          tag_with_sha: true
+          repository: "evalsocket/kyvernopre"
           push: true
           path: cmd/initContainer/
           dockerfile: cmd/initContainer/Dockerfile
+          tags: ${{ steps.get_version.outputs.version }}
 
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish
