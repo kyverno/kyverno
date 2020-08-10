@@ -39,9 +39,6 @@ checksum:
   algorithm: sha256
 release:
   prerelease: auto
-  extra_files:
-    - glob: ./defination/install.yaml
-    - glob: ./defination/install-debug.yaml
 changelog:
   sort: asc
   filters:

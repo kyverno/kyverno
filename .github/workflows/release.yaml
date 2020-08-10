@@ -33,7 +33,6 @@ jobs:
         run: |
           make kyverno
           make initContainer
-          make release-ci
       -
         uses: docker/build-push-action@v1
         name: kyverno docker build and publish
