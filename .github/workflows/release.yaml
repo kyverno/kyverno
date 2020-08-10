@@ -1,9 +1,10 @@
 name: prereleaser
 on:
   push:
-    tags:
-      - '*'
-    
+    branches:
+      - 'fix-1011'
+  pull_request:
+
 jobs:
   releaser:
     runs-on: ubuntu-latest
@@ -28,17 +29,20 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
       - name: Docker Publish
         run: |
           docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
           make docker-publish-initContainer
           make docker-publish-kyverno
+
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish
         with:
           access-token: ${{ secrets.ACCESS_TOKEN }}
           deploy-branch: gh-pages
           charts-folder: charts
+
       - name: Update new version in krew-index
         uses: rajatjindal/krew-release-bot@v0.0.38
 
