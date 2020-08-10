@@ -2,17 +2,22 @@
 #!/bin/sh
 set -e
 
+ISKIND=$1
+
 pwd=$(pwd)
 hash=$(git describe --always --tags)
-#
-## Install Kind
-curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64
-chmod a+x $pwd/kind
 
-## Create Kind Cluster
-$pwd/kind create cluster
-$pwd/kind load docker-image nirmata/kyverno:$hash
-$pwd/kind load docker-image nirmata/kyvernopre:$hash
+if [ "$ISKIND" = "kind" ]
+then
+    ## Install Kind
+    curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64
+    chmod a+x $pwd/kind
+
+    ## Create Kind Cluster
+    $pwd/kind create cluster
+    $pwd/kind load docker-image nirmata/kyverno:$hash
+    $pwd/kind load docker-image nirmata/kyvernopre:$hash
+fi
 
 pwd=$(pwd)
 cd $pwd/definitions

@@ -96,7 +96,13 @@ cli:
 ci: docker-build-kyverno docker-build-initContainer
 	echo "kustomize input"
 	chmod a+x $(PWD)/scripts/ci.sh
+	$(PWD)/scripts/ci.sh kind
+
+release-ci:
+	echo "kustomize The install"
+	chmod a+x $(PWD)/scripts/ci.sh
 	$(PWD)/scripts/ci.sh
+
 ##################################
 
 ##################################
