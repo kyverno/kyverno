@@ -26,8 +26,7 @@ jobs:
 
       - name :  docker images publish
         run: |
-          make docker-publish-initContainer
-          make docker-publish-kyverno
+          make docker-publish-all
 
       - name :  Create Kind Cluster and setup kustomize
         run: |

@@ -93,6 +93,10 @@ cli:
 
 
 ##################################
+docker-publish-all: docker-publish-initContainer docker-publish-kyverno
+
+docker-build-all: docker-build-initContainer docker-build-kyverno
+
 ci:
 	echo "kustomize input"
 	chmod a+x $(PWD)/scripts/ci.sh
