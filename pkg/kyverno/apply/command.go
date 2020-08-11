@@ -73,10 +73,12 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
-			for _, kvpair := range kvpairs {
-				kvs := strings.Split(strings.Trim(kvpair, " "), "=")
-				variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+			if variablesString != "" {
+				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
+				for _, kvpair := range kvpairs {
+					kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+					variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+				}
 			}
 
 			if len(resourcePaths) == 0 && !cluster {
@@ -108,6 +110,18 @@ func Command() *cobra.Command {
 					return sanitizedError.NewWithError("failed to mutate policies.", err)
 				}
 				return err
+			}
+
+			for _, policy := range policies {
+				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+				if err != nil {
+					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
+					os.Exit(1)
+				}
+				if common.PolicyHasVariables(*policy) && variablesString == "" {
+					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set flag", policy.Name), err)
+				}
+
 			}
 
 			var dClient *client.Client

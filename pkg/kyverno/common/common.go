@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -185,4 +186,11 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	}
 
 	return &p, nil
+}
+
+// PolicyHasVariables - check for variables in policy
+func PolicyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
