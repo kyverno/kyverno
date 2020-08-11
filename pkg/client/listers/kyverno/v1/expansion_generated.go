@@ -22,10 +22,6 @@ package v1
 // ClusterPolicyLister.
 type ClusterPolicyListerExpansion interface{}
 
-// ClusterPolicyViolationListerExpansion allows custom methods to be added to
-// ClusterPolicyViolationLister.
-type ClusterPolicyViolationListerExpansion interface{}
-
 // GenerateRequestListerExpansion allows custom methods to be added to
 // GenerateRequestLister.
 type GenerateRequestListerExpansion interface{}
@@ -33,11 +29,3 @@ type GenerateRequestListerExpansion interface{}
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
 type GenerateRequestNamespaceListerExpansion interface{}
-
-// PolicyViolationListerExpansion allows custom methods to be added to
-// PolicyViolationLister.
-type PolicyViolationListerExpansion interface{}
-
-// PolicyViolationNamespaceListerExpansion allows custom methods to be added to
-// PolicyViolationNamespaceLister.
-type PolicyViolationNamespaceListerExpansion interface{}
