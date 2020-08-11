@@ -24,10 +24,6 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 	}
 
 	pc.prGenerator.Add(pvInfos...)
-	// cleanup existing violations if any
-	// if there is any error in clean up, we dont re-queue the resource
-	// it will be re-tried in the next controller cache resync
-	pc.cleanUp(engineResponses)
 }
 
 func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {

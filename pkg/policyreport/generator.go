@@ -231,16 +231,27 @@ func (gen *Generator) processNextWorkItem() bool {
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
 	var handler pvGenerator
+	failure := false
 	builder := newPvBuilder()
-	if info.Resource.GetNamespace() == "" {
+	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(),info.Resource.GetKind(),info.Resource.GetName(),info.Resource.GetNamespace())
+	if  err != nil {
+		failure = true
+		logger.Error(err, "failed to get resource")
+	}
+	labels := resource.GetLabels();
+	if _,okChart := labels["helm.sh/chart"]; !okChart {
+		// cluster scope resource generate a helm package report
+		handler = newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+	}else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler = newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler = newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 	}
+	// TODO Helm packages
 
-	failure := false
+
 	pv := builder.generate(info)
 
 	if info.FromSync {

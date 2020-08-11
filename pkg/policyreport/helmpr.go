@@ -11,8 +11,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/policystatus"
 )
 
-//namespacedPR ...
-type namespacedPR struct {
+//helmPR ...
+type helmPR struct {
 	// dynamic client
 	dclient *client.Client
 	// get/list namespaced policy violation
@@ -25,12 +25,12 @@ type namespacedPR struct {
 	policyStatusListener policystatus.Listener
 }
 
-func newNamespacedPR(log logr.Logger, dclient *client.Client,
+func newHelmPR(log logr.Logger, dclient *client.Client,
 	nsprLister policyreportlister.PolicyReportLister,
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface,
 	policyStatus policystatus.Listener,
-) *namespacedPR {
-	nspr := namespacedPR{
+) *helmPR {
+	nspr := helmPR{
 		dclient:              dclient,
 		nsprLister:           nsprLister,
 		policyreportInterface:     policyreportInterface,
@@ -40,7 +40,7 @@ func newNamespacedPR(log logr.Logger, dclient *client.Client,
 	return &nspr
 }
 
-func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (nspr *helmPR) create(pv kyverno.PolicyViolationTemplate) error {
 	policyName := fmt.Sprintf("kyverno-policyreport",)
 	clusterpr,err:= nspr.policyreportInterface.Get(context.Background(),policyName,v1.GetOptions{});
 	if err != nil {

@@ -33,21 +33,6 @@ func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name str
 	return pv
 }
 
-// ClusterPolicyReportListToClusterPolicyViolationsList
-func PolicyReportListToPolicyViolationsList(reports *policyreport.PolicyReportList) *v1.PolicyViolationList {
-	pvl := &v1.PolicyViolationList{}
-	var exclude map[string]bool
-	for _, report := range reports.Items {
-		for _, r := range report.Results {
-			if ok := exclude[r.Policy]; !ok {
-				exclude[r.Policy] = true
-				cpv := PolicyReportToPolicyViolations(&report,r.Policy)
-				pvl.Items = append(pvl.Items,*cpv)
-			}
-		}
-	}
-	return pvl
-}
 
 // PolicyViolationsToPolicyReport
 func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
@@ -108,22 +93,6 @@ func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterP
 	return pv
 }
 
-// ClusterPolicyReportListToClusterPolicyViolationsList
-func ClusterPolicyReportListToClusterPolicyViolationsList(reports *policyreport.ClusterPolicyReportList) *v1.ClusterPolicyViolationList {
-	pvl := &v1.ClusterPolicyViolationList{}
-	var exclude map[string]bool
-	for _, report := range reports.Items {
-		for _, r := range report.Results {
-			if ok := exclude[r.Policy]; !ok {
-				exclude[r.Policy] = true
-				cpv := ClusterPolicyReportToClusterPolicyViolations(&report,r.Policy)
-				pvl.Items = append(pvl.Items,*cpv)
-			}
-		}
-	}
-	return pvl
-}
-
 // ClusterPolicyViolationsToClusterPolicyReport
 func ClusterPolicyViolationsToClusterPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.ClusterPolicyReport) *policyreport.ClusterPolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
@@ -139,7 +108,6 @@ func ClusterPolicyViolationsToClusterPolicyReport(violation *kyverno.PolicyViola
 				report.Message = rule.Message
 				report.Rule = rule.Name
 				status = true
-				reports.Results = append(reports.Results, report)
 			}
 		}
 		if !status {

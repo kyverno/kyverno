@@ -12,8 +12,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/policystatus"
 )
 
-//ClusterPV ...
-type clusterPV struct {
+//clusterPR ...
+type clusterPR struct {
 	// dynamic client
 	dclient *client.Client
 	// get/list cluster policy report
@@ -26,12 +26,12 @@ type clusterPV struct {
 	policyStatusListener policystatus.Listener
 }
 
-func newClusterPV(log logr.Logger, dclient *client.Client,
+func newClusterPR(log logr.Logger, dclient *client.Client,
 	cprLister policyreportlister.ClusterPolicyReportLister,
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface,
 	policyStatus policystatus.Listener,
-) *clusterPV {
-	cpv := clusterPV{
+) *clusterPR {
+	cpv := clusterPR{
 		dclient:              dclient,
 		cprLister:            cprLister,
 		policyreportInterface:     policyreportInterface,
@@ -41,14 +41,14 @@ func newClusterPV(log logr.Logger, dclient *client.Client,
 	return &cpv
 }
 
-func (cpv *clusterPV) create(pv kyverno.PolicyViolationTemplate) error {
-	clusterpr,err:= cpv.policyreportInterface.Get(context.Background(),"kyverno-clusterpolicyreport",v1.GetOptions{});
+func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate) error {
+	clusterpr,err:= cpr.policyreportInterface.ClusterPolicyReports("").Get(context.Background(),"kyverno-clusterpolicyreport",v1.GetOptions{});
 	if err != nil {
 		return err
 	}
-	cpr := ClusterPolicyViolationsToClusterPolicyReport(&pv,clusterpr)
+	clusterpr := ClusterPolicyViolationsToClusterPolicyReport(&pv,clusterpr)
 
-	cpr,err = cpv.policyreportInterface.Update(context.Background(),cpr,v1.UpdateOptions{})
+	_,err = cpr.policyreportInterface.ClusterPolicyReports("").Update(context.Background(),clusterpr,v1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
