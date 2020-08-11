@@ -97,6 +97,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		Policy:        *policy,
 		Context:       ctx,
 		AdmissionInfo: gr.Spec.Context.UserRequestInfo,
+		ExcludeGroupRole : c.Config.GetExcludeGroupRole(),
 	}
 
 	// check if the policy still applies to the resource

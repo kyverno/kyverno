@@ -58,6 +58,8 @@ type Controller struct {
 	nsInformer           informers.GenericInformer
 	policyStatusListener policystatus.Listener
 	log                  logr.Logger
+
+	Config config.Interface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -70,6 +72,7 @@ func NewController(
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	policyStatus policystatus.Listener,
 	log logr.Logger,
+	dynamicConfig config.Interface,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -81,6 +84,7 @@ func NewController(
 		dynamicInformer:      dynamicInformer,
 		log:                  log,
 		policyStatusListener: policyStatus,
+		Config: dynamicConfig,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 
