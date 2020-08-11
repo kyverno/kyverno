@@ -25,7 +25,10 @@ jobs:
 
       - name : binary build & kustomize
         run: |
+          make docker-build-kyverno
+          make docker-build-initContainer
           make ci
+
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
