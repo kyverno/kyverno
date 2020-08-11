@@ -135,7 +135,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 		return nil, nil
 	}
 
-	log.V(3).Info("auto generating rule for pod controllers", "controlers", controllers)
+	log.V(3).Info("auto generating rule for pod controllers", "controllers", controllers)
 
 	p, err := generateRulePatches(policy, controllers, log)
 	patches = append(patches, p...)

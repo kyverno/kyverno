@@ -49,6 +49,15 @@ func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 	return false
 }
 
+func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
+	for k, v := range annotations {
+		if resourceAnnotations[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
 func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
@@ -93,6 +102,11 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	if len(conditionBlock.Namespaces) > 0 {
 		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
+		}
+	}
+	if len(conditionBlock.Annotations) > 0 {
+		if !checkAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
+			errs = append(errs, fmt.Errorf("annotations does not match"))
 		}
 	}
 	if conditionBlock.Selector != nil {
