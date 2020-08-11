@@ -24,10 +24,14 @@ jobs:
       - name: login to docker hub
         run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
 
-      - name : binary build & kustomize
+      - name :  docker images publish
         run: |
           make docker-publish-initContainer
           make docker-publish-kyverno
+          make ci
+
+      - name :  Create Kind Cluster and setup kustomize
+        run: |
           make ci
 
       - name: e2e testing

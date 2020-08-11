@@ -23,10 +23,13 @@ jobs:
         with:
           go-version: 1.14
 
-      - name : binary build & kustomize
+      - name :  docker images build
         run: |
           make docker-build-kyverno
           make docker-build-initContainer
+
+      - name :  Create Kind Cluster and setup kustomize
+        run: |
           make ci
 
       - name: e2e testing
