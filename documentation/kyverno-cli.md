@@ -88,5 +88,14 @@ Saving the mutated resource in a file/directory:
 kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml -o <file path/directory path>
 ```
 
+Apply policy with variables:
+
+Use --set flag to pass the values for variables in a policy while applying on a resource.
+
+```
+kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
+```
+
+
 
 <small>*Read Next >> [Sample Policies](/samples/README.md)*</small>
