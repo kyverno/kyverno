@@ -190,8 +190,6 @@ func main() {
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-		pInformer.Policy().V1alpha1().PolicyReports(),
 		configData,
 		eventGenerator,
 		pvgen,
