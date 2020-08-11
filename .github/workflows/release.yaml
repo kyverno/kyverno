@@ -28,7 +28,6 @@ jobs:
         run: |
           make docker-publish-initContainer
           make docker-publish-kyverno
-          make ci
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
