@@ -27,7 +27,7 @@ type namespacedPR struct {
 	// dynamic client
 	dclient *client.Client
 	// get/list namespaced policy violation
-	nsprLister policyreportlister.PolicyReportLister
+	nsprLister policyreportlister.KyvernoKyvernoPolicyReportLister
 	// policy violation interface
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
 	// logger
@@ -43,7 +43,7 @@ type namespacedPR struct {
 
 
 func newNamespacedPR(log logr.Logger, dclient *client.Client,
-	nsprLister policyreportlister.PolicyReportLister,
+	nsprLister policyreportlister.KyvernoKyvernoPolicyReportLister,
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface,
 	policyStatus policystatus.Listener,
 ) *namespacedPR {
@@ -185,14 +185,14 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 }
 
 
-func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (nspr *namespacedPR) create(pv kyverno.KyvernoKyvernoPolicyReportTemplate) error {
 	policyName := fmt.Sprintf("kyverno-policyreport",)
-	clusterpr,err:= nspr.policyreportInterface.PolicyReports(pv.Namespace).Get(context.Background(),policyName,v1.GetOptions{});
+	clusterpr,err:= nspr.policyreportInterface.KyvernoKyvernoPolicyReports(pv.Namespace).Get(context.Background(),policyName,v1.GetOptions{});
 	if err != nil {
 		return err
 	}
-	cpr := PolicyViolationsToPolicyReport(&pv,clusterpr)
-	cpr,err = nspr.policyreportInterface.PolicyReports(pv.Namespace).Update(context.Background(),cpr,v1.UpdateOptions{})
+	cpr := PolicyViolationsToKyvernoKyvernoPolicyReport(&pv,clusterpr)
+	cpr,err = nspr.policyreportInterface.KyvernoKyvernoPolicyReports(pv.Namespace).Update(context.Background(),cpr,v1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ import (
 // ClusterPolicyReportsGetter has a method to return a ClusterPolicyReportInterface.
 // A group's client should implement this interface.
 type ClusterPolicyReportsGetter interface {
-	ClusterPolicyReports(namespace string) ClusterPolicyReportInterface
+	ClusterPolicyReports() ClusterPolicyReportInterface
 }
 
 // ClusterPolicyReportInterface has methods to work with ClusterPolicyReport resources.
@@ -52,14 +52,12 @@ type ClusterPolicyReportInterface interface {
 // clusterPolicyReports implements ClusterPolicyReportInterface
 type clusterPolicyReports struct {
 	client rest.Interface
-	ns     string
 }
 
 // newClusterPolicyReports returns a ClusterPolicyReports
-func newClusterPolicyReports(c *PolicyV1alpha1Client, namespace string) *clusterPolicyReports {
+func newClusterPolicyReports(c *PolicyV1alpha1Client) *clusterPolicyReports {
 	return &clusterPolicyReports{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -67,7 +65,6 @@ func newClusterPolicyReports(c *PolicyV1alpha1Client, namespace string) *cluster
 func (c *clusterPolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterPolicyReport, err error) {
 	result = &v1alpha1.ClusterPolicyReport{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -84,7 +81,6 @@ func (c *clusterPolicyReports) List(ctx context.Context, opts v1.ListOptions) (r
 	}
 	result = &v1alpha1.ClusterPolicyReportList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -101,7 +97,6 @@ func (c *clusterPolicyReports) Watch(ctx context.Context, opts v1.ListOptions) (
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -112,7 +107,6 @@ func (c *clusterPolicyReports) Watch(ctx context.Context, opts v1.ListOptions) (
 func (c *clusterPolicyReports) Create(ctx context.Context, clusterPolicyReport *v1alpha1.ClusterPolicyReport, opts v1.CreateOptions) (result *v1alpha1.ClusterPolicyReport, err error) {
 	result = &v1alpha1.ClusterPolicyReport{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterPolicyReport).
@@ -125,7 +119,6 @@ func (c *clusterPolicyReports) Create(ctx context.Context, clusterPolicyReport *
 func (c *clusterPolicyReports) Update(ctx context.Context, clusterPolicyReport *v1alpha1.ClusterPolicyReport, opts v1.UpdateOptions) (result *v1alpha1.ClusterPolicyReport, err error) {
 	result = &v1alpha1.ClusterPolicyReport{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		Name(clusterPolicyReport.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -138,7 +131,6 @@ func (c *clusterPolicyReports) Update(ctx context.Context, clusterPolicyReport *
 // Delete takes name of the clusterPolicyReport and deletes it. Returns an error if one occurs.
 func (c *clusterPolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		Name(name).
 		Body(&opts).
@@ -153,7 +145,6 @@ func (c *clusterPolicyReports) DeleteCollection(ctx context.Context, opts v1.Del
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -166,7 +157,6 @@ func (c *clusterPolicyReports) DeleteCollection(ctx context.Context, opts v1.Del
 func (c *clusterPolicyReports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterPolicyReport, err error) {
 	result = &v1alpha1.ClusterPolicyReport{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("clusterpolicyreports").
 		Name(name).
 		SubResource(subresources...).

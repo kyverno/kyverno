@@ -22,10 +22,6 @@ package v1alpha1
 // ClusterPolicyReportLister.
 type ClusterPolicyReportListerExpansion interface{}
 
-// ClusterPolicyReportNamespaceListerExpansion allows custom methods to be added to
-// ClusterPolicyReportNamespaceLister.
-type ClusterPolicyReportNamespaceListerExpansion interface{}
-
 // PolicyReportListerExpansion allows custom methods to be added to
 // PolicyReportLister.
 type PolicyReportListerExpansion interface{}

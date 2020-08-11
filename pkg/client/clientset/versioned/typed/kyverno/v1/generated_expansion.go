@@ -21,3 +21,5 @@ package v1
 type ClusterPolicyExpansion interface{}
 
 type GenerateRequestExpansion interface{}
+
+type PolicyViolationExpansion interface{}

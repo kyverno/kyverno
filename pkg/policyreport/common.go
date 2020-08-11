@@ -109,7 +109,7 @@ func (vc violationCount) UpdateStatus(status kyverno.PolicyStatus) kyverno.Polic
 
 // hasViolationSpecChanged returns true if oldSpec & newSpec
 // are identical, exclude message in violated rules
-func hasViolationSpecChanged(new, old *kyverno.PolicyViolationSpec) bool {
+func hasViolationSpecChanged(new, old *kyverno.KyvernoPolicyReportSpec) bool {
 	if new.Policy != old.Policy {
 		return true
 	}

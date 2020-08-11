@@ -184,11 +184,12 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 }
 
 
-func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (cpr *clusterPR) create(pv kyverno.KyvernoPolicyReportTemplate) error {
 	clusterpr,err:= cpr.policyreportInterface.ClusterPolicyReports("").Get(context.Background(),"kyverno-clusterpolicyreport",v1.GetOptions{});
 	if err != nil {
 		return err
 	}
+
 	clusterpr = ClusterPolicyViolationsToClusterPolicyReport(&pv,clusterpr)
 
 	_,err = cpr.policyreportInterface.ClusterPolicyReports("").Update(context.Background(),clusterpr,v1.UpdateOptions{})

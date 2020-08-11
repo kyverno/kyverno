@@ -29,3 +29,11 @@ type GenerateRequestListerExpansion interface{}
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
 type GenerateRequestNamespaceListerExpansion interface{}
+
+// PolicyViolationListerExpansion allows custom methods to be added to
+// PolicyViolationLister.
+type PolicyViolationListerExpansion interface{}
+
+// PolicyViolationNamespaceListerExpansion allows custom methods to be added to
+// PolicyViolationNamespaceLister.
+type PolicyViolationNamespaceListerExpansion interface{}

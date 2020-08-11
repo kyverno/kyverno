@@ -35,8 +35,8 @@ type PolicyV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *PolicyV1alpha1Client) ClusterPolicyReports(namespace string) ClusterPolicyReportInterface {
-	return newClusterPolicyReports(c, namespace)
+func (c *PolicyV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterface {
+	return newClusterPolicyReports(c)
 }
 
 func (c *PolicyV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {

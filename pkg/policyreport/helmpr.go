@@ -82,7 +82,7 @@ func (hpr *helmPR) Run(workers int, stopCh <-chan struct{}) {
 	defer logger.Info("shutting down")
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(hpr.runWorker, constant.PolicyViolationControllerResync, stopCh)
+		go wait.Until(hpr.runWorker, constant.KyvernoPolicyReportControllerResync, stopCh)
 	}
 	<-stopCh
 }
@@ -182,13 +182,13 @@ func (hpr *helmPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (hpr *helmPR) create(pv kyverno.PolicyReportTemplate) error {
 	policyName := fmt.Sprintf("kyverno-policyreport",)
 	clusterpr,err:= hpr.policyreportInterface.PolicyReports(pv.Namespace).Get(context.Background(),policyName,v1.GetOptions{});
 	if err != nil {
 		return err
 	}
-	cpr := PolicyViolationsToPolicyReport(&pv,clusterpr)
+	cpr := KyvernoPolicyReportsToPolicyReport(&pv,clusterpr)
 	cpr,err = hpr.policyreportInterface.PolicyReports(pv.Namespace).Update(context.Background(),cpr,v1.UpdateOptions{})
 	if err != nil {
 		return err

@@ -43,7 +43,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 
 // ClusterPolicyReports returns a ClusterPolicyReportInformer.
 func (v *version) ClusterPolicyReports() ClusterPolicyReportInformer {
-	return &clusterPolicyReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &clusterPolicyReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyReports returns a PolicyReportInformer.

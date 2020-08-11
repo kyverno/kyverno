@@ -6,8 +6,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// PolicyReportToPolicyViolations
-func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name string) *kyverno.PolicyViolation {
+// PolicyReportToKyvernoPolicyReport
+func PolicyReportToKyvernoPolicyReport(reports *policyreport.PolicyReport, name string) *kyverno.PolicyViolation {
 	pv := &kyverno.PolicyViolation{}
 	status := true
 	for _, report := range reports.Results {
@@ -34,8 +34,8 @@ func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name str
 }
 
 
-// PolicyViolationsToPolicyReport
-func PolicyViolationsToPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
+// KyvernoPolicyReportToPolicyReport
+func KyvernoPolicyReportToPolicyReport(violation *kyverno.PolicyReportTemplate, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
 		status := true
 		for _, report := range reports.Results {
@@ -69,8 +69,8 @@ func PolicyViolationsToPolicyReport(violation *kyverno.PolicyViolationTemplate, 
 	return reports
 }
 
-// ClusterPolicyReportToClusterPolicyViolations
-func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterPolicyReport, name string) *kyverno.ClusterPolicyViolation {
+// ClusterPolicyReportToClusterKyvernoPolicyReport
+func ClusterPolicyReportToClusterKyvernoPolicyReport(reports *policyreport.ClusterPolicyReport, name string) *kyverno.ClusterPolicyViolation {
 	pv := &kyverno.ClusterPolicyViolation{}
 
 	for _, report := range reports.Results {
@@ -93,8 +93,8 @@ func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterP
 	return pv
 }
 
-// ClusterPolicyViolationsToClusterPolicyReport
-func ClusterPolicyViolationsToClusterPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.ClusterPolicyReport) *policyreport.ClusterPolicyReport {
+// ClusterKyvernoPolicyReportToClusterPolicyReport
+func ClusterKyvernoPolicyReportToClusterPolicyReport(violation *kyverno.PolicyReportTemplate, reports *policyreport.ClusterPolicyReport) *policyreport.ClusterPolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
 		status := false
 		for _, report := range reports.Results {

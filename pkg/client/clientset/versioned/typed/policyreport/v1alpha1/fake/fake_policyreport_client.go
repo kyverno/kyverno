@@ -28,8 +28,8 @@ type FakePolicyV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakePolicyV1alpha1) ClusterPolicyReports(namespace string) v1alpha1.ClusterPolicyReportInterface {
-	return &FakeClusterPolicyReports{c, namespace}
+func (c *FakePolicyV1alpha1) ClusterPolicyReports() v1alpha1.ClusterPolicyReportInterface {
+	return &FakeClusterPolicyReports{c}
 }
 
 func (c *FakePolicyV1alpha1) PolicyReports(namespace string) v1alpha1.PolicyReportInterface {

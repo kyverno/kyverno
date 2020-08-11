@@ -36,6 +36,10 @@ func (c *FakeKyvernoV1) GenerateRequests(namespace string) v1.GenerateRequestInt
 	return &FakeGenerateRequests{c, namespace}
 }
 
+func (c *FakeKyvernoV1) PolicyViolations(namespace string) v1.PolicyViolationInterface {
+	return &FakePolicyViolations{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV1) RESTClient() rest.Interface {

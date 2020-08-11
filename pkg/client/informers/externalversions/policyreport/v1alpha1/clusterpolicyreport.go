@@ -42,33 +42,32 @@ type ClusterPolicyReportInformer interface {
 type clusterPolicyReportInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
-	namespace        string
 }
 
 // NewClusterPolicyReportInformer constructs a new informer for ClusterPolicyReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterPolicyReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterPolicyReportInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewClusterPolicyReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterPolicyReportInformer(client, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredClusterPolicyReportInformer constructs a new informer for ClusterPolicyReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterPolicyReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterPolicyReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterPolicyReports(namespace).List(context.TODO(), options)
+				return client.PolicyV1alpha1().ClusterPolicyReports().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterPolicyReports(namespace).Watch(context.TODO(), options)
+				return client.PolicyV1alpha1().ClusterPolicyReports().Watch(context.TODO(), options)
 			},
 		},
 		&policyreportv1alpha1.ClusterPolicyReport{},
@@ -78,7 +77,7 @@ func NewFilteredClusterPolicyReportInformer(client versioned.Interface, namespac
 }
 
 func (f *clusterPolicyReportInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterPolicyReportInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewFilteredClusterPolicyReportInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
 func (f *clusterPolicyReportInformer) Informer() cache.SharedIndexInformer {
