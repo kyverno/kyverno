@@ -3,7 +3,7 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --dirty --always --tags)
+GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
