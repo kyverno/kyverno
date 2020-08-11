@@ -20,7 +20,7 @@ To check the version, enter `kubectl version`.
 
 Install Kyverno:
 ```console
-kubectl create -f https://raw.githubusercontent.com/nirmata/kyverno/v1.1.8/definitions/install.yaml
+kubectl create -f https://raw.githubusercontent.com/nirmata/kyverno/v1.1.9/definitions/install.yaml
 ```
 
 You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).
