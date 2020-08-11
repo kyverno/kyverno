@@ -368,7 +368,9 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Success -> Generate Request CR created successfully
 	// Failed -> Failed to create Generate Request CR
 
-	go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
+	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
+	}
 
 	// Succesful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch

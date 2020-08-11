@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"os"
 	"path/filepath"
@@ -54,8 +54,24 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutatelogPath, variablesString string
+	var mutatelogPath, variablesString, valuesFile string
 	variables := make(map[string]string)
+
+	type Resource struct {
+		Name   string `json:"name"`
+		Values map[string]string `json:"values"`
+	}
+
+	type Policy struct {
+		Name      string `json:"name"`
+		Resources []Resource `json:"resources"`
+	}
+
+	type Values struct {
+		Policies []Policy `json:"policies"`
+	}
+
+	valuesMap := make(map[string]map[string]*Resource)
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -72,6 +88,34 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
+
+			if valuesFile != "" {
+				yamlFile, err := ioutil.ReadFile(valuesFile)
+				if err != nil {
+					// TODO: handle better
+					fmt.Printf("yamlFile.Get err  #%v ", err)
+				}
+
+				valuesBytes, err := yaml.ToJSON(yamlFile)
+				if err != nil {
+					// TODO: handle better
+					fmt.Errorf(fmt.Sprintf("failed to convert json. error: %v", err))
+				}
+
+				values := &Values{}
+				if err := json.Unmarshal(valuesBytes, values); err != nil {
+					// TODO: handle better
+					fmt.Errorf(fmt.Sprintf("failed to decode yaml in %s. error: %v", valuesFile, err))
+				}
+
+				for _, p := range values.Policies {
+					pmap := make(map[string]*Resource)
+					for _, r := range p.Resources {
+						pmap[r.Name] = &r
+					}
+					valuesMap[p.Name] = pmap
+				}
+			}
 
 			if variablesString != "" {
 				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
@@ -118,8 +162,8 @@ func Command() *cobra.Command {
 					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
 					os.Exit(1)
 				}
-				if common.PolicyHasVariables(*policy) && variablesString == "" {
-					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set flag", policy.Name), err)
+				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
+					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set flag/ file", policy.Name), err)
 				}
 
 			}
@@ -175,7 +219,17 @@ func Command() *cobra.Command {
 				}
 
 				for _, resource := range resources {
-					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, variables, rc)
+					// get values from file for this policy resource combination
+					thisPolicyResouceValues := make(map[string]string)
+					if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil{
+						thisPolicyResouceValues = valuesMap[policy.GetName()][resource.GetName()].Values
+					}
+
+					for k, v := range variables {
+						thisPolicyResouceValues[k] = v
+					}
+
+					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, variables, thisPolicyResouceValues)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -197,6 +251,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutatelogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
+	cmd.Flags().StringVarP(&valuesFile, "values file", "f", "", "File containing values for policy variables")
 	return cmd
 }
 
