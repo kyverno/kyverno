@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -230,52 +229,25 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	var handler pvGenerator
-	failure := false
-	builder := newPvBuilder()
 	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(),info.Resource.GetKind(),info.Resource.GetName(),info.Resource.GetNamespace())
 	if  err != nil {
-		failure = true
 		logger.Error(err, "failed to get resource")
 	}
 	labels := resource.GetLabels();
 	if _,okChart := labels["helm.sh/chart"]; !okChart {
 		// cluster scope resource generate a helm package report
-		handler = newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler := newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
 	}else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler := newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
-	}
-	// TODO Helm packages
-
-
-	pv := builder.generate(info)
-
-	if info.FromSync {
-		pv.Annotations = map[string]string{
-			"fromSync": "true",
-		}
+		handler := newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
 	}
 
-	// Create Policy Violations
-	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := handler.create(pv); err != nil {
-		failure = true
-		logger.Error(err, "failed to create policy violation")
-	}
-
-	if failure {
-		// even if there is a single failure we requeue the request
-		return errors.New("Failed to process some policy violations, re-queuing")
-	}
 	return nil
 }
 
-// Provides an interface to generate policy violations
-// implementations for namespaced and cluster PV
-type pvGenerator interface {
-	create(policyViolation kyverno.PolicyViolationTemplate) error
-}

@@ -7,8 +7,8 @@ import (
 )
 
 // PolicyReportToPolicyViolations
-func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name string) *v1.PolicyViolation {
-	pv := &v1.PolicyViolation{}
+func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name string) *kyverno.PolicyViolation {
+	pv := &kyverno.PolicyViolation{}
 	status := true
 	for _, report := range reports.Results {
 		if report.Policy == name {
@@ -16,7 +16,7 @@ func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name str
 				pv.Name = name
 				pv.Spec.Name = report.Policy
 				pv.Spec.Policy = report.Policy
-				pv.Spec.ResourceSpec = v1.ResourceSpec{
+				pv.Spec.ResourceSpec = kyverno.ResourceSpec{
 					Name:       report.Resource.Name,
 					Kind:       report.Resource.Kind,
 					APIVersion: report.Resource.APIVersion,
@@ -24,7 +24,7 @@ func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name str
 				}
 				status = false
 			}
-			pv.Spec.ViolatedRules = append(pv.Spec.ViolatedRules, v1.ViolatedRule{
+			pv.Spec.ViolatedRules = append(pv.Spec.ViolatedRules, kyverno.ViolatedRule{
 				Name:    report.Rule,
 				Message: report.Message,
 			})
@@ -35,7 +35,7 @@ func PolicyReportToPolicyViolations(reports *policyreport.PolicyReport, name str
 
 
 // PolicyViolationsToPolicyReport
-func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
+func PolicyViolationsToPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
 	for _, rule := range violation.Spec.ViolatedRules {
 		status := true
 		for _, report := range reports.Results {
@@ -70,21 +70,21 @@ func PolicyViolationsToPolicyReport(violation *v1.PolicyViolation, reports *poli
 }
 
 // ClusterPolicyReportToClusterPolicyViolations
-func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterPolicyReport, name string) *v1.ClusterPolicyViolation {
-	pv := &v1.ClusterPolicyViolation{}
+func ClusterPolicyReportToClusterPolicyViolations(reports *policyreport.ClusterPolicyReport, name string) *kyverno.ClusterPolicyViolation {
+	pv := &kyverno.ClusterPolicyViolation{}
 
 	for _, report := range reports.Results {
 		if report.Policy == name {
 				pv.Name = name
 				pv.Spec.Name = report.Policy
 				pv.Spec.Policy = report.Policy
-				pv.Spec.ResourceSpec = v1.ResourceSpec{
+				pv.Spec.ResourceSpec = kyverno.ResourceSpec{
 					Name:       report.Resource.Name,
 					Kind:       report.Resource.Kind,
 					APIVersion: report.Resource.APIVersion,
 					Namespace:  report.Resource.Namespace,
 				}
-				pv.Spec.ViolatedRules = append(pv.Spec.ViolatedRules, v1.ViolatedRule{
+				pv.Spec.ViolatedRules = append(pv.Spec.ViolatedRules, kyverno.ViolatedRule{
 					Name:    report.Rule,
 					Message: report.Message,
 				})
