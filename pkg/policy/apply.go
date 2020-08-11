@@ -19,7 +19,7 @@ import (
 
 // applyPolicy applies policy on a resource
 //TODO: generation rules
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (responses []response.EngineResponse) {
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger,excludeGroupRole []string) (responses []response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -47,7 +47,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}
 
 	//VALIDATION
-	engineResponseValidation = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource})
+	engineResponseValidation = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource,ExcludeGroupRole: excludeGroupRole})
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	//TODO: GENERATION

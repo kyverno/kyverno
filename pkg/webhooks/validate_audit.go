@@ -5,6 +5,7 @@ import (
 	"github.com/minio/minio/cmd/logger"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/constant"
 	enginectx "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/event"
@@ -50,6 +51,7 @@ type auditHandler struct {
 	crbSynced cache.InformerSynced
 
 	log logr.Logger
+	configHandler config.Interface
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -59,7 +61,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	pvGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
-	log logr.Logger) AuditHandler {
+	log logr.Logger,
+	dynamicConfig config.Interface) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -72,6 +75,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		crbLister:      crbInformer.Lister(),
 		crbSynced:      crbInformer.Informer().HasSynced,
 		log:            log,
+		configHandler : dynamicConfig,
 	}
 }
 
@@ -134,7 +138,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request,h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
 		}
@@ -161,7 +165,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger,h.configHandler)
 	return nil
 }
 
