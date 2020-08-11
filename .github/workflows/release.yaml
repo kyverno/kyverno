@@ -5,7 +5,7 @@ on:
       - '*'
 
 jobs:
-  releaser:
+  docker-and-e2e:
     runs-on: ubuntu-latest
     steps:
       -
@@ -45,6 +45,9 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
 
+  kyvernocli-and-helm:
+    runs-on: ubuntu-latest
+    steps:
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
