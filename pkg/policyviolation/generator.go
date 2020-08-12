@@ -32,7 +32,7 @@ const workQueueRetryLimit = 3
 //Generator creates PV
 type Generator struct {
 	dclient          *dclient.Client
-	policyInformer policyreportinformer.SharedInformerFactory
+
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// get/list cluster policy violation
 	cpvLister kyvernolister.ClusterPolicyViolationLister
@@ -46,6 +46,8 @@ type Generator struct {
 	queue                workqueue.RateLimitingInterface
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
+
+	policyInformer policyreportinformer.SharedInformerFactory
 	prgen policyreport.Generator
 }
 
