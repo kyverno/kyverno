@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -61,6 +62,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().GenerateRequests().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("policyviolations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().PolicyViolations().Informer()}, nil
+
+		// Group=policy.kubernetes.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("clusterpolicyreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().ClusterPolicyReports().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("policyreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().PolicyReports().Informer()}, nil
 
 	}
 
