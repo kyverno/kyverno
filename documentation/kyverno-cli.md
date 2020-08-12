@@ -96,6 +96,37 @@ Use --set flag to pass the values for variables in a policy while applying on a 
 kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
 ```
 
+Use --values_file for applying multiple policies on multiple resources and pass a file containing variables and its values.
+
+```
+kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f value.yaml
+```
+
+Format of value.yaml :
+
+```
+policies:
+  - name: <policy1 name>
+    resources:
+      - name: <resource1 name>
+        values:
+          <variable1 in policy1>: <value>
+          <variable2 in policy1>: <value>
+      - name: <resource2 name>
+        values:
+          <variable1 in policy1>: <value>
+          <variable2 in policy1>: <value>
+  - name: <policy2 name>
+    resources:
+      - name: <resource1 name>
+        values:
+          <variable1 in policy2>: <value>
+          <variable2 in policy2>: <value>
+      - name: <resource2 name>
+        values:
+          <variable1 in policy2>: <value>
+          <variable2 in policy2>: <value>
+```
 
 
 <small>*Read Next >> [Sample Policies](/samples/README.md)*</small>
