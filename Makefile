@@ -157,9 +157,9 @@ kustomize-crd:
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
 release: 
-	kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
-	kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
+	# update image tag
+	cd ./definitions && kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
+	cd ./definitions && kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
 
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
-
