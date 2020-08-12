@@ -272,9 +272,12 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
-	mutatePolicies := ws.pCache.Get(policycache.Mutate)
-	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce)
-	generatePolicies := ws.pCache.Get(policycache.Generate)
+	mutatePolicies := ws.pCache.Get(policycache.Mutate, nil)
+	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce, nil)
+	generatePolicies := ws.pCache.Get(policycache.Generate, nil)
+	
+	nsMutatePolicies := ws.pCache.Get(policycache.Mutate, &request.Namespace)
+	mutatePolicies = append(mutatePolicies, nsMutatePolicies...)
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	var roles, clusterRoles []string
@@ -417,7 +420,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
 
-	policies := ws.pCache.Get(policycache.ValidateEnforce)
+	policies := ws.pCache.Get(policycache.ValidateEnforce, nil)
+	nsPolicies := ws.pCache.Get(policycache.ValidateEnforce, &request.Namespace)
+	policies = append(policies, nsPolicies...)
 	if len(policies) == 0 {
 		logger.V(4).Info("No enforce Validation policy found, returning")
 		return &v1beta1.AdmissionResponse{Allowed: true}

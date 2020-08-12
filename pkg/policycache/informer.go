@@ -23,6 +23,7 @@ type Controller struct {
 // NewPolicyCacheController create a new PolicyController
 func NewPolicyCacheController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
+	nspInformer kyvernoinformer.NamespacePolicyInformer,
 	log logr.Logger) *Controller {
 
 	pc := Controller{
@@ -36,31 +37,61 @@ func NewPolicyCacheController(
 		DeleteFunc: pc.deletePolicy,
 	})
 
+	nspInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	})
+
 	pc.pSynched = pInformer.Informer().HasSynced
 
 	return &pc
 }
+// convertNamespacedPolicyToClusterPolicy - convert NamespacePolicy to ClusterPolicy
+func convertNamespacedPolicyToClusterPolicy(nsPolicies *kyverno.NamespacePolicy) *kyverno.ClusterPolicy {
+	cpol := kyverno.ClusterPolicy(*nsPolicies)
+	return &cpol
+}
 
 func (c *Controller) addPolicy(obj interface{}) {
-	p := obj.(*kyverno.ClusterPolicy)
-	c.Cache.Add(p)
+	p, ok := obj.(*kyverno.ClusterPolicy)
+	if ok {
+		c.Cache.Add(p)
+	} else {
+		p := obj.(*kyverno.NamespacePolicy)
+		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(p))
+	}
 }
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
-	pOld := old.(*kyverno.ClusterPolicy)
-	pNew := cur.(*kyverno.ClusterPolicy)
+	pOld, ok := old.(*kyverno.ClusterPolicy)
+	pNew, ok := cur.(*kyverno.ClusterPolicy)
 
 	if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
 		return
 	}
-
-	c.Cache.Remove(pOld)
-	c.Cache.Add(pNew)
+	if ok {
+		c.Cache.Remove(pOld)
+		c.Cache.Add(pNew)
+	} else {
+		pOld := old.(*kyverno.NamespacePolicy)
+		pNew := cur.(*kyverno.NamespacePolicy)
+		if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
+			return
+		}
+		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(pOld))
+		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(pNew))
+	}
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	p := obj.(*kyverno.ClusterPolicy)
-	c.Cache.Remove(p)
+	p, ok := obj.(*kyverno.ClusterPolicy)
+	if ok {
+		c.Cache.Remove(p)
+	} else {
+		p := obj.(*kyverno.NamespacePolicy)
+		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(p))
+	}
 }
 
 // Run waits until policy informer to be synced

@@ -93,6 +93,22 @@ type ClusterPolicyList struct {
 	Items           []ClusterPolicy `json:"items" yaml:"items"`
 }
 
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacePolicy ...
+type NamespacePolicy Policy
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacePolicyList ...
+type NamespacePolicyList struct {
+	metav1.TypeMeta `json:",inline" yaml:",inline"`
+	metav1.ListMeta `json:"metadata" yaml:"metadata"`
+	Items           []NamespacePolicy `json:"items" yaml:"items"`
+}
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

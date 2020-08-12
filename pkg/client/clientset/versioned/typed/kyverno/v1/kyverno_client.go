@@ -29,6 +29,7 @@ type KyvernoV1Interface interface {
 	ClusterPoliciesGetter
 	ClusterPolicyViolationsGetter
 	GenerateRequestsGetter
+	NamespacePoliciesGetter
 	PolicyViolationsGetter
 }
 
@@ -47,6 +48,10 @@ func (c *KyvernoV1Client) ClusterPolicyViolations() ClusterPolicyViolationInterf
 
 func (c *KyvernoV1Client) GenerateRequests(namespace string) GenerateRequestInterface {
 	return newGenerateRequests(c, namespace)
+}
+
+func (c *KyvernoV1Client) NamespacePolicies(namespace string) NamespacePolicyInterface {
+	return newNamespacePolicies(c, namespace)
 }
 
 func (c *KyvernoV1Client) PolicyViolations(namespace string) PolicyViolationInterface {
