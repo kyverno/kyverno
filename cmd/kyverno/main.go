@@ -235,6 +235,7 @@ func main() {
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().NamespacePolicies(),
 		log.Log.WithName("PolicyCacheController"),
 	)
 
