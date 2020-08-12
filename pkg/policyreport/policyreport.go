@@ -6,32 +6,32 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// PolicyReportToKyvernoPolicyReport
-func PolicyReportToKyvernoPolicyReport(reports *policyreport.PolicyReport, name string) *kyverno.PolicyViolation {
-	pv := &kyverno.PolicyViolation{}
-	status := true
-	for _, report := range reports.Results {
-		if report.Policy == name {
-			if status {
-				pv.Name = name
-				pv.Spec.Name = report.Policy
-				pv.Spec.Policy = report.Policy
-				pv.Spec.ResourceSpec = kyverno.ResourceSpec{
-					Name:       report.Resource.Name,
-					Kind:       report.Resource.Kind,
-					APIVersion: report.Resource.APIVersion,
-					Namespace:  report.Resource.Namespace,
-				}
-				status = false
-			}
-			pv.Spec.ViolatedRules = append(pv.Spec.ViolatedRules, kyverno.ViolatedRule{
-				Name:    report.Rule,
-				Message: report.Message,
-			})
+// RemovePolicyViolation
+func RemovePolicyViolation(reports *policyreport.PolicyReport, name string) *policyreport.PolicyReport {
+	pv := &policyreport.PolicyReport{}
+	pv = reports
+	pv.Results = []*policyreport.PolicyReportResult{}
+	for _, result := range reports.Results {
+		if result.Policy != name {
+			pv.Results = append(pv.Results,result)
 		}
 	}
 	return pv
 }
+
+//RemoveClusterPolicyViolation
+func RemoveClusterPolicyViolation(reports *policyreport.ClusterPolicyReport, name string) *policyreport.ClusterPolicyReport {
+	pv := &policyreport.ClusterPolicyReport{}
+	pv = reports
+	pv.Results = []*policyreport.PolicyReportResult{}
+	for _, result := range reports.Results {
+		if result.Policy != name {
+			pv.Results = append(pv.Results,result)
+		}
+	}
+	return pv
+}
+
 
 
 // KyvernoPolicyReportToPolicyReport
