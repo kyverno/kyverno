@@ -70,7 +70,7 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 	configName := wrc.GetResourceMutatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind, "name", configName)
 	// delete webhook configuration
-	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource("", MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(4).Info("webhook configuration not found")
 		return
@@ -144,7 +144,7 @@ func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() s
 func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() {
 	configName := wrc.GetResourceValidatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
-	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource("", ValidatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
 		return

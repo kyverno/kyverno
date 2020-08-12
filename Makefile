@@ -3,7 +3,7 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --dirty --always --tags)
+GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
@@ -68,6 +68,7 @@ docker-build-kyverno:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest"
 	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
@@ -75,6 +76,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 ##################################
+
 # Generate Docs for types.go
 ##################################
 
@@ -89,6 +91,19 @@ CLI_PATH := cmd/cli/kubectl-kyverno
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
+
+##################################
+docker-publish-all: docker-publish-initContainer docker-publish-kyverno
+
+docker-build-all: docker-build-initContainer docker-build-kyverno
+
+ci:
+	echo "kustomize input"
+	chmod a+x $(PWD)/scripts/ci.sh
+	$(PWD)/scripts/ci.sh
+
+
+##################################
 
 ##################################
 # Testing & Code-Coverage 
@@ -122,6 +137,12 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
 
+# Test E2E
+test-e2e:
+	$(eval export E2E="ok")
+	go test ./test/e2e/... -v
+	$(eval export E2E="")
+
 # godownloader create downloading script for kyverno-cli
 godownloader:
 	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
@@ -137,3 +158,12 @@ kustomize-crd:
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
+
+# guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
+release: 
+	# update image tag
+	cd ./definitions && kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
+	cd ./definitions && kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
+
+	kustomize build ./definitions > ./definitions/install.yaml
+	kustomize build ./definitions > ./definitions/release/install.yaml

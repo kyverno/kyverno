@@ -78,7 +78,12 @@ func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) schema.GroupVersionRes
 	return c.getGVR(resource)
 }
 
-func (c *fakeDiscoveryClient) FindResource(kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
+	resource := strings.ToLower(kind) + "s"
+	return c.getGVR(resource)
+}
+
+func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("Not implemented")
 }
 

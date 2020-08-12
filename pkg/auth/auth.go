@@ -67,7 +67,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	logger := o.log.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

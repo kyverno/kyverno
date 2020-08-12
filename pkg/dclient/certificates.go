@@ -75,14 +75,14 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 	if err != nil {
 		return nil, err
 	}
-	csrList, err := c.ListResource(CSRs, "", nil)
+	csrList, err := c.ListResource("", CSRs, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to list existing certificate requests: %v", err)
 	}
 
 	for _, csr := range csrList.Items {
 		if csr.GetName() == req.ObjectMeta.Name {
-			err := c.DeleteResource(CSRs, "", csr.GetName(), false)
+			err := c.DeleteResource("", CSRs, "", csr.GetName(), false)
 			if err != nil {
 				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
 			}
@@ -91,7 +91,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 		}
 	}
 
-	unstrRes, err := c.CreateResource(CSRs, "", req, false)
+	unstrRes, err := c.CreateResource("", CSRs, "", req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSignin
 	// TODO: react of SIGINT and SIGTERM
 	timeStart := time.Now()
 	for time.Since(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		unstrR, err := c.GetResource(CSRs, "", req.ObjectMeta.Name)
+		unstrR, err := c.GetResource("", CSRs, "", req.ObjectMeta.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +151,7 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 		return result
 	}
 	sname := generateRootCASecretName(certProps)
-	stlsca, err := c.GetResource(Secrets, certProps.Namespace, sname)
+	stlsca, err := c.GetResource("", Secrets, certProps.Namespace, sname)
 	if err != nil {
 		return result
 	}
@@ -177,7 +177,7 @@ const rootCAKey string = "rootCA.crt"
 func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	logger := c.log.WithName("ReadTlsPair")
 	sname := generateTLSPairSecretName(props)
-	unstrSecret, err := c.GetResource(Secrets, props.Namespace, sname)
+	unstrSecret, err := c.GetResource("", Secrets, props.Namespace, sname)
 	if err != nil {
 		logger.Error(err, "Failed to get secret", "name", sname, "namespace", props.Namespace)
 		return nil
@@ -188,7 +188,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	annotations := unstrSecret.GetAnnotations()
 	if _, ok := annotations[selfSignedAnnotation]; ok {
 		sname := generateRootCASecretName(props)
-		_, err := c.GetResource(Secrets, props.Namespace, sname)
+		_, err := c.GetResource("", Secrets, props.Namespace, sname)
 		if err != nil {
 			logger.Error(err, "Root CA secret is required while using self-signed certificates TLS pair, defaulting to generating new TLS pair", "name", sname, "namespace", props.Namespace)
 			return nil
@@ -218,7 +218,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	logger := c.log.WithName("WriteTlsPair")
 	name := generateTLSPairSecretName(props)
-	_, err := c.GetResource(Secrets, props.Namespace, name)
+	_, err := c.GetResource("", Secrets, props.Namespace, name)
 	if err != nil {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -236,7 +236,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 			Type: v1.SecretTypeTLS,
 		}
 
-		_, err := c.CreateResource(Secrets, props.Namespace, secret, false)
+		_, err := c.CreateResource("", Secrets, props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
 		}
@@ -250,7 +250,7 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 	secret.Data[v1.TLSCertKey] = pemPair.Certificate
 	secret.Data[v1.TLSPrivateKeyKey] = pemPair.PrivateKey
 
-	_, err = c.UpdateResource(Secrets, props.Namespace, secret, false)
+	_, err = c.UpdateResource("", Secrets, props.Namespace, secret, false)
 	if err != nil {
 		return err
 	}

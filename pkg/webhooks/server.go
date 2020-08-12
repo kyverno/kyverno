@@ -280,7 +280,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var roles, clusterRoles []string
 	var err error
 	if containRBACinfo(mutatePolicies, validatePolicies, generatePolicies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request,ws.configHandler)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
 			logger.Error(err, "failed to get RBAC infromation for request")
@@ -342,7 +342,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log,ws.configHandler)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -364,7 +364,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Failed -> Failed to create Generate Request CR
 
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo,ws.configHandler)
 	}
 
 	// Succesful processing of mutation & validation rules in policy
@@ -427,7 +427,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	var err error
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request,ws.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
 			return &v1beta1.AdmissionResponse{
@@ -463,7 +463,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log,ws.configHandler)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
@@ -577,13 +577,13 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 		labels := resource.GetLabels()
 		if labels != nil {
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
-				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request,ws.configHandler)
 				if err != nil {
 					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.",labels["policy.kyverno.io/policy-name"])
+					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

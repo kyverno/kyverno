@@ -4,4 +4,11 @@ kind: Kustomization
 resources:
 - ./crds/
 - ./manifest/
-- ./rbac/
+- ./k8s-resource/
+images:
+- name: nirmata/kyverno
+  newName: nirmata/kyverno
+  newTag: v1.1.9
+- name: nirmata/kyvernopre
+  newName: nirmata/kyvernopre
+  newTag: v1.1.9

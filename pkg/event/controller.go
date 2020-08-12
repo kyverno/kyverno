@@ -184,7 +184,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource(key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
 			return err

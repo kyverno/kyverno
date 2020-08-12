@@ -92,6 +92,8 @@ spec:
                     type: object
                   generate:
                     properties:
+                      apiVersion:
+                        type: string
                       clone:
                         properties:
                           name:
@@ -185,6 +187,8 @@ spec:
                     properties:
                       overlay:
                         AnyValue: {}
+                      patchStrategicMerge:
+                        AnyValue: {}
                       patches:
                         items:
                           properties:
@@ -203,6 +207,8 @@ spec:
                           - op
                           type: object
                         type: array
+                      patchesJson6902:
+                        type: string
                     type: object
                   name:
                     type: string
@@ -725,6 +731,7 @@ subjects:
 ---
 apiVersion: v1
 data:
+  excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
   resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]'
 kind: ConfigMap
 metadata:

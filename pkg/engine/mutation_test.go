@@ -79,6 +79,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 		t.Error(err)
 	}
 	value, err := ctx.Query("request.object.metadata.name")
+
 	t.Log(value)
 	if err != nil {
 		t.Error(err)

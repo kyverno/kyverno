@@ -44,7 +44,7 @@ func retryGetResource(client *client.Client, rspec kyverno.ResourceSpec) (*unstr
 	var obj *unstructured.Unstructured
 	var err error
 	getResource := func() error {
-		obj, err = client.GetResource(rspec.Kind, rspec.Namespace, rspec.Name)
+		obj, err = client.GetResource("", rspec.Kind, rspec.Namespace, rspec.Name)
 		log.Log.V(4).Info(fmt.Sprintf("retry %v getting %s/%s/%s", i, rspec.Kind, rspec.Namespace, rspec.Name))
 		i++
 		return err

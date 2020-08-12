@@ -47,7 +47,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 		}
 
 		// apply the policy on each
-		engineResponse := applyPolicy(*policy, resource, logger)
+		engineResponse := applyPolicy(*policy, resource, logger,pc.configHandler.GetExcludeGroupRole())
 		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed
@@ -65,7 +65,7 @@ func (pc *PolicyController) listResources(policy *kyverno.ClusterPolicy) map[str
 	for _, rule := range policy.Spec.Rules {
 		for _, k := range rule.MatchResources.Kinds {
 
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(k)
+			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
 			if err != nil {
 				pc.log.Error(err, "failed to find resource", "kind", k)
 				continue
@@ -179,7 +179,7 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		namespace = ""
 	}
 
-	list, err := client.ListResource(kind, namespace, ls)
+	list, err := client.ListResource("", kind, namespace, ls)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil

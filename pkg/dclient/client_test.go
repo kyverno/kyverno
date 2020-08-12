@@ -63,32 +63,32 @@ func newFixture(t *testing.T) *fixture {
 func TestCRUDResource(t *testing.T) {
 	f := newFixture(t)
 	// Get Resource
-	_, err := f.client.GetResource("thekind", "ns-foo", "name-foo")
+	_, err := f.client.GetResource("", "thekind", "ns-foo", "name-foo")
 	if err != nil {
 		t.Errorf("GetResource not working: %s", err)
 	}
 	// List Resources
-	_, err = f.client.ListResource("thekind", "ns-foo", nil)
+	_, err = f.client.ListResource("", "thekind", "ns-foo", nil)
 	if err != nil {
 		t.Errorf("ListResource not working: %s", err)
 	}
 	// DeleteResouce
-	err = f.client.DeleteResource("thekind", "ns-foo", "name-bar", false)
+	err = f.client.DeleteResource("", "thekind", "ns-foo", "name-bar", false)
 	if err != nil {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource("thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
+	_, err = f.client.CreateResource("", "thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource("thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
+	_, err = f.client.UpdateResource("", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource("thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
+	_, err = f.client.UpdateStatusResource("", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}

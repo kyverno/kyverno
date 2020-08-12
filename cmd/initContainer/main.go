@@ -107,7 +107,7 @@ func removeWebhookIfExists(client *client.Client, kind string, name string) erro
 	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
 	var err error
 	// Get resource
-	_, err = client.GetResource(kind, "", name)
+	_, err = client.GetResource("", kind, "", name)
 	if errors.IsNotFound(err) {
 		logger.V(4).Info("resource not found")
 		return nil
@@ -117,7 +117,7 @@ func removeWebhookIfExists(client *client.Client, kind string, name string) erro
 		return err
 	}
 	// Delete resource
-	err = client.DeleteResource(kind, "", name, false)
+	err = client.DeleteResource("", kind, "", name, false)
 	if err != nil {
 		logger.Error(err, "failed to delete resource")
 		return err

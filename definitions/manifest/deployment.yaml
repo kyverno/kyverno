@@ -19,10 +19,11 @@ spec:
       serviceAccountName: kyverno-service-account
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.8
+          image: nirmata/kyvernopre:v1.1.9
+          imagePullPolicy: Always
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.8
+          image: nirmata/kyverno:v1.1.9
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
@@ -30,18 +31,19 @@ spec:
           #- "--webhooktimeout=4"
           # enable profiling
           # - "--profile"
+          - --excludeGroupRole="system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler"
           - "-v=2"
           ports:
-          - containerPort: 443
+            - containerPort: 443
           env:
-          - name: INIT_CONFIG
-            value: init-config
-          - name: KYVERNO_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: KYVERNO_SVC
-            value: kyverno-svc
+            - name: INIT_CONFIG
+              value: init-config
+            - name: KYVERNO_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KYVERNO_SVC
+              value: kyverno-svc
           resources:
             requests:
               memory: "50Mi"
@@ -68,3 +70,4 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
+
