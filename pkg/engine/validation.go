@@ -134,9 +134,18 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 					Type:    utils.Validation.String(),
 					Message: rule.Validation.Message,
 					Success: false,
+					Check: "fail",
 				}
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 			}
+			ruleResp := response.RuleResponse{
+				Name:    rule.Name,
+				Type:    utils.Validation.String(),
+				Message: rule.Validation.Message,
+				Success: true,
+				Check: "pass",
+			}
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 			continue
 		}
 

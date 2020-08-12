@@ -1,9 +1,6 @@
-package policyviolation
+package policyreport
 
 import (
-	"errors"
-	"github.com/nirmata/kyverno/pkg/policyreport"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -11,10 +8,11 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	policyreportclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	policyreportlister "github.com/nirmata/kyverno/pkg/client/listers/policyreport/v1alpha1"
+
 	"github.com/nirmata/kyverno/pkg/constant"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 
@@ -32,21 +30,20 @@ const workQueueRetryLimit = 3
 //Generator creates PV
 type Generator struct {
 	dclient          *dclient.Client
-	policyInformer policyreportinformer.SharedInformerFactory
-	kyvernoInterface kyvernov1.KyvernoV1Interface
-	// get/list cluster policy violation
-	cpvLister kyvernolister.ClusterPolicyViolationLister
-	// get/ist namespaced policy violation
-	nspvLister kyvernolister.PolicyViolationLister
+
+	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
+	// get/list cluster policy report
+	cprLister policyreportlister.ClusterPolicyReportLister
+	// get/ist namespaced policy report
+	nsprLister policyreportlister.PolicyReportLister
 	// returns true if the cluster policy store has been synced at least once
-	pvSynced cache.InformerSynced
+	prSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
 	log                  logr.Logger
-	nspvSynced           cache.InformerSynced
+	nsprSynced           cache.InformerSynced
 	queue                workqueue.RateLimitingInterface
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
-	prgen policyreport.Generator
 }
 
 //NewDataStore returns an instance of data store
@@ -107,41 +104,25 @@ type GeneratorInterface interface {
 	Add(infos ...Info)
 }
 
-// NewPVGenerator returns a new instance of policy violation generator
-func NewPVGenerator(client *kyvernoclient.Clientset,
+// NewPRGenerator returns a new instance of policy violation generator
+func NewPRGenerator(client *policyreportclient.Clientset,
 	dclient *dclient.Client,
-	policyInformer policyreportinformer.SharedInformerFactory,
-	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	prInformer policyreportinformer.ClusterPolicyReportInformer,
+	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
 	log logr.Logger) *Generator {
 	gen := Generator{
-		kyvernoInterface:     client.KyvernoV1(),
-		policyInformer: policyInformer,
+		policyreportInterface:     client.PolicyV1alpha1(),
 		dclient:              dclient,
-		cpvLister:            pvInformer.Lister(),
-		pvSynced:             pvInformer.Informer().HasSynced,
-		nspvLister:           nspvInformer.Lister(),
-		nspvSynced:           nspvInformer.Informer().HasSynced,
+		cprLister:            prInformer.Lister(),
+		prSynced:             prInformer.Informer().HasSynced,
+		nsprLister:           nsprInformer.Lister(),
+		nsprSynced:           nsprInformer.Informer().HasSynced,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
 		log:                  log,
 		policyStatusListener: policyStatus,
-		prgen: policyreport.Generator{},
 	}
-	if os.Getenv("REPORT_TYPE") == "POLICYREPORT" {
-		// POLICY Report GENERATOR
-		// -- generate policy violation
-		prgen := policyreport.NewPRGenerator(client,
-			dclient,
-			policyInformer.Policy().V1alpha1().ClusterPolicyReports(),
-			policyInformer.Policy().V1alpha1().PolicyReports(),
-			policyStatus,
-			log,
-		)
-		gen.prgen = *prgen
-	}
-
 	return &gen
 }
 
@@ -168,7 +149,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, gen.pvSynced, gen.nspvSynced) {
+	if !cache.WaitForCacheSync(stopCh, gen.prSynced, gen.nsprSynced) {
 		logger.Info("failed to sync informer cache")
 	}
 
@@ -248,45 +229,25 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
-		gen.prgen.Add(policyreport.Info(info))
-		return nil
+	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(),info.Resource.GetKind(),info.Resource.GetName(),info.Resource.GetNamespace())
+	if  err != nil {
+		logger.Error(err, "failed to get resource")
 	}
-	var handler pvGenerator
-	builder := newPvBuilder()
-	if info.Resource.GetNamespace() == "" {
+	labels := resource.GetLabels();
+	if _,okChart := labels["helm.sh/chart"]; !okChart {
+		// cluster scope resource generate a helm package report
+		handler := newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
+	}else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.log.WithName("ClusterPV"), gen.dclient, gen.cpvLister, gen.kyvernoInterface, gen.policyStatusListener)
+		handler := newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nspvLister, gen.kyvernoInterface, gen.policyStatusListener)
+		handler := newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+		handler.Add(info)
 	}
 
-	failure := false
-	pv := builder.generate(info)
-
-	if info.FromSync {
-		pv.Annotations = map[string]string{
-			"fromSync": "true",
-		}
-	}
-
-	// Create Policy Violations
-	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := handler.create(pv); err != nil {
-		failure = true
-		logger.Error(err, "failed to create policy violation")
-	}
-
-	if failure {
-		// even if there is a single failure we requeue the request
-		return errors.New("Failed to process some policy violations, re-queuing")
-	}
 	return nil
 }
 
-// Provides an interface to generate policy violations
-// implementations for namespaced and cluster PV
-type pvGenerator interface {
-	create(policyViolation kyverno.PolicyViolationTemplate) error
-}

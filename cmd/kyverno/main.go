@@ -48,6 +48,7 @@ var (
 	filterK8Resources string
 	// User FQDN as CSR CN
 	fqdncn   bool
+	policyReport bool
 	setupLog = log.Log.WithName("setup")
 )
 
@@ -60,6 +61,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.BoolVar(&policyReport, "policyreport", false, "Report Type")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -71,6 +73,11 @@ func main() {
 
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
+	}
+
+	os.Setenv("REPORT_TYPE","POLICYVIOLATION")
+	if policyReport {
+		os.Setenv("REPORT_TYPE","POLICYREPORT")
 	}
 
 	version.PrintVersionInfo(log.Log)
@@ -143,6 +150,11 @@ func main() {
 	//		- PolicyVolation
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
+	// Policy Report CRD INFORMER
+	// watches CRD resources:
+	//		- PolicyReport
+	prInformer := policyreportinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
+
 	// Configuration Data
 	// dynamically load the configuration from configMap
 	// - resource filters
@@ -166,10 +178,12 @@ func main() {
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
+		prInformer,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
 		statusSync.Listener,
