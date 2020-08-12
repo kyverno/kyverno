@@ -93,8 +93,7 @@ type ClusterPolicyList struct {
 	Items           []ClusterPolicy `json:"items" yaml:"items"`
 }
 
-// +genclient
-// +genclient:nonNamespaced
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterKyvernoPolicyReport represents cluster-wide violations
@@ -109,7 +108,7 @@ type ClusterKyvernoPolicyReportList struct {
 	Items           []ClusterKyvernoPolicyReport `json:"items" yaml:"items"`
 }
 
-// +genclient
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KyvernoPolicyReport represents namespaced violations
@@ -341,7 +340,6 @@ type RuleStats struct {
 }
 
 // PolicyList is a list of Policy resources
-
 // KyvernoPolicyReportTemplate stores the information regarinding the resources for which a policy failed to apply
 type KyvernoPolicyReportTemplate struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`

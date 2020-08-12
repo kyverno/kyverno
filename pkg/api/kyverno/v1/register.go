@@ -34,10 +34,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ClusterPolicy{},
 		&ClusterPolicyList{},
-		&ClusterPolicyViolation{},
-		&ClusterPolicyViolationList{},
-		&PolicyViolation{},
-		&PolicyViolationList{},
 		&GenerateRequest{},
 		&GenerateRequestList{},
 	)
