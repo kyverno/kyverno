@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -41,7 +39,7 @@ var kyvernopolicyreportsResource = schema.GroupVersionResource{Group: "kyverno.i
 var kyvernopolicyreportsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "KyvernoPolicyReport"}
 
 // Get takes name of the kyvernoPolicyReport, and returns the corresponding kyvernoPolicyReport object, and an error if there is any.
-func (c *FakeKyvernoPolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.KyvernoPolicyReport, err error) {
+func (c *FakeKyvernoPolicyReports) Get(name string, options v1.GetOptions) (result *kyvernov1.KyvernoPolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(kyvernopolicyreportsResource, c.ns, name), &kyvernov1.KyvernoPolicyReport{})
 
@@ -52,7 +50,7 @@ func (c *FakeKyvernoPolicyReports) Get(ctx context.Context, name string, options
 }
 
 // List takes label and field selectors, and returns the list of KyvernoPolicyReports that match those selectors.
-func (c *FakeKyvernoPolicyReports) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.KyvernoPolicyReportList, err error) {
+func (c *FakeKyvernoPolicyReports) List(opts v1.ListOptions) (result *kyvernov1.KyvernoPolicyReportList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(kyvernopolicyreportsResource, kyvernopolicyreportsKind, c.ns, opts), &kyvernov1.KyvernoPolicyReportList{})
 
@@ -74,14 +72,14 @@ func (c *FakeKyvernoPolicyReports) List(ctx context.Context, opts v1.ListOptions
 }
 
 // Watch returns a watch.Interface that watches the requested kyvernoPolicyReports.
-func (c *FakeKyvernoPolicyReports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeKyvernoPolicyReports) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(kyvernopolicyreportsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a kyvernoPolicyReport and creates it.  Returns the server's representation of the kyvernoPolicyReport, and an error, if there is any.
-func (c *FakeKyvernoPolicyReports) Create(ctx context.Context, kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport, opts v1.CreateOptions) (result *kyvernov1.KyvernoPolicyReport, err error) {
+func (c *FakeKyvernoPolicyReports) Create(kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport) (result *kyvernov1.KyvernoPolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(kyvernopolicyreportsResource, c.ns, kyvernoPolicyReport), &kyvernov1.KyvernoPolicyReport{})
 
@@ -92,7 +90,7 @@ func (c *FakeKyvernoPolicyReports) Create(ctx context.Context, kyvernoPolicyRepo
 }
 
 // Update takes the representation of a kyvernoPolicyReport and updates it. Returns the server's representation of the kyvernoPolicyReport, and an error, if there is any.
-func (c *FakeKyvernoPolicyReports) Update(ctx context.Context, kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport, opts v1.UpdateOptions) (result *kyvernov1.KyvernoPolicyReport, err error) {
+func (c *FakeKyvernoPolicyReports) Update(kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport) (result *kyvernov1.KyvernoPolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(kyvernopolicyreportsResource, c.ns, kyvernoPolicyReport), &kyvernov1.KyvernoPolicyReport{})
 
@@ -104,7 +102,7 @@ func (c *FakeKyvernoPolicyReports) Update(ctx context.Context, kyvernoPolicyRepo
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeKyvernoPolicyReports) UpdateStatus(ctx context.Context, kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport, opts v1.UpdateOptions) (*kyvernov1.KyvernoPolicyReport, error) {
+func (c *FakeKyvernoPolicyReports) UpdateStatus(kyvernoPolicyReport *kyvernov1.KyvernoPolicyReport) (*kyvernov1.KyvernoPolicyReport, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(kyvernopolicyreportsResource, "status", c.ns, kyvernoPolicyReport), &kyvernov1.KyvernoPolicyReport{})
 
@@ -115,7 +113,7 @@ func (c *FakeKyvernoPolicyReports) UpdateStatus(ctx context.Context, kyvernoPoli
 }
 
 // Delete takes name of the kyvernoPolicyReport and deletes it. Returns an error if one occurs.
-func (c *FakeKyvernoPolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeKyvernoPolicyReports) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(kyvernopolicyreportsResource, c.ns, name), &kyvernov1.KyvernoPolicyReport{})
 
@@ -123,15 +121,15 @@ func (c *FakeKyvernoPolicyReports) Delete(ctx context.Context, name string, opts
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeKyvernoPolicyReports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(kyvernopolicyreportsResource, c.ns, listOpts)
+func (c *FakeKyvernoPolicyReports) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(kyvernopolicyreportsResource, c.ns, listOptions)
 
 	_, err := c.Fake.Invokes(action, &kyvernov1.KyvernoPolicyReportList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched kyvernoPolicyReport.
-func (c *FakeKyvernoPolicyReports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.KyvernoPolicyReport, err error) {
+func (c *FakeKyvernoPolicyReports) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kyvernov1.KyvernoPolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(kyvernopolicyreportsResource, c.ns, name, pt, data, subresources...), &kyvernov1.KyvernoPolicyReport{})
 

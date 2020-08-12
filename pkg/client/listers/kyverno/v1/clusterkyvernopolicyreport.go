@@ -26,13 +26,10 @@ import (
 )
 
 // ClusterKyvernoPolicyReportLister helps list ClusterKyvernoPolicyReports.
-// All objects returned here must be treated as read-only.
 type ClusterKyvernoPolicyReportLister interface {
 	// List lists all ClusterKyvernoPolicyReports in the indexer.
-	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ClusterKyvernoPolicyReport, err error)
 	// Get retrieves the ClusterKyvernoPolicyReport from the index for a given name.
-	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.ClusterKyvernoPolicyReport, error)
 	ClusterKyvernoPolicyReportListerExpansion
 }

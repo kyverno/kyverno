@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -41,7 +39,7 @@ var policyreportsResource = schema.GroupVersionResource{Group: "policy.kubernete
 var policyreportsKind = schema.GroupVersionKind{Group: "policy.kubernetes.io", Version: "v1alpha1", Kind: "PolicyReport"}
 
 // Get takes name of the policyReport, and returns the corresponding policyReport object, and an error if there is any.
-func (c *FakePolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyReport, err error) {
+func (c *FakePolicyReports) Get(name string, options v1.GetOptions) (result *v1alpha1.PolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(policyreportsResource, c.ns, name), &v1alpha1.PolicyReport{})
 
@@ -52,7 +50,7 @@ func (c *FakePolicyReports) Get(ctx context.Context, name string, options v1.Get
 }
 
 // List takes label and field selectors, and returns the list of PolicyReports that match those selectors.
-func (c *FakePolicyReports) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PolicyReportList, err error) {
+func (c *FakePolicyReports) List(opts v1.ListOptions) (result *v1alpha1.PolicyReportList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(policyreportsResource, policyreportsKind, c.ns, opts), &v1alpha1.PolicyReportList{})
 
@@ -74,14 +72,14 @@ func (c *FakePolicyReports) List(ctx context.Context, opts v1.ListOptions) (resu
 }
 
 // Watch returns a watch.Interface that watches the requested policyReports.
-func (c *FakePolicyReports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakePolicyReports) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(policyreportsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a policyReport and creates it.  Returns the server's representation of the policyReport, and an error, if there is any.
-func (c *FakePolicyReports) Create(ctx context.Context, policyReport *v1alpha1.PolicyReport, opts v1.CreateOptions) (result *v1alpha1.PolicyReport, err error) {
+func (c *FakePolicyReports) Create(policyReport *v1alpha1.PolicyReport) (result *v1alpha1.PolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(policyreportsResource, c.ns, policyReport), &v1alpha1.PolicyReport{})
 
@@ -92,7 +90,7 @@ func (c *FakePolicyReports) Create(ctx context.Context, policyReport *v1alpha1.P
 }
 
 // Update takes the representation of a policyReport and updates it. Returns the server's representation of the policyReport, and an error, if there is any.
-func (c *FakePolicyReports) Update(ctx context.Context, policyReport *v1alpha1.PolicyReport, opts v1.UpdateOptions) (result *v1alpha1.PolicyReport, err error) {
+func (c *FakePolicyReports) Update(policyReport *v1alpha1.PolicyReport) (result *v1alpha1.PolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(policyreportsResource, c.ns, policyReport), &v1alpha1.PolicyReport{})
 
@@ -103,7 +101,7 @@ func (c *FakePolicyReports) Update(ctx context.Context, policyReport *v1alpha1.P
 }
 
 // Delete takes name of the policyReport and deletes it. Returns an error if one occurs.
-func (c *FakePolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakePolicyReports) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(policyreportsResource, c.ns, name), &v1alpha1.PolicyReport{})
 
@@ -111,15 +109,15 @@ func (c *FakePolicyReports) Delete(ctx context.Context, name string, opts v1.Del
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakePolicyReports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(policyreportsResource, c.ns, listOpts)
+func (c *FakePolicyReports) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(policyreportsResource, c.ns, listOptions)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.PolicyReportList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched policyReport.
-func (c *FakePolicyReports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyReport, err error) {
+func (c *FakePolicyReports) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.PolicyReport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(policyreportsResource, c.ns, name, pt, data, subresources...), &v1alpha1.PolicyReport{})
 

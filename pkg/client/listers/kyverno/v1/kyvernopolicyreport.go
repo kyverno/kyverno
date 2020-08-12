@@ -26,10 +26,8 @@ import (
 )
 
 // KyvernoPolicyReportLister helps list KyvernoPolicyReports.
-// All objects returned here must be treated as read-only.
 type KyvernoPolicyReportLister interface {
 	// List lists all KyvernoPolicyReports in the indexer.
-	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.KyvernoPolicyReport, err error)
 	// KyvernoPolicyReports returns an object that can list and get KyvernoPolicyReports.
 	KyvernoPolicyReports(namespace string) KyvernoPolicyReportNamespaceLister
@@ -60,13 +58,10 @@ func (s *kyvernoPolicyReportLister) KyvernoPolicyReports(namespace string) Kyver
 }
 
 // KyvernoPolicyReportNamespaceLister helps list and get KyvernoPolicyReports.
-// All objects returned here must be treated as read-only.
 type KyvernoPolicyReportNamespaceLister interface {
 	// List lists all KyvernoPolicyReports in the indexer for a given namespace.
-	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.KyvernoPolicyReport, err error)
 	// Get retrieves the KyvernoPolicyReport from the indexer for a given namespace and name.
-	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.KyvernoPolicyReport, error)
 	KyvernoPolicyReportNamespaceListerExpansion
 }
