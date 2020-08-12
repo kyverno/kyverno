@@ -1,4 +1,4 @@
-package policyviolation
+package policyreport
 
 import (
 	"testing"

@@ -18,6 +18,7 @@ require (
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
+	github.com/kubernetes-sigs/wg-policy-prototypes/policy-report v0.0.0-20200718230050-8c0eebd6f61b // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/onsi/ginkgo v1.11.0
@@ -33,7 +34,6 @@ require (
 	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 	gotest.tools v2.2.0+incompatible

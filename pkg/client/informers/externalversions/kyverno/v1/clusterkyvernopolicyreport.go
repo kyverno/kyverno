@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	time "time"
 
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -31,58 +32,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterPolicyViolationInformer provides access to a shared informer and lister for
-// ClusterPolicyViolations.
-type ClusterPolicyViolationInformer interface {
+// ClusterKyvernoPolicyReportInformer provides access to a shared informer and lister for
+// ClusterKyvernoPolicyReports.
+type ClusterKyvernoPolicyReportInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ClusterPolicyViolationLister
+	Lister() v1.ClusterKyvernoPolicyReportLister
 }
 
-type clusterPolicyViolationInformer struct {
+type clusterKyvernoPolicyReportInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewClusterPolicyViolationInformer constructs a new informer for ClusterPolicyViolation type.
+// NewClusterKyvernoPolicyReportInformer constructs a new informer for ClusterKyvernoPolicyReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterPolicyViolationInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterPolicyViolationInformer(client, resyncPeriod, indexers, nil)
+func NewClusterKyvernoPolicyReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterKyvernoPolicyReportInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterPolicyViolationInformer constructs a new informer for ClusterPolicyViolation type.
+// NewFilteredClusterKyvernoPolicyReportInformer constructs a new informer for ClusterKyvernoPolicyReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterPolicyViolationInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterKyvernoPolicyReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().ClusterPolicyViolations().List(options)
+				return client.KyvernoV1().ClusterKyvernoPolicyReports().List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().ClusterPolicyViolations().Watch(options)
+				return client.KyvernoV1().ClusterKyvernoPolicyReports().Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov1.ClusterPolicyViolation{},
+		&kyvernov1.ClusterKyvernoPolicyReport{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterPolicyViolationInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterPolicyViolationInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterKyvernoPolicyReportInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterKyvernoPolicyReportInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterPolicyViolationInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1.ClusterPolicyViolation{}, f.defaultInformer)
+func (f *clusterKyvernoPolicyReportInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kyvernov1.ClusterKyvernoPolicyReport{}, f.defaultInformer)
 }
 
-func (f *clusterPolicyViolationInformer) Lister() v1.ClusterPolicyViolationLister {
-	return v1.NewClusterPolicyViolationLister(f.Informer().GetIndexer())
+func (f *clusterKyvernoPolicyReportInformer) Lister() v1.ClusterKyvernoPolicyReportLister {
+	return v1.NewClusterKyvernoPolicyReportLister(f.Informer().GetIndexer())
 }

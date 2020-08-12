@@ -26,8 +26,10 @@ import (
 )
 
 // PolicyViolationLister helps list PolicyViolations.
+// All objects returned here must be treated as read-only.
 type PolicyViolationLister interface {
 	// List lists all PolicyViolations in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.PolicyViolation, err error)
 	// PolicyViolations returns an object that can list and get PolicyViolations.
 	PolicyViolations(namespace string) PolicyViolationNamespaceLister
@@ -58,10 +60,13 @@ func (s *policyViolationLister) PolicyViolations(namespace string) PolicyViolati
 }
 
 // PolicyViolationNamespaceLister helps list and get PolicyViolations.
+// All objects returned here must be treated as read-only.
 type PolicyViolationNamespaceLister interface {
 	// List lists all PolicyViolations in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.PolicyViolation, err error)
 	// Get retrieves the PolicyViolation from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.PolicyViolation, error)
 	PolicyViolationNamespaceListerExpansion
 }

@@ -97,31 +97,31 @@ type ClusterPolicyList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterPolicyViolation represents cluster-wide violations
-type ClusterPolicyViolation PolicyViolationTemplate
+// ClusterKyvernoPolicyReport represents cluster-wide violations
+type ClusterKyvernoPolicyReport KyvernoPolicyReportTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterPolicyViolationList ...
-type ClusterPolicyViolationList struct {
+// ClusterKyvernoPolicyReportList ...
+type ClusterKyvernoPolicyReportList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []ClusterPolicyViolation `json:"items" yaml:"items"`
+	Items           []ClusterKyvernoPolicyReport `json:"items" yaml:"items"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PolicyViolation represents namespaced violations
-type PolicyViolation PolicyViolationTemplate
+// KyvernoPolicyReport represents namespaced violations
+type KyvernoPolicyReport KyvernoPolicyReportTemplate
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PolicyViolationList ...
-type PolicyViolationList struct {
+// KyvernoPolicyReportList ...
+type KyvernoPolicyReportList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []PolicyViolation `json:"items" yaml:"items"`
+	Items           []KyvernoPolicyReport `json:"items" yaml:"items"`
 }
 
 // Policy contains rules to be applied to created resources
@@ -342,16 +342,16 @@ type RuleStats struct {
 
 // PolicyList is a list of Policy resources
 
-// PolicyViolationTemplate stores the information regarinding the resources for which a policy failed to apply
-type PolicyViolationTemplate struct {
+// KyvernoPolicyReportTemplate stores the information regarinding the resources for which a policy failed to apply
+type KyvernoPolicyReportTemplate struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty" `
-	Spec              PolicyViolationSpec   `json:"spec" yaml:"spec"`
-	Status            PolicyViolationStatus `json:"status" yaml:"status"`
+	Spec              KyvernoPolicyReportSpec   `json:"spec" yaml:"spec"`
+	Status            KyvernoPolicyReportStatus `json:"status" yaml:"status"`
 }
 
-// PolicyViolationSpec describes policy behavior by its rules
-type PolicyViolationSpec struct {
+// KyvernoPolicyReportSpec describes policy behavior by its rules
+type KyvernoPolicyReportSpec struct {
 	// Specifies name of the policy
 	Policy       string `json:"policy" yaml:"policy"`
 	ResourceSpec `json:"resource" yaml:"resource"`
@@ -382,12 +382,14 @@ type ViolatedRule struct {
 	Type string `json:"type" yaml:"type"`
 	// Specifies violation message
 	Message string `json:"message" yaml:"message"`
+	// Status violation
+	Status string `json:"status" yaml:"status"`
 }
 
-//PolicyViolationStatus provides information regarding policyviolation status
+//KyvernoPolicyReportStatus provides information regarding policyviolation status
 // status:
 //		LastUpdateTime : the time the policy violation was updated
-type PolicyViolationStatus struct {
+type KyvernoPolicyReportStatus struct {
 	// LastUpdateTime : the time the policy violation was updated
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty" yaml:"lastUpdateTime,omitempty"`
 }

@@ -18,10 +18,10 @@ limitations under the License.
 
 package v1
 
-type ClusterPolicyExpansion interface{}
+type ClusterKyvernoPolicyReportExpansion interface{}
 
-type ClusterPolicyViolationExpansion interface{}
+type ClusterPolicyExpansion interface{}
 
 type GenerateRequestExpansion interface{}
 
-type PolicyViolationExpansion interface{}
+type KyvernoPolicyReportExpansion interface{}

@@ -1,4 +1,4 @@
-package policyviolation
+package policyreport
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 // Builder builds Policy Violation struct
 // this is base type of namespaced and cluster policy violation
 type Builder interface {
-	generate(info Info) kyverno.PolicyViolationTemplate
-	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate
+	generate(info Info) kyverno.KyvernoPolicyReportTemplate
+	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.KyvernoPolicyReportTemplate
 }
 
 type pvBuilder struct{}
@@ -40,14 +40,14 @@ func newPvBuilder() *pvBuilder {
 	return &pvBuilder{}
 }
 
-func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {
+func (pvb *pvBuilder) generate(info Info) kyverno.KyvernoPolicyReportTemplate {
 	pv := pvb.build(info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName(), info.Rules)
 	return *pv
 }
 
-func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
-	pv := &kyverno.PolicyViolationTemplate{
-		Spec: kyverno.PolicyViolationSpec{
+func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.KyvernoPolicyReportTemplate {
+	pv := &kyverno.KyvernoPolicyReportTemplate{
+		Spec: kyverno.KyvernoPolicyReportSpec{
 			Policy: policy,
 			ResourceSpec: kyverno.ResourceSpec{
 				Kind:      kind,
@@ -88,6 +88,7 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
+			Status: rule.Status,
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

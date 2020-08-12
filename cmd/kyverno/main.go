@@ -22,7 +22,7 @@ import (
 	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/version"
@@ -175,10 +175,10 @@ func main() {
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient,
+	pvgen := policyreport.NewPVGenerator(pclient,
 		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
 		statusSync.Listener,
 		log.Log.WithName("PolicyViolationGenerator"),
 	)
@@ -190,8 +190,6 @@ func main() {
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
 		configData,
 		eventGenerator,
 		pvgen,

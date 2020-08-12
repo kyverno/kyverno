@@ -11,7 +11,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policycache"
 	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
@@ -43,7 +43,7 @@ type auditHandler struct {
 	pCache         policycache.Interface
 	eventGen       event.Interface
 	statusListener policystatus.Listener
-	pvGenerator    policyviolation.GeneratorInterface
+	pvGenerator    policyreport.GeneratorInterface
 
 	rbLister  rbaclister.RoleBindingLister
 	rbSynced  cache.InformerSynced
@@ -58,7 +58,7 @@ type auditHandler struct {
 func NewValidateAuditHandler(pCache policycache.Interface,
 	eventGen event.Interface,
 	statusListener policystatus.Listener,
-	pvGenerator policyviolation.GeneratorInterface,
+	pvGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	log logr.Logger,

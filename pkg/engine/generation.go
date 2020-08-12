@@ -43,13 +43,22 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(log, ctx, copyConditions) {
 		log.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
-		return nil
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Type:    "Generation",
+			Success: true,
+			Status: "skip",
+			RuleStats: response.RuleStats{
+				ProcessingTime: time.Since(startTime),
+			},
+		}
 	}
 	// build rule Response
 	return &response.RuleResponse{
 		Name:    rule.Name,
 		Type:    "Generation",
 		Success: true,
+		Status: "pass",
 		RuleStats: response.RuleStats{
 			ProcessingTime: time.Since(startTime),
 		},

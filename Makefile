@@ -149,7 +149,11 @@ godownloader:
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
-	# Create CRD for helm deployment Helm 
+	# Download Policy Report CRD
+	curl -o ./definitions/crds/policy.kubernetes.io_clusterpolicyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_clusterpolicyreports.yaml
+	curl -o ./definitions/crds/policy.kubernetes.io_policyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_policyreports.yaml
+
+	# Create CRD for helm deployment Helm
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml

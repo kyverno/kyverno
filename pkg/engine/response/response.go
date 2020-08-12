@@ -65,6 +65,7 @@ type RuleResponse struct {
 	Success bool `json:"success"`
 	// statistics
 	RuleStats `json:",inline"`
+	Status string `json:"status"`
 }
 
 //ToString ...
