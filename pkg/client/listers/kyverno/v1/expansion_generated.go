@@ -18,10 +18,6 @@ limitations under the License.
 
 package v1
 
-// ClusterKyvernoPolicyReportListerExpansion allows custom methods to be added to
-// ClusterKyvernoPolicyReportLister.
-type ClusterKyvernoPolicyReportListerExpansion interface{}
-
 // ClusterPolicyListerExpansion allows custom methods to be added to
 // ClusterPolicyLister.
 type ClusterPolicyListerExpansion interface{}
@@ -33,11 +29,3 @@ type GenerateRequestListerExpansion interface{}
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
 type GenerateRequestNamespaceListerExpansion interface{}
-
-// KyvernoPolicyReportListerExpansion allows custom methods to be added to
-// KyvernoPolicyReportLister.
-type KyvernoPolicyReportListerExpansion interface{}
-
-// KyvernoPolicyReportNamespaceListerExpansion allows custom methods to be added to
-// KyvernoPolicyReportNamespaceLister.
-type KyvernoPolicyReportNamespaceListerExpansion interface{}

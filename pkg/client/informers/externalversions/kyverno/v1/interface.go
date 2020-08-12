@@ -24,14 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ClusterKyvernoPolicyReports returns a ClusterKyvernoPolicyReportInformer.
-	ClusterKyvernoPolicyReports() ClusterKyvernoPolicyReportInformer
 	// ClusterPolicies returns a ClusterPolicyInformer.
 	ClusterPolicies() ClusterPolicyInformer
 	// GenerateRequests returns a GenerateRequestInformer.
 	GenerateRequests() GenerateRequestInformer
-	// KyvernoPolicyReports returns a KyvernoPolicyReportInformer.
-	KyvernoPolicyReports() KyvernoPolicyReportInformer
 }
 
 type version struct {
@@ -45,11 +41,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterKyvernoPolicyReports returns a ClusterKyvernoPolicyReportInformer.
-func (v *version) ClusterKyvernoPolicyReports() ClusterKyvernoPolicyReportInformer {
-	return &clusterKyvernoPolicyReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // ClusterPolicies returns a ClusterPolicyInformer.
 func (v *version) ClusterPolicies() ClusterPolicyInformer {
 	return &clusterPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -58,9 +49,4 @@ func (v *version) ClusterPolicies() ClusterPolicyInformer {
 // GenerateRequests returns a GenerateRequestInformer.
 func (v *version) GenerateRequests() GenerateRequestInformer {
 	return &generateRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// KyvernoPolicyReports returns a KyvernoPolicyReportInformer.
-func (v *version) KyvernoPolicyReports() KyvernoPolicyReportInformer {
-	return &kyvernoPolicyReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
