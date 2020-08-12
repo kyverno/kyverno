@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/engine/context"
 	"io/ioutil"
+
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"os"
@@ -58,12 +59,12 @@ func Command() *cobra.Command {
 	variables := make(map[string]string)
 
 	type Resource struct {
-		Name   string `json:"name"`
+		Name   string            `json:"name"`
 		Values map[string]string `json:"values"`
 	}
 
 	type Policy struct {
-		Name      string `json:"name"`
+		Name      string     `json:"name"`
 		Resources []Resource `json:"resources"`
 	}
 
@@ -89,23 +90,24 @@ func Command() *cobra.Command {
 				}
 			}()
 
+			if valuesFile != "" && variablesString != "" {
+				return sanitizedError.NewWithError("pass the values either using set flag or values_file flag", err)
+			}
+
 			if valuesFile != "" {
 				yamlFile, err := ioutil.ReadFile(valuesFile)
 				if err != nil {
-					// TODO: handle better
-					fmt.Printf("yamlFile.Get err  #%v ", err)
+					return sanitizedError.NewWithError("unable to read yaml", err)
 				}
 
 				valuesBytes, err := yaml.ToJSON(yamlFile)
 				if err != nil {
-					// TODO: handle better
-					fmt.Errorf(fmt.Sprintf("failed to convert json. error: %v", err))
+					return sanitizedError.NewWithError("failed to convert json", err)
 				}
 
 				values := &Values{}
 				if err := json.Unmarshal(valuesBytes, values); err != nil {
-					// TODO: handle better
-					fmt.Errorf(fmt.Sprintf("failed to decode yaml in %s. error: %v", valuesFile, err))
+					return sanitizedError.NewWithError("failed to decode yaml", err)
 				}
 
 				for _, p := range values.Policies {
@@ -163,7 +165,7 @@ func Command() *cobra.Command {
 					os.Exit(1)
 				}
 				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set flag/ file", policy.Name), err)
+					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 				}
 
 			}
@@ -221,7 +223,7 @@ func Command() *cobra.Command {
 				for _, resource := range resources {
 					// get values from file for this policy resource combination
 					thisPolicyResouceValues := make(map[string]string)
-					if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil{
+					if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil {
 						thisPolicyResouceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 					}
 
@@ -229,7 +231,15 @@ func Command() *cobra.Command {
 						thisPolicyResouceValues[k] = v
 					}
 
-					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, variables, thisPolicyResouceValues)
+					if common.PolicyHasVariables(*policy) && len(thisPolicyResouceValues) == 0 {
+						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+					}
+
+					if !(j == 0 && i == 0) {
+						fmt.Printf("\n\n==========================================================================================\n")
+					}
+
+					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, thisPolicyResouceValues, rc)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -251,7 +261,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutatelogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
-	cmd.Flags().StringVarP(&valuesFile, "values file", "f", "", "File containing values for policy variables")
+	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
 	return cmd
 }
 
@@ -423,6 +433,9 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n" + mutatedResource)
 				fmt.Printf("\n")
 			}
+
+		} else {
+			fmt.Printf("\n\nMutation:\nMutation skipped. Resource not matches the policy\n")
 		}
 	}
 
