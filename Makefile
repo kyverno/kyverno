@@ -155,3 +155,12 @@ kustomize-crd:
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
+
+# guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
+release: 
+	# update image tag
+	cd ./definitions && kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
+	cd ./definitions && kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
+
+	kustomize build ./definitions > ./definitions/install.yaml
+	kustomize build ./definitions > ./definitions/release/install.yaml
