@@ -5,7 +5,7 @@ on:
       - '*'
 
 jobs:
-  releaser:
+  docker-and-e2e:
     runs-on: ubuntu-latest
     steps:
       -
@@ -20,6 +20,34 @@ jobs:
         with:
           go-version: 1.14
       - uses: creekorful/goreportcard-action@v1.0
+
+      - name: login to docker hub
+        run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
+
+      - name :  docker images publish
+        run: |
+          make docker-publish-all
+
+      - name :  Create Kind Cluster and setup kustomize
+        run: |
+          make ci
+
+      - name: e2e testing
+        run: |
+          echo ">>> Install Kyverno"
+          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
+          chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
+          sleep 50
+          echo ">>> Check kyverno"
+          kubectl get pods -n kyverno
+          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          echo ">>> Run Kyverno e2e test"
+          make test-e2e
+
+  kyvernocli-and-helm:
+    runs-on: ubuntu-latest
+    steps:
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
@@ -29,38 +57,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
-      - name : binary build & kustomize
-        run: |
-          make kyverno
-          make initContainer
-
-      - name: Get latest release version number
-        id: get_version
-        uses: battila7/get-version-action@v2
-
-      -
-        uses: docker/build-push-action@v1
-        name: kyverno docker build and publish
-        with:
-          username: ${{ secrets.DOCKERIO_USERNAME }}
-          password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyverno"
-          push: true
-          path: cmd/kyverno/
-          dockerfile: cmd/kyverno/Dockerfile
-          tags: ${{ steps.get_version.outputs.version }}
-
-      -
-        uses: docker/build-push-action@v1
-        name: kyvernopre docker build and publish
-        with:
-          username: ${{ secrets.DOCKERIO_USERNAME }}
-          password: ${{ secrets.DOCKERIO_PASSWORD }}
-          repository: "nirmata/kyvernopre"
-          push: true
-          path: cmd/initContainer/
-          dockerfile: cmd/initContainer/Dockerfile
-          tags: ${{ steps.get_version.outputs.version }}
 
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish

@@ -19,7 +19,6 @@ limitations under the License.
 package v1
 
 import (
-	"context"
 	time "time"
 
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -61,13 +60,13 @@ func NewFilteredClusterPolicyInformer(client versioned.Interface, resyncPeriod t
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().ClusterPolicies().List(context.TODO(), options)
+				return client.KyvernoV1().ClusterPolicies().List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().ClusterPolicies().Watch(context.TODO(), options)
+				return client.KyvernoV1().ClusterPolicies().Watch(options)
 			},
 		},
 		&kyvernov1.ClusterPolicy{},

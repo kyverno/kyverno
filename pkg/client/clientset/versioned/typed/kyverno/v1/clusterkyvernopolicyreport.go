@@ -19,7 +19,6 @@ limitations under the License.
 package v1
 
 import (
-	"context"
 	"time"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -38,15 +37,15 @@ type ClusterKyvernoPolicyReportsGetter interface {
 
 // ClusterKyvernoPolicyReportInterface has methods to work with ClusterKyvernoPolicyReport resources.
 type ClusterKyvernoPolicyReportInterface interface {
-	Create(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.CreateOptions) (*v1.ClusterKyvernoPolicyReport, error)
-	Update(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.UpdateOptions) (*v1.ClusterKyvernoPolicyReport, error)
-	UpdateStatus(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.UpdateOptions) (*v1.ClusterKyvernoPolicyReport, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ClusterKyvernoPolicyReport, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ClusterKyvernoPolicyReportList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterKyvernoPolicyReport, err error)
+	Create(*v1.ClusterKyvernoPolicyReport) (*v1.ClusterKyvernoPolicyReport, error)
+	Update(*v1.ClusterKyvernoPolicyReport) (*v1.ClusterKyvernoPolicyReport, error)
+	UpdateStatus(*v1.ClusterKyvernoPolicyReport) (*v1.ClusterKyvernoPolicyReport, error)
+	Delete(name string, options *metav1.DeleteOptions) error
+	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
+	Get(name string, options metav1.GetOptions) (*v1.ClusterKyvernoPolicyReport, error)
+	List(opts metav1.ListOptions) (*v1.ClusterKyvernoPolicyReportList, error)
+	Watch(opts metav1.ListOptions) (watch.Interface, error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ClusterKyvernoPolicyReport, err error)
 	ClusterKyvernoPolicyReportExpansion
 }
 
@@ -63,19 +62,19 @@ func newClusterKyvernoPolicyReports(c *KyvernoV1Client) *clusterKyvernoPolicyRep
 }
 
 // Get takes name of the clusterKyvernoPolicyReport, and returns the corresponding clusterKyvernoPolicyReport object, and an error if there is any.
-func (c *clusterKyvernoPolicyReports) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.ClusterKyvernoPolicyReport, err error) {
+func (c *clusterKyvernoPolicyReports) Get(name string, options metav1.GetOptions) (result *v1.ClusterKyvernoPolicyReport, err error) {
 	result = &v1.ClusterKyvernoPolicyReport{}
 	err = c.client.Get().
 		Resource("clusterkyvernopolicyreports").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ClusterKyvernoPolicyReports that match those selectors.
-func (c *clusterKyvernoPolicyReports) List(ctx context.Context, opts metav1.ListOptions) (result *v1.ClusterKyvernoPolicyReportList, err error) {
+func (c *clusterKyvernoPolicyReports) List(opts metav1.ListOptions) (result *v1.ClusterKyvernoPolicyReportList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -85,13 +84,13 @@ func (c *clusterKyvernoPolicyReports) List(ctx context.Context, opts metav1.List
 		Resource("clusterkyvernopolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested clusterKyvernoPolicyReports.
-func (c *clusterKyvernoPolicyReports) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *clusterKyvernoPolicyReports) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -101,84 +100,81 @@ func (c *clusterKyvernoPolicyReports) Watch(ctx context.Context, opts metav1.Lis
 		Resource("clusterkyvernopolicyreports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch(ctx)
+		Watch()
 }
 
 // Create takes the representation of a clusterKyvernoPolicyReport and creates it.  Returns the server's representation of the clusterKyvernoPolicyReport, and an error, if there is any.
-func (c *clusterKyvernoPolicyReports) Create(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.CreateOptions) (result *v1.ClusterKyvernoPolicyReport, err error) {
+func (c *clusterKyvernoPolicyReports) Create(clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport) (result *v1.ClusterKyvernoPolicyReport, err error) {
 	result = &v1.ClusterKyvernoPolicyReport{}
 	err = c.client.Post().
 		Resource("clusterkyvernopolicyreports").
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterKyvernoPolicyReport).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Update takes the representation of a clusterKyvernoPolicyReport and updates it. Returns the server's representation of the clusterKyvernoPolicyReport, and an error, if there is any.
-func (c *clusterKyvernoPolicyReports) Update(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.UpdateOptions) (result *v1.ClusterKyvernoPolicyReport, err error) {
+func (c *clusterKyvernoPolicyReports) Update(clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport) (result *v1.ClusterKyvernoPolicyReport, err error) {
 	result = &v1.ClusterKyvernoPolicyReport{}
 	err = c.client.Put().
 		Resource("clusterkyvernopolicyreports").
 		Name(clusterKyvernoPolicyReport.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterKyvernoPolicyReport).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *clusterKyvernoPolicyReports) UpdateStatus(ctx context.Context, clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport, opts metav1.UpdateOptions) (result *v1.ClusterKyvernoPolicyReport, err error) {
+
+func (c *clusterKyvernoPolicyReports) UpdateStatus(clusterKyvernoPolicyReport *v1.ClusterKyvernoPolicyReport) (result *v1.ClusterKyvernoPolicyReport, err error) {
 	result = &v1.ClusterKyvernoPolicyReport{}
 	err = c.client.Put().
 		Resource("clusterkyvernopolicyreports").
 		Name(clusterKyvernoPolicyReport.Name).
 		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterKyvernoPolicyReport).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Delete takes name of the clusterKyvernoPolicyReport and deletes it. Returns an error if one occurs.
-func (c *clusterKyvernoPolicyReports) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *clusterKyvernoPolicyReports) Delete(name string, options *metav1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("clusterkyvernopolicyreports").
 		Name(name).
-		Body(&opts).
-		Do(ctx).
+		Body(options).
+		Do().
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *clusterKyvernoPolicyReports) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *clusterKyvernoPolicyReports) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("clusterkyvernopolicyreports").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
+		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
+		Body(options).
+		Do().
 		Error()
 }
 
 // Patch applies the patch and returns the patched clusterKyvernoPolicyReport.
-func (c *clusterKyvernoPolicyReports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterKyvernoPolicyReport, err error) {
+func (c *clusterKyvernoPolicyReports) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ClusterKyvernoPolicyReport, err error) {
 	result = &v1.ClusterKyvernoPolicyReport{}
 	err = c.client.Patch(pt).
 		Resource("clusterkyvernopolicyreports").
-		Name(name).
 		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
+		Name(name).
 		Body(data).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }

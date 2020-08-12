@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -41,7 +39,7 @@ var generaterequestsResource = schema.GroupVersionResource{Group: "kyverno.io", 
 var generaterequestsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "GenerateRequest"}
 
 // Get takes name of the generateRequest, and returns the corresponding generateRequest object, and an error if there is any.
-func (c *FakeGenerateRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.GenerateRequest, err error) {
+func (c *FakeGenerateRequests) Get(name string, options v1.GetOptions) (result *kyvernov1.GenerateRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(generaterequestsResource, c.ns, name), &kyvernov1.GenerateRequest{})
 
@@ -52,7 +50,7 @@ func (c *FakeGenerateRequests) Get(ctx context.Context, name string, options v1.
 }
 
 // List takes label and field selectors, and returns the list of GenerateRequests that match those selectors.
-func (c *FakeGenerateRequests) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.GenerateRequestList, err error) {
+func (c *FakeGenerateRequests) List(opts v1.ListOptions) (result *kyvernov1.GenerateRequestList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(generaterequestsResource, generaterequestsKind, c.ns, opts), &kyvernov1.GenerateRequestList{})
 
@@ -74,14 +72,14 @@ func (c *FakeGenerateRequests) List(ctx context.Context, opts v1.ListOptions) (r
 }
 
 // Watch returns a watch.Interface that watches the requested generateRequests.
-func (c *FakeGenerateRequests) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeGenerateRequests) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(generaterequestsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a generateRequest and creates it.  Returns the server's representation of the generateRequest, and an error, if there is any.
-func (c *FakeGenerateRequests) Create(ctx context.Context, generateRequest *kyvernov1.GenerateRequest, opts v1.CreateOptions) (result *kyvernov1.GenerateRequest, err error) {
+func (c *FakeGenerateRequests) Create(generateRequest *kyvernov1.GenerateRequest) (result *kyvernov1.GenerateRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(generaterequestsResource, c.ns, generateRequest), &kyvernov1.GenerateRequest{})
 
@@ -92,7 +90,7 @@ func (c *FakeGenerateRequests) Create(ctx context.Context, generateRequest *kyve
 }
 
 // Update takes the representation of a generateRequest and updates it. Returns the server's representation of the generateRequest, and an error, if there is any.
-func (c *FakeGenerateRequests) Update(ctx context.Context, generateRequest *kyvernov1.GenerateRequest, opts v1.UpdateOptions) (result *kyvernov1.GenerateRequest, err error) {
+func (c *FakeGenerateRequests) Update(generateRequest *kyvernov1.GenerateRequest) (result *kyvernov1.GenerateRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(generaterequestsResource, c.ns, generateRequest), &kyvernov1.GenerateRequest{})
 
@@ -104,7 +102,7 @@ func (c *FakeGenerateRequests) Update(ctx context.Context, generateRequest *kyve
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeGenerateRequests) UpdateStatus(ctx context.Context, generateRequest *kyvernov1.GenerateRequest, opts v1.UpdateOptions) (*kyvernov1.GenerateRequest, error) {
+func (c *FakeGenerateRequests) UpdateStatus(generateRequest *kyvernov1.GenerateRequest) (*kyvernov1.GenerateRequest, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(generaterequestsResource, "status", c.ns, generateRequest), &kyvernov1.GenerateRequest{})
 
@@ -115,7 +113,7 @@ func (c *FakeGenerateRequests) UpdateStatus(ctx context.Context, generateRequest
 }
 
 // Delete takes name of the generateRequest and deletes it. Returns an error if one occurs.
-func (c *FakeGenerateRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeGenerateRequests) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(generaterequestsResource, c.ns, name), &kyvernov1.GenerateRequest{})
 
@@ -123,15 +121,15 @@ func (c *FakeGenerateRequests) Delete(ctx context.Context, name string, opts v1.
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeGenerateRequests) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(generaterequestsResource, c.ns, listOpts)
+func (c *FakeGenerateRequests) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(generaterequestsResource, c.ns, listOptions)
 
 	_, err := c.Fake.Invokes(action, &kyvernov1.GenerateRequestList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched generateRequest.
-func (c *FakeGenerateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.GenerateRequest, err error) {
+func (c *FakeGenerateRequests) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kyvernov1.GenerateRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(generaterequestsResource, c.ns, name, pt, data, subresources...), &kyvernov1.GenerateRequest{})
 

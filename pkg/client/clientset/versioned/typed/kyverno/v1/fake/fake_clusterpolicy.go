@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -40,7 +38,7 @@ var clusterpoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", V
 var clusterpoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}
 
 // Get takes name of the clusterPolicy, and returns the corresponding clusterPolicy object, and an error if there is any.
-func (c *FakeClusterPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.ClusterPolicy, err error) {
+func (c *FakeClusterPolicies) Get(name string, options v1.GetOptions) (result *kyvernov1.ClusterPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(clusterpoliciesResource, name), &kyvernov1.ClusterPolicy{})
 	if obj == nil {
@@ -50,7 +48,7 @@ func (c *FakeClusterPolicies) Get(ctx context.Context, name string, options v1.G
 }
 
 // List takes label and field selectors, and returns the list of ClusterPolicies that match those selectors.
-func (c *FakeClusterPolicies) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.ClusterPolicyList, err error) {
+func (c *FakeClusterPolicies) List(opts v1.ListOptions) (result *kyvernov1.ClusterPolicyList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(clusterpoliciesResource, clusterpoliciesKind, opts), &kyvernov1.ClusterPolicyList{})
 	if obj == nil {
@@ -71,13 +69,13 @@ func (c *FakeClusterPolicies) List(ctx context.Context, opts v1.ListOptions) (re
 }
 
 // Watch returns a watch.Interface that watches the requested clusterPolicies.
-func (c *FakeClusterPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeClusterPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(clusterpoliciesResource, opts))
 }
 
 // Create takes the representation of a clusterPolicy and creates it.  Returns the server's representation of the clusterPolicy, and an error, if there is any.
-func (c *FakeClusterPolicies) Create(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts v1.CreateOptions) (result *kyvernov1.ClusterPolicy, err error) {
+func (c *FakeClusterPolicies) Create(clusterPolicy *kyvernov1.ClusterPolicy) (result *kyvernov1.ClusterPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(clusterpoliciesResource, clusterPolicy), &kyvernov1.ClusterPolicy{})
 	if obj == nil {
@@ -87,7 +85,7 @@ func (c *FakeClusterPolicies) Create(ctx context.Context, clusterPolicy *kyverno
 }
 
 // Update takes the representation of a clusterPolicy and updates it. Returns the server's representation of the clusterPolicy, and an error, if there is any.
-func (c *FakeClusterPolicies) Update(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts v1.UpdateOptions) (result *kyvernov1.ClusterPolicy, err error) {
+func (c *FakeClusterPolicies) Update(clusterPolicy *kyvernov1.ClusterPolicy) (result *kyvernov1.ClusterPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(clusterpoliciesResource, clusterPolicy), &kyvernov1.ClusterPolicy{})
 	if obj == nil {
@@ -98,7 +96,7 @@ func (c *FakeClusterPolicies) Update(ctx context.Context, clusterPolicy *kyverno
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeClusterPolicies) UpdateStatus(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts v1.UpdateOptions) (*kyvernov1.ClusterPolicy, error) {
+func (c *FakeClusterPolicies) UpdateStatus(clusterPolicy *kyvernov1.ClusterPolicy) (*kyvernov1.ClusterPolicy, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(clusterpoliciesResource, "status", clusterPolicy), &kyvernov1.ClusterPolicy{})
 	if obj == nil {
@@ -108,22 +106,22 @@ func (c *FakeClusterPolicies) UpdateStatus(ctx context.Context, clusterPolicy *k
 }
 
 // Delete takes name of the clusterPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeClusterPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeClusterPolicies) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(clusterpoliciesResource, name), &kyvernov1.ClusterPolicy{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeClusterPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clusterpoliciesResource, listOpts)
+func (c *FakeClusterPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(clusterpoliciesResource, listOptions)
 
 	_, err := c.Fake.Invokes(action, &kyvernov1.ClusterPolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched clusterPolicy.
-func (c *FakeClusterPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.ClusterPolicy, err error) {
+func (c *FakeClusterPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kyvernov1.ClusterPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(clusterpoliciesResource, name, pt, data, subresources...), &kyvernov1.ClusterPolicy{})
 	if obj == nil {
