@@ -33,7 +33,6 @@ require (
 	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 	gotest.tools v2.2.0+incompatible
@@ -55,6 +54,6 @@ require (
 replace (
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
 	k8s.io/client-go v0.17.4 => github.com/nirmata/client-go v0.17.5-0.20200625181911-7e81180b291e
-	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20200306081859-6a048a382944
+	k8s.io/code-generator => k8s.io/code-generator v0.16.10-beta.0
 	k8s.io/component-base => k8s.io/component-base v0.0.0-20190612130303-4062e14deebe
 )

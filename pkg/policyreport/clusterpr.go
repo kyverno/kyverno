@@ -1,26 +1,24 @@
 package policyreport
 
 import (
-	"context"
 	"errors"
-	"reflect"
 	"github.com/nirmata/kyverno/pkg/constant"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
+	"reflect"
 
 	"github.com/go-logr/logr"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportlister "github.com/nirmata/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/policystatus"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const clusterWorkQueueName = "policy-report-cluster"
 const clusterWorkQueueRetryLimit = 3
-
 
 //clusterPR ...
 type clusterPR struct {
@@ -35,9 +33,9 @@ type clusterPR struct {
 	// update policy stats with violationCount
 	policyStatusListener policystatus.Listener
 
-	dataStore            *dataStore
+	dataStore *dataStore
 
-	queue  workqueue.RateLimitingInterface
+	queue workqueue.RateLimitingInterface
 }
 
 func newClusterPR(log logr.Logger, dclient *client.Client,
@@ -46,18 +44,17 @@ func newClusterPR(log logr.Logger, dclient *client.Client,
 	policyStatus policystatus.Listener,
 ) *clusterPR {
 	cpv := clusterPR{
-		dclient:              dclient,
-		cprLister:            cprLister,
-		policyreportInterface:     policyreportInterface,
-		log:                  log,
-		policyStatusListener: policyStatus,
+		dclient:               dclient,
+		cprLister:             cprLister,
+		policyreportInterface: policyreportInterface,
+		log:                   log,
+		policyStatusListener:  policyStatus,
 
-		dataStore:            newDataStore(),
-		queue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), clusterWorkQueueName),
+		dataStore: newDataStore(),
+		queue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), clusterWorkQueueName),
 	}
 	return &cpv
 }
-
 
 func (cpr *clusterPR) enqueue(info Info) {
 	// add to data map
@@ -183,16 +180,15 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 	return nil
 }
 
-
-func (cpr *clusterPR) create(pv kyverno.KyvernoPolicyReportTemplate) error {
-	clusterpr,err:= cpr.policyreportInterface.ClusterPolicyReports("").Get(context.Background(),"kyverno-clusterpolicyreport",v1.GetOptions{});
+func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate) error {
+	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get("kyverno-clusterpolicyreport", v1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	clusterpr = ClusterPolicyViolationsToClusterPolicyReport(&pv,clusterpr)
+	clusterpr = CreateClusterPolicyViolationsToClusterPolicyReport(&pv, clusterpr)
 
-	_,err = cpr.policyreportInterface.ClusterPolicyReports("").Update(context.Background(),clusterpr,v1.UpdateOptions{})
+	_, err = cpr.policyreportInterface.ClusterPolicyReports().Update(clusterpr)
 	if err != nil {
 		return err
 	}

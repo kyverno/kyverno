@@ -29,7 +29,7 @@ const workQueueRetryLimit = 3
 
 //Generator creates PV
 type Generator struct {
-	dclient          *dclient.Client
+	dclient *dclient.Client
 
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
 	// get/list cluster policy report
@@ -112,16 +112,16 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 	policyStatus policystatus.Listener,
 	log logr.Logger) *Generator {
 	gen := Generator{
-		policyreportInterface:     client.PolicyV1alpha1(),
-		dclient:              dclient,
-		cprLister:            prInformer.Lister(),
-		prSynced:             prInformer.Informer().HasSynced,
-		nsprLister:           nsprInformer.Lister(),
-		nsprSynced:           nsprInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:            newDataStore(),
-		log:                  log,
-		policyStatusListener: policyStatus,
+		policyreportInterface: client.PolicyV1alpha1(),
+		dclient:               dclient,
+		cprLister:             prInformer.Lister(),
+		prSynced:              prInformer.Informer().HasSynced,
+		nsprLister:            nsprInformer.Lister(),
+		nsprSynced:            nsprInformer.Informer().HasSynced,
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:             newDataStore(),
+		log:                   log,
+		policyStatusListener:  policyStatus,
 	}
 	return &gen
 }
@@ -229,16 +229,16 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(),info.Resource.GetKind(),info.Resource.GetName(),info.Resource.GetNamespace())
-	if  err != nil {
+	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetName(), info.Resource.GetNamespace())
+	if err != nil {
 		logger.Error(err, "failed to get resource")
 	}
-	labels := resource.GetLabels();
-	if _,okChart := labels["helm.sh/chart"]; !okChart {
+	labels := resource.GetLabels()
+	if _, okChart := labels["helm.sh/chart"]; !okChart {
 		// cluster scope resource generate a helm package report
 		handler := newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 		handler.Add(info)
-	}else if info.Resource.GetNamespace() == "" {
+	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
 		handler := newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
 		handler.Add(info)
@@ -250,4 +250,3 @@ func (gen *Generator) syncHandler(info Info) error {
 
 	return nil
 }
-

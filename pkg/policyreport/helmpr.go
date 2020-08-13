@@ -2,14 +2,13 @@ package policyreport
 
 import (
 	"errors"
-	"reflect"
 	"fmt"
-	"context"
 	"github.com/nirmata/kyverno/pkg/constant"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -35,9 +34,9 @@ type helmPR struct {
 	// update policy status with violationCount
 	policyStatusListener policystatus.Listener
 
-	dataStore            *dataStore
+	dataStore *dataStore
 
-	queue  workqueue.RateLimitingInterface
+	queue workqueue.RateLimitingInterface
 }
 
 func newHelmPR(log logr.Logger, dclient *client.Client,
@@ -46,17 +45,16 @@ func newHelmPR(log logr.Logger, dclient *client.Client,
 	policyStatus policystatus.Listener,
 ) *helmPR {
 	nspr := helmPR{
-		dclient:              dclient,
-		nsprLister:           nsprLister,
-		policyreportInterface:     policyreportInterface,
-		log:                  log,
-		policyStatusListener: policyStatus,
-		dataStore:            newDataStore(),
-		queue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), helmWorkQueueName),
+		dclient:               dclient,
+		nsprLister:            nsprLister,
+		policyreportInterface: policyreportInterface,
+		log:                   log,
+		policyStatusListener:  policyStatus,
+		dataStore:             newDataStore(),
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), helmWorkQueueName),
 	}
 	return &nspr
 }
-
 
 func (hpr *helmPR) enqueue(info Info) {
 	// add to data map
@@ -82,7 +80,7 @@ func (hpr *helmPR) Run(workers int, stopCh <-chan struct{}) {
 	defer logger.Info("shutting down")
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(hpr.runWorker, constant.KyvernoPolicyReportControllerResync, stopCh)
+		go wait.Until(hpr.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
 	<-stopCh
 }
@@ -182,14 +180,14 @@ func (hpr *helmPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (hpr *helmPR) create(pv kyverno.PolicyReportTemplate) error {
-	policyName := fmt.Sprintf("kyverno-policyreport",)
-	clusterpr,err:= hpr.policyreportInterface.PolicyReports(pv.Namespace).Get(context.Background(),policyName,v1.GetOptions{});
+func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate) error {
+	policyName := fmt.Sprintf("kyverno-policyreport", pv.Name)
+	preport, err := hpr.policyreportInterface.PolicyReports(pv.Namespace).Get(policyName, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	cpr := KyvernoPolicyReportsToPolicyReport(&pv,clusterpr)
-	cpr,err = hpr.policyreportInterface.PolicyReports(pv.Namespace).Update(context.Background(),cpr,v1.UpdateOptions{})
+	preport = CreatePolicyReportToPolicyReport(&pv, preport)
+	_, err = hpr.policyreportInterface.PolicyReports(pv.Namespace).Update(preport)
 	if err != nil {
 		return err
 	}

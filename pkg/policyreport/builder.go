@@ -2,6 +2,7 @@ package policyreport
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -26,8 +27,8 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 // Builder builds Policy Violation struct
 // this is base type of namespaced and cluster policy violation
 type Builder interface {
-	generate(info Info) kyverno.KyvernoPolicyReportTemplate
-	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.KyvernoPolicyReportTemplate
+	generate(info Info) kyverno.PolicyViolationTemplate
+	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate
 }
 
 type pvBuilder struct{}
@@ -36,14 +37,14 @@ func newPvBuilder() *pvBuilder {
 	return &pvBuilder{}
 }
 
-func (pvb *pvBuilder) generate(info Info) kyverno.KyvernoPolicyReportTemplate {
+func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {
 	pv := pvb.build(info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName(), info.Rules)
 	return *pv
 }
 
-func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.KyvernoPolicyReportTemplate {
-	pv := &kyverno.KyvernoPolicyReportTemplate{
-		Spec: kyverno.KyvernoPolicyReportSpec{
+func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
+	pv := &kyverno.PolicyViolationTemplate{
+		Spec: kyverno.PolicyViolationSpec{
 			Policy: policy,
 			ResourceSpec: kyverno.ResourceSpec{
 				Kind:      kind,
@@ -77,18 +78,20 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Success {
-			continue
+		if os.Getenv("POLICY_TYPE") != "POLICYREPORT" {
+			if rule.Success {
+				continue
+			}
 		}
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
 		}
+		rule.Check = "fail"
 		if rule.Success {
-			vrule.Check = "pass"
+			rule.Check = "pass"
 		}
-		vrule.Check = "fail"
 		violatedRules = append(violatedRules, vrule)
 	}
 	return violatedRules

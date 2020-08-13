@@ -2,21 +2,20 @@ package policyreport
 
 import (
 	"errors"
-	"reflect"
 	"fmt"
-	"context"
+	"reflect"
 
-	"github.com/nirmata/kyverno/pkg/constant"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/workqueue"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportlister "github.com/nirmata/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/policystatus"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/workqueue"
 )
 
 const nsWorkQueueName = "policy-report-namespace"
@@ -27,7 +26,7 @@ type namespacedPR struct {
 	// dynamic client
 	dclient *client.Client
 	// get/list namespaced policy violation
-	nsprLister policyreportlister.KyvernoKyvernoPolicyReportLister
+	nsprLister policyreportlister.PolicyReportLister
 	// policy violation interface
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
 	// logger
@@ -35,30 +34,27 @@ type namespacedPR struct {
 	// update policy status with violationCount
 	policyStatusListener policystatus.Listener
 
-	dataStore            *dataStore
+	dataStore *dataStore
 
-	queue  workqueue.RateLimitingInterface
-
+	queue workqueue.RateLimitingInterface
 }
 
-
 func newNamespacedPR(log logr.Logger, dclient *client.Client,
-	nsprLister policyreportlister.KyvernoKyvernoPolicyReportLister,
+	nsprLister policyreportlister.PolicyReportLister,
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface,
 	policyStatus policystatus.Listener,
 ) *namespacedPR {
 	nspr := namespacedPR{
-		dclient:              dclient,
-		nsprLister:           nsprLister,
-		policyreportInterface:     policyreportInterface,
-		log:                  log,
-		policyStatusListener: policyStatus,
-		dataStore:            newDataStore(),
-		queue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), nsWorkQueueName),
+		dclient:               dclient,
+		nsprLister:            nsprLister,
+		policyreportInterface: policyreportInterface,
+		log:                   log,
+		policyStatusListener:  policyStatus,
+		dataStore:             newDataStore(),
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), nsWorkQueueName),
 	}
 	return &nspr
 }
-
 
 func (nspr *namespacedPR) enqueue(info Info) {
 	// add to data map
@@ -184,15 +180,14 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 	return nil
 }
 
-
-func (nspr *namespacedPR) create(pv kyverno.KyvernoKyvernoPolicyReportTemplate) error {
-	policyName := fmt.Sprintf("kyverno-policyreport",)
-	clusterpr,err:= nspr.policyreportInterface.KyvernoKyvernoPolicyReports(pv.Namespace).Get(context.Background(),policyName,v1.GetOptions{});
+func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate) error {
+	policyName := fmt.Sprintf("kyverno-policyreport", pv)
+	clusterpr, err := nspr.policyreportInterface.PolicyReports(pv.Namespace).Get(policyName, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	cpr := PolicyViolationsToKyvernoKyvernoPolicyReport(&pv,clusterpr)
-	cpr,err = nspr.policyreportInterface.KyvernoKyvernoPolicyReports(pv.Namespace).Update(context.Background(),cpr,v1.UpdateOptions{})
+	cpr := CreatePolicyReportToPolicyReport(&pv, clusterpr)
+	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Namespace).Update(cpr)
 	if err != nil {
 		return err
 	}

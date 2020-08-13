@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
@@ -48,19 +49,19 @@ var (
 	filterK8Resources string
 
 	excludeGroupRole string
-	excludeUsername string
+	excludeUsername  string
 	// User FQDN as CSR CN
-	fqdncn   bool
+	fqdncn       bool
 	policyReport bool
-	setupLog = log.Log.WithName("setup")
+	setupLog     = log.Log.WithName("setup")
 )
 
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
-	flag.StringVar(&excludeGroupRole, "excludeGroupRole","","")
-	flag.StringVar(&excludeUsername, "excludeUsername","","")
+	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
+	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
@@ -80,9 +81,9 @@ func main() {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
 
-	os.Setenv("REPORT_TYPE","POLICYVIOLATION")
+	os.Setenv("REPORT_TYPE", "POLICYVIOLATION")
 	if policyReport {
-		os.Setenv("REPORT_TYPE","POLICYREPORT")
+		os.Setenv("REPORT_TYPE", "POLICYREPORT")
 	}
 
 	version.PrintVersionInfo(log.Log)
@@ -185,12 +186,11 @@ func main() {
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
-
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
-		prInformer,
+		prInformer.Policy().V1alpha1(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
 		statusSync.Listener,
@@ -203,7 +203,7 @@ func main() {
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
-		prInformer,
+		prInformer.Policy().V1alpha1(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),

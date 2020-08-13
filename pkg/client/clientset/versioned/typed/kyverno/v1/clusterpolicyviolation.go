@@ -19,7 +19,6 @@ limitations under the License.
 package v1
 
 import (
-	"context"
 	"time"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -38,15 +37,15 @@ type ClusterPolicyViolationsGetter interface {
 
 // ClusterPolicyViolationInterface has methods to work with ClusterPolicyViolation resources.
 type ClusterPolicyViolationInterface interface {
-	Create(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.CreateOptions) (*v1.ClusterPolicyViolation, error)
-	Update(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.UpdateOptions) (*v1.ClusterPolicyViolation, error)
-	UpdateStatus(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.UpdateOptions) (*v1.ClusterPolicyViolation, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ClusterPolicyViolation, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ClusterPolicyViolationList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterPolicyViolation, err error)
+	Create(*v1.ClusterPolicyViolation) (*v1.ClusterPolicyViolation, error)
+	Update(*v1.ClusterPolicyViolation) (*v1.ClusterPolicyViolation, error)
+	UpdateStatus(*v1.ClusterPolicyViolation) (*v1.ClusterPolicyViolation, error)
+	Delete(name string, options *metav1.DeleteOptions) error
+	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
+	Get(name string, options metav1.GetOptions) (*v1.ClusterPolicyViolation, error)
+	List(opts metav1.ListOptions) (*v1.ClusterPolicyViolationList, error)
+	Watch(opts metav1.ListOptions) (watch.Interface, error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ClusterPolicyViolation, err error)
 	ClusterPolicyViolationExpansion
 }
 
@@ -63,19 +62,19 @@ func newClusterPolicyViolations(c *KyvernoV1Client) *clusterPolicyViolations {
 }
 
 // Get takes name of the clusterPolicyViolation, and returns the corresponding clusterPolicyViolation object, and an error if there is any.
-func (c *clusterPolicyViolations) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.ClusterPolicyViolation, err error) {
+func (c *clusterPolicyViolations) Get(name string, options metav1.GetOptions) (result *v1.ClusterPolicyViolation, err error) {
 	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Get().
 		Resource("clusterpolicyviolations").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ClusterPolicyViolations that match those selectors.
-func (c *clusterPolicyViolations) List(ctx context.Context, opts metav1.ListOptions) (result *v1.ClusterPolicyViolationList, err error) {
+func (c *clusterPolicyViolations) List(opts metav1.ListOptions) (result *v1.ClusterPolicyViolationList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -85,13 +84,13 @@ func (c *clusterPolicyViolations) List(ctx context.Context, opts metav1.ListOpti
 		Resource("clusterpolicyviolations").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested clusterPolicyViolations.
-func (c *clusterPolicyViolations) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *clusterPolicyViolations) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -101,84 +100,81 @@ func (c *clusterPolicyViolations) Watch(ctx context.Context, opts metav1.ListOpt
 		Resource("clusterpolicyviolations").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch(ctx)
+		Watch()
 }
 
 // Create takes the representation of a clusterPolicyViolation and creates it.  Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
-func (c *clusterPolicyViolations) Create(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.CreateOptions) (result *v1.ClusterPolicyViolation, err error) {
+func (c *clusterPolicyViolations) Create(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
 	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Post().
 		Resource("clusterpolicyviolations").
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterPolicyViolation).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Update takes the representation of a clusterPolicyViolation and updates it. Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
-func (c *clusterPolicyViolations) Update(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.UpdateOptions) (result *v1.ClusterPolicyViolation, err error) {
+func (c *clusterPolicyViolations) Update(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
 	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Put().
 		Resource("clusterpolicyviolations").
 		Name(clusterPolicyViolation.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterPolicyViolation).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *clusterPolicyViolations) UpdateStatus(ctx context.Context, clusterPolicyViolation *v1.ClusterPolicyViolation, opts metav1.UpdateOptions) (result *v1.ClusterPolicyViolation, err error) {
+
+func (c *clusterPolicyViolations) UpdateStatus(clusterPolicyViolation *v1.ClusterPolicyViolation) (result *v1.ClusterPolicyViolation, err error) {
 	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Put().
 		Resource("clusterpolicyviolations").
 		Name(clusterPolicyViolation.Name).
 		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterPolicyViolation).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }
 
 // Delete takes name of the clusterPolicyViolation and deletes it. Returns an error if one occurs.
-func (c *clusterPolicyViolations) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *clusterPolicyViolations) Delete(name string, options *metav1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("clusterpolicyviolations").
 		Name(name).
-		Body(&opts).
-		Do(ctx).
+		Body(options).
+		Do().
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *clusterPolicyViolations) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *clusterPolicyViolations) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("clusterpolicyviolations").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
+		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
+		Body(options).
+		Do().
 		Error()
 }
 
 // Patch applies the patch and returns the patched clusterPolicyViolation.
-func (c *clusterPolicyViolations) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterPolicyViolation, err error) {
+func (c *clusterPolicyViolations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ClusterPolicyViolation, err error) {
 	result = &v1.ClusterPolicyViolation{}
 	err = c.client.Patch(pt).
 		Resource("clusterpolicyviolations").
-		Name(name).
 		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
+		Name(name).
 		Body(data).
-		Do(ctx).
+		Do().
 		Into(result)
 	return
 }

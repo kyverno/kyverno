@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -40,7 +38,7 @@ var clusterpolicyviolationsResource = schema.GroupVersionResource{Group: "kyvern
 var clusterpolicyviolationsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicyViolation"}
 
 // Get takes name of the clusterPolicyViolation, and returns the corresponding clusterPolicyViolation object, and an error if there is any.
-func (c *FakeClusterPolicyViolations) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.ClusterPolicyViolation, err error) {
+func (c *FakeClusterPolicyViolations) Get(name string, options v1.GetOptions) (result *kyvernov1.ClusterPolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(clusterpolicyviolationsResource, name), &kyvernov1.ClusterPolicyViolation{})
 	if obj == nil {
@@ -50,7 +48,7 @@ func (c *FakeClusterPolicyViolations) Get(ctx context.Context, name string, opti
 }
 
 // List takes label and field selectors, and returns the list of ClusterPolicyViolations that match those selectors.
-func (c *FakeClusterPolicyViolations) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.ClusterPolicyViolationList, err error) {
+func (c *FakeClusterPolicyViolations) List(opts v1.ListOptions) (result *kyvernov1.ClusterPolicyViolationList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(clusterpolicyviolationsResource, clusterpolicyviolationsKind, opts), &kyvernov1.ClusterPolicyViolationList{})
 	if obj == nil {
@@ -71,13 +69,13 @@ func (c *FakeClusterPolicyViolations) List(ctx context.Context, opts v1.ListOpti
 }
 
 // Watch returns a watch.Interface that watches the requested clusterPolicyViolations.
-func (c *FakeClusterPolicyViolations) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeClusterPolicyViolations) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(clusterpolicyviolationsResource, opts))
 }
 
 // Create takes the representation of a clusterPolicyViolation and creates it.  Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
-func (c *FakeClusterPolicyViolations) Create(ctx context.Context, clusterPolicyViolation *kyvernov1.ClusterPolicyViolation, opts v1.CreateOptions) (result *kyvernov1.ClusterPolicyViolation, err error) {
+func (c *FakeClusterPolicyViolations) Create(clusterPolicyViolation *kyvernov1.ClusterPolicyViolation) (result *kyvernov1.ClusterPolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(clusterpolicyviolationsResource, clusterPolicyViolation), &kyvernov1.ClusterPolicyViolation{})
 	if obj == nil {
@@ -87,7 +85,7 @@ func (c *FakeClusterPolicyViolations) Create(ctx context.Context, clusterPolicyV
 }
 
 // Update takes the representation of a clusterPolicyViolation and updates it. Returns the server's representation of the clusterPolicyViolation, and an error, if there is any.
-func (c *FakeClusterPolicyViolations) Update(ctx context.Context, clusterPolicyViolation *kyvernov1.ClusterPolicyViolation, opts v1.UpdateOptions) (result *kyvernov1.ClusterPolicyViolation, err error) {
+func (c *FakeClusterPolicyViolations) Update(clusterPolicyViolation *kyvernov1.ClusterPolicyViolation) (result *kyvernov1.ClusterPolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(clusterpolicyviolationsResource, clusterPolicyViolation), &kyvernov1.ClusterPolicyViolation{})
 	if obj == nil {
@@ -98,7 +96,7 @@ func (c *FakeClusterPolicyViolations) Update(ctx context.Context, clusterPolicyV
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeClusterPolicyViolations) UpdateStatus(ctx context.Context, clusterPolicyViolation *kyvernov1.ClusterPolicyViolation, opts v1.UpdateOptions) (*kyvernov1.ClusterPolicyViolation, error) {
+func (c *FakeClusterPolicyViolations) UpdateStatus(clusterPolicyViolation *kyvernov1.ClusterPolicyViolation) (*kyvernov1.ClusterPolicyViolation, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(clusterpolicyviolationsResource, "status", clusterPolicyViolation), &kyvernov1.ClusterPolicyViolation{})
 	if obj == nil {
@@ -108,22 +106,22 @@ func (c *FakeClusterPolicyViolations) UpdateStatus(ctx context.Context, clusterP
 }
 
 // Delete takes name of the clusterPolicyViolation and deletes it. Returns an error if one occurs.
-func (c *FakeClusterPolicyViolations) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeClusterPolicyViolations) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(clusterpolicyviolationsResource, name), &kyvernov1.ClusterPolicyViolation{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeClusterPolicyViolations) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clusterpolicyviolationsResource, listOpts)
+func (c *FakeClusterPolicyViolations) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(clusterpolicyviolationsResource, listOptions)
 
 	_, err := c.Fake.Invokes(action, &kyvernov1.ClusterPolicyViolationList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched clusterPolicyViolation.
-func (c *FakeClusterPolicyViolations) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.ClusterPolicyViolation, err error) {
+func (c *FakeClusterPolicyViolations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kyvernov1.ClusterPolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(clusterpolicyviolationsResource, name, pt, data, subresources...), &kyvernov1.ClusterPolicyViolation{})
 	if obj == nil {
