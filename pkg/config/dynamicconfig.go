@@ -19,6 +19,8 @@ import (
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
 
+var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes","system:kube-scheduler"}
+
 // ConfigData stores the configuration
 type ConfigData struct {
 	client kubernetes.Interface
@@ -223,13 +225,14 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		// update filters
 		cd.filters = newFilters
 	}
-	excludeGroupRoles := parseRbac(excludeGroupRole)
-	if reflect.DeepEqual(excludeGroupRoles, cd.excludeGroupRole) {
+	newExcludeGroupRoles := parseRbac(excludeGroupRole)
+	newExcludeGroupRoles = append(newExcludeGroupRoles,defaultExcludeGroupRole...)
+	if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
 		logger.V(4).Info("excludeGroupRole did not change")
 	}else{
-		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", excludeGroupRoles)
+		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
 		// update filters
-		cd.excludeGroupRole  = excludeGroupRoles
+		cd.excludeGroupRole  = newExcludeGroupRoles
 	}
 
 	excludeUsernames := parseRbac(excludeUsername)
@@ -267,6 +270,7 @@ func (cd *ConfigData) initRbac(action,exclude string) {
 	// update filters
 	if action == "excludeRoles" {
 		cd.excludeGroupRole = rbac
+		cd.excludeGroupRole =  append(cd.excludeGroupRole,defaultExcludeGroupRole...)
 	}else{
 		cd.excludeUsername = rbac
 	}
@@ -281,6 +285,7 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	defer cd.mux.Unlock()
 	cd.filters = []k8Resource{}
 	cd.excludeGroupRole = []string{}
+	cd.excludeGroupRole = append(cd.excludeGroupRole,defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
 }
 
@@ -320,10 +325,5 @@ func parseKinds(list string) []k8Resource {
 }
 
 func parseRbac(list string) []string {
-	elements := strings.Split(list, ",")
-	var exclude []string
-	for _,e := range elements {
-		exclude = append(exclude,e)
-	}
-	return exclude
+	return strings.Split(list, ",")
 }
