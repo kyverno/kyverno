@@ -31,7 +31,6 @@ spec:
           #- "--webhooktimeout=4"
           # enable profiling
           # - "--profile"
-          - --excludeGroupRole=""
           - "-v=2"
           ports:
             - containerPort: 443
