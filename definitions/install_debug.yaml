@@ -422,7 +422,7 @@ spec:
     kind: NamespacePolicy
     plural: namespacepolicies
     shortNames:
-    - nspol
+    - pol
     singular: namespacepolicy
   scope: Namespaced
   subresources:

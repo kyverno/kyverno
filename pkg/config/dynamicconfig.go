@@ -84,7 +84,7 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources,excludeGroupRole,excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -106,12 +106,12 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 	if excludeGroupRole != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
-		cd.initRbac("excludeRoles",excludeGroupRole)
+		cd.initRbac("excludeRoles", excludeGroupRole)
 	}
 
 	if excludeUsername != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeUsername")
-		cd.initRbac("excludeUsername",excludeUsername)
+		cd.initRbac("excludeUsername", excludeUsername)
 	}
 
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -218,7 +218,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	newFilters := parseKinds(filters)
 	if reflect.DeepEqual(newFilters, cd.filters) {
 		logger.V(4).Info("resourceFilters did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
 		// update filters
 		cd.filters = newFilters
@@ -226,19 +226,19 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	excludeGroupRoles := parseRbac(excludeGroupRole)
 	if reflect.DeepEqual(excludeGroupRoles, cd.excludeGroupRole) {
 		logger.V(4).Info("excludeGroupRole did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", excludeGroupRoles)
 		// update filters
-		cd.excludeGroupRole  = excludeGroupRoles
+		cd.excludeGroupRole = excludeGroupRoles
 	}
 
 	excludeUsernames := parseRbac(excludeUsername)
 	if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
 		logger.V(4).Info("excludeGroupRole did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
 		// update filters
-		cd.excludeUsername  = excludeUsernames
+		cd.excludeUsername = excludeUsernames
 	}
 
 }
@@ -257,7 +257,7 @@ func (cd *ConfigData) initFilters(filters string) {
 	cd.filters = newFilters
 }
 
-func (cd *ConfigData) initRbac(action,exclude string) {
+func (cd *ConfigData) initRbac(action, exclude string) {
 	logger := cd.log
 	// parse and load the configuration
 	cd.mux.Lock()
@@ -267,12 +267,11 @@ func (cd *ConfigData) initRbac(action,exclude string) {
 	// update filters
 	if action == "excludeRoles" {
 		cd.excludeGroupRole = rbac
-	}else{
+	} else {
 		cd.excludeUsername = rbac
 	}
 
 }
-
 
 func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	logger := cd.log
@@ -322,8 +321,8 @@ func parseKinds(list string) []k8Resource {
 func parseRbac(list string) []string {
 	elements := strings.Split(list, ",")
 	var exclude []string
-	for _,e := range elements {
-		exclude = append(exclude,e)
+	for _, e := range elements {
+		exclude = append(exclude, e)
 	}
 	return exclude
 }

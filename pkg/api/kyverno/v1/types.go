@@ -93,7 +93,6 @@ type ClusterPolicyList struct {
 	Items           []ClusterPolicy `json:"items" yaml:"items"`
 }
 
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

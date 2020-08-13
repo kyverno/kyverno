@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"strings"
 	"time"
 
 	informers "k8s.io/client-go/informers/core/v1"
@@ -55,6 +56,9 @@ type PolicyController struct {
 	// pLister can list/get policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
 
+	// npLister can list/get namespace policy from the shared informer's store
+	npLister kyvernolister.NamespacePolicyLister
+
 	// pvLister can list/get policy violation from the shared informer's store
 	cpvLister kyvernolister.ClusterPolicyViolationLister
 
@@ -66,6 +70,9 @@ type PolicyController struct {
 
 	// pListerSynced returns true if the Policy store has been synced at least once
 	pListerSynced cache.InformerSynced
+
+	// npListerSynced returns true if the Policy store has been synced at least once
+	npListerSynced cache.InformerSynced
 
 	// pvListerSynced returns true if the Policy store has been synced at least once
 	cpvListerSynced cache.InformerSynced
@@ -95,6 +102,7 @@ type PolicyController struct {
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
+	npInformer kyvernoinformer.NamespacePolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	configHandler config.Interface, eventGen event.Interface,
@@ -132,6 +140,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: pc.deletePolicy,
 	})
 
+	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addNsPolicy,
+		UpdateFunc: pc.updateNsPolicy,
+		DeleteFunc: pc.deleteNsPolicy,
+	})
+
 	cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addClusterPolicyViolation,
 		UpdateFunc: pc.updateClusterPolicyViolation,
@@ -145,11 +159,13 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	})
 
 	pc.pLister = pInformer.Lister()
+	pc.npLister = npInformer.Lister()
 	pc.cpvLister = cpvInformer.Lister()
 	pc.nspvLister = nspvInformer.Lister()
 	pc.nsLister = namespaces.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
+	pc.npListerSynced = npInformer.Informer().HasSynced
 	pc.cpvListerSynced = cpvInformer.Informer().HasSynced
 	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
 	pc.nsListerSynced = namespaces.Informer().HasSynced
@@ -223,6 +239,55 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(p)
+}
+
+func (pc *PolicyController) addNsPolicy(obj interface{}) {
+	logger := pc.log
+	p := obj.(*kyverno.NamespacePolicy)
+	pol := convertNamespacedPolicyToClusterPolicy(p)
+	if !pc.canBackgroundProcess(pol) {
+		return
+	}
+
+	logger.V(4).Info("queuing policy for background processing", "name", pol.Name)
+	pc.enqueuePolicy(pol)
+}
+
+func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
+	logger := pc.log
+	oldP := old.(*kyverno.NamespacePolicy)
+	curP := cur.(*kyverno.NamespacePolicy)
+	ncurP := convertNamespacedPolicyToClusterPolicy(curP)
+	if !pc.canBackgroundProcess(ncurP) {
+		return
+	}
+
+	logger.V(4).Info("updating policy", "name", oldP.Name)
+	pc.enqueuePolicy(ncurP)
+}
+
+func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
+	logger := pc.log
+	p, ok := obj.(*kyverno.NamespacePolicy)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			logger.Info("couldnt get object from tomstone", "obj", obj)
+			return
+		}
+
+		p, ok = tombstone.Obj.(*kyverno.NamespacePolicy)
+		if !ok {
+			logger.Info("tombstone container object that is not a policy", "obj", obj)
+			return
+		}
+	}
+	pol := convertNamespacedPolicyToClusterPolicy(p)
+	logger.V(4).Info("deleting policy", "name", pol.Name)
+
+	// we process policies that are not set of background processing as we need to perform policy violation
+	// cleanup when a policy is deleted.
+	pc.enqueuePolicy(pol)
 }
 
 func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
@@ -307,26 +372,55 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	policy, err := pc.pLister.Get(key)
-	if errors.IsNotFound(err) {
-		go pc.deletePolicyViolations(key)
+	namespace := ""
+	index := strings.Index(key, "/")
+	if index != -1 {
+		namespace = key[:index]
+		key = key[index+1:]
+	}
+	if namespace == "" {
+		policy, err := pc.pLister.Get(key)
+		if errors.IsNotFound(err) {
+			go pc.deletePolicyViolations(key)
 
-		// remove webhook configurations if there are no policies
-		if err := pc.removeResourceWebhookConfiguration(); err != nil {
-			logger.Error(err, "failed to remove resource webhook configurations")
+			// remove webhook configurations if there are no policies
+			if err := pc.removeResourceWebhookConfiguration(); err != nil {
+				logger.Error(err, "failed to remove resource webhook configurations")
+			}
+
+			return nil
 		}
 
-		return nil
+		if err != nil {
+			return err
+		}
+
+		pc.resourceWebhookWatcher.RegisterResourceWebhook()
+
+		engineResponses := pc.processExistingResources(policy)
+		pc.cleanupAndReport(engineResponses)
+	} else {
+		policy, err := pc.npLister.NamespacePolicies(namespace).Get(key)
+		if errors.IsNotFound(err) {
+			go pc.deletePolicyViolations(key)
+
+			// remove webhook configurations if there are no policies
+			if err := pc.removeResourceWebhookConfiguration(); err != nil {
+				logger.Error(err, "failed to remove resource webhook configurations")
+			}
+
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		pc.resourceWebhookWatcher.RegisterResourceWebhook()
+
+		engineResponses := pc.processExistingResources(convertNamespacedPolicyToClusterPolicy(policy))
+		pc.cleanupAndReport(engineResponses)
 	}
-
-	if err != nil {
-		return err
-	}
-
-	pc.resourceWebhookWatcher.RegisterResourceWebhook()
-
-	engineResponses := pc.processExistingResources(policy)
-	pc.cleanupAndReport(engineResponses)
 
 	return nil
 }

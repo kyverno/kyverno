@@ -190,3 +190,78 @@ func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(poli
 	}
 	return list, err
 }
+
+type NamespacePolicyListerExpansion interface {
+	GetPolicyForPolicyViolation(pv *kyvernov1.ClusterPolicyViolation) ([]*kyvernov1.NamespacePolicy, error)
+	GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.NamespacePolicy, error)
+}
+
+func (p *namespacePolicyLister) GetPolicyForPolicyViolation(pv *kyvernov1.ClusterPolicyViolation) ([]*kyvernov1.NamespacePolicy, error) {
+	if len(pv.Labels) == 0 {
+		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
+	}
+
+	pList, err := p.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var policies []*kyvernov1.NamespacePolicy
+	for _, p := range pList {
+		policyLabelmap := map[string]string{"policy": p.Name}
+
+		ls := &metav1.LabelSelector{}
+		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(ls)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label selector: %v", err)
+		}
+		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
+		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
+			continue
+		}
+		policies = append(policies, p)
+	}
+
+	return policies, err
+
+}
+
+func (p *namespacePolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.NamespacePolicy, error) {
+	if len(pv.Labels) == 0 {
+		return nil, fmt.Errorf("no NamespacePolicy found for PolicyViolation %v because it has no labels", pv.Name)
+	}
+
+	pList, err := p.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var policies []*kyvernov1.NamespacePolicy
+	for _, p := range pList {
+		policyLabelmap := map[string]string{"policy": p.Name}
+
+		ls := &metav1.LabelSelector{}
+		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(ls)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label selector: %v", err)
+		}
+		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
+		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
+			continue
+		}
+		if p.Namespace != pv.Namespace {
+			continue
+		}
+		policies = append(policies, p)
+	}
+
+	return policies, err
+}

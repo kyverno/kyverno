@@ -47,6 +47,7 @@ func NewPolicyCacheController(
 
 	return &pc
 }
+
 // convertNamespacedPolicyToClusterPolicy - convert NamespacePolicy to ClusterPolicy
 func convertNamespacedPolicyToClusterPolicy(nsPolicies *kyverno.NamespacePolicy) *kyverno.ClusterPolicy {
 	cpol := kyverno.ClusterPolicy(*nsPolicies)

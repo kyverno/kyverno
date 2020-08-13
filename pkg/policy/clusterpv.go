@@ -103,6 +103,15 @@ func (pc *PolicyController) deleteClusterPolicyViolation(obj interface{}) {
 
 func (pc *PolicyController) getPolicyForClusterPolicyViolation(pv *kyverno.ClusterPolicyViolation) []*kyverno.ClusterPolicy {
 	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
+	// Check for NamespacePolicies
+	nspol, err := pc.npLister.GetPolicyForPolicyViolation(pv)
+	if err != nil {
+		logger.V(4).Info("missing namespace policy for namespaced policy violation", "reason", err.Error())
+		return nil
+	}
+	if len(nspol) > 0 {
+		return convertNamespacedPoliciesToClusterPolicies(nspol)
+	}
 	policies, err := pc.pLister.GetPolicyForPolicyViolation(pv)
 	if err != nil || len(policies) == 0 {
 		return nil

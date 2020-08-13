@@ -31,7 +31,7 @@ type NamespacePolicyLister interface {
 	List(selector labels.Selector) (ret []*v1.NamespacePolicy, err error)
 	// NamespacePolicies returns an object that can list and get NamespacePolicies.
 	NamespacePolicies(namespace string) NamespacePolicyNamespaceLister
-
+	NamespacePolicyListerExpansion
 }
 
 // namespacePolicyLister implements the NamespacePolicyLister interface.

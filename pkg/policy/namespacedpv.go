@@ -18,6 +18,7 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	}
 
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
+
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("namespaced policy violation does not belong to an active policy, will be cleaned up")
@@ -46,6 +47,7 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 	logger := pc.log.WithValues("kind", curPV.Kind, "namespace", curPV.Namespace, "name", curPV.Name)
 
 	ps := pc.getPolicyForNamespacedPolicyViolation(curPV)
+
 	if len(ps) == 0 {
 		// there is no namespaced policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("nameapced policy violation does not belong to an active policy, will be cleanedup")
@@ -107,7 +109,17 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 
 func (pc *PolicyController) getPolicyForNamespacedPolicyViolation(pv *kyverno.PolicyViolation) []*kyverno.ClusterPolicy {
 	logger := pc.log.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
+	// Check for NamespacePolicies
+	nspol, err := pc.npLister.GetPolicyForNamespacedPolicyViolation(pv)
+	if err != nil {
+		logger.V(4).Info("missing namespace policy for namespaced policy violation", "reason", err.Error())
+		return nil
+	}
+	if len(nspol) > 0 {
+		return convertNamespacedPoliciesToClusterPolicies(nspol)
+	}
 	policies, err := pc.pLister.GetPolicyForNamespacedPolicyViolation(pv)
+
 	if err != nil || len(policies) == 0 {
 		logger.V(4).Info("missing policy for namespaced policy violation", "reason", err.Error())
 		return nil

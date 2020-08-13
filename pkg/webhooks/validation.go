@@ -68,11 +68,11 @@ func HandleValidation(
 	}
 
 	policyContext := engine.PolicyContext{
-		NewResource:   newR,
-		OldResource:   oldR,
-		Context:       ctx,
-		AdmissionInfo: userRequestInfo,
-		ExcludeGroupRole : dynamicConfig.GetExcludeGroupRole(),
+		NewResource:      newR,
+		OldResource:      oldR,
+		Context:          ctx,
+		AdmissionInfo:    userRequestInfo,
+		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	var engineResponses []response.EngineResponse

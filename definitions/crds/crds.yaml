@@ -286,7 +286,7 @@ spec:
     plural: namespacepolicies
     singular: namespacepolicy
     shortNames:
-    - nspol
+    - pol
   subresources:
     status: {}
   validation:

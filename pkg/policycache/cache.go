@@ -41,7 +41,7 @@ func newPolicyCache(log logr.Logger) Interface {
 	return &policyCache{
 		pMap{
 			dataMap:      make(map[PolicyType][]*kyverno.ClusterPolicy),
-			nsDataMap:      make(map[string]map[PolicyType][]*kyverno.ClusterPolicy),
+			nsDataMap:    make(map[string]map[PolicyType][]*kyverno.ClusterPolicy),
 			nameCacheMap: namesCache,
 		},
 		log,
@@ -50,13 +50,8 @@ func newPolicyCache(log logr.Logger) Interface {
 
 // Add a policy to cache
 func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
-	pSpace := policy.GetNamespace()
-	if pSpace != "" {
-		pc.pMap.add(policy)
-	} else {
-		pc.pMap.add(policy)
-	}
-	
+	pc.pMap.add(policy)
+
 	pc.Logger.V(4).Info("policy is added to cache", "name", policy.GetName())
 }
 
@@ -83,7 +78,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
-		pName = pSpace +"/"+ pName
+		pName = pSpace + "/" + pName
 		// Initialize Namespace Cache Map
 		_, ok := m.nsDataMap[policy.GetNamespace()]
 		if !ok {
@@ -163,7 +158,7 @@ func (m *pMap) get(key PolicyType, nspace *string) []*kyverno.ClusterPolicy {
 		return m.dataMap[key]
 	}
 	return m.nsDataMap[*nspace][key]
-	
+
 }
 
 func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
@@ -173,12 +168,12 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
-		pName = pSpace +"/"+ pName
+		pName = pSpace + "/" + pName
 	}
 	if pSpace == "" {
 		dataMap := m.dataMap
 		for k, policies := range dataMap {
-	
+
 			var newPolicies []*kyverno.ClusterPolicy
 			for _, p := range policies {
 				if p.GetName() == pName {
@@ -186,25 +181,24 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 				}
 				newPolicies = append(newPolicies, p)
 			}
-	
+
 			m.dataMap[k] = newPolicies
 		}
 	} else {
 		dataMap := m.nsDataMap[pSpace]
 		for k, policies := range dataMap {
-	
+
 			var newPolicies []*kyverno.ClusterPolicy
 			for _, p := range policies {
-				if (p.GetNamespace() +"/"+ p.GetName()) == pName {
+				if (p.GetNamespace() + "/" + p.GetName()) == pName {
 					continue
 				}
 				newPolicies = append(newPolicies, p)
 			}
-	
+
 			m.nsDataMap[pSpace][k] = newPolicies
 		}
 	}
-
 
 	for _, nameCache := range m.nameCacheMap {
 		if _, ok := nameCache[pName]; ok {
