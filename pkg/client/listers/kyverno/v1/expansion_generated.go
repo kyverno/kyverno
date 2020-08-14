@@ -223,6 +223,10 @@ func (p *namespacePolicyLister) GetPolicyForPolicyViolation(pv *kyvernov1.Cluste
 		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
 			continue
 		}
+		fmt.Printf("\np.Namespace : \n%+v\n,  pv.Namespace  :\n%+v\n", p.Namespace, pv.Namespace)
+		if p.Namespace != pv.Namespace {
+			continue
+		}
 		policies = append(policies, p)
 	}
 

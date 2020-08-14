@@ -1044,7 +1044,7 @@ spec:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
         - --excludeGroupRole="system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler"
-        - -v=5
+        - -v=2
         env:
         - name: INIT_CONFIG
           value: init-config
@@ -1054,7 +1054,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.7-42-g0ac51709
+        image: nirmata/kyverno:v1.1.7-43-g39d06f41
         imagePullPolicy: Never
         livenessProbe:
           failureThreshold: 4

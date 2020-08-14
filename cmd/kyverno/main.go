@@ -171,7 +171,8 @@ func main() {
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
 		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies().Lister())
+		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
+		pInformer.Kyverno().V1().NamespacePolicies().Lister())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation

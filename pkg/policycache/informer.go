@@ -16,6 +16,7 @@ import (
 // policies based on types (Mutate/ValidateEnforce/Generate).
 type Controller struct {
 	pSynched cache.InformerSynced
+	nspSynched cache.InformerSynced
 	Cache    Interface
 	log      logr.Logger
 }
@@ -31,68 +32,73 @@ func NewPolicyCacheController(
 		log:   log,
 	}
 
+	// ClusterPolicy Informer
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
 	})
 
+	// NamespacePolicy Informer
 	nspInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addPolicy,
-		UpdateFunc: pc.updatePolicy,
-		DeleteFunc: pc.deletePolicy,
+		AddFunc:    pc.addNsPolicy,
+		UpdateFunc: pc.updateNsPolicy,
+		DeleteFunc: pc.deleteNsPolicy,
 	})
 
 	pc.pSynched = pInformer.Informer().HasSynced
+	pc.nspSynched = nspInformer.Informer().HasSynced
 
 	return &pc
 }
 
 // convertNamespacedPolicyToClusterPolicy - convert NamespacePolicy to ClusterPolicy
+// This will retain the kind of NamespacePolicy and convert type to ClusterPolicy
 func convertNamespacedPolicyToClusterPolicy(nsPolicies *kyverno.NamespacePolicy) *kyverno.ClusterPolicy {
 	cpol := kyverno.ClusterPolicy(*nsPolicies)
 	return &cpol
 }
 
 func (c *Controller) addPolicy(obj interface{}) {
-	p, ok := obj.(*kyverno.ClusterPolicy)
-	if ok {
-		c.Cache.Add(p)
-	} else {
-		p := obj.(*kyverno.NamespacePolicy)
-		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(p))
-	}
+	p := obj.(*kyverno.ClusterPolicy)
+	c.Cache.Add(p)
 }
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
-	pOld, ok := old.(*kyverno.ClusterPolicy)
-	pNew, ok := cur.(*kyverno.ClusterPolicy)
+	pOld := old.(*kyverno.ClusterPolicy)
+	pNew := cur.(*kyverno.ClusterPolicy)
 
 	if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
 		return
 	}
-	if ok {
-		c.Cache.Remove(pOld)
-		c.Cache.Add(pNew)
-	} else {
-		pOld := old.(*kyverno.NamespacePolicy)
-		pNew := cur.(*kyverno.NamespacePolicy)
-		if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
-			return
-		}
-		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(pOld))
-		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(pNew))
-	}
+	c.Cache.Remove(pOld)
+	c.Cache.Add(pNew)
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	p, ok := obj.(*kyverno.ClusterPolicy)
-	if ok {
-		c.Cache.Remove(p)
-	} else {
+	p := obj.(*kyverno.ClusterPolicy)
+	c.Cache.Remove(p)
+}
+
+// addNsPolicy - Add 
+func (c *Controller) addNsPolicy(obj interface{}) {
 		p := obj.(*kyverno.NamespacePolicy)
-		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(p))
-	}
+		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(p))
+}
+
+func (c *Controller) updateNsPolicy(old, cur interface{}) {
+		npOld := old.(*kyverno.NamespacePolicy)
+		npNew := cur.(*kyverno.NamespacePolicy)
+		if reflect.DeepEqual(npOld.Spec, npNew.Spec) {
+			return
+		}
+		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(npOld))
+		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(npNew))
+}
+
+func (c *Controller) deleteNsPolicy(obj interface{}) {
+	p := obj.(*kyverno.NamespacePolicy)
+	c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(p))
 }
 
 // Run waits until policy informer to be synced
