@@ -2,7 +2,10 @@ package policyreport
 
 import (
 	"errors"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	"fmt"
+	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/constant"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -160,15 +163,14 @@ func (hpr *helmPR) syncHandler(info Info) error {
 
 	pv := builder.generate(info)
 
-	if info.FromSync {
-		pv.Annotations = map[string]string{
-			"fromSync": "true",
-		}
+	resource, err := hpr.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetName(), info.Resource.GetNamespace())
+	if err != nil {
+		logger.Error(err, "failed to get resource")
 	}
-
+	labels := resource.GetLabels()
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := hpr.create(pv); err != nil {
+	if err := hpr.create(pv,labels["helm.sh/chart"]); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -180,14 +182,31 @@ func (hpr *helmPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate) error {
-	policyName := fmt.Sprintf("kyverno-policyreport", pv.Name)
-	preport, err := hpr.policyreportInterface.PolicyReports(pv.Namespace).Get(policyName, v1.GetOptions{})
+func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
+	reportName := fmt.Sprintf("kyverno-policyreport-%s-%s",appName, pv.Spec.Namespace)
+	pr, err := hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
+		if k8serror.IsNotFound(err) {
+			pr = &policyreportv1alpha12.PolicyReport{
+				Scope:  &corev1.ObjectReference{
+					Kind : "Namespace",
+					Namespace: pv.Spec.Namespace,
+				},
+				Summary: policyreportv1alpha12.PolicyReportSummary{
+
+				},
+				Results: []*policyreportv1alpha12.PolicyReportResult{},
+			}
+			labelMap := map[string]string{
+				"policy-scope": "application",
+				"helm.sh/chart" : appName,
+			}
+			pv.SetLabels(labelMap)
+		}
 		return err
 	}
-	preport = CreatePolicyReportToPolicyReport(&pv, preport)
-	_, err = hpr.policyreportInterface.PolicyReports(pv.Namespace).Update(preport)
+	pr = CreatePolicyReportToPolicyReport(&pv, pr)
+	_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(pr)
 	if err != nil {
 		return err
 	}

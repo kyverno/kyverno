@@ -131,6 +131,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
+		policyInformer:  policyInformer,
 		prgen:                  policyreport.Generator{},
 	}
 
@@ -143,6 +144,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	})
 
 	if os.Getenv("POLICY_TYPE") == "POLICYVIOLATION" {
+		log.Info("DEBUGPR POLICY VIOLATION")
 		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    pc.addClusterPolicyViolation,
 			UpdateFunc: pc.updateClusterPolicyViolation,
@@ -213,6 +215,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 }
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
+
 	logger := pc.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
@@ -256,7 +259,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if os.Getenv("POLICY_TYPE") != "POLICYREPORT" {
+	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
 		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced, pc.nspvListerSynced, pc.cpvListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
@@ -443,7 +446,10 @@ func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
 	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
 		policyReport, err := r.Client.PolicyV1alpha1().ClusterPolicyReports().Get("kyverno-clusterpolicyreport", metav1.GetOptions{})
 		if err != nil {
-			return err
+			if !errors.IsNotFound(err) {
+				return err
+			}
+			return nil
 		}
 		policyReport = policyreport.RemoveClusterPolicyViolation(policyReport, name)
 		_, err = r.Client.PolicyV1alpha1().ClusterPolicyReports().Update(policyReport)
@@ -459,7 +465,10 @@ func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string) error {
 		reportName := fmt.Sprintf("kyverno-clusterpolicyreport-%s", ns)
 		policyReport, err := r.Client.PolicyV1alpha1().PolicyReports(ns).Get(reportName, metav1.GetOptions{})
 		if err != nil {
-			return err
+			if !errors.IsNotFound(err) {
+				return err
+			}
+			return nil
 		}
 		policyReport = policyreport.RemovePolicyViolation(policyReport, name)
 		_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)

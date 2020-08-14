@@ -2,7 +2,10 @@ package policyreport
 
 import (
 	"errors"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -181,13 +184,31 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 }
 
 func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate) error {
-	policyName := fmt.Sprintf("kyverno-policyreport", pv)
-	clusterpr, err := nspr.policyreportInterface.PolicyReports(pv.Namespace).Get(policyName, v1.GetOptions{})
+	reportName := fmt.Sprintf("kyverno-policyreport-%s", pv.Spec.Namespace)
+	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
+		if k8serror.IsNotFound(err) {
+			pr = &policyreportv1alpha12.PolicyReport{
+				Scope:  &corev1.ObjectReference{
+					Kind : "Namespace",
+					Namespace: pv.Spec.Namespace,
+				},
+				Summary: policyreportv1alpha12.PolicyReportSummary{
+
+				},
+				Results: []*policyreportv1alpha12.PolicyReportResult{},
+			}
+		}
+		labelMap := map[string]string{
+			"policy-scope": "namespace",
+		}
+		pv.SetLabels(labelMap)
+		pv.SetNamespace(pv.Spec.Namespace)
+
 		return err
 	}
-	cpr := CreatePolicyReportToPolicyReport(&pv, clusterpr)
-	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Namespace).Update(cpr)
+	cpr := CreatePolicyReportToPolicyReport(&pv, pr)
+	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(cpr)
 	if err != nil {
 		return err
 	}
