@@ -765,8 +765,8 @@ spec:
     spec:
       containers:
       - args:
-        - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
-        - -v=2
+        - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ClusterPolicy,*,*][ClusterPolicyViolation,*,*]
+        - -v=6
         env:
         - name: INIT_CONFIG
           value: init-config
@@ -776,8 +776,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.9
-        imagePullPolicy: Always
+        image: nirmata/kyverno:latest
+        imagePullPolicy: Never
         livenessProbe:
           failureThreshold: 4
           httpGet:

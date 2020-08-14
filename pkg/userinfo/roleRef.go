@@ -18,18 +18,18 @@ const (
 	clusterrolekind = "ClusterRole"
 	rolekind        = "Role"
 	SaPrefix        = "system:serviceaccount:"
-	KyvernoSuffix = "kyverno:"
+	KyvernoSuffix   = "kyverno:"
 )
 
 type allRolesStruct struct {
 	RoleType string
-	Role []string
+	Role     []string
 }
+
 var allRoles []allRolesStruct
 
-
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest,dynamicConfig config.Interface) (roles []string, clusterRoles []string, err error) {
+func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *v1beta1.AdmissionRequest, dynamicConfig config.Interface) (roles []string, clusterRoles []string, err error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
 	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
 		return
@@ -137,33 +137,33 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 }
 
 //IsRoleAuthorize is role authorize or not
-func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest,dynamicConfig config.Interface) (bool, error) {
+func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *v1beta1.AdmissionRequest, dynamicConfig config.Interface) (bool, error) {
 	if strings.Contains(request.UserInfo.Username, SaPrefix) {
-		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request,dynamicConfig)
+		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request, dynamicConfig)
 		if err != nil {
 			return false, err
 		}
-		allRoles := append(allRoles,allRolesStruct{
+		allRoles := append(allRoles, allRolesStruct{
 			RoleType: "ClusterRole",
-			Role : clusterRoles,
-		},allRolesStruct{
+			Role:     clusterRoles,
+		}, allRolesStruct{
 			RoleType: "Role",
-			Role : roles,
+			Role:     roles,
 		})
 		for _, r := range allRoles {
-			for _,e := range r.Role {
+			for _, e := range r.Role {
 				if strings.Contains(e, KyvernoSuffix) {
 					return true, nil
 				}
 				var labels map[string]string
 				if r.RoleType == "Role" {
 					roleData := strings.Split(e, ":")
-					role, err := rLister.Roles(roleData[0]).Get(strings.Join(roleData[1:],":"))
+					role, err := rLister.Roles(roleData[0]).Get(strings.Join(roleData[1:], ":"))
 					if err != nil {
 						return false, err
 					}
 					labels = role.GetLabels()
-				}else{
+				} else {
 					role, err := crLister.Get(e)
 					if err != nil {
 						return false, err
@@ -194,7 +194,7 @@ func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister
 	}
 
 	var matchedRoles []bool
-	excludeGroupRule := append(dynamicConfig.GetExcludeGroupRole(),KyvernoSuffix)
+	excludeGroupRule := append(dynamicConfig.GetExcludeGroupRole(), KyvernoSuffix)
 	for _, e := range request.UserInfo.Groups {
 		for _, defaultSuffix := range excludeGroupRule {
 

@@ -84,7 +84,7 @@ func NewController(
 		dynamicInformer:      dynamicInformer,
 		log:                  log,
 		policyStatusListener: policyStatus,
-		Config: dynamicConfig,
+		Config:               dynamicConfig,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 

@@ -50,7 +50,7 @@ type auditHandler struct {
 	crbLister rbaclister.ClusterRoleBindingLister
 	crbSynced cache.InformerSynced
 
-	log logr.Logger
+	log           logr.Logger
 	configHandler config.Interface
 }
 
@@ -75,7 +75,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		crbLister:      crbInformer.Lister(),
 		crbSynced:      crbInformer.Informer().HasSynced,
 		log:            log,
-		configHandler : dynamicConfig,
+		configHandler:  dynamicConfig,
 	}
 }
 
@@ -138,7 +138,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request,h.configHandler)
+		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
 		}
@@ -165,7 +165,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger,h.configHandler)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger, h.configHandler)
 	return nil
 }
 
