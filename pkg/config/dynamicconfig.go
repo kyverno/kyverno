@@ -19,7 +19,7 @@ import (
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
 
-var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes","system:kube-scheduler"}
+var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
 
 // ConfigData stores the configuration
 type ConfigData struct {
@@ -86,7 +86,7 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources,excludeGroupRole,excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -108,12 +108,12 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 	if excludeGroupRole != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
-		cd.initRbac("excludeRoles",excludeGroupRole)
+		cd.initRbac("excludeRoles", excludeGroupRole)
 	}
 
 	if excludeUsername != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeUsername")
-		cd.initRbac("excludeUsername",excludeUsername)
+		cd.initRbac("excludeUsername", excludeUsername)
 	}
 
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -220,28 +220,28 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	newFilters := parseKinds(filters)
 	if reflect.DeepEqual(newFilters, cd.filters) {
 		logger.V(4).Info("resourceFilters did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
 		// update filters
 		cd.filters = newFilters
 	}
 	newExcludeGroupRoles := parseRbac(excludeGroupRole)
-	newExcludeGroupRoles = append(newExcludeGroupRoles,defaultExcludeGroupRole...)
+	newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
 	if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
 		logger.V(4).Info("excludeGroupRole did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
 		// update filters
-		cd.excludeGroupRole  = newExcludeGroupRoles
+		cd.excludeGroupRole = newExcludeGroupRoles
 	}
 
 	excludeUsernames := parseRbac(excludeUsername)
 	if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
 		logger.V(4).Info("excludeGroupRole did not change")
-	}else{
+	} else {
 		logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
 		// update filters
-		cd.excludeUsername  = excludeUsernames
+		cd.excludeUsername = excludeUsernames
 	}
 
 }
@@ -260,7 +260,7 @@ func (cd *ConfigData) initFilters(filters string) {
 	cd.filters = newFilters
 }
 
-func (cd *ConfigData) initRbac(action,exclude string) {
+func (cd *ConfigData) initRbac(action, exclude string) {
 	logger := cd.log
 	// parse and load the configuration
 	cd.mux.Lock()
@@ -270,13 +270,12 @@ func (cd *ConfigData) initRbac(action,exclude string) {
 	// update filters
 	if action == "excludeRoles" {
 		cd.excludeGroupRole = rbac
-		cd.excludeGroupRole =  append(cd.excludeGroupRole,defaultExcludeGroupRole...)
-	}else{
+		cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
+	} else {
 		cd.excludeUsername = rbac
 	}
 
 }
-
 
 func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	logger := cd.log
@@ -285,7 +284,7 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	defer cd.mux.Unlock()
 	cd.filters = []k8Resource{}
 	cd.excludeGroupRole = []string{}
-	cd.excludeGroupRole = append(cd.excludeGroupRole,defaultExcludeGroupRole...)
+	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
 }
 
