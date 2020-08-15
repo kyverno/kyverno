@@ -224,7 +224,8 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 			return
 		}
 
-		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
+		logger := ws.log.WithName("handlerFunc").WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace,
+			"name", admissionReview.Request.Name, "operation", admissionReview.Request.Operation, "uid", admissionReview.Request.UID)
 
 		admissionReview.Response = &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -271,6 +272,8 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
+
+	logger.V(6).Info("received an admission request in mutating webhook")
 
 	mutatePolicies := ws.pCache.Get(policycache.Mutate)
 	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce)
@@ -328,14 +331,14 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		if request.Operation != v1beta1.Delete {
+		if resource.GetDeletionTimestamp() == nil {
 			patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
 			logger.V(6).Info("", "generated patches", string(patches))
-		}
 
-		// patch the resource with patches before handling validation rules
-		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
-		logger.V(6).Info("", "patchedResource", string(patchedResource))
+			// patch the resource with patches before handling validation rules
+			patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+			logger.V(6).Info("", "patchedResource", string(patchedResource))
+		}
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// push admission request to audit handler, this won't block the admission request
@@ -411,6 +414,8 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 			},
 		}
 	}
+
+	logger.V(6).Info("received an admission request in validating webhook")
 
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
