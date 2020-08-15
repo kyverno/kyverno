@@ -99,7 +99,7 @@ config:
   - "[*,kyverno,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
-  excludeGroupRole: 'system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler'
+  excludeGroupRole: ''
   # existingConfig: init-config
 
 service:

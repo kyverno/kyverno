@@ -367,9 +367,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Success -> Generate Request CR created successfully
 	// Failed -> Failed to create Generate Request CR
 
-	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
-	}
+	go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
 
 	// Succesful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
@@ -590,7 +588,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
+					return fmt.Errorf("resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

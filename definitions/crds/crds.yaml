@@ -181,10 +181,8 @@ spec:
                   mutate:
                     type: object
                     properties:
-                      overlay:
-                        AnyValue: {}
-                      patchStrategicMerge:
-                        AnyValue: {}
+                      overlay: {}
+                      patchStrategicMerge: {}
                       patchesJson6902:
                         type: string
                       patches:
@@ -203,17 +201,14 @@ spec:
                               - add
                               - replace
                               - remove
-                            value:
-                              AnyValue: {}
+                            value: {}
                   validate:
                     type: object
                     properties:
                       message:
                         type: string
-                      pattern:
-                        AnyValue: {}
-                      anyPattern:
-                        AnyValue: {}
+                      pattern: {}
+                      anyPattern: {}
                       deny:
                         properties:
                           conditions:
@@ -267,8 +262,7 @@ spec:
                             type: string
                           name:
                             type: string
-                      data:
-                        AnyValue: {}
+                      data: {}
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
