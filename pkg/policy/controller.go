@@ -143,8 +143,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: pc.deletePolicy,
 	})
 
-	if os.Getenv("POLICY_TYPE") == "POLICYVIOLATION" {
-		log.Info("DEBUGPR POLICY VIOLATION")
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		pc.log.WithValues("DEBUGPR").Info("DEBUGPR POLICY VIOLATION")
 		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    pc.addClusterPolicyViolation,
 			UpdateFunc: pc.updateClusterPolicyViolation,
@@ -259,7 +259,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
 		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced, pc.nspvListerSynced, pc.cpvListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
@@ -367,7 +367,7 @@ func (pc *PolicyController) deletePolicyViolations(key string) {
 }
 
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		if err := pc.pvControl.DeleteClusterPolicyViolation(policy); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", policy)
 		}
@@ -390,7 +390,8 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, e
 }
 
 func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int, error) {
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+
 		str := strings.Split(policy, "/")
 		if len(str) == 2 {
 			if err := pc.pvControl.DeleteNamespacedPolicyViolation(str[1], str[0]); err != nil {
@@ -443,7 +444,7 @@ type RealPVControl struct {
 
 //DeleteClusterPolicyViolation deletes the policy violation
 func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		policyReport, err := r.Client.PolicyV1alpha1().ClusterPolicyReports().Get("kyverno-clusterpolicyreport", metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -461,14 +462,14 @@ func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
 
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string) error {
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		reportName := fmt.Sprintf("kyverno-clusterpolicyreport-%s", ns)
 		policyReport, err := r.Client.PolicyV1alpha1().PolicyReports(ns).Get(reportName, metav1.GetOptions{})
 		if err != nil {
-			if !errors.IsNotFound(err) {
-				return err
+			if errors.IsNotFound(err) {
+				return nil
 			}
-			return nil
+			return err
 		}
 		policyReport = policyreport.RemovePolicyViolation(policyReport, name)
 		_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)

@@ -14,7 +14,6 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/constant"
 	"github.com/nirmata/kyverno/pkg/policystatus"
@@ -48,8 +47,7 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 
-	policyInformer policyreportinformer.Interface
-	prgen          policyreport.Generator
+	prgen          *policyreport.Generator
 }
 
 //NewDataStore returns an instance of data store
@@ -113,14 +111,15 @@ type GeneratorInterface interface {
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
-	policyInformer policyreportinformer.Interface,
+	prgen *policyreport.Generator,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	policyStatus policystatus.Listener,
-	log logr.Logger) *Generator {
+	log logr.Logger,
+	stopChna <- chan struct{}) *Generator {
 	gen := Generator{
 		kyvernoInterface:     client.KyvernoV1(),
-		policyInformer:       policyInformer,
+		prgen:       prgen,
 		dclient:              dclient,
 		cpvLister:            pvInformer.Lister(),
 		pvSynced:             pvInformer.Informer().HasSynced,
@@ -130,19 +129,6 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		dataStore:            newDataStore(),
 		log:                  log,
 		policyStatusListener: policyStatus,
-		prgen:                policyreport.Generator{},
-	}
-	if os.Getenv("REPORT_TYPE") == "POLICYREPORT" {
-		// POLICY Report GENERATOR
-		// -- generate policy violation
-		prgen := policyreport.NewPRGenerator(client,
-			dclient,
-			policyInformer.ClusterPolicyReports(),
-			policyInformer.PolicyReports(),
-			policyStatus,
-			log,
-		)
-		gen.prgen = *prgen
 	}
 
 	return &gen
@@ -251,7 +237,7 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	if os.Getenv("POLICY_TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		gen.prgen.Add(policyreport.Info(info))
 		return nil
 	}

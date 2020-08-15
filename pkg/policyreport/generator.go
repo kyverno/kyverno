@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -131,6 +132,7 @@ func (gen *Generator) enqueue(info Info) {
 	keyHash := info.toKey()
 	// add to
 	// queue the key hash
+
 	gen.dataStore.add(keyHash, info)
 	gen.queue.Add(keyHash)
 }
@@ -229,24 +231,21 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	logger.Info("DEBUGPR POLICY REPORT HANDLER CALLED")
-	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetName(), info.Resource.GetNamespace())
+	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(),info.Resource.GetName())
 	if err != nil {
 		logger.Error(err, "failed to get resource")
+		return err
 	}
 	labels := resource.GetLabels()
 	if _, okChart := labels["helm.sh/chart"]; !okChart {
-		logger.Info("DEBUGPR POLICY REPORT HANDLER CALLED NAMESPACE")
 		// cluster scope resource generate a helm package report
 		handler := newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 		handler.Add(info)
 	} else if info.Resource.GetNamespace() == "" {
-		logger.Info("DEBUGPR POLICY REPORT HANDLER CALLED CLUSTER")
 		// cluster scope resource generate a clusterpolicy violation
 		handler := newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
 		handler.Add(info)
 	} else {
-		logger.Info("DEBUGPR POLICY REPORT HANDLER CALLED CLUSTER")
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
 		handler := newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 		handler.Add(info)

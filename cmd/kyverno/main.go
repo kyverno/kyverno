@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -52,7 +53,7 @@ var (
 	excludeUsername  string
 	// User FQDN as CSR CN
 	fqdncn       bool
-	policyReport bool
+	policyReport string
 	setupLog     = log.Log.WithName("setup")
 )
 
@@ -67,7 +68,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	flag.BoolVar(&policyReport, "policyreport", false, "Report Type")
+	flag.StringVar(&policyReport, "policyreport", "policyviolation", "Report Type")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -81,11 +82,11 @@ func main() {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
 
-	os.Setenv("REPORT_TYPE", "POLICYVIOLATION")
-	if policyReport {
-		os.Setenv("REPORT_TYPE", "POLICYREPORT")
+	os.Setenv("POLICY-TYPE", "POLICYVIOLATION")
+	if policyReport == "policyreport" {
+		os.Setenv("POLICY-TYPE", "POLICYREPORT")
 	}
-
+	setupLog.Info(os.Getenv("POLICY-TYPE"))
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -94,7 +95,6 @@ func main() {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
-
 	// KYVERNO CRD CLIENT
 	// access CRD resources
 	//		- Policy
@@ -186,16 +186,33 @@ func main() {
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
+
+	var prgen *policyreport.Generator
+	if policyReport == "policyreport" {
+		// POLICY Report GENERATOR
+		// -- generate policy violation
+		prgen = policyreport.NewPRGenerator(pclient,
+			client,
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			statusSync.Listener,
+			log.Log.WithName("policyReportGenerator"),
+		)
+	}
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
-		prInformer.Policy().V1alpha1(),
+		prgen,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
 		statusSync.Listener,
 		log.Log.WithName("PolicyViolationGenerator"),
+		stopCh,
 	)
+
+
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -343,6 +360,9 @@ func main() {
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
+	if policyReport == "policyreport" {
+		go prgen.Run(1, stopCh)
+	}
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds
