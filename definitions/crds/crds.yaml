@@ -284,7 +284,7 @@ spec:
   names:
     kind: NamespacePolicy
     plural: namespacepolicies
-    singular: namespacepolicy
+    singular: policy
     shortNames:
     - pol
   subresources:

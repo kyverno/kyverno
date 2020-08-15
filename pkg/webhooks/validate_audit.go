@@ -135,6 +135,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	logger := h.log.WithName("process")
 	policies := h.pCache.Get(policycache.ValidateAudit, nil)
+	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := h.pCache.Get(policycache.ValidateAudit, &request.Namespace)
 	policies = append(policies, nsPolicies...)
 	// getRoleRef only if policy has roles/clusterroles defined

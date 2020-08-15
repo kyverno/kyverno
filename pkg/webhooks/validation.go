@@ -87,7 +87,7 @@ func HandleValidation(
 		}
 		engineResponses = append(engineResponses, engineResponse)
 		statusListener.Send(validateStats{
-			resp: engineResponse,
+			resp:      engineResponse,
 			namespace: policy.Namespace,
 		})
 		if !engineResponse.IsSuccessful() {
@@ -127,7 +127,7 @@ func HandleValidation(
 }
 
 type validateStats struct {
-	resp response.EngineResponse
+	resp      response.EngineResponse
 	namespace string
 }
 
@@ -136,7 +136,7 @@ func (vs validateStats) PolicyName() string {
 		return vs.resp.PolicyResponse.Policy
 	}
 	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy
-	
+
 }
 
 func (vs validateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

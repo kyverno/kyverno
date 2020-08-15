@@ -418,7 +418,7 @@ spec:
     plural: namespacepolicies
     shortNames:
     - pol
-    singular: namespacepolicy
+    singular: policy
   scope: Namespaced
   subresources:
     status: {}

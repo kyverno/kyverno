@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -52,7 +52,7 @@ type Sync struct {
 	Listener Listener
 	client   *versioned.Clientset
 	lister   kyvernolister.ClusterPolicyLister
-	nsLister   kyvernolister.NamespacePolicyLister
+	nsLister kyvernolister.NamespacePolicyLister
 }
 
 type cache struct {
@@ -61,7 +61,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister   kyvernolister.NamespacePolicyLister) *Sync {
+func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.NamespacePolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
@@ -128,19 +128,24 @@ func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Unlock()
 
 	for policyName, status := range nameToStatus {
+		// Identify NamespacePolicy and ClusterPolicy based on namespace in key
+		// key = <namespace>/<name> for namespacepolicy and key = <name> for clusterpolicy
+		// and update the respective policies
 		namespace := ""
+		isNamespacedPolicy := false
 		key := policyName
 		index := strings.Index(policyName, "/")
 		if index != -1 {
 			namespace = policyName[:index]
+			isNamespacedPolicy = true
 			policyName = policyName[index+1:]
 		}
-		if namespace == "" {
+		if !isNamespacedPolicy {
 			policy, err := s.lister.Get(policyName)
 			if err != nil {
 				continue
 			}
-	
+
 			policy.Status = status
 			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
 			if err != nil {
@@ -163,10 +168,9 @@ func (s *Sync) updatePolicyStatus() {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, key)
 				s.cache.dataMu.Unlock()
-				log.Log.Error(err, "failed to update policy status")
+				log.Log.Error(err, "failed to update namespace policy status")
 			}
 		}
-		
 
 	}
 }

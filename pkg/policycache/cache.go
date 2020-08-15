@@ -13,7 +13,7 @@ type pMap struct {
 	dataMap map[PolicyType][]*kyverno.ClusterPolicy
 	// nsDataMap field stores Namespaced Policies for each namespaces.
 	// The NamespacePolicy is converted internally to ClusterPolicy and stored as a ClusterPolicy
-	// Since both the policy use same type (i.e. Policy), Both policies can be differentiated based on 
+	// Since both the policy use same type (i.e. Policy), Both policies can be differentiated based on
 	// "Kind" or "namespace". When the NamespacedPolicy is converted it will retain the value of kind as "NamespacePolicy".
 	// Cluster policy will be having namespace as Blank (""), but NamespacePolicy will always be having namespace field and "default" value by default
 	nsDataMap map[string]map[PolicyType][]*kyverno.ClusterPolicy
@@ -84,8 +84,10 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	generateMap := m.nameCacheMap[Generate]
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
+	isNamespacedPolicy := false
 	if pSpace != "" {
 		pName = pSpace + "/" + pName
+		isNamespacedPolicy = true
 		// Initialize Namespace Cache Map
 		_, ok := m.nsDataMap[policy.GetNamespace()]
 		if !ok {
@@ -97,7 +99,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		if rule.HasMutate() {
 			if !mutateMap[pName] {
 				mutateMap[pName] = true
-				if pSpace != "" {
+				if isNamespacedPolicy {
 					mutatePolicy := m.nsDataMap[policy.GetNamespace()][Mutate]
 					m.nsDataMap[policy.GetNamespace()][Mutate] = append(mutatePolicy, policy)
 					continue
@@ -112,7 +114,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 			if enforcePolicy {
 				if !validateEnforceMap[pName] {
 					validateEnforceMap[pName] = true
-					if pSpace != "" {
+					if isNamespacedPolicy {
 						validatePolicy := m.nsDataMap[policy.GetNamespace()][ValidateEnforce]
 						m.nsDataMap[policy.GetNamespace()][ValidateEnforce] = append(validatePolicy, policy)
 						continue
@@ -126,7 +128,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 			// ValidateAudit
 			if !validateAuditMap[pName] {
 				validateAuditMap[pName] = true
-				if pSpace != "" {
+				if isNamespacedPolicy {
 					validatePolicy := m.nsDataMap[policy.GetNamespace()][ValidateAudit]
 					m.nsDataMap[policy.GetNamespace()][ValidateAudit] = append(validatePolicy, policy)
 					continue
@@ -140,7 +142,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		if rule.HasGenerate() {
 			if !generateMap[pName] {
 				generateMap[pName] = true
-				if pSpace != "" {
+				if isNamespacedPolicy {
 					generatePolicy := m.nsDataMap[policy.GetNamespace()][Generate]
 					m.nsDataMap[policy.GetNamespace()][Generate] = append(generatePolicy, policy)
 					continue
@@ -174,10 +176,12 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
+	isNamespacedPolicy := false
 	if pSpace != "" {
 		pName = pSpace + "/" + pName
+		isNamespacedPolicy = true
 	}
-	if pSpace == "" {
+	if !isNamespacedPolicy {
 		dataMap := m.dataMap
 		for k, policies := range dataMap {
 

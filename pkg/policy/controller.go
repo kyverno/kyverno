@@ -139,7 +139,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
 	})
-
+	// NamespacePolicy informer event handler
 	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addNsPolicy,
 		UpdateFunc: pc.updateNsPolicy,
@@ -248,8 +248,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	if !pc.canBackgroundProcess(pol) {
 		return
 	}
-
-	logger.V(4).Info("queuing policy for background processing", "name", pol.Name)
+	logger.V(4).Info("queuing policy for background processing", "namespace", pol.Namespace, "name", pol.Name)
 	pc.enqueuePolicy(pol)
 }
 
@@ -262,7 +261,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 		return
 	}
 
-	logger.V(4).Info("updating policy", "name", oldP.Name)
+	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
 	pc.enqueuePolicy(ncurP)
 }
 
@@ -283,7 +282,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 		}
 	}
 	pol := convertNamespacedPolicyToClusterPolicy(p)
-	logger.V(4).Info("deleting policy", "name", pol.Name)
+	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
@@ -373,12 +372,14 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}()
 
 	namespace := ""
+	isNamespacedPolicy := false
 	index := strings.Index(key, "/")
 	if index != -1 {
 		namespace = key[:index]
 		key = key[index+1:]
+		isNamespacedPolicy = true
 	}
-	if namespace == "" {
+	if !isNamespacedPolicy {
 		policy, err := pc.pLister.Get(key)
 		if errors.IsNotFound(err) {
 			go pc.deletePolicyViolations(key)

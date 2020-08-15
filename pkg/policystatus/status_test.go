@@ -8,6 +8,7 @@ import (
 	"time"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	lv1 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 )
 
 type dummyStore struct {
@@ -52,11 +53,32 @@ func (dl dummyLister) ListResources(selector labels.Selector) (ret []*v1.Cluster
 	return nil, fmt.Errorf("not implemented")
 }
 
+// type dymmyNsNamespace struct {}
+
+type dummyNsLister struct {
+}
+
+func (dl dummyNsLister) NamespacePolicies(name string) lv1.NamespacePolicyNamespaceLister {
+	return dummyNsLister{}
+}
+
+func (dl dummyNsLister) List(selector labels.Selector) (ret []*v1.NamespacePolicy, err error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (dl dummyNsLister) Get(name string) (*v1.NamespacePolicy, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (dl dummyNsLister) GetPolicyForNamespacedPolicyViolation(pv *v1.PolicyViolation) ([]*v1.NamespacePolicy, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestKeyToMutex(t *testing.T) {
 	expectedCache := `{"policy1":{"rulesAppliedCount":100}}`
 
 	stopCh := make(chan struct{})
-	s := NewSync(nil, dummyLister{})
+	s := NewSync(nil, dummyLister{}, dummyNsLister{})
 	for i := 0; i < 100; i++ {
 		go s.updateStatusCache(stopCh)
 	}

@@ -276,6 +276,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce, nil)
 	generatePolicies := ws.pCache.Get(policycache.Generate, nil)
 
+	// Get namespace policies from the cache for the requested resource namespace
 	nsMutatePolicies := ws.pCache.Get(policycache.Mutate, &request.Namespace)
 	mutatePolicies = append(mutatePolicies, nsMutatePolicies...)
 
@@ -421,6 +422,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	ws.auditHandler.Add(request.DeepCopy())
 
 	policies := ws.pCache.Get(policycache.ValidateEnforce, nil)
+	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.Get(policycache.ValidateEnforce, &request.Namespace)
 	policies = append(policies, nsPolicies...)
 	if len(policies) == 0 {

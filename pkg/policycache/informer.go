@@ -15,10 +15,10 @@ import (
 // This cache is only used in the admission webhook to fast retrieve
 // policies based on types (Mutate/ValidateEnforce/Generate).
 type Controller struct {
-	pSynched cache.InformerSynced
+	pSynched   cache.InformerSynced
 	nspSynched cache.InformerSynced
-	Cache    Interface
-	log      logr.Logger
+	Cache      Interface
+	log        logr.Logger
 }
 
 // NewPolicyCacheController create a new PolicyController
@@ -80,22 +80,24 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	c.Cache.Remove(p)
 }
 
-// addNsPolicy - Add 
+// addNsPolicy - Add NamespacedPolicy to cache
 func (c *Controller) addNsPolicy(obj interface{}) {
-		p := obj.(*kyverno.NamespacePolicy)
-		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(p))
+	p := obj.(*kyverno.NamespacePolicy)
+	c.Cache.Add(convertNamespacedPolicyToClusterPolicy(p))
 }
 
+// updateNsPolicy - Update NamespacedPolicy of cache
 func (c *Controller) updateNsPolicy(old, cur interface{}) {
-		npOld := old.(*kyverno.NamespacePolicy)
-		npNew := cur.(*kyverno.NamespacePolicy)
-		if reflect.DeepEqual(npOld.Spec, npNew.Spec) {
-			return
-		}
-		c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(npOld))
-		c.Cache.Add(convertNamespacedPolicyToClusterPolicy(npNew))
+	npOld := old.(*kyverno.NamespacePolicy)
+	npNew := cur.(*kyverno.NamespacePolicy)
+	if reflect.DeepEqual(npOld.Spec, npNew.Spec) {
+		return
+	}
+	c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(npOld))
+	c.Cache.Add(convertNamespacedPolicyToClusterPolicy(npNew))
 }
 
+// deleteNsPolicy - Delete NamespacedPolicy from cache
 func (c *Controller) deleteNsPolicy(obj interface{}) {
 	p := obj.(*kyverno.NamespacePolicy)
 	c.Cache.Remove(convertNamespacedPolicyToClusterPolicy(p))

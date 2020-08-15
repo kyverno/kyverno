@@ -118,7 +118,7 @@ func (ws *WebhookServer) HandleMutation(
 }
 
 type mutateStats struct {
-	resp response.EngineResponse
+	resp      response.EngineResponse
 	namespace string
 }
 
