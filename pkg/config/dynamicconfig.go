@@ -182,52 +182,63 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
 		return
 	}
+	// parse and load the configuration
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
 	// get resource filters
 	filters, ok := cm.Data["resourceFilters"]
-	if !ok && filters == "" {
+	if !ok  {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
+	}
+
+	if filters == "" {
+		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
+	}else{
+		newFilters := parseKinds(filters)
+		if reflect.DeepEqual(newFilters, cd.filters) {
+			logger.V(4).Info("resourceFilters did not change")
+		} else {
+			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
+			// update filters
+			cd.filters = newFilters
+		}
 	}
 
 	// get resource filters
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
-	if !ok && excludeGroupRole == "" {
+	if !ok  {
 		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
+	}
+	if excludeGroupRole == "" {
+		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
+	}else{
+		newExcludeGroupRoles := parseRbac(excludeGroupRole)
+		newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
+		if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
+			logger.V(4).Info("excludeGroupRole did not change")
+		} else {
+			logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
+			// update filters
+			cd.excludeGroupRole = newExcludeGroupRoles
+		}
 	}
 	// get resource filters
 	excludeUsername, ok := cm.Data["excludeUsername"]
-	if !ok && excludeUsername == "" {
+	if !ok  {
 		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
 	}
 
-	// parse and load the configuration
-	cd.mux.Lock()
-	defer cd.mux.Unlock()
-
-	newFilters := parseKinds(filters)
-	if reflect.DeepEqual(newFilters, cd.filters) {
-		logger.V(4).Info("resourceFilters did not change")
-	} else {
-		logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
-		// update filters
-		cd.filters = newFilters
-	}
-	newExcludeGroupRoles := parseRbac(excludeGroupRole)
-	newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
-	if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
-		logger.V(4).Info("excludeGroupRole did not change")
-	} else {
-		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
-		// update filters
-		cd.excludeGroupRole = newExcludeGroupRoles
-	}
-
-	excludeUsernames := parseRbac(excludeUsername)
-	if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
-		logger.V(4).Info("excludeGroupRole did not change")
-	} else {
-		logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
-		// update filters
-		cd.excludeUsername = excludeUsernames
+	if excludeUsername == "" {
+		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
+	}else{
+		excludeUsernames := parseRbac(excludeUsername)
+		if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
+			logger.V(4).Info("excludeGroupRole did not change")
+		} else {
+			logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
+			// update filters
+			cd.excludeUsername = excludeUsernames
+		}
 	}
 
 }
