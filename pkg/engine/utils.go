@@ -51,6 +51,9 @@ func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 
 func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
 	for k, v := range annotations {
+		if len(resourceAnnotations) == 0 {
+			return false
+		}
 		if resourceAnnotations[k] != v {
 			return false
 		}
@@ -87,7 +90,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attibutes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (accross & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured,dynamicConfig []string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
@@ -146,7 +149,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	if len(userInfo.Subjects) > 0 {
 		checkedItem++
 
-		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo,dynamicConfig) {
+		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 		} else {
 			return errs
@@ -161,13 +164,13 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
-func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo,dynamicConfig []string) bool {
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
 	const SaPrefix = "system:serviceaccount:"
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
 	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
-	for _,e := range dynamicConfig {
+	for _, e := range dynamicConfig {
 		ruleSubjects = append(ruleSubjects,
 			rbacv1.Subject{Kind: "Group", Name: e},
 		)
@@ -194,7 +197,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo,dynamicConfig []string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string) error {
 
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -209,7 +212,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource,dynamicConfig)
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
 		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
@@ -218,7 +221,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource has been excluded
 	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource,dynamicConfig)
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig)
 		if excludeErrs == nil {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}
