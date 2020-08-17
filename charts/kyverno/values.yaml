@@ -10,16 +10,16 @@ rbac:
     #   example.com/annotation: value
 
 image:
-  repository: nirmata/kyverno
+  repository: evalsocket/kyverno
   # Defaults to appVersion in Chart.yaml if omitted
-  tag:
+  tag: v1.1.4-510-g9674431b
   pullPolicy: IfNotPresent
   pullSecrets: []
   # - secretName
 initImage:
   repository: nirmata/kyvernopre
   # If initImage.tag is missing, defaults to image.tag
-  tag:
+  tag: latest
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
   # No pull secrets just for initImage; just add to image.pullSecrets
@@ -99,7 +99,10 @@ config:
   - "[*,kyverno,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
-  excludeGroupRole: ''
+  excludeGroupRole:
+#  - ""
+  excludeUsername:
+#  - ""
   # existingConfig: init-config
 
 service:

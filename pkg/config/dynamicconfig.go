@@ -209,19 +209,16 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	if !ok  {
 		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
 	}
-	if excludeGroupRole == "" {
-		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
-	}else{
-		newExcludeGroupRoles := parseRbac(excludeGroupRole)
-		newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
-		if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
-			logger.V(4).Info("excludeGroupRole did not change")
-		} else {
-			logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
-			// update filters
-			cd.excludeGroupRole = newExcludeGroupRoles
-		}
+	newExcludeGroupRoles := parseRbac(excludeGroupRole)
+	newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
+	if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
+		logger.V(4).Info("excludeGroupRole did not change")
+	} else {
+		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
+		// update filters
+		cd.excludeGroupRole = newExcludeGroupRoles
 	}
+
 	// get resource filters
 	excludeUsername, ok := cm.Data["excludeUsername"]
 	if !ok  {
