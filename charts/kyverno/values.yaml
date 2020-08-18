@@ -12,14 +12,14 @@ rbac:
 image:
   repository: evalsocket/kyverno
   # Defaults to appVersion in Chart.yaml if omitted
-  tag: v1.1.4-510-g9674431b
+  tag:
   pullPolicy: IfNotPresent
   pullSecrets: []
   # - secretName
 initImage:
   repository: nirmata/kyvernopre
   # If initImage.tag is missing, defaults to image.tag
-  tag: latest
+  tag:
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
   # No pull secrets just for initImage; just add to image.pullSecrets

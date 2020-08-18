@@ -189,10 +189,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	filters, ok := cm.Data["resourceFilters"]
 	if !ok  {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
-	}
-
-	if filters == "" {
-		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
 	}else{
 		newFilters := parseKinds(filters)
 		if reflect.DeepEqual(newFilters, cd.filters) {
