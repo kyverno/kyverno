@@ -16,7 +16,7 @@ import (
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	openapi_v3 "github.com/googleapis/gnostic/OpenAPIv3"
 	"github.com/googleapis/gnostic/compiler"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
@@ -27,7 +27,7 @@ import (
 
 type Controller struct {
 	mutex       sync.RWMutex
-	definitions map[string]*openapi_v2.Schema
+	definitions map[string]*openapi_v3.Schema
 	// kindToDefinitionName holds the kind - definition map
 	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
 	kindToDefinitionName map[string]string
@@ -37,7 +37,7 @@ type Controller struct {
 
 func NewOpenAPIController() (*Controller, error) {
 	controller := &Controller{
-		definitions:          make(map[string]*openapi_v2.Schema),
+		definitions:          make(map[string]*openapi_v3.Schema),
 		kindToDefinitionName: make(map[string]string),
 	}
 
@@ -150,7 +150,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
+func (o *Controller) useOpenApiDocument(doc *openapi_v3.Document) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -169,14 +169,14 @@ func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
 	return nil
 }
 
-func getSchemaDocument() (*openapi_v2.Document, error) {
+func getSchemaDocument() (*openapi_v3.Document, error) {
 	var spec yaml.MapSlice
 	err := yaml.Unmarshal([]byte(data.SwaggerDoc), &spec)
 	if err != nil {
 		return nil, err
 	}
 
-	return openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+	return openapi_v3.NewDocument(spec, compiler.NewContext("$root", nil))
 }
 
 // For crd, we do not store definition in document
@@ -200,7 +200,7 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
-func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
+func (o *Controller) generateEmptyResource(kindSchema *openapi_v3.Schema) interface{} {
 
 	types := kindSchema.GetType().GetValue()
 
@@ -228,7 +228,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interf
 		var mutex sync.Mutex
 		wg.Add(len(properties))
 		for _, property := range properties {
-			go func(property *openapi_v2.NamedSchema) {
+			go func(property *openapi_v3.NamedSchema) {
 				prop := o.generateEmptyResource(property.GetValue())
 				mutex.Lock()
 				props[property.GetName()] = prop

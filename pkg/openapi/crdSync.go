@@ -15,7 +15,7 @@ import (
 
 	"github.com/googleapis/gnostic/compiler"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	openapi_v3 "github.com/googleapis/gnostic/OpenAPIv3"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nirmata/kyverno/pkg/constant"
@@ -155,7 +155,7 @@ func (o *Controller) parseCRD(crd unstructured.Unstructured) {
 	var schema yaml.MapSlice
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
-	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
+	parsedSchema, err := openapi_v3.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
 		log.Log.Error(err, "could not parse crd schema", "name", crdName)
 		return
