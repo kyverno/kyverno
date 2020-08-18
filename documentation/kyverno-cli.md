@@ -99,7 +99,7 @@ kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <vari
 Use --values_file for applying multiple policies on multiple resources and pass a file containing variables and its values.
 
 ```
-kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f value.yaml
+kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
 ```
 
 Format of value.yaml :
@@ -126,6 +126,74 @@ policies:
         values:
           <variable1 in policy2>: <value>
           <variable2 in policy2>: <value>
+```
+
+Example:
+
+Policy file(add_network_policy.yaml):
+
+```
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy
+  annotations:
+    policies.kyverno.io/category: Workload Management
+    policies.kyverno.io/description: By default, Kubernetes allows communications across 
+      all pods within a cluster. Network policies and, a CNI that supports network policies, 
+      must be used to restrict communinications. A default NetworkPolicy should be configured 
+      for each namespace to default deny all ingress traffic to the pods in the namespace. 
+      Application teams can then configure additional NetworkPolicy resources to allow 
+      desired traffic to application pods from select sources.
+spec:
+  rules:
+  - name: default-deny-ingress
+    match:
+      resources: 
+        kinds:
+        - Namespace
+        name: "*"
+    generate: 
+      kind: NetworkPolicy
+      name: default-deny-ingress
+      namespace: "{{request.object.metadata.name}}"
+      synchronize : true
+      data:
+        spec:
+          # select all pods in the namespace
+          podSelector: {}
+          policyTypes: 
+          - Ingress
+```
+Resource file(required_default_network_policy.yaml) :
+
+```
+kind: Namespace
+apiVersion: v1
+metadata: 
+    name: "devtest"
+```
+Applying policy on resource using set/-s flag:
+
+```
+kyverno apply /path/to/add_network_policy.yaml --resource /path/to/required_default_network_policy.yaml -s request.object.metadata.name=devtest
+```
+
+Applying policy on resource using --values_file/-f flag:
+
+yaml file with variables(value.yaml) :
+
+```
+policies:
+  - name: default-deny-ingress
+    resources:
+      - name: devtest
+        values:
+          request.namespace: devtest
+```
+
+```
+kyverno apply /path/to/add_network_policy.yaml --resource /path/to/required_default_network_policy.yaml -f /path/to/value.yaml
 ```
 
 
