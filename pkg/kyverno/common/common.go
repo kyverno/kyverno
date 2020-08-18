@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -144,6 +145,29 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.
 	}
 
 	return policies, openAPIController, nil
+}
+
+// PolicyHasVariables - check for variables in the policy
+func PolicyHasVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+	regex := regexp.MustCompile(`\{\{[^{}]*\}\}`)
+	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
+}
+
+// PolicyHasNonWhiteListedVariables - checks for non whitelisted variables in the policy
+func PolicyHasNonWhiteListedVariables(policy v1.ClusterPolicy) bool {
+	policyRaw, _ := json.Marshal(policy)
+
+	allVarsRegex := regexp.MustCompile(`\{\{[^{}]*\}\}`)
+
+	whitelist := []string{`request\.`, `serviceAccountName`, `serviceAccountNamespace`}
+	regexStr := `\{\{(` + strings.Join(whitelist, "|") + `)[^{}]*\}\}`
+	matchedVarsRegex := regexp.MustCompile(regexStr)
+
+	if len(allVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) > len(matchedVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) {
+		return true
+	}
+	return false
 }
 
 // MutatePolicy - applies mutation to a policy

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"reflect"
 	"strings"
 
@@ -25,6 +26,10 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	err := json.Unmarshal(policyRaw, &p)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+
+	if common.PolicyHasVariables(p) && common.PolicyHasNonWhiteListedVariables(p){
+		return fmt.Errorf("policy contains non whitelisted vars")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {
