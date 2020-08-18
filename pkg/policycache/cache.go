@@ -12,14 +12,14 @@ type pMap struct {
 	// dataMap field stores ClusterPolicies
 	dataMap map[PolicyType][]*kyverno.ClusterPolicy
 	// nsDataMap field stores Namespaced Policies for each namespaces.
-	// The NamespacePolicy is converted internally to ClusterPolicy and stored as a ClusterPolicy
+	// The Policy is converted internally to ClusterPolicy and stored as a ClusterPolicy
 	// Since both the policy use same type (i.e. Policy), Both policies can be differentiated based on
-	// "Kind" or "namespace". When the NamespacedPolicy is converted it will retain the value of kind as "NamespacePolicy".
-	// Cluster policy will be having namespace as Blank (""), but NamespacePolicy will always be having namespace field and "default" value by default
+	// "Kind" or "namespace". When the Policy is converted it will retain the value of kind as "Policy".
+	// Cluster policy will be having namespace as Blank (""), but Policy will always be having namespace field and "default" value by default
 	nsDataMap map[string]map[PolicyType][]*kyverno.ClusterPolicy
 
 	// nameCacheMap stores the names of all existing policies in dataMap
-	// NamespacePolicy names are stored as <namespace>/<name>
+	// Policy names are stored as <namespace>/<name>
 	nameCacheMap map[PolicyType]map[string]bool
 }
 

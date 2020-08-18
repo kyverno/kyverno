@@ -304,11 +304,11 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	  }`)
 
-	var policy *kyverno.NamespacePolicy
+	var policy *kyverno.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	return convertNamespacedPolicyToClusterPolicy(policy)
+	return convertPolicyToClusterPolicy(policy)
 }
 
 func Test_Ns_All(t *testing.T) {

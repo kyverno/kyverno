@@ -24,6 +24,6 @@ type ClusterPolicyViolationExpansion interface{}
 
 type GenerateRequestExpansion interface{}
 
-type NamespacePolicyExpansion interface{}
+type PolicyExpansion interface{}
 
 type PolicyViolationExpansion interface{}

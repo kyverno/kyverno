@@ -52,7 +52,7 @@ type Sync struct {
 	Listener Listener
 	client   *versioned.Clientset
 	lister   kyvernolister.ClusterPolicyLister
-	nsLister kyvernolister.NamespacePolicyLister
+	nsLister kyvernolister.PolicyLister
 }
 
 type cache struct {
@@ -61,7 +61,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.NamespacePolicyLister) *Sync {
+func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
@@ -128,7 +128,7 @@ func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Unlock()
 
 	for policyName, status := range nameToStatus {
-		// Identify NamespacePolicy and ClusterPolicy based on namespace in key
+		// Identify Policy and ClusterPolicy based on namespace in key
 		// key = <namespace>/<name> for namespacepolicy and key = <name> for clusterpolicy
 		// and update the respective policies
 		namespace := ""
@@ -155,7 +155,7 @@ func (s *Sync) updatePolicyStatus() {
 				log.Log.Error(err, "failed to update policy status")
 			}
 		} else {
-			policy, err := s.nsLister.NamespacePolicies(namespace).Get(policyName)
+			policy, err := s.nsLister.Policies(namespace).Get(policyName)
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, key)
@@ -163,7 +163,7 @@ func (s *Sync) updatePolicyStatus() {
 				continue
 			}
 			policy.Status = status
-			_, err = s.client.KyvernoV1().NamespacePolicies(namespace).UpdateStatus(policy)
+			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(policy)
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, key)

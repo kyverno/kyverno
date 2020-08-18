@@ -172,7 +172,7 @@ func main() {
 	statusSync := policystatus.NewSync(
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
-		pInformer.Kyverno().V1().NamespacePolicies().Lister())
+		pInformer.Kyverno().V1().Policies().Lister())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
@@ -191,7 +191,7 @@ func main() {
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().NamespacePolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
 		configData,
@@ -237,7 +237,7 @@ func main() {
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().NamespacePolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("PolicyCacheController"),
 	)
 

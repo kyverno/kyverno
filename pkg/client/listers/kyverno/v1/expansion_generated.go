@@ -191,13 +191,13 @@ func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(poli
 	return list, err
 }
 
-type NamespacePolicyListerExpansion interface {
-	GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.NamespacePolicy, error)
+type PolicyListerExpansion interface {
+	GetPolicyForPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.Policy, error)
 }
 
-func (p *namespacePolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.NamespacePolicy, error) {
+func (p *policyLister) GetPolicyForPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.Policy, error) {
 	if len(pv.Labels) == 0 {
-		return nil, fmt.Errorf("no NamespacePolicy found for PolicyViolation %v because it has no labels", pv.Name)
+		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
 	}
 
 	pList, err := p.List(labels.Everything())
@@ -205,7 +205,7 @@ func (p *namespacePolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvern
 		return nil, err
 	}
 
-	var policies []*kyvernov1.NamespacePolicy
+	var policies []*kyvernov1.Policy
 	for _, p := range pList {
 		policyLabelmap := map[string]string{"policy": p.Name}
 

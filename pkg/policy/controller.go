@@ -56,7 +56,7 @@ type PolicyController struct {
 	pLister kyvernolister.ClusterPolicyLister
 
 	// npLister can list/get namespace policy from the shared informer's store
-	npLister kyvernolister.NamespacePolicyLister
+	npLister kyvernolister.PolicyLister
 
 	// pvLister can list/get policy violation from the shared informer's store
 	cpvLister kyvernolister.ClusterPolicyViolationLister
@@ -101,7 +101,7 @@ type PolicyController struct {
 func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
-	npInformer kyvernoinformer.NamespacePolicyInformer,
+	npInformer kyvernoinformer.PolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	configHandler config.Interface, eventGen event.Interface,
@@ -138,7 +138,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
 	})
-	// NamespacePolicy informer event handler
+	// Policy informer event handler
 	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addNsPolicy,
 		UpdateFunc: pc.updateNsPolicy,
@@ -242,8 +242,8 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
-	p := obj.(*kyverno.NamespacePolicy)
-	pol := convertNamespacedPolicyToClusterPolicy(p)
+	p := obj.(*kyverno.Policy)
+	pol := convertPolicyToClusterPolicy(p)
 	if !pc.canBackgroundProcess(pol) {
 		return
 	}
@@ -253,9 +253,9 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
-	oldP := old.(*kyverno.NamespacePolicy)
-	curP := cur.(*kyverno.NamespacePolicy)
-	ncurP := convertNamespacedPolicyToClusterPolicy(curP)
+	oldP := old.(*kyverno.Policy)
+	curP := cur.(*kyverno.Policy)
+	ncurP := convertPolicyToClusterPolicy(curP)
 	if !pc.canBackgroundProcess(ncurP) {
 		return
 	}
@@ -266,7 +266,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyverno.NamespacePolicy)
+	p, ok := obj.(*kyverno.Policy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -274,13 +274,13 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			return
 		}
 
-		p, ok = tombstone.Obj.(*kyverno.NamespacePolicy)
+		p, ok = tombstone.Obj.(*kyverno.Policy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
 			return
 		}
 	}
-	pol := convertNamespacedPolicyToClusterPolicy(p)
+	pol := convertPolicyToClusterPolicy(p)
 	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
 	// we process policies that are not set of background processing as we need to perform policy violation
@@ -376,9 +376,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if !isNamespacedPolicy {
 		policy, err = pc.pLister.Get(key)
 	} else {
-		var nspolicy *kyverno.NamespacePolicy
-		nspolicy, err = pc.npLister.NamespacePolicies(namespace).Get(key)
-		policy = convertNamespacedPolicyToClusterPolicy(nspolicy)
+		var nspolicy *kyverno.Policy
+		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
+		policy = convertPolicyToClusterPolicy(nspolicy)
 	}
 	if errors.IsNotFound(err) {
 		go pc.deletePolicyViolations(key)

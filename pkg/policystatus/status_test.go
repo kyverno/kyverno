@@ -58,19 +58,19 @@ func (dl dummyLister) ListResources(selector labels.Selector) (ret []*v1.Cluster
 type dummyNsLister struct {
 }
 
-func (dl dummyNsLister) NamespacePolicies(name string) lv1.NamespacePolicyNamespaceLister {
+func (dl dummyNsLister) Policies(name string) lv1.PolicyNamespaceLister {
 	return dummyNsLister{}
 }
 
-func (dl dummyNsLister) List(selector labels.Selector) (ret []*v1.NamespacePolicy, err error) {
+func (dl dummyNsLister) List(selector labels.Selector) (ret []*v1.Policy, err error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (dl dummyNsLister) Get(name string) (*v1.NamespacePolicy, error) {
+func (dl dummyNsLister) Get(name string) (*v1.Policy, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (dl dummyNsLister) GetPolicyForNamespacedPolicyViolation(pv *v1.PolicyViolation) ([]*v1.NamespacePolicy, error) {
+func (dl dummyNsLister) GetPolicyForPolicyViolation(pv *v1.PolicyViolation) ([]*v1.Policy, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

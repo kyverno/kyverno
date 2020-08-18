@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// NamespacePolicyInformer provides access to a shared informer and lister for
-// NamespacePolicies.
-type NamespacePolicyInformer interface {
+// PolicyInformer provides access to a shared informer and lister for
+// Policies.
+type PolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.NamespacePolicyLister
+	Lister() v1.PolicyLister
 }
 
-type namespacePolicyInformer struct {
+type policyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewNamespacePolicyInformer constructs a new informer for NamespacePolicy type.
+// NewPolicyInformer constructs a new informer for Policy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewNamespacePolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredNamespacePolicyInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPolicyInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredNamespacePolicyInformer constructs a new informer for NamespacePolicy type.
+// NewFilteredPolicyInformer constructs a new informer for Policy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredNamespacePolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().NamespacePolicies(namespace).List(options)
+				return client.KyvernoV1().Policies(namespace).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().NamespacePolicies(namespace).Watch(options)
+				return client.KyvernoV1().Policies(namespace).Watch(options)
 			},
 		},
-		&kyvernov1.NamespacePolicy{},
+		&kyvernov1.Policy{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *namespacePolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredNamespacePolicyInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *policyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPolicyInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *namespacePolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1.NamespacePolicy{}, f.defaultInformer)
+func (f *policyInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kyvernov1.Policy{}, f.defaultInformer)
 }
 
-func (f *namespacePolicyInformer) Lister() v1.NamespacePolicyLister {
-	return v1.NewNamespacePolicyLister(f.Informer().GetIndexer())
+func (f *policyInformer) Lister() v1.PolicyLister {
+	return v1.NewPolicyLister(f.Informer().GetIndexer())
 }
