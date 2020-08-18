@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"strings"
 	"time"
 
 	informers "k8s.io/client-go/informers/core/v1"
@@ -371,58 +370,35 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	namespace := ""
-	isNamespacedPolicy := false
-	index := strings.Index(key, "/")
-	if index != -1 {
-		namespace = key[:index]
-		key = key[index+1:]
-		isNamespacedPolicy = true
-	}
+	namespace, key, isNamespacedPolicy := getIsNamespacedPolicy(key)
+	var policy *kyverno.ClusterPolicy
+	var err error
 	if !isNamespacedPolicy {
-		policy, err := pc.pLister.Get(key)
-		if errors.IsNotFound(err) {
-			go pc.deletePolicyViolations(key)
-
-			// remove webhook configurations if there are no policies
-			if err := pc.removeResourceWebhookConfiguration(); err != nil {
-				logger.Error(err, "failed to remove resource webhook configurations")
-			}
-
-			return nil
-		}
-
-		if err != nil {
-			return err
-		}
-
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
-
-		engineResponses := pc.processExistingResources(policy)
-		pc.cleanupAndReport(engineResponses)
+		policy, err = pc.pLister.Get(key)
 	} else {
-		policy, err := pc.npLister.NamespacePolicies(namespace).Get(key)
-		if errors.IsNotFound(err) {
-			go pc.deletePolicyViolations(key)
+		var nspolicy *kyverno.NamespacePolicy
+		nspolicy, err = pc.npLister.NamespacePolicies(namespace).Get(key)
+		policy = convertNamespacedPolicyToClusterPolicy(nspolicy)
+	}
+	if errors.IsNotFound(err) {
+		go pc.deletePolicyViolations(key)
 
-			// remove webhook configurations if there are no policies
-			if err := pc.removeResourceWebhookConfiguration(); err != nil {
-				logger.Error(err, "failed to remove resource webhook configurations")
-			}
-
-			return nil
+		// remove webhook configurations if there are no policies
+		if err := pc.removeResourceWebhookConfiguration(); err != nil {
+			logger.Error(err, "failed to remove resource webhook configurations")
 		}
 
-		if err != nil {
-			return err
-		}
-
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
-
-		engineResponses := pc.processExistingResources(convertNamespacedPolicyToClusterPolicy(policy))
-		pc.cleanupAndReport(engineResponses)
+		return nil
 	}
 
+	if err != nil {
+		return err
+	}
+
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
+
+	engineResponses := pc.processExistingResources(policy)
+	pc.cleanupAndReport(engineResponses)
 	return nil
 }
 

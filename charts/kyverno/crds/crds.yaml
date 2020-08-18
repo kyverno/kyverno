@@ -440,10 +440,6 @@ spec:
                             type: array
                           name:
                             type: string
-                          namespaces:
-                            items:
-                              type: string
-                            type: array
                           selector:
                             properties:
                               matchExpressions:
@@ -531,10 +527,6 @@ spec:
                             type: array
                           name:
                             type: string
-                          namespaces:
-                            items:
-                              type: string
-                            type: array
                           selector:
                             properties:
                               matchExpressions:

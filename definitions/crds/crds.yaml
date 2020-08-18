@@ -348,10 +348,6 @@ spec:
                               type: string
                           name:
                             type: string
-                          namespaces:
-                            type: array
-                            items:
-                              type: string
                           selector:
                             properties:
                               matchLabels:
@@ -410,10 +406,6 @@ spec:
                               type: string
                           name:
                             type: string
-                          namespaces:
-                            type: array
-                            items:
-                              type: string
                           selector:
                             properties:
                               matchLabels:

@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"strings"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,4 +49,15 @@ func convertNamespacedPoliciesToClusterPolicies(nsPolicies []*kyverno.NamespaceP
 func convertNamespacedPolicyToClusterPolicy(nsPolicies *kyverno.NamespacePolicy) *kyverno.ClusterPolicy {
 	cpol := kyverno.ClusterPolicy(*nsPolicies)
 	return &cpol
+}
+
+func getIsNamespacedPolicy(key string) (string, string, bool) {
+	namespace := ""
+	index := strings.Index(key, "/")
+	if index != -1 {
+		namespace = key[:index]
+		key = key[index+1:]
+		return namespace, key, true
+	}
+	return namespace, key, false
 }

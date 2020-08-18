@@ -431,18 +431,6 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
 func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string) error {
-	// Contains Namespace in Match->Subjects
-	for _, subject := range rule.MatchResources.UserInfo.Subjects {
-		if subject.Namespace != "" {
-			return fmt.Errorf("namespaced cluster policy : field namespace not allowed in match.subjects")
-		}
-	}
-	// Contains Namespace in Exclude->Subjects
-	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
-		if subject.Namespace != "" {
-			return fmt.Errorf("namespaced cluster policy : field namespace not allowed in exclude.subjects")
-		}
-	}
 	// Contains Namespaces in Match->ResourceDescription
 	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
