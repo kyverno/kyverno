@@ -46,6 +46,10 @@ spec:
                             items:
                               type: string
                             type: array
+                          annotations:
+                            type: object
+                            additionalProperties:
+                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -136,6 +140,10 @@ spec:
                             items:
                               type: string
                             type: array
+                          annotations:
+                            type: object
+                            additionalProperties:
+                              type: string
                           selector:
                             properties:
                               matchExpressions:

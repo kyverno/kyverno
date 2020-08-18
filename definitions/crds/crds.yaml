@@ -86,6 +86,10 @@ spec:
                             type: array
                             items:
                               type: string
+                          annotations:
+                            type: object
+                            additionalProperties:
+                              type: string
                           selector:
                             properties:
                               matchLabels:
@@ -147,6 +151,10 @@ spec:
                           namespaces:
                             type: array
                             items:
+                              type: string
+                          annotations:
+                            type: object
+                            additionalProperties:
                               type: string
                           selector:
                             properties:
