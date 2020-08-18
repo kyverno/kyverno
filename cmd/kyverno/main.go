@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/policyreport"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -187,26 +186,14 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister())
 
 
-	var prgen *policyreport.Generator
-	if policyReport == "policyreport" {
-		// POLICY Report GENERATOR
-		// -- generate policy violation
-		prgen = policyreport.NewPRGenerator(pclient,
-			client,
-			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-			pInformer.Policy().V1alpha1().PolicyReports(),
-			statusSync.Listener,
-			log.Log.WithName("policyReportGenerator"),
-		)
-	}
-
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
 		client,
-		prgen,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
 		statusSync.Listener,
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
@@ -360,9 +347,7 @@ func main() {
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
-	if policyReport == "policyreport" {
-		go prgen.Run(1, stopCh)
-	}
+
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

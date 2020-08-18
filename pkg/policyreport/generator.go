@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -32,6 +33,8 @@ type Generator struct {
 	dclient *dclient.Client
 
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
+
+
 	// get/list cluster policy report
 	cprLister policyreportlister.ClusterPolicyReportLister
 	// get/ist namespaced policy report
@@ -230,25 +233,43 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
+	var handler prGenerator
 	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(),info.Resource.GetName())
 	if err != nil {
 		logger.Error(err, "failed to get resource")
 		return err
 	}
 	labels := resource.GetLabels()
-	if _, okChart := labels["helm.sh/chart"]; !okChart {
+	if _, okChart := labels["helm.sh/chart"]; okChart {
 		// cluster scope resource generate a helm package report
-		handler := newHelmPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
-		handler.Add(info)
+		handler = newHelmPR(gen.log.WithName("HelmPR"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler := newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
-		handler.Add(info)
+		handler = newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler := newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
-		handler.Add(info)
+		handler = newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+	}
+	failure := false
+	builder := newPrBuilder()
+	pv := builder.generate(info)
+
+	// Create Policy Violations
+	logger.V(4).Info("creating policy violation", "key", info.toKey())
+	if err := handler.create(pv,""); err != nil {
+		failure = true
+		logger.Error(err, "failed to create policy violation")
 	}
 
+	if failure {
+		// even if there is a single failure we requeue the request
+		return errors.New("Failed to process some policy violations, re-queuing")
+	}
 	return nil
+}
+
+// Provides an interface to generate policy report
+// implementations for namespaced and cluster PR
+type prGenerator interface {
+	create(policyViolation kyverno.PolicyViolationTemplate,appName string) error
 }

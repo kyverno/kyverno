@@ -30,10 +30,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 	logger := pc.log
 	// - check if there is violation on resource (label:Selector)
 	if pResponse.Resource.Namespace == "" {
-		logger.Info("CLUSTERVIOLATION")
-		logger.Info("",os.Getenv("POLICY-TYPE") == "POLICYREPORT")
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-			logger.Info("CLUSTERREPORT")
 			pv := &kyverno.ClusterPolicyViolation{}
 			pv.Spec.Policy = pResponse.Policy
 			if err := pc.pvControl.DeleteClusterPolicyViolation(pResponse.Policy); err != nil {

@@ -144,7 +144,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	})
 
 	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
-		pc.log.WithValues("DEBUGPR").Info("DEBUGPR POLICY VIOLATION")
 		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    pc.addClusterPolicyViolation,
 			UpdateFunc: pc.updateClusterPolicyViolation,
@@ -221,7 +220,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldnt get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tomstone", "obj", obj)
 			return
 		}
 
@@ -393,7 +392,6 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, e
 
 func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int, error) {
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-
 		str := strings.Split(policy, "/")
 		if len(str) == 2 {
 			if err := pc.pvControl.DeleteNamespacedPolicyViolation(str[1], str[0]); err != nil {

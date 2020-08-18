@@ -159,9 +159,10 @@ func (cpr *clusterPR) processNextWorkItem() bool {
 func (cpr *clusterPR) syncHandler(info Info) error {
 	logger := cpr.log
 	failure := false
-	builder := newPvBuilder()
+	builder := newPrBuilder()
 
 	pv := builder.generate(info)
+
 
 	if info.FromSync {
 		pv.Annotations = map[string]string{
@@ -171,7 +172,7 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := cpr.create(pv); err != nil {
+	if err := cpr.create(pv,""); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -183,7 +184,7 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
 	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get("kyverno-clusterpolicyreport", v1.GetOptions{})
 	if err != nil {
 		if k8serror.IsNotFound(err) {

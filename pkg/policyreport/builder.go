@@ -33,7 +33,7 @@ type Builder interface {
 
 type pvBuilder struct{}
 
-func newPvBuilder() *pvBuilder {
+func newPrBuilder() *pvBuilder {
 	return &pvBuilder{}
 }
 

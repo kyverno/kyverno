@@ -159,7 +159,7 @@ func (nspr *namespacedPR) processNextWorkItem() bool {
 func (nspr *namespacedPR) syncHandler(info Info) error {
 	logger := nspr.log
 	failure := false
-	builder := newPvBuilder()
+	builder := newPrBuilder()
 
 	pv := builder.generate(info)
 
@@ -171,7 +171,7 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := nspr.create(pv); err != nil {
+	if err := nspr.create(pv,""); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -183,7 +183,7 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate) error {
+func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
 	reportName := fmt.Sprintf("kyverno-policyreport-%s", pv.Spec.Namespace)
 	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {

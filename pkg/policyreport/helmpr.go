@@ -159,7 +159,7 @@ func (hpr *helmPR) processNextWorkItem() bool {
 func (hpr *helmPR) syncHandler(info Info) error {
 	logger := hpr.log
 	failure := false
-	builder := newPvBuilder()
+	builder := newPrBuilder()
 
 	pv := builder.generate(info)
 

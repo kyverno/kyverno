@@ -2,6 +2,7 @@ package policyviolation
 
 import (
 	"errors"
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/policyreport"
 	"os"
 	"reflect"
@@ -111,15 +112,15 @@ type GeneratorInterface interface {
 // NewPVGenerator returns a new instance of policy violation generator
 func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
-	prgen *policyreport.Generator,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	prInformer policyreportinformer.ClusterPolicyReportInformer,
+	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
 	log logr.Logger,
 	stopChna <- chan struct{}) *Generator {
 	gen := Generator{
 		kyvernoInterface:     client.KyvernoV1(),
-		prgen:       prgen,
 		dclient:              dclient,
 		cpvLister:            pvInformer.Lister(),
 		pvSynced:             pvInformer.Informer().HasSynced,
@@ -130,7 +131,16 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		log:                  log,
 		policyStatusListener: policyStatus,
 	}
-
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		gen.prgen = policyreport.NewPRGenerator(client,
+			dclient,
+			prInformer,
+			nsprInformer,
+			policyStatus,
+			log,
+		)
+		go gen.prgen.Run(3,stopChna)
+	}
 	return &gen
 }
 
