@@ -90,10 +90,10 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		// but if there are non then its a if then check
 		if err != nil {
 			// If Conditional anchor fails then we dont process the resources
-			// if anchor.IsConditionAnchor(key) {
-			// 	log.Error(err, "condition anchor did not satisfy, wont process the resource")
-			// 	return "", nil
-			// }
+			if anchor.IsConditionAnchor(key) {
+				log.Error(err, "condition anchor did not satisfy, wont process the resource")
+				return "", nil
+			}
 			return handlerPath, err
 		}
 	}
