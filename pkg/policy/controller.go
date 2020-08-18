@@ -330,6 +330,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	policy, err := pc.pLister.Get(key)
 	if errors.IsNotFound(err) {
+
 		go pc.deletePolicyViolations(key)
 
 		// remove webhook configurations if there are no policies
@@ -371,6 +372,7 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, e
 		if err := pc.pvControl.DeleteClusterPolicyViolation(policy); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", policy)
 		}
+		return 0,nil
 	}
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
 	if err != nil {
@@ -398,6 +400,7 @@ func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int
 				pc.log.Error(err, "failed to delete policy violation", "name", str[0])
 			}
 		}
+		return 0,nil
 	}
 	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
 	if err != nil {

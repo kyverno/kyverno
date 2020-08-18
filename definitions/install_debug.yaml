@@ -850,6 +850,10 @@ rules:
   - clusterpolicyviolations/status
   - policyviolations
   - policyviolations/status
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   - generaterequests
   - generaterequests/status
   verbs:
@@ -967,6 +971,21 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
+  name: kyverno:policyreport
+rules:
+- apiGroups:
+  - policy.kubernetes.io
+  resources:
+  - policyreport
+  - clusterpolicyreport
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
   name: kyverno:policyviolations
 rules:
 - apiGroups:
@@ -983,12 +1002,44 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:view-clusterpolicyreports
+rules:
+- apiGroups:
+  - policy.kubernetes.io
+  resources:
+  - clusterpolicyreports
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:view-clusterpolicyviolations
 rules:
 - apiGroups:
   - kyverno.io
   resources:
   - clusterpolicyviolations
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: kyverno:view-policyreport
+rules:
+- apiGroups:
+  - policy.kubernetes.io
+  resources:
+  - policyreports
   verbs:
   - get
   - list

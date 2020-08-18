@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
