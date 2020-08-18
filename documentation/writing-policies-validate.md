@@ -121,14 +121,14 @@ For conditional anchors, the child element is considered to be part of the "if" 
   pattern:
     metadata:
       labels:
-        allow-docker: true
+        allow-docker: "true"
     spec:
       (volumes):
-        (hostPath):
+      - (hostPath):
           path: "/var/run/docker.sock"
 ````
 
-This reads as "If a hostPath volume exists and the path equals /var/run/docker.sock, then a label "allow-docker" must be specified with a value of true."
+This reads as "If a hostPath volume exists then the path equals /var/run/docker.sock, and a label "allow-docker" must be specified with a value of true."
 
 For equality anchors, a child element is considered to be part of the "then" clause. Consider this pattern:
 

@@ -68,6 +68,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 					" the rule does not match an kind")
 			}
 		}
+
+		// Validate string values in labels
+		if !isLabelString(rule){
+			return fmt.Errorf("labels supports only string values, \"use double quotes around the non string values\"")
+		}
 	}
 
 	if !mock {
@@ -219,6 +224,34 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
+	return true
+}
+// isLabelString :- Validate if labels contains only string values
+func isLabelString(rule kyverno.Rule) bool {
+	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
+	if ok {
+		for k := range patternMap {
+			if k == "metadata" {
+				metaKey, ok := patternMap[k].(map[string]interface{})
+				if ok {
+					// range over metadata
+					for mk := range metaKey {
+						if mk == "labels"{
+							labelKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over labels
+								for _, val := range labelKey {
+									if reflect.TypeOf(val).String() != "string"{
+										return false
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	return true
 }
 
