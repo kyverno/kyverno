@@ -40,6 +40,10 @@ func (c *FakeKyvernoV1) GenerateRequests(namespace string) v1.GenerateRequestInt
 	return &FakeGenerateRequests{c, namespace}
 }
 
+func (c *FakeKyvernoV1) Policies(namespace string) v1.PolicyInterface {
+	return &FakePolicies{c, namespace}
+}
+
 func (c *FakeKyvernoV1) PolicyViolations(namespace string) v1.PolicyViolationInterface {
 	return &FakePolicyViolations{c, namespace}
 }

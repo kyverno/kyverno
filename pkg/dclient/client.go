@@ -237,6 +237,11 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 	c.DiscoveryClient = discoveryClient
 }
 
+// GetDiscoveryCache gets the discovery client cache
+func (c *Client) GetDiscoveryCache() discovery.CachedDiscoveryInterface {
+	return memory.NewMemCacheClient(c.kclient.Discovery())
+}
+
 //ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface

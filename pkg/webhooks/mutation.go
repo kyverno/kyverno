@@ -56,7 +56,7 @@ func (ws *WebhookServer) HandleMutation(
 		policyContext.Policy = *policy
 		engineResponse := engine.Mutate(policyContext)
 
-		ws.statusListener.Send(mutateStats{resp: engineResponse})
+		ws.statusListener.Send(mutateStats{resp: engineResponse, namespace: policy.Namespace})
 		if !engineResponse.IsSuccessful() {
 			logger.Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
@@ -118,11 +118,15 @@ func (ws *WebhookServer) HandleMutation(
 }
 
 type mutateStats struct {
-	resp response.EngineResponse
+	resp      response.EngineResponse
+	namespace string
 }
 
 func (ms mutateStats) PolicyName() string {
-	return ms.resp.PolicyResponse.Policy
+	if ms.namespace == "" {
+		return ms.resp.PolicyResponse.Policy
+	}
+	return ms.namespace + "/" + ms.resp.PolicyResponse.Policy
 }
 
 func (ms mutateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

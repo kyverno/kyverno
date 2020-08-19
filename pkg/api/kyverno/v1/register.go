@@ -40,6 +40,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PolicyViolationList{},
 		&GenerateRequest{},
 		&GenerateRequestList{},
+		&Policy{},
+		&PolicyList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

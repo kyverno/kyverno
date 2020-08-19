@@ -63,7 +63,7 @@ func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
 }
 
 // debug mutating webhook
-func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
+func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
 	reinvocationPolicy := admregapi.NeverReinvocationPolicy
@@ -86,9 +86,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 					APIVersions: []string{
 						apiVersions,
 					},
-					Resources: []string{
-						resource,
-					},
+					Resources: resources,
 				},
 			},
 		},
@@ -98,7 +96,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 	}
 }
 
-func generateDebugValidatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
+func generateDebugValidatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
 	return admregapi.ValidatingWebhook{
@@ -118,9 +116,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 					APIVersions: []string{
 						apiVersions,
 					},
-					Resources: []string{
-						resource,
-					},
+					Resources: resources,
 				},
 			},
 		},
@@ -167,7 +163,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 // }
 
 // mutating webhook
-func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
+func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
 	reinvocationPolicy := admregapi.NeverReinvocationPolicy
@@ -194,9 +190,7 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 					APIVersions: []string{
 						apiVersions,
 					},
-					Resources: []string{
-						resource,
-					},
+					Resources: resources,
 				},
 			},
 		},
@@ -207,7 +201,7 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 }
 
 // validating webhook
-func generateValidatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
+func generateValidatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.ValidatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	failurePolicy := admregapi.Ignore
 	return admregapi.ValidatingWebhook{
@@ -231,9 +225,7 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, validati
 					APIVersions: []string{
 						apiVersions,
 					},
-					Resources: []string{
-						resource,
-					},
+					Resources: resources,
 				},
 			},
 		},
