@@ -36,6 +36,10 @@ spec:
                         type: array
                       resources:
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -46,10 +50,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -130,6 +130,10 @@ spec:
                       resources:
                         minProperties: 1
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -140,10 +144,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -1171,7 +1171,6 @@ spec:
       containers:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
-        - --excludeGroupRole=""
         - -v=2
         env:
         - name: INIT_CONFIG

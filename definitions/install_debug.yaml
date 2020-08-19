@@ -36,6 +36,10 @@ spec:
                         type: array
                       resources:
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -46,10 +50,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -130,6 +130,10 @@ spec:
                       resources:
                         minProperties: 1
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -140,10 +144,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
