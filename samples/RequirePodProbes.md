@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: require-pod-probes
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-livenessProbe-readinessProbe
     match:

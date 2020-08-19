@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-docker-sock-mount
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-docker-sock-mount
     match:

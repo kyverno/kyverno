@@ -9,7 +9,7 @@ metadata:
       'resources.requests' and 'resources.limits' per pod. If a namespace level request or limit is 
       specified, defaults will automatically be applied to each pod based on the 'LimitRange' configuration.
 spec:
-  validationFailureAction: "audit"
+  validationFailureAction: audit
   rules:
   - name: validate-resources
     match:

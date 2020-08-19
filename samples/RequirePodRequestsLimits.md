@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: require-pod-requests-limits
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-resources
     match:

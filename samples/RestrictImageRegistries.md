@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: restrict-image-registries
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-registries
     match:

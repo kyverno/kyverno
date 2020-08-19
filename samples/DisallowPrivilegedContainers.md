@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-privileged
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-privileged
     match:

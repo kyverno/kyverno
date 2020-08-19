@@ -11,6 +11,7 @@ metadata:
       enforces that containers cannot add new capabilities. Other policies can be used to set
       default capabilities. 
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-add-capabilities
     match:

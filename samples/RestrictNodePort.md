@@ -17,6 +17,7 @@ kind: ClusterPolicy
 metadata:
   name: restrict-nodeport
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-nodeport
     match:

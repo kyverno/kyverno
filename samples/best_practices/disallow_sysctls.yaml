@@ -8,6 +8,7 @@ metadata:
       at runtime. In a Kubernetes pod these parameters can be specified under `securityContext.sysctls`. 
       Kernel parameter modifications can be used for exploits and should be restricted.
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-sysctls
     match:

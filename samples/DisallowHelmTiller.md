@@ -12,6 +12,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-helm-tiller
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-helm-tiller
     match:

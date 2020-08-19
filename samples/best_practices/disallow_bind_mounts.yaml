@@ -11,6 +11,7 @@ metadata:
       node leading to potential pod scheduling failures. It is highly recommended that applications 
       are designed to be decoupled from the underlying infrastructure (in this case, nodes).
 spec: 
+  validationFailureAction: audit
   rules: 
   - name: validate-hostPath
     match: 
