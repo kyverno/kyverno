@@ -47,7 +47,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 		}
 
 		// apply the policy on each
-		engineResponse := applyPolicy(*policy, resource, logger,pc.configHandler.GetExcludeGroupRole())
+		engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole())
 		// get engine response for mutation & validation independently
 		engineResponses = append(engineResponses, engineResponse...)
 		// post-processing, register the resource as processed

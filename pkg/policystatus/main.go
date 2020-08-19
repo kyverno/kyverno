@@ -3,9 +3,10 @@ package policystatus
 import (
 	"encoding/json"
 	"fmt"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"sync"
 	"time"
+
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 

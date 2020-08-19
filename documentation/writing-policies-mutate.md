@@ -70,6 +70,27 @@ spec :
             value : newValue1
 ````
 
+If your ConfigMap has empty data, the following policy adds an entry to `config-game`.
+````yaml
+apiVersion : kyverno.io/v1
+kind : ClusterPolicy
+metadata :
+  name : policy-generate-cm
+spec :
+  rules:
+    - name: pCM1
+      match:
+        resources:
+          name: "config-game"
+          kinds :
+          - ConfigMap
+      mutate:
+        patchesJson6902: |-
+          - path: "/data"
+            op: add
+            value: {"ship.properties": "{\"type\": \"starship\", \"owner\": \"utany.corp\"}"}
+````
+
 Here is the example of a patch that removes a label from the secret:
 
 ````yaml

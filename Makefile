@@ -28,7 +28,7 @@ PWD := $(CURDIR)
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
-initContainer:
+initContainer: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
 .PHONY: docker-build-initContainer docker-tag-repo-initContainer docker-push-initContainer
@@ -58,7 +58,7 @@ local:
 	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
 	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
-kyverno:
+kyverno: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-push-kyverno
@@ -167,3 +167,11 @@ release:
 
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+vet:
+	go vet ./...
+	
