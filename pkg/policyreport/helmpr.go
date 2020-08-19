@@ -183,7 +183,7 @@ func (hpr *helmPR) syncHandler(info Info) error {
 }
 
 func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
-	reportName := fmt.Sprintf("kyverno-policyreport-%s-%s",appName, pv.Spec.Namespace)
+	reportName := fmt.Sprintf("kyverno-policyreport-%s",appName)
 	pr, err := hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
 		if k8serror.IsNotFound(err) {

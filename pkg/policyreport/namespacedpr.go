@@ -184,30 +184,34 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 }
 
 func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
-	reportName := fmt.Sprintf("kyverno-policyreport-%s", pv.Spec.Namespace)
+	logger := nspr.log
+	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
 	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
-		if k8serror.IsNotFound(err) {
-			pr = &policyreportv1alpha12.PolicyReport{
-				Scope:  &corev1.ObjectReference{
-					Kind : "Namespace",
-					Namespace: pv.Spec.Namespace,
-				},
-				Summary: policyreportv1alpha12.PolicyReportSummary{
+		if !k8serror.IsNotFound(err) {
+			return err
+		}
+		pr = &policyreportv1alpha12.PolicyReport{
+			Scope:  &corev1.ObjectReference{
+				Kind : "Namespace",
+				Namespace: pv.Spec.Namespace,
+			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{
 
-				},
-				Results: []*policyreportv1alpha12.PolicyReportResult{},
-			}
+			},
+			Results: []*policyreportv1alpha12.PolicyReportResult{},
 		}
 		labelMap := map[string]string{
 			"policy-scope": "namespace",
 		}
-		pv.SetLabels(labelMap)
-		pv.SetNamespace(pv.Spec.Namespace)
+		pr.SetLabels(labelMap)
+		pr.ObjectMeta.Name  = reportName
+		pr.ObjectMeta.Namespace  = pv.Spec.Namespace
 
-		return err
 	}
 	cpr := CreatePolicyReportToPolicyReport(&pv, pr)
+	logger.V(4).Info("",cpr)
+	fmt.Println(cpr)
 	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(cpr)
 	if err != nil {
 		return err

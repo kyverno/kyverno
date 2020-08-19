@@ -394,7 +394,7 @@ func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		str := strings.Split(policy, "/")
 		if len(str) == 2 {
-			if err := pc.pvControl.DeleteNamespacedPolicyViolation(str[1], str[0]); err != nil {
+			if err := pc.pvControl.DeleteNamespacedPolicyViolation(str[0], str[2]); err != nil {
 				pc.log.Error(err, "failed to delete policy violation", "name", str[0])
 			}
 		}

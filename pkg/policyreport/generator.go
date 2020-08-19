@@ -2,6 +2,7 @@ package policyreport
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -240,14 +241,17 @@ func (gen *Generator) syncHandler(info Info) error {
 		return err
 	}
 	labels := resource.GetLabels()
+	var appName string
 	if _, okChart := labels["helm.sh/chart"]; okChart {
 		// cluster scope resource generate a helm package report
+		appName = fmt.Sprintf("%s-%s",labels["helm.sh/chart"],info.Resource.GetNamespace())
 		handler = newHelmPR(gen.log.WithName("HelmPR"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
 		handler = newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
+		appName = info.Resource.GetNamespace()
 		handler = newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 	}
 	failure := false
@@ -256,7 +260,7 @@ func (gen *Generator) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := handler.create(pv,""); err != nil {
+	if err := handler.create(pv,appName); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
