@@ -322,7 +322,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 			mutatedResource := string(yamlEncodedResource)
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				fmt.Printf("mutate policy %s applied to %s:", policy.Name, resPath)
+				fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
 				fmt.Printf("\n" + mutatedResource)
 				fmt.Printf("\n")
 			}
