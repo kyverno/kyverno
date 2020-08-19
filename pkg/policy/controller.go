@@ -368,7 +368,8 @@ func (pc *PolicyController) deletePolicyViolations(key string) {
 
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-		if err := pc.pvControl.DeleteClusterPolicyViolation(policy); err != nil {
+		str := strings.Split(policy, "/")
+		if err := pc.pvControl.DeleteClusterPolicyViolation(str[0]); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", policy)
 		}
 		return 0,nil
@@ -386,7 +387,6 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, e
 			count++
 		}
 	}
-
 	return count, nil
 }
 

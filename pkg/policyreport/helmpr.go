@@ -186,24 +186,30 @@ func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate,appName string) err
 	reportName := fmt.Sprintf("kyverno-policyreport-%s",appName)
 	pr, err := hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
-		if k8serror.IsNotFound(err) {
-			pr = &policyreportv1alpha12.PolicyReport{
-				Scope:  &corev1.ObjectReference{
-					Kind : "Namespace",
-					Namespace: pv.Spec.Namespace,
-				},
-				Summary: policyreportv1alpha12.PolicyReportSummary{
-
-				},
-				Results: []*policyreportv1alpha12.PolicyReportResult{},
-			}
-			labelMap := map[string]string{
-				"policy-scope": "application",
-				"helm.sh/chart" : appName,
-			}
-			pv.SetLabels(labelMap)
+		if !k8serror.IsNotFound(err) {
+			return err
 		}
-		return err
+		pr = &policyreportv1alpha12.PolicyReport{
+			Scope:  &corev1.ObjectReference{
+				Kind : "Namespace",
+				Namespace: pv.Spec.Namespace,
+			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{
+
+			},
+			Results: []*policyreportv1alpha12.PolicyReportResult{},
+		}
+		labelMap := map[string]string{
+			"policy-scope": "application",
+			"helm.sh/chart" : appName,
+		}
+		pv.SetLabels(labelMap)
+		pr = CreatePolicyReportToPolicyReport(&pv, pr)
+		_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(pr)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	pr = CreatePolicyReportToPolicyReport(&pv, pr)
 	_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(pr)

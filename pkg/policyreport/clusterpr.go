@@ -187,23 +187,29 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
 	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get("kyverno-clusterpolicyreport", v1.GetOptions{})
 	if err != nil {
-		if k8serror.IsNotFound(err) {
-			clusterpr = &policyreportv1alpha12.ClusterPolicyReport{
-				Scope:  &corev1.ObjectReference{
-					Kind : "Cluster",
-				},
-				Summary: policyreportv1alpha12.PolicyReportSummary{
+		if !k8serror.IsNotFound(err) {
+			return err
+		}
+		clusterpr = &policyreportv1alpha12.ClusterPolicyReport{
+			Scope:  &corev1.ObjectReference{
+				Kind : "Cluster",
+			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{
 
-				},
-				Results: []*policyreportv1alpha12.PolicyReportResult{},
-			}
+			},
+			Results: []*policyreportv1alpha12.PolicyReportResult{},
 		}
 		labelMap := map[string]string{
 			"policy-scope": "cluster",
 		}
 		pv.SetLabels(labelMap)
+		clusterpr = CreateClusterPolicyViolationsToClusterPolicyReport(&pv, clusterpr)
 
-		return err
+		_, err = cpr.policyreportInterface.ClusterPolicyReports().Create(clusterpr)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	clusterpr = CreateClusterPolicyViolationsToClusterPolicyReport(&pv, clusterpr)
 

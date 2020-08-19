@@ -205,13 +205,18 @@ func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName stri
 			"policy-scope": "namespace",
 		}
 		pr.SetLabels(labelMap)
-		pr.ObjectMeta.Name  = reportName
-		pr.ObjectMeta.Namespace  = pv.Spec.Namespace
-
+		pr.SetName(reportName)
+		pr.SetNamespace(pv.Spec.Namespace)
+		cpr :11= CreatePolicyReportToPolicyReport(&pv, pr)
+		logger.V(2).Info("DEBUG", "key", cpr)
+		_, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(cpr)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	cpr := CreatePolicyReportToPolicyReport(&pv, pr)
 	logger.V(4).Info("",cpr)
-	fmt.Println(cpr)
 	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(cpr)
 	if err != nil {
 		return err

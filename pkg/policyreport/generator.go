@@ -260,6 +260,7 @@ func (gen *Generator) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
+	logger.V(4).Info("creating policy violation", "key", pv)
 	if err := handler.create(pv,appName); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
