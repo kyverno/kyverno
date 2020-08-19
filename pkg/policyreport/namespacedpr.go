@@ -184,7 +184,6 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 }
 
 func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
-	logger := nspr.log
 	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
 	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
