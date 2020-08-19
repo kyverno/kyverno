@@ -162,6 +162,10 @@ func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
 	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 
+	if len(patches) == 0 {
+		return policy, nil
+	}
+
 	type jsonPatch struct {
 		Path  string      `json:"path"`
 		Op    string      `json:"op"`
