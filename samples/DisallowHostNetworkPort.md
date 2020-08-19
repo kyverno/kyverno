@@ -14,6 +14,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-host-network-port
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-host-network
     match:

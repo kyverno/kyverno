@@ -16,6 +16,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-root-user
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-runAsNonRoot
     match:

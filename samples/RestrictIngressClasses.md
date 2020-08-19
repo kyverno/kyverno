@@ -12,6 +12,7 @@ kind: ClusterPolicy
 metadata:
   name: restrict-ingress-classes
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-ingress
     match:

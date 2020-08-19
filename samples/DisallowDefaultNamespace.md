@@ -20,6 +20,7 @@ metadata:
       namespaces. Namespaces should be required and the default (empty) namespace 
       should not be used.
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-namespace
     match:
