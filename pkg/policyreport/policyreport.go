@@ -32,10 +32,9 @@ func RemoveClusterPolicyViolation(reports *policyreport.ClusterPolicyReport, nam
 	return pv
 }
 
-// CreatePolicyReportToPolicyReport
-func CreatePolicyReportToPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
-	pv := &policyreport.PolicyReport{}
-	for _,result := range pv.Results {
+// CreatePolicyViolationToPolicyReport
+func CreatePolicyViolationToPolicyReport(violation *kyverno.PolicyViolationTemplate, reports *policyreport.PolicyReport) *policyreport.PolicyReport {
+	for _,result := range reports.Results {
 		for i,rule := range violation.Spec.ViolatedRules {
 			if result.Policy == violation.Spec.Policy && result.Rule == rule.Name {
 				result.Message = rule.Message
@@ -55,9 +54,9 @@ func CreatePolicyReportToPolicyReport(violation *kyverno.PolicyViolationTemplate
 				Name:violation.Spec.Name,
 			},
 		}
-		pv.Results =  append(pv.Results,result)
+		reports.Results =  append(reports.Results,result)
 	}
-	return pv
+	return reports
 }
 
 // ClusterPolicyViolationsToClusterPolicyReport

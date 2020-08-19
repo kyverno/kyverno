@@ -202,7 +202,8 @@ func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate,appName string) 
 		labelMap := map[string]string{
 			"policy-scope": "cluster",
 		}
-		pv.SetLabels(labelMap)
+		clusterpr.SetLabels(labelMap)
+		clusterpr.ObjectMeta.Name = "kyverno-clusterpolicyreport"
 		clusterpr = CreateClusterPolicyViolationsToClusterPolicyReport(&pv, clusterpr)
 
 		_, err = cpr.policyreportInterface.ClusterPolicyReports().Create(clusterpr)

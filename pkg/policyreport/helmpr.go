@@ -204,14 +204,15 @@ func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate,appName string) err
 			"helm.sh/chart" : appName,
 		}
 		pv.SetLabels(labelMap)
-		pr = CreatePolicyReportToPolicyReport(&pv, pr)
+		pr.ObjectMeta.Name = reportName
+		pr = CreatePolicyViolationToPolicyReport(&pv, pr)
 		_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(pr)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	pr = CreatePolicyReportToPolicyReport(&pv, pr)
+	pr = CreatePolicyViolationToPolicyReport(&pv, pr)
 	_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(pr)
 	if err != nil {
 		return err
