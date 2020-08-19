@@ -10,7 +10,7 @@ rbac:
     #   example.com/annotation: value
 
 image:
-  repository: evalsocket/kyverno
+  repository: nirmata/kyverno
   # Defaults to appVersion in Chart.yaml if omitted
   tag:
   pullPolicy: IfNotPresent

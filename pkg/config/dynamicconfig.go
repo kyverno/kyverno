@@ -219,10 +219,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	excludeUsername, ok := cm.Data["excludeUsername"]
 	if !ok  {
 		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
-	}
-
-	if excludeUsername == "" {
-		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
 	}else{
 		excludeUsernames := parseRbac(excludeUsername)
 		if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
