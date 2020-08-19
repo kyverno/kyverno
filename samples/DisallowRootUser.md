@@ -29,7 +29,14 @@ spec:
           securityContext:
             runAsNonRoot: true
       - spec:
+          securityContext:
+            runAsUser: ">0"
+      - spec:
           containers:
           - securityContext:
               runAsNonRoot: true
+      - spec:
+          containers:
+          - securityContext:
+              runAsUser: ">0"
 ````
