@@ -47,6 +47,32 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
+		// validate Cluster Resources in namespaced cluster policy
+		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
+		if p.ObjectMeta.Namespace != "" {
+			// check unique kind
+			isUnique := func(kind string, resources []string) bool {
+				for _, k := range resources {
+					if kind == k {
+						return false
+					}
+				}
+				return true
+			}
+			clusterResources := make([]string, 0)
+			// Get all the cluster type kind supported by cluster
+			res, _ := client.GetDiscoveryCache().ServerPreferredResources()
+			for _, resList := range res {
+				for _, r := range resList.APIResources {
+					if r.Namespaced == false {
+						if isUnique(r.Kind, clusterResources) {
+							clusterResources = append(clusterResources, r.Kind)
+						}
+					}
+				}
+			}
+			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
+		}
 
 		if doesMatchAndExcludeConflict(rule) {
 			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
@@ -398,6 +424,37 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 		if len(requirements) == 0 {
 			return errors.New("the requirements are not specified in selector")
 		}
+	}
+	return nil
+}
+
+// checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
+// Match and Exclude block
+func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string) error {
+	// Contains Namespaces in Match->ResourceDescription
+	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
+	}
+	// Contains Namespaces in Exclude->ResourceDescription
+	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
+	}
+	// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
+	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+		for _, k := range clusterResources {
+			if kind == k {
+				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+			}
+		}
+	}
+	// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		for _, k := range clusterResources {
+			if kind == k {
+				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in exclude.resources.kinds", kind)
+			}
+		}
+
 	}
 	return nil
 }

@@ -87,7 +87,8 @@ func HandleValidation(
 		}
 		engineResponses = append(engineResponses, engineResponse)
 		statusListener.Send(validateStats{
-			resp: engineResponse,
+			resp:      engineResponse,
+			namespace: policy.Namespace,
 		})
 		if !engineResponse.IsSuccessful() {
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
@@ -126,11 +127,16 @@ func HandleValidation(
 }
 
 type validateStats struct {
-	resp response.EngineResponse
+	resp      response.EngineResponse
+	namespace string
 }
 
 func (vs validateStats) PolicyName() string {
-	return vs.resp.PolicyResponse.Policy
+	if vs.namespace == "" {
+		return vs.resp.PolicyResponse.Policy
+	}
+	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy
+
 }
 
 func (vs validateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

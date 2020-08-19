@@ -93,6 +93,14 @@ type ClusterPolicyList struct {
 	Items           []ClusterPolicy `json:"items" yaml:"items"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// PolicyList ...
+type PolicyList struct {
+	metav1.TypeMeta `json:",inline" yaml:",inline"`
+	metav1.ListMeta `json:"metadata" yaml:"metadata"`
+	Items           []Policy `json:"items" yaml:"items"`
+}
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -124,6 +132,8 @@ type PolicyViolationList struct {
 	Items           []PolicyViolation `json:"items" yaml:"items"`
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // Policy contains rules to be applied to created resources
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`

@@ -27,11 +27,11 @@ spec:
     validate:
       message: "New capabilities cannot be added"
       pattern:
-      - spec:
+        spec:
           containers:
-          - name: "*"
-            =(securityContext):
-              =(capabilities):
-                X(add): null
+            - name: "*"
+              =(securityContext):
+                =(capabilities):
+                  X(add): null
 
 ````
