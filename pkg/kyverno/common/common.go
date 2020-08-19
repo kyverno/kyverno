@@ -61,7 +61,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 			}
 
 			if errString != "" {
-				fmt.Println("falied to extract policies")
+				fmt.Printf("failed to extract policies: %s\n", errString)
 				os.Exit(2)
 			}
 

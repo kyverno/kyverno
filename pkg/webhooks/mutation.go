@@ -39,9 +39,9 @@ func (ws *WebhookServer) HandleMutation(
 	var patches [][]byte
 	var engineResponses []response.EngineResponse
 	policyContext := engine.PolicyContext{
-		NewResource:   resource,
-		AdmissionInfo: userRequestInfo,
-		Context:       ctx,
+		NewResource:      resource,
+		AdmissionInfo:    userRequestInfo,
+		Context:          ctx,
 		ExcludeGroupRole: ws.configHandler.GetExcludeGroupRole(),
 	}
 

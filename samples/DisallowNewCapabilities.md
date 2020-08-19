@@ -15,6 +15,8 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-new-capabilities
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
 spec:
   rules:
   - name: validate-add-capabilities
