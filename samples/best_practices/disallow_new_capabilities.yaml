@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-new-capabilities
   annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: Linux allows defining fine-grained permissions using
       capabilities. With Kubernetes, it is possible to add capabilities that escalate the
