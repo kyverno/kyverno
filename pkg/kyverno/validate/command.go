@@ -21,7 +21,7 @@ import (
 )
 
 func Command() *cobra.Command {
-	var outputType string
+	var outputType, crdPath string
 	cmd := &cobra.Command{
 		Use:     "validate",
 		Short:   "Validates kyverno policies",
@@ -31,7 +31,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("Internal error")
+						err = fmt.Errorf("internal error")
 					}
 				}
 			}()
@@ -49,6 +49,22 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
+				//if common.PolicyHasVariables(*policy) {
+				//	invalidPolicyFound = true
+				//	fmt.Printf("Policy %s is invalid.\n", policy.Name)
+				//	log.Log.Error(errors.New("'validate' does not support policies with variables"), "Policy "+policy.Name+" is invalid")
+				//	continue
+				//}
+
+				// if crd is passed, then validate policy against the crd
+				if crdPath != "" {
+					err := common.ValidatePolicyAgainstCrd(*policy, crdPath)
+					if err != nil {
+						log.Log.Error(err, "policy "+policy.Name+" is invalid")
+						os.Exit(1)
+					}
+				}
+
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
@@ -84,5 +100,6 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy")
+	cmd.Flags().StringVarP(&crdPath, "crd", "c", "", "Path to resource files")
 	return cmd
 }

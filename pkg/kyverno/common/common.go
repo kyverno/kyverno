@@ -4,9 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/go-openapi/spec"
+	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/validate"
+	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	"github.com/googleapis/gnostic/compiler"
+	yaml_v2 "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -210,4 +218,160 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	}
 
 	return &p, nil
+}
+
+func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
+	log := log.Log
+	path = filepath.Clean(path)
+
+	fileDesc, err := os.Stat(path)
+	if err != nil {
+		log.Error(err, "failed to describe crd file")
+		return err
+	}
+
+	if fileDesc.IsDir() {
+		return errors.New("crd path should be a file")
+	}
+
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Error(err, "failed to crd read file")
+		return err
+	}
+
+	var crd unstructured.Unstructured
+	err = json.Unmarshal(bytes, &crd)
+	if err != nil {
+		return err
+	}
+
+	// crdDefinitionPrior represents CRDs version prior to 1.16
+	var crdDefinitionPrior struct {
+		Spec struct {
+			Names struct {
+				Kind string `json:"kind"`
+			} `json:"names"`
+			Validation struct {
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+			} `json:"validation"`
+		} `json:"spec"`
+	}
+
+	// crdDefinitionNew represents CRDs version 1.16+
+	var crdDefinitionNew struct {
+		Spec struct {
+			Names struct {
+				Kind string `json:"kind"`
+			} `json:"names"`
+			Versions []struct {
+				Schema struct {
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
+				} `json:"schema"`
+				Storage bool `json:"storage"`
+			} `json:"versions"`
+		} `json:"spec"`
+	}
+
+	crdRaw, _ := json.Marshal(crd.Object)
+	_ = json.Unmarshal(crdRaw, &crdDefinitionPrior)
+
+	openV3schema := crdDefinitionPrior.Spec.Validation.OpenAPIV3Schema
+	crdName := crdDefinitionPrior.Spec.Names.Kind
+
+	if openV3schema == nil {
+		_ = json.Unmarshal(crdRaw, &crdDefinitionNew)
+		for _, crdVersion := range crdDefinitionNew.Spec.Versions {
+			if crdVersion.Storage {
+				openV3schema = crdVersion.Schema.OpenAPIV3Schema
+				crdName = crdDefinitionNew.Spec.Names.Kind
+				break
+			}
+		}
+	}
+
+	schemaRaw, _ := json.Marshal(openV3schema)
+	if len(schemaRaw) < 1 {
+		//log.Log.V(3).Info("could not parse crd schema", "name", crdName)
+		return err
+	}
+
+	schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
+	if err != nil {
+		//log.Log.Error(err, "could not parse crd schema", "name", crdName)
+		return err
+	}
+
+	schema := new(spec.Schema)
+	_ = json.Unmarshal(schemaRaw, schema)
+
+	input := map[string]interface{}{}
+
+	// JSON data to validate
+	//inputJSON := `{"name": "Ivan","address-1": "sesame street"}`
+	//_ = json.Unmarshal([]byte(inputJSON), &input)
+
+	// strfmt.Default is the registry of recognized formats
+	err = validate.AgainstSchema(schema, policy, strfmt.Default)
+	if err != nil {
+		fmt.Printf("JSON does not validate against schema: %v", err)
+	} else {
+		fmt.Printf("OK")
+	}
+
+	//var schema yaml_v2.MapSlice
+	//_ = yaml_v2.Unmarshal(schemaRaw, &schema)
+	//
+	//parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
+	//if err != nil {
+	//	//log.Log.Error(err, "could not parse crd schema", "name", crdName)
+	//	return
+	//}
+
+
+
+	//var spec yaml_v2.MapSlice
+	//err := yaml_v2.Unmarshal([]byte(data.SwaggerDoc), &spec)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//crdDoc, err := openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//crdDoc
+
+	return nil
+}
+
+// addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
+func addingDefaultFieldsToSchema(schemaRaw []byte) ([]byte, error) {
+	var schema struct {
+		Properties map[string]interface{} `json:"properties"`
+	}
+	_ = json.Unmarshal(schemaRaw, &schema)
+
+	if len(schema.Properties) < 1 {
+		return nil, errors.New("crd schema has no properties")
+	}
+
+	if schema.Properties["apiVersion"] == nil {
+		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
+		apiVersionDef := make(map[string]interface{})
+		_ = json.Unmarshal([]byte(apiVersionDefRaw), &apiVersionDef)
+		schema.Properties["apiVersion"] = apiVersionDef
+	}
+
+	if schema.Properties["metadata"] == nil {
+		metadataDefRaw := `{"$ref":"#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta","description":"Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"}`
+		metadataDef := make(map[string]interface{})
+		_ = json.Unmarshal([]byte(metadataDefRaw), &metadataDef)
+		schema.Properties["metadata"] = metadataDef
+	}
+
+	schemaWithDefaultFields, _ := json.Marshal(schema)
+
+	return schemaWithDefaultFields, nil
 }
