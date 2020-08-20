@@ -422,9 +422,13 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) deletePolicyViolations(key string) {
-	hpv, err := pc.deleteHelmPolicyViolations(key)
-	if err != nil {
-		pc.log.Error(err, "failed to delete policy helm violations", "policy", key)
+	count := 0
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		hpv, err := pc.deleteHelmPolicyViolations(key)
+		if err != nil {
+			pc.log.Error(err, "failed to delete policy helm violations", "policy", key)
+		}
+		count = hpv
 	}
 
 	cpv, err := pc.deleteClusterPolicyViolations(key)
@@ -437,7 +441,7 @@ func (pc *PolicyController) deletePolicyViolations(key string) {
 		pc.log.Error(err, "failed to delete policy violations", "policy", key)
 	}
 
-	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv+hpv)
+	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv+count)
 }
 
 func (pc *PolicyController) deleteHelmPolicyViolations(policy string) (int, error) {
