@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"fmt"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreport "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,18 +48,7 @@ func CreatePolicyViolationToPolicyReport(violation *kyverno.PolicyViolationTempl
 				Name:       violation.Spec.Name,
 			},
 		}
-		reports.Results = append(reports.Results, result)
-		switch rule.Check {
-		case "pass":
-			reports.Summary.Pass++
-			break
-		case "fail":
-			reports.Summary.Fail++
-			break
-		default:
-			reports.Summary.Skip++
-			break
-		}
+		reports.Results = append(reports.Results,result)
 	}
 	return reports
 }
@@ -89,18 +77,6 @@ func CreateClusterPolicyViolationsToClusterPolicyReport(violation *kyverno.Polic
 			},
 		}
 		pv.Results = append(pv.Results, result)
-		fmt.Println(rule.Check)
-		switch rule.Check {
-		case "pass":
-			reports.Summary.Pass++
-			break
-		case "fail":
-			reports.Summary.Fail++
-			break
-		default:
-			reports.Summary.Skip++
-			break
-		}
 	}
 	return pv
 }

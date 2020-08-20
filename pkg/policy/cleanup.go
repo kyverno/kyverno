@@ -22,13 +22,18 @@ func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 			continue
 		}
 		// clean up after the policy has been corrected
-		pc.cleanUpPolicyViolation(er.PolicyResponse)
+		if er.IsSuccessful() &&  os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+			pc.cleanUpPolicyViolation(er.PolicyResponse)
+		}else if os.Getenv("POLICY-TYPE") == "POLICYVIOLATION" {
+			pc.cleanUpPolicyViolation(er.PolicyResponse)
+		}
 	}
 }
 
 func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {
 	logger := pc.log
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+
 		resource, err := pc.client.GetResource(pResponse.Resource.APIVersion, pResponse.Resource.Kind, pResponse.Resource.Namespace, pResponse.Resource.Name)
 		if err != nil {
 			logger.Error(err, "failed to get resource")
