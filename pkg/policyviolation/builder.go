@@ -18,7 +18,7 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if os.Getenv("POLICY_TYPE") != "POLICYREPORT" {
+		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
 			if er.IsSuccessful() {
 				continue
 			}

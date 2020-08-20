@@ -28,6 +28,28 @@ func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 
 func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {
 	logger := pc.log
+	resource, err := pc.client.GetResource(pResponse.Resource.APIVersion, pResponse.Resource.Kind, pResponse.Resource.Namespace, pResponse.Resource.Name)
+	if err != nil {
+		logger.Error(err, "failed to get resource")
+		return
+	}
+	labels := resource.GetLabels()
+	_, okChart := labels["app"]
+	_, okRelease := labels["release"]
+
+	if okChart && okRelease && os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		pv := &kyverno.PolicyViolation{}
+		pv.Spec.Policy = pResponse.Policy
+		pv.Namespace = pResponse.Resource.Namespace
+		pv.Name = pResponse.Resource.Name
+		appName := fmt.Sprintf("%s-%s", labels["app"], pv.Namespace)
+		if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(pv.Name, pv.Namespace, appName); err != nil {
+			logger.Error(err, "failed to delete cluster policy violation", "policy", pResponse.Policy)
+		} else {
+			logger.Info("deleted cluster policy violation", "policy", pResponse.Policy)
+		}
+		return
+	}
 	// - check if there is violation on resource (label:Selector)
 	if pResponse.Resource.Namespace == "" {
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
@@ -83,6 +105,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 	} else {
 		logger.Info("deleted namespaced policy violation", "name", nspv.Name, "namespace", nspv.Namespace)
 	}
+	return
 }
 
 // Wont do the claiming of objects, just lookup based on selectors

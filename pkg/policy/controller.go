@@ -422,6 +422,11 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) deletePolicyViolations(key string) {
+	hpv, err := pc.deleteHelmPolicyViolations(key)
+	if err != nil {
+		pc.log.Error(err, "failed to delete policy helm violations", "policy", key)
+	}
+
 	cpv, err := pc.deleteClusterPolicyViolations(key)
 	if err != nil {
 		pc.log.Error(err, "failed to delete policy violations", "policy", key)
@@ -432,7 +437,30 @@ func (pc *PolicyController) deletePolicyViolations(key string) {
 		pc.log.Error(err, "failed to delete policy violations", "policy", key)
 	}
 
-	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv)
+	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv+hpv)
+}
+
+func (pc *PolicyController) deleteHelmPolicyViolations(policy string) (int, error) {
+	logger := pc.log
+	str := strings.Split(policy, "/")
+	resource, err := pc.client.GetResource("", str[1], str[2], str[3])
+	if err != nil {
+		return 0, err
+	}
+	labels := resource.GetLabels()
+	_, okChart := labels["app"]
+	_, okRelease := labels["release"]
+
+	if okChart && okRelease {
+		appName := fmt.Sprintf("%s-%s", labels["app"], str[2])
+		if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(str[3], str[2], appName); err != nil {
+			logger.Error(err, "failed to delete cluster policy violation", "policy", str[0])
+		} else {
+			logger.Info("deleted cluster policy violation", "policy", str[0])
+		}
+		return 0, nil
+	}
+	return 0, nil
 }
 
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
@@ -504,6 +532,7 @@ func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy string)
 type PVControlInterface interface {
 	DeleteClusterPolicyViolation(name string) error
 	DeleteNamespacedPolicyViolation(name, ns string) error
+	DeleteHelmNamespacedPolicyViolation(name, ns, appName string) error
 }
 
 // RealPVControl is the default implementation of PVControlInterface.
@@ -533,7 +562,7 @@ func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string) error {
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-		reportName := fmt.Sprintf("kyverno-clusterpolicyreport-%s", ns)
+		reportName := fmt.Sprintf("kyverno-policyreport-%s", ns)
 		policyReport, err := r.Client.PolicyV1alpha1().PolicyReports(ns).Get(reportName, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -546,4 +575,19 @@ func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string) error {
 		return err
 	}
 	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+}
+
+//DeleteHelmNamespacedPolicyViolation deletes the namespaced policy violation
+func (r RealPVControl) DeleteHelmNamespacedPolicyViolation(name, ns, appName string) error {
+	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
+	policyReport, err := r.Client.PolicyV1alpha1().PolicyReports(ns).Get(reportName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	policyReport = policyreport.RemovePolicyViolation(policyReport, name)
+	_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)
+	return err
 }

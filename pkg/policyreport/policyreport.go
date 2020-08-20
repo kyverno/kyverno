@@ -9,28 +9,22 @@ import (
 
 // RemovePolicyViolation
 func RemovePolicyViolation(reports *policyreport.PolicyReport, name string) *policyreport.PolicyReport {
-	pv := &policyreport.PolicyReport{}
-	pv = reports
-	pv.Results = []*policyreport.PolicyReportResult{}
-	for _, result := range reports.Results {
-		if result.Policy != name {
-			pv.Results = append(pv.Results, result)
+	for i, result := range reports.Results {
+		if result.Resource.Name == name {
+			reports.Results = append(reports.Results[:i], reports.Results[i+1:]...)
 		}
 	}
-	return pv
+	return reports
 }
 
 //RemoveClusterPolicyViolation
 func RemoveClusterPolicyViolation(reports *policyreport.ClusterPolicyReport, name string) *policyreport.ClusterPolicyReport {
-	pv := &policyreport.ClusterPolicyReport{}
-	pv = reports
-	pv.Results = []*policyreport.PolicyReportResult{}
-	for _, result := range reports.Results {
-		if result.Policy != name {
-			pv.Results = append(pv.Results, result)
+	for i, result := range reports.Results {
+		if result.Resource.Name == name {
+			reports.Results = append(reports.Results[:i], reports.Results[i+1:]...)
 		}
 	}
-	return pv
+	return reports
 }
 
 // CreatePolicyViolationToPolicyReport
