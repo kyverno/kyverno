@@ -70,8 +70,8 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 
 		// Validate string values in labels
-		if !isLabelString(rule){
-			return fmt.Errorf("labels supports only string values, \"use double quotes around the non string values\"")
+		if !isLabelAndAnnotationsString(rule){
+			return fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 	}
 
@@ -226,10 +226,10 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	return true
 }
-// isLabelString :- Validate if labels contains only string values
-func isLabelString(rule kyverno.Rule) bool {
-	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
-	if ok {
+// isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
+func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
+	// checkMetadata - Verify if the labels and annotations contains string value inside metadata
+	checkMetadata := func(patternMap map[string]interface{}) bool {
 		for k := range patternMap {
 			if k == "metadata" {
 				metaKey, ok := patternMap[k].(map[string]interface{})
@@ -246,10 +246,37 @@ func isLabelString(rule kyverno.Rule) bool {
 									}
 								}
 							}
+						} else if mk == "annotations"{
+							annotationKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over annotations
+								for _, val := range annotationKey {
+									if reflect.TypeOf(val).String() != "string"{
+										return false
+									}
+								}
+							}
 						}
 					}
 				}
 			}
+		}
+		return true
+	}
+
+	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
+	if ok {
+		return checkMetadata(patternMap)
+	} else if len(rule.Validation.AnyPattern) > 0 {
+		anyPatterns := rule.Validation.AnyPattern
+		for _, pattern := range anyPatterns {
+				patternMap, ok := pattern.(map[string]interface{})
+				if ok {
+					ret := checkMetadata(patternMap)
+					if ret == false {
+						return ret
+					}
+				}
 		}
 	}
 	return true
