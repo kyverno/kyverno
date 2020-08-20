@@ -137,7 +137,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 					Type:    utils.Validation.String(),
 					Message: rule.Validation.Message,
 					Success: false,
-					Check: "fail",
+					Check:   "fail",
 				}
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 			}
@@ -146,7 +146,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 				Type:    utils.Validation.String(),
 				Message: rule.Validation.Message,
 				Success: true,
-				Check: "pass",
+				Check:   "pass",
 			}
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 			continue

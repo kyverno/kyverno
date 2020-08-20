@@ -2,19 +2,22 @@ package policyreport
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 
-//GeneratePVsFromEngineResponse generate Violations from engine responses
-func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logger) (pvInfos []Info) {
+//GeneratePRsFromEngineResponse generate Violations from engine responses
+func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
 			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
+			continue
+		}
+		// skip when response succeed
+		if er.IsSuccessful() {
 			continue
 		}
 		// build policy violation info
@@ -43,6 +46,7 @@ func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {
 }
 
 func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
+
 	pv := &kyverno.PolicyViolationTemplate{
 		Spec: kyverno.PolicyViolationSpec{
 			Policy: policy,
@@ -78,19 +82,17 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
-			if rule.Success {
-				continue
-			}
+		if rule.Success {
+			continue
 		}
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
 		}
-		rule.Check = "fail"
+		vrule.Check = "fail"
 		if rule.Success {
-			rule.Check = "pass"
+			vrule.Check = "pass"
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

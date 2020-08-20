@@ -48,7 +48,7 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 
-	prgen          *policyreport.Generator
+	prgen *policyreport.Generator
 }
 
 //NewDataStore returns an instance of data store
@@ -118,7 +118,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
 	log logr.Logger,
-	stopChna <- chan struct{}) *Generator {
+	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
 		kyvernoInterface:     client.KyvernoV1(),
 		dclient:              dclient,
@@ -139,7 +139,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 			policyStatus,
 			log,
 		)
-		go gen.prgen.Run(3,stopChna)
+		go gen.prgen.Run(3, stopChna)
 	}
 	return &gen
 }

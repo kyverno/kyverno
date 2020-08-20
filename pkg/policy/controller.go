@@ -138,7 +138,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
-		policyInformer:  policyInformer,
+		policyInformer:         policyInformer,
 		prgen:                  policyreport.Generator{},
 	}
 
@@ -178,7 +178,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pc.nsLister = namespaces.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.nsListerSynced = namespaces.Informer().HasSynced
-
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -442,7 +441,7 @@ func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, e
 		if err := pc.pvControl.DeleteClusterPolicyViolation(str[0]); err != nil {
 			pc.log.Error(err, "failed to delete policy violation", "name", policy)
 		}
-		return 0,nil
+		return 0, nil
 	}
 	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
 	if err != nil {
@@ -468,7 +467,7 @@ func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int
 				pc.log.Error(err, "failed to delete policy violation", "name", str[0])
 			}
 		}
-		return 0,nil
+		return 0, nil
 	}
 	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
 	if err != nil {

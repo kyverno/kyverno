@@ -35,7 +35,6 @@ type Generator struct {
 
 	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
 
-
 	// get/list cluster policy report
 	cprLister policyreportlister.ClusterPolicyReportLister
 	// get/ist namespaced policy report
@@ -235,16 +234,18 @@ func (gen *Generator) processNextWorkItem() bool {
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
 	var handler prGenerator
-	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(),info.Resource.GetName())
+	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 	if err != nil {
 		logger.Error(err, "failed to get resource")
 		return err
 	}
 	labels := resource.GetLabels()
+	_, okChart := labels["app"]
+	_, okRelease := labels["release"]
 	var appName string
-	if _, okChart := labels["helm.sh/chart"]; okChart {
+	if okChart && okRelease {
 		// cluster scope resource generate a helm package report
-		appName = fmt.Sprintf("%s-%s",labels["helm.sh/chart"],info.Resource.GetNamespace())
+		appName = fmt.Sprintf("%s-%s", labels["app"], info.Resource.GetNamespace())
 		handler = newHelmPR(gen.log.WithName("HelmPR"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
@@ -260,7 +261,7 @@ func (gen *Generator) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := handler.create(pv,appName); err != nil {
+	if err := handler.create(pv, appName); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -275,5 +276,5 @@ func (gen *Generator) syncHandler(info Info) error {
 // Provides an interface to generate policy report
 // implementations for namespaced and cluster PR
 type prGenerator interface {
-	create(policyViolation kyverno.PolicyViolationTemplate,appName string) error
+	create(policyViolation kyverno.PolicyViolationTemplate, appName string) error
 }

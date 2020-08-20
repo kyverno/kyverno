@@ -394,6 +394,8 @@ type ViolatedRule struct {
 	Type string `json:"type" yaml:"type"`
 	// Specifies violation message
 	Message string `json:"message" yaml:"message"`
+
+	Check string `json:"check" yaml:"check"`
 }
 
 //PolicyViolationStatus provides information regarding policyviolation status

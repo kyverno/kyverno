@@ -2,6 +2,7 @@ package policyviolation
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -17,9 +18,12 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if er.IsSuccessful() {
-			continue
+		if os.Getenv("POLICY_TYPE") != "POLICYREPORT" {
+			if er.IsSuccessful() {
+				continue
+			}
 		}
+
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}
@@ -46,6 +50,7 @@ func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {
 }
 
 func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
+
 	pv := &kyverno.PolicyViolationTemplate{
 		Spec: kyverno.PolicyViolationSpec{
 			Policy: policy,
@@ -88,6 +93,10 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
+		}
+		vrule.Check = "fail"
+		if rule.Success {
+			vrule.Check = "pass"
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

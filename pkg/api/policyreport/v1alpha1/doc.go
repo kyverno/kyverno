@@ -18,5 +18,3 @@ limitations under the License.
 // +kubebuilder:object:generate=true
 // +groupName=policy.kubernetes.io
 package v1alpha1
-
-

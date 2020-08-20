@@ -2,10 +2,10 @@ package policyreport
 
 import (
 	"errors"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	corev1 "k8s.io/api/core/v1"
 	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/constant"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -163,7 +163,6 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 
 	pv := builder.generate(info)
 
-
 	if info.FromSync {
 		pv.Annotations = map[string]string{
 			"fromSync": "true",
@@ -172,7 +171,7 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := cpr.create(pv,""); err != nil {
+	if err := cpr.create(pv, ""); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -184,19 +183,17 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
+func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate, appName string) error {
 	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get("kyverno-clusterpolicyreport", v1.GetOptions{})
 	if err != nil {
 		if !k8serror.IsNotFound(err) {
 			return err
 		}
 		clusterpr = &policyreportv1alpha12.ClusterPolicyReport{
-			Scope:  &corev1.ObjectReference{
-				Kind : "Cluster",
+			Scope: &corev1.ObjectReference{
+				Kind: "Cluster",
 			},
-			Summary: policyreportv1alpha12.PolicyReportSummary{
-
-			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{},
 			Results: []*policyreportv1alpha12.PolicyReportResult{},
 		}
 		labelMap := map[string]string{

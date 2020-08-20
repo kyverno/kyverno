@@ -67,7 +67,6 @@ type RuleResponse struct {
 	RuleStats `json:",inline"`
 	// Check
 	Check string `json:"check"`
-
 }
 
 //ToString ...

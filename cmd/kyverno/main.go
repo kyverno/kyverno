@@ -186,7 +186,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
-
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
@@ -199,8 +198,6 @@ func main() {
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
 	)
-
-
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -350,7 +347,6 @@ func main() {
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
-
 
 	// verifys if the admission control is enabled and active
 	// resync: 60 seconds

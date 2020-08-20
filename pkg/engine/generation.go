@@ -47,7 +47,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 			Name:    rule.Name,
 			Type:    "Generation",
 			Success: false,
-			Check: "skip",
+			Check:   "skip",
 			RuleStats: response.RuleStats{
 				ProcessingTime: time.Since(startTime),
 			},
@@ -58,7 +58,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 		Name:    rule.Name,
 		Type:    "Generation",
 		Success: true,
-		Check: "pass",
+		Check:   "pass",
 		RuleStats: response.RuleStats{
 			ProcessingTime: time.Since(startTime),
 		},

@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-
 // Package v1alpha1 contains API Schema definitions for the policy v1alpha1 API group
 // +kubebuilder:object:generate=true
 // +groupName=policy.kubernetes.io
@@ -48,5 +47,3 @@ func Kind(kind string) schema.GroupKind {
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
-
-

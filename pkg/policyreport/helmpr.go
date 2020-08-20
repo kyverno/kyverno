@@ -2,11 +2,11 @@ package policyreport
 
 import (
 	"errors"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	corev1 "k8s.io/api/core/v1"
 	"fmt"
 	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/constant"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -170,7 +170,7 @@ func (hpr *helmPR) syncHandler(info Info) error {
 	labels := resource.GetLabels()
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := hpr.create(pv,labels["helm.sh/chart"]); err != nil {
+	if err := hpr.create(pv, labels["helm.sh/chart"]); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -182,26 +182,24 @@ func (hpr *helmPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
-	reportName := fmt.Sprintf("kyverno-policyreport-%s",appName)
+func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate, appName string) error {
+	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
 	pr, err := hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
 		if !k8serror.IsNotFound(err) {
 			return err
 		}
 		pr = &policyreportv1alpha12.PolicyReport{
-			Scope:  &corev1.ObjectReference{
-				Kind : "Namespace",
+			Scope: &corev1.ObjectReference{
+				Kind:      "Helm",
 				Namespace: pv.Spec.Namespace,
 			},
-			Summary: policyreportv1alpha12.PolicyReportSummary{
-
-			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{},
 			Results: []*policyreportv1alpha12.PolicyReportResult{},
 		}
 		labelMap := map[string]string{
-			"policy-scope": "application",
-			"helm.sh/chart" : appName,
+			"policy-scope":  "application",
+			"helm.sh/chart": appName,
 		}
 		pv.SetLabels(labelMap)
 		pr.ObjectMeta.Name = reportName

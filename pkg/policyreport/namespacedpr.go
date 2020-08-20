@@ -2,10 +2,10 @@ package policyreport
 
 import (
 	"errors"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -171,7 +171,7 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 
 	// Create Policy Violations
 	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := nspr.create(pv,""); err != nil {
+	if err := nspr.create(pv, ""); err != nil {
 		failure = true
 		logger.Error(err, "failed to create policy violation")
 	}
@@ -183,7 +183,7 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 	return nil
 }
 
-func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName string) error {
+func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate, appName string) error {
 	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
 	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
@@ -191,13 +191,11 @@ func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate,appName stri
 			return err
 		}
 		pr = &policyreportv1alpha12.PolicyReport{
-			Scope:  &corev1.ObjectReference{
-				Kind : "Namespace",
+			Scope: &corev1.ObjectReference{
+				Kind:      "Namespace",
 				Namespace: pv.Spec.Namespace,
 			},
-			Summary: policyreportv1alpha12.PolicyReportSummary{
-
-			},
+			Summary: policyreportv1alpha12.PolicyReportSummary{},
 			Results: []*policyreportv1alpha12.PolicyReportResult{},
 		}
 		labelMap := map[string]string{
