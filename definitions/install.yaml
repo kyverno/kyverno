@@ -36,6 +36,10 @@ spec:
                         type: array
                       resources:
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -46,10 +50,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -130,6 +130,10 @@ spec:
                       resources:
                         minProperties: 1
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -140,10 +144,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -886,6 +886,37 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policies
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policies
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kyverno:edit-policies-policyviolations
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policyviolations
+  - policies
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
   name: kyverno:policyviolations
 rules:
 - apiGroups:
@@ -913,39 +944,6 @@ rules:
   - list
   - watch
 ---
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-policies
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policies
-  verbs:
-  - "*"
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-edit: "true"
-  name: kyverno:edit-policies-policyviolations
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policyviolations
-  - policies
-  verbs:
-  - get
-  - list
-  - watch
----
-
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -1081,7 +1079,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.9
+        image: nirmata/kyverno:v1.1.10
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -1113,7 +1111,7 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.9
+      - image: nirmata/kyvernopre:v1.1.10
         imagePullPolicy: Always
         name: kyverno-pre
       serviceAccountName: kyverno-service-account

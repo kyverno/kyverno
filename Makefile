@@ -178,10 +178,6 @@ kustomize-crd:
 
 # guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
 release: 
-	# update image tag
-	cd ./definitions && kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
-	cd ./definitions && kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
-
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
