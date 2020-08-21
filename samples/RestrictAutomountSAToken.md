@@ -12,6 +12,7 @@ kind: ClusterPolicy
 metadata:
   name: restrict-automount-sa-token
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-automountServiceAccountToken
     match:

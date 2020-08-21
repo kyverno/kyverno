@@ -8,6 +8,7 @@ metadata:
       Docker daemon on the node. This access can be used for privilege escalation and 
       to manage containers outside of Kubernetes, and hence should not be allowed.  
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-docker-sock-mount
     match:

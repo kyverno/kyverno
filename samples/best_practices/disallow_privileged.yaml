@@ -10,6 +10,7 @@ metadata:
       With `securityContext.allowPrivilegeEscalation` enabled, a process can 
       gain privileges from its parent. 
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-privileged
     match:

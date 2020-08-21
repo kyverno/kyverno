@@ -87,15 +87,35 @@ generate-api-docs:
 ##################################
 # CLI
 ##################################
+.PHONY: docker-build-cli docker-tag-repo-cli docker-push-cli
 CLI_PATH := cmd/cli/kubectl-kyverno
+KYVERNO_CLI_IMAGE := kyverno-cli
+
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
+docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
+
+docker-build-cli:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
+	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(PWD)/$(CLI_PATH)
+
+docker-tag-repo-cli:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest"
+	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
+
+docker-push-cli:
+	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG)
+	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
 
 ##################################
-docker-publish-all: docker-publish-initContainer docker-publish-kyverno
+docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-publish-cli
 
-docker-build-all: docker-build-initContainer docker-build-kyverno
+docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-cli
+
+##################################
+# CI Testing
+##################################
 
 ci:
 	echo "kustomize input"
@@ -161,10 +181,6 @@ kustomize-crd:
 
 # guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
 release: 
-	# update image tag
-	cd ./definitions && kustomize edit set image nirmata/kyverno=nirmata/kyverno:$(IMAGE_TAG)
-	cd ./definitions && kustomize edit set image nirmata/kyvernopre=nirmata/kyvernopre:$(IMAGE_TAG)
-
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 

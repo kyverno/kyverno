@@ -5,8 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"os"
 	"path/filepath"
+
 	"strings"
 	"time"
 
@@ -49,7 +54,24 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutateLogPath string
+	var mutateLogPath, variablesString, valuesFile string
+	variables := make(map[string]string)
+
+	type Resource struct {
+		Name   string            `json:"name"`
+		Values map[string]string `json:"values"`
+	}
+
+	type Policy struct {
+		Name      string     `json:"name"`
+		Resources []Resource `json:"resources"`
+	}
+
+	type Values struct {
+		Policies []Policy `json:"policies"`
+	}
+
+	valuesMap := make(map[string]map[string]*Resource)
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -62,26 +84,63 @@ func Command() *cobra.Command {
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						log.Log.Error(err, "failed to sanitize")
-						err = fmt.Errorf("Internal error")
+						err = fmt.Errorf("internal error")
 					}
 				}
 			}()
+
+			if valuesFile != "" && variablesString != "" {
+				return sanitizedError.NewWithError("pass the values either using set flag or values_file flag", err)
+			}
+
+			if valuesFile != "" {
+				yamlFile, err := ioutil.ReadFile(valuesFile)
+				if err != nil {
+					return sanitizedError.NewWithError("unable to read yaml", err)
+				}
+
+				valuesBytes, err := yaml.ToJSON(yamlFile)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to convert json", err)
+				}
+
+				values := &Values{}
+				if err := json.Unmarshal(valuesBytes, values); err != nil {
+					return sanitizedError.NewWithError("failed to decode yaml", err)
+				}
+
+				for _, p := range values.Policies {
+					pmap := make(map[string]*Resource)
+					for _, r := range p.Resources {
+						pmap[r.Name] = &r
+					}
+					valuesMap[p.Name] = pmap
+				}
+			}
+
+			if variablesString != "" {
+				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
+				for _, kvpair := range kvpairs {
+					kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+					variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+				}
+			}
 
 			if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 			}
 
-			var mutatelogPathIsDir bool
+			var mutateLogPathIsDir bool
 			if mutateLogPath != "" {
 				spath := strings.Split(mutateLogPath, "/")
 				sfileName := strings.Split(spath[len(spath)-1], ".")
 				if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {
-					mutatelogPathIsDir = false
+					mutateLogPathIsDir = false
 				} else {
-					mutatelogPathIsDir = true
+					mutateLogPathIsDir = true
 				}
 
-				err = createFileOrFolder(mutateLogPath, mutatelogPathIsDir)
+				err = createFileOrFolder(mutateLogPath, mutateLogPathIsDir)
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						return sanitizedError.NewWithError("failed to create file/folder.", err)
@@ -142,14 +201,32 @@ func Command() *cobra.Command {
 					continue
 				}
 
-				if common.PolicyHasVariables(*policy) {
+				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
 					rc.skip += len(resources)
-					fmt.Printf("\nskipping policy %s as policies with variables are not supported\n", policy.Name)
+					fmt.Printf("\nskipping policy %s as it has variables. pass the values for the variables using set/values_file flag", policy.Name)
 					continue
 				}
 
+				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
+					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+				}
+
 				for _, resource := range resources {
-					applyPolicyOnResource(policy, resource, rc)
+					// get values from file for this policy resource combination
+					thisPolicyResouceValues := make(map[string]string)
+					if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil {
+						thisPolicyResouceValues = valuesMap[policy.GetName()][resource.GetName()].Values
+					}
+
+					for k, v := range variables {
+						thisPolicyResouceValues[k] = v
+					}
+
+					if common.PolicyHasVariables(*policy) && len(thisPolicyResouceValues) == 0 {
+						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+					}
+
+					err = applyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResouceValues, rc)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -170,6 +247,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
+	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
 	return cmd
 }
 
@@ -299,13 +378,29 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 }
 
 // applyPolicyOnResource - function to apply policy on resource
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, rc *resultCounts) {
+func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, rc *resultCounts) error {
 	responseError := false
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
-	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+	// build context
+	ctx := context.NewContext()
+	for key, value := range variables {
+		startString := ""
+		endString := ""
+		for _, k := range strings.Split(key, ".") {
+			startString += fmt.Sprintf(`{"%s":`, k)
+			endString += `}`
+		}
+
+		midString := fmt.Sprintf(`"%s"`, value)
+		finalString := startString + midString + endString
+		var jsonData = []byte(finalString)
+		ctx.AddJSON(jsonData)
+	}
+
+	mutateResponse := engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource, Context: ctx})
 	if !mutateResponse.IsSuccessful() {
 		fmt.Printf("Failed to apply mutate policy %s -> resource %s", policy.Name, resPath)
 		for i, r := range mutateResponse.PolicyResponse.Rules {
@@ -325,10 +420,13 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n" + mutatedResource)
 				fmt.Printf("\n")
 			}
+
+		} else {
+			fmt.Printf("\n\nMutation:\nMutation skipped. Resource not matches the policy\n")
 		}
 	}
 
-	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource})
+	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, Context: ctx})
 	if !validateResponse.IsSuccessful() {
 		fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
 		for i, r := range validateResponse.PolicyResponse.Rules {
@@ -366,6 +464,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	} else {
 		rc.pass++
 	}
+	return nil
 }
 
 // mutatePolicies - function to apply mutation on policies
@@ -387,15 +486,15 @@ func mutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 }
 
 // printMutatedOutput - function to print output in provided file or directory
-func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml string, fileName string) error {
+func printMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml string, fileName string) error {
 	var f *os.File
 	var err error
 	yaml = yaml + ("\n---\n\n")
 
-	if !mutatelogPathIsDir {
-		f, err = os.OpenFile(mutatelogPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if !mutateLogPathIsDir {
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
-		f, err = os.OpenFile(mutatelogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	}
 
 	if err != nil {
@@ -413,19 +512,19 @@ func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml stri
 }
 
 // createFileOrFolder - creating file or folder according to path provided
-func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
-	mutatelogPath = filepath.Clean(mutatelogPath)
-	_, err := os.Stat(mutatelogPath)
+func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
+	mutateLogPath = filepath.Clean(mutateLogPath)
+	_, err := os.Stat(mutateLogPath)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			if !mutatelogPathIsDir {
+			if !mutateLogPathIsDir {
 				// check the folder existance, then create the file
 				var folderPath string
-				s := strings.Split(mutatelogPath, "/")
+				s := strings.Split(mutateLogPath, "/")
 
 				if len(s) > 1 {
-					folderPath = mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
+					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
 					fmt.Println(err)
 					if os.IsNotExist(err) {
@@ -437,7 +536,7 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 
 				}
 
-				file, err := os.OpenFile(mutatelogPath, os.O_RDONLY|os.O_CREATE, 0644)
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0644)
 				if err != nil {
 					return sanitizedError.NewWithError(fmt.Sprintf("failed to create file"), err)
 				}
@@ -448,7 +547,7 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 				}
 
 			} else {
-				errDir := os.MkdirAll(mutatelogPath, 0755)
+				errDir := os.MkdirAll(mutateLogPath, 0755)
 				if errDir != nil {
 					return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
 				}

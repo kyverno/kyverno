@@ -18,6 +18,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-add-capabilities
     match:
