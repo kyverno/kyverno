@@ -59,10 +59,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(erResponse response.EngineRes
 			}
 			return
 		}
-	}
-
-	// - check if there is violation on resource (label:Selector)
-	if pResponse.Resource.Namespace == "" {
+	}else if pResponse.Resource.Namespace == "" {
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 			pv := &kyverno.ClusterPolicyViolation{}
 			pv.Spec.Policy = pResponse.Policy

@@ -34,19 +34,25 @@ func (p *PolicyReport) RemovePolicyViolation(name string, pvInfo []Info) *policy
 	p.mux.Lock()
 	if len(pvInfo) > 0 {
 		for _, info := range pvInfo {
-			for _, v := range pvInfo[0].Rules {
+			for j, v := range pvInfo[0].Rules {
 				for i, result := range p.report.Results {
-					if result.Resource.Name == name && result.Policy == info.PolicyName && result.Rule == v.Name {
-						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name,)
+					if result.Resource.Name == info.Resource.GetName()  && result.Policy == info.PolicyName && result.Rule == v.Name {
+						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name)
 						if err != nil {
-							if !errors.IsNotFound(err) {
+							if errors.IsNotFound(err) {
 								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
 							}
+						}else{
+							if v.Check != string(result.Status) {
+								result.Message = v.Message
+								p.DecreaseCountReport(p.report, string(result.Status))
+								result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
+								p.IncreaseCountReport(p.report, string(v.Check))
+							}
+
+							info.Rules = append(info.Rules[:j], info.Rules[j+1:]...)
 						}
-						result.Message = v.Message
-						p.DecreaseCountReport(p.report, string(result.Status))
-						result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
-						p.IncreaseCountReport(p.report, string(v.Check))
+
 					}
 				}
 			}
@@ -69,19 +75,24 @@ func (p *PolicyReport) RemoveClusterPolicyViolation(name string, pvInfo []Info) 
 	p.mux.Lock()
 	if len(pvInfo) > 0 {
 		for _, info := range pvInfo {
-			for _, v := range info.Rules {
+			for j, v := range info.Rules {
 				for i, result := range p.clusterReport.Results {
-					if result.Resource.Name == name && result.Policy == info.PolicyName && result.Rule == v.Name {
-						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name,)
+					if  result.Resource.Name == info.Resource.GetName() && result.Policy == info.PolicyName && result.Rule == v.Name  {
+						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name)
 						if err != nil {
-							if !errors.IsNotFound(err) {
+							if errors.IsNotFound(err) {
 								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
 							}
+						}else{
+							if v.Check != string(result.Status) {
+								result.Message = v.Message
+								p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
+								result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
+								p.IncreaseCountClusterReport(p.clusterReport, string(v.Check))
+							}
+							info.Rules = append(info.Rules[:j], info.Rules[j+1:]...)
 						}
-						result.Message = v.Message
-						p.DecreaseCountReport(p.report, string(result.Status))
-						result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
-						p.IncreaseCountReport(p.report, string(v.Check))
+
 					}
 				}
 			}
@@ -105,10 +116,20 @@ func (p *PolicyReport) CreatePolicyViolationToPolicyReport() *policyreportv1alph
 	for _, result := range p.report.Results {
 		for i, rule := range p.violation.Spec.ViolatedRules {
 			if result.Policy == p.violation.Spec.Policy && result.Rule == rule.Name && result.Resource.Name == p.violation.Spec.Name {
-				result.Message = rule.Message
-				p.DecreaseCountReport(p.report, string(result.Status))
-				p.IncreaseCountReport(p.report, rule.Check)
-				p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
+				_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+					}
+				}else{
+					if rule.Check != string(result.Status) {
+						p.DecreaseCountReport(p.report, string(result.Status))
+						p.IncreaseCountReport(p.report, rule.Check)
+						result.Message = rule.Message
+					}
+					p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
+				}
+
 			}
 		}
 	}
@@ -140,10 +161,19 @@ func (p *PolicyReport) CreateClusterPolicyViolationsToClusterPolicyReport() *pol
 	for _, result := range p.clusterReport.Results {
 		for i, rule := range p.violation.Spec.ViolatedRules {
 			if result.Policy == p.violation.Spec.Policy && result.Rule == rule.Name && result.Resource.Name == p.violation.Spec.Name {
-				result.Message = rule.Message
-				p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
-				p.IncreaseCountClusterReport(p.clusterReport, rule.Check)
-				p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
+				_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						p.clusterReport.Results = append(p.clusterReport.Results[:i], p.report.Results[i+1:]...)
+					}
+				}else{
+					if rule.Check != string(result.Status) {
+						result.Message = rule.Message
+						p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
+						p.IncreaseCountClusterReport(p.clusterReport, rule.Check)
+					}
+					p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
+				}
 			}
 		}
 	}

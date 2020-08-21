@@ -423,7 +423,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 func (pc *PolicyController) deletePolicyViolations(key string) {
 	count := 0
-	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		hpv, err := pc.deleteHelmPolicyViolations(key)
 		if err != nil {
 			pc.log.Error(err, "failed to delete policy helm violations", "policy", key)
@@ -445,25 +445,30 @@ func (pc *PolicyController) deletePolicyViolations(key string) {
 }
 
 func (pc *PolicyController) deleteHelmPolicyViolations(policy string) (int, error) {
+
 	logger := pc.log
 	str := strings.Split(policy, "/")
-	resource, err := pc.client.GetResource("", str[1], str[2], str[3])
-	if err != nil {
-		return 0, err
-	}
-	labels := resource.GetLabels()
-	_, okChart := labels["app"]
-	_, okRelease := labels["release"]
-
-	if okChart && okRelease {
-		appName := fmt.Sprintf("%s-%s", labels["app"], str[2])
-		var pvInfo []policyreport.Info
-		if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(str[3], str[2], appName, pvInfo); err != nil {
-			logger.Error(err, "failed to delete cluster policy violation", "policy", str[0])
-		} else {
-			logger.Info("deleted cluster policy violation", "policy", str[0])
+	if len(str)  == 3 {
+		resource, err := pc.client.GetResource("", str[1], str[2], str[3])
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return 0,err
+			}
 		}
-		return 0, nil
+		labels := resource.GetLabels()
+		_, okChart := labels["app"]
+		_, okRelease := labels["release"]
+
+		if okChart && okRelease {
+			appName := fmt.Sprintf("%s-%s", labels["app"], str[2])
+			var pvInfo []policyreport.Info
+			if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(str[3], str[2], appName, pvInfo); err != nil {
+				logger.Error(err, "failed to delete cluster policy violation", "policy", str[0])
+			} else {
+				logger.Info("deleted cluster policy violation", "policy", str[0])
+			}
+			return 0, nil
+		}
 	}
 	return 0, nil
 }
@@ -471,9 +476,12 @@ func (pc *PolicyController) deleteHelmPolicyViolations(policy string) (int, erro
 func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 		str := strings.Split(policy, "/")
-		var pvInfo []policyreport.Info
-		if err := pc.pvControl.DeleteClusterPolicyViolation(str[0], pvInfo); err != nil {
-			pc.log.Error(err, "failed to delete policy violation", "name", policy)
+		if len(str)  == 0 {
+
+			var pvInfo []policyreport.Info
+			if err := pc.pvControl.DeleteClusterPolicyViolation(str[0], pvInfo); err != nil {
+				pc.log.Error(err, "failed to delete policy violation", "name", policy)
+			}
 		}
 		return 0, nil
 	}
@@ -582,6 +590,7 @@ func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string, pvInfo [
 			return err
 		}
 		pr := policyreport.NewPolicyReport(policyReport, nil, nil,r.K8sClient)
+
 		policyReport = pr.RemovePolicyViolation(name, pvInfo)
 		_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)
 		return err
