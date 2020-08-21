@@ -55,7 +55,7 @@ func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
 	var cluster bool
-	var mutatelogPath, variablesString, valuesFile string
+	var mutateLogPath, variablesString, valuesFile string
 	variables := make(map[string]string)
 
 	type Resource struct {
@@ -131,17 +131,17 @@ func Command() *cobra.Command {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 			}
 
-			var mutatelogPathIsDir bool
+			var mutateLogPathIsDir bool
 			if mutateLogPath != "" {
 				spath := strings.Split(mutateLogPath, "/")
 				sfileName := strings.Split(spath[len(spath)-1], ".")
 				if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {
-					mutatelogPathIsDir = false
+					mutateLogPathIsDir = false
 				} else {
-					mutatelogPathIsDir = true
+					mutateLogPathIsDir = true
 				}
 
-				err = createFileOrFolder(mutateLogPath, mutatelogPathIsDir)
+				err = createFileOrFolder(mutateLogPath, mutateLogPathIsDir)
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						return sanitizedError.NewWithError("failed to create file/folder.", err)
@@ -156,18 +156,6 @@ func Command() *cobra.Command {
 					return sanitizedError.NewWithError("failed to mutate policies.", err)
 				}
 				return err
-			}
-
-			for _, policy := range policies {
-				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
-				if err != nil {
-					fmt.Printf("Policy %v is not valid: %v\n", policy.Name, err)
-					os.Exit(1)
-				}
-				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
-				}
-
 			}
 
 			var dClient *client.Client
@@ -214,10 +202,14 @@ func Command() *cobra.Command {
 					continue
 				}
 
-				if common.PolicyHasVariables(*policy) {
+				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
 					rc.skip += len(resources)
-					fmt.Printf("\nskipping policy %s as policies with variables are not supported\n", policy.Name)
+					fmt.Printf("\nskipping policy %s as it has variables. pass the values for the variables using set/values_file flag", policy.Name)
 					continue
+				}
+
+				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
+					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 				}
 
 				for _, resource := range resources {
@@ -235,11 +227,7 @@ func Command() *cobra.Command {
 						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 					}
 
-					if !(j == 0 && i == 0) {
-						fmt.Printf("\n\n==========================================================================================\n")
-					}
-
-					err = applyPolicyOnResource(policy, resource, mutatelogPath, mutatelogPathIsDir, thisPolicyResouceValues, rc)
+					err = applyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResouceValues, rc)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
@@ -259,7 +247,7 @@ func Command() *cobra.Command {
 
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&mutatelogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
 	return cmd
@@ -391,7 +379,7 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 }
 
 // applyPolicyOnResource - function to apply policy on resource
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutatelogPath string, mutatelogPathIsDir bool, variables map[string]string, rc *resultCounts) error {
+func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, rc *resultCounts) error {
 	responseError := false
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
@@ -477,6 +465,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	} else {
 		rc.pass++
 	}
+	return nil
 }
 
 // mutatePolicies - function to apply mutation on policies
@@ -498,15 +487,15 @@ func mutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 }
 
 // printMutatedOutput - function to print output in provided file or directory
-func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml string, fileName string) error {
+func printMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml string, fileName string) error {
 	var f *os.File
 	var err error
 	yaml = yaml + ("\n---\n\n")
 
-	if !mutatelogPathIsDir {
-		f, err = os.OpenFile(mutatelogPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if !mutateLogPathIsDir {
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
-		f, err = os.OpenFile(mutatelogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	}
 
 	if err != nil {
@@ -524,19 +513,19 @@ func printMutatedOutput(mutatelogPath string, mutatelogPathIsDir bool, yaml stri
 }
 
 // createFileOrFolder - creating file or folder according to path provided
-func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
-	mutatelogPath = filepath.Clean(mutatelogPath)
-	_, err := os.Stat(mutatelogPath)
+func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
+	mutateLogPath = filepath.Clean(mutateLogPath)
+	_, err := os.Stat(mutateLogPath)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			if !mutatelogPathIsDir {
+			if !mutateLogPathIsDir {
 				// check the folder existance, then create the file
 				var folderPath string
-				s := strings.Split(mutatelogPath, "/")
+				s := strings.Split(mutateLogPath, "/")
 
 				if len(s) > 1 {
-					folderPath = mutatelogPath[:len(mutatelogPath)-len(s[len(s)-1])-1]
+					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
 					fmt.Println(err)
 					if os.IsNotExist(err) {
@@ -548,7 +537,7 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 
 				}
 
-				file, err := os.OpenFile(mutatelogPath, os.O_RDONLY|os.O_CREATE, 0644)
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0644)
 				if err != nil {
 					return sanitizedError.NewWithError(fmt.Sprintf("failed to create file"), err)
 				}
@@ -559,7 +548,7 @@ func createFileOrFolder(mutatelogPath string, mutatelogPathIsDir bool) error {
 				}
 
 			} else {
-				errDir := os.MkdirAll(mutatelogPath, 0755)
+				errDir := os.MkdirAll(mutateLogPath, 0755)
 				if errDir != nil {
 					return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
 				}
