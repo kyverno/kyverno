@@ -24,7 +24,7 @@ build: kyverno
 PWD := $(CURDIR)
 
 ##################################
-# INIT CONTAINER 
+# INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
@@ -126,7 +126,7 @@ ci:
 ##################################
 
 ##################################
-# Testing & Code-Coverage 
+# Testing & Code-Coverage
 ##################################
 
 ## variables
@@ -142,7 +142,7 @@ $(GO_ACC):
 	go get -v github.com/ory/go-acc
 	$(eval export PATH=$(GO_ACC):$(PATH))
 # go test provides code coverage per packages only.
-# go-acc merges the result for pks so that it be used by	
+# go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
 # go get downloads and installs the binary
@@ -167,10 +167,10 @@ test-e2e:
 godownloader:
 	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
-# kustomize-crd will create install.yaml 
+# kustomize-crd will create install.yaml
 kustomize-crd:
 	curl -o ./definitions/crds/policy.kubernetes.io_clusterpolicyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_clusterpolicyreports.yaml
-    curl -o ./definitions/crds/policy.kubernetes.io_policyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_policyreports.yaml
+	curl -o ./definitions/crds/policy.kubernetes.io_policyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_policyreports.yaml
 
 	# Create CRD for helm deployment Helm
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
@@ -180,7 +180,7 @@ kustomize-crd:
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
 # guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
-release: 
+release:
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
@@ -190,4 +190,4 @@ fmt:
 
 vet:
 	go vet ./...
-	
+
