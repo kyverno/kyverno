@@ -28,8 +28,8 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
 	}
 
-	if common.PolicyHasVariables(p) && common.PolicyHasNonWhiteListedVariables(p){
-		return fmt.Errorf("policy contains non whitelisted vars")
+	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p){
+		return fmt.Errorf("policy contains non allowed variables")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {

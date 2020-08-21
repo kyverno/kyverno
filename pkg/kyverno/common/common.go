@@ -154,14 +154,14 @@ func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
 }
 
-// PolicyHasNonWhiteListedVariables - checks for non whitelisted variables in the policy
-func PolicyHasNonWhiteListedVariables(policy v1.ClusterPolicy) bool {
+// PolicyHasNonAllowedVariables - checks for non whitelisted variables in the policy
+func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
 
 	allVarsRegex := regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
-	whitelist := []string{`request\.`, `serviceAccountName`, `serviceAccountNamespace`}
-	regexStr := `\{\{(` + strings.Join(whitelist, "|") + `)[^{}]*\}\}`
+	allowedList := []string{`request\.`, `serviceAccountName`, `serviceAccountNamespace`}
+	regexStr := `\{\{(` + strings.Join(allowedList, "|") + `)[^{}]*\}\}`
 	matchedVarsRegex := regexp.MustCompile(regexStr)
 
 	if len(allVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) > len(matchedVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) {
