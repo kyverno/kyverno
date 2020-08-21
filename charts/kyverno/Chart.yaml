@@ -2,6 +2,7 @@ apiVersion: v1
 name: kyverno
 version: 1.1.9
 appVersion: v1.1.9
+icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
 description: Kubernetes Native Policy Management
 keywords:
   - kubernetes

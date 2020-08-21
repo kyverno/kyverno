@@ -49,30 +49,27 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 		// validate Cluster Resources in namespaced cluster policy
 		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
-		if p.ObjectMeta.Namespace != "" {
-			// check unique kind
-			isUnique := func(kind string, resources []string) bool {
-				for _, k := range resources {
-					if kind == k {
-						return false
-					}
-				}
-				return true
-			}
-			clusterResources := make([]string, 0)
-			// Get all the cluster type kind supported by cluster
-			res, _ := client.GetDiscoveryCache().ServerPreferredResources()
-			for _, resList := range res {
-				for _, r := range resList.APIResources {
-					if r.Namespaced == false {
-						if isUnique(r.Kind, clusterResources) {
-							clusterResources = append(clusterResources, r.Kind)
+		if !mock && p.ObjectMeta.Namespace != "" {
+				var Empty struct{}
+				clusterResourcesMap := make(map[string]*struct{})
+				// Get all the cluster type kind supported by cluster
+				res, _ := client.GetDiscoveryCache().ServerPreferredResources()
+				for _, resList := range res {
+					for _, r := range resList.APIResources {
+						if r.Namespaced == false {
+							if clusterResourcesMap[r.Kind] != nil {
+								clusterResourcesMap[r.Kind] = &Empty
+							}
 						}
 					}
 				}
+
+				clusterResources := make([]string, 0, len(clusterResourcesMap))
+				for k := range clusterResourcesMap {
+					clusterResources = append(clusterResources, k)
+				}
+				return checkClusterResourceInMatchAndExclude(rule, clusterResources)
 			}
-			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
-		}
 
 		if doesMatchAndExcludeConflict(rule) {
 			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
