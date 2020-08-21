@@ -35,7 +35,6 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 			continue
 		}
-
 		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
 		ann := policy.GetAnnotations()
 		if annValue, ok := ann[engine.PodControllersAnnotation]; ok {
@@ -45,7 +44,6 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 				}
 			}
 		}
-
 		// apply the policy on each
 		engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole())
 		// get engine response for mutation & validation independently

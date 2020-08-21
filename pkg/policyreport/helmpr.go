@@ -201,9 +201,9 @@ func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate, appName string) er
 			"policy-scope":  "application",
 			"helm.sh/chart": appName,
 		}
-		pv.SetLabels(labelMap)
+		pr.SetLabels(labelMap)
 		pr.ObjectMeta.Name = reportName
-		prObj := NewPolicyReport(pr, nil, &pv)
+		prObj := NewPolicyReport(pr, nil, &pv,hpr.dclient)
 		pr = prObj.CreatePolicyViolationToPolicyReport()
 		_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(pr)
 		if err != nil {
@@ -211,7 +211,7 @@ func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate, appName string) er
 		}
 		return nil
 	}
-	prObj := NewPolicyReport(pr, nil, &pv)
+	prObj := NewPolicyReport(pr, nil, &pv,hpr.dclient)
 	pr = prObj.CreatePolicyViolationToPolicyReport()
 	_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(pr)
 	if err != nil {

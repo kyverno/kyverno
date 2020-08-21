@@ -203,7 +203,7 @@ func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate, appName str
 		}
 		pr.SetLabels(labelMap)
 		pr.ObjectMeta.Name = reportName
-		prObj := NewPolicyReport(pr, nil, &pv)
+		prObj := NewPolicyReport(pr, nil, &pv,nspr.dclient)
 		cpr := prObj.CreatePolicyViolationToPolicyReport()
 		_, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(cpr)
 		if err != nil {
@@ -211,7 +211,7 @@ func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate, appName str
 		}
 		return nil
 	}
-	prObj := NewPolicyReport(pr, nil, &pv)
+	prObj := NewPolicyReport(pr, nil, &pv,nspr.dclient)
 	cpr := prObj.CreatePolicyViolationToPolicyReport()
 	cpr, err = nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(cpr)
 	if err != nil {

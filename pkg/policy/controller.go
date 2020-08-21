@@ -142,7 +142,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		prgen:                  policyreport.Generator{},
 	}
 
-	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
+	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder,K8sClient : client}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
@@ -548,6 +548,7 @@ type PVControlInterface interface {
 type RealPVControl struct {
 	Client   kyvernoclient.Interface
 	Recorder record.EventRecorder
+	K8sClient *client.Client
 }
 
 //DeleteClusterPolicyViolation deletes the policy violation
@@ -560,7 +561,7 @@ func (r RealPVControl) DeleteClusterPolicyViolation(name string, pvInfo []policy
 			}
 			return nil
 		}
-		pr := policyreport.NewPolicyReport(nil, policyReport, nil)
+		pr := policyreport.NewPolicyReport(nil, policyReport, nil,r.K8sClient)
 		policyReport = pr.RemoveClusterPolicyViolation(name, pvInfo)
 		_, err = r.Client.PolicyV1alpha1().ClusterPolicyReports().Update(policyReport)
 		return err
@@ -580,7 +581,7 @@ func (r RealPVControl) DeleteNamespacedPolicyViolation(name, ns string, pvInfo [
 			}
 			return err
 		}
-		pr := policyreport.NewPolicyReport(policyReport, nil, nil)
+		pr := policyreport.NewPolicyReport(policyReport, nil, nil,r.K8sClient)
 		policyReport = pr.RemovePolicyViolation(name, pvInfo)
 		_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)
 		return err
@@ -598,7 +599,7 @@ func (r RealPVControl) DeleteHelmNamespacedPolicyViolation(name, ns, appName str
 		}
 		return err
 	}
-	pr := policyreport.NewPolicyReport(policyReport, nil, nil)
+	pr := policyreport.NewPolicyReport(policyReport, nil, nil,r.K8sClient)
 	policyReport = pr.RemovePolicyViolation(name, pvInfo)
 	_, err = r.Client.PolicyV1alpha1().PolicyReports(ns).Update(policyReport)
 	return err

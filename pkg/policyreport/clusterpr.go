@@ -201,7 +201,7 @@ func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate, appName string)
 		}
 		clusterpr.SetLabels(labelMap)
 		clusterpr.ObjectMeta.Name = "kyverno-clusterpolicyreport"
-		prObj := NewPolicyReport(nil, clusterpr, &pv)
+		prObj := NewPolicyReport(nil, clusterpr, &pv,cpr.dclient)
 		clusterpr := prObj.CreateClusterPolicyViolationsToClusterPolicyReport()
 
 		_, err = cpr.policyreportInterface.ClusterPolicyReports().Create(clusterpr)
@@ -210,7 +210,7 @@ func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate, appName string)
 		}
 		return nil
 	}
-	prObj := NewPolicyReport(nil, clusterpr, &pv)
+	prObj := NewPolicyReport(nil, clusterpr, &pv,cpr.dclient)
 	clusterpr = prObj.CreateClusterPolicyViolationsToClusterPolicyReport()
 
 	_, err = cpr.policyreportInterface.ClusterPolicyReports().Update(clusterpr)

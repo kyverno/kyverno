@@ -3,7 +3,9 @@ package policyreport
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sync"
 )
 
@@ -11,14 +13,16 @@ type PolicyReport struct {
 	report        *policyreportv1alpha1.PolicyReport
 	clusterReport *policyreportv1alpha1.ClusterPolicyReport
 	violation     *kyverno.PolicyViolationTemplate
+	k8sClient *client.Client
 	mux           sync.Mutex
 }
 
-func NewPolicyReport(report *policyreportv1alpha1.PolicyReport, clusterReport *policyreportv1alpha1.ClusterPolicyReport, violation *kyverno.PolicyViolationTemplate) *PolicyReport {
+func NewPolicyReport(report *policyreportv1alpha1.PolicyReport, clusterReport *policyreportv1alpha1.ClusterPolicyReport, violation *kyverno.PolicyViolationTemplate,client *client.Client) *PolicyReport {
 	return &PolicyReport{
 		report:        report,
 		clusterReport: clusterReport,
 		violation:     violation,
+		k8sClient : client,
 	}
 }
 
@@ -33,19 +37,24 @@ func (p *PolicyReport) RemovePolicyViolation(name string, pvInfo []Info) *policy
 			for _, v := range pvInfo[0].Rules {
 				for i, result := range p.report.Results {
 					if result.Resource.Name == name && result.Policy == info.PolicyName && result.Rule == v.Name {
-						p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name,)
+						if err != nil {
+							if !errors.IsNotFound(err) {
+								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+							}
+						}
+						result.Message = v.Message
+						p.DecreaseCountReport(p.report, string(result.Status))
+						result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
+						p.IncreaseCountReport(p.report, string(v.Check))
 					}
 				}
 			}
 		}
 	} else {
-		for _, result := range p.report.Results {
-			if result.Resource.Name == name {
-				result.Message = ""
-				result.Data["status"] = "Pass"
-				result.Status = "Pass"
-				p.DecreaseCountReport(p.report, string(result.Status))
-				p.IncreaseCountReport(p.report, string(result.Status))
+		for i, result := range p.report.Results {
+			if result.Policy == name {
+				p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
 			}
 		}
 	}
@@ -63,20 +72,24 @@ func (p *PolicyReport) RemoveClusterPolicyViolation(name string, pvInfo []Info) 
 			for _, v := range info.Rules {
 				for i, result := range p.clusterReport.Results {
 					if result.Resource.Name == name && result.Policy == info.PolicyName && result.Rule == v.Name {
-						if v.Check != result.Data["status"] {
-							p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+						_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name,)
+						if err != nil {
+							if !errors.IsNotFound(err) {
+								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+							}
 						}
+						result.Message = v.Message
+						p.DecreaseCountReport(p.report, string(result.Status))
+						result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
+						p.IncreaseCountReport(p.report, string(v.Check))
 					}
 				}
 			}
 		}
 	} else {
-		for _, result := range p.clusterReport.Results {
-			if result.Resource.Name == name {
-				result.Message = ""
-				result.Status = "Pass"
-				p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
-				p.IncreaseCountClusterReport(p.clusterReport, string(result.Status))
+		for i, result := range p.clusterReport.Results {
+			if result.Policy == name {
+				p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
 			}
 		}
 	}
