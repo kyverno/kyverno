@@ -79,7 +79,7 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 	// set ValidationFailureAction to "audit" if not specified
 	Audit := common.Audit
 	if policy.Spec.ValidationFailureAction == "" {
-		log.V(4).Info("setting defautl value", "spec.validationFailureAction", Audit)
+		log.V(4).Info("setting default value", "spec.validationFailureAction", Audit)
 
 		jsonPatch := struct {
 			Path  string `json:"path"`

@@ -18,7 +18,7 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := json.Unmarshal(raw, &policy); err != nil {
-		logger.Error(err, "faield to unmarshall policy admission request")
+		logger.Error(err, "failed to unmarshall policy admission request")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
