@@ -94,9 +94,9 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 			Type:    rule.Type,
 			Message: rule.Message,
 		}
-		vrule.Check = "fail"
+		vrule.Check = "Fail"
 		if rule.Success {
-			vrule.Check = "pass"
+			vrule.Check = "Pass"
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

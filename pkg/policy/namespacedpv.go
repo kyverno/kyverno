@@ -2,6 +2,7 @@ package policy
 
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"k8s.io/apimachinery/pkg/api/errors"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -22,7 +23,8 @@ func (pc *PolicyController) addNamespacedPolicyViolation(obj interface{}) {
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("namespaced policy violation does not belong to an active policy, will be cleaned up")
-		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
+		var pvInfo []policyreport.Info
+		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name, pvInfo); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
 		}
@@ -49,9 +51,10 @@ func (pc *PolicyController) updateNamespacedPolicyViolation(old, cur interface{}
 	ps := pc.getPolicyForNamespacedPolicyViolation(curPV)
 
 	if len(ps) == 0 {
+		var pvInfo []policyreport.Info
 		// there is no namespaced policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("nameapced policy violation does not belong to an active policy, will be cleanedup")
-		if err := pc.pvControl.DeleteNamespacedPolicyViolation(curPV.Namespace, curPV.Name); err != nil {
+		if err := pc.pvControl.DeleteNamespacedPolicyViolation(curPV.Namespace, curPV.Name, pvInfo); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
 		}
@@ -88,9 +91,10 @@ func (pc *PolicyController) deleteNamespacedPolicyViolation(obj interface{}) {
 	logger = logger.WithValues("kind", pv.GetObjectKind(), "namespace", pv.Namespace, "name", pv.Name)
 	ps := pc.getPolicyForNamespacedPolicyViolation(pv)
 	if len(ps) == 0 {
+		var pvInfo []policyreport.Info
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("namespaced policy violation does not belong to an active policy, will be cleaned up")
-		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name); err != nil {
+		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Namespace, pv.Name, pvInfo); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to delete resource")
 				return

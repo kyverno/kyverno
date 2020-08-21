@@ -203,14 +203,16 @@ func (hpr *helmPR) create(pv kyverno.PolicyViolationTemplate, appName string) er
 		}
 		pv.SetLabels(labelMap)
 		pr.ObjectMeta.Name = reportName
-		pr = CreatePolicyViolationToPolicyReport(&pv, pr)
+		prObj := NewPolicyReport(pr, nil, &pv)
+		pr = prObj.CreatePolicyViolationToPolicyReport()
 		_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Create(pr)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	pr = CreatePolicyViolationToPolicyReport(&pv, pr)
+	prObj := NewPolicyReport(pr, nil, &pv)
+	pr = prObj.CreatePolicyViolationToPolicyReport()
 	_, err = hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Update(pr)
 	if err != nil {
 		return err

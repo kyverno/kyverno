@@ -2,6 +2,7 @@ package policy
 
 import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -20,7 +21,8 @@ func (pc *PolicyController) addClusterPolicyViolation(obj interface{}) {
 	if len(ps) == 0 {
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleaned up")
-		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
+		var pvInfo []policyreport.Info
+		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name, pvInfo); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
 		}
@@ -45,9 +47,10 @@ func (pc *PolicyController) updateClusterPolicyViolation(old, cur interface{}) {
 
 	ps := pc.getPolicyForClusterPolicyViolation(curPV)
 	if len(ps) == 0 {
+		var pvInfo []policyreport.Info
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
-		if err := pc.pvControl.DeleteClusterPolicyViolation(curPV.Name); err != nil {
+		if err := pc.pvControl.DeleteClusterPolicyViolation(curPV.Name, pvInfo); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
 		}
@@ -86,9 +89,10 @@ func (pc *PolicyController) deleteClusterPolicyViolation(obj interface{}) {
 	logger = logger.WithValues("kind", pv.Kind, "namespace", pv.Namespace, "name", pv.Name)
 	ps := pc.getPolicyForClusterPolicyViolation(pv)
 	if len(ps) == 0 {
+		var pvInfo []policyreport.Info
 		// there is no cluster policy for this violation, so we can delete this cluster policy violation
 		logger.V(4).Info("Cluster Policy Violation does not belong to an active policy, will be cleanedup")
-		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name); err != nil {
+		if err := pc.pvControl.DeleteClusterPolicyViolation(pv.Name, pvInfo); err != nil {
 			logger.Error(err, "failed to delete resource")
 			return
 		}

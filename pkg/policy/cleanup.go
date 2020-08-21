@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"os"
 	"reflect"
 
@@ -18,22 +19,24 @@ func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 		if !er.IsSuccessful() && os.Getenv("POLICY-TYPE") == "POLICYVIOLATION" {
 			continue
 		}
+
 		if len(er.PolicyResponse.Rules) == 0 {
 			continue
 		}
 		// clean up after the policy has been corrected
-		if er.IsSuccessful() &&  os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-			pc.cleanUpPolicyViolation(er.PolicyResponse)
-		}else if os.Getenv("POLICY-TYPE") == "POLICYVIOLATION" {
-			pc.cleanUpPolicyViolation(er.PolicyResponse)
-		}
+
+		pc.cleanUpPolicyViolation(er)
+
 	}
 }
 
-func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {
+func (pc *PolicyController) cleanUpPolicyViolation(erResponse response.EngineResponse) {
 	logger := pc.log
+	var er []response.EngineResponse
+	er = append(er, erResponse)
+	pResponse := erResponse.PolicyResponse
+	pvInfo := policyreport.GeneratePRsFromEngineResponse(er, logger)
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-
 		resource, err := pc.client.GetResource(pResponse.Resource.APIVersion, pResponse.Resource.Kind, pResponse.Resource.Namespace, pResponse.Resource.Name)
 		if err != nil {
 			logger.Error(err, "failed to get resource")
@@ -43,13 +46,13 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 		_, okChart := labels["app"]
 		_, okRelease := labels["release"]
 
-		if okChart && okRelease  {
+		if okChart && okRelease {
 			pv := &kyverno.PolicyViolation{}
 			pv.Spec.Policy = pResponse.Policy
 			pv.Namespace = pResponse.Resource.Namespace
 			pv.Name = pResponse.Resource.Name
 			appName := fmt.Sprintf("%s-%s", labels["app"], pv.Namespace)
-			if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(pv.Name, pv.Namespace, appName); err != nil {
+			if err := pc.pvControl.DeleteHelmNamespacedPolicyViolation(pv.Name, pv.Namespace, appName, pvInfo); err != nil {
 				logger.Error(err, "failed to delete cluster policy violation", "policy", pResponse.Policy)
 			} else {
 				logger.Info("deleted cluster policy violation", "policy", pResponse.Policy)
@@ -63,7 +66,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 			pv := &kyverno.ClusterPolicyViolation{}
 			pv.Spec.Policy = pResponse.Policy
-			if err := pc.pvControl.DeleteClusterPolicyViolation(pResponse.Policy); err != nil {
+			if err := pc.pvControl.DeleteClusterPolicyViolation(pResponse.Policy, pvInfo); err != nil {
 				logger.Error(err, "failed to delete cluster policy violation", "policy", pResponse.Policy)
 			} else {
 				logger.Info("deleted cluster policy violation", "policy", pResponse.Policy)
@@ -79,7 +82,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 		if reflect.DeepEqual(pv, kyverno.ClusterPolicyViolation{}) {
 			return
 		}
-		if err := pc.pvControl.DeleteClusterPolicyViolation(pResponse.Policy); err != nil {
+		if err := pc.pvControl.DeleteClusterPolicyViolation(pResponse.Policy, pvInfo); err != nil {
 			logger.Error(err, "failed to delete cluster policy violation", "name", pv.Name)
 		} else {
 			logger.Info("deleted cluster policy violation", "name", pv.Name)
@@ -91,7 +94,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 		pv.Spec.Policy = pResponse.Policy
 		pv.Namespace = pResponse.Resource.Namespace
 		pv.Name = pResponse.Resource.Name
-		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Name, pv.Namespace); err != nil {
+		if err := pc.pvControl.DeleteNamespacedPolicyViolation(pv.Name, pv.Namespace, pvInfo); err != nil {
 			logger.Error(err, "failed to delete cluster policy violation", "policy", pResponse.Policy)
 		} else {
 			logger.Info("deleted cluster policy violation", "policy", pResponse.Policy)
@@ -108,7 +111,7 @@ func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResp
 	if reflect.DeepEqual(nspv, kyverno.PolicyViolation{}) {
 		return
 	}
-	if err := pc.pvControl.DeleteNamespacedPolicyViolation(nspv.Name, nspv.Namespace); err != nil {
+	if err := pc.pvControl.DeleteNamespacedPolicyViolation(nspv.Name, nspv.Namespace, pvInfo); err != nil {
 		logger.Error(err, "failed to delete cluster policy violation", "name", nspv.Name, "namespace", nspv.Namespace)
 	} else {
 		logger.Info("deleted namespaced policy violation", "name", nspv.Name, "namespace", nspv.Namespace)
