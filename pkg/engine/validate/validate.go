@@ -11,14 +11,19 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/nirmata/kyverno/pkg/engine/common"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
 func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
-	path, err := validateResourceElement(log, resource, pattern, pattern, "/")
+	// newAnchorMap - to check anchor key has values 
+	ac := common.NewAnchorMap()
+	path, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
 	if err != nil {
-		return path, err
+		if !ac.IsAnchorError() {
+			return path, err
+		}
 	}
 
 	return "", nil
@@ -27,7 +32,7 @@ func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{})
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
-func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string) (string, error) {
+func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 	var err error
 	switch typedPatternElement := patternElement.(type) {
 	// map
@@ -37,8 +42,8 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
-
-		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path)
+		ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
+		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// array
 	case []interface{}:
 		typedResourceElement, ok := resourceElement.([]interface{})
@@ -46,8 +51,8 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
-
-		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path)
+		// ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
+		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
@@ -72,7 +77,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
@@ -85,31 +90,49 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		// - Existence
 		// - Equality
 		handler := anchor.CreateElementHandler(key, patternElement, path)
-		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern)
+		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
 			// If Conditional anchor fails then we dont process the resources
 			if anchor.IsConditionAnchor(key) {
+				ac.AnchorError =err
 				log.Error(err, "condition anchor did not satisfy, wont process the resource")
 				return "", nil
 			}
 			return handlerPath, err
 		}
 	}
+
+	if ac.AnchorError != nil {
+		return "", nil
+	}
+
 	// Evaluate resources
-	for key, resourceElement := range resources {
-		// get handler for resources in the pattern
-		handler := anchor.CreateElementHandler(key, resourceElement, path)
-		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern)
+	// getSortedNestedAnchorResource - keeps the anchor key to start of the list
+	sortedResourceKeys := getSortedNestedAnchorResource(resources)
+	for e := sortedResourceKeys.Front(); e != nil ; e = e.Next(){
+		key := e.Value.(string)
+		handler := anchor.CreateElementHandler(key, resources[key], path)
+		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
 		if err != nil {
 			return handlerPath, err
 		}
 	}
+
+	// Evaluate resources
+	// for key, resourceElement := range resources {
+	// 	// get handler for resources in the pattern
+	// 	handler := anchor.CreateElementHandler(key, resourceElement, path)
+	// 	handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern)
+	// 	if err != nil {
+	// 		return handlerPath, err
+	// 	}
+	// }
 	return "", nil
 }
 
-func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
+func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
@@ -119,7 +142,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 	case map[string]interface{}:
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
-		path, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path)
+		path, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path, ac)
 		if err != nil {
 			return path, err
 		}
@@ -128,7 +151,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		if len(resourceArray) >= len(patternArray) {
 			for i, patternElement := range patternArray {
 				currentPath := path + strconv.Itoa(i) + "/"
-				path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath)
+				path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath, ac)
 				if err != nil {
 					return path, err
 				}
@@ -256,12 +279,12 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
-func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string) (string, error) {
+func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 	for i, resourceElement := range resourceMapArray {
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
 		currentPath := path + strconv.Itoa(i) + "/"
-		returnpath, err := validateResourceElement(log, resourceElement, patternMap, originPattern, currentPath)
+		returnpath, err := validateResourceElement(log, resourceElement, patternMap, originPattern, currentPath, ac)
 		if err != nil {
 			return returnpath, err
 		}
