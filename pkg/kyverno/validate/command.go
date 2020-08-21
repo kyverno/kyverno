@@ -58,7 +58,7 @@ func Command() *cobra.Command {
 
 				// if crd is passed, then validate policy against the crd
 				if crdPath != "" {
-					err := common.ValidatePolicyAgainstCrd(*policy, crdPath)
+					err := common.ValidatePolicyAgainstCrd(policy, crdPath)
 					if err != nil {
 						log.Log.Error(err, "policy "+policy.Name+" is invalid")
 						os.Exit(1)

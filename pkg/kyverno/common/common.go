@@ -9,9 +9,9 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/validate"
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	"github.com/googleapis/gnostic/compiler"
-	yaml_v2 "gopkg.in/yaml.v2"
+	//openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	//"github.com/googleapis/gnostic/compiler"
+	//yaml_v2 "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -278,6 +278,7 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 
 	openV3schema := crdDefinitionPrior.Spec.Validation.OpenAPIV3Schema
 	crdName := crdDefinitionPrior.Spec.Names.Kind
+	fmt.Println(crdName)
 
 	if openV3schema == nil {
 		_ = json.Unmarshal(crdRaw, &crdDefinitionNew)
@@ -306,6 +307,7 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 	_ = json.Unmarshal(schemaRaw, schema)
 
 	input := map[string]interface{}{}
+	fmt.Println(input)
 
 	// JSON data to validate
 	//inputJSON := `{"name": "Ivan","address-1": "sesame street"}`
