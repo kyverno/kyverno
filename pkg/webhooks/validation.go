@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"github.com/nirmata/kyverno/pkg/config"
+	"os"
 	"reflect"
 	"sort"
 	"time"
@@ -90,7 +91,7 @@ func HandleValidation(
 			resp:      engineResponse,
 			namespace: policy.Namespace,
 		})
-		if !engineResponse.IsSuccessful() {
+		if !engineResponse.IsSuccessful() && os.Getenv("POLICY-TYPE") != "POLICYREPORT"{
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}

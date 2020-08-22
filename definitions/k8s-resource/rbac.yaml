@@ -187,10 +187,10 @@ rules:
   - clusterpolicyviolations/status
   - policyviolations
   - policyviolations/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
+  - policyreport
+  - policyreport/status
+  - clusterpolicyreport
+  - clusterpolicyreport/status
   - generaterequests
   - generaterequests/status
   verbs:
@@ -329,3 +329,21 @@ rules:
   - get
   - list
   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kyverno:edit-policies-policyreports
+rules:
+  - apiGroups:
+      - policy.kubernetes.io
+    resources:
+      - policyreports
+      - clusterpolicyreports
+      - policies
+    verbs:
+      - get
+      - list
+      - watch

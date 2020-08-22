@@ -2,6 +2,7 @@ package policyreport
 
 import (
 	"errors"
+	"fmt"
 	policyreportv1alpha12 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/nirmata/kyverno/pkg/constant"
 	corev1 "k8s.io/api/core/v1"
@@ -184,7 +185,8 @@ func (cpr *clusterPR) syncHandler(info Info) error {
 }
 
 func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate, appName string) error {
-	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get("kyverno-clusterpolicyreport", v1.GetOptions{})
+	reportName := fmt.Sprintf("kyverno-clusterpolicyreport-%s",pv.Spec.Policy)
+	clusterpr, err := cpr.policyreportInterface.ClusterPolicyReports().Get(reportName, v1.GetOptions{})
 	if err != nil {
 		if !k8serror.IsNotFound(err) {
 			return err
@@ -200,7 +202,7 @@ func (cpr *clusterPR) create(pv kyverno.PolicyViolationTemplate, appName string)
 			"policy-scope": "cluster",
 		}
 		clusterpr.SetLabels(labelMap)
-		clusterpr.ObjectMeta.Name = "kyverno-clusterpolicyreport"
+		clusterpr.ObjectMeta.Name = reportName
 		prObj := NewPolicyReport(nil, clusterpr, &pv,cpr.dclient)
 		clusterpr := prObj.CreateClusterPolicyViolationsToClusterPolicyReport()
 

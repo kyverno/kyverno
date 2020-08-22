@@ -2,6 +2,7 @@ package policyreport
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -17,8 +18,10 @@ func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if er.IsSuccessful() {
-			continue
+		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+			if er.IsSuccessful() {
+				continue
+			}
 		}
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))

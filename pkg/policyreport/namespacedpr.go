@@ -184,7 +184,7 @@ func (nspr *namespacedPR) syncHandler(info Info) error {
 }
 
 func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate, appName string) error {
-	reportName := fmt.Sprintf("kyverno-policyreport-%s", appName)
+	reportName := fmt.Sprintf("kyverno-policyreport-%s-%s", appName,pv.Spec.Policy)
 	pr, err := nspr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 	if err != nil {
 		if !k8serror.IsNotFound(err) {
@@ -200,6 +200,7 @@ func (nspr *namespacedPR) create(pv kyverno.PolicyViolationTemplate, appName str
 		}
 		labelMap := map[string]string{
 			"policy-scope": "namespace",
+			"policy" : pv.Spec.Policy,
 		}
 		pr.SetLabels(labelMap)
 		pr.ObjectMeta.Name = reportName

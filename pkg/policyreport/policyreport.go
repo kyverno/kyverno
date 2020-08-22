@@ -41,13 +41,14 @@ func (p *PolicyReport) RemovePolicyViolation(name string, pvInfo []Info) *policy
 						if err != nil {
 							if errors.IsNotFound(err) {
 								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+								p.DecreaseCount(string(result.Status),"NAMESPACE")
 							}
 						}else{
 							if v.Check != string(result.Status) {
 								result.Message = v.Message
-								p.DecreaseCountReport(p.report, string(result.Status))
+								p.DecreaseCount(string(result.Status),"NAMESPACE")
 								result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
-								p.IncreaseCountReport(p.report, string(v.Check))
+								p.IncreaseCount(string(v.Check),"NAMESPACE")
 							}
 
 							info.Rules = append(info.Rules[:j], info.Rules[j+1:]...)
@@ -61,6 +62,7 @@ func (p *PolicyReport) RemovePolicyViolation(name string, pvInfo []Info) *policy
 		for i, result := range p.report.Results {
 			if result.Policy == name {
 				p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+				p.DecreaseCount(string(result.Status),"NAMESPACE")
 			}
 		}
 	}
@@ -82,13 +84,14 @@ func (p *PolicyReport) RemoveClusterPolicyViolation(name string, pvInfo []Info) 
 						if err != nil {
 							if errors.IsNotFound(err) {
 								p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+								p.DecreaseCount(string(result.Status),"CLUSTER")
 							}
 						}else{
 							if v.Check != string(result.Status) {
 								result.Message = v.Message
-								p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
+								p.DecreaseCount(string(result.Status),"CLUSTER")
 								result.Status = policyreportv1alpha1.PolicyStatus(v.Check)
-								p.IncreaseCountClusterReport(p.clusterReport, string(v.Check))
+								p.IncreaseCount(string(v.Check),"CLUSTER")
 							}
 							info.Rules = append(info.Rules[:j], info.Rules[j+1:]...)
 						}
@@ -100,7 +103,8 @@ func (p *PolicyReport) RemoveClusterPolicyViolation(name string, pvInfo []Info) 
 	} else {
 		for i, result := range p.clusterReport.Results {
 			if result.Policy == name {
-				p.report.Results = append(p.report.Results[:i], p.report.Results[i+1:]...)
+				p.clusterReport.Results = append(p.clusterReport.Results[:i], p.clusterReport.Results[i+1:]...)
+				p.DecreaseCount(string(result.Status),"CLUSTER")
 			}
 		}
 	}
@@ -123,8 +127,8 @@ func (p *PolicyReport) CreatePolicyViolationToPolicyReport() *policyreportv1alph
 					}
 				}else{
 					if rule.Check != string(result.Status) {
-						p.DecreaseCountReport(p.report, string(result.Status))
-						p.IncreaseCountReport(p.report, rule.Check)
+						p.DecreaseCount(string(result.Status),"NAMESPACE")
+						p.IncreaseCount(rule.Check,"NAMESPACE")
 						result.Message = rule.Message
 					}
 					p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
@@ -134,20 +138,28 @@ func (p *PolicyReport) CreatePolicyViolationToPolicyReport() *policyreportv1alph
 		}
 	}
 	for _, rule := range p.violation.Spec.ViolatedRules {
-		result := &policyreportv1alpha1.PolicyReportResult{
-			Policy:  p.violation.Spec.Policy,
-			Rule:    rule.Name,
-			Message: rule.Message,
-			Status:  policyreportv1alpha1.PolicyStatus(rule.Check),
-			Resource: &corev1.ObjectReference{
-				Kind:       p.violation.Spec.Kind,
-				Namespace:  p.violation.Spec.Namespace,
-				APIVersion: p.violation.Spec.APIVersion,
-				Name:       p.violation.Spec.Name,
-			},
+		_, err := p.k8sClient.GetResource(p.violation.Spec.APIVersion,p.violation.Spec.Kind,p.violation.Spec.Namespace,p.violation.Spec.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+		}else{
+			result := &policyreportv1alpha1.PolicyReportResult{
+				Policy:  p.violation.Spec.Policy,
+				Rule:    rule.Name,
+				Message: rule.Message,
+				Status:  policyreportv1alpha1.PolicyStatus(rule.Check),
+				Resource: &corev1.ObjectReference{
+					Kind:       p.violation.Spec.Kind,
+					Namespace:  p.violation.Spec.Namespace,
+					APIVersion: p.violation.Spec.APIVersion,
+					Name:       p.violation.Spec.Name,
+				},
+			}
+			p.IncreaseCount(rule.Check,"NAMESPACE")
+			p.report.Results = append(p.report.Results, result)
 		}
-		p.IncreaseCountReport(p.report, rule.Check)
-		p.report.Results = append(p.report.Results, result)
+
 	}
 	return p.report
 }
@@ -164,13 +176,14 @@ func (p *PolicyReport) CreateClusterPolicyViolationsToClusterPolicyReport() *pol
 				_, err := p.k8sClient.GetResource(result.Resource.APIVersion,result.Resource.Kind,result.Resource.Namespace,result.Resource.Name)
 				if err != nil {
 					if errors.IsNotFound(err) {
-						p.clusterReport.Results = append(p.clusterReport.Results[:i], p.report.Results[i+1:]...)
+						p.clusterReport.Results = append(p.clusterReport.Results[:i], p.clusterReport.Results[i+1:]...)
+						continue
 					}
 				}else{
 					if rule.Check != string(result.Status) {
 						result.Message = rule.Message
-						p.DecreaseCountClusterReport(p.clusterReport, string(result.Status))
-						p.IncreaseCountClusterReport(p.clusterReport, rule.Check)
+						p.DecreaseCount(string(result.Status),"CLUSTER")
+						p.IncreaseCount(rule.Check,"CLUSTER")
 					}
 					p.violation.Spec.ViolatedRules = append(p.violation.Spec.ViolatedRules[:i], p.violation.Spec.ViolatedRules[i+1:]...)
 				}
@@ -178,76 +191,86 @@ func (p *PolicyReport) CreateClusterPolicyViolationsToClusterPolicyReport() *pol
 		}
 	}
 	for _, rule := range p.violation.Spec.ViolatedRules {
-		result := &policyreportv1alpha1.PolicyReportResult{
-			Policy:  p.violation.Spec.Policy,
-			Rule:    rule.Name,
-			Message: rule.Message,
-			Status:  policyreportv1alpha1.PolicyStatus(rule.Check),
-			Resource: &corev1.ObjectReference{
-				Kind:       p.violation.Spec.Kind,
-				Namespace:  p.violation.Spec.Namespace,
-				APIVersion: p.violation.Spec.APIVersion,
-				Name:       p.violation.Spec.Name,
-			},
+		_, err := p.k8sClient.GetResource(p.violation.Spec.APIVersion,p.violation.Spec.Kind,p.violation.Spec.Namespace,p.violation.Spec.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+		}else{
+			result := &policyreportv1alpha1.PolicyReportResult{
+				Policy:  p.violation.Spec.Policy,
+				Rule:    rule.Name,
+				Message: rule.Message,
+				Status:  policyreportv1alpha1.PolicyStatus(rule.Check),
+				Resource: &corev1.ObjectReference{
+					Kind:       p.violation.Spec.Kind,
+					Namespace:  p.violation.Spec.Namespace,
+					APIVersion: p.violation.Spec.APIVersion,
+					Name:       p.violation.Spec.Name,
+				},
+			}
+			p.IncreaseCount(rule.Check,"CLUSTER")
+			p.clusterReport.Results = append(p.clusterReport.Results, result)
 		}
-		p.IncreaseCountClusterReport(p.clusterReport, rule.Check)
-		p.clusterReport.Results = append(p.clusterReport.Results, result)
+
 	}
 	return p.clusterReport
 }
 
-func (p *PolicyReport) DecreaseCountClusterReport(reports *policyreportv1alpha1.ClusterPolicyReport, status string) {
-	switch status {
-	case "Pass":
-		reports.Summary.Pass--
-		break
-	case "Fail":
-		reports.Summary.Fail--
-		break
-	default:
-		reports.Summary.Skip--
-		break
+func (p *PolicyReport) DecreaseCount(status string,scope string) {
+	if scope == "CLUSTER" {
+		switch status {
+		case "Pass":
+			if p.clusterReport.Summary.Pass--; p.clusterReport.Summary.Pass < 0 { p.clusterReport.Summary.Pass = 0 }
+			break
+		case "Fail":
+			if p.clusterReport.Summary.Fail--; p.clusterReport.Summary.Fail < 0 { p.clusterReport.Summary.Fail = 0 }
+			break
+		default:
+			if p.clusterReport.Summary.Skip--; p.clusterReport.Summary.Skip < 0 { p.clusterReport.Summary.Skip = 0 }
+			break
+		}
+	}else{
+		switch status {
+		case "Pass":
+			if p.report.Summary.Pass--; p.report.Summary.Pass < 0 { p.report.Summary.Pass = 0 }
+			break
+		case "Fail":
+			if p.report.Summary.Fail--; p.report.Summary.Fail < 0 { p.report.Summary.Fail = 0 }
+			break
+		default:
+			if p.report.Summary.Skip--; p.report.Summary.Skip < 0 { p.report.Summary.Skip = 0 }
+			break
+		}
 	}
+
 }
 
-func (p *PolicyReport) IncreaseCountClusterReport(reports *policyreportv1alpha1.ClusterPolicyReport, status string) {
-	switch status {
-	case "Pass":
-		reports.Summary.Pass++
-		break
-	case "Fail":
-		reports.Summary.Fail++
-		break
-	default:
-		reports.Summary.Skip++
-		break
+func (p *PolicyReport) IncreaseCount(status string,scope string) {
+	if scope == "CLUSTER" {
+		switch status {
+		case "Pass":
+			p.clusterReport.Summary.Pass++
+			break
+		case "Fail":
+			p.clusterReport.Summary.Fail++
+			break
+		default:
+			p.clusterReport.Summary.Skip++
+			break
+		}
+	}else{
+		switch status {
+		case "Pass":
+			p.report.Summary.Pass++
+			break
+		case "Fail":
+			p.report.Summary.Fail++
+			break
+		default:
+			p.report.Summary.Skip++
+			break
+		}
 	}
-}
 
-func (p *PolicyReport) IncreaseCountReport(reports *policyreportv1alpha1.PolicyReport, status string) {
-	switch status {
-	case "Pass":
-		reports.Summary.Pass++
-		break
-	case "Fail":
-		reports.Summary.Fail++
-		break
-	default:
-		reports.Summary.Skip++
-		break
-	}
-}
-
-func (p *PolicyReport) DecreaseCountReport(reports *policyreportv1alpha1.PolicyReport, status string) {
-	switch status {
-	case "Pass":
-		reports.Summary.Pass--
-		break
-	case "Fail":
-		reports.Summary.Fail--
-		break
-	default:
-		reports.Summary.Skip--
-		break
-	}
 }
