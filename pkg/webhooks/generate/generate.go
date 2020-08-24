@@ -130,7 +130,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 						"resources-update": "true",
 					})
 					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
-					isExist = true
+					isExist = false
 				}
 			}
 			if isExist {
