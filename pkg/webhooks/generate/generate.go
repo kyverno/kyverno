@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"k8s.io/api/admission/v1beta1"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	backoff "github.com/cenkalti/backoff"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -125,8 +125,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 				return err
 			}
 			for _,v := range grList.Items {
-				if reflect.DeepEqual(grSpec.Resource, v.Spec.Resource) {
-
+				if reflect.DeepEqual(grSpec.Resource, v.Spec.Resource) && grSpec.Policy == v.Spec.Policy {
 					gr.SetLabels(map[string]string{
 						"resources-update": "true",
 					})
