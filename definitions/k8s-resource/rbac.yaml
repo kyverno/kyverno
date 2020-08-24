@@ -170,6 +170,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - policies
+  - policies/status
   - clusterpolicies
   - clusterpolicies/status
   - clusterpolicyviolations
