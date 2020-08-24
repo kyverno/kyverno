@@ -2,6 +2,7 @@ package generate
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"k8s.io/api/admission/v1beta1"
@@ -117,16 +118,26 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
-		if action == v1beta1.Create {
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
-		}
-		if action == v1beta1.Update {
-			gr.SetLabels(map[string]string{
-				"resources-update": "true",
-			})
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
-		}
+		isExist := true
+		if action == v1beta1.Create || action == v1beta1.Update {
+			grList,err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for _,v := range grList.Items {
+				if reflect.DeepEqual(grSpec.Resource, v.Spec.Resource) {
 
+					gr.SetLabels(map[string]string{
+						"resources-update": "true",
+					})
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
+					isExist = true
+				}
+			}
+			if isExist {
+				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
+			}
+		}
 		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
 		i++
 		return err
