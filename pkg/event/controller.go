@@ -1,8 +1,6 @@
 package event
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
