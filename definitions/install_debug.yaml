@@ -36,6 +36,10 @@ spec:
                         type: array
                       resources:
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -46,10 +50,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -130,6 +130,10 @@ spec:
                       resources:
                         minProperties: 1
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
                           kinds:
                             items:
                               type: string
@@ -140,10 +144,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          annotations:
-                            type: object
-                            additionalProperties:
-                              type: string
                           selector:
                             properties:
                               matchExpressions:
@@ -763,6 +763,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - policies
+  - policies/status
   - clusterpolicies
   - clusterpolicies/status
   - clusterpolicyviolations
@@ -886,6 +888,37 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policies
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policies
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kyverno:edit-policies-policyviolations
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policyviolations
+  - policies
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
   name: kyverno:policyviolations
 rules:
 - apiGroups:
@@ -918,12 +951,13 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
-  name: kyverno:view-policyviolations
+  name: kyverno:view-policies-policyviolations
 rules:
 - apiGroups:
   - kyverno.io
   resources:
   - policyviolations
+  - policies
   verbs:
   - get
   - list
