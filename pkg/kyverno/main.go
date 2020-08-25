@@ -2,6 +2,7 @@ package kyverno
 
 import (
 	"flag"
+	"github.com/nirmata/kyverno/pkg/kyverno/report"
 	"os"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/validate"
@@ -27,6 +28,7 @@ func CLI() {
 	commands := []*cobra.Command{
 		version.Command(),
 		apply.Command(),
+		report.Command(),
 		validate.Command(),
 	}
 

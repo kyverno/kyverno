@@ -104,7 +104,6 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
