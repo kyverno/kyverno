@@ -169,6 +169,10 @@ godownloader:
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
+	# Create CRD for helm deployment Helm
+	curl -o ./definitions/crds/policy.kubernetes.io_clusterpolicyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_clusterpolicyreports.yaml
+	curl -o ./definitions/crds/policy.kubernetes.io_policyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_policyreports.yaml
+
 	# Create CRD for helm deployment Helm 
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
@@ -177,8 +181,7 @@ kustomize-crd:
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
 # guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
-release: 
-	kustomize build ./definitions > ./definitions/install.yaml
+release: kustomize-crd
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
 # Run go fmt against code

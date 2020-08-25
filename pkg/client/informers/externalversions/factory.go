@@ -26,6 +26,7 @@ import (
 	versioned "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/nirmata/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	kyverno "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno"
+	policyreport "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -173,8 +174,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Kyverno() kyverno.Interface
+	Policy() policyreport.Interface
 }
 
 func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
 	return kyverno.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Policy() policyreport.Interface {
+	return policyreport.New(f, f.namespace, f.tweakListOptions)
 }
