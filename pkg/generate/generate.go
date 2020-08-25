@@ -3,11 +3,10 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"time"
-
+	"github.com/aws/aws-controllers-k8s/pkg/errors"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -15,6 +14,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
+	"time"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -106,7 +107,24 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.V(4).Info("policy does not apply to resource")
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
+	for i, r := range engineResponse.Rules {
+		if !r.Sucess {
+			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			if err != nil {
+				if !error.NotFound(err) {
+				}
+			}
+			for _, v := range grList.Items {
+				if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, v.Resource) {
+					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
+					if err != nil {
+					}
+				}
+			}
+			engineResponse.Rules = append(engineResponse.Rules[:i], engineResponse.Rules[i+1:]...)
+		}
 
+	}
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr)
 }

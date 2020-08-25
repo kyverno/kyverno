@@ -50,7 +50,26 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
+
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
+			for i, r := range engineResponse.Rules {
+				if !r.Sucess {
+					grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+					if err != nil {
+						if !error.NotFound(err) {
+						}
+					}
+					for _, v := range grList.Items {
+						if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, v.Resource) {
+							err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
+							if err != nil {
+							}
+						}
+					}
+					engineResponse.Rules = append(engineResponse.Rules[:i], engineResponse.Rules[i+1:]...)
+				}
+
+			}
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
