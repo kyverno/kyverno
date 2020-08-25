@@ -2,14 +2,9 @@ package webhooks
 
 import (
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/config"
-	"reflect"
-	"sort"
-	"strings"
-	"time"
-
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -17,7 +12,12 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
+	"sort"
+	"strings"
+	"time"
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
@@ -50,6 +50,23 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
+
+		for i, rule := range engineResponse.PolicyResponse.Rules {
+			if !rule.Success {
+				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+				if err != nil {
+
+				}
+				for _, v := range grList.Items {
+					if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, engineResponse.PolicyResponse.Resource) {
+						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
+						if err != nil {
+						}
+					}
+				}
+				engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+			}
+		}
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
@@ -57,6 +74,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				resp: engineResponse,
 			})
 		}
+
 	}
 
 	// Adds Generate Request to a channel(queue size 1000) to generators

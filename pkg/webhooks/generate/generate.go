@@ -2,9 +2,8 @@ package generate
 
 import (
 	"fmt"
+	"reflect"
 	"time"
-
-	"k8s.io/api/admission/v1beta1"
 
 	backoff "github.com/cenkalti/backoff"
 	"github.com/go-logr/logr"
@@ -12,6 +11,8 @@ import (
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/constant"
+	"k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -117,14 +118,24 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
-		if action == v1beta1.Create {
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
-		}
-		if action == v1beta1.Update {
-			gr.SetLabels(map[string]string{
-				"resources-update": "true",
-			})
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
+		isExist := true
+		if action == v1beta1.Create || action == v1beta1.Update {
+			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for _, v := range grList.Items {
+				if reflect.DeepEqual(grSpec.Resource, v.Spec.Resource) && grSpec.Policy == v.Spec.Policy {
+					gr.SetLabels(map[string]string{
+						"resources-update": "true",
+					})
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
+					isExist = false
+				}
+			}
+			if isExist {
+				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
+			}
 		}
 
 		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())

@@ -35,7 +35,14 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 
 	startTime := time.Now()
 	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
-		return nil
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Type:    "Generation",
+			Success: false,
+			RuleStats: response.RuleStats{
+				ProcessingTime: time.Since(startTime),
+			},
+		}
 	}
 	// operate on the copy of the conditions, as we perform variable substitution
 	copyConditions := copyConditions(rule.Conditions)
@@ -43,7 +50,14 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(log, ctx, copyConditions) {
 		log.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
-		return nil
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Type:    "Generation",
+			Success: false,
+			RuleStats: response.RuleStats{
+				ProcessingTime: time.Since(startTime),
+			},
+		}
 	}
 	// build rule Response
 	return &response.RuleResponse{
