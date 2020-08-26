@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"github.com/docker/docker/daemon/logger"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	v1 "k8s.io/api/core/v1"
@@ -311,8 +310,3 @@ func (gen *Generator) syncHandler(info Info) error {
 	return nil
 }
 
-// Provides an interface to generate policy report
-// implementations for namespaced and cluster PR
-type prGenerator interface {
-	create(policyViolation kyverno.PolicyViolationTemplate, appName string) error
-}
