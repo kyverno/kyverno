@@ -2,7 +2,7 @@ package policy
 
 import (
 	"time"
-
+	"os"
 	informers "k8s.io/client-go/informers/core/v1"
 
 	"github.com/go-logr/logr"
@@ -381,7 +381,11 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		policy = convertPolicyToClusterPolicy(nspolicy)
 	}
 	if errors.IsNotFound(err) {
-		go pc.deletePolicyViolations(key)
+		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+			// TODO (Yuvraj) Create Job for policy Sync
+		}else{
+			go pc.deletePolicyViolations(key)
+		}
 
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
@@ -398,7 +402,14 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
 	engineResponses := pc.processExistingResources(policy)
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		for _,v := range policyviolation.GeneratePVsFromEngineResponse(engineResponses,logger) {
+			pc.pvGenerator.Add(v)
+		}
+		return nil
+	}
 	pc.cleanupAndReport(engineResponses)
+
 	return nil
 }
 

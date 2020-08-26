@@ -1,12 +1,15 @@
 package policyreport
 
 import (
-	"errors"
-	"fmt"
+	"github.com/docker/docker/daemon/logger"
+	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	v1 "k8s.io/api/core/v1"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -47,6 +50,10 @@ type Generator struct {
 	queue                workqueue.RateLimitingInterface
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
+
+	configmap *v1.ConfigMap
+	inMemoryConfigMap *PVEvent
+	mux sync.Mutex
 }
 
 //NewDataStore returns an instance of data store
@@ -107,6 +114,13 @@ type GeneratorInterface interface {
 	Add(infos ...Info)
 }
 
+type PVEvent struct {
+	Helm  map[string][]Info
+	Nmaespace map[string][]Info
+	Cluster []Info
+}
+
+
 // NewPRGenerator returns a new instance of policy violation generator
 func NewPRGenerator(client *policyreportclient.Clientset,
 	dclient *dclient.Client,
@@ -125,6 +139,8 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		dataStore:             newDataStore(),
 		log:                   log,
 		policyStatusListener:  policyStatus,
+		configmap : nil,
+		inMemoryConfigMap : &PVEvent{},
 	}
 	return &gen
 }
@@ -159,6 +175,16 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
+	}
+	ticker := time.NewTicker(11)
+	ctx := context.Background()
+	for {
+		select {
+		case <-ticker.C:
+			gen.createConfigmap();
+		case <-ctx.Done():
+			// Create Jobs
+		}
 	}
 	<-stopCh
 }
@@ -230,10 +256,29 @@ func (gen *Generator) processNextWorkItem() bool {
 
 	return true
 }
+func (gen *Generator) createConfigmap() error {
+	defer func(){
+		gen.mux.Unlock()
+	}()
+	gen.mux.Lock()
+	configmap, err := gen.dclient.GetResource("", "Namespace", config.KubePolicyNamespace, "kyverno-event")
+	if err != nil {
+		return err
+	}
+	err = unstructured.SetNestedField(configmap.Object,gen.inMemoryConfigMap,"data")
+	if err != nil {
+		return  err
+	}
+	gen.inMemoryConfigMap = &PVEvent{}
+	return nil
+}
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	var handler prGenerator
+	defer func(){
+		gen.mux.Unlock()
+	}()
+	gen.mux.Lock()
 	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
 	if err != nil {
 		logger.Error(err, "failed to get resource")
@@ -242,33 +287,26 @@ func (gen *Generator) syncHandler(info Info) error {
 	labels := resource.GetLabels()
 	_, okChart := labels["app"]
 	_, okRelease := labels["release"]
-	var appName string
 	if okChart && okRelease {
-		// cluster scope resource generate a helm package report
-		appName = fmt.Sprintf("%s-%s", labels["app"], info.Resource.GetNamespace())
-		handler = newHelmPR(gen.log.WithName("HelmPR"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
+			if _,ok := gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()]; ok {
+				gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()],info)
+				return nil
+			}
+		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = []Info{}
+		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()],info)
+		return nil
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPR(gen.log.WithName("ClusterPV"), gen.dclient, gen.cprLister, gen.policyreportInterface, gen.policyStatusListener)
+		gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster,info)
+		return nil
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		appName = info.Resource.GetNamespace()
-		handler = newNamespacedPR(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nsprLister, gen.policyreportInterface, gen.policyStatusListener)
-	}
-	failure := false
-	builder := newPrBuilder()
-	pv := builder.generate(info)
-
-	// Create Policy Violations
-	logger.V(4).Info("creating policy violation", "key", info.toKey())
-	if err := handler.create(pv, appName); err != nil {
-		failure = true
-		logger.Error(err, "failed to create policy violation")
-	}
-
-	if failure {
-		// even if there is a single failure we requeue the request
-		return errors.New("Failed to process some policy violations, re-queuing")
+		if _,ok := gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()]; ok {
+			gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()],info)
+		}
+		gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = []Info{}
+		gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()],info)
+		return nil
 	}
 	return nil
 }
