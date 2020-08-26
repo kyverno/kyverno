@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
@@ -50,8 +51,9 @@ var (
 	excludeGroupRole string
 	excludeUsername  string
 	// User FQDN as CSR CN
-	fqdncn   bool
-	setupLog = log.Log.WithName("setup")
+	fqdncn       bool
+	policyReport string
+	setupLog     = log.Log.WithName("setup")
 )
 
 func main() {
@@ -65,6 +67,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.StringVar(&policyReport, "policyreport", "policyviolation", "Report Type")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -77,7 +80,11 @@ func main() {
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
-
+	os.Setenv("POLICY-TYPE", "POLICYVIOLATION")
+	if policyReport == "policyreport" {
+		os.Setenv("POLICY-TYPE", "POLICYREPORT")
+	}
+	setupLog.Info(os.Getenv("POLICY-TYPE"))
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -96,6 +103,11 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
+
+	// Policy Report CRD INFORMER
+	// watches CRD resources:
+	//		- PolicyReport
+	prInformer := policyreportinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
@@ -179,8 +191,11 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
 		statusSync.Listener,
 		log.Log.WithName("PolicyViolationGenerator"),
+		stopCh,
 	)
 
 	// POLICY CONTROLLER
@@ -189,6 +204,7 @@ func main() {
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
+		prInformer.Policy().V1alpha1(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
