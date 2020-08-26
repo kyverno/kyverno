@@ -323,7 +323,7 @@ func main() {
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(3, stopCh)
-	go eventGenerator.Run(1, stopCh)
+	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
