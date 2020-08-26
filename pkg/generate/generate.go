@@ -9,6 +9,7 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -118,10 +119,16 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 				if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, v.Spec.Resource) {
 					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
 					if err != nil {
+
 					}
 				}
 			}
-			engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+			if len(engineResponse.PolicyResponse.Rules) > 1 {
+				engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+				continue
+			}else if len(engineResponse.PolicyResponse.Rules) == 1 {
+				engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
+			}
 		}
 	}
 	// Apply the generate rule on resource

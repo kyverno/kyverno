@@ -50,21 +50,27 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
-
 		for i, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
 				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
 				if err != nil {
-
+					logger.Error(err, "failed to convert RAR resource to unstructured format")
 				}
 				for _, v := range grList.Items {
-					if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, engineResponse.PolicyResponse.Resource) {
+					if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, v.Spec.Resource) {
 						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
 						if err != nil {
+							logger.Error(err, "failed to convert RAR resource to unstructured format")
 						}
 					}
 				}
-				engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+				if len(engineResponse.PolicyResponse.Rules) > 1 {
+					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+					continue
+				}else if len(engineResponse.PolicyResponse.Rules) == 1 {
+					engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
+				}
+
 			}
 		}
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
