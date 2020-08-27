@@ -2,7 +2,6 @@ package generate
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
@@ -112,7 +111,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		gr := kyverno.GenerateRequest{
 			Spec: grSpec,
 		}
-		gr.SetGenerateName("gr-")
+
 		gr.SetNamespace(config.KubePolicyNamespace)
 		// Initial state "Pending"
 		// TODO: status is not updated
@@ -125,20 +124,25 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 				return err
 			}
 			for _, v := range grList.Items {
-				if reflect.DeepEqual(grSpec.Resource, v.Spec.Resource) && grSpec.Policy == v.Spec.Policy {
+				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
+
 					gr.SetLabels(map[string]string{
 						"resources-update": "true",
 					})
-					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
+					v.Spec.Context = gr.Spec.Context
+					v.Spec.Policy = gr.Spec.Policy
+					v.Spec.Resource = gr.Spec.Resource
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
 					isExist = false
 				}
 			}
 			if isExist {
+				gr.SetGenerateName("gr-")
 				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
 			}
 		}
 
-		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
+		log.V(2).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
 		i++
 		return err
 	}

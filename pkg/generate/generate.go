@@ -116,7 +116,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 				continue
 			}
 			for _, v := range grList.Items {
-				if reflect.DeepEqual(engineResponse.PolicyResponse.Resource, v.Spec.Resource) {
+				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace{
 					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
 					if err != nil {
 
@@ -152,20 +152,16 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
-	// To manage existing resources, we compare the creation time for the default resiruce to be generated and policy creation time
-	processExisting := func() bool {
-		rcreationTime := resource.GetCreationTimestamp()
-		pcreationTime := policy.GetCreationTimestamp()
-		return rcreationTime.Before(&pcreationTime)
-	}()
+	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
+	processExisting := false
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasGenerate() {
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting, policy.Name)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting, policy.Name,gr)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +218,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool, policy string) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool, policy string,gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -282,6 +278,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	} else {
 		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
 	}
+	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
+
 	if err != nil {
 		return noGenResource, err
 	}
@@ -307,12 +305,10 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		newResource.SetKind(genKind)
 	}
 	newResource.SetAPIVersion(genAPIVersion)
-
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
 	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
 	manageLabels(newResource, resource)
-	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	// Add Synchronize label
 	label := newResource.GetLabels()
@@ -322,6 +318,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		label["policy.kyverno.io/synchronize"] = "disable"
 	}
 	label["policy.kyverno.io/policy-name"] = policy
+	label["policy.kyverno.io/gr-name"] = gr.Name
 	newResource.SetLabels(label)
 
 	if mode == Create {

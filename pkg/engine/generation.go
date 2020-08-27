@@ -35,6 +35,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 
 	startTime := time.Now()
 	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
+		log.V(2).Info("DEBUG4","key",err)
 		return &response.RuleResponse{
 			Name:    rule.Name,
 			Type:    "Generation",
