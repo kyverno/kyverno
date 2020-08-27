@@ -50,14 +50,12 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
-		logger.V(2).Info("DEBUG1","key",engineResponses)
 		for i, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
 				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to convert RAR resource to unstructured format")
 				}
-				logger.V(2).Info("DEBUG2","key",grList)
 				for _, v := range grList.Items {
 					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
 						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.ObjectMeta.Name, &metav1.DeleteOptions{})
@@ -83,7 +81,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		}
 
 	}
-	logger.V(2).Info("DEBUG3","key",engineResponses)
 	// Adds Generate Request to a channel(queue size 1000) to generators
 	if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 		// report failure event

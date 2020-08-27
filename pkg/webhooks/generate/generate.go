@@ -142,7 +142,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 		}
 
-		log.V(2).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
+		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
 		i++
 		return err
 	}

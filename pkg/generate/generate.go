@@ -278,7 +278,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	} else {
 		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
 	}
-	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	if err != nil {
 		return noGenResource, err
@@ -295,6 +294,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 
 	}
+
+	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
+
 
 	// build the resource template
 	newResource := &unstructured.Unstructured{}
