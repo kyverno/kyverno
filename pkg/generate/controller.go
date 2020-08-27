@@ -1,7 +1,6 @@
 package generate
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -202,6 +201,18 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
+	for _,resource := range gr.Status.GeneratedResources {
+		r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
+		if err != nil {
+			logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+		}
+		labels := r.GetLabels()
+		if labels["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
+				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			}
+		}
+	}
 	logger.Info("deleting generate request", "name", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
@@ -279,27 +290,6 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		logger.Error(err, "failed to list generate requests")
 		return err
-	}
-	labels := gr.GetLabels();
-	if labels["resources-delete"] == "true" {
-		for _,resource := range gr.Status.GeneratedResources {
-			r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
-			if err != nil {
-				return err
-			}
-			labels := r.GetLabels()
-			if labels["policy.kyverno.io/synchronize"] == "enable" {
-				if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
-					logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
-					return err
-				}
-			}
-		}
-		err = c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(gr.GetName(), &metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
-		return nil
 	}
 	return c.processGR(gr)
 }
