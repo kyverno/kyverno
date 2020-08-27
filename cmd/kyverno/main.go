@@ -15,7 +15,6 @@ import (
 	"github.com/nirmata/kyverno/pkg/checker"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
-	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	event "github.com/nirmata/kyverno/pkg/event"
@@ -103,11 +102,6 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-
-	// Policy Report CRD INFORMER
-	// watches CRD resources:
-	//		- PolicyReport
-	prInformer := policyreportinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
@@ -204,7 +198,6 @@ func main() {
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
-		prInformer.Policy().V1alpha1(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),

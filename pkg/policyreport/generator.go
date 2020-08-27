@@ -2,7 +2,7 @@ package policyreport
 
 import (
 	"github.com/nirmata/kyverno/pkg/config"
-	"github.com/nirmata/kyverno/pkg/engine/context"
+	"context"
 	v1 "k8s.io/api/core/v1"
 	"reflect"
 	"strconv"
