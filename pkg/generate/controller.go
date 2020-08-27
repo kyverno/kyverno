@@ -1,7 +1,6 @@
 package generate
 
 import (
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
@@ -278,31 +277,29 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	gr, err := c.grLister.Get(grName)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-				grSelector := metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"policy.kyverno.io/gr-name" : grName,
-					},
-				}
-				resp, err := c.client.ListResource("","","",&grSelector)
-				if err != nil {
-					logger.Error(err, "Generated resource failed to get", "gr",grName)
-					return err
-				}
-				logger.Error(err, "Generated resource is not deleted", "Resource", resp)
-				for _,r := range resp.Items {
-					labels := r.GetLabels()
-					if labels["policy.kyverno.io/synchronize"] == "enable" {
-						if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
-							logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
-							return err
-						}
-					}
-				}
-			return nil
-		}
 		logger.Error(err, "failed to list generate requests")
 		return err
+	}
+	labels := gr.GetLabels();
+	if labels["resources-delete"] == "true" {
+		for _,resource := range gr.Status.GeneratedResources {
+			r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
+			if err != nil {
+				return err
+			}
+			labels := r.GetLabels()
+			if labels["policy.kyverno.io/synchronize"] == "enable" {
+				if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
+					logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+					return err
+				}
+			}
+		}
+		err = c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(gr.GetName(), &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	return c.processGR(gr)
 }
