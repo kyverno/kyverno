@@ -6,3 +6,11 @@ kind: ConfigMap
 metadata:
   name: init-config
   namespace: kyverno
+---
+apiVersion: v1
+data:
+  Helm: ''
+kind: ConfigMap
+metadata:
+  name: kyverno-event
+  namespace: kyverno

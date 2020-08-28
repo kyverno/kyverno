@@ -1113,10 +1113,10 @@ rules:
   - policies/status
   - clusterpolicies
   - clusterpolicies/status
-  - policyreport
-  - policyreport/status
-  - clusterpolicyreport
-  - clusterpolicyreport/status
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   - clusterpolicyviolations
   - clusterpolicyviolations/status
   - policyviolations
@@ -1253,14 +1253,29 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   labels:
-    rbac.authorization.k8s.io/aggregate-to-edit: "true"
-  name: kyverno:edit-policies-policyreports
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policyreport
 rules:
 - apiGroups:
   - policy.kubernetes.io
   resources:
-  - policyreports
-  - clusterpolicyreports
+  - policyreport
+  - clusterpolicyreport
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kyverno:edit-policies-policyreport
+rules:
+- apiGroups:
+  - policy.kubernetes.io
+  resources:
+  - policyreport
+  - clusterpolicyreport
   - policies
   verbs:
   - get
@@ -1275,10 +1290,10 @@ metadata:
   name: kyverno:edit-policies-policyviolations
 rules:
 - apiGroups:
-  - kyverno.io
+  - policy.kubernetes.io
   resources:
-  - policyviolations
-  - policies
+  - policyreport
+  - clusterpolicyreport
   verbs:
   - get
   - list
@@ -1318,12 +1333,12 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:view-clusterpolicyreports
+  name: kyverno:view-clusterpolicyreport
 rules:
 - apiGroups:
   - policy.kubernetes.io
   resources:
-  - clusterpolicyreports
+  - clusterpolicyreport
   verbs:
   - get
   - list
@@ -1367,12 +1382,12 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
-  name: kyverno:view-policyreports
+  name: kyverno:view-policyreport
 rules:
 - apiGroups:
   - policy.kubernetes.io
   resources:
-  - policyreports
+  - policyreport
   verbs:
   - get
   - list
@@ -1450,6 +1465,14 @@ data:
 kind: ConfigMap
 metadata:
   name: init-config
+  namespace: kyverno
+---
+apiVersion: v1
+data:
+  Helm: ""
+kind: ConfigMap
+metadata:
+  name: kyverno-event
   namespace: kyverno
 ---
 apiVersion: v1

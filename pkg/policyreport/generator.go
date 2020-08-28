@@ -1,12 +1,14 @@
 package policyreport
 
 import (
-	"github.com/nirmata/kyverno/pkg/config"
 	"context"
+	"github.com/nirmata/kyverno/pkg/config"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strconv"
 	"strings"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -115,7 +117,7 @@ type GeneratorInterface interface {
 
 type PVEvent struct {
 	Helm  map[string][]Info
-	Nmaespace map[string][]Info
+	Namespace map[string][]Info
 	Cluster []Info
 }
 
@@ -139,8 +141,13 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		log:                   log,
 		policyStatusListener:  policyStatus,
 		configmap : nil,
-		inMemoryConfigMap : &PVEvent{},
+		inMemoryConfigMap : &PVEvent{
+			Helm: make(map[string][]Info),
+			Namespace: make(map[string][]Info),
+			Cluster: make([]Info,0,100),
+		},
 	}
+
 	return &gen
 }
 
@@ -175,12 +182,15 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
-	ticker := time.NewTicker(11)
+	ticker := time.NewTicker(100*time.Second)
 	ctx := context.Background()
 	for {
 		select {
 		case <-ticker.C:
-			gen.createConfigmap();
+			err := gen.createConfigmap();
+			if err != nil {
+				logger.Error(err,"configmap error")
+			}
 		case <-ctx.Done():
 			// Create Jobs
 		}
@@ -260,21 +270,39 @@ func (gen *Generator) createConfigmap() error {
 		gen.mux.Unlock()
 	}()
 	gen.mux.Lock()
-	configmap, err := gen.dclient.GetResource("", "Namespace", config.KubePolicyNamespace, "kyverno-event")
+	configmap, err := gen.dclient.GetResource("", "ConfigMap", config.KubePolicyNamespace, "kyverno-event")
 	if err != nil {
 		return err
 	}
-	err = unstructured.SetNestedField(configmap.Object,gen.inMemoryConfigMap,"data")
+	cm := v1.ConfigMap{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(configmap.UnstructuredContent(), &cm); err != nil {
+		return err
+	}
+	rawData, _ := json.Marshal(gen.inMemoryConfigMap.Helm)
+	cm.Data["Helm"] = string(rawData)
+	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Cluster)
+	cm.Data["Cluster"] = string(rawData)
+	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
+	cm.Data["Namespace"] = string(rawData)
+
+
+	gen.log.Error(nil,"DEBUGYUVRAJ","UDH",cm)
+	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm,false)
 	if err != nil {
 		return  err
 	}
-	gen.inMemoryConfigMap = &PVEvent{}
+	gen.inMemoryConfigMap = &PVEvent{
+		Helm: make(map[string][]Info),
+		Namespace: make(map[string][]Info),
+		Cluster: make([]Info,0,100),
+	}
 	return nil
 }
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
 	defer func(){
+		logger.Error(nil, "DEBUG","Key",gen.inMemoryConfigMap)
 		gen.mux.Unlock()
 	}()
 	gen.mux.Lock()
@@ -286,25 +314,20 @@ func (gen *Generator) syncHandler(info Info) error {
 	labels := resource.GetLabels()
 	_, okChart := labels["app"]
 	_, okRelease := labels["release"]
-	if okChart && okRelease {
-			if _,ok := gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()]; ok {
-				gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()],info)
-				return nil
-			}
-		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = []Info{}
+	if  okChart && okRelease {
 		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()],info)
 		return nil
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster,info)
+			gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster,info)
+
 		return nil
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		if _,ok := gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()]; ok {
-			gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()],info)
+		if _,ok := gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()]; ok  {
+			gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()],info)
 		}
-		gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = []Info{}
-		gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Nmaespace[info.Resource.GetNamespace()],info)
+		gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()],info)
 		return nil
 	}
 	return nil
