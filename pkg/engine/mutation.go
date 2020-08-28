@@ -16,7 +16,7 @@ const (
 	// PodControllerCronJob represent CronJob string
 	PodControllerCronJob = "CronJob"
 	//PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet"
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 	//PodControllersAnnotation defines the annotation key for Pod-Controllers
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
 )
