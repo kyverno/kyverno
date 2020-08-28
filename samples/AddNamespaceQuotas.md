@@ -22,6 +22,9 @@ spec:
       resources:
         kinds:
         - Namespace
+        selector:
+          matchLabels:
+            nirmata.io/auto-config: "enabled"
     generate:
       kind: ResourceQuota
       name: default-resourcequota
@@ -38,6 +41,9 @@ spec:
       resources:
         kinds:
         - Namespace
+        selector:
+          matchLabels:
+            nirmata.io/auto-config: "enabled"
     generate:
       kind: LimitRange
       name: default-limitrange

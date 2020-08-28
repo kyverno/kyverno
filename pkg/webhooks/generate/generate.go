@@ -133,12 +133,18 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource
 					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
+					if err != nil {
+						return err
+					}
 					isExist = true
 				}
 			}
 			if !isExist {
 				gr.SetGenerateName("gr-")
 				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
+				if err != nil {
+					return err
+				}
 			}
 		}
 

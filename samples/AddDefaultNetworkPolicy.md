@@ -21,6 +21,9 @@ spec:
         kinds:
         - Namespace
         name: "*"
+        selector:
+          matchLabels:
+               nirmata.io/auto-config: "enabled"
     generate: 
       kind: NetworkPolicy
       name: default-deny-ingress
@@ -31,4 +34,5 @@ spec:
           podSelector: {}
           policyTypes: 
           - Ingress
+
 ````

@@ -154,14 +154,13 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	ctx := policyContext.Context
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
-	processExisting := false
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasGenerate() {
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, processExisting, policy.Name,gr)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name,gr)
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +217,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, processExisting bool, policy string,gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string,gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -287,13 +286,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// existing resource contains the configuration
 		return newGenResource, nil
 	}
-	if processExisting {
-		// handle existing resources
-		// policy was generated after the resource
-		// we do not create new resource
-		return noGenResource, err
 
-	}
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
