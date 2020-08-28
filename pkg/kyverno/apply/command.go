@@ -42,13 +42,12 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-
 type resultCounts struct {
-	pass int
-	fail int
-	warn int
+	pass  int
+	fail  int
+	warn  int
 	error int
-	skip int
+	skip  int
 }
 
 func Command() *cobra.Command {
@@ -325,7 +324,7 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	files, splitDocError := common.SplitYAMLDocuments(file)
+	files, splitDocError := utils.SplitYAMLDocuments(file)
 	if splitDocError != nil {
 		return nil, splitDocError
 	}
