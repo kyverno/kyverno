@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
 	//PodControllers stores the list of Pod-controllers in csv string
 	PodControllers = "DaemonSet,Deployment,Job,StatefulSet"
 	//PodControllersAnnotation defines the annotation key for Pod-Controllers
