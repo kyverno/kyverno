@@ -243,7 +243,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.Policy)
-	pol := convertPolicyToClusterPolicy(p)
+	pol := ConvertPolicyToClusterPolicy(p)
 	if !pc.canBackgroundProcess(pol) {
 		return
 	}
@@ -255,7 +255,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyverno.Policy)
 	curP := cur.(*kyverno.Policy)
-	ncurP := convertPolicyToClusterPolicy(curP)
+	ncurP := ConvertPolicyToClusterPolicy(curP)
 	if !pc.canBackgroundProcess(ncurP) {
 		return
 	}
@@ -280,7 +280,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			return
 		}
 	}
-	pol := convertPolicyToClusterPolicy(p)
+	pol := ConvertPolicyToClusterPolicy(p)
 	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
 	// we process policies that are not set of background processing as we need to perform policy violation
@@ -378,7 +378,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	} else {
 		var nspolicy *kyverno.Policy
 		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
-		policy = convertPolicyToClusterPolicy(nspolicy)
+		policy = ConvertPolicyToClusterPolicy(nspolicy)
 	}
 	if errors.IsNotFound(err) {
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {

@@ -17,8 +17,10 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if er.IsSuccessful() {
-			continue
+		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+			if er.IsSuccessful() {
+				continue
+			}
 		}
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))

@@ -45,8 +45,8 @@ func convertPoliciesToClusterPolicies(nsPolicies []*kyverno.Policy) []*kyverno.C
 	return cpols
 }
 
-// convertPolicyToClusterPolicy - convert Policy to ClusterPolicy
-func convertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
+// ConvertPolicyToClusterPolicy - convert Policy to ClusterPolicy
+func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
 	cpol := kyverno.ClusterPolicy(*nsPolicies)
 	return &cpol
 }
