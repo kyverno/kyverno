@@ -287,9 +287,6 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 		}
 	  }`)
 
-	// var generated unstructured.Unstructured
-	// json.Unmarshal(p, &generated)
-	// generatedRae, _ := json.Marshal(generated.Object)
 	compareJSONAsMap(t, expectedPolicy, p)
 }
 func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
