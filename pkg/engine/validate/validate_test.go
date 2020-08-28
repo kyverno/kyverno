@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/nirmata/kyverno/pkg/engine/common"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/nirmata/kyverno/pkg/engine/common"
 )
 
 func TestValidateMap(t *testing.T) {

@@ -5,8 +5,9 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/engine/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //ValidationHandler for element processes
@@ -19,13 +20,13 @@ type resourceElementHandler = func(log logr.Logger, resourceElement, patternElem
 //CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
 	switch {
-	case IsConditionAnchor(element):
+	case commonAnchors.IsConditionAnchor(element):
 		return NewConditionAnchorHandler(element, pattern, path)
-	case IsExistenceAnchor(element):
+	case commonAnchors.IsExistenceAnchor(element):
 		return NewExistenceHandler(element, pattern, path)
-	case IsEqualityAnchor(element):
+	case commonAnchors.IsEqualityAnchor(element):
 		return NewEqualityHandler(element, pattern, path)
-	case IsNegationAnchor(element):
+	case commonAnchors.IsNegationAnchor(element):
 		return NewNegationHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)
@@ -50,7 +51,7 @@ type NegationHandler struct {
 
 //Handle process negation handler
 func (nh NegationHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := removeAnchor(nh.anchor)
+	anchorKey := commonAnchors.RemoveAnchor(nh.anchor)
 	currentPath := nh.path + anchorKey + "/"
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
@@ -79,7 +80,7 @@ type EqualityHandler struct {
 
 //Handle processed condition anchor
 func (eh EqualityHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := removeAnchor(eh.anchor)
+	anchorKey := commonAnchors.RemoveAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -143,7 +144,7 @@ type ConditionAnchorHandler struct {
 
 //Handle processed condition anchor
 func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := removeAnchor(ch.anchor)
+	anchorKey := commonAnchors.RemoveAnchor(ch.anchor)
 	currentPath := ch.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -177,7 +178,7 @@ type ExistenceHandler struct {
 //Handle processes the existence anchor handler
 func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
 	// skip is used by existence anchor to not process further if condition is not satisfied
-	anchorKey := removeAnchor(eh.anchor)
+	anchorKey := commonAnchors.RemoveAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -222,7 +223,7 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if IsConditionAnchor(key) || IsExistenceAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
+		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) {
 			anchors[key] = value
 			continue
 		}

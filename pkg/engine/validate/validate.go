@@ -10,14 +10,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/engine/common"
+	"github.com/nirmata/kyverno/pkg/engine/operator"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
 func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
-	// newAnchorMap - to check anchor key has values 
+	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
 	path, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
 	if err != nil {
@@ -42,6 +43,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
+		// CheckAnchorInResource - check anchor anchor key exists in resource and update the AnchorKey fields.
 		ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
 		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// array
@@ -51,7 +53,6 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
-		// ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
@@ -94,16 +95,16 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
-			// If Conditional anchor fails then we dont process the resources
-			if anchor.IsConditionAnchor(key) {
-				ac.AnchorError =err
+			// If Conditional anchor fails then we don't process the resources
+			if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) {
+				ac.AnchorError = err
 				log.Error(err, "condition anchor did not satisfy, wont process the resource")
 				return "", nil
 			}
 			return handlerPath, err
 		}
 	}
-
+	// If anchor fails then succeed validate and skip further validation of recursion
 	if ac.AnchorError != nil {
 		return "", nil
 	}
@@ -111,7 +112,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	// Evaluate resources
 	// getSortedNestedAnchorResource - keeps the anchor key to start of the list
 	sortedResourceKeys := getSortedNestedAnchorResource(resources)
-	for e := sortedResourceKeys.Front(); e != nil ; e = e.Next(){
+	for e := sortedResourceKeys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(string)
 		handler := anchor.CreateElementHandler(key, resources[key], path)
 		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
@@ -119,16 +120,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 			return handlerPath, err
 		}
 	}
-
-	// Evaluate resources
-	// for key, resourceElement := range resources {
-	// 	// get handler for resources in the pattern
-	// 	handler := anchor.CreateElementHandler(key, resourceElement, path)
-	// 	handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern)
-	// 	if err != nil {
-	// 		return handlerPath, err
-	// 	}
-	// }
 	return "", nil
 }
 

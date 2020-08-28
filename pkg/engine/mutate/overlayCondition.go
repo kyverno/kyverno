@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -85,7 +85,7 @@ func checkConditionOnArray(resource, overlay []interface{}, path string) (string
 func validateConditionAnchorMap(resourceMap, anchors map[string]interface{}, path string) (string, overlayError) {
 	for key, overlayValue := range anchors {
 		// skip if key does not have condition anchor
-		if !anchor.IsConditionAnchor(key) {
+		if !commonAnchors.IsConditionAnchor(key) {
 			continue
 		}
 

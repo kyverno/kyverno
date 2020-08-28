@@ -2,7 +2,7 @@ package validate
 
 import (
 	"container/list"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 )
 
 // Checks if pattern has anchors
@@ -30,8 +30,8 @@ func hasNestedAnchors(pattern interface{}) bool {
 	}
 }
 
-// getSortedNestedAnchorResource - sorts anchors key 
-func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List{
+// getSortedNestedAnchorResource - sorts anchors key
+func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List {
 	sortedResourceKeys := list.New()
 	for k, v := range resources {
 		if hasNestedAnchors(v) {
@@ -46,10 +46,9 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List{
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) || anchor.IsExistenceAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
+		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) {
 			result[key] = value
 		}
 	}
 	return result
 }
-

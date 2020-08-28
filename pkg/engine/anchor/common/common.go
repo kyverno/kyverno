@@ -1,4 +1,4 @@
-package anchor
+package common
 
 // IsAnchor is a function handler
 type IsAnchor func(str string) bool
@@ -58,7 +58,7 @@ func IsExistenceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-func removeAnchor(key string) string {
+func RemoveAnchor(key string) string {
 	if IsConditionAnchor(key) {
 		return key[1 : len(key)-1]
 	}
