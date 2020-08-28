@@ -117,7 +117,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
-		isExist := true
+		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
 			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
 			if err != nil {
@@ -133,10 +133,10 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource
 					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
-					isExist = false
+					isExist = true
 				}
 			}
-			if isExist {
+			if !isExist {
 				gr.SetGenerateName("gr-")
 				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
 			}

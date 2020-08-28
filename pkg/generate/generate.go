@@ -119,7 +119,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace{
 					err :=c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
 					if err != nil {
-						logger.Error(err, "failed to update gr")
+						logger.Error(err, " failed to delete generate request")
 					}
 				}
 			}
