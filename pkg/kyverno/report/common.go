@@ -2,6 +2,7 @@ package report
 
 import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
@@ -9,12 +10,14 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/policy"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"os"
+	"encoding/json"
 	"reflect"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
@@ -164,5 +167,69 @@ func createEngineRespone(n string, wg *sync.WaitGroup, restConfig *rest.Config) 
 }
 
 func createEngineResponse(n string, wg *sync.WaitGroup, restConfig *rest.Config) {
+	defer func() {
+		wg.Done()
+	}()
+	dClient, err := client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+	if err != nil {
+		os.Exit(1)
+	}
 
+	kclient, err := kyvernoclient.NewForConfig(restConfig)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	kubeClient, err := utils.NewKubeClient(restConfig)
+	if err != nil {
+		log.Log.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	const resyncPeriod = 15 * time.Minute
+
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+
+	configData := config.NewConfigData(
+		kubeClient,
+		kubeInformer.Core().V1().ConfigMaps(),
+		"",
+		"",
+		"",
+		log.Log.WithName("ConfigData"),
+	)
+
+	configmap, err := dClient.GetResource("","Configmap",config.KubePolicyNamespace,"kyverno-event");
+	if err != nil {
+		os.Exit(1)
+	}
+
+	genData, _, err := unstructured.NestedMap(configmap.Object, "data")
+	if err != nil {
+		os.Exit(1)
+	}
+	jsonString, _ := json.Marshal(genData)
+	events := policyreport.PVEvent{}
+	json.Unmarshal(jsonString, &events)
+	var data []policyreport.Info
+	var reportName string
+	if os.Getenv("SCOPE") == "CLUSTER" {
+		reportName = fmt.Sprintf("kyverno-clusterpolicyreport")
+		data = events.Cluster
+	}else if os.Getenv("SCOPE") == "HELM" {
+		data = events.Helm[n]
+	}else{
+		data = events.Namespace[n]
+	}
+	type PolicyReport struct {
+		Helm  map[string]policyreportv1alpha1.PolicyReport
+		Namespace map[string]policyreportv1alpha1.PolicyReport
+		Cluster policyreportv1alpha1.ClusterPolicyReport
+	}
+
+	for _,v := range data {
+
+	}
+
+	pr, err := hpr.policyreportInterface.PolicyReports(pv.Spec.Namespace).Get(reportName, v1.GetOptions{})
 }
