@@ -22,9 +22,6 @@ spec:
         resources:
           kinds:
             - Namespace
-          selector:
-             matchLabels:
-                nirmata.io/auto-config: "enabled"
       generate:
         synchronize: true
         kind: ConfigMap
@@ -52,9 +49,6 @@ spec:
         resources:
           kinds: 
           - Namespace
-          selector:
-             matchLabels:
-                nirmata.io/auto-config: "enabled"
       generate:
         kind: ConfigMap # Kind of resource 
         name: default-config # Name of the new Resource
@@ -68,9 +62,6 @@ spec:
         resources:
           kinds: 
           - Namespace
-          selector:
-             matchLabels:
-                nirmata.io/auto-config: "enabled"
       generate:
         kind: Secret
         name: mongo-creds
@@ -84,7 +75,7 @@ spec:
             purpose: mongo
 ````
 
-In this example each namespaces will receive 2 new resources if label match:
+In this example each namespaces will receive 2 new resources:
   * A `ConfigMap` cloned from `default/config-template`.
   * A `Secret` with values `DB_USER` and `DB_PASSWORD`, and label `purpose: mongo`.
 
@@ -103,9 +94,6 @@ spec:
         kinds:
         - Namespace
         name: "*"
-        selector:
-          matchLabels:
-              nirmata.io/auto-config: "enabled"
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic
