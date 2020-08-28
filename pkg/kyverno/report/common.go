@@ -4,14 +4,19 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/config"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"os"
+	"reflect"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"time"
 )
@@ -49,12 +54,12 @@ func createEngineRespone(n string, wg *sync.WaitGroup, restConfig *rest.Config) 
 	)
 	var cpolicies *kyvernov1.ClusterPolicyList
 	if os.Getenv("SCOPE") == "CLUSTER" {
-		cpolicies, err = kclient.KyvernoV1().ClusterPolicies().List(kyvernov1.ListOption{})
+		cpolicies, err = kclient.KyvernoV1().ClusterPolicies().List(metav1.ListOptions{})
 		if err != nil {
 			os.Exit(1)
 		}
 	} else {
-		policies, err := kclient.KyvernoV1().Policies(n).List(kyvernov1.ListOption{})
+		policies, err := kclient.KyvernoV1().Policies(n).List(metav1.ListOptions{})
 		for _, p := range policies.Items {
 			cp := policy.ConvertPolicyToClusterPolicy(&p)
 			cpolicies.Items = append(cpolicies.Items, *cp)
@@ -119,8 +124,7 @@ func createEngineRespone(n string, wg *sync.WaitGroup, restConfig *rest.Config) 
 		for _, resource := range resourceMap {
 			policyContext := engine.PolicyContext{
 				NewResource:      resource,
-				OldResource:      nil,
-				Context:          context.Background(),
+				Context:          context.NewContext(),
 				Policy:           p,
 				ExcludeGroupRole: configData.GetExcludeGroupRole(),
 			}
@@ -157,4 +161,8 @@ func createEngineRespone(n string, wg *sync.WaitGroup, restConfig *rest.Config) 
 
 	}
 	// Create Policy Report
+}
+
+func createEngineResponse(n string, wg *sync.WaitGroup, restConfig *rest.Config) {
+
 }

@@ -1,23 +1,25 @@
 package report
 
 import (
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	"github.com/nirmata/kyverno/pkg/config"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"fmt"
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/spf13/cobra"
-	kubeinformers "k8s.io/client-go/informers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"os"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"time"
 )
 
 func HelmCommand() *cobra.Command {
+	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	cmd := &cobra.Command{
 		Use:     "helm",
 		Short:   "generate report",
 		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-
+			os.Setenv("SCOPE", "HELM")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)
@@ -26,7 +28,7 @@ func HelmCommand() *cobra.Command {
 			if err != nil {
 				os.Exit(1)
 			}
-			ns, err := dClient.ListResource("", "Namespace", "", &kyvernov1.LabelSelector{})
+			ns, err := dClient.ListResource("", "Namespace", "", &metav1.LabelSelector{})
 			if err != nil {
 				os.Exit(1)
 			}
@@ -36,6 +38,9 @@ func HelmCommand() *cobra.Command {
 				go createEngineRespone(n.GetName(), &wg, restConfig)
 				wg.Wait()
 			}
+			wg.Wait()
+			return err
 		},
 	}
+	return cmd
 }

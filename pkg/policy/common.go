@@ -2,13 +2,14 @@ package policy
 
 import (
 	"fmt"
+	"reflect"
 	"github.com/go-logr/logr"
 	"github.com/minio/minio/pkg/wildcard"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/utils"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"strings"
-
+	client "github.com/nirmata/kyverno/pkg/dclient"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,6 +56,7 @@ func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPo
 	cpol := kyverno.ClusterPolicy(*nsPolicies)
 	return &cpol
 }
+
 
 func getIsNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
