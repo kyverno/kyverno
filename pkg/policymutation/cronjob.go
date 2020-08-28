@@ -12,7 +12,7 @@ import (
 func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
 	logger := log.WithName("handleCronJob")
 
-	hasCronJob := strings.Contains(controllers, engine.PodControllerCronJob)
+	hasCronJob := strings.Contains(controllers, engine.PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
 		return kyvernoRule{}
 	}

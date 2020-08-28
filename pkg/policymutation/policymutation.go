@@ -305,7 +305,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			return kyvernoRule{}
 		}
 		if controllers == "all" {
-			controllers = engine.PodControllers
+			controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		} else {
 			controllers = strings.Join(controllersValidated, ",")
 		}

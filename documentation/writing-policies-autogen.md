@@ -12,11 +12,9 @@ Kyverno solves this issue by supporting automatic generation of policy rules for
 
 This auto-generation behavior is controlled by the `pod-policies.kyverno.io/autogen-controllers` annotation. 
 
-By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=DaemonSet,Deployment,Job,StatefulSet`, to generate an additional rule that is applied to these pod controllers. 
+By default, Kyverno inserts an annotation `pod-policies.kyverno.io/autogen-controllers=DaemonSet,Deployment,Job,StatefulSet,CrobJob`, to generate additional rules that are applied to these pod controllers. 
  
 You can change the annotation `pod-policies.kyverno.io/autogen-controllers` to customize the target pod controllers for the auto-generated rules. For example, Kyverno generates a rule for a `Deployment` if the annotation of policy is defined as `pod-policies.kyverno.io/autogen-controllers=Deployment`. 
-
-The supported pod controllers for auto-gen feature: `DaemonSet`, `Deployment`, `Job`, `StatefulSet` and `CrobJob`.
 
 When a `name` or `labelSelector` is specified in the match / exclude block, Kyverno skips generating pod controllers rule as these filters may not be applicable to pod controllers.
  
