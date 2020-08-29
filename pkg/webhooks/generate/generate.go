@@ -123,7 +123,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			if err != nil {
 				return err
 			}
-			for _, v := range grList.Items {
+			for i, v := range grList.Items {
 				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
 
 					gr.SetLabels(map[string]string{
@@ -132,7 +132,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 					v.Spec.Context = gr.Spec.Context
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource
-					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&grList.Items[i])
 					if err != nil {
 						return err
 					}
