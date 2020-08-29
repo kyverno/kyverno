@@ -285,8 +285,6 @@ func (gen *Generator) createConfigmap() error {
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
 	cm.Data["Namespace"] = string(rawData)
 
-
-	gen.log.Error(nil,"DEBUGYUVRAJ","UDH",cm)
 	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm,false)
 	if err != nil {
 		return  err

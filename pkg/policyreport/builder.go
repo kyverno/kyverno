@@ -39,11 +39,11 @@ type Builder interface {
 
 type pvBuilder struct{}
 
-func newPrBuilder() *pvBuilder {
+func NewPrBuilder() *pvBuilder {
 	return &pvBuilder{}
 }
 
-func (pvb *pvBuilder) generate(info Info) kyverno.PolicyViolationTemplate {
+func (pvb *pvBuilder) Generate(info Info) kyverno.PolicyViolationTemplate {
 	pv := pvb.build(info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName(), info.Rules)
 	return *pv
 }
