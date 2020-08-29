@@ -5,7 +5,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchor "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -115,7 +115,7 @@ func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) {
+		if commonAnchor.IsConditionAnchor(key) {
 			result[key] = value
 		}
 	}
