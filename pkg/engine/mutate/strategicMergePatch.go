@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -26,6 +27,27 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
+
+	// ====== Meet Conditions =======
+	if path, overlayerr := meetConditions(log, resource.UnstructuredContent(), overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
+		fmt.Printf("path : \n%+v\noverlayerr : \n%+v\n", path, overlayerr)
+		switch overlayerr.statusCode {
+		// anchor key does not exist in the resource, skip applying policy
+		case conditionNotPresent:
+			log.V(4).Info("skip applying policy", "path", path, "error", overlayerr)
+			log.V(3).Info("skip applying rule", "reason", "conditionNotPresent")
+			resp.Success = true
+			return resp, resource
+		// anchor key is not satisfied in the resource, skip applying policy
+		case conditionFailure:
+			log.V(4).Info("failed to validate condition", "path", path, "error", overlayerr)
+			log.V(3).Info("skip applying rule", "reason", "conditionFailure")
+			resp.Success = true
+			resp.Message = overlayerr.ErrorMsg()
+			return resp, resource
+		}
+	}
+	// ============================
 
 	overlayBytes, err := json.Marshal(overlay)
 	if err != nil {
@@ -78,8 +100,9 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 }
 
 func strategicMergePatch(base, overlay string) ([]byte, error) {
+	
 	patch := yaml.MustParse(overlay)
-
+	patch = preProcessSMP(overlay, base)
 	f := patchstrategicmerge.Filter{
 		Patch: patch,
 	}
@@ -88,4 +111,11 @@ func strategicMergePatch(base, overlay string) ([]byte, error) {
 	err := filtersutil.ApplyToJSON(f, baseObj)
 
 	return baseObj.Bytes(), err
+}
+
+func preProcessSMP(pattern, resource string) *yaml.RNode{
+	patternNode := yaml.MustParse(pattern)
+	resourceNode := yaml.MustParse(resource)
+	preProcessPattern(patternNode, resourceNode)
+	return patternNode
 }
