@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/policy/common"
 )
 
@@ -36,7 +36,7 @@ func (m *Mutate) Validate() (string, error) {
 	}
 	// Overlay
 	if rule.Overlay != nil {
-		path, err := common.ValidatePattern(rule.Overlay, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsAddingAnchor})
+		path, err := common.ValidatePattern(rule.Overlay, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsAddingAnchor})
 		if err != nil {
 			return path, err
 		}
