@@ -2,15 +2,14 @@ package jobs
 
 import (
 	"fmt"
-	v1 "k8s.io/api/batch/v1"
-	"reflect"
 	"github.com/nirmata/kyverno/pkg/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 	"sync"
 
 	"github.com/go-logr/logr"
-	policyreportclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 
 	"github.com/nirmata/kyverno/pkg/constant"
 
@@ -25,23 +24,23 @@ const workQueueRetryLimit = 3
 
 //Job creates PV
 type Job struct {
-	dclient *dclient.Client
-	log                  logr.Logger
-	queue                workqueue.RateLimitingInterface
-	dataStore            *dataStore
-	mux sync.Mutex
+	dclient   *dclient.Client
+	log       logr.Logger
+	queue     workqueue.RateLimitingInterface
+	dataStore *dataStore
+	mux       sync.Mutex
 }
 
 type JobInfo struct {
-  JobType string
-  Policy string
+	JobType string
+	Policy  string
 }
 
 func (i JobInfo) toKey() string {
 	if i.Policy != "" {
-		return fmt.Sprintf("%s-%s",i.JobType,i.Policy)
+		return fmt.Sprintf("%s-%s", i.JobType, i.Policy)
 	}
-	return fmt.Sprintf("%s",i.JobType)
+	return fmt.Sprintf("%s", i.JobType)
 }
 
 //NewDataStore returns an instance of data store
@@ -83,15 +82,14 @@ type JobsInterface interface {
 	Add(infos ...JobInfo)
 }
 
-
 // NewJobsJob returns a new instance of policy violation generator
 func NewJobsJob(dclient *dclient.Client,
 	log logr.Logger) *Job {
 	gen := Job{
-		dclient:               dclient,
-		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:             newDataStore(),
-		log:                   log,
+		dclient:   dclient,
+		queue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore: newDataStore(),
+		log:       log,
 	}
 	return &gen
 }
@@ -195,40 +193,38 @@ func (j *Job) processNextWorkItem() bool {
 	return true
 }
 
-
 func (j *Job) syncHandler(info JobInfo) error {
-	defer func(){
+	defer func() {
 		j.mux.Unlock()
 	}()
 	j.mux.Lock()
 	if len(info.Policy) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(3)
-		go j.syncNamespace(&wg,"HELM","POLICY",info.Policy)
-		go j.syncNamespace(&wg,"NAMESPACE","POLICY",info.Policy)
-		go j.syncNamespace(&wg,"CLUSTER","POLICY",info.Policy)
+		go j.syncNamespace(&wg, "HELM", "POLICY", info.Policy)
+		go j.syncNamespace(&wg, "NAMESPACE", "POLICY", info.Policy)
+		go j.syncNamespace(&wg, "CLUSTER", "POLICY", info.Policy)
 		wg.Wait()
 		return nil
 	}
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go j.syncNamespace(&wg,"HELM","SYNC",info.Policy)
-	go j.syncNamespace(&wg,"NAMESPACE","SYNC",info.Policy)
-	go j.syncNamespace(&wg,"CLUSTER","SYNC",info.Policy)
+	go j.syncNamespace(&wg, "HELM", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "NAMESPACE", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "CLUSTER", "SYNC", info.Policy)
 	wg.Wait()
-	return nil
 	return nil
 }
 
-func(j *Job) syncNamespace(wg *sync.WaitGroup,jobType,scope,policy string){
-	defer func(){
+func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
+	defer func() {
 		wg.Done()
 	}()
-	var args []string{}
+	var args []string
 	var mode string
 	if len(policy) > 0 {
 		mode = "cli"
-	}else{
+	} else {
 		mode = "configmap"
 	}
 
@@ -238,38 +234,38 @@ func(j *Job) syncNamespace(wg *sync.WaitGroup,jobType,scope,policy string){
 		args = []string{
 			"report",
 			"helm",
-			fmt.Sprintf("--mode=%s",mode),
+			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args,"helm"),jobType,scope)
-		break;
-	case "NAMESPACE" :
+		job = CreateJob(append(args, "helm"), jobType, scope)
+		break
+	case "NAMESPACE":
 		args = []string{
 			"report",
 			"namespace",
-			fmt.Sprintf("--mode=%s",,mode),
+			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args,"namespace"),jobType,scope)
-		break;
+		job = CreateJob(append(args, "namespace"), jobType, scope)
+		break
 	case "CLUSTER":
 		args = []string{
 			"report",
 			"cluster",
-			fmt.Sprintf("--mode=%s",,mode),
+			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args,"cluster"),jobType,scope)
+		job = CreateJob(append(args, "cluster"), jobType, scope)
 		break
 	}
-	_, err := j.dclient.UpdateStatusResource("","Job",config.KubePolicyNamespace,job,false)
+	_, err := j.dclient.UpdateStatusResource("", "Job", config.KubePolicyNamespace, job, false)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func CreateJob(args []string,jobType,scope string) *v1.Job {
+func CreateJob(args []string, jobType, scope string) *v1.Job {
 	return &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s",jobType,scope),
+			Name:      fmt.Sprintf("%s-%s", jobType, scope),
 			Namespace: config.KubePolicyNamespace,
 		},
 		Spec: v1.JobSpec{
@@ -277,9 +273,9 @@ func CreateJob(args []string,jobType,scope string) *v1.Job {
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{
 						{
-							Name:  fmt.Sprintf("%s-%s",jobType,scope),
+							Name:  fmt.Sprintf("%s-%s", jobType, scope),
 							Image: "nirmata/kyverno-cli:latest",
-							Args: args,
+							Args:  args,
 						},
 					},
 				},
@@ -287,4 +283,3 @@ func CreateJob(args []string,jobType,scope string) *v1.Job {
 		},
 	}
 }
-

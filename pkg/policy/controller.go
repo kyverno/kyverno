@@ -1,9 +1,9 @@
 package policy
 
 import (
-	"time"
-	"os"
 	informers "k8s.io/client-go/informers/core/v1"
+	"os"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -383,7 +383,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if errors.IsNotFound(err) {
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 			// TODO (Yuvraj) Create Job for policy Sync
-		}else{
+		} else {
 			go pc.deletePolicyViolations(key)
 		}
 
@@ -403,7 +403,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	engineResponses := pc.processExistingResources(policy)
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-		for _,v := range policyviolation.GeneratePVsFromEngineResponse(engineResponses,logger) {
+		for _, v := range policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger) {
 			pc.pvGenerator.Add(v)
 		}
 		return nil

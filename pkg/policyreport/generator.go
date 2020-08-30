@@ -2,6 +2,7 @@ package policyreport
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/jobs"
 	v1 "k8s.io/api/core/v1"
@@ -9,7 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -53,10 +53,10 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 
-	configmap *v1.ConfigMap
+	configmap         *v1.ConfigMap
 	inMemoryConfigMap *PVEvent
-	mux sync.Mutex
-	jobs *jobs.Job
+	mux               sync.Mutex
+	jobs              *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -118,11 +118,10 @@ type GeneratorInterface interface {
 }
 
 type PVEvent struct {
-	Helm  map[string][]Info
+	Helm      map[string][]Info
 	Namespace map[string][]Info
-	Cluster []Info
+	Cluster   []Info
 }
-
 
 // NewPRGenerator returns a new instance of policy violation generator
 func NewPRGenerator(client *policyreportclient.Clientset,
@@ -143,14 +142,14 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		dataStore:             newDataStore(),
 		log:                   log,
 		policyStatusListener:  policyStatus,
-		configmap : nil,
-		inMemoryConfigMap : &PVEvent{
-			Helm: make(map[string][]Info),
+		configmap:             nil,
+		inMemoryConfigMap: &PVEvent{
+			Helm:      make(map[string][]Info),
 			Namespace: make(map[string][]Info),
-			Cluster: make([]Info,0,100),
+			Cluster:   make([]Info, 0, 100),
 		},
 	}
-	gen.jobs = jobs.NewJobsJob(dclient,log)
+	gen.jobs = jobs.NewJobsJob(dclient, log)
 	go gen.jobs.Run(1, stopChna)
 	return &gen
 }
@@ -186,21 +185,22 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
-	ticker := time.NewTicker(100*time.Second)
+	ticker := time.NewTicker(100 * time.Second)
 	ctx := context.Background()
 	for {
 		select {
 		case <-ticker.C:
-			err := gen.createConfigmap();
+			err := gen.createConfigmap()
 			gen.jobs.Add(jobs.JobInfo{})
 			if err != nil {
-				logger.Error(err,"configmap error")
+				logger.Error(err, "configmap error")
 			}
 		case <-ctx.Done():
+			break
 			// Create Jobs
 		}
 	}
-	<-stopCh
+	//<-stopCh
 }
 
 func (gen *Generator) runWorker() {
@@ -271,7 +271,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	return true
 }
 func (gen *Generator) createConfigmap() error {
-	defer func(){
+	defer func() {
 		gen.mux.Unlock()
 	}()
 	gen.mux.Lock()
@@ -290,22 +290,22 @@ func (gen *Generator) createConfigmap() error {
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
 	cm.Data["Namespace"] = string(rawData)
 
-	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm,false)
+	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm, false)
 	if err != nil {
-		return  err
+		return err
 	}
 	gen.inMemoryConfigMap = &PVEvent{
-		Helm: make(map[string][]Info),
+		Helm:      make(map[string][]Info),
 		Namespace: make(map[string][]Info),
-		Cluster: make([]Info,0,100),
+		Cluster:   make([]Info, 0, 100),
 	}
 	return nil
 }
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	defer func(){
-		logger.Error(nil, "DEBUG","Key",gen.inMemoryConfigMap)
+	defer func() {
+		logger.Error(nil, "DEBUG", "Key", gen.inMemoryConfigMap)
 		gen.mux.Unlock()
 	}()
 	gen.mux.Lock()
@@ -317,22 +317,20 @@ func (gen *Generator) syncHandler(info Info) error {
 	labels := resource.GetLabels()
 	_, okChart := labels["app"]
 	_, okRelease := labels["release"]
-	if  okChart && okRelease {
-		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()],info)
+	if okChart && okRelease {
+		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()], info)
 		return nil
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-			gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster,info)
+		gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster, info)
 
 		return nil
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		if _,ok := gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()]; ok  {
-			gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()],info)
+		if _, ok := gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()]; ok {
+			gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()], info)
 		}
-		gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()],info)
+		gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()], info)
 		return nil
 	}
-	return nil
 }
-

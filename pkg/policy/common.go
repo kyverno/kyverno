@@ -2,19 +2,19 @@ package policy
 
 import (
 	"fmt"
-	"reflect"
 	"github.com/go-logr/logr"
 	"github.com/minio/minio/pkg/wildcard"
-	"github.com/nirmata/kyverno/pkg/config"
-	"github.com/nirmata/kyverno/pkg/utils"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"strings"
-	client "github.com/nirmata/kyverno/pkg/dclient"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
+	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/nirmata/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 func buildPolicyLabel(policyName string) (labels.Selector, error) {
@@ -57,7 +57,6 @@ func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPo
 	return &cpol
 }
 
-
 func getIsNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")
@@ -68,7 +67,6 @@ func getIsNamespacedPolicy(key string) (string, string, bool) {
 	}
 	return namespace, key, false
 }
-
 
 // merge b into a map
 func MergeResources(a, b map[string]unstructured.Unstructured) {

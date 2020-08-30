@@ -2,10 +2,10 @@ package policyviolation
 
 import (
 	"fmt"
-		"os"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"os"
 )
 
 //GeneratePVsFromEngineResponse generate Violations from engine responses

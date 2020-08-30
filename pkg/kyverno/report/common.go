@@ -28,6 +28,12 @@ import (
 	"time"
 )
 
+const (
+	Helm      string = "Helm"
+	Namespace string = "Namespace"
+	Cluster   string = "Cluster"
+)
+
 func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
 	defer func() {
 		wg.Done()
@@ -61,7 +67,7 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 		log.Log.WithName("ConfigData"),
 	)
 	var cpolicies *kyvernov1.ClusterPolicyList
-	if scope == "CLUSTER" {
+	if scope == Cluster {
 		cpolicies, err = kclient.KyvernoV1().ClusterPolicies().List(metav1.ListOptions{})
 		if err != nil {
 			os.Exit(1)
@@ -92,7 +98,7 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 					continue
 				}
 
-				if !resourceSchema.Namespaced && scope == "CLUSTER" {
+				if !resourceSchema.Namespaced && scope == Cluster {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
 					policy.MergeResources(resourceClusterMap, rMap)
 				} else if resourceSchema.Namespaced {
@@ -104,9 +110,9 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 								labels := r.GetLabels()
 								_, okChart := labels["app"]
 								_, okRelease := labels["release"]
-								if okChart && okRelease && scope == "HELM" {
+								if okChart && okRelease && scope == Helm {
 									policy.MergeResources(resourceHelmMap, rMap)
-								} else if scope == "NAMESPACE" {
+								} else if scope == Namespace {
 									policy.MergeResources(resourceNamespaceMap, rMap)
 								}
 							}
@@ -116,13 +122,13 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 			}
 		}
 		switch scope {
-		case "HELM":
+		case Helm:
 			resourceMap = resourceHelmMap
 			break
-		case "NAMESPACE":
+		case Namespace:
 			resourceMap = resourceNamespaceMap
 			break
-		case "CLUSTER":
+		case Cluster:
 			resourceMap = resourceClusterMap
 			break
 		}
@@ -173,7 +179,7 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 			for _, v := range pv {
 				var appname string
 				switch scope {
-				case "HELM":
+				case Helm:
 					//TODO GET Labels
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
@@ -187,10 +193,10 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 						appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
 					}
 					break
-				case "NAMESPACE":
+				case Namespace:
 					appname = fmt.Sprintf("kyverno-policyreport-%s", policyContext.NewResource.GetNamespace())
 					break
-				case "CLUSTER":
+				case Cluster:
 					appname = fmt.Sprintf("kyverno-clusterpolicyreport")
 					break
 				}
@@ -219,7 +225,7 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 
 		}
 		for k, _ := range results {
-			if scope == "HELM" && scope == "NAMESPACE" {
+			if scope == Helm || scope == Namespace {
 				str := strings.Split(k, "-")
 				ns := str[len(str)-1]
 
@@ -298,9 +304,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 	events := policyreport.PVEvent{}
 	json.Unmarshal(jsonString, &events)
 	var data []policyreport.Info
-	if scope == "CLUSTER" {
+	if scope == Cluster {
 		data = events.Cluster
-	} else if scope == "HELM" {
+	} else if scope == Helm {
 		data = events.Helm[n]
 	} else {
 		data = events.Namespace[n]
@@ -329,9 +335,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 			}
 			var appname string
 			// Increase Count
-			if scope == "CLUSTER" {
+			if scope == Cluster {
 				results[appname] = append(results[appname], *result)
-			} else if scope == "HELM" {
+			} else if scope == Helm {
 				resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 				if err != nil {
 					log.Log.Error(err, "failed to get resource")
@@ -351,7 +357,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 		}
 	}
 	for k, _ := range results {
-		if scope == "HELM" && scope == "NAMESPACE" {
+		if scope == Helm || scope == Namespace {
 			str := strings.Split(k, "-")
 			ns := str[len(str)-1]
 
