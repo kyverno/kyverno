@@ -3,6 +3,7 @@ package policyviolation
 import (
 	"errors"
 	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/jobs"
 	"github.com/nirmata/kyverno/pkg/policyreport"
 	"os"
 	"reflect"
@@ -47,6 +48,7 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 	prgen                *policyreport.Generator
+	job *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -115,6 +117,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	prInformer policyreportinformer.ClusterPolicyReportInformer,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
+	job *jobs.Job,
 	log logr.Logger,
 	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
@@ -127,6 +130,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
 		log:                  log,
+		job : job,
 		policyStatusListener: policyStatus,
 	}
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
@@ -135,6 +139,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 			prInformer,
 			nsprInformer,
 			policyStatus,
+			job,
 			log,
 			stopChna,
 		)

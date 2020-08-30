@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/jobs"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -147,6 +148,8 @@ func main() {
 		log.Log.WithName("ResourceWebhookRegister"),
 	)
 
+
+
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
@@ -179,6 +182,9 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
+	jobController := jobs.NewJobsJob(client, log.Log.WithName("jonController"))
+
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	pvgen := policyviolation.NewPVGenerator(pclient,
@@ -188,6 +194,7 @@ func main() {
 		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 		pInformer.Policy().V1alpha1().PolicyReports(),
 		statusSync.Listener,
+		jobController,
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
 	)
@@ -207,6 +214,7 @@ func main() {
 		pvgen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
+		jobController,
 		log.Log.WithName("PolicyController"),
 	)
 
@@ -214,8 +222,6 @@ func main() {
 		setupLog.Error(err, "Failed to create policy controller")
 		os.Exit(1)
 	}
-
-
 
 	// GENERATE REQUEST GENERATOR
 	grgen := webhookgenerate.NewGenerator(pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))

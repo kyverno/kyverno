@@ -1,10 +1,11 @@
 package policy
 
 import (
+	"github.com/nirmata/kyverno/pkg/jobs"
 	informers "k8s.io/client-go/informers/core/v1"
 	"os"
+	"context"
 	"time"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -94,6 +95,7 @@ type PolicyController struct {
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
+	job *jobs.Job
 	log logr.Logger
 }
 
@@ -108,6 +110,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
+	job *jobs.Job,
 	log logr.Logger) (*PolicyController, error) {
 
 	// Event broad caster
@@ -128,11 +131,29 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		configHandler:          configHandler,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
+		job : job,
 		log:                    log,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
 
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    pc.addClusterPolicyViolation,
+			UpdateFunc: pc.updateClusterPolicyViolation,
+			DeleteFunc: pc.deleteClusterPolicyViolation,
+		})
+
+		nspvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    pc.addNamespacedPolicyViolation,
+			UpdateFunc: pc.updateNamespacedPolicyViolation,
+			DeleteFunc: pc.deleteNamespacedPolicyViolation,
+		})
+		pc.cpvLister = cpvInformer.Lister()
+		pc.cpvListerSynced = cpvInformer.Informer().HasSynced
+		pc.nspvLister = nspvInformer.Lister()
+		pc.nspvListerSynced = nspvInformer.Informer().HasSynced
+	}
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
@@ -145,28 +166,16 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: pc.deleteNsPolicy,
 	})
 
-	cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addClusterPolicyViolation,
-		UpdateFunc: pc.updateClusterPolicyViolation,
-		DeleteFunc: pc.deleteClusterPolicyViolation,
-	})
-
-	nspvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addNamespacedPolicyViolation,
-		UpdateFunc: pc.updateNamespacedPolicyViolation,
-		DeleteFunc: pc.deleteNamespacedPolicyViolation,
-	})
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
-	pc.cpvLister = cpvInformer.Lister()
-	pc.nspvLister = nspvInformer.Lister()
+
+
 	pc.nsLister = namespaces.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
-	pc.cpvListerSynced = cpvInformer.Informer().HasSynced
-	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
+
 	pc.nsListerSynced = namespaces.Informer().HasSynced
 
 	// resource manager
@@ -316,7 +325,19 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)
 	}
-
+	ctx :=  context.Background()
+	ticker := time.NewTicker(100 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			pc.job.Add(jobs.JobInfo{
+			   Policy: "enabled",
+			})
+		case <-ctx.Done():
+			break
+			// Create Jobs
+		}
+	}
 	<-stopCh
 }
 
@@ -363,6 +384,9 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		return nil
+	}
 	logger := pc.log
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
@@ -402,13 +426,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 
 	engineResponses := pc.processExistingResources(policy)
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-		for _, v := range policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger) {
-			pc.pvGenerator.Add(v)
-		}
-		return nil
-	}
-	pc.cleanupAndReport(engineResponses)
+
+		pc.cleanupAndReport(engineResponses)
+
 
 	return nil
 }

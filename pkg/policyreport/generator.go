@@ -56,7 +56,7 @@ type Generator struct {
 	configmap         *v1.ConfigMap
 	inMemoryConfigMap *PVEvent
 	mux               sync.Mutex
-	jobs              *jobs.Job
+	job              *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -129,6 +129,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 	prInformer policyreportinformer.ClusterPolicyReportInformer,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
+	job *jobs.Job,
 	log logr.Logger,
 	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
@@ -148,9 +149,9 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 			Namespace: make(map[string][]Info),
 			Cluster:   make([]Info, 0, 100),
 		},
+		job : job,
 	}
-	gen.jobs = jobs.NewJobsJob(dclient, log)
-	go gen.jobs.Run(1, stopChna)
+
 	return &gen
 }
 
@@ -191,7 +192,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			err := gen.createConfigmap()
-			gen.jobs.Add(jobs.JobInfo{})
+			gen.job.Add(jobs.JobInfo{})
 			if err != nil {
 				logger.Error(err, "configmap error")
 			}

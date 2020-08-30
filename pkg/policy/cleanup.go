@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 	"reflect"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -12,15 +13,17 @@ import (
 )
 
 func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
-	for _, er := range ers {
-		if !er.IsSuccessful() {
-			continue
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		for _, er := range ers {
+			if !er.IsSuccessful() {
+				continue
+			}
+			if len(er.PolicyResponse.Rules) == 0 {
+				continue
+			}
+			// clean up after the policy has been corrected
+			pc.cleanUpPolicyViolation(er.PolicyResponse)
 		}
-		if len(er.PolicyResponse.Rules) == 0 {
-			continue
-		}
-		// clean up after the policy has been corrected
-		pc.cleanUpPolicyViolation(er.PolicyResponse)
 	}
 }
 

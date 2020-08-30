@@ -41,7 +41,6 @@ func HelmCommand() *cobra.Command {
 			}
 			var wg sync.WaitGroup
 			wg.Add(len(ns))
-			fmt.Println(nil, "sdsds", "", ns, "", mode)
 			for _, n := range ns {
 				if mode == "cli" {
 					go createEngineRespone(n.GetName(), "HELM", &wg, restConfig)
