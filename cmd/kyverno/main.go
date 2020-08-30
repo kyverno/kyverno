@@ -78,6 +78,7 @@ func main() {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
 
+	// TODO: Do we need to print here? It anyways prints empty values
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -145,7 +146,7 @@ func main() {
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
-	//		- PolicyVolation
+	//		- PolicyViolation
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
@@ -332,7 +333,7 @@ func main() {
 	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
 
-	// verifys if the admission control is enabled and active
+	// verifies if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)

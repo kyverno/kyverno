@@ -9,9 +9,6 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/validate"
-	//openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	//"github.com/googleapis/gnostic/compiler"
-	//yaml_v2 "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,6 +16,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	//openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	//"github.com/googleapis/gnostic/compiler"
+	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -241,10 +241,12 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 	}
 
 	var crd unstructured.Unstructured
-	err = json.Unmarshal(bytes, &crd)
+	err = yaml_v2.Unmarshal(bytes, &crd)
+
 	if err != nil {
 		return err
 	}
+	log.Info("coming till here .................. 5")
 
 	// crdDefinitionPrior represents CRDs version prior to 1.16
 	var crdDefinitionPrior struct {
@@ -273,14 +275,19 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 		} `json:"spec"`
 	}
 
+	log.Info("coming till here .................. 6")
 	crdRaw, _ := json.Marshal(crd.Object)
 	_ = json.Unmarshal(crdRaw, &crdDefinitionPrior)
 
+	log.Info("coming till here .................. 7")
 	openV3schema := crdDefinitionPrior.Spec.Validation.OpenAPIV3Schema
 	crdName := crdDefinitionPrior.Spec.Names.Kind
 	fmt.Println(crdName)
 
+	log.Info("coming till here .................. 8")
+
 	if openV3schema == nil {
+		log.Info("coming till here .................. coming into openV3Schema = nil")
 		_ = json.Unmarshal(crdRaw, &crdDefinitionNew)
 		for _, crdVersion := range crdDefinitionNew.Spec.Versions {
 			if crdVersion.Storage {
@@ -291,27 +298,26 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 		}
 	}
 
+	log.Info("coming till here .................. 9")
+	log.Info("crd", "openV3schema", openV3schema)
+
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
 		//log.Log.V(3).Info("could not parse crd schema", "name", crdName)
 		return err
 	}
+	log.Info("coming till here .................. 10")
 
-	schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
-	if err != nil {
-		//log.Log.Error(err, "could not parse crd schema", "name", crdName)
-		return err
-	}
+	//schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
+	//if err != nil {
+	//	//log.Log.Error(err, "could not parse crd schema", "name", crdName)
+	//	//return err
+	//}
+	log.Info("coming till here .................. 11")
 
 	schema := new(spec.Schema)
 	_ = json.Unmarshal(schemaRaw, schema)
 
-	input := map[string]interface{}{}
-	fmt.Println(input)
-
-	// JSON data to validate
-	//inputJSON := `{"name": "Ivan","address-1": "sesame street"}`
-	//_ = json.Unmarshal([]byte(inputJSON), &input)
 
 	// strfmt.Default is the registry of recognized formats
 	err = validate.AgainstSchema(schema, policy, strfmt.Default)
@@ -320,6 +326,7 @@ func ValidatePolicyAgainstCrd(policy *v1.ClusterPolicy, path string) error {
 	} else {
 		fmt.Printf("OK")
 	}
+	log.Info("coming till here .................. 14")
 
 	//var schema yaml_v2.MapSlice
 	//_ = yaml_v2.Unmarshal(schemaRaw, &schema)

@@ -49,19 +49,14 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
-				//if common.PolicyHasVariables(*policy) {
-				//	invalidPolicyFound = true
-				//	fmt.Printf("Policy %s is invalid.\n", policy.Name)
-				//	log.Log.Error(errors.New("'validate' does not support policies with variables"), "Policy "+policy.Name+" is invalid")
-				//	continue
-				//}
 
 				// if crd is passed, then validate policy against the crd
 				if crdPath != "" {
 					err := common.ValidatePolicyAgainstCrd(policy, crdPath)
 					if err != nil {
 						log.Log.Error(err, "policy "+policy.Name+" is invalid")
-						os.Exit(1)
+						//os.Exit(1)
+						return err
 					}
 				}
 
