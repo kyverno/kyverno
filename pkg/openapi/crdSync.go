@@ -102,7 +102,7 @@ func (c *crdSync) sync() {
 	c.controller.deleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
-		c.controller.parseCRD(crd)
+		c.controller.ParseCRD(crd)
 	}
 }
 
@@ -115,7 +115,7 @@ func (o *Controller) deleteCRDFromPreviousSync() {
 	o.crdList = make([]string, 0)
 }
 
-func (o *Controller) parseCRD(crd unstructured.Unstructured) {
+func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	var err error
 
 	crdRaw, _ := json.Marshal(crd.Object)
