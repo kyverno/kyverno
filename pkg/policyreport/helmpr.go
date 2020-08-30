@@ -159,9 +159,9 @@ func (hpr *helmPR) processNextWorkItem() bool {
 func (hpr *helmPR) syncHandler(info Info) error {
 	logger := hpr.log
 	failure := false
-	builder := newPrBuilder()
+	builder := NewPrBuilder()
 
-	pv := builder.generate(info)
+	pv := builder.Generate(info)
 
 	resource, err := hpr.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetName(), info.Resource.GetNamespace())
 	if err != nil {

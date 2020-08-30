@@ -14,12 +14,12 @@ import (
 
 func NamespaceCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
+	var mode string
 	cmd := &cobra.Command{
 		Use:     "namespace",
 		Short:   "generate report",
 		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("SCOPE", "NAMESPACE")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)
@@ -35,11 +35,16 @@ func NamespaceCommand() *cobra.Command {
 			var wg sync.WaitGroup
 			wg.Add(len(ns.Items))
 			for _, n := range ns.Items {
-				go createEngineRespone(n.GetName(), &wg, restConfig)
+				if mode == "cli" {
+					go createEngineRespone(n.GetName(), mode, &wg, restConfig)
+					wg.Wait()
+				}
+				go backgroundScan(n.GetName(), "HELM", &wg, restConfig)
+				wg.Wait()
 			}
-			wg.Wait()
-			return err
+			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&mode, "mode", "m", "", "mode")
 	return cmd
 }

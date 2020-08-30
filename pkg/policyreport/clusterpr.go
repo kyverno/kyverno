@@ -160,9 +160,9 @@ func (cpr *clusterPR) processNextWorkItem() bool {
 func (cpr *clusterPR) syncHandler(info Info) error {
 	logger := cpr.log
 	failure := false
-	builder := newPrBuilder()
+	builder := NewPrBuilder()
 
-	pv := builder.generate(info)
+	pv := builder.Generate(info)
 
 	if info.FromSync {
 		pv.Annotations = map[string]string{

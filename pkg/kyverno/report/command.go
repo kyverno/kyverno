@@ -16,8 +16,6 @@ type resultCounts struct {
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var kubeconfig string
-
 	cmd = &cobra.Command{
 		Use:     "report",
 		Short:   "generate report",
@@ -30,7 +28,5 @@ func Command() *cobra.Command {
 	cmd.AddCommand(HelmCommand())
 	cmd.AddCommand(NamespaceCommand())
 	cmd.AddCommand(ClusterCommand())
-	cmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "kubeconfig")
-	cmd.Flags().BoolP("configmap", "c", false, "kubeconfig")
 	return cmd
 }

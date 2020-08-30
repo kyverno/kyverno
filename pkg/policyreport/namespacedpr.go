@@ -159,9 +159,9 @@ func (nspr *namespacedPR) processNextWorkItem() bool {
 func (nspr *namespacedPR) syncHandler(info Info) error {
 	logger := nspr.log
 	failure := false
-	builder := newPrBuilder()
+	builder := NewPrBuilder()
 
-	pv := builder.generate(info)
+	pv := builder.Generate(info)
 
 	if info.FromSync {
 		pv.Annotations = map[string]string{

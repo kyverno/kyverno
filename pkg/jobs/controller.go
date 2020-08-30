@@ -2,9 +2,9 @@ package jobs
 
 import (
 	"fmt"
-	"github.com/docker/docker/daemon/logger"
+	v1 "k8s.io/api/batch/v1"
+	"reflect"
 	"github.com/nirmata/kyverno/pkg/config"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiv1 "k8s.io/api/core/v1"
 	"sync"
@@ -85,8 +85,7 @@ type JobsInterface interface {
 
 
 // NewJobsJob returns a new instance of policy violation generator
-func NewJobsJob(client *policyreportclient.Clientset,
-	dclient *dclient.Client,
+func NewJobsJob(dclient *dclient.Client,
 	log logr.Logger) *Job {
 	gen := Job{
 		dclient:               dclient,
@@ -97,94 +96,94 @@ func NewJobsJob(client *policyreportclient.Clientset,
 	return &gen
 }
 
-func (job *Job) enqueue(info JobInfo) {
+func (j *Job) enqueue(info JobInfo) {
 	// add to data map
 	keyHash := info.toKey()
 	// add to
 	// queue the key hash
 
-	job.dataStore.add(keyHash, info)
-	job.queue.Add(keyHash)
+	j.dataStore.add(keyHash, info)
+	j.queue.Add(keyHash)
 }
 
 //Add queues a policy violation create request
-func (job *Job) Add(infos ...JobInfo) {
+func (j *Job) Add(infos ...JobInfo) {
 	for _, info := range infos {
-		job.enqueue(info)
+		j.enqueue(info)
 	}
 }
 
 // Run starts the workers
-func (job *Job) Run(workers int, stopCh <-chan struct{}) {
-	logger := job.log
+func (j *Job) Run(workers int, stopCh <-chan struct{}) {
+	logger := j.log
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(job.runWorker, constant.PolicyViolationControllerResync, stopCh)
+		go wait.Until(j.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
 
 	<-stopCh
 }
 
-func (job *Job) runWorker() {
-	for job.processNextWorkItem() {
+func (j *Job) runWorker() {
+	for j.processNextWorkItem() {
 	}
 }
 
-func (job *Job) handleErr(err error, key interface{}) {
-	logger := job.log
+func (j *Job) handleErr(err error, key interface{}) {
+	logger := j.log
 	if err == nil {
-		job.queue.Forget(key)
+		j.queue.Forget(key)
 		return
 	}
 
 	// retires requests if there is error
-	if job.queue.NumRequeues(key) < workQueueRetryLimit {
+	if j.queue.NumRequeues(key) < workQueueRetryLimit {
 		logger.Error(err, "failed to sync policy violation", "key", key)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
-		job.queue.AddRateLimited(key)
+		j.queue.AddRateLimited(key)
 		return
 	}
-	job.queue.Forget(key)
+	j.queue.Forget(key)
 	// remove from data store
 	if keyHash, ok := key.(string); ok {
-		job.dataStore.delete(keyHash)
+		j.dataStore.delete(keyHash)
 	}
 	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
-func (job *Job) processNextWorkItem() bool {
-	logger := job.log
-	obj, shutdown := job.queue.Get()
+func (j *Job) processNextWorkItem() bool {
+	logger := j.log
+	obj, shutdown := j.queue.Get()
 	if shutdown {
 		return false
 	}
 
 	err := func(obj interface{}) error {
-		defer job.queue.Done(obj)
+		defer j.queue.Done(obj)
 		var keyHash string
 		var ok bool
 
 		if keyHash, ok = obj.(string); !ok {
-			job.queue.Forget(obj)
+			j.queue.Forget(obj)
 			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
 			return nil
 		}
 
 		// lookup data store
-		info := job.dataStore.lookup(keyHash)
+		info := j.dataStore.lookup(keyHash)
 		if reflect.DeepEqual(info, JobInfo{}) {
 			// empty key
-			job.queue.Forget(obj)
+			j.queue.Forget(obj)
 			logger.Info("empty key")
 			return nil
 		}
 
-		err := job.syncHandler(info)
-		job.handleErr(err, obj)
+		err := j.syncHandler(info)
+		j.handleErr(err, obj)
 		return nil
 	}(obj)
 
@@ -197,72 +196,83 @@ func (job *Job) processNextWorkItem() bool {
 }
 
 
-func (job *Job) syncHandler(info JobInfo) error {
+func (j *Job) syncHandler(info JobInfo) error {
 	defer func(){
-		job.mux.Unlock()
+		j.mux.Unlock()
 	}()
-	job.mux.Lock()
+	j.mux.Lock()
 	if len(info.Policy) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(3)
-		go job.syncNamespace(&wg,"HELM","POLICY",info.Policy)
-		go job.syncNamespace(&wg,"NAMESPACE","POLICY",info.Policy)
-		go job.syncNamespace(&wg,"CLUSTER","POLICY",info.Policy)
+		go j.syncNamespace(&wg,"HELM","POLICY",info.Policy)
+		go j.syncNamespace(&wg,"NAMESPACE","POLICY",info.Policy)
+		go j.syncNamespace(&wg,"CLUSTER","POLICY",info.Policy)
 		wg.Wait()
 		return nil
 	}
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go job.syncNamespace(&wg,"HELM","SYNC",info.Policy)
-	go job.syncNamespace(&wg,"NAMESPACE","SYNC",info.Policy)
-	go job.syncNamespace(&wg,"CLUSTER","SYNC",info.Policy)
+	go j.syncNamespace(&wg,"HELM","SYNC",info.Policy)
+	go j.syncNamespace(&wg,"NAMESPACE","SYNC",info.Policy)
+	go j.syncNamespace(&wg,"CLUSTER","SYNC",info.Policy)
 	wg.Wait()
 	return nil
 	return nil
 }
 
-func(job *Job) syncNamespace(wg *sync.WaitGroup,jobType,scope,policy string){
+func(j *Job) syncNamespace(wg *sync.WaitGroup,jobType,scope,policy string){
 	defer func(){
 		wg.Done()
 	}()
 	var args []string{}
+	var mode string
 	if len(policy) > 0 {
-		 args = []string{
-			"report",
-			"--policy",
-		}
+		mode = "cli"
 	}else{
-		args = []string{
-			"report",
-		}
+		mode = "configmap"
 	}
 
-	var job *batchv1.Job
+	var job *v1.Job
 	switch jobType {
 	case "HELM":
+		args = []string{
+			"report",
+			"helm",
+			fmt.Sprintf("--mode=%s",mode),
+		}
 		job = CreateJob(append(args,"helm"),jobType,scope)
 		break;
 	case "NAMESPACE" :
+		args = []string{
+			"report",
+			"namespace",
+			fmt.Sprintf("--mode=%s",,mode),
+		}
 		job = CreateJob(append(args,"namespace"),jobType,scope)
 		break;
 	case "CLUSTER":
+		args = []string{
+			"report",
+			"cluster",
+			fmt.Sprintf("--mode=%s",,mode),
+		}
 		job = CreateJob(append(args,"cluster"),jobType,scope)
 		break
 	}
-	_, err := job.dclient.UpdateStatusResource("","Job",config.KubePolicyNamespace,job,false)
+	_, err := j.dclient.UpdateStatusResource("","Job",config.KubePolicyNamespace,job,false)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func CreateJob(args []string,jobType,scope string) *batchv1.Job {
-	return &batchv1.Job{
+func CreateJob(args []string,jobType,scope string) *v1.Job {
+	return &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s",jobType,scope),
 			Namespace: config.KubePolicyNamespace,
 		},
-		Spec: batchv1.JobSpec{
+		Spec: v1.JobSpec{
 			Template: apiv1.PodTemplateSpec{
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{

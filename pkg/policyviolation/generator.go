@@ -136,8 +136,11 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 			nsprInformer,
 			policyStatus,
 			log,
+			stopChna,
 		)
 		go gen.prgen.Run(1, stopChna)
+
+
 	}
 	return &gen
 }
