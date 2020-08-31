@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"github.com/nirmata/kyverno/pkg/policy/common"
 )
@@ -60,7 +60,7 @@ func (g *Generate) Validate() (string, error) {
 	if rule.Data != nil {
 		//TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
-		if path, err := common.ValidatePattern(rule.Data, "/", []anchor.IsAnchor{}); err != nil {
+		if path, err := common.ValidatePattern(rule.Data, "/", []commonAnchors.IsAnchor{}); err != nil {
 			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}

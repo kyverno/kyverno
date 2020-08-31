@@ -5,11 +5,11 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 )
 
 //ValidatePattern validates the pattern
-func ValidatePattern(patternElement interface{}, path string, supportedAnchors []anchor.IsAnchor) (string, error) {
+func ValidatePattern(patternElement interface{}, path string, supportedAnchors []commonAnchors.IsAnchor) (string, error) {
 	switch typedPatternElement := patternElement.(type) {
 	case map[string]interface{}:
 		return validateMap(typedPatternElement, path, supportedAnchors)
@@ -22,7 +22,7 @@ func ValidatePattern(patternElement interface{}, path string, supportedAnchors [
 		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
 	}
 }
-func validateMap(patternMap map[string]interface{}, path string, supportedAnchors []anchor.IsAnchor) (string, error) {
+func validateMap(patternMap map[string]interface{}, path string, supportedAnchors []commonAnchors.IsAnchor) (string, error) {
 	// check if anchors are defined
 	for key, value := range patternMap {
 		// if key is anchor
@@ -45,7 +45,7 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 
 			// addition check for existence anchor
 			// value must be of type list
-			if anchor.IsExistenceAnchor(key) {
+			if commonAnchors.IsExistenceAnchor(key) {
 				typedValue, ok := value.([]interface{})
 				if !ok {
 					return path + "/" + key, fmt.Errorf("Existence anchor should have value of type list")
@@ -64,7 +64,7 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 	return "", nil
 }
 
-func validateArray(patternArray []interface{}, path string, supportedAnchors []anchor.IsAnchor) (string, error) {
+func validateArray(patternArray []interface{}, path string, supportedAnchors []commonAnchors.IsAnchor) (string, error) {
 	for i, patternElement := range patternArray {
 		currentPath := path + strconv.Itoa(i) + "/"
 		// lets validate the values now :)
@@ -75,7 +75,7 @@ func validateArray(patternArray []interface{}, path string, supportedAnchors []a
 	return "", nil
 }
 
-func checkAnchors(key string, supportedAnchors []anchor.IsAnchor) bool {
+func checkAnchors(key string, supportedAnchors []commonAnchors.IsAnchor) bool {
 	for _, f := range supportedAnchors {
 		if f(key) {
 			return true
