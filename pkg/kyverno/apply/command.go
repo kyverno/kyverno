@@ -42,13 +42,12 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-
 type resultCounts struct {
-	pass int
-	fail int
-	warn int
+	pass  int
+	fail  int
+	warn  int
 	error int
-	skip int
+	skip  int
 }
 
 func Command() *cobra.Command {

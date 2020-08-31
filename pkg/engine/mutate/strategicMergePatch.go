@@ -3,10 +3,10 @@ package mutate
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"time"
-	"reflect"
 	"errors"
+	"fmt"
+	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -99,7 +99,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 }
 
 func strategicMergePatch(base, overlay string) ([]byte, error) {
-	
+
 	patch := yaml.MustParse(overlay)
 	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
 	if err != nil {
@@ -116,7 +116,7 @@ func strategicMergePatch(base, overlay string) ([]byte, error) {
 	return baseObj.Bytes(), err
 }
 
-func preProcessStrategicMergePatch(pattern, resource string) (*yaml.RNode, error){
+func preProcessStrategicMergePatch(pattern, resource string) (*yaml.RNode, error) {
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
 	err := preProcessPattern(patternNode, resourceNode)
