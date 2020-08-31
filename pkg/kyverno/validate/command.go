@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/utils"
 	"os"
+
+	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
@@ -51,17 +52,11 @@ func Command() *cobra.Command {
 
 			// if CRD's are passed, add these to OpenAPIController
 			if len(crdPaths) > 0 {
-				//err := common.ValidatePolicyAgainstCrd(policy, crdPath)
-				//if err != nil {
-				//	log.Log.Error(err, "policy "+policy.Name+" is invalid")
-				//	//os.Exit(1)
-				//	return err
-				//}
-				for _, path := range crdPaths {
-					crd, err := common.ConvertFileToUnstructed(path)
-					if err != nil {
-						log.Error(err, "crd is invalid", "file", path)
-					}
+				crds, err := common.ConvertFileToUnstructed(crdPaths)
+				if err != nil {
+					log.Error(err, "crd is invalid", "file", crdPaths)
+				}
+				for _, crd := range crds {
 					openAPIController.ParseCRD(*crd)
 				}
 			}
