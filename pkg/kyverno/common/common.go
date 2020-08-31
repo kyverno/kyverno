@@ -14,8 +14,6 @@ import (
 	yaml_v2 "sigs.k8s.io/yaml"
 	"strings"
 
-	"errors"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -216,23 +214,10 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	return &p, nil
 }
 
-
-
-// ConvertFileToUnstructed - converting file to unstructured
-func ConvertFileToUnstructed(crdPaths []string) (crds []*unstructured.Unstructured, err error) {
-	crds, err = GetCRDs(crdPaths)
-	if err != nil {
-		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", crdPaths)), err)
-		}
-		return nil, err
-	}
-	return crds, nil
-}
-
 // GetCRDs - Extracting the crds from multiple YAML
 func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err error) {
 	log := log.Log
+	unstructuredCrds = make([]*unstructured.Unstructured, 0)
 	for _, path := range paths {
 		path = filepath.Clean(path)
 
@@ -265,35 +250,23 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 			if err != nil {
 				fmt.Printf("failed to extract crds: %s\n", err)
 			}
-
 			unstructuredCrds = append(unstructuredCrds, getCRDs...)
 		}
 	}
-	return nil, nil
+	return unstructuredCrds, nil
 }
 
 // GetCRD - Extracts crds from a YAML
 func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err error) {
 	log := log.Log
 	path = filepath.Clean(path)
-
-	fileDesc, err := os.Stat(path)
-	if err != nil {
-		log.Error(err, "failed to describe file", "file", path)
-		return nil, err
-	}
-
-	if fileDesc.IsDir() {
-		return nil, errors.New("path should be a file")
-	}
-
+	unstructuredCrds = make([]*unstructured.Unstructured, 0)
 	yamlbytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error(err, "failed to read file", "file", path)
 		return nil, err
 	}
 
-	var u unstructured.Unstructured
 	buf := bytes.NewBuffer(yamlbytes)
 	reader := yaml.NewYAMLReader(bufio.NewReader(buf))
 
@@ -305,6 +278,7 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 		} else if err != nil {
 			log.Error(err, "unable to read yaml")
 		}
+		var u unstructured.Unstructured
 		err = yaml_v2.Unmarshal(b, &u)
 		if err != nil {
 			log.Error(err, "failed to convert file into unstructured object", "file", path)
@@ -312,5 +286,6 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 		}
 		unstructuredCrds = append(unstructuredCrds, &u)
 	}
+
 	return unstructuredCrds, nil
 }

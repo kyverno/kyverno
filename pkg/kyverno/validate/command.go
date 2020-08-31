@@ -52,7 +52,8 @@ func Command() *cobra.Command {
 
 			// if CRD's are passed, add these to OpenAPIController
 			if len(crdPaths) > 0 {
-				crds, err := common.ConvertFileToUnstructed(crdPaths)
+				crds, err := common.GetCRDs(crdPaths)
+
 				if err != nil {
 					log.Error(err, "crd is invalid", "file", crdPaths)
 				}
