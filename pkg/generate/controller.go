@@ -201,6 +201,18 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
+	for _,resource := range gr.Status.GeneratedResources {
+		r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
+		if err != nil {
+			logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+		}
+		labels := r.GetLabels()
+		if labels["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
+				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			}
+		}
+	}
 	logger.Info("deleting generate request", "name", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)

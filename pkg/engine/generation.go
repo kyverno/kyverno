@@ -35,7 +35,14 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 
 	startTime := time.Now()
 	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
-		return nil
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Type:    "Generation",
+			Success: false,
+			RuleStats: response.RuleStats{
+				ProcessingTime: time.Since(startTime),
+			},
+		}
 	}
 	// operate on the copy of the conditions, as we perform variable substitution
 	copyConditions := copyConditions(rule.Conditions)
