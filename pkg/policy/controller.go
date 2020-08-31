@@ -347,7 +347,6 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 			// Create Jobs
 		}
 	}
-	<-stopCh
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.

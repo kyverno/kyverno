@@ -42,10 +42,10 @@ func HelmCommand() *cobra.Command {
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-						go configmapScan(n.GetName(), "Helm", &wg, restConfig)
+					go configmapScan(n.GetName(), "Helm", &wg, restConfig)
 				}
 				wg.Wait()
-			}else{
+			} else {
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go backgroundScan("", "Helm", &wg, restConfig)

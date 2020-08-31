@@ -1,8 +1,8 @@
 package report
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -89,9 +89,6 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 	}
 
 	// key uid
-	resourceClusterMap := map[string]unstructured.Unstructured{}
-	resourceNamespaceMap := map[string]unstructured.Unstructured{}
-	resourceHelmMap := map[string]unstructured.Unstructured{}
 	resourceMap := map[string]unstructured.Unstructured{}
 	var engineResponses []response.EngineResponse
 	for _, p := range cpolicies.Items {
@@ -105,7 +102,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 
 				if !resourceSchema.Namespaced && scope == Cluster {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
-					policy.MergeResources(resourceClusterMap, rMap)
+					policy.MergeResources(resourceMap, rMap)
 				} else if resourceSchema.Namespaced {
 					namespaces := policy.GetNamespacesForRule(&rule, kubeInformer.Core().V1().Namespaces().Lister(), log.Log)
 					for _, ns := range namespaces {
@@ -116,9 +113,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 								_, okChart := labels["app"]
 								_, okRelease := labels["release"]
 								if okChart && okRelease && scope == Helm {
-									policy.MergeResources(resourceHelmMap, rMap)
+									policy.MergeResources(resourceMap, rMap)
 								} else if scope == Namespace {
-									policy.MergeResources(resourceNamespaceMap, rMap)
+									policy.MergeResources(resourceMap, rMap)
 								}
 							}
 						}
@@ -126,21 +123,10 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 				}
 			}
 		}
-		switch scope {
-		case Helm:
-			resourceMap = resourceHelmMap
-			break
-		case Namespace:
-			resourceMap = resourceNamespaceMap
-			break
-		case Cluster:
-			resourceMap = resourceClusterMap
-			break
-		}
+
 		if p.HasAutoGenAnnotation() {
 			resourceMap = policy.ExcludePod(resourceMap, log.Log)
 		}
-		var reports map[string][]kyvernov1.PolicyViolationTemplate
 		var results map[string][]policyreportv1alpha1.PolicyReportResult
 		for _, resource := range resourceMap {
 			policyContext := engine.PolicyContext{
@@ -207,8 +193,6 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 				}
 				builder := policyreport.NewPrBuilder()
 				pv := builder.Generate(v)
-
-				reports[appname] = append(reports[appname], pv)
 
 				for _, e := range pv.Spec.ViolatedRules {
 					result := &policyreportv1alpha1.PolicyReportResult{
@@ -309,17 +293,17 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 	var data []policyreport.Info
 	if scope == Cluster {
 		if err := json.Unmarshal([]byte(job.Data["Namespace"]), &response); err != nil {
-			log.Log.Error(err,"")
+			log.Log.Error(err, "")
 		}
 		data = response["cluster"]
 	} else if scope == Helm {
 		if err := json.Unmarshal([]byte(job.Data["Helm"]), &response); err != nil {
-			log.Log.Error(err,"")
+			log.Log.Error(err, "")
 		}
 		data = response[n]
 	} else {
 		if err := json.Unmarshal([]byte(job.Data["Namespace"]), &response); err != nil {
-			log.Log.Error(err,"")
+			log.Log.Error(err, "")
 		}
 		data = response[n]
 	}
@@ -327,7 +311,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 	var ns []string
 	for _, v := range data {
 		for _, r := range v.Rules {
-			log.Log.Error(nil, "failed to get resource","",r)
+			log.Log.Error(nil, "failed to get resource", "", r)
 			builder := policyreport.NewPrBuilder()
 			pv := builder.Generate(v)
 			result := &policyreportv1alpha1.PolicyReportResult{
@@ -368,7 +352,6 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 			}
 		}
 	}
-
 
 	for k, _ := range results {
 		if scope == Helm || scope == Namespace {

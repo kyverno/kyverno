@@ -25,12 +25,13 @@ func NamespaceCommand() *cobra.Command {
 			if err != nil {
 				os.Exit(1)
 			}
-			const resyncPeriod = 15 * time.Minute
+			const resyncPeriod = 1 * time.Second
 			kubeClient, err := utils.NewKubeClient(restConfig)
 			if err != nil {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 			if mode == "cli" {
 				ns, err := kubeInformer.Core().V1().Namespaces().Lister().List(labels.Everything())
@@ -40,10 +41,10 @@ func NamespaceCommand() *cobra.Command {
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-						go configmapScan(n.GetName(), "Namespace", &wg, restConfig)
+					go configmapScan(n.GetName(), "Namespace", &wg, restConfig)
 				}
 				wg.Wait()
-			}else{
+			} else {
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go backgroundScan("", "Namespace", &wg, restConfig)
