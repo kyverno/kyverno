@@ -2,7 +2,7 @@ package mutate
 
 import (
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	anchor "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/minio/minio/pkg/wildcard"
 )
 // preProcessPattern - Dynamically preProcess the yaml
