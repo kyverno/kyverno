@@ -1,16 +1,15 @@
 package mutate
 
 import (
-	"fmt"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 	"github.com/nirmata/kyverno/pkg/engine/anchor"
 	"github.com/minio/minio/pkg/wildcard"
 )
-// preProcessPattern ...
+// preProcessPattern - Dynamically preProcess the yaml
 // 1> For conditional anchor remove anchors from the pattern.
 // 2> For Adding anchors remove anchor tags.
 
-// The whole yaml is structured as a tree.
+// The whole yaml is structured as a pointer tree.
 // https://godoc.org/gopkg.in/yaml.v3#Node
 // A single Node contains Tag to identify it as MappingNode (map[string]interface{}), Sequence ([]interface{}), ScalarNode (string, int, float bool etc.)
 // A parent node having MappingNode keeps the data as <keyNode>, <ValueNode> inside it's Content field and Tag field as "!!map".
@@ -84,6 +83,7 @@ func walkMap(pattern, resource *yaml.RNode) (error) {
 			if ind == -1 {
 				continue
 			}
+			// remove anchor from the map and update fields
 			removeAnchorNode(pattern, ind)
 			sfields = removeKeyFromFields(key, sfields)
 			fields = removeKeyFromFields(key, fields)
@@ -136,6 +136,38 @@ func walkArray(pattern, resource *yaml.RNode) (error){
 	return nil
 }
 
+// processAssocSequence - process arrays
+// in many cases like containers, volumes kustomize uses name field to match resource for processing 
+// 1> If any conditional anchor match resource field and if the pattern doesn't contains "name" field and 
+// 		resource contains "name" field then copy the name field from resource to pattern.
+// 2> If the resource doesn't contains "name" field then just remove anchor field from yaml.
+/*
+  Policy:
+		"spec": {
+			"containers": [{
+			"(image)": "*:latest",
+			"imagePullPolicy": "Always"
+		}]}
+
+  Resource:
+	    "spec": {
+			"containers": [
+				{
+				"name": "nginx",
+				"image": "nginx:latest",
+				"imagePullPolicy": "Never"
+				}]
+		}
+	After Preprocessing:
+		"spec": {
+			"containers": [{
+			"name": "nginx",
+			"imagePullPolicy": "Always"
+		}]}
+
+	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
+	So if a conditional anchor image matches resouce then remove "(image)" field from yaml and add the matching names from the resource.
+*/
 func processAssocSequence(pattern, resource *yaml.RNode) (error){
 	patternElements, err := pattern.Elements()
 	if err != nil {
@@ -149,8 +181,93 @@ func processAssocSequence(pattern, resource *yaml.RNode) (error){
 			}
 		}
 	}
+	// remove the sequence with anchors
+	err = removeAnchorSequence(pattern, resource)
+	if err != nil {
+		return err
+	}
+	return preProcessArrayPattern(pattern, resource)
+}
+
+
+func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
+	patternElements, err := pattern.Elements()
+	if err != nil {
+		return err
+	}
+	resourceElements, err := resource.Elements()
+	if err != nil {
+		return err
+	}
+	for _, patternElement := range patternElements {
+			patternNameField := patternElement.Field("name")
+			if patternNameField != nil {
+				patternNameValue, err := patternNameField.Value.String()
+				if err != nil {
+					return err
+				}
+				for _, resourceElement := range resourceElements{
+					resourceNameField := resourceElement.Field("name")
+					if resourceNameField != nil {
+						resourceNameValue, err := resourceNameField.Value.String()
+						if err != nil {
+							return err
+						}
+						if patternNameValue == resourceNameValue {
+							err := preProcessPattern(patternElement, resourceElement)
+							if err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+	}
 	return nil
 }
+
+/*
+	removeAnchorSequence :- removes sequence containing conditional anchor
+
+	Pattern:
+		"spec": {
+			"containers": [{
+			"(image)": "*:latest",
+			"imagePullPolicy": "Always"
+		},
+		{
+			"name": "nginx",
+			"imagePullPolicy": "Always"
+		}]}
+	After Removing Conditional Sequence:
+		"spec": {
+			"containers": [{
+			"name": "nginx",
+			"imagePullPolicy": "Always"
+		}]}
+*/
+func removeAnchorSequence(pattern, resource *yaml.RNode) (error){
+	patternElements, err := pattern.Elements()
+	if err != nil {
+		return err
+	}
+	for index, patternElement := range patternElements {
+		if hasAnchors(patternElement) {
+			sfields, _, err := getAnchorSortedFields(patternElement)
+			if err != nil {
+				return err
+			}
+			for _, key := range sfields{
+				if anchor.IsConditionAnchor(key) {
+					pattern.YNode().Content = append(pattern.YNode().Content[:index], pattern.YNode().Content[index+1:]...)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 
 func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) (error){
 	resourceElements, err := resource.Elements()
@@ -163,8 +280,7 @@ func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) (error){
 			err := processAnchorMap(pattern, resourceElement, arrayPattern)
 			if err != nil {
 				return err
-			}
-			
+			}	
 		}
 	}
 	return nil
@@ -195,6 +311,10 @@ func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) (error){
 	After Preprocessing:
 		"spec": {
 			"containers": [{
+			"(image)": "*:latest",
+			"imagePullPolicy": "Always"
+		},
+		{
 			"name": "nginx",
 			"imagePullPolicy": "Always"
 		}]}

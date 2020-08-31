@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"reflect"
+	"errors"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -30,7 +31,6 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	// ====== Meet Conditions =======
 	if path, overlayerr := meetConditions(log, resource.UnstructuredContent(), overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
-		fmt.Printf("path : \n%+v\noverlayerr : \n%+v\n", path, overlayerr)
 		switch overlayerr.statusCode {
 		// anchor key does not exist in the resource, skip applying policy
 		case conditionNotPresent:
@@ -64,7 +64,6 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
 		return resp, resource
 	}
-
 	patchedBytes, err := strategicMergePatch(string(base), string(overlayBytes))
 	if err != nil {
 		msg := fmt.Sprintf("failed to apply patchStrategicMerge: %v", err)
@@ -102,20 +101,24 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 func strategicMergePatch(base, overlay string) ([]byte, error) {
 	
 	patch := yaml.MustParse(overlay)
-	patch = preProcessSMP(overlay, base)
+	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
+	if err != nil {
+		return []byte{}, errors.New(fmt.Sprintf("failed to preProcess rule : %+v", err))
+	}
+	patch = preprocessedYaml
 	f := patchstrategicmerge.Filter{
 		Patch: patch,
 	}
 
 	baseObj := buffer{Buffer: bytes.NewBufferString(base)}
-	err := filtersutil.ApplyToJSON(f, baseObj)
+	err = filtersutil.ApplyToJSON(f, baseObj)
 
 	return baseObj.Bytes(), err
 }
 
-func preProcessSMP(pattern, resource string) *yaml.RNode{
+func preProcessStrategicMergePatch(pattern, resource string) (*yaml.RNode, error){
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
-	preProcessPattern(patternNode, resourceNode)
-	return patternNode
+	err := preProcessPattern(patternNode, resourceNode)
+	return patternNode, err
 }
