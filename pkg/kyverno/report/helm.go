@@ -34,20 +34,21 @@ func HelmCommand() *cobra.Command {
 			}
 
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
-
-			ns, err := kubeInformer.Core().V1().Namespaces().Lister().List(labels.Everything())
-			if err != nil {
-				os.Exit(1)
-			}
-			var wg sync.WaitGroup
-			wg.Add(len(ns))
-			for _, n := range ns {
-				if mode == "cli" {
-					go createEngineRespone(n.GetName(), "HELM", &wg, restConfig)
-					wg.Wait()
-					return nil
+			if mode == "cli" {
+				ns, err := kubeInformer.Core().V1().Namespaces().Lister().List(labels.Everything())
+				if err != nil {
+					os.Exit(1)
 				}
-				go backgroundScan(n.GetName(), "HELM", &wg, restConfig)
+				var wg sync.WaitGroup
+				wg.Add(len(ns))
+				for _, n := range ns {
+						go configmapScan(n.GetName(), "Helm", &wg, restConfig)
+				}
+				wg.Wait()
+			}else{
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go backgroundScan("", "Helm", &wg, restConfig)
 				wg.Wait()
 				return nil
 			}

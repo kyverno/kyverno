@@ -317,10 +317,19 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
-		logger.Info("failed to sync informer cache")
-		return
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced,  pc.nsListerSynced) {
+			logger.Info("failed to sync informer cache")
+			return
+		}
+
+	}else{
+		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
+			logger.Info("failed to sync informer cache")
+			return
+		}
 	}
+
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)

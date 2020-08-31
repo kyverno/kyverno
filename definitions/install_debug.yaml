@@ -1144,6 +1144,7 @@ rules:
   - networkpolicies
   - secrets
   - configmaps
+  - jobs
   - resourcequotas
   - limitranges
   - clusterroles

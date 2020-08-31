@@ -1,8 +1,8 @@
 package report
 
 import (
-	"encoding/json"
 	"fmt"
+	"encoding/json"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -15,9 +15,12 @@ import (
 	"github.com/nirmata/kyverno/pkg/policyreport"
 	"github.com/nirmata/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"os"
@@ -34,7 +37,7 @@ const (
 	Cluster   string = "Cluster"
 )
 
-func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
+func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
 	defer func() {
 		wg.Done()
 	}()
@@ -73,14 +76,16 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 			os.Exit(1)
 		}
 	} else {
+		cpolicies = &kyvernov1.ClusterPolicyList{}
 		policies, err := kclient.KyvernoV1().Policies(n).List(metav1.ListOptions{})
+		if err != nil {
+			os.Exit(1)
+		}
 		for _, p := range policies.Items {
 			cp := policy.ConvertPolicyToClusterPolicy(&p)
 			cpolicies.Items = append(cpolicies.Items, *cp)
 		}
-		if err != nil {
-			os.Exit(1)
-		}
+
 	}
 
 	// key uid
@@ -267,7 +272,7 @@ func createEngineRespone(n, scope string, wg *sync.WaitGroup, restConfig *rest.C
 	// Create Policy Report
 }
 
-func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
+func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
 	defer func() {
 		wg.Done()
 	}()
@@ -291,31 +296,38 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 
 	_ = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
-	configmap, err := dClient.GetResource("", "Configmap", config.KubePolicyNamespace, "kyverno-event")
+	configmap, err := dClient.GetResource("", "ConfigMap", config.KubePolicyNamespace, "kyverno-event")
 	if err != nil {
-		os.Exit(1)
-	}
 
-	genData, _, err := unstructured.NestedMap(configmap.Object, "data")
-	if err != nil {
 		os.Exit(1)
 	}
-	jsonString, _ := json.Marshal(genData)
-	events := policyreport.PVEvent{}
-	json.Unmarshal(jsonString, &events)
+	var job *v1.ConfigMap
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(configmap.UnstructuredContent(), &job); err != nil {
+		os.Exit(1)
+	}
+	var response map[string][]policyreport.Info
 	var data []policyreport.Info
 	if scope == Cluster {
-		data = events.Cluster
+		if err := json.Unmarshal([]byte(job.Data["Namespace"]), &response); err != nil {
+			log.Log.Error(err,"")
+		}
+		data = response["cluster"]
 	} else if scope == Helm {
-		data = events.Helm[n]
+		if err := json.Unmarshal([]byte(job.Data["Helm"]), &response); err != nil {
+			log.Log.Error(err,"")
+		}
+		data = response[n]
 	} else {
-		data = events.Namespace[n]
+		if err := json.Unmarshal([]byte(job.Data["Namespace"]), &response); err != nil {
+			log.Log.Error(err,"")
+		}
+		data = response[n]
 	}
 	var results map[string][]policyreportv1alpha1.PolicyReportResult
-
 	var ns []string
 	for _, v := range data {
 		for _, r := range v.Rules {
+			log.Log.Error(nil, "failed to get resource","",r)
 			builder := policyreport.NewPrBuilder()
 			pv := builder.Generate(v)
 			result := &policyreportv1alpha1.PolicyReportResult{
@@ -356,6 +368,8 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 			}
 		}
 	}
+
+
 	for k, _ := range results {
 		if scope == Helm || scope == Namespace {
 			str := strings.Split(k, "-")

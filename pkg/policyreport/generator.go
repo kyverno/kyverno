@@ -120,7 +120,7 @@ type GeneratorInterface interface {
 type PVEvent struct {
 	Helm      map[string][]Info
 	Namespace map[string][]Info
-	Cluster   []Info
+	Cluster   map[string][]Info
 }
 
 // NewPRGenerator returns a new instance of policy violation generator
@@ -147,7 +147,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		inMemoryConfigMap: &PVEvent{
 			Helm:      make(map[string][]Info),
 			Namespace: make(map[string][]Info),
-			Cluster:   make([]Info, 0, 100),
+			Cluster:   make(map[string][]Info),
 		},
 		job : job,
 	}
@@ -192,7 +192,9 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			err := gen.createConfigmap()
-			gen.job.Add(jobs.JobInfo{})
+			gen.job.Add(jobs.JobInfo{
+				JobType: "background",
+			})
 			if err != nil {
 				logger.Error(err, "configmap error")
 			}
@@ -298,7 +300,7 @@ func (gen *Generator) createConfigmap() error {
 	gen.inMemoryConfigMap = &PVEvent{
 		Helm:      make(map[string][]Info),
 		Namespace: make(map[string][]Info),
-		Cluster:   make([]Info, 0, 100),
+		Cluster:   make(map[string][]Info),
 	}
 	return nil
 }
@@ -323,7 +325,7 @@ func (gen *Generator) syncHandler(info Info) error {
 		return nil
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		gen.inMemoryConfigMap.Cluster = append(gen.inMemoryConfigMap.Cluster, info)
+		gen.inMemoryConfigMap.Cluster["cluster"] = append(gen.inMemoryConfigMap.Cluster["cluster"], info)
 
 		return nil
 	} else {

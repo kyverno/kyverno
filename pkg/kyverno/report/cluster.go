@@ -23,7 +23,7 @@ func ClusterCommand() *cobra.Command {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			if mode == "cli" {
-				go createEngineRespone("", "CLUSTER", &wg, restConfig)
+				go configmapScan("", "CLUSTER", &wg, restConfig)
 				wg.Wait()
 				return nil
 			}

@@ -143,7 +143,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 			log,
 			stopChna,
 		)
-		go gen.prgen.Run(1, stopChna)
+		go gen.prgen.Run(4, stopChna)
 
 	}
 	return &gen

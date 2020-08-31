@@ -1144,6 +1144,7 @@ rules:
   - networkpolicies
   - secrets
   - configmaps
+  - jobs
   - resourcequotas
   - limitranges
   - clusterroles
@@ -1510,7 +1511,6 @@ spec:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
         - -v=2
-        - --policyreport=policyreport
         env:
         - name: INIT_CONFIG
           value: init-config
@@ -1520,7 +1520,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: evalsocket/kyverno:v1.1.10-25-g3ebf9d43fc6c
+        image: nirmata/kyverno:v1.1.10
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4

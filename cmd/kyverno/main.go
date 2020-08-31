@@ -346,6 +346,7 @@ func main() {
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
+	go jobController.Run(1,stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifys if the admission control is enabled and active

@@ -6,8 +6,11 @@ import (
 	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -222,7 +225,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 	}()
 	var args []string
 	var mode string
-	if len(policy) > 0 {
+	if policy == "POLICY" {
 		mode = "cli"
 	} else {
 		mode = "configmap"
@@ -236,7 +239,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"helm",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args, "helm"), jobType, scope)
+		job = CreateJob(args, jobType, scope)
 		break
 	case "NAMESPACE":
 		args = []string{
@@ -244,7 +247,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"namespace",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args, "namespace"), jobType, scope)
+		job = CreateJob(args, jobType, scope)
 		break
 	case "CLUSTER":
 		args = []string{
@@ -252,20 +255,42 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"cluster",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(append(args, "cluster"), jobType, scope)
+		job = CreateJob(args, jobType, scope)
 		break
 	}
-	_, err := j.dclient.UpdateStatusResource("", "Job", config.KubePolicyNamespace, job, false)
+	_, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
 	if err != nil {
 		return
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	var failure bool
+	for {
+		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
+		if err != nil {
+			continue
+		}
+		job := v1.Job{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
+			failure = true
+			break
+		}
+		if job.Status.Active == 0 || time.Now().After(deadline) {
+			failure = true
+			break
+		}
+	}
+	if failure {
+		err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(),false)
+		if err != nil {
+			return
+		}
 	}
 	return
 }
 
 func CreateJob(args []string, jobType, scope string) *v1.Job {
-	return &v1.Job{
+	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", jobType, scope),
 			Namespace: config.KubePolicyNamespace,
 		},
 		Spec: v1.JobSpec{
@@ -273,13 +298,18 @@ func CreateJob(args []string, jobType, scope string) *v1.Job {
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{
 						{
-							Name:  fmt.Sprintf("%s-%s", jobType, scope),
-							Image: "nirmata/kyverno-cli:latest",
+							Name:  strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
+							Image: "evalsocket/kyverno-cli:latest",
+							ImagePullPolicy: "Always",
 							Args:  args,
+
 						},
 					},
+					RestartPolicy: "OnFailure",
 				},
 			},
 		},
 	}
+	job.SetGenerateName("kyverno-policyreport-")
+	return job
 }
