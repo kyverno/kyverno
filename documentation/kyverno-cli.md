@@ -61,6 +61,12 @@ Example:
 kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/folderFullOfPolicies -o yaml
 ```
 
+Policy can also be validated with CRDs. Use -c flag to pass the CRD, can pass multiple CRD files or even an entire folder containin CRDs.
+
+Example:
+```
+kyverno validate /path/to/policy1.yaml -c /path/to/crd.yaml -c /path/to/folderFullOfCRDs
+```
 
 #### Apply
 Applies policies on resources, and supports applying multiple policies on multiple resources in a single command.

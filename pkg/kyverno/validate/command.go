@@ -56,6 +56,7 @@ func Command() *cobra.Command {
 
 				if err != nil {
 					log.Error(err, "crd is invalid", "file", crdPaths)
+					os.Exit(1)
 				}
 				for _, crd := range crds {
 					openAPIController.ParseCRD(*crd)

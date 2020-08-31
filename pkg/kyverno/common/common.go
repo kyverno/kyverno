@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"path/filepath"
 	"regexp"
-	yaml_v2 "sigs.k8s.io/yaml"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -249,6 +250,7 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 			getCRDs, err := GetCRD(path)
 			if err != nil {
 				fmt.Printf("failed to extract crds: %s\n", err)
+				os.Exit(2)
 			}
 			unstructuredCrds = append(unstructuredCrds, getCRDs...)
 		}
