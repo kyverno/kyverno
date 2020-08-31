@@ -22,6 +22,12 @@ spec:
         resources:
           kinds:
             - Namespace
+      exclude:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
       generate:
         synchronize: true
         kind: ConfigMap
@@ -49,6 +55,12 @@ spec:
         resources:
           kinds: 
           - Namespace
+      exclude:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
       generate:
         kind: ConfigMap # Kind of resource 
         name: default-config # Name of the new Resource
@@ -94,6 +106,12 @@ spec:
         kinds:
         - Namespace
         name: "*"
+    exclude:
+      namespaces:
+        - "kube-system"
+        - "default"
+        - "kube-public"
+        - "kyverno"
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic
