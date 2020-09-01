@@ -28,7 +28,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
 	}
 
-	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p){
+	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p) {
 		return fmt.Errorf("policy contains non allowed variables")
 	}
 
@@ -55,26 +55,29 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		// validate Cluster Resources in namespaced cluster policy
 		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
 		if !mock && p.ObjectMeta.Namespace != "" {
-				var Empty struct{}
-				clusterResourcesMap := make(map[string]*struct{})
-				// Get all the cluster type kind supported by cluster
-				res, _ := client.GetDiscoveryCache().ServerPreferredResources()
-				for _, resList := range res {
-					for _, r := range resList.APIResources {
-						if r.Namespaced == false {
-							if clusterResourcesMap[r.Kind] != nil {
-								clusterResourcesMap[r.Kind] = &Empty
-							}
+			var Empty struct{}
+			clusterResourcesMap := make(map[string]*struct{})
+			// Get all the cluster type kind supported by cluster
+			res, err := client.GetDiscoveryCache().ServerPreferredResources()
+			if err != nil {
+				return err
+			}
+			for _, resList := range res {
+				for _, r := range resList.APIResources {
+					if r.Namespaced == false {
+						if clusterResourcesMap[r.Kind] != nil {
+							clusterResourcesMap[r.Kind] = &Empty
 						}
 					}
 				}
-
-				clusterResources := make([]string, 0, len(clusterResourcesMap))
-				for k := range clusterResourcesMap {
-					clusterResources = append(clusterResources, k)
-				}
-				return checkClusterResourceInMatchAndExclude(rule, clusterResources)
 			}
+
+			clusterResources := make([]string, 0, len(clusterResourcesMap))
+			for k := range clusterResourcesMap {
+				clusterResources = append(clusterResources, k)
+			}
+			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
+		}
 
 		if doesMatchAndExcludeConflict(rule) {
 			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
