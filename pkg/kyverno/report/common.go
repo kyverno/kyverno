@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
@@ -17,6 +18,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,7 +28,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"os"
-	"reflect"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"sync"
@@ -48,6 +51,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 	}
 
 	kclient, err := kyvernoclient.NewForConfig(restConfig)
+
 	if err != nil {
 		os.Exit(1)
 	}
@@ -56,55 +60,79 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 		log.Log.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-
+	pclient, err := kyvernoclient.NewForConfig(restConfig)
+	if err != nil {
+		os.Exit(1)
+	}
+	var stopCh <-chan struct{}
 	const resyncPeriod = 15 * time.Minute
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
+	ci := kubeInformer.Core().V1().ConfigMaps()
+	pi := pInformer.Kyverno().V1().Policies()
+	np := kubeInformer.Core().V1().Namespaces()
+
+	go np.Informer().Run(stopCh)
+
+	nSynced := np.Informer().HasSynced
+
+	cpi := pInformer.Kyverno().V1().ClusterPolicies()
+	go ci.Informer().Run(stopCh)
+	go pi.Informer().Run(stopCh)
+	go cpi.Informer().Run(stopCh)
+	cSynced := ci.Informer().HasSynced
+	piSynced := pi.Informer().HasSynced
+	cpiSynced := cpi.Informer().HasSynced
+	if !cache.WaitForCacheSync(stopCh,cSynced,piSynced,cpiSynced,nSynced) {
+		log.Log.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
 
 	configData := config.NewConfigData(
 		kubeClient,
-		kubeInformer.Core().V1().ConfigMaps(),
+		ci,
 		"",
 		"",
 		"",
 		log.Log.WithName("ConfigData"),
 	)
-	var cpolicies *kyvernov1.ClusterPolicyList
-	if scope == Cluster {
-		cpolicies, err = kclient.KyvernoV1().ClusterPolicies().List(metav1.ListOptions{})
+	var cpolicies []*kyvernov1.ClusterPolicy
+		cpolicies, err = cpi.Lister().List(labels.Everything())
 		if err != nil {
 			os.Exit(1)
 		}
-	} else {
-		cpolicies = &kyvernov1.ClusterPolicyList{}
-		policies, err := kclient.KyvernoV1().Policies(n).List(metav1.ListOptions{})
+		policies, err := pi.Lister().List(labels.Everything())
 		if err != nil {
 			os.Exit(1)
-		}
-		for _, p := range policies.Items {
-			cp := policy.ConvertPolicyToClusterPolicy(&p)
-			cpolicies.Items = append(cpolicies.Items, *cp)
 		}
 
-	}
+		for _, p := range policies {
+			cp := policy.ConvertPolicyToClusterPolicy(p)
+			cpolicies = append(cpolicies, cp)
+		}
 
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
 	var engineResponses []response.EngineResponse
-	for _, p := range cpolicies.Items {
+	for _, p := range cpolicies {
+
 		for _, rule := range p.Spec.Rules {
+
 			for _, k := range rule.MatchResources.Kinds {
+
 				resourceSchema, _, err := dClient.DiscoveryClient.FindResource("", k)
 				if err != nil {
 					log.Log.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
 
-				if !resourceSchema.Namespaced && scope == Cluster {
+				if !resourceSchema.Namespaced  {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
+
 					policy.MergeResources(resourceMap, rMap)
 				} else if resourceSchema.Namespaced {
-					namespaces := policy.GetNamespacesForRule(&rule, kubeInformer.Core().V1().Namespaces().Lister(), log.Log)
+					namespaces := policy.GetNamespacesForRule(&rule,np.Lister(), log.Log)
 					for _, ns := range namespaces {
 						if ns == n {
 							rMap := policy.GetResourcesPerNamespace(k, dClient, ns, rule, configData, log.Log)
@@ -115,6 +143,8 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 								if okChart && okRelease && scope == Helm {
 									policy.MergeResources(resourceMap, rMap)
 								} else if scope == Namespace {
+									policy.MergeResources(resourceMap, rMap)
+								}else{
 									policy.MergeResources(resourceMap, rMap)
 								}
 							}
@@ -127,44 +157,26 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 		if p.HasAutoGenAnnotation() {
 			resourceMap = policy.ExcludePod(resourceMap, log.Log)
 		}
-		var results map[string][]policyreportv1alpha1.PolicyReportResult
+		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
 		for _, resource := range resourceMap {
 			policyContext := engine.PolicyContext{
 				NewResource:      resource,
 				Context:          context.NewContext(),
-				Policy:           p,
+				Policy:           *p,
 				ExcludeGroupRole: configData.GetExcludeGroupRole(),
 			}
+
 			engineResponse := engine.Validate(policyContext)
-			if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
-				// we get an empty response if old and new resources created the same response
-				// allow updates if resource update doesnt change the policy evaluation
-				continue
-			}
+
 			if len(engineResponse.PolicyResponse.Rules) > 0 {
 				engineResponses = append(engineResponses, engineResponse)
 			}
 
 			engineResponse = engine.Mutate(policyContext)
-			if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
-				// we get an empty response if old and new resources created the same response
-				// allow updates if resource update doesnt change the policy evaluation
-				continue
-			}
 			if len(engineResponse.PolicyResponse.Rules) > 0 {
 				engineResponses = append(engineResponses, engineResponse)
 			}
-			if *policyContext.Policy.Spec.Background {
-				engineResponse = engine.Generate(policyContext)
-				if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
-					// we get an empty response if old and new resources created the same response
-					// allow updates if resource update doesnt change the policy evaluation
-					continue
-				}
-				if len(engineResponse.PolicyResponse.Rules) > 0 {
-					engineResponses = append(engineResponses, engineResponse)
-				}
-			}
+
 			pv := policyreport.GeneratePRsFromEngineResponse(engineResponses, log.Log)
 
 			for _, v := range pv {
@@ -181,7 +193,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 					_, okChart := labels["app"]
 					_, okRelease := labels["release"]
 					if okChart && okRelease {
-						appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
+						if policyContext.NewResource.GetNamespace() != "" {
+							appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
+						}
 					}
 					break
 				case Namespace:
@@ -213,17 +227,54 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 			}
 
 		}
-		for k, _ := range results {
-			if scope == Helm || scope == Namespace {
-				str := strings.Split(k, "-")
-				ns := str[len(str)-1]
 
-				availablepr, err := kclient.PolicyV1alpha1().PolicyReports(ns).Get(k, metav1.GetOptions{})
+		for k, _ := range results {
+			if k == "" {
+				continue
+			}
+			if scope == Helm || scope == Namespace {
+				availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
+
 				if err != nil {
 					if apierrors.IsNotFound(err) {
 						availablepr = &policyreportv1alpha1.PolicyReport{
 							Scope: &corev1.ObjectReference{
-								Kind: scope,
+							},
+							Summary: policyreportv1alpha1.PolicyReportSummary{},
+							Results: []*policyreportv1alpha1.PolicyReportResult{},
+						}
+						labelMap := map[string]string{
+							"policy-scope": scope,
+							"policy-state": "init",
+						}
+						availablepr.SetName(k)
+						availablepr.SetNamespace(n)
+						availablepr.SetLabels(labelMap)
+						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+							Kind : "PolicyReport",
+							Version: "v1alpha1",
+							Group: "policy.kubernetes.io",
+						})
+					}
+				}
+				availablepr, action := mergeReport(availablepr, results[k])
+				if action == "CREATE" {
+					_, err := kclient.PolicyV1alpha1().PolicyReports(n).Create(availablepr)
+					if err != nil {
+						log.Log.Error(err, "Error in create polciy report", "appreport", k)
+					}
+				} else {
+					_, err := kclient.PolicyV1alpha1().PolicyReports(n).Update(availablepr)
+					if err != nil {
+						log.Log.Error(err, "Error in update polciy report", "appreport", k)
+					}
+				}
+			}else{
+				availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
+				if err != nil {
+					if apierrors.IsNotFound(err) {
+						availablepr = &policyreportv1alpha1.ClusterPolicyReport{
+							Scope: &corev1.ObjectReference{
 							},
 							Summary: policyreportv1alpha1.PolicyReportSummary{},
 							Results: []*policyreportv1alpha1.PolicyReportResult{},
@@ -234,16 +285,21 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 						}
 						availablepr.SetName(k)
 						availablepr.SetLabels(labelMap)
+						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+							Kind : "ClusterPolicyReport",
+							Version: "v1alpha1",
+							Group: "policy.kubernetes.io",
+						})
 					}
 				}
-				availablepr, action := mergeReport(availablepr, results[k])
+				availablepr, action := mergeClusterReport(availablepr, results[k])
 				if action == "Create" {
-					_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.Namespace).Create(availablepr)
+					_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
 					if err != nil {
 						log.Log.Error(err, "Error in create polciy report", "appreport", k)
 					}
 				} else {
-					_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.Namespace).Update(availablepr)
+					_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Update(availablepr)
 					if err != nil {
 						log.Log.Error(err, "Error in update polciy report", "appreport", k)
 					}
@@ -269,16 +325,6 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 	if err != nil {
 		os.Exit(1)
 	}
-
-	kubeClient, err := utils.NewKubeClient(restConfig)
-	if err != nil {
-		log.Log.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	const resyncPeriod = 15 * time.Minute
-
-	_ = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 
 	configmap, err := dClient.GetResource("", "ConfigMap", config.KubePolicyNamespace, "kyverno-event")
 	if err != nil {
@@ -307,11 +353,10 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 		}
 		data = response[n]
 	}
-	var results map[string][]policyreportv1alpha1.PolicyReportResult
+	var results  = make(map[string][]policyreportv1alpha1.PolicyReportResult)
 	var ns []string
 	for _, v := range data {
 		for _, r := range v.Rules {
-			log.Log.Error(nil, "failed to get resource", "", r)
 			builder := policyreport.NewPrBuilder()
 			pv := builder.Generate(v)
 			result := &policyreportv1alpha1.PolicyReportResult{
@@ -343,27 +388,25 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 				_, okChart := labels["app"]
 				_, okRelease := labels["release"]
 				if okChart && okRelease {
-					appname = fmt.Sprintf("kyverno-policyreport%s-%s", labels["app"], v.Resource.GetNamespace())
+					appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], v.Resource.GetNamespace())
 					results[appname] = append(results[appname], *result)
 				}
 			} else {
-				appname = fmt.Sprintf("kyverno-policyreport%s", v.Resource.GetNamespace())
+				appname = fmt.Sprintf("kyverno-policyreport-%s", v.Resource.GetNamespace())
 				results[appname] = append(results[appname], *result)
 			}
 		}
+
 	}
 
 	for k, _ := range results {
 		if scope == Helm || scope == Namespace {
-			str := strings.Split(k, "-")
-			ns := str[len(str)-1]
-
-			availablepr, err := kclient.PolicyV1alpha1().PolicyReports(ns).Get(k, metav1.GetOptions{})
+			log.Log.Info("","",results)
+			availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					availablepr = &policyreportv1alpha1.PolicyReport{
 						Scope: &corev1.ObjectReference{
-							Kind: scope,
 						},
 						Summary: policyreportv1alpha1.PolicyReportSummary{},
 						Results: []*policyreportv1alpha1.PolicyReportResult{},
@@ -373,17 +416,27 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 						"policy-state": "init",
 					}
 					availablepr.SetName(k)
+					availablepr.SetNamespace(n)
 					availablepr.SetLabels(labelMap)
+					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+						Kind : "PolicyReport",
+						Version: "v1alpha1",
+						Group: "policy.kubernetes.io",
+					})
 				}
 			}
+
 			availablepr, action := mergeReport(availablepr, results[k])
-			if action == "Create" {
-				_, err := kclient.PolicyV1alpha1().PolicyReports(ns).Create(availablepr)
+			if action == "CREATE" {
+				availablepr.SetLabels(map[string]string{
+					"policy-state": "state",
+				})
+				_, err := kclient.PolicyV1alpha1().PolicyReports(n).Create(availablepr)
 				if err != nil {
 					log.Log.Error(err, "Error in create polciy report", "appreport", k)
 				}
 			} else {
-				_, err := kclient.PolicyV1alpha1().PolicyReports(ns).Update(availablepr)
+				_, err := kclient.PolicyV1alpha1().PolicyReports(n).Update(availablepr)
 				if err != nil {
 					log.Log.Error(err, "Error in update polciy report", "appreport", k)
 				}
@@ -394,7 +447,6 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 				if apierrors.IsNotFound(err) {
 					availablepr = &policyreportv1alpha1.ClusterPolicyReport{
 						Scope: &corev1.ObjectReference{
-							Kind: scope,
 						},
 						Summary: policyreportv1alpha1.PolicyReportSummary{},
 						Results: []*policyreportv1alpha1.PolicyReportResult{},
@@ -405,18 +457,23 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 					}
 					availablepr.SetName(k)
 					availablepr.SetLabels(labelMap)
+					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+						Kind : "ClusterPolicyReport",
+						Version: "v1alpha1",
+						Group: "policy.kubernetes.io",
+					})
 				}
 			}
 			availablepr, action := mergeClusterReport(availablepr, results[k])
-			if action == "Create" {
+			if action == "CREATE" {
 				_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
 				if err != nil {
-					log.Log.Error(err, "Error in create polciy report", "appreport", k)
+					log.Log.Error(err, "Error in create polciy report", "appreport", action)
 				}
 			} else {
 				_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Update(availablepr)
 				if err != nil {
-					log.Log.Error(err, "Error in update polciy report", "appreport", k)
+					log.Log.Error(err, "Error in update polciy report", "appreport", action)
 				}
 			}
 		}
@@ -427,7 +484,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult) (*policyreportv1alpha1.PolicyReport, string) {
 	labels := pr.GetLabels()
 	var action string
-	if labels["policy-state"] == "Init" {
+	if labels["policy-state"] == "init" {
 		action = "CREATE"
 		pr.SetLabels(map[string]string{
 			"policy-state": "Process",
@@ -435,20 +492,16 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 	} else {
 		action = "UPDATE"
 	}
-	for i, r := range results {
+	for _, r := range results {
+		var isExist = true
 		for _, v := range pr.Results {
 			if r.Policy == v.Policy && r.Rule == v.Rule && r.Resource.APIVersion == v.Resource.APIVersion && r.Resource.Kind == v.Resource.Kind && r.Resource.Namespace == v.Resource.Namespace && r.Resource.Name == v.Resource.Name {
 				r = *v
-				if len(results) > 1 {
-					results = append(results[:i], results[i+1:]...)
-					continue
-				} else if len(results) == 1 {
-					results = []policyreportv1alpha1.PolicyReportResult{}
-				}
+				isExist = false
 			}
 		}
-		for _, v := range pr.Results {
-			pr.Results = append(pr.Results, v)
+		if isExist {
+			pr.Results = append(pr.Results, &r)
 		}
 	}
 	return pr, action
@@ -465,20 +518,17 @@ func mergeClusterReport(pr *policyreportv1alpha1.ClusterPolicyReport, results []
 	} else {
 		action = "UPDATE"
 	}
-	for i, r := range results {
+
+	for _, r := range results {
+		var isExist = true
 		for _, v := range pr.Results {
 			if r.Policy == v.Policy && r.Rule == v.Rule && r.Resource.APIVersion == v.Resource.APIVersion && r.Resource.Kind == v.Resource.Kind && r.Resource.Namespace == v.Resource.Namespace && r.Resource.Name == v.Resource.Name {
 				r = *v
-				if len(results) > 1 {
-					results = append(results[:i], results[i+1:]...)
-					continue
-				} else if len(results) == 1 {
-					results = []policyreportv1alpha1.PolicyReportResult{}
-				}
+				isExist = false
 			}
 		}
-		for _, v := range pr.Results {
-			pr.Results = append(pr.Results, v)
+		if isExist {
+			pr.Results = append(pr.Results, &r)
 		}
 	}
 	return pr, action

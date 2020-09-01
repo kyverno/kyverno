@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"os"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
@@ -31,29 +32,44 @@ func NamespaceCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+			var stopCh <-chan struct{}
 
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+			np := kubeInformer.Core().V1().Namespaces()
+
+			go np.Informer().Run(stopCh)
+
+			nSynced := np.Informer().HasSynced
+
+			nLister := np.Lister()
+
+			if !cache.WaitForCacheSync(stopCh,nSynced) {
+				log.Log.Error(err, "Failed to create kubernetes client")
+				os.Exit(1)
+			}
 			if mode == "cli" {
-				ns, err := kubeInformer.Core().V1().Namespaces().Lister().List(labels.Everything())
+				ns, err := nLister.List(labels.Everything())
 				if err != nil {
 					os.Exit(1)
 				}
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-					go configmapScan(n.GetName(), "Namespace", &wg, restConfig)
+					log.Log.Info("",n.GetName())
+					go backgroundScan(n.GetName(), "Namespace", &wg, restConfig)
 				}
 				wg.Wait()
 			} else {
 				var wg sync.WaitGroup
 				wg.Add(1)
-				go backgroundScan("", "Namespace", &wg, restConfig)
+				go configmapScan("", "Namespace", &wg, restConfig)
 				wg.Wait()
 				return nil
 			}
+			<- stopCh
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&mode, "mode", "m", "", "mode")
+	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }

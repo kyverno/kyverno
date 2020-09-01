@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"k8s.io/client-go/tools/cache"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,23 +33,34 @@ func HelmCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+			var stopCh <-chan struct{}
 
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+			np := kubeInformer.Core().V1().Namespaces()
+
+			go np.Informer().Run(stopCh)
+
+			nSynced := np.Informer().HasSynced
+
+			if !cache.WaitForCacheSync(stopCh,nSynced) {
+				log.Log.Error(err, "Failed to create kubernetes client")
+				os.Exit(1)
+			}
 			if mode == "cli" {
-				ns, err := kubeInformer.Core().V1().Namespaces().Lister().List(labels.Everything())
+				ns, err := np.Lister().List(labels.Everything())
 				if err != nil {
 					os.Exit(1)
 				}
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-					go configmapScan(n.GetName(), "Helm", &wg, restConfig)
+					go backgroundScan(n.GetName(), "Helm", &wg, restConfig)
 				}
 				wg.Wait()
 			} else {
 				var wg sync.WaitGroup
 				wg.Add(1)
-				go backgroundScan("", "Helm", &wg, restConfig)
+				go configmapScan("", "Helm", &wg, restConfig)
 				wg.Wait()
 				return nil
 			}

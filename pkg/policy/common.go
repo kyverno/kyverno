@@ -146,7 +146,6 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 	if err != nil {
 		log.Error(err, "Failed to list namespaces")
 	}
-
 	for _, n := range namespaces {
 		name := n.GetName()
 		results = append(results, name)
