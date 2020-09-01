@@ -38,7 +38,7 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71
+	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.17.4
 	k8s.io/apiextensions-apiserver v0.17.4
@@ -48,8 +48,9 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.5.0
+	sigs.k8s.io/kustomize v2.0.3+incompatible
 	sigs.k8s.io/kustomize/api v0.5.1
-	sigs.k8s.io/kustomize/kyaml v0.6.1
+	sigs.k8s.io/kustomize/kyaml v0.4.1
 	sigs.k8s.io/yaml v1.2.0
 )
 
