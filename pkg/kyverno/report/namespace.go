@@ -16,12 +16,13 @@ import (
 
 func NamespaceCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode string
+	var mode,namespace string
 	cmd := &cobra.Command{
 		Use:     "namespace",
 		Short:   "generate report",
 		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			os.Setenv("POLICY-TYPE","POLICYREPORT")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)
@@ -31,6 +32,19 @@ func NamespaceCommand() *cobra.Command {
 			if err != nil {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
+			}
+			if mode == "cli" && namespace != "" {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go backgroundScan(namespace, "Namespace", &wg, restConfig)
+				wg.Wait()
+				return nil
+			}else if namespace != "" {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go configmapScan(namespace, "Namespace", &wg, restConfig)
+				wg.Wait()
+				return nil
 			}
 			var stopCh <-chan struct{}
 
@@ -55,7 +69,6 @@ func NamespaceCommand() *cobra.Command {
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-					log.Log.Info("",n.GetName())
 					go backgroundScan(n.GetName(), "Namespace", &wg, restConfig)
 				}
 				wg.Wait()
@@ -70,6 +83,7 @@ func NamespaceCommand() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "define specific namespace")
 	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }

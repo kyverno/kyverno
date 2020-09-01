@@ -182,7 +182,9 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
-	jobController := jobs.NewJobsJob(client, log.Log.WithName("jonController"))
+	// Job Controller
+	// - Create Jobs for report
+	jobController := jobs.NewJobsJob(client, log.Log.WithName("jobController"))
 
 
 	// POLICY VIOLATION GENERATOR

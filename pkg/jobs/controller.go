@@ -25,7 +25,7 @@ import (
 const workQueueName = "policy-violation-controller"
 const workQueueRetryLimit = 3
 
-//Job creates PV
+//Job creates policy report
 type Job struct {
 	dclient   *dclient.Client
 	log       logr.Logger
@@ -34,6 +34,7 @@ type Job struct {
 	mux       sync.Mutex
 }
 
+// Job Info Define Job Type
 type JobInfo struct {
 	JobType string
 	Policy  string
@@ -204,17 +205,17 @@ func (j *Job) syncHandler(info JobInfo) error {
 	if len(info.Policy) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(3)
-		go j.syncNamespace(&wg, "HELM", "POLICY", info.Policy)
-		go j.syncNamespace(&wg, "NAMESPACE", "POLICY", info.Policy)
-		go j.syncNamespace(&wg, "CLUSTER", "POLICY", info.Policy)
+		go j.syncNamespace(&wg, "Helm", "POLICY", info.Policy)
+		go j.syncNamespace(&wg, "Namespace", "POLICY", info.Policy)
+		go j.syncNamespace(&wg, "Cluster", "POLICY", info.Policy)
 		wg.Wait()
 		return nil
 	}
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go j.syncNamespace(&wg, "HELM", "SYNC", info.Policy)
-	go j.syncNamespace(&wg, "NAMESPACE", "SYNC", info.Policy)
-	go j.syncNamespace(&wg, "CLUSTER", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "Helm", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "Namespace", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "Cluster", "SYNC", info.Policy)
 	wg.Wait()
 	return nil
 }
@@ -233,7 +234,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 
 	var job *v1.Job
 	switch jobType {
-	case "HELM":
+	case "Helm":
 		args = []string{
 			"report",
 			"helm",
@@ -241,7 +242,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 		}
 		job = CreateJob(args, jobType, scope)
 		break
-	case "NAMESPACE":
+	case "Namespace":
 		args = []string{
 			"report",
 			"namespace",
@@ -249,7 +250,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 		}
 		job = CreateJob(args, jobType, scope)
 		break
-	case "CLUSTER":
+	case "Cluster":
 		args = []string{
 			"report",
 			"cluster",
@@ -271,8 +272,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 		}
 		job := v1.Job{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-			failure = true
-			break
+			continue
 		}
 		if job.Status.Active == 0 || time.Now().After(deadline) {
 			failure = true
@@ -288,6 +288,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 	return
 }
 
+// CreateJob will create Job template for background scan
 func CreateJob(args []string, jobType, scope string) *v1.Job {
 	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
