@@ -1,8 +1,11 @@
 package common
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +13,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
