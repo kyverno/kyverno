@@ -67,7 +67,7 @@ so it is necessary to remove the anchor mapsfrom the pattern before calling patc
 | (volumes):
 | - (hostPath):
 |   path: "/var/run/docker.sock"
-walkMap will remove the node containing (valumes) from the yaml
+walkMap will remove the node containing (volumes) from the yaml
 */
 
 /* 2> For Adding anchors remove anchor tags.

@@ -58,7 +58,10 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			var Empty struct{}
 			clusterResourcesMap := make(map[string]*struct{})
 			// Get all the cluster type kind supported by cluster
-			res, _ := client.GetDiscoveryCache().ServerPreferredResources()
+			res, err := client.GetDiscoveryCache().ServerPreferredResources()
+			if err != nil {
+				return err
+			}
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
 					if r.Namespaced == false {
