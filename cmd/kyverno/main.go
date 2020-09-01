@@ -78,7 +78,6 @@ func main() {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
 
-	// TODO: Do we need to print here? It anyways prints empty values
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
