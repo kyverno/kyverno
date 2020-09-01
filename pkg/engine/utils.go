@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/nirmata/kyverno/pkg/utils"
@@ -249,10 +250,28 @@ func copyConditions(original []kyverno.Condition) []kyverno.Condition {
 	return copy
 }
 
-// excludePod checks if a Pod has ownerRef set
-func excludePod(resource unstructured.Unstructured) bool {
-	if resource.GetKind() == "Pod" {
+// excludeResource checks if the resource has ownerRef set
+func excludeResource(resource unstructured.Unstructured) bool {
+	kind := resource.GetKind()
+	if kind == "Pod" || kind == "Job" {
 		if len(resource.GetOwnerReferences()) > 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// SkipPolicyApplication returns true:
+// - if the policy has auto-gen annotation && resource == Pod
+// - if the auto-gen contains cronJob && resource == Job
+func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
+		return true
+	}
+
+	if podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
+		if strings.Contains(podControllers, "CronJob") && excludeResource(resource) {
 			return true
 		}
 	}

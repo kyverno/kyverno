@@ -69,7 +69,7 @@ func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 	logger := log.WithName("CRDInstalled")
 	check := func(kind string) bool {
 		gvr := discovery.GetGVRFromKind(kind)
-		if reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
+		if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
 			logger.Info("CRD not installed", "kind", kind)
 			return false
 		}

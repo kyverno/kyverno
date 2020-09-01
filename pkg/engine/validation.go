@@ -104,7 +104,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 
 func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
-	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+	if SkipPolicyApplication(policy, resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}
@@ -150,7 +150,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+	if SkipPolicyApplication(policy, resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}

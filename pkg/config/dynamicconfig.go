@@ -109,7 +109,7 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	if excludeGroupRole != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
 		cd.initRbac("excludeRoles", excludeGroupRole)
-	}else{
+	} else {
 		cd.initRbac("excludeRoles", "")
 	}
 
@@ -187,9 +187,9 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 	defer cd.mux.Unlock()
 	// get resource filters
 	filters, ok := cm.Data["resourceFilters"]
-	if !ok  {
+	if !ok {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
-	}else{
+	} else {
 		newFilters := parseKinds(filters)
 		if reflect.DeepEqual(newFilters, cd.filters) {
 			logger.V(4).Info("resourceFilters did not change")
@@ -202,7 +202,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 
 	// get resource filters
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
-	if !ok  {
+	if !ok {
 		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
 	}
 	newExcludeGroupRoles := parseRbac(excludeGroupRole)
@@ -217,9 +217,9 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 
 	// get resource filters
 	excludeUsername, ok := cm.Data["excludeUsername"]
-	if !ok  {
+	if !ok {
 		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
-	}else{
+	} else {
 		excludeUsernames := parseRbac(excludeUsername)
 		if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
 			logger.V(4).Info("excludeGroupRole did not change")

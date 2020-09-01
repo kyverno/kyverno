@@ -121,10 +121,10 @@ For conditional anchors, the child element is considered to be part of the "if" 
   pattern:
     metadata:
       labels:
-        allow-docker: true
+        allow-docker: "true"
     spec:
       (volumes):
-        (hostPath):
+      - (hostPath):
           path: "/var/run/docker.sock"
 ````
 

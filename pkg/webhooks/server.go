@@ -288,7 +288,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
-			logger.Error(err, "failed to get RBAC infromation for request")
+			logger.Error(err, "failed to get RBAC information for request")
 		}
 	}
 
@@ -508,7 +508,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	}(ws)
 	logger.Info("starting")
 
-	// verifys if the admission control is enabled and active
+	// verifies if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)

@@ -36,16 +36,6 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		// skip reporting violation on pod which has annotation pod-policies.kyverno.io/autogen-applied
-		ann := policy.GetAnnotations()
-		if annValue, ok := ann[engine.PodControllersAnnotation]; ok {
-			if annValue != "none" {
-				if skipPodApplication(resource, logger) {
-					continue
-				}
-			}
-		}
-
 		// apply the policy on each
 		engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole())
 		// get engine response for mutation & validation independently
@@ -84,22 +74,14 @@ func (pc *PolicyController) listResources(policy *kyverno.ClusterPolicy) map[str
 		}
 	}
 
-	if policy.HasAutoGenAnnotation() {
-		return excludePod(resourceMap, pc.log)
-	}
-
-	return resourceMap
+	return excludeAutoGenResources(*policy, resourceMap, pc.log)
 }
 
-// excludePod filter out the pods with ownerReference
-func excludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
+// excludeAutoGenResources filter out the pods / jobs with ownerReference
+func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
 	for uid, r := range resourceMap {
-		if r.GetKind() != "Pod" {
-			continue
-		}
-
-		if len(r.GetOwnerReferences()) > 0 {
-			log.V(4).Info("exclude Pod", "namespace", r.GetNamespace(), "name", r.GetName())
+		if engine.SkipPolicyApplication(policy, r) {
+			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
 			delete(resourceMap, uid)
 		}
 	}
@@ -400,18 +382,4 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 
 func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
-}
-
-func skipPodApplication(resource unstructured.Unstructured, log logr.Logger) bool {
-	if resource.GetKind() != "Pod" {
-		return false
-	}
-
-	annotation := resource.GetAnnotations()
-	if _, ok := annotation[engine.PodTemplateAnnotation]; ok {
-		log.V(4).Info("Policies already processed on pod controllers, skip processing policy on Pod", "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-		return true
-	}
-
-	return false
 }

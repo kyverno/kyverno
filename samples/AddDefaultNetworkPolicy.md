@@ -21,6 +21,12 @@ spec:
         kinds:
         - Namespace
         name: "*"
+    exclude:
+      namespaces:
+        - "kube-system"
+        - "default"
+        - "kube-public"
+        - "kyverno"
     generate: 
       kind: NetworkPolicy
       name: default-deny-ingress
@@ -31,4 +37,5 @@ spec:
           podSelector: {}
           policyTypes: 
           - Ingress
+
 ````
