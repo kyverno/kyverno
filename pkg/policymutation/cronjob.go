@@ -2,6 +2,7 @@ package policymutation
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -19,6 +20,10 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	logger.V(3).Info("")
 	jobRule := generateRuleForControllers(rule, "Job", logger)
+
+	if reflect.DeepEqual(jobRule, kyvernoRule{}) {
+		return kyvernoRule{}
+	}
 
 	cronJobRule := &jobRule
 	cronJobRule.Name = fmt.Sprintf("autogen-cronjob-%s", rule.Name)
