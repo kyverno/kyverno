@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"math/rand"
 	"time"
 
@@ -60,6 +61,9 @@ type PolicyController struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
+	// grLister can list/get generate request from the shared informer's store
+	grLister kyvernolister.GenerateRequestLister
+
 	// pvLister can list/get policy violation from the shared informer's store
 	cpvLister kyvernolister.ClusterPolicyViolationLister
 
@@ -84,6 +88,8 @@ type PolicyController struct {
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
+	// grListerSynced returns true if the generate request store has been synced at least once
+	grListerSynced cache.InformerSynced
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -92,6 +98,7 @@ type PolicyController struct {
 
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
+
 
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
@@ -106,6 +113,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	npInformer kyvernoinformer.PolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	grInformer kyvernoinformer.GenerateRequestInformer,
 	configHandler config.Interface, eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
@@ -164,12 +172,13 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pc.cpvLister = cpvInformer.Lister()
 	pc.nspvLister = nspvInformer.Lister()
 	pc.nsLister = namespaces.Lister()
-
+	pc.grLister = grInformer.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 	pc.cpvListerSynced = cpvInformer.Informer().HasSynced
 	pc.nspvListerSynced = nspvInformer.Informer().HasSynced
 	pc.nsListerSynced = namespaces.Informer().HasSynced
+	pc.grListerSynced = grInformer.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -310,7 +319,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced,pc.grListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -375,7 +384,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	namespace, key, isNamespacedPolicy := getIsNamespacedPolicy(key)
 	var policy *kyverno.ClusterPolicy
 	var err error
-	grList, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+	grList, err := pc.grLister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list generate request")
 	}
@@ -389,7 +398,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	if errors.IsNotFound(err) {
-		for _, v := range grList.Items {
+		for _, v := range grList {
 			if policy.Name == v.Spec.Policy {
 				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
 				if err != nil {
@@ -406,20 +415,19 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 		return nil
 	}
-	for _, v := range grList.Items {
+	for _, v := range grList {
 		if policy.Name == v.Spec.Policy {
 			v.SetLabels(map[string]string{
-				"policy-update" :fmt.Sprintf("%d",rand.Intn(100000)),
+				"policy-update" :fmt.Sprintf("revision-count-%d",rand.Intn(100000)),
 			})
-			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
+			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
 			if err != nil {
 				logger.Error(err, "failed to update gr")
+				return err
 			}
 		}
 	}
-	if err != nil {
-		return err
-	}
+
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 

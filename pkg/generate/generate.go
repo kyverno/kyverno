@@ -161,13 +161,6 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 		startTime := time.Now()
 		processExist := false
-		if policy.Name == gr.Spec.Policy && len(rule.MatchResources.ResourceDescription.Kinds) > 0 && (len(rule.MatchResources.ResourceDescription.Annotations) == 0 || len(rule.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
-			processExist = func() bool {
-				rcreationTime := resource.GetCreationTimestamp()
-				pcreationTime := policy.GetCreationTimestamp()
-				return rcreationTime.Before(&pcreationTime)
-			}()
-		}
 
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExist)
 		if err != nil {
