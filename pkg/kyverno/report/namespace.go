@@ -16,13 +16,13 @@ import (
 
 func NamespaceCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode,namespace string
+	var mode, namespace string
 	cmd := &cobra.Command{
 		Use:     "namespace",
 		Short:   "generate report",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Example: fmt.Sprintf("To create a namespace report from background scan:\nkyverno report namespace --namespace=defaults \n kyverno report namespace"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("POLICY-TYPE","POLICYREPORT")
+			os.Setenv("POLICY-TYPE", "POLICYREPORT")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)
@@ -39,7 +39,7 @@ func NamespaceCommand() *cobra.Command {
 				go backgroundScan(namespace, "Namespace", &wg, restConfig)
 				wg.Wait()
 				return nil
-			}else if namespace != "" {
+			} else if namespace != "" {
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go configmapScan(namespace, "Namespace", &wg, restConfig)
@@ -57,7 +57,7 @@ func NamespaceCommand() *cobra.Command {
 
 			nLister := np.Lister()
 
-			if !cache.WaitForCacheSync(stopCh,nSynced) {
+			if !cache.WaitForCacheSync(stopCh, nSynced) {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
@@ -79,7 +79,7 @@ func NamespaceCommand() *cobra.Command {
 				wg.Wait()
 				return nil
 			}
-			<- stopCh
+			<-stopCh
 			return nil
 		},
 	}

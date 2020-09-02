@@ -19,7 +19,7 @@ func Command() *cobra.Command {
 	cmd = &cobra.Command{
 		Use:     "report",
 		Short:   "generate report",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Example: fmt.Sprintf("To create a report from background scan:\nkyverno report"),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			cmd.Help()
 			return err

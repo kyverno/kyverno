@@ -2,12 +2,12 @@ package report
 
 import (
 	"fmt"
-	"k8s.io/client-go/tools/cache"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"os"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
@@ -16,13 +16,13 @@ import (
 
 func HelmCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode,namespace string
+	var mode, namespace string
 	cmd := &cobra.Command{
 		Use:     "helm",
 		Short:   "generate report",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Example: fmt.Sprintf("To create a helm report from background scan:\nkyverno report helm --namespace=defaults \n kyverno report helm"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("POLICY-TYPE","POLICYREPORT")
+			os.Setenv("POLICY-TYPE", "POLICYREPORT")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)
@@ -39,7 +39,7 @@ func HelmCommand() *cobra.Command {
 				go backgroundScan(namespace, "Helm", &wg, restConfig)
 				wg.Wait()
 				return nil
-			}else if namespace != "" {
+			} else if namespace != "" {
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go configmapScan(namespace, "Helm", &wg, restConfig)
@@ -55,7 +55,7 @@ func HelmCommand() *cobra.Command {
 
 			nSynced := np.Informer().HasSynced
 
-			if !cache.WaitForCacheSync(stopCh,nSynced) {
+			if !cache.WaitForCacheSync(stopCh, nSynced) {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}

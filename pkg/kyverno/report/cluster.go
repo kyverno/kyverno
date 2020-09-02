@@ -14,9 +14,9 @@ func ClusterCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "cluster",
 		Short:   "generate report",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Example: fmt.Sprintf("To create a cluster report from background scan:\nkyverno report cluster --namespace=defaults \n kyverno report cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("POLICY-TYPE","POLICYREPORT")
+			os.Setenv("POLICY-TYPE", "POLICYREPORT")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
 				os.Exit(1)

@@ -83,7 +83,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 	cSynced := ci.Informer().HasSynced
 	piSynced := pi.Informer().HasSynced
 	cpiSynced := cpi.Informer().HasSynced
-	if !cache.WaitForCacheSync(stopCh,cSynced,piSynced,cpiSynced,nSynced) {
+	if !cache.WaitForCacheSync(stopCh, cSynced, piSynced, cpiSynced, nSynced) {
 		log.Log.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
@@ -97,19 +97,19 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 		log.Log.WithName("ConfigData"),
 	)
 	var cpolicies []*kyvernov1.ClusterPolicy
-		cpolicies, err = cpi.Lister().List(labels.Everything())
-		if err != nil {
-			os.Exit(1)
-		}
-		policies, err := pi.Lister().List(labels.Everything())
-		if err != nil {
-			os.Exit(1)
-		}
+	cpolicies, err = cpi.Lister().List(labels.Everything())
+	if err != nil {
+		os.Exit(1)
+	}
+	policies, err := pi.Lister().List(labels.Everything())
+	if err != nil {
+		os.Exit(1)
+	}
 
-		for _, p := range policies {
-			cp := policy.ConvertPolicyToClusterPolicy(p)
-			cpolicies = append(cpolicies, cp)
-		}
+	for _, p := range policies {
+		cp := policy.ConvertPolicyToClusterPolicy(p)
+		cpolicies = append(cpolicies, cp)
+	}
 
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
@@ -126,11 +126,11 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 					continue
 				}
 
-				if !resourceSchema.Namespaced && scope == Cluster  {
+				if !resourceSchema.Namespaced && scope == Cluster {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
 					policy.MergeResources(resourceMap, rMap)
 				} else if resourceSchema.Namespaced {
-					namespaces := policy.GetNamespacesForRule(&rule,np.Lister(), log.Log)
+					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(), log.Log)
 					for _, ns := range namespaces {
 						if ns == n {
 							rMap := policy.GetResourcesPerNamespace(k, dClient, ns, rule, configData, log.Log)
@@ -189,7 +189,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 					_, okChart := labels["app"]
 					_, okRelease := labels["release"]
 					if okChart && okRelease {
-							appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
+						appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
 
 					}
 					break
@@ -234,8 +234,8 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 					if apierrors.IsNotFound(err) {
 						availablepr = &policyreportv1alpha1.PolicyReport{
 							Scope: &corev1.ObjectReference{
-								Kind : scope,
-								Namespace : n,
+								Kind:      scope,
+								Namespace: n,
 							},
 							Summary: policyreportv1alpha1.PolicyReportSummary{},
 							Results: []*policyreportv1alpha1.PolicyReportResult{},
@@ -248,9 +248,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 						availablepr.SetNamespace(n)
 						availablepr.SetLabels(labelMap)
 						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-							Kind : "PolicyReport",
+							Kind:    "PolicyReport",
 							Version: "v1alpha1",
-							Group: "policy.kubernetes.io",
+							Group:   "policy.kubernetes.io",
 						})
 					}
 				}
@@ -266,13 +266,13 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 						log.Log.Error(err, "Error in update polciy report", "appreport", k)
 					}
 				}
-			}else{
+			} else {
 				availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
 				if err != nil {
 					if apierrors.IsNotFound(err) {
 						availablepr = &policyreportv1alpha1.ClusterPolicyReport{
 							Scope: &corev1.ObjectReference{
-								Kind : scope,
+								Kind: scope,
 							},
 							Summary: policyreportv1alpha1.PolicyReportSummary{},
 							Results: []*policyreportv1alpha1.PolicyReportResult{},
@@ -284,9 +284,9 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 						availablepr.SetName(k)
 						availablepr.SetLabels(labelMap)
 						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-							Kind : "ClusterPolicyReport",
+							Kind:    "ClusterPolicyReport",
 							Version: "v1alpha1",
-							Group: "policy.kubernetes.io",
+							Group:   "policy.kubernetes.io",
 						})
 					}
 				}
@@ -351,7 +351,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 		}
 		data = response[n]
 	}
-	var results  = make(map[string][]policyreportv1alpha1.PolicyReportResult)
+	var results = make(map[string][]policyreportv1alpha1.PolicyReportResult)
 	var ns []string
 	for _, v := range data {
 		for _, r := range v.Rules {
@@ -399,13 +399,13 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 
 	for k, _ := range results {
 		if scope == Helm || scope == Namespace {
-			log.Log.Info("","",results)
+			log.Log.Info("", "", results)
 			availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					availablepr = &policyreportv1alpha1.PolicyReport{
 						Scope: &corev1.ObjectReference{
-							Kind : scope,
+							Kind:      scope,
 							Namespace: n,
 						},
 						Summary: policyreportv1alpha1.PolicyReportSummary{},
@@ -419,9 +419,9 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 					availablepr.SetNamespace(n)
 					availablepr.SetLabels(labelMap)
 					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-						Kind : "PolicyReport",
+						Kind:    "PolicyReport",
 						Version: "v1alpha1",
-						Group: "policy.kubernetes.io",
+						Group:   "policy.kubernetes.io",
 					})
 				}
 			}
@@ -459,9 +459,9 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 					availablepr.SetName(k)
 					availablepr.SetLabels(labelMap)
 					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-						Kind : "ClusterPolicyReport",
+						Kind:    "ClusterPolicyReport",
 						Version: "v1alpha1",
-						Group: "policy.kubernetes.io",
+						Group:   "policy.kubernetes.io",
 					})
 				}
 			}
@@ -498,12 +498,12 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 		for _, v := range pr.Results {
 			if r.Policy == v.Policy && r.Rule == v.Rule && r.Resource.APIVersion == v.Resource.APIVersion && r.Resource.Kind == v.Resource.Kind && r.Resource.Namespace == v.Resource.Namespace && r.Resource.Name == v.Resource.Name {
 				r = *v
-				pr = changeClusterReportCount(string(r.Status),string(v.Status),pr)
+				pr = changeClusterReportCount(string(r.Status), string(v.Status), pr)
 				isExist = false
 			}
 		}
 		if isExist {
-			pr = changeClusterReportCount(string(r.Status),string(""),pr)
+			pr = changeClusterReportCount(string(r.Status), string(""), pr)
 			pr.Results = append(pr.Results, &r)
 		}
 	}
@@ -527,40 +527,39 @@ func mergeClusterReport(pr *policyreportv1alpha1.ClusterPolicyReport, results []
 		for _, v := range pr.Results {
 			if r.Policy == v.Policy && r.Rule == v.Rule && r.Resource.APIVersion == v.Resource.APIVersion && r.Resource.Kind == v.Resource.Kind && r.Resource.Namespace == v.Resource.Namespace && r.Resource.Name == v.Resource.Name {
 				r = *v
-				pr = changeCount(string(r.Status),string(v.Status),pr)
+				pr = changeCount(string(r.Status), string(v.Status), pr)
 				isExist = false
 			}
 		}
 		if isExist {
-			pr = changeCount(string(r.Status),string(""),pr)
+			pr = changeCount(string(r.Status), string(""), pr)
 			pr.Results = append(pr.Results, &r)
 		}
 	}
 	return pr, action
 }
 
-
-func changeCount(status,oldStatus string, report *policyreportv1alpha1.ClusterPolicyReport) *policyreportv1alpha1.ClusterPolicyReport {
-		switch oldStatus {
-		case "Pass":
-			if report.Summary.Pass--; report.Summary.Pass < 0 {
-				report.Summary.Pass = 0
-			}
-			break
-		case "Fail":
-			if report.Summary.Fail--; report.Summary.Fail < 0 {
-				report.Summary.Fail = 0
-			}
-			break
-		default:
-			break
+func changeCount(status, oldStatus string, report *policyreportv1alpha1.ClusterPolicyReport) *policyreportv1alpha1.ClusterPolicyReport {
+	switch oldStatus {
+	case "Pass":
+		if report.Summary.Pass--; report.Summary.Pass < 0 {
+			report.Summary.Pass = 0
 		}
+		break
+	case "Fail":
+		if report.Summary.Fail--; report.Summary.Fail < 0 {
+			report.Summary.Fail = 0
+		}
+		break
+	default:
+		break
+	}
 	switch status {
 	case "Pass":
 		report.Summary.Pass++
 		break
 	case "Fail":
-		 report.Summary.Fail++
+		report.Summary.Fail++
 		break
 	default:
 		break
@@ -568,7 +567,7 @@ func changeCount(status,oldStatus string, report *policyreportv1alpha1.ClusterPo
 	return report
 }
 
-func changeClusterReportCount(status,oldStatus string, report *policyreportv1alpha1.PolicyReport) *policyreportv1alpha1.PolicyReport {
+func changeClusterReportCount(status, oldStatus string, report *policyreportv1alpha1.PolicyReport) *policyreportv1alpha1.PolicyReport {
 	switch oldStatus {
 	case "Pass":
 		if report.Summary.Pass--; report.Summary.Pass < 0 {
