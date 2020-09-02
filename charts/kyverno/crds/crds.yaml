@@ -1,0 +1,739 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterpolicies.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: ClusterPolicy
+    plural: clusterpolicies
+    shortNames:
+    - cpol
+    singular: clusterpolicy
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            background:
+              type: boolean
+            rules:
+              items:
+                properties:
+                  exclude:
+                    properties:
+                      clusterRoles:
+                        items:
+                          type: string
+                        type: array
+                      resources:
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          kinds:
+                            items:
+                              type: string
+                            type: array
+                          name:
+                            type: string
+                          namespaces:
+                            items:
+                              type: string
+                            type: array
+                          selector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                        type: object
+                      roles:
+                        items:
+                          type: string
+                        type: array
+                      subjects:
+                        items:
+                          properties:
+                            apiGroup:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                    type: object
+                  generate:
+                    properties:
+                      apiVersion:
+                        type: string
+                      clone:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - namespace
+                        - name
+                        type: object
+                      data: {}
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      synchronize:
+                        type: boolean
+                    required:
+                    - kind
+                    - name
+                    type: object
+                  match:
+                    properties:
+                      clusterRoles:
+                        items:
+                          type: string
+                        type: array
+                      resources:
+                        minProperties: 1
+                        properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          kinds:
+                            items:
+                              type: string
+                            type: array
+                          name:
+                            type: string
+                          namespaces:
+                            items:
+                              type: string
+                            type: array
+                          selector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                        type: object
+                      roles:
+                        items:
+                          type: string
+                        type: array
+                      subjects:
+                        items:
+                          properties:
+                            apiGroup:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                    required:
+                    - resources
+                    type: object
+                  mutate:
+                    properties:
+                      overlay: {}
+                      patchStrategicMerge: {}
+                      patches:
+                        items:
+                          properties:
+                            op:
+                              enum:
+                              - add
+                              - replace
+                              - remove
+                              type: string
+                            path:
+                              type: string
+                            value: {}
+                          required:
+                          - path
+                          - op
+                          type: object
+                        type: array
+                      patchesJson6902:
+                        type: string
+                    type: object
+                  name:
+                    type: string
+                  preconditions:
+                    items:
+                      required:
+                      - key
+                      - operator
+                      - value
+                      type: object
+                    type: array
+                  validate:
+                    properties:
+                      anyPattern: {}
+                      deny:
+                        properties:
+                          conditions:
+                            items:
+                              properties:
+                                key:
+                                  type: string
+                                operator:
+                                  enum:
+                                  - Equal
+                                  - Equals
+                                  - NotEqual
+                                  - NotEquals
+                                  - In
+                                  - NotIn
+                                  type: string
+                                value:
+                                  anyOf:
+                                  - type: string
+                                  - items: {}
+                                    type: array
+                              required:
+                              - key
+                              - operator
+                              - value
+                              type: object
+                            type: array
+                      message:
+                        type: string
+                      pattern: {}
+                    type: object
+                required:
+                - name
+                - match
+                type: object
+              type: array
+            validationFailureAction:
+              enum:
+              - enforce
+              - audit
+              type: string
+          required:
+          - rules
+        status: {}
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterpolicyviolations.kyverno.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.policy
+    description: The policy that resulted in the violation
+    name: Policy
+    type: string
+  - JSONPath: .spec.resource.kind
+    description: The resource kind that cause the violation
+    name: ResourceKind
+    type: string
+  - JSONPath: .spec.resource.name
+    description: The resource name that caused the violation
+    name: ResourceName
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: kyverno.io
+  names:
+    kind: ClusterPolicyViolation
+    plural: clusterpolicyviolations
+    shortNames:
+    - cpolv
+    singular: clusterpolicyviolation
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            policy:
+              type: string
+            resource:
+              properties:
+                kind:
+                  type: string
+                name:
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            rules:
+              items:
+                properties:
+                  message:
+                    type: string
+                  name:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - name
+                - type
+                - message
+                type: object
+              type: array
+          required:
+          - policy
+          - resource
+          - rules
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: generaterequests.kyverno.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.policy
+    description: The policy that resulted in the violation
+    name: Policy
+    type: string
+  - JSONPath: .spec.resource.kind
+    description: The resource kind that cause the violation
+    name: ResourceKind
+    type: string
+  - JSONPath: .spec.resource.name
+    description: The resource name that caused the violation
+    name: ResourceName
+    type: string
+  - JSONPath: .spec.resource.namespace
+    description: The resource namespace that caused the violation
+    name: ResourceNamespace
+    type: string
+  - JSONPath: .status.state
+    description: Current state of generate request
+    name: status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: kyverno.io
+  names:
+    kind: GenerateRequest
+    plural: generaterequests
+    shortNames:
+    - gr
+    singular: generaterequest
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            policy:
+              type: string
+            resource:
+              properties:
+                kind:
+                  type: string
+                name:
+                  type: string
+                namespace:
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+          required:
+          - policy
+          - resource
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: policies.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: Policy
+    plural: policies
+    shortNames:
+    - pol
+    singular: policy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            background:
+              type: boolean
+            rules:
+              items:
+                properties:
+                  exclude:
+                    properties:
+                      clusterRoles:
+                        items:
+                          type: string
+                        type: array
+                      resources:
+                        properties:
+                          kinds:
+                            items:
+                              type: string
+                            type: array
+                          name:
+                            type: string
+                          selector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                        type: object
+                      roles:
+                        items:
+                          type: string
+                        type: array
+                      subjects:
+                        items:
+                          properties:
+                            apiGroup:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                    type: object
+                  generate:
+                    properties:
+                      apiVersion:
+                        type: string
+                      clone:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - namespace
+                        - name
+                        type: object
+                      data: {}
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      synchronize:
+                        type: boolean
+                    required:
+                    - kind
+                    - name
+                    type: object
+                  match:
+                    properties:
+                      clusterRoles:
+                        items:
+                          type: string
+                        type: array
+                      resources:
+                        minProperties: 1
+                        properties:
+                          kinds:
+                            items:
+                              type: string
+                            type: array
+                          name:
+                            type: string
+                          selector:
+                            properties:
+                              matchExpressions:
+                                items:
+                                  properties:
+                                    key:
+                                      type: string
+                                    operator:
+                                      type: string
+                                    values:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                        type: object
+                      roles:
+                        items:
+                          type: string
+                        type: array
+                      subjects:
+                        items:
+                          properties:
+                            apiGroup:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                    required:
+                    - resources
+                    type: object
+                  mutate:
+                    properties:
+                      overlay: {}
+                      patchStrategicMerge: {}
+                      patches:
+                        items:
+                          properties:
+                            op:
+                              enum:
+                              - add
+                              - replace
+                              - remove
+                              type: string
+                            path:
+                              type: string
+                            value: {}
+                          required:
+                          - path
+                          - op
+                          type: object
+                        type: array
+                      patchesJson6902:
+                        type: string
+                    type: object
+                  name:
+                    type: string
+                  preconditions:
+                    items:
+                      required:
+                      - key
+                      - operator
+                      - value
+                      type: object
+                    type: array
+                  validate:
+                    properties:
+                      anyPattern: {}
+                      deny:
+                        properties:
+                          conditions:
+                            items:
+                              properties:
+                                key:
+                                  type: string
+                                operator:
+                                  enum:
+                                  - Equal
+                                  - Equals
+                                  - NotEqual
+                                  - NotEquals
+                                  - In
+                                  - NotIn
+                                  type: string
+                                value:
+                                  anyOf:
+                                  - type: string
+                                  - items: {}
+                                    type: array
+                              required:
+                              - key
+                              - operator
+                              - value
+                              type: object
+                            type: array
+                      message:
+                        type: string
+                      pattern: {}
+                    type: object
+                required:
+                - name
+                - match
+                type: object
+              type: array
+            validationFailureAction:
+              enum:
+              - enforce
+              - audit
+              type: string
+          required:
+          - rules
+        status: {}
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: policyviolations.kyverno.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.policy
+    description: The policy that resulted in the violation
+    name: Policy
+    type: string
+  - JSONPath: .spec.resource.kind
+    description: The resource kind that cause the violation
+    name: ResourceKind
+    type: string
+  - JSONPath: .spec.resource.name
+    description: The resource name that caused the violation
+    name: ResourceName
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: kyverno.io
+  names:
+    kind: PolicyViolation
+    plural: policyviolations
+    shortNames:
+    - polv
+    singular: policyviolation
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            policy:
+              type: string
+            resource:
+              properties:
+                kind:
+                  type: string
+                name:
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            rules:
+              items:
+                properties:
+                  message:
+                    type: string
+                  name:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - name
+                - type
+                - message
+                type: object
+              type: array
+          required:
+          - policy
+          - resource
+          - rules
+  versions:
+  - name: v1
+    served: true
+    storage: true
