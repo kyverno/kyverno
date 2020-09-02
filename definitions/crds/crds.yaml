@@ -727,6 +727,8 @@ spec:
           properties:
             policy:
               type: string
+            processExist:
+              type: boolean
             resource:
               type: object
               required:

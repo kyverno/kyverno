@@ -27,6 +27,8 @@ type GenerateRequestSpec struct {
 	Resource ResourceSpec `json:"resource" yaml:"resource"`
 	// Context ...
 	Context GenerateRequestContext `json:"context" yaml:"context"`
+	// ProcessExist ...
+	ProcessExist bool `json:"processExist" yaml:"processExist"`
 }
 
 //GenerateRequestContext stores the context to be shared

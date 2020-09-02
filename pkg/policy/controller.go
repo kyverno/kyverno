@@ -373,6 +373,11 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	namespace, key, isNamespacedPolicy := getIsNamespacedPolicy(key)
 	var policy *kyverno.ClusterPolicy
 	var err error
+	grList, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		logger.Error(err, "failed to list generate request")
+	}
+
 	if !isNamespacedPolicy {
 		policy, err = pc.pLister.Get(key)
 	} else {
@@ -380,7 +385,16 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
 		policy = convertPolicyToClusterPolicy(nspolicy)
 	}
+
 	if errors.IsNotFound(err) {
+		for _, v := range grList.Items {
+			if policy.Name == v.Spec.Policy {
+				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+				if err != nil {
+					logger.Error(err, "failed to delete gr")
+				}
+			}
+		}
 		go pc.deletePolicyViolations(key)
 
 		// remove webhook configurations if there are no policies
@@ -390,7 +404,17 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 		return nil
 	}
-
+	for _, v := range grList.Items {
+		if policy.Name == v.Spec.Policy {
+			v.SetLabels(map[string]string{
+				"policy-update" : "true",
+			})
+			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
+			if err != nil {
+				logger.Error(err, "failed to update gr")
+			}
+		}
+	}
 	if err != nil {
 		return err
 	}

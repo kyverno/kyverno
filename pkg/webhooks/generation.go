@@ -72,7 +72,17 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				}
 			}
 		}
+
+
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
+			for _,v := range policy.Spec.Rules {
+				for _,r := range engineResponse.PolicyResponse.Rules {
+					r.ProcessExist = true
+					if v.Name == r.Name && len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0 )  && r.Name == v.Name  {
+						r.ProcessExist = false
+					}
+				}
+			}
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
@@ -81,6 +91,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		}
 
 	}
+
 	// Adds Generate Request to a channel(queue size 1000) to generators
 	if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 		// report failure event
@@ -125,6 +136,9 @@ func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) 
 		Context: kyverno.GenerateRequestContext{
 			UserRequestInfo: userRequestInfo,
 		},
+	}
+	for _,v := range er.PolicyResponse.Rules {
+		gr.ProcessExist = v.ProcessExist
 	}
 	return gr
 }

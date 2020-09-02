@@ -131,6 +131,14 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			}
 		}
 	}
+	for _,v := range policy.Spec.Rules {
+		for _,r := range engineResponse.PolicyResponse.Rules {
+			r.ProcessExist = true
+			if v.Name == r.Name && len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0 )  && r.Name == v.Name  {
+				r.ProcessExist = false
+			}
+		}
+	}
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr)
 }
@@ -287,6 +295,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return newGenResource, nil
 	}
 
+	if gr.Spec.ProcessExist {
+		return noGenResource, nil
+	}
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 

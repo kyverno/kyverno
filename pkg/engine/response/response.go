@@ -27,6 +27,7 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit(default if not set),enforce
 	ValidationFailureAction string
+
 }
 
 //ResourceSpec resource action applied on
@@ -65,6 +66,8 @@ type RuleResponse struct {
 	Success bool `json:"success"`
 	// statistics
 	RuleStats `json:",inline"`
+	// ProcessExist
+	ProcessExist bool `json:"processExist"`
 }
 
 //ToString ...
