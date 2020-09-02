@@ -1,11 +1,7 @@
 package policy
 
 import (
-	"github.com/nirmata/kyverno/pkg/jobs"
-	informers "k8s.io/client-go/informers/core/v1"
-	"os"
 	"context"
-	"time"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -16,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/nirmata/kyverno/pkg/jobs"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
@@ -23,11 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	informers "k8s.io/client-go/informers/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"os"
+	"time"
 )
 
 const (
@@ -131,7 +131,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		configHandler:          configHandler,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
-		job : job,
+		job:                    job,
 		log:                    log,
 	}
 
@@ -166,10 +166,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		DeleteFunc: pc.deleteNsPolicy,
 	})
 
-
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
-
 
 	pc.nsLister = namespaces.Lister()
 
@@ -318,29 +316,28 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	defer logger.Info("shutting down")
 
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced,  pc.nsListerSynced) {
+		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
 		}
 
-	}else{
+	} else {
 		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
 		}
 	}
 
-
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)
 	}
-	ctx :=  context.Background()
+	ctx := context.Background()
 	ticker := time.NewTicker(100 * time.Second)
 	for {
 		select {
 		case <-ticker.C:
 			pc.job.Add(jobs.JobInfo{
-			   Policy: "enabled",
+				Policy: "enabled",
 			})
 		case <-ctx.Done():
 			break
@@ -435,8 +432,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	engineResponses := pc.processExistingResources(policy)
 
-		pc.cleanupAndReport(engineResponses)
-
+	pc.cleanupAndReport(engineResponses)
 
 	return nil
 }

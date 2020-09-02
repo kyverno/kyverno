@@ -48,7 +48,7 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 	prgen                *policyreport.Generator
-	job *jobs.Job
+	job                  *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -130,7 +130,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
 		log:                  log,
-		job : job,
+		job:                  job,
 		policyStatusListener: policyStatus,
 	}
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {

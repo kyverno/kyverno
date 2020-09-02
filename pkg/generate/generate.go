@@ -116,8 +116,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 				continue
 			}
 			for _, v := range grList.Items {
-				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace{
-					err :=c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
+					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
 					if err != nil {
 						logger.Error(err, " failed to delete generate request")
 					}
@@ -126,7 +126,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			if len(engineResponse.PolicyResponse.Rules) > 1 {
 				engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
 				continue
-			}else if len(engineResponse.PolicyResponse.Rules) == 1 {
+			} else if len(engineResponse.PolicyResponse.Rules) == 1 {
 				engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
 			}
 		}
@@ -160,7 +160,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			continue
 		}
 		startTime := time.Now()
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name,gr)
+		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +217,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string,gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -287,9 +287,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return newGenResource, nil
 	}
 
-
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
-
 
 	// build the resource template
 	newResource := &unstructured.Unstructured{}

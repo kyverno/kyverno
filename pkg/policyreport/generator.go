@@ -56,7 +56,7 @@ type Generator struct {
 	configmap         *v1.ConfigMap
 	inMemoryConfigMap *PVEvent
 	mux               sync.Mutex
-	job              *jobs.Job
+	job               *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -149,7 +149,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 			Namespace: make(map[string][]Info),
 			Cluster:   make(map[string][]Info),
 		},
-		job : job,
+		job: job,
 	}
 
 	return &gen

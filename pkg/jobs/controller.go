@@ -280,7 +280,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 		}
 	}
 	if failure {
-		err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(),false)
+		err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false)
 		if err != nil {
 			return
 		}
@@ -299,11 +299,10 @@ func CreateJob(args []string, jobType, scope string) *v1.Job {
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{
 						{
-							Name:  strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
-							Image: "evalsocket/kyverno-cli:latest",
+							Name:            strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
+							Image:           "evalsocket/kyverno-cli:latest",
 							ImagePullPolicy: "Always",
-							Args:  args,
-
+							Args:            args,
 						},
 					},
 					RestartPolicy: "OnFailure",

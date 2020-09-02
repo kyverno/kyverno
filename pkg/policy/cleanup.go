@@ -2,8 +2,8 @@ package policy
 
 import (
 	"fmt"
-	"reflect"
 	"os"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
