@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"fmt"
+	"math/rand"
 	"time"
 
 	informers "k8s.io/client-go/informers/core/v1"
@@ -407,7 +409,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	for _, v := range grList.Items {
 		if policy.Name == v.Spec.Policy {
 			v.SetLabels(map[string]string{
-				"policy-update" : "true",
+				"policy-update" :fmt.Sprintf("%d",rand.Intn(100000)),
 			})
 			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&v)
 			if err != nil {
