@@ -71,11 +71,29 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 					engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
 				}
 			}
+			for _,v := range policy.Spec.Rules {
+				if policy.Name == engineResponse.PolicyResponse.Policy && v.Name == rule.Name && len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
+					processExist := func() bool {
+						rcreationTime := policyContext.NewResource.GetCreationTimestamp()
+						pcreationTime := policy.GetCreationTimestamp()
+						return rcreationTime.Before(&pcreationTime)
+					}()
+					if processExist {
+						if len(engineResponse.PolicyResponse.Rules) > 1 {
+							engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
+							continue
+						}else if len(engineResponse.PolicyResponse.Rules) == 1 {
+							engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
+						}
+					}
+				}
+			}
+
 		}
 
 
 		if len(engineResponse.PolicyResponse.Rules) > 0 {
-			// some generate rules do apply to the resource
+				// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
 				resp: engineResponse,
