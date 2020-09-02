@@ -2,12 +2,13 @@ package webhooks
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/policymutation"
+
+	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -16,7 +17,10 @@ func compareJSONAsMap(t *testing.T, expected, actual []byte) {
 	var expectedMap, actualMap map[string]interface{}
 	assert.NilError(t, json.Unmarshal(expected, &expectedMap))
 	assert.NilError(t, json.Unmarshal(actual, &actualMap))
-	assert.Assert(t, reflect.DeepEqual(expectedMap, actualMap))
+
+	if !assertnew.Equal(t, expectedMap, actualMap) {
+		t.FailNow()
+	}
 }
 
 func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
@@ -42,7 +46,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 		  }
 		}
 	  }`)
@@ -243,11 +247,47 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 				  }
 				}
 			  }
+			},
+			{
+			  "name": "autogen-cronjob-annotate-empty-dir",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"CronJob"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"overlay": {
+				  "spec": {
+					"jobTemplate": {
+					  "spec": {
+						"template": {
+						  "metadata": {
+							"annotations": {
+							  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+							}
+						  },
+						  "spec": {
+							"volumes": [
+							  {
+								"(emptyDir)": {
+								}
+							  }
+							]
+						  }
+						}
+					  }
+					}
+				  }
+				}
+			  }
 			}
 		  ]
 		}
 	  }`)
-	compareJSONAsMap(t, p, expectedPolicy)
+
+	compareJSONAsMap(t, expectedPolicy, p)
 }
 func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 	policyRaw := []byte(`{
@@ -275,7 +315,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet",
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob",
 			"test": "annotation"
 		  }
 		}
@@ -472,6 +512,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
+	// var policy, generatePolicy unstructured.Unstructured
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
 	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
@@ -484,7 +525,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 		  },
 		  "name": "add-safe-to-evict"
 		},
@@ -544,9 +585,42 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 				  }
 				}
 			  }
+			},
+			{
+			  "name": "autogen-cronjob-validate-docker-sock-mount",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"CronJob"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Use of the Docker Unix socket is not allowed",
+				"pattern": {
+				  "spec": {
+					"jobTemplate": {
+					  "spec": {
+						"template": {
+						  "spec": {
+							"=(volumes)": [
+							  {
+								"=(hostPath)": {
+								  "path": "!/var/run/docker.sock"
+								}
+							  }
+							]
+						  }
+						}
+					  }
+					}
+				  }
+				}
+			  }
 			}
 		  ]
 		}
 	  }`)
-	compareJSONAsMap(t, p, expectedPolicy)
+
+	compareJSONAsMap(t, expectedPolicy, p)
 }

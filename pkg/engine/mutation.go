@@ -13,12 +13,12 @@ import (
 )
 
 const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
 	//PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet"
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 	//PodControllersAnnotation defines the annotation key for Pod-Controllers
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-	//PodTemplateAnnotation defines the annotation key for Pod-Template
-	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -35,7 +35,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startMutateResultResponse(&resp, policy, patchedResource)
 	defer endMutateResultResponse(logger, &resp, startTime)
 
-	if policy.HasAutoGenAnnotation() && excludePod(patchedResource) {
+	if SkipPolicyApplication(policy, patchedResource) {
 		logger.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return

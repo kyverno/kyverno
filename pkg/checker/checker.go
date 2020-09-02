@@ -95,7 +95,7 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 
 			timeDiff := time.Since(t.Time())
 			if timeDiff > maxDeadline {
-				err := fmt.Errorf("Admission control configuration error")
+				err := fmt.Errorf("admission control configuration error")
 				logger.Error(err, "webhook check failed", "deadline", maxDeadline)
 				if err := statuscontrol.FailedStatus(); err != nil {
 					logger.Error(err, "error setting webhook check status to failed")

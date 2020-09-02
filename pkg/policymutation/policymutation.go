@@ -121,7 +121,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	// scenario A
 	if !ok {
-		controllers = "DaemonSet,Deployment,Job,StatefulSet"
+		controllers = engine.PodControllers
 		annPatch, err := defaultPodControllerAnnotation(ann)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -173,8 +173,6 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 
 // generateRulePatches generates rule for podControllers based on scenario A and C
 func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	var genRule kyvernoRule
-
 	insertIdx := len(policy.Spec.Rules)
 
 	ruleMap := createRuleMap(policy.Spec.Rules)
@@ -186,48 +184,62 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 	for _, rule := range policy.Spec.Rules {
 		patchPostion := insertIdx
 
-		genRule = generateRuleForControllers(rule, controllers, log)
-		if reflect.DeepEqual(genRule, kyvernoRule{}) {
-			continue
-		}
+		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
+			operation := "add"
+			if existingAutoGenRule, alreadyExists := ruleMap[genRule.Name]; alreadyExists {
+				existingAutoGenRuleRaw, _ := json.Marshal(existingAutoGenRule)
+				genRuleRaw, _ := json.Marshal(genRule)
 
-		operation := "add"
-		if existingAutoGenRule, alreadyExists := ruleMap[genRule.Name]; alreadyExists {
-			existingAutoGenRuleRaw, _ := json.Marshal(existingAutoGenRule)
-			genRuleRaw, _ := json.Marshal(genRule)
-
-			if string(existingAutoGenRuleRaw) == string(genRuleRaw) {
-				continue
+				if string(existingAutoGenRuleRaw) == string(genRuleRaw) {
+					return nil
+				}
+				operation = "replace"
+				patchPostion = ruleIndex[genRule.Name]
 			}
-			operation = "replace"
-			patchPostion = ruleIndex[genRule.Name]
+
+			// generate patch bytes
+			jsonPatch := struct {
+				Path  string      `json:"path"`
+				Op    string      `json:"op"`
+				Value interface{} `json:"value"`
+			}{
+				fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)),
+				operation,
+				genRule,
+			}
+			pbytes, err := json.Marshal(jsonPatch)
+			if err != nil {
+				errs = append(errs, err)
+				return nil
+			}
+
+			// check the patch
+			if _, err := jsonpatch.DecodePatch([]byte("[" + string(pbytes) + "]")); err != nil {
+				errs = append(errs, err)
+				return nil
+			}
+
+			return pbytes
 		}
 
-		// generate patch bytes
-		jsonPatch := struct {
-			Path  string      `json:"path"`
-			Op    string      `json:"op"`
-			Value interface{} `json:"value"`
-		}{
-			fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)),
-			operation,
-			genRule,
-		}
-		pbytes, err := json.Marshal(jsonPatch)
-		if err != nil {
-			errs = append(errs, err)
-			continue
+		// handle all other controllers other than CronJob
+		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
+		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
+			pbytes := convertToPatches(genRule, patchPostion)
+			rulePatches = append(rulePatches, pbytes)
+			insertIdx++
+			patchPostion = insertIdx
 		}
 
-		// check the patch
-		if _, err := jsonpatch.DecodePatch([]byte("[" + string(pbytes) + "]")); err != nil {
-			errs = append(errs, err)
-			continue
+		// handle CronJob, it appends an additional rule
+		genRule = generateCronJobRule(rule, controllers, log)
+		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
+			pbytes := convertToPatches(genRule, patchPostion)
+			rulePatches = append(rulePatches, pbytes)
+			insertIdx++
 		}
-
-		rulePatches = append(rulePatches, pbytes)
-		insertIdx++
 	}
+
 	return
 }
 
@@ -249,9 +261,14 @@ type kyvernoRule struct {
 }
 
 func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
-	if strings.HasPrefix(rule.Name, "autogen-") {
+	logger := log.WithName("generateRuleForControllers")
+
+	if strings.HasPrefix(rule.Name, "autogen-") || controllers == "" {
+		logger.V(5).Info("skip generateRuleForControllers")
 		return kyvernoRule{}
 	}
+
+	logger.V(3).Info("processing rule", "rulename", rule.Name)
 
 	match := rule.MatchResources
 	exclude := rule.ExcludeResources
@@ -284,11 +301,11 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			log.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
+			logger.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
 			return kyvernoRule{}
 		}
 		if controllers == "all" {
-			controllers = engine.PodControllers
+			controllers = "DaemonSet,Deployment,Job,StatefulSet"
 		} else {
 			controllers = strings.Join(controllersValidated, ",")
 		}
@@ -354,12 +371,12 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	return kyvernoRule{}
 }
 
-// defaultPodControllerAnnotation generates annotation "pod-policies.kyverno.io/autogen-controllers=all"
-// ann passes in the annotation of the policy
+// defaultPodControllerAnnotation inserts an annotation
+// "pod-policies.kyverno.io/autogen-controllers=DaemonSet,Deployment,Job,StatefulSet" to policy
 func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[engine.PodControllersAnnotation] = "DaemonSet,Deployment,Job,StatefulSet"
+		ann[engine.PodControllersAnnotation] = engine.PodControllers
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`
@@ -384,7 +401,7 @@ func defaultPodControllerAnnotation(ann map[string]string) ([]byte, error) {
 	}{
 		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
 		"add",
-		"DaemonSet,Deployment,Job,StatefulSet",
+		engine.PodControllers,
 	}
 
 	patchByte, err := json.Marshal(jsonPatch)
