@@ -176,11 +176,13 @@ func (c *Controller) deleteGR(obj interface{}) {
 		r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
 		if err != nil {
 			logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			return
 		}
 		labels := r.GetLabels()
 		if labels["policy.kyverno.io/synchronize"] == "enable" {
 			if err := c.client.DeleteResource(r.GetAPIVersion(),  r.GetKind(),r.GetNamespace(), r.GetName(), false); err != nil {
 				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+				return
 			}
 		}
 	}
