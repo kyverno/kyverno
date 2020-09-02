@@ -58,7 +58,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			var Empty struct{}
 			clusterResourcesMap := make(map[string]*struct{})
 			// Get all the cluster type kind supported by cluster
-			res, _ := client.GetDiscoveryCache().ServerPreferredResources()
+
+			res, err := client.GetDiscoveryCache().ServerPreferredResources()
+			if err != nil {
+				return err
+			}
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
 					if r.Namespaced == false {
@@ -95,6 +99,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 					" the rule does not match an kind")
 			}
+		}
+
+		// Validate string values in labels
+		if !isLabelAndAnnotationsString(rule) {
+			return fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 	}
 
@@ -247,6 +256,62 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
+	return true
+}
+
+// isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
+func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
+	// checkMetadata - Verify if the labels and annotations contains string value inside metadata
+	checkMetadata := func(patternMap map[string]interface{}) bool {
+		for k := range patternMap {
+			if k == "metadata" {
+				metaKey, ok := patternMap[k].(map[string]interface{})
+				if ok {
+					// range over metadata
+					for mk := range metaKey {
+						if mk == "labels" {
+							labelKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over labels
+								for _, val := range labelKey {
+									if reflect.TypeOf(val).String() != "string" {
+										return false
+									}
+								}
+							}
+						} else if mk == "annotations" {
+							annotationKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over annotations
+								for _, val := range annotationKey {
+									if reflect.TypeOf(val).String() != "string" {
+										return false
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return true
+	}
+
+	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
+	if ok {
+		return checkMetadata(patternMap)
+	} else if len(rule.Validation.AnyPattern) > 0 {
+		anyPatterns := rule.Validation.AnyPattern
+		for _, pattern := range anyPatterns {
+			patternMap, ok := pattern.(map[string]interface{})
+			if ok {
+				ret := checkMetadata(patternMap)
+				if ret == false {
+					return ret
+				}
+			}
+		}
+	}
 	return true
 }
 

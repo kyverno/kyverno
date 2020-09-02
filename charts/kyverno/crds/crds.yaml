@@ -679,8 +679,7 @@ spec:
                         - namespace
                         - name
                         type: object
-                      data:
-                        AnyValue: {}
+                      data: {}
                       kind:
                         type: string
                       name:
@@ -756,10 +755,8 @@ spec:
                     type: object
                   mutate:
                     properties:
-                      overlay:
-                        AnyValue: {}
-                      patchStrategicMerge:
-                        AnyValue: {}
+                      overlay: {}
+                      patchStrategicMerge: {}
                       patches:
                         items:
                           properties:
@@ -771,8 +768,7 @@ spec:
                               type: string
                             path:
                               type: string
-                            value:
-                              AnyValue: {}
+                            value: {}
                           required:
                           - path
                           - op
@@ -793,8 +789,7 @@ spec:
                     type: array
                   validate:
                     properties:
-                      anyPattern:
-                        AnyValue: {}
+                      anyPattern: {}
                       deny:
                         properties:
                           conditions:
@@ -824,8 +819,7 @@ spec:
                             type: array
                       message:
                         type: string
-                      pattern:
-                        AnyValue: {}
+                      pattern: {}
                     type: object
                 required:
                 - name

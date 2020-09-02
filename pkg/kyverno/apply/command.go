@@ -324,7 +324,7 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	files, splitDocError := common.SplitYAMLDocuments(file)
+	files, splitDocError := utils.SplitYAMLDocuments(file)
 	if splitDocError != nil {
 		return nil, splitDocError
 	}

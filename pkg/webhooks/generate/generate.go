@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/api/admission/v1beta1"
-
 	backoff "github.com/cenkalti/backoff"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/constant"
+	"k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -111,20 +111,41 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		gr := kyverno.GenerateRequest{
 			Spec: grSpec,
 		}
-		gr.SetGenerateName("gr-")
+
 		gr.SetNamespace(config.KubePolicyNamespace)
 		// Initial state "Pending"
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
-		if action == v1beta1.Create {
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
-		}
-		if action == v1beta1.Update {
-			gr.SetLabels(map[string]string{
-				"resources-update": "true",
-			})
-			_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&gr)
+		isExist := false
+		if action == v1beta1.Create || action == v1beta1.Update {
+			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for i, v := range grList.Items {
+				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
+
+					gr.SetLabels(map[string]string{
+						"resources-update": "true",
+					})
+					v.Spec.Context = gr.Spec.Context
+					v.Spec.Policy = gr.Spec.Policy
+					v.Spec.Resource = gr.Spec.Resource
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&grList.Items[i])
+					if err != nil {
+						return err
+					}
+					isExist = true
+				}
+			}
+			if !isExist {
+				gr.SetGenerateName("gr-")
+				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())

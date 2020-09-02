@@ -153,7 +153,7 @@ func main() {
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
-	//		- PolicyVolation
+	//		- PolicyViolation
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
@@ -341,7 +341,7 @@ func main() {
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(3, stopCh)
-	go eventGenerator.Run(1, stopCh)
+	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
@@ -351,7 +351,7 @@ func main() {
 	go jobController.Run(1,stopCh)
 	openAPISync.Run(1, stopCh)
 
-	// verifys if the admission control is enabled and active
+	// verifies if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
