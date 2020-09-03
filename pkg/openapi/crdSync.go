@@ -158,7 +158,10 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
-		isOpenV3Error(err, crdName)
+		v3valueFound := isOpenV3Error(err)
+		if v3valueFound == false {
+			log.Log.Error(err, "could not parse crd schema", "name", crdName)
+		}
 	}
 
 	o.crdList = append(o.crdList, crdName)
@@ -166,7 +169,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	o.definitions[crdName] = parsedSchema
 }
 
-func isOpenV3Error(err error, crdName string) {
+func isOpenV3Error(err error) bool {
 	unsupportedValues := []string{"anyOf", "allOf", "not"}
 	v3valueFound := false
 	for _, value := range unsupportedValues {
@@ -175,10 +178,7 @@ func isOpenV3Error(err error, crdName string) {
 			break
 		}
 	}
-
-	if v3valueFound == false {
-		log.Log.Error(err, "could not parse crd schema", "name", crdName)
-	}
+	return v3valueFound
 }
 
 // addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
