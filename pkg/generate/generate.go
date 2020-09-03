@@ -372,7 +372,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 
 func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
 	// check if resource to be generated exists
-	_, err := client.GetResource(apiVersion, kind, namespace, name)
+	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "resource does not exist, will try to create", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
@@ -382,13 +382,13 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 		// client-errors
 		return nil, Skip, err
 	}
-	//// Resource exists; verfiy the content of the resource
-	//err = checkResource(log, data, obj)
-	//if err == nil {
-	//	// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
-	//	return nil, Skip, nil
-	//}
-	//log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
+	// Resource exists; verfiy the content of the resource
+	err = checkResource(log, data, obj)
+	if err == nil {
+		// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
+		return data, Update, nil
+	}
+	log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
 	return data, Update, nil
 
 }
