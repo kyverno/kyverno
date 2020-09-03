@@ -68,11 +68,11 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			}else{
 				rules = append(rules,rule)
 			}
-
 		}
 
 
-		if len(engineResponse.PolicyResponse.Rules) > 0 {
+		if len(rules) > 0 {
+			engineResponse.PolicyResponse.Rules = rules
 				// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
