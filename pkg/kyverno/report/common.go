@@ -115,25 +115,23 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 	resourceMap := map[string]unstructured.Unstructured{}
 	var engineResponses []response.EngineResponse
 	for _, p := range cpolicies {
-
 		for _, rule := range p.Spec.Rules {
-
 			for _, k := range rule.MatchResources.Kinds {
-
 				resourceSchema, _, err := dClient.DiscoveryClient.FindResource("", k)
 				if err != nil {
 					log.Log.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
 
+
 				if !resourceSchema.Namespaced && scope == Cluster {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
 					policy.MergeResources(resourceMap, rMap)
 				} else if resourceSchema.Namespaced {
-					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(), log.Log)
+					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(),  log.Log)
 					for _, ns := range namespaces {
 						if ns == n {
-							rMap := policy.GetResourcesPerNamespace(k, dClient, ns, rule, configData, log.Log)
+							rMap := policy.GetResourcesPerNamespace(k, dClient, ns, rule, configData,  log.Log)
 							for _, r := range rMap {
 								labels := r.GetLabels()
 								_, okChart := labels["app"]
@@ -145,6 +143,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 								}
 							}
 						}
+
 					}
 				}
 			}
@@ -179,7 +178,6 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 				var appname string
 				switch scope {
 				case Helm:
-					//TODO GET Labels
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
 						log.Log.Error(err, "failed to get resource")
@@ -375,7 +373,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 			var appname string
 			// Increase Count
 			if scope == Cluster {
-				results[appname] = append(results[appname], *result)
+				appname = fmt.Sprintf("kyverno-clusterpolicyreport")
 			} else if scope == Helm {
 				resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 				if err != nil {
@@ -387,19 +385,18 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 				_, okRelease := labels["release"]
 				if okChart && okRelease {
 					appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], v.Resource.GetNamespace())
-					results[appname] = append(results[appname], *result)
+
 				}
 			} else {
 				appname = fmt.Sprintf("kyverno-policyreport-%s", v.Resource.GetNamespace())
-				results[appname] = append(results[appname], *result)
 			}
+			results[appname] = append(results[appname], *result)
 		}
 
 	}
 
 	for k, _ := range results {
 		if scope == Helm || scope == Namespace {
-			log.Log.Info("", "", results)
 			availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -486,12 +483,12 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 	labels := pr.GetLabels()
 	var action string
 	if labels["policy-state"] == "init" {
-		action = "CREATE"
+		action = "Create"
 		pr.SetLabels(map[string]string{
 			"policy-state": "Process",
 		})
 	} else {
-		action = "UPDATE"
+		action = "Update"
 	}
 	for _, r := range results {
 		var isExist = true
@@ -514,12 +511,12 @@ func mergeClusterReport(pr *policyreportv1alpha1.ClusterPolicyReport, results []
 	labels := pr.GetLabels()
 	var action string
 	if labels["policy-state"] == "init" {
-		action = "CREATE"
+		action = "Create"
 		pr.SetLabels(map[string]string{
 			"policy-state": "Process",
 		})
 	} else {
-		action = "UPDATE"
+		action = "Update"
 	}
 
 	for _, r := range results {
