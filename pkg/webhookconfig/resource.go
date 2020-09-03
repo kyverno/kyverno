@@ -34,6 +34,17 @@ func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData
 }
 
 func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+
+	webhookCfg := generateMutatingWebhook(
+		config.MutatingWebhookName,
+		config.MutatingWebhookServicePath,
+		caData, false, wrc.timeoutSeconds,
+		[]string{"*/*"}, "*", "*",
+		[]admregapi.OperationType{admregapi.Create, admregapi.Update})
+
+	reinvoke := admregapi.IfNeededReinvocationPolicy
+	webhookCfg.ReinvocationPolicy = &reinvoke
+
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationName,
@@ -41,19 +52,7 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateMutatingWebhook(
-				config.MutatingWebhookName,
-				config.MutatingWebhookServicePath,
-				caData,
-				false,
-				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
-			),
-		},
+		Webhooks: []admregapi.MutatingWebhook{webhookCfg},
 	}
 }
 

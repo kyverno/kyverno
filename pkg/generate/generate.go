@@ -170,6 +170,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			continue
 		}
 		startTime := time.Now()
+
 		processExisting := false
 
 		for _,v := range policy.Spec.Rules {
@@ -185,6 +186,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
+
 		if err != nil {
 			return nil, err
 		}
@@ -240,6 +242,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	newAverageTimeInNanoSeconds := numerator / denominator
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
+
 
 func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr kyverno.GenerateRequest, processExisting bool) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}

@@ -59,7 +59,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				}
 				for _, v := range grList.Items {
 					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
 						if err != nil {
 							logger.Error(err, "failed to update gr")
 						}
@@ -73,7 +73,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 		if len(rules) > 0 {
 			engineResponse.PolicyResponse.Rules = rules
-				// some generate rules do apply to the resource
+			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
 				resp: engineResponse,

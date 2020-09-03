@@ -22,8 +22,14 @@ import (
 // - One operation per rule
 // - ResourceDescription mandatory checks
 func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+	// check for invalid fields
+	err := checkInvalidFields(policyRaw)
+	if err != nil {
+		return err
+	}
+
 	var p kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &p)
+	err = json.Unmarshal(policyRaw, &p)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
 	}
@@ -116,6 +122,34 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 	}
 
+	return nil
+}
+
+// checkInvalidFields - checks invalid fields in webhook policy request
+// policy supports 5 json fields in types.go i.e. "apiVersion", "kind", "metadata", "spec", "status"
+// If the webhook request policy contains new fields then block creation of policy
+func checkInvalidFields(policyRaw []byte) error {
+	// hardcoded supported fields by policy
+	var allowedKeys = []string{"apiVersion", "kind", "metadata", "spec", "status"}
+	var data interface{}
+	err := json.Unmarshal(policyRaw, &data)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+	mapData := data.(map[string]interface{})
+	// validate any new fields in the admission request against the supported fields and block the request with any new fields
+	for requestField, _ := range mapData {
+		ok := false
+		for _, allowedField := range allowedKeys {
+			if requestField == allowedField {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("unknown field \"%s\" in policy admission request", requestField)
+		}
+	}
 	return nil
 }
 
