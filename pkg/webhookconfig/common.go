@@ -181,7 +181,7 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{

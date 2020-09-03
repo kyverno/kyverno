@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"testing"
 
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	yaml "sigs.k8s.io/yaml"
 )
 
 func Test_GeneratePatches(t *testing.T) {
@@ -229,3 +232,160 @@ var expectBytes = []byte(`
   }
 }
 `)
+
+var podBytes = []byte(`
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+      "name": "nginx"
+  },
+  "spec": {
+      "containers": [
+          {
+              "name": "nginx",
+              "image": "nginx:latest"
+          },
+          {
+            "name": "nginx-new",
+            "image": "nginx:latest"
+          }
+      ]
+  }
+}
+`)
+
+func Test_preProcessJSONPatches_skip(t *testing.T) {
+	var policyBytes = []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+      "name": "insert-container"
+  },
+  "spec": {
+      "rules": [
+          {
+              "name": "insert-container",
+              "match": {
+                  "resources": {
+                      "kinds": [
+                          "Pod"
+                      ]
+                  }
+              },
+              "mutate": {
+                  "patchesJson6902": "- op: add\n  path: /spec/containers/1\n  value: {\"name\":\"nginx-new\",\"image\":\"nginx:latest\"}"
+              }
+          }
+      ]
+  }
+}
+`)
+
+	var pod unstructured.Unstructured
+	var policy v1.ClusterPolicy
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	assertnew.Nil(t, yaml.Unmarshal(policyBytes, &policy))
+
+	skip, err := preProcessJSONPatches(policy.Spec.Rules[0].Mutation, pod, log.Log)
+	assertnew.Nil(t, err)
+	assertnew.Equal(t, true, skip)
+}
+
+func Test_preProcessJSONPatches_not_skip(t *testing.T) {
+	var policyBytes = []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+      "name": "insert-container"
+  },
+  "spec": {
+      "rules": [
+          {
+              "name": "insert-container",
+              "match": {
+                  "resources": {
+                      "kinds": [
+                          "Pod"
+                      ]
+                  }
+              },
+              "mutate": {
+                  "patchesJson6902": "- op: add\n  path: /spec/containers/1\n  value: {\"name\":\"my-new-container\",\"image\":\"nginx:latest\"}"
+              }
+          }
+      ]
+  }
+}
+`)
+
+	var pod unstructured.Unstructured
+	var policy v1.ClusterPolicy
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	assertnew.Nil(t, yaml.Unmarshal(policyBytes, &policy))
+
+	skip, err := preProcessJSONPatches(policy.Spec.Rules[0].Mutation, pod, log.Log)
+	assertnew.Nil(t, err)
+	assertnew.Equal(t, false, skip)
+}
+
+func Test_isSubsetObject_true(t *testing.T) {
+	var object, resource interface{}
+
+	objectRaw := []byte(`{"image": "nginx:latest","name": "nginx-new"}`)
+	resourceRaw := []byte(`{"image": "nginx:latest","name": "random-name"}`)
+	assertnew.Nil(t, json.Unmarshal(objectRaw, &object))
+	assertnew.Nil(t, json.Unmarshal(resourceRaw, &resource))
+	assertnew.Equal(t, false, isSubsetObject(object, resource))
+
+	resourceRawNew := []byte(`{"image": "nginx:latest","name": "nginx-new"}`)
+	assertnew.Nil(t, json.Unmarshal(resourceRawNew, &resource))
+	assertnew.Equal(t, true, isSubsetObject(object, resource))
+}
+
+func Test_getObject_notPresent(t *testing.T) {
+	path := "/spec/random/1"
+	var pod unstructured.Unstructured
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	_, err := getObject(path, pod.UnstructuredContent())
+	expectedErr := "referenced value does not exist at spec/random"
+	assertnew.Equal(t, err.Error(), expectedErr)
+}
+
+func Test_getObject_outOfIndex(t *testing.T) {
+	path := "/spec/containers/2"
+	var pod unstructured.Unstructured
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	object, err := getObject(path, pod.UnstructuredContent())
+	assertnew.Nil(t, err)
+	assertnew.Nil(t, object)
+
+}
+
+func Test_getObject_success(t *testing.T) {
+	path := "/spec/containers/1"
+	var pod unstructured.Unstructured
+	expectedObject := map[string]interface{}{"image": "nginx:latest", "name": "nginx-new"}
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	object, err := getObject(path, pod.UnstructuredContent())
+	assertnew.Nil(t, err)
+	assertnew.Equal(t, expectedObject, object)
+}
+
+func Test_getObject_get_last_element(t *testing.T) {
+	path := "/spec/containers/-"
+	var pod unstructured.Unstructured
+	expectedObject := map[string]interface{}{"image": "nginx:latest", "name": "nginx-new"}
+
+	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
+	object, err := getObject(path, pod.UnstructuredContent())
+	assertnew.Nil(t, err)
+	assertnew.Equal(t, expectedObject, object)
+}
