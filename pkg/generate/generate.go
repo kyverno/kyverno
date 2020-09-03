@@ -108,7 +108,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.V(4).Info("policy does not apply to resource")
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
-	var rules  []response.RuleResponse
+	var rules []response.RuleResponse
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
@@ -123,19 +123,19 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					}
 				}
 			}
-		}else{
-			rules = append(rules,r)
+		} else {
+			rules = append(rules, r)
 		}
 	}
 	engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
 
-	for _,v := range policy.Spec.Rules {
-		for _,r := range rules {
+	for _, v := range policy.Spec.Rules {
+		for _, r := range rules {
 			if policy.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name {
 				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
 					continue
-				}else{
-					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules,r)
+				} else {
+					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
 				}
 			}
 		}
@@ -173,16 +173,16 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 
 		processExisting := false
 
-		for _,v := range policy.Spec.Rules {
-				if policy.Name == gr.Spec.Policy  {
-					if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
-						processExisting = func() bool {
-							rcreationTime := resource.GetCreationTimestamp()
-							pcreationTime := policy.GetCreationTimestamp()
-							return rcreationTime.Before(&pcreationTime)
-						}()
-					}
+		for _, v := range policy.Spec.Rules {
+			if policy.Name == gr.Spec.Policy {
+				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
+					processExisting = func() bool {
+						rcreationTime := resource.GetCreationTimestamp()
+						pcreationTime := policy.GetCreationTimestamp()
+						return rcreationTime.Before(&pcreationTime)
+					}()
 				}
+			}
 		}
 
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
@@ -242,7 +242,6 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	newAverageTimeInNanoSeconds := numerator / denominator
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
-
 
 func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr kyverno.GenerateRequest, processExisting bool) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
@@ -331,7 +330,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
-
 	label["policy.kyverno.io/policy-name"] = policy
 	label["policy.kyverno.io/gr-name"] = gr.Name
 	newResource.SetLabels(label)
@@ -356,36 +354,36 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		var isUpdate bool
 		label := newResource.GetLabels()
 		isUpdate = false
-		if label != nil {
-			if rule.Generation.Synchronize {
-				if label["policy.kyverno.io/synchronize"] == "enable" {
-					isUpdate = true
-				}
-			}else {
-				if label["policy.kyverno.io/synchronize"] == "enable" {
-					isUpdate = true
-			     }
+		if rule.Generation.Synchronize {
+			if label["policy.kyverno.io/synchronize"] == "enable" {
+				isUpdate = true
 			}
-			if isUpdate {
-				if rule.Generation.Synchronize {
-					label["policy.kyverno.io/synchronize"] = "enable"
-				} else {
-					label["policy.kyverno.io/synchronize"] = "disable"
-				}
-				logger.V(4).Info("updating existing resource")
-				// Update the resource
-				_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-				if err != nil {
-					logger.Error(err, "updating existing resource")
-					// Failed to update resource
-					return noGenResource, err
-				}
-				logger.V(4).Info("updated new resource")
-			}
-			logger.V(4).Info("Synchronize resource is disabled")
 		} else {
-			logger.V(4).Info("Synchronize resource is disabled")
+			if label["policy.kyverno.io/synchronize"] == "enable" {
+				isUpdate = true
+			}
 		}
+		if rule.Generation.Synchronize {
+			label["policy.kyverno.io/synchronize"] = "enable"
+		} else {
+			label["policy.kyverno.io/synchronize"] = "disable"
+		}
+		if isUpdate {
+			logger.V(4).Info("updating existing resource")
+			// Update the resource
+			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			if err != nil {
+				logger.Error(err, "updating existing resource")
+				// Failed to update resource
+				return noGenResource, err
+			}
+			logger.V(4).Info("updated new resource")
+		}else{
+			resource := &unstructured.Unstructured{}
+			resource.SetUnstructuredContent(rdata)
+		}
+		logger.V(4).Info("Synchronize resource is disabled")
+
 	}
 	return newGenResource, nil
 }
