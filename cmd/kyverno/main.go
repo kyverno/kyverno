@@ -194,6 +194,7 @@ func main() {
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Kyverno().V1().GenerateRequests(),
 		configData,
 		eventGenerator,
 		pvgen,
