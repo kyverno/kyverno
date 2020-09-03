@@ -323,6 +323,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	if newResource.GetKind() == "" {
 		newResource.SetKind(genKind)
 	}
+
 	newResource.SetAPIVersion(genAPIVersion)
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
@@ -355,6 +356,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	} else if mode == Update {
 		label := newResource.GetLabels()
 		if label != nil {
+			if rule.Generation.Synchronize {
 				logger.V(4).Info("updating existing resource")
 				// Update the resource
 				_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
@@ -364,7 +366,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 					return noGenResource, err
 				}
 				logger.V(4).Info("updated new resource")
-
+			}
+			logger.V(4).Info("Synchronize resource is disabled")
 		} else {
 			logger.V(4).Info("Synchronize resource is disabled")
 		}
@@ -384,14 +387,15 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 		// client-errors
 		return nil, Skip, err
 	}
-	// Resource exists; verfiy the content of the resource
-	err = checkResource(log, data, obj)
-	if err == nil {
-		// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
-		return data, Update, nil
-	}
+	updateObj := &unstructured.Unstructured{}
+	updateObj.SetUnstructuredContent(data)
+	updateObj.SetUID(obj.GetUID())
+	updateObj.SetSelfLink(obj.GetSelfLink())
+	updateObj.SetCreationTimestamp(obj.GetCreationTimestamp())
+	updateObj.SetManagedFields(obj.GetManagedFields())
+	updateObj.SetResourceVersion(obj.GetResourceVersion())
 	log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
-	return data, Update, nil
+	return updateObj.UnstructuredContent(), Update, nil
 
 }
 
