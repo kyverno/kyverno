@@ -371,6 +371,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		if isUpdate {
 			logger.V(4).Info("updating existing resource")
 			// Update the resource
+			newResource.SetLabels(label)
 			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
@@ -381,6 +382,14 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		}else{
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
+			resource.SetLabels(label)
+			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, resource, false)
+			if err != nil {
+				logger.Error(err, "updating existing resource")
+				// Failed to update resource
+				return noGenResource, err
+			}
+			logger.V(4).Info("updated new resource")
 		}
 		logger.V(4).Info("Synchronize resource is disabled")
 
@@ -402,14 +411,8 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	}
 	updateObj := &unstructured.Unstructured{}
 	updateObj.SetUnstructuredContent(data)
-	updateObj.SetUID(obj.GetUID())
-	updateObj.SetSelfLink(obj.GetSelfLink())
-	updateObj.SetCreationTimestamp(obj.GetCreationTimestamp())
-	updateObj.SetManagedFields(obj.GetManagedFields())
 	updateObj.SetResourceVersion(obj.GetResourceVersion())
-	log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
 	return updateObj.UnstructuredContent(), Update, nil
-
 }
 
 func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
