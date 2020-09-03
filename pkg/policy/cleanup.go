@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -13,7 +12,6 @@ import (
 )
 
 func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
-	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
 		for _, er := range ers {
 			if !er.IsSuccessful() {
 				continue
@@ -24,7 +22,7 @@ func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 			// clean up after the policy has been corrected
 			pc.cleanUpPolicyViolation(er.PolicyResponse)
 		}
-	}
+
 }
 
 func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {

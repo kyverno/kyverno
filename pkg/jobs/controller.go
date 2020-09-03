@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"context"
 	"github.com/nirmata/kyverno/pkg/config"
 	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
@@ -126,6 +127,25 @@ func (j *Job) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(j.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
 
+	go func(){
+		ctx := context.Background()
+		ticker := time.NewTicker(100 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				var wg sync.WaitGroup
+				wg.Add(3)
+				go j.syncNamespace(&wg, "Helm", "CONFIGMAP")
+				go j.syncNamespace(&wg, "Namespace", "CONFIGMAP")
+				go j.syncNamespace(&wg, "Cluster", "CONFIGMAP")
+				wg.Wait()
+			case <-ctx.Done():
+				break
+				// Create Jobs
+			}
+		}
+	}()
+
 	<-stopCh
 }
 
@@ -202,31 +222,22 @@ func (j *Job) syncHandler(info JobInfo) error {
 		j.mux.Unlock()
 	}()
 	j.mux.Lock()
-	if len(info.Policy) > 0 {
-		var wg sync.WaitGroup
-		wg.Add(3)
-		go j.syncNamespace(&wg, "Helm", "POLICY", info.Policy)
-		go j.syncNamespace(&wg, "Namespace", "POLICY", info.Policy)
-		go j.syncNamespace(&wg, "Cluster", "POLICY", info.Policy)
-		wg.Wait()
-		return nil
-	}
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go j.syncNamespace(&wg, "Helm", "SYNC", info.Policy)
-	go j.syncNamespace(&wg, "Namespace", "SYNC", info.Policy)
-	go j.syncNamespace(&wg, "Cluster", "SYNC", info.Policy)
+	go j.syncNamespace(&wg, "Helm", "SYNC")
+	go j.syncNamespace(&wg, "Namespace", "SYNC")
+	go j.syncNamespace(&wg, "Cluster", "SYNC")
 	wg.Wait()
 	return nil
 }
 
-func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
+func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope string) {
 	defer func() {
 		wg.Done()
 	}()
 	var args []string
 	var mode string
-	if policy == "POLICY" {
+	if scope == "SYNC" {
 		mode = "cli"
 	} else {
 		mode = "configmap"
@@ -240,7 +251,6 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"helm",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(args, jobType, scope)
 		break
 	case "Namespace":
 		args = []string{
@@ -248,7 +258,6 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"namespace",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(args, jobType, scope)
 		break
 	case "Cluster":
 		args = []string{
@@ -256,9 +265,9 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope, policy string) {
 			"cluster",
 			fmt.Sprintf("--mode=%s", mode),
 		}
-		job = CreateJob(args, jobType, scope)
 		break
 	}
+	job = CreateJob(args, jobType, scope)
 	_, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
 	if err != nil {
 		return
@@ -300,7 +309,7 @@ func CreateJob(args []string, jobType, scope string) *v1.Job {
 					Containers: []apiv1.Container{
 						{
 							Name:            strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
-							Image:           "evalsocket/kyverno-cli:latest",
+							Image:           config.KyvernoCliImage,
 							ImagePullPolicy: "Always",
 							Args:            args,
 						},

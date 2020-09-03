@@ -197,25 +197,28 @@ func main() {
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
 	)
+	var policyCtrl *policy.PolicyController
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		// POLICY CONTROLLER
+		// - reconciliation policy and policy violation
+		// - process policy on existing resources
+		// - status aggregator: receives stats when a policy is applied & updates the policy status
+		policyCtrl, err = policy.NewPolicyController(pclient,
+			client,
+			pInformer.Kyverno().V1().ClusterPolicies(),
+			pInformer.Kyverno().V1().Policies(),
+			pInformer.Kyverno().V1().ClusterPolicyViolations(),
+			pInformer.Kyverno().V1().PolicyViolations(),
+			configData,
+			eventGenerator,
+			pvgen,
+			rWebhookWatcher,
+			kubeInformer.Core().V1().Namespaces(),
+			jobController,
+			log.Log.WithName("PolicyController"),
+		)
+	}
 
-	// POLICY CONTROLLER
-	// - reconciliation policy and policy violation
-	// - process policy on existing resources
-	// - status aggregator: receives stats when a policy is applied & updates the policy status
-	policyCtrl, err := policy.NewPolicyController(pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
-		configData,
-		eventGenerator,
-		pvgen,
-		rWebhookWatcher,
-		kubeInformer.Core().V1().Namespaces(),
-		jobController,
-		log.Log.WithName("PolicyController"),
-	)
 
 	if err != nil {
 		setupLog.Error(err, "Failed to create policy controller")
@@ -337,7 +340,10 @@ func main() {
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
-	go policyCtrl.Run(3, stopCh)
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		go policyCtrl.Run(3, stopCh)
+	}
+
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)

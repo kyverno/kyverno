@@ -112,11 +112,6 @@ func (i Info) toKey() string {
 
 // make the struct hashable
 
-//GeneratorInterface provides API to create PVs
-type GeneratorInterface interface {
-	Add(infos ...Info)
-}
-
 type PVEvent struct {
 	Helm      map[string][]Info
 	Namespace map[string][]Info
