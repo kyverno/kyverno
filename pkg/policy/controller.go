@@ -399,7 +399,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	if errors.IsNotFound(err) {
 		for _, v := range grList {
-			if policy.Name == v.Spec.Policy {
+			if key == v.Spec.Policy {
 				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete gr")

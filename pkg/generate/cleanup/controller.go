@@ -175,7 +175,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 	for _,resource := range gr.Status.GeneratedResources {
 		r,err := c.client.GetResource(resource.APIVersion,resource.Kind,resource.Namespace,resource.Name)
 		if err != nil {
-			logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
 			return
 		}
 		labels := r.GetLabels()
