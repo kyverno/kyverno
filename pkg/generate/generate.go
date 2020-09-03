@@ -428,9 +428,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clon
 		return obj.UnstructuredContent(), Update, nil
 	}
 
-	//TODO: check this
-
-
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
 
