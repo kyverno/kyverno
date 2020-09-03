@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -13,11 +14,11 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/googleapis/gnostic/compiler"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -157,13 +158,27 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 
 	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
 	if err != nil {
-		log.Log.Error(err, "could not parse crd schema", "name", crdName)
-		return
+		v3valueFound := isOpenV3Error(err)
+		if v3valueFound == false {
+			log.Log.Error(err, "could not parse crd schema", "name", crdName)
+		}
 	}
 
 	o.crdList = append(o.crdList, crdName)
 	o.kindToDefinitionName[crdName] = crdName
 	o.definitions[crdName] = parsedSchema
+}
+
+func isOpenV3Error(err error) bool {
+	unsupportedValues := []string{"anyOf", "allOf", "not"}
+	v3valueFound := false
+	for _, value := range unsupportedValues {
+		if !strings.Contains(err.Error(), fmt.Sprintf("has invalid property: %s", value)) {
+			v3valueFound = true
+			break
+		}
+	}
+	return v3valueFound
 }
 
 // addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
