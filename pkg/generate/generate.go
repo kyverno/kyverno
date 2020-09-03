@@ -307,7 +307,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// existing resource contains the configuration
 		return newGenResource, nil
 	}
-	log.Error(nil,"","",processExisting)
 	if processExisting {
 		return noGenResource, nil
 	}
