@@ -131,6 +131,7 @@ rules:
   - limitranges
   - clusterroles
   - rolebindings
+  - namespaces
   - clusterrolebindings
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
