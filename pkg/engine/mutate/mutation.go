@@ -5,6 +5,7 @@ import (
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -102,7 +103,20 @@ func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patche
 	}
 }
 
-func (h patchesJSON6902Handler) Handle() (response.RuleResponse, unstructured.Unstructured) {
+func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+	resp.Name = h.ruleName
+	resp.Type = utils.Mutation.String()
+
+	skip, err := preProcessJSONPatches(*h.mutation, h.patchedResource, h.logger)
+	if err != nil {
+		h.logger.Error(err, "failed to preProcessJSONPatches")
+	}
+
+	if skip {
+		resp.Success = true
+		return resp, h.patchedResource
+	}
+
 	return ProcessPatchJSON6902(h.ruleName, *h.mutation, h.patchedResource, h.logger)
 }
 
@@ -141,7 +155,20 @@ func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 	}
 }
 
-func (h patchesHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
+func (h patchesHandler) Handle() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+	resp.Name = h.ruleName
+	resp.Type = utils.Mutation.String()
+
+	skip, err := preProcessJSONPatches(*h.mutation, h.patchedResource, h.logger)
+	if err != nil {
+		h.logger.Error(err, "failed to preProcessJSONPatches")
+	}
+
+	if skip {
+		resp.Success = true
+		return resp, h.patchedResource
+	}
+
 	return ProcessPatches(h.logger, h.ruleName, *h.mutation, h.patchedResource)
 }
 
