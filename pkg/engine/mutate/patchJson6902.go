@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -100,4 +102,23 @@ func patchJSON6902(base, patches string) ([]byte, error) {
 	err := filtersutil.ApplyToJSON(f, baseObj)
 
 	return baseObj.Bytes(), err
+}
+
+func decodePatch(patch string) (jsonpatch.Patch, error) {
+	// If the patch doesn't look like a JSON6902 patch, we
+	// try to parse it to json.
+	if !strings.HasPrefix(patch, "[") {
+		p, err := yaml.YAMLToJSON([]byte(patch))
+		if err != nil {
+			return nil, err
+		}
+		patch = string(p)
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch([]byte(patch))
+	if err != nil {
+		return nil, err
+	}
+
+	return decodedPatch, nil
 }
