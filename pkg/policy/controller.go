@@ -407,7 +407,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			}
 		}
 		go pc.deletePolicyViolations(key)
-
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			logger.Error(err, "failed to remove resource webhook configurations")
