@@ -331,17 +331,16 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
-	if rule.Generation.Synchronize {
-		label["policy.kyverno.io/synchronize"] = "enable"
-	} else {
-		label["policy.kyverno.io/synchronize"] = "disable"
-	}
 
 	label["policy.kyverno.io/policy-name"] = policy
 	label["policy.kyverno.io/gr-name"] = gr.Name
 	newResource.SetLabels(label)
-
 	if mode == Create {
+		if rule.Generation.Synchronize {
+			label["policy.kyverno.io/synchronize"] = "enable"
+		} else {
+			label["policy.kyverno.io/synchronize"] = "disable"
+		}
 		// Reset resource version
 		newResource.SetResourceVersion("")
 		// Create the resource
@@ -354,9 +353,25 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("created new resource")
 
 	} else if mode == Update {
+		var isUpdate bool
 		label := newResource.GetLabels()
+		isUpdate = false
 		if label != nil {
 			if rule.Generation.Synchronize {
+				if label["policy.kyverno.io/synchronize"] == "enable" {
+					isUpdate = true
+				}
+			}else {
+				if label["policy.kyverno.io/synchronize"] == "enable" {
+					isUpdate = true
+			     }
+			}
+			if isUpdate {
+				if rule.Generation.Synchronize {
+					label["policy.kyverno.io/synchronize"] = "enable"
+				} else {
+					label["policy.kyverno.io/synchronize"] = "disable"
+				}
 				logger.V(4).Info("updating existing resource")
 				// Update the resource
 				_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
