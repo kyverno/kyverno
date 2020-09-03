@@ -303,7 +303,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 	}
 
-	log.Error(nil,"DEBdssUG","processExisting",processExisting,"rdata",rdata,"action",mode)
 	if rdata == nil {
 		// existing resource contains the configuration
 		return newGenResource, nil
@@ -334,6 +333,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	} else {
 		label["policy.kyverno.io/synchronize"] = "disable"
 	}
+
 	label["policy.kyverno.io/policy-name"] = policy
 	label["policy.kyverno.io/gr-name"] = gr.Name
 	newResource.SetLabels(label)
@@ -353,7 +353,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	} else if mode == Update {
 		label := newResource.GetLabels()
 		if label != nil {
-			if rule.Generation.Synchronize {
 				logger.V(4).Info("updating existing resource")
 				// Update the resource
 				_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
@@ -364,9 +363,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				}
 				logger.V(4).Info("updated new resource")
 
-			} else {
-				logger.V(4).Info("Synchronize resource is disabled")
-			}
 		} else {
 			logger.V(4).Info("Synchronize resource is disabled")
 		}
@@ -387,13 +383,6 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 		return nil, Skip, err
 	}
 	//// Resource exists; verfiy the content of the resource
-	//err = checkResource(log, data, obj)
-	//if err == nil {
-	//	// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
-	//	return nil, Skip, nil
-	//}
-	//log.Info("to be generated resoruce already exists, but is missing the specifeid configurations, will try to update", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
-// Resource exists; verfiy the content of the resource
 	//err = checkResource(log, data, obj)
 	//if err == nil {
 	//	// Existing resource does contain the mentioned configuration in spec, skip processing the resource as it is already in expected state
