@@ -162,6 +162,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 		if v3valueFound == false {
 			log.Log.Error(err, "could not parse crd schema", "name", crdName)
 		}
+		return
 	}
 
 	o.crdList = append(o.crdList, crdName)
