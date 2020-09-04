@@ -35,11 +35,12 @@ jobs:
         run: |
           echo ">>> Install Kyverno"
           sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
-          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
           echo ">>> Check kyverno"
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
+          sleep 2
           echo ">>> Run Kyverno e2e test"
           make test-e2e
