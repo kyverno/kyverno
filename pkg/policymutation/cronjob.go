@@ -45,6 +45,18 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge != nil) {
+		newMutation := &kyverno.Mutation{
+			PatchStrategicMerge: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"jobTemplate": jobRule.Mutation.PatchStrategicMerge,
+				},
+			},
+		}
+		cronJobRule.Mutation = newMutation.DeepCopy()
+		return *cronJobRule
+	}
+
 	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern != nil) {
 		newValidate := &kyverno.Validation{
 			Message: rule.Validation.Message,
