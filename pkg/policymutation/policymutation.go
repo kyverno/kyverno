@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"errors"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -44,7 +45,58 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 
 	patches = append(patches, patch...)
 
+	convertPatches, errs := convertOverlayToStrategicMerge(policy, log)
+
+	if len(errs) > 0 {
+		var errMsgs []string
+		for _, err := range errs {
+			errMsgs = append(errMsgs, err.Error())
+			log.Error(err, "failed to generate pod controller rule")
+		}
+		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
+	}
+
+	patches = append(patches, convertPatches...)
+
 	return utils.JoinPatches(patches), updateMsgs
+}
+
+func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logger) ([][]byte, []error) {
+	if len(policy.Spec.Rules) == 0 {
+		errors.New("a policy should have at least one rule")
+	}
+
+	patches := make([][]byte, 0)
+
+	for i, rule := range policy.Spec.Rules {
+		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+			if !reflect.DeepEqual(rule.Mutation.Overlay, kyverno.Mutation{}.Overlay) {
+				mutation := rule.Mutation
+				mutation.PatchStrategicMerge = mutation.Overlay
+				var a interface{}
+				mutation.Overlay = a
+
+				jsonPatch := struct {
+					Path  string `json:"path"`
+					Op    string `json:"op"`
+					Value *kyverno.Mutation  `json:"value"`
+				}{
+					fmt.Sprintf("/spec/rules/%s/mutation",strconv.Itoa(i)),
+					"replace",
+					&mutation,
+				}
+
+				patchByte, err := json.Marshal(jsonPatch)
+				if err != nil {
+					log.Error(err, "failed to set default value", "spec.background", true)
+				}
+
+				patches = append(patches, patchByte)
+			}
+		}
+	}
+
+	return patches, nil
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
