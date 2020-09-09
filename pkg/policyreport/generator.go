@@ -3,15 +3,16 @@ package policyreport
 import (
 	"context"
 	"encoding/json"
-	"github.com/nirmata/kyverno/pkg/config"
-	"github.com/nirmata/kyverno/pkg/jobs"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/jobs"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -187,9 +188,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			err := gen.createConfigmap()
-			gen.job.Add(jobs.JobInfo{
-				JobType: "background",
-			})
+			gen.job.Add(jobs.JobInfo{})
 			if err != nil {
 				logger.Error(err, "configmap error")
 			}

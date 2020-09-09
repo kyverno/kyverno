@@ -1,17 +1,19 @@
 package jobs
 
 import (
-	"fmt"
 	"context"
+	"fmt"
+	"math/rand"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/nirmata/kyverno/pkg/config"
 	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -38,14 +40,10 @@ type Job struct {
 // Job Info Define Job Type
 type JobInfo struct {
 	JobType string
-	Policy  string
 }
 
 func (i JobInfo) toKey() string {
-	if i.Policy != "" {
-		return fmt.Sprintf("%s-%s", i.JobType, i.Policy)
-	}
-	return fmt.Sprintf("%s", i.JobType)
+	return fmt.Sprintf("kyverno-%v", rand.Int63n(1000))
 }
 
 //NewDataStore returns an instance of data store
@@ -127,7 +125,7 @@ func (j *Job) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(j.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
 
-	go func(){
+	go func() {
 		ctx := context.Background()
 		ticker := time.NewTicker(100 * time.Second)
 		for {
@@ -135,9 +133,9 @@ func (j *Job) Run(workers int, stopCh <-chan struct{}) {
 			case <-ticker.C:
 				var wg sync.WaitGroup
 				wg.Add(3)
-				go j.syncNamespace(&wg, "Helm", "CONFIGMAP")
-				go j.syncNamespace(&wg, "Namespace", "CONFIGMAP")
-				go j.syncNamespace(&wg, "Cluster", "CONFIGMAP")
+				go j.syncNamespace(&wg, "Helm", "SYNC")
+				go j.syncNamespace(&wg, "Namespace", "SYNC")
+				go j.syncNamespace(&wg, "Cluster", "SYNC")
 				wg.Wait()
 			case <-ctx.Done():
 				break
@@ -224,9 +222,9 @@ func (j *Job) syncHandler(info JobInfo) error {
 	j.mux.Lock()
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go j.syncNamespace(&wg, "Helm", "SYNC")
-	go j.syncNamespace(&wg, "Namespace", "SYNC")
-	go j.syncNamespace(&wg, "Cluster", "SYNC")
+	go j.syncNamespace(&wg, "Helm", "CONFIGMAP")
+	go j.syncNamespace(&wg, "Namespace", "CONFIGMAP")
+	go j.syncNamespace(&wg, "Cluster", "CONFIGMAP")
 	wg.Wait()
 	return nil
 }
@@ -272,8 +270,7 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope string) {
 	if err != nil {
 		return
 	}
-	deadline := time.Now().Add(15 * time.Second)
-	var failure bool
+	deadline := time.Now().Add(80 * time.Second)
 	for {
 		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
 		if err != nil {
@@ -283,17 +280,15 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope string) {
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
 			continue
 		}
-		if job.Status.Active == 0 || time.Now().After(deadline) {
-			failure = true
+		if time.Now().After(deadline) {
 			break
 		}
 	}
-	if failure {
-		err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false)
-		if err != nil {
-			return
-		}
+	err = j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false)
+	if err != nil {
+		return
 	}
+
 	return
 }
 
@@ -314,7 +309,8 @@ func CreateJob(args []string, jobType, scope string) *v1.Job {
 							Args:            args,
 						},
 					},
-					RestartPolicy: "OnFailure",
+					ServiceAccountName: "kyverno-service-account",
+					RestartPolicy:      "OnFailure",
 				},
 			},
 		},
