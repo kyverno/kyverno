@@ -2,11 +2,11 @@ package policymutation
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
-	"errors"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -77,11 +77,11 @@ func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logg
 				mutation.Overlay = a
 
 				jsonPatch := struct {
-					Path  string `json:"path"`
-					Op    string `json:"op"`
-					Value *kyverno.Mutation  `json:"value"`
+					Path  string            `json:"path"`
+					Op    string            `json:"op"`
+					Value *kyverno.Mutation `json:"value"`
 				}{
-					fmt.Sprintf("/spec/rules/%s/mutation",strconv.Itoa(i)),
+					fmt.Sprintf("/spec/rules/%s/mutate", strconv.Itoa(i)),
 					"replace",
 					&mutation,
 				}
