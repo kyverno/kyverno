@@ -61,12 +61,13 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	return utils.JoinPatches(patches), updateMsgs
 }
 
-func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logger) ([][]byte, []error) {
+func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
+	patches = make([][]byte, 0)
 	if len(policy.Spec.Rules) == 0 {
-		errors.New("a policy should have at least one rule")
+		return patches, []error{
+			errors.New("a policy should have at least one rule"),
+		}
 	}
-
-	patches := make([][]byte, 0)
 
 	for i, rule := range policy.Spec.Rules {
 		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
@@ -88,7 +89,7 @@ func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logg
 
 				patchByte, err := json.Marshal(jsonPatch)
 				if err != nil {
-					log.Error(err, "failed to set default value", "spec.background", true)
+					errs = append(errs, fmt.Errorf("failed to convert overlay to patchStrategicMerge for policy '%s': %v", policy.Name, err))
 				}
 
 				patches = append(patches, patchByte)
@@ -96,7 +97,7 @@ func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logg
 		}
 	}
 
-	return patches, nil
+	return patches, errs
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
