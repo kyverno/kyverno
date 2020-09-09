@@ -377,7 +377,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if rule.Mutation.Overlay != nil {
 		newMutation := &kyverno.Mutation{
-			Overlay: map[string]interface{}{
+			PatchStrategicMerge: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": rule.Mutation.Overlay,
 				},
