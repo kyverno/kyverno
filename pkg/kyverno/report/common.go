@@ -100,19 +100,18 @@ func backgroundScan(n, scope,policychange string, wg *sync.WaitGroup, restConfig
 		log.Log.WithName("ConfigData"),
 	)
 	var cpolicies []*kyvernov1.ClusterPolicy
-	var removePolicy []string
+	removePolicy := []string{}
 	policySelector := strings.Split(policychange,",")
-	if len(policySelector) > 0 {
+	if len(policySelector) > 0 && policychange != "" {
 		for _,v := range policySelector {
 			cpolicy, err := cpi.Lister().Get(v);
 			if err != nil {
 				if apierrors.IsNotFound(err){
-					removePolicy = append(removePolicy,cpolicy.GetName())
+					removePolicy = append(removePolicy,v)
 				}
 			}else{
 				cpolicies = append(cpolicies, cpolicy)
 			}
-
 				for _,v := range policySelector {
 					policies, err := pi.Lister().List(labels.Everything())
 					if err == nil {
@@ -142,7 +141,6 @@ func backgroundScan(n, scope,policychange string, wg *sync.WaitGroup, restConfig
 			cpolicies = append(cpolicies, cp)
 		}
 	}
-
 
 
 	// key uid
@@ -299,7 +297,7 @@ func backgroundScan(n, scope,policychange string, wg *sync.WaitGroup, restConfig
 
 		}
 	}
-
+	os.Exit(0)
 	// Create Policy Report
 }
 
@@ -441,6 +439,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 		}
 
 	}
+	os.Exit(0)
 }
 
 func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult,removePolicy []string) (*policyreportv1alpha1.PolicyReport, string) {

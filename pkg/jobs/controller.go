@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"sync"
 	"time"
@@ -205,27 +206,27 @@ func (j *Job) syncHandler(info JobInfo) error {
 	defer func() {
 		j.mux.Unlock()
 	}()
+	j.log.V(2).Info("Configmap sync at ", "policy", info)
 	j.mux.Lock()
+	var wg sync.WaitGroup
 	if info.JobType == "POLICYSYNC" {
-		var wg sync.WaitGroup
 		wg.Add(3)
 		go j.syncKyverno(&wg, "Helm", "SYNC",info.JobData)
 		go j.syncKyverno(&wg, "Namespace", "SYNC",info.JobData)
 		go j.syncKyverno(&wg, "Cluster", "SYNC",info.JobData)
-		wg.Wait()
-		return nil
+	}else if info.JobType == "CONFIGMAP" {
+		if info.JobData != "" {
+			str := strings.Split(info.JobData,",")
+			wg.Add(len(str))
+			for _,scope := range str {
+				go j.syncKyverno(&wg, scope, "CONFIGMAP","")
+			}
+		}
 	}
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go j.syncKyverno(&wg, "Helm", "CONFIGMAP","")
-	go j.syncKyverno(&wg, "Namespace", "CONFIGMAP","")
-	go j.syncKyverno(&wg, "Cluster", "CONFIGMAP","")
-	wg.Wait()
 	return nil
 }
 
 func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope,data string) {
-
 	var args []string
 	var mode string
 	if scope == "SYNC" || scope == "POLICYSYNC" {
@@ -262,6 +263,7 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope,data string) {
 		args = append(args,fmt.Sprintf("-p=%s", data))
 	}
 	go j.CreateJob(args, jobType, scope, wg)
+	wg.Wait()
 }
 
 // CreateJob will create Job template for background scan
@@ -298,16 +300,23 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
+		time.Sleep(20*time.Second)
 		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				j.log.Error(err,"job is already deleted","job_name",job.GetName())
+				break
+			}
 			continue
 		}
 		job := v1.Job{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
+			j.log.Error(err,"Error in converting job Default Unstructured Converter","job_name",job.GetName())
 			continue
 		}
 		if time.Now().After(deadline) {
 			if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
+				j.log.Error(err,"Error in deleting jobs","job_name",job.GetName())
 				continue
 			}
 			break

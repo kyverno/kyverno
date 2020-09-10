@@ -146,18 +146,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		},
 		job: job,
 	}
-	go func() {
-		for k := range time.Tick(60 * time.Second) {
-			gen.log.V(2).Info("Configmap sync at ", "time", k.String())
-			err := gen.createConfigmap()
-			gen.job.Add(jobs.JobInfo{
-				JobType: "CONFIGMAP",
-			})
-			if err != nil {
-				gen.log.Error(err, "configmap error")
-			}
-		}
-	}()
+
 	return &gen
 }
 
@@ -192,6 +181,34 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
+	go func() {
+		for k := range time.Tick(60 * time.Second) {
+			gen.log.V(2).Info("Configmap sync at ", "time", k.String())
+			err := gen.createConfigmap()
+			scops := []string{}
+			if len(gen.inMemoryConfigMap.Namespace) > 0 {
+				scops = append(scops,"Namespace")
+			}
+			if len(gen.inMemoryConfigMap.Helm) > 0 {
+				scops = append(scops,"Helm")
+			}
+			if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
+				scops = append(scops,"Cluster")
+			}
+			gen.job.Add(jobs.JobInfo{
+				JobType: "CONFIGMAP",
+				JobData: strings.Join(scops,","),
+			})
+			if err != nil {
+				gen.log.Error(err, "configmap error")
+			}
+			gen.inMemoryConfigMap = &PVEvent{
+				Helm:      make(map[string][]Info),
+				Namespace: make(map[string][]Info),
+				Cluster:   make(map[string][]Info),
+			}
+		}
+	}()
 	<-stopCh
 }
 
@@ -285,11 +302,6 @@ func (gen *Generator) createConfigmap() error {
 	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm, false)
 	if err != nil {
 		return err
-	}
-	gen.inMemoryConfigMap = &PVEvent{
-		Helm:      make(map[string][]Info),
-		Namespace: make(map[string][]Info),
-		Cluster:   make(map[string][]Info),
 	}
 	return nil
 }

@@ -58,24 +58,21 @@ func NamespaceCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+			var wg sync.WaitGroup
 			if mode == "cli" {
 				ns, err := nLister.List(labels.Everything())
 				if err != nil {
 					os.Exit(1)
 				}
-				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
 					go backgroundScan(n.GetName(), "Namespace",policy, &wg, restConfig)
 				}
-				wg.Wait()
 			} else {
-				var wg sync.WaitGroup
 				wg.Add(1)
 				go configmapScan("", "Namespace", &wg, restConfig)
-				wg.Wait()
-				return nil
 			}
+			wg.Wait()
 			<-stopCh
 			return nil
 		},
