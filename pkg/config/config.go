@@ -59,7 +59,7 @@ var (
 	// KubePolicyDeploymentName define the default deployment namespace
 	KubePolicyDeploymentName = "kyverno"
 	// Kyverno CLI Image
-	KyvernoCliImage = "nirmata/kyverno-cli:latest"
+	KyvernoCliImage = "evalsocket/kyverno-cli:latest"
 	//WebhookServiceName default kyverno webhook service name
 	WebhookServiceName = getWebhookServiceName()
 

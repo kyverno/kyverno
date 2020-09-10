@@ -1,6 +1,11 @@
 package policy
 
 import (
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -25,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"time"
 )
 
 const (
@@ -94,7 +98,15 @@ type PolicyController struct {
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
 	job *jobs.Job
-	log logr.Logger
+
+	policySync *PolicySync
+	log        logr.Logger
+}
+
+// PolicySync Policy Report Job
+type PolicySync struct {
+	mux    sync.Mutex
+	policy []string
 }
 
 // NewPolicyController create a new PolicyController
@@ -135,6 +147,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
 
+	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
 		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    pc.addClusterPolicyViolation,
 			UpdateFunc: pc.updateClusterPolicyViolation,
@@ -150,6 +163,11 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pc.cpvListerSynced = cpvInformer.Informer().HasSynced
 		pc.nspvLister = nspvInformer.Lister()
 		pc.nspvListerSynced = nspvInformer.Informer().HasSynced
+	} else {
+		pc.policySync = &PolicySync{
+			policy: make([]string, 0),
+		}
+	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
@@ -177,6 +195,17 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
+	go func() {
+		for k := range time.Tick(60 * time.Second) {
+			pc.log.V(2).Info("Policy Background sync at", "time", k.String())
+			if len(pc.policySync.policy) > 0 {
+				pc.job.Add(jobs.JobInfo{
+					JobType: "POLICYSYNC",
+					JobData : strings.Join(pc.policySync.policy,","),
+				})
+			}
+		}
+	}()
 
 	return &pc, nil
 }
@@ -312,17 +341,22 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced) {
+			logger.Info("failed to sync informer cache")
+			return
+		}
+	} else {
 		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
 		}
-
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)
 	}
-	<- stopCh
+	<-stopCh
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
@@ -387,14 +421,18 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		policy = ConvertPolicyToClusterPolicy(nspolicy)
 	}
 	if errors.IsNotFound(err) {
-
-			go pc.deletePolicyViolations(key)
+		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+			pc.policySync.mux.Lock()
+			pc.policySync.policy = append(pc.policySync.policy, key)
+			pc.policySync.mux.Unlock()
+			return nil
+		}
+		go pc.deletePolicyViolations(key)
 
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			logger.Error(err, "failed to remove resource webhook configurations")
 		}
-
 		return nil
 	}
 
@@ -402,11 +440,15 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	pc.resourceWebhookWatcher.RegisterResourceWebhook()
-
-	engineResponses := pc.processExistingResources(policy)
-
-	pc.cleanupAndReport(engineResponses)
+	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		pc.policySync.mux.Lock()
+		pc.policySync.policy = append(pc.policySync.policy, key)
+		pc.policySync.mux.Unlock()
+	} else {
+		pc.resourceWebhookWatcher.RegisterResourceWebhook()
+		engineResponses := pc.processExistingResources(policy)
+		pc.cleanupAndReport(engineResponses)
+	}
 
 	return nil
 }

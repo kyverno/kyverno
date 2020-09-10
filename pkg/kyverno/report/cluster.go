@@ -10,7 +10,7 @@ import (
 
 func ClusterCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode string
+	var mode,policy string
 	cmd := &cobra.Command{
 		Use:     "cluster",
 		Short:   "generate report",
@@ -24,7 +24,7 @@ func ClusterCommand() *cobra.Command {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			if mode == "cli" {
-				go backgroundScan("", "Cluster", &wg, restConfig)
+				go backgroundScan("", "Cluster",policy, &wg, restConfig)
 				wg.Wait()
 				return nil
 			}
@@ -34,6 +34,7 @@ func ClusterCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode of cli")
+	cmd.Flags().StringVarP(&policy, "policy", "p", "", "define specific policy")
 
 	return cmd
 }

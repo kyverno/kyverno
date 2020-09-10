@@ -16,7 +16,7 @@ import (
 
 func NamespaceCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode, namespace string
+	var mode, namespace, policy string
 	cmd := &cobra.Command{
 		Use:     "namespace",
 		Short:   "generate report",
@@ -36,7 +36,7 @@ func NamespaceCommand() *cobra.Command {
 			if mode == "cli" && namespace != "" {
 				var wg sync.WaitGroup
 				wg.Add(1)
-				go backgroundScan(namespace, "Namespace", &wg, restConfig)
+				go backgroundScan(namespace,"Namespace",policy, &wg, restConfig)
 				wg.Wait()
 				return nil
 			} else if namespace != "" {
@@ -52,11 +52,8 @@ func NamespaceCommand() *cobra.Command {
 			np := kubeInformer.Core().V1().Namespaces()
 
 			go np.Informer().Run(stopCh)
-
 			nSynced := np.Informer().HasSynced
-
 			nLister := np.Lister()
-
 			if !cache.WaitForCacheSync(stopCh, nSynced) {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
@@ -69,7 +66,7 @@ func NamespaceCommand() *cobra.Command {
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-					go backgroundScan(n.GetName(), "Namespace", &wg, restConfig)
+					go backgroundScan(n.GetName(), "Namespace",policy, &wg, restConfig)
 				}
 				wg.Wait()
 			} else {
@@ -84,6 +81,7 @@ func NamespaceCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "define specific namespace")
+	cmd.Flags().StringVarP(&policy, "policy", "p", "", "define specific policy")
 	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }

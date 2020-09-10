@@ -2,14 +2,15 @@ package policyviolation
 
 import (
 	"errors"
-	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/jobs"
-	"github.com/nirmata/kyverno/pkg/policyreport"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	"github.com/nirmata/kyverno/pkg/jobs"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"

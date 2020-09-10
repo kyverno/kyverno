@@ -41,7 +41,10 @@ type ConfigData struct {
 	restrictDevelopmentUsername []string
 	// hasynced
 	cmSycned cache.InformerSynced
-	log      logr.Logger
+
+	// background sync for policy report
+	backgroundSync int
+	log            logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -77,25 +80,34 @@ func (cd *ConfigData) GetExcludeUsername() []string {
 	return cd.excludeUsername
 }
 
+// GetBackgroundSync return exclude username
+func (cd *ConfigData) GetBackgroundSync() int {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.backgroundSync
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
 	RestrictDevelopmentUsername() []string
+	GetBackgroundSync() int
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, backgroundSync int, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
-		client:   rclient,
-		cmName:   os.Getenv(cmNameEnv),
-		cmSycned: cmInformer.Informer().HasSynced,
-		log:      log,
+		client:         rclient,
+		cmName:         os.Getenv(cmNameEnv),
+		cmSycned:       cmInformer.Informer().HasSynced,
+		backgroundSync: backgroundSync,
+		log:            log,
 	}
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 

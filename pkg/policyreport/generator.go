@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"context"
 	"encoding/json"
 	"reflect"
 	"strconv"
@@ -147,7 +146,18 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		},
 		job: job,
 	}
-
+	go func() {
+		for k := range time.Tick(60 * time.Second) {
+			gen.log.V(2).Info("Configmap sync at ", "time", k.String())
+			err := gen.createConfigmap()
+			gen.job.Add(jobs.JobInfo{
+				JobType: "CONFIGMAP",
+			})
+			if err != nil {
+				gen.log.Error(err, "configmap error")
+			}
+		}
+	}()
 	return &gen
 }
 
@@ -182,22 +192,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
-	ticker := time.NewTicker(100 * time.Second)
-	ctx := context.Background()
-	for {
-		select {
-		case <-ticker.C:
-			err := gen.createConfigmap()
-			gen.job.Add(jobs.JobInfo{})
-			if err != nil {
-				logger.Error(err, "configmap error")
-			}
-		case <-ctx.Done():
-			break
-			// Create Jobs
-		}
-	}
-	//<-stopCh
+	<-stopCh
 }
 
 func (gen *Generator) runWorker() {
@@ -302,7 +297,6 @@ func (gen *Generator) createConfigmap() error {
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
 	defer func() {
-		logger.Error(nil, "DEBUG", "Key", gen.inMemoryConfigMap)
 		gen.mux.Unlock()
 	}()
 	gen.mux.Lock()

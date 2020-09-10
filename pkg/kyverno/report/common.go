@@ -42,7 +42,7 @@ const (
 	Cluster   string = "Cluster"
 )
 
-func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config) {
+func backgroundScan(n, scope,policychange string, wg *sync.WaitGroup, restConfig *rest.Config) {
 	defer func() {
 		wg.Done()
 	}()
@@ -96,22 +96,54 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 		"",
 		"",
 		"",
+		600000,
 		log.Log.WithName("ConfigData"),
 	)
 	var cpolicies []*kyvernov1.ClusterPolicy
-	cpolicies, err = cpi.Lister().List(labels.Everything())
-	if err != nil {
-		os.Exit(1)
-	}
-	policies, err := pi.Lister().List(labels.Everything())
-	if err != nil {
-		os.Exit(1)
+	var removePolicy []string
+	policySelector := strings.Split(policychange,",")
+	if len(policySelector) > 0 {
+		for _,v := range policySelector {
+			cpolicy, err := cpi.Lister().Get(v);
+			if err != nil {
+				if apierrors.IsNotFound(err){
+					removePolicy = append(removePolicy,cpolicy.GetName())
+				}
+			}else{
+				cpolicies = append(cpolicies, cpolicy)
+			}
+
+				for _,v := range policySelector {
+					policies, err := pi.Lister().List(labels.Everything())
+					if err == nil {
+						for _, p := range policies {
+							if v == p.GetName() {
+								cp := policy.ConvertPolicyToClusterPolicy(p)
+								cpolicies = append(cpolicies, cp)
+							}
+
+						}
+					}
+				}
+
+		}
+	}else{
+		cpolicies, err = cpi.Lister().List(labels.Everything())
+		if err != nil {
+			os.Exit(1)
+		}
+		policies, err := pi.Lister().List(labels.Everything())
+		if err != nil {
+			os.Exit(1)
+		}
+
+		for _, p := range policies {
+			cp := policy.ConvertPolicyToClusterPolicy(p)
+			cpolicies = append(cpolicies, cp)
+		}
 	}
 
-	for _, p := range policies {
-		cp := policy.ConvertPolicyToClusterPolicy(p)
-		cpolicies = append(cpolicies, cp)
-	}
+
 
 	// key uid
 	resourceMap := map[string]unstructured.Unstructured{}
@@ -229,29 +261,10 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 
 				if err != nil {
 					if apierrors.IsNotFound(err) {
-						availablepr = &policyreportv1alpha1.PolicyReport{
-							Scope: &corev1.ObjectReference{
-								Kind:      scope,
-								Namespace: n,
-							},
-							Summary: policyreportv1alpha1.PolicyReportSummary{},
-							Results: []*policyreportv1alpha1.PolicyReportResult{},
-						}
-						labelMap := map[string]string{
-							"policy-scope": scope,
-							"policy-state": "init",
-						}
-						availablepr.SetName(k)
-						availablepr.SetNamespace(n)
-						availablepr.SetLabels(labelMap)
-						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-							Kind:    "PolicyReport",
-							Version: "v1alpha1",
-							Group:   "policy.kubernetes.io",
-						})
+						availablepr = initPolicyReport(scope, n, k)
 					}
 				}
-				availablepr, action := mergeReport(availablepr, results[k])
+				availablepr, action := mergeReport(availablepr, results[k], removePolicy)
 				if action == "Create" {
 					_, err := kclient.PolicyV1alpha1().PolicyReports(n).Create(availablepr)
 					if err != nil {
@@ -267,24 +280,7 @@ func backgroundScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config
 				availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
 				if err != nil {
 					if apierrors.IsNotFound(err) {
-						availablepr = &policyreportv1alpha1.ClusterPolicyReport{
-							Scope: &corev1.ObjectReference{
-								Kind: scope,
-							},
-							Summary: policyreportv1alpha1.PolicyReportSummary{},
-							Results: []*policyreportv1alpha1.PolicyReportResult{},
-						}
-						labelMap := map[string]string{
-							"policy-scope": scope,
-							"policy-state": "init",
-						}
-						availablepr.SetName(k)
-						availablepr.SetLabels(labelMap)
-						availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-							Kind:    "ClusterPolicyReport",
-							Version: "v1alpha1",
-							Group:   "policy.kubernetes.io",
-						})
+						availablepr = initClusterPolicyReport(scope, k)
 					}
 				}
 				availablepr, action := mergeClusterReport(availablepr, results[k])
@@ -404,30 +400,11 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 			}
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					availablepr = &policyreportv1alpha1.PolicyReport{
-						Scope: &corev1.ObjectReference{
-							Kind:      scope,
-							Namespace: namespace,
-						},
-						Summary: policyreportv1alpha1.PolicyReportSummary{},
-						Results: []*policyreportv1alpha1.PolicyReportResult{},
-					}
-					labelMap := map[string]string{
-						"policy-scope": scope,
-						"policy-state": "init",
-					}
-					availablepr.SetName(k)
-					availablepr.SetNamespace(namespace)
-					availablepr.SetLabels(labelMap)
-					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-						Kind:    "PolicyReport",
-						Version: "v1alpha1",
-						Group:   "policy.kubernetes.io",
-					})
+					availablepr = initPolicyReport(scope, namespace, k)
 				}
 			}
 
-			availablepr, action := mergeReport(availablepr, results[k])
+			availablepr, action := mergeReport(availablepr, results[k],[]string{})
 			if action == "Create" {
 				availablepr.SetLabels(map[string]string{
 					"policy-state": "state",
@@ -446,24 +423,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 			availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					availablepr = &policyreportv1alpha1.ClusterPolicyReport{
-						Scope: &corev1.ObjectReference{
-							Kind: scope,
-						},
-						Summary: policyreportv1alpha1.PolicyReportSummary{},
-						Results: []*policyreportv1alpha1.PolicyReportResult{},
-					}
-					labelMap := map[string]string{
-						"policy-scope": scope,
-						"policy-state": "init",
-					}
-					availablepr.SetName(k)
-					availablepr.SetLabels(labelMap)
-					availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-						Kind:    "ClusterPolicyReport",
-						Version: "v1alpha1",
-						Group:   "policy.kubernetes.io",
-					})
+					availablepr = initClusterPolicyReport(scope, k)
 				}
 			}
 			availablepr, action := mergeClusterReport(availablepr, results[k])
@@ -483,7 +443,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config)
 	}
 }
 
-func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult) (*policyreportv1alpha1.PolicyReport, string) {
+func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult,removePolicy []string) (*policyreportv1alpha1.PolicyReport, string) {
 	labels := pr.GetLabels()
 	var action string
 	if labels["policy-state"] == "init" {
@@ -508,10 +468,7 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 			uniqueResponse = append(uniqueResponse, &r)
 		}
 	}
-	if len(pr.Results) == 0 {
-		pr.Results = append(pr.Results, uniqueResponse...)
-		return pr, action
-	}
+
 	for _, r := range uniqueResponse {
 		var isExist = false
 		for _, v := range pr.Results {
@@ -527,6 +484,16 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 		if !isExist {
 			pr = changeCount(string(r.Status), string(""), pr)
 			pr.Results = append(pr.Results, r)
+		}
+	}
+
+	if len(removePolicy) > 0 {
+		for _, v := range removePolicy {
+			for i, r := range pr.Results {
+				if r.Policy == v {
+					pr.Results = append(pr.Results[:i], pr.Results[i+1:]...)
+				}
+			}
 		}
 	}
 	return pr, action
@@ -639,4 +606,50 @@ func changeClusterReportCount(status, oldStatus string, report *policyreportv1al
 		break
 	}
 	return report
+}
+
+func initPolicyReport(scope, namespace, name string) *policyreportv1alpha1.PolicyReport {
+	availablepr := &policyreportv1alpha1.PolicyReport{
+		Scope: &corev1.ObjectReference{
+			Kind:      scope,
+			Namespace: namespace,
+		},
+		Summary: policyreportv1alpha1.PolicyReportSummary{},
+		Results: []*policyreportv1alpha1.PolicyReportResult{},
+	}
+	labelMap := map[string]string{
+		"policy-scope": scope,
+		"policy-state": "init",
+	}
+	availablepr.SetName(name)
+	availablepr.SetNamespace(namespace)
+	availablepr.SetLabels(labelMap)
+	availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+		Kind:    "PolicyReport",
+		Version: "v1alpha1",
+		Group:   "policy.kubernetes.io",
+	})
+	return availablepr
+}
+
+func initClusterPolicyReport(scope, name string) *policyreportv1alpha1.ClusterPolicyReport {
+	availablepr := &policyreportv1alpha1.ClusterPolicyReport{
+		Scope: &corev1.ObjectReference{
+			Kind: scope,
+		},
+		Summary: policyreportv1alpha1.PolicyReportSummary{},
+		Results: []*policyreportv1alpha1.PolicyReportResult{},
+	}
+	labelMap := map[string]string{
+		"policy-scope": scope,
+		"policy-state": "init",
+	}
+	availablepr.SetName(name)
+	availablepr.SetLabels(labelMap)
+	availablepr.SetGroupVersionKind(schema.GroupVersionKind{
+		Kind:    "PolicyReport",
+		Version: "v1alpha1",
+		Group:   "policy.kubernetes.io",
+	})
+	return availablepr
 }

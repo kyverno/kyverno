@@ -2,21 +2,22 @@ package report
 
 import (
 	"fmt"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"os"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-	"sync"
-	"time"
 )
 
 func HelmCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode, namespace string
+	var mode,policy, namespace string
 	cmd := &cobra.Command{
 		Use:     "helm",
 		Short:   "generate report",
@@ -36,7 +37,7 @@ func HelmCommand() *cobra.Command {
 			if mode == "cli" && namespace != "" {
 				var wg sync.WaitGroup
 				wg.Add(1)
-				go backgroundScan(namespace, "Helm", &wg, restConfig)
+				go backgroundScan(namespace, "Helm",policy,&wg,restConfig)
 				wg.Wait()
 				return nil
 			} else if namespace != "" {
@@ -67,7 +68,7 @@ func HelmCommand() *cobra.Command {
 				var wg sync.WaitGroup
 				wg.Add(len(ns))
 				for _, n := range ns {
-					go backgroundScan(n.GetName(), "Helm", &wg, restConfig)
+					go backgroundScan(n.GetName(), "Helm",policy, &wg, restConfig)
 				}
 				wg.Wait()
 			} else {
@@ -81,6 +82,7 @@ func HelmCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "define specific namespace")
+	cmd.Flags().StringVarP(&policy, "policy", "p", "", "define specific policy")
 	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }

@@ -1,10 +1,7 @@
 package jobs
 
 import (
-	"context"
 	"fmt"
-	"math/rand"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -30,20 +27,22 @@ const workQueueRetryLimit = 3
 
 //Job creates policy report
 type Job struct {
-	dclient   *dclient.Client
-	log       logr.Logger
-	queue     workqueue.RateLimitingInterface
-	dataStore *dataStore
-	mux       sync.Mutex
+	dclient       *dclient.Client
+	log           logr.Logger
+	queue         workqueue.RateLimitingInterface
+	dataStore     *dataStore
+	configHandler config.Interface
+	mux           sync.Mutex
 }
 
 // Job Info Define Job Type
 type JobInfo struct {
 	JobType string
+	JobData string
 }
 
 func (i JobInfo) toKey() string {
-	return fmt.Sprintf("kyverno-%v", rand.Int63n(1000))
+	return fmt.Sprintf("kyverno-%v", i.JobType)
 }
 
 //NewDataStore returns an instance of data store
@@ -87,13 +86,26 @@ type JobsInterface interface {
 
 // NewJobsJob returns a new instance of policy violation generator
 func NewJobsJob(dclient *dclient.Client,
+	configHandler config.Interface,
 	log logr.Logger) *Job {
 	gen := Job{
-		dclient:   dclient,
-		queue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore: newDataStore(),
-		log:       log,
+		dclient:       dclient,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:     newDataStore(),
+		configHandler: configHandler,
+		log:           log,
 	}
+	go func(configHandler config.Interface) {
+		for k := range time.Tick(time.Duration(configHandler.GetBackgroundSync()) * time.Second) {
+			gen.log.V(2).Info("Background Sync sync at ", "time", k.String())
+			var wg sync.WaitGroup
+			wg.Add(3)
+			go gen.syncKyverno(&wg, "Helm", "SYNC","")
+			go gen.syncKyverno(&wg, "Namespace", "SYNC","")
+			go gen.syncKyverno(&wg, "Cluster", "SYNC","")
+			wg.Wait()
+		}
+	}(configHandler)
 	return &gen
 }
 
@@ -124,26 +136,6 @@ func (j *Job) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(j.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}
-
-	go func() {
-		ctx := context.Background()
-		ticker := time.NewTicker(100 * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				var wg sync.WaitGroup
-				wg.Add(3)
-				go j.syncNamespace(&wg, "Helm", "SYNC")
-				go j.syncNamespace(&wg, "Namespace", "SYNC")
-				go j.syncNamespace(&wg, "Cluster", "SYNC")
-				wg.Wait()
-			case <-ctx.Done():
-				break
-				// Create Jobs
-			}
-		}
-	}()
-
 	<-stopCh
 }
 
@@ -195,12 +187,6 @@ func (j *Job) processNextWorkItem() bool {
 
 		// lookup data store
 		info := j.dataStore.lookup(keyHash)
-		if reflect.DeepEqual(info, JobInfo{}) {
-			// empty key
-			j.queue.Forget(obj)
-			logger.Info("empty key")
-			return nil
-		}
 
 		err := j.syncHandler(info)
 		j.handleErr(err, obj)
@@ -220,28 +206,34 @@ func (j *Job) syncHandler(info JobInfo) error {
 		j.mux.Unlock()
 	}()
 	j.mux.Lock()
+	if info.JobType == "POLICYSYNC" {
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go j.syncKyverno(&wg, "Helm", "SYNC",info.JobData)
+		go j.syncKyverno(&wg, "Namespace", "SYNC",info.JobData)
+		go j.syncKyverno(&wg, "Cluster", "SYNC",info.JobData)
+		wg.Wait()
+		return nil
+	}
 	var wg sync.WaitGroup
 	wg.Add(3)
-	go j.syncNamespace(&wg, "Helm", "CONFIGMAP")
-	go j.syncNamespace(&wg, "Namespace", "CONFIGMAP")
-	go j.syncNamespace(&wg, "Cluster", "CONFIGMAP")
+	go j.syncKyverno(&wg, "Helm", "CONFIGMAP","")
+	go j.syncKyverno(&wg, "Namespace", "CONFIGMAP","")
+	go j.syncKyverno(&wg, "Cluster", "CONFIGMAP","")
 	wg.Wait()
 	return nil
 }
 
-func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope string) {
-	defer func() {
-		wg.Done()
-	}()
+func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope,data string) {
+
 	var args []string
 	var mode string
-	if scope == "SYNC" {
+	if scope == "SYNC" || scope == "POLICYSYNC" {
 		mode = "cli"
 	} else {
 		mode = "configmap"
 	}
 
-	var job *v1.Job
 	switch jobType {
 	case "Helm":
 		args = []string{
@@ -265,38 +257,22 @@ func (j *Job) syncNamespace(wg *sync.WaitGroup, jobType, scope string) {
 		}
 		break
 	}
-	job = CreateJob(args, jobType, scope)
-	_, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
-	if err != nil {
-		return
-	}
-	deadline := time.Now().Add(80 * time.Second)
-	for {
-		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
-		if err != nil {
-			continue
-		}
-		job := v1.Job{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-			continue
-		}
-		if time.Now().After(deadline) {
-			break
-		}
-	}
-	err = j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false)
-	if err != nil {
-		return
-	}
 
-	return
+	if scope == "POLICYSYNC" && data != "" {
+		args = append(args,fmt.Sprintf("-p=%s", data))
+	}
+	go j.CreateJob(args, jobType, scope, wg)
 }
 
 // CreateJob will create Job template for background scan
-func CreateJob(args []string, jobType, scope string) *v1.Job {
+func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup) {
 	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KubePolicyNamespace,
+			Labels : map[string]string{
+				"scope" : scope,
+				"type" : jobType,
+			},
 		},
 		Spec: v1.JobSpec{
 			Template: apiv1.PodTemplateSpec{
@@ -316,5 +292,26 @@ func CreateJob(args []string, jobType, scope string) *v1.Job {
 		},
 	}
 	job.SetGenerateName("kyverno-policyreport-")
-	return job
+	_, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
+	if err != nil {
+		return
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
+		if err != nil {
+			continue
+		}
+		job := v1.Job{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
+			continue
+		}
+		if time.Now().After(deadline) {
+			if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
+				continue
+			}
+			break
+		}
+	}
+	wg.Done()
 }

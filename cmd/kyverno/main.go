@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/jobs"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/jobs"
 
 	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policycache"
@@ -42,6 +43,7 @@ var (
 	kubeconfig                     string
 	serverIP                       string
 	webhookTimeout                 int
+	backgroundSync                 int
 	runValidationInMutatingWebhook string
 	profile                        bool
 	//TODO: this has been added to backward support command line arguments
@@ -63,6 +65,7 @@ func main() {
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.IntVar(&backgroundSync, "backgroundsync", 100, "background sync for policy report")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
@@ -164,6 +167,7 @@ func main() {
 		filterK8Resources,
 		excludeGroupRole,
 		excludeUsername,
+		backgroundSync,
 		log.Log.WithName("ConfigData"),
 	)
 
@@ -182,7 +186,7 @@ func main() {
 
 	// Job Controller
 	// - Create Jobs for report
-	jobController := jobs.NewJobsJob(client, log.Log.WithName("jobController"))
+	jobController := jobs.NewJobsJob(client, configData, log.Log.WithName("jobController"))
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
@@ -197,28 +201,24 @@ func main() {
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
 	)
-	var policyCtrl *policy.PolicyController
-	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
-		// POLICY CONTROLLER
-		// - reconciliation policy and policy violation
-		// - process policy on existing resources
-		// - status aggregator: receives stats when a policy is applied & updates the policy status
-		policyCtrl, err = policy.NewPolicyController(pclient,
-			client,
-			pInformer.Kyverno().V1().ClusterPolicies(),
-			pInformer.Kyverno().V1().Policies(),
-			pInformer.Kyverno().V1().ClusterPolicyViolations(),
-			pInformer.Kyverno().V1().PolicyViolations(),
-			configData,
-			eventGenerator,
-			pvgen,
-			rWebhookWatcher,
-			kubeInformer.Core().V1().Namespaces(),
-			jobController,
-			log.Log.WithName("PolicyController"),
-		)
-	}
-
+	// POLICY CONTROLLER
+	// - reconciliation policy and policy violation
+	// - process policy on existing resources
+	// - status aggregator: receives stats when a policy is applied & updates the policy status
+	policyCtrl, err := policy.NewPolicyController(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().PolicyViolations(),
+		configData,
+		eventGenerator,
+		pvgen,
+		rWebhookWatcher,
+		kubeInformer.Core().V1().Namespaces(),
+		jobController,
+		log.Log.WithName("PolicyController"),
+	)
 
 	if err != nil {
 		setupLog.Error(err, "Failed to create policy controller")
@@ -342,6 +342,8 @@ func main() {
 	go configData.Run(stopCh)
 	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
 		go policyCtrl.Run(3, stopCh)
+	} else {
+		go policyCtrl.Run(1, stopCh)
 	}
 
 	go eventGenerator.Run(3, stopCh)
