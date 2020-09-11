@@ -438,12 +438,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	if errors.IsNotFound(err) {
-		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
-			pc.policySync.mux.Lock()
-			pc.policySync.policy = append(pc.policySync.policy, key)
-			pc.policySync.mux.Unlock()
-			return nil
-		}
 		for _, v := range grList {
 			if key == v.Spec.Policy {
 				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
@@ -451,6 +445,12 @@ func (pc *PolicyController) syncPolicy(key string) error {
 					logger.Error(err, "failed to delete gr")
 				}
 			}
+		}
+		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+			pc.policySync.mux.Lock()
+			pc.policySync.policy = append(pc.policySync.policy, key)
+			pc.policySync.mux.Unlock()
+			return nil
 		}
 		go pc.deletePolicyViolations(key)
 		// remove webhook configurations if there are no policies
@@ -480,7 +480,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 		engineResponses := pc.processExistingResources(policy)
 		pc.cleanupAndReport(engineResponses)
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	}
 	return nil
 }
