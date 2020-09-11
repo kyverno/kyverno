@@ -258,7 +258,7 @@ type Mutation struct {
 	// Patches is preserved for backwards compatibility and will be removed in Kyverno 1.5+
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
-	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchesStrategicMerge,omitempty"`
+	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 	PatchesJSON6902     string      `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
